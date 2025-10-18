@@ -8,7 +8,6 @@ import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { Select } from './ui/input/Select';
 import { type SubscriptionTier } from '../utils/mockUserData';
 import { getBusinessPrices } from '../utils/stripe-products';
-import { buildPriceDisplay } from '../utils/currencyFormatter';
 import { mockUserDataService, getLanguageForCountry } from '../utils/mockUserData';
 
 interface PricingModalProps {
@@ -50,7 +49,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   const userCurrency = 'USD'; // TODO: Add currency preference to user preferences
   
   // Build pricing plans from real Stripe config
-  const _prices = getBusinessPrices(userLocale, userCurrency);
+  const prices = getBusinessPrices(userLocale, userCurrency);
   const allPlans = [
     {
       id: 'free' as SubscriptionTier,
@@ -64,7 +63,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
     {
       id: 'business' as SubscriptionTier,
       name: t('plans.business.name'),
-      price: buildPriceDisplay(40, userCurrency, 'month', userLocale, t),
+      price: prices.monthly,
       description: t('plans.business.description'),
       features: [],
       buttonText: t('plans.business.buttonText'),

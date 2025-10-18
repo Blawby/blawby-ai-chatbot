@@ -75,7 +75,6 @@ export function getTierDisplayName(tier: 'free' | 'business' | 'plus' | 'enterpr
 
 export function formatPriceCents(
   amountCents: number, 
-  interval: 'month' | 'year',
   locale: string = 'en',
   currency: string = 'USD'
 ): string {
@@ -86,35 +85,37 @@ export function formatPriceCents(
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
-  return `${formatter.format(dollars)} / ${interval}`;
+  return formatter.format(dollars);
 }
 
 export function getBusinessPrices(locale: string = 'en', currency: string = 'USD'): { monthly: string; annual?: string } {
-  const monthly = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3
-    ? formatPriceCents(PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3.unit_amount, 'month', locale, currency)
-    : '$40 USD / month';
-  const annual = PRICES.price_1SHfhCDJLzJ14cfPGFGQ77vQ
-    ? formatPriceCents(PRICES.price_1SHfhCDJLzJ14cfPGFGQ77vQ.unit_amount, 'year', locale, currency)
+  const monthlyAmount = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3?.unit_amount ?? 4000;
+  const annualAmount = PRICES.price_1SHfhCDJLzJ14cfPGFGQ77vQ?.unit_amount;
+
+  const monthly = formatPriceCents(monthlyAmount, locale, currency);
+  const annual = annualAmount 
+    ? formatPriceCents(annualAmount, locale, currency)
     : undefined;
+
   return { monthly, annual };
 }
 
-export function getBusinessPricesStructured(locale: string = 'en', currency: string = 'USD'): { 
-  monthly: { amountFormatted: string; billingLabel: string }; 
-  annual?: { amountFormatted: string; billingLabel: string } 
+export function getBusinessPricesStructured(locale: string = 'en', currency: string = 'USD'): {
+  monthly: { amountFormatted: string; billingPeriod: 'month' };
+  annual?: { amountFormatted: string; billingPeriod: 'year' };
 } {
-  const monthlyAmount = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3?.unit_amount || 4000;
+  const monthlyAmount = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3?.unit_amount ?? 4000;
   const annualAmount = PRICES.price_1SHfhCDJLzJ14cfPGFGQ77vQ?.unit_amount;
-  
+
   const monthly = {
-    amountFormatted: formatPriceCents(monthlyAmount, 'month', locale, currency),
-    billingLabel: 'month'
+    amountFormatted: formatPriceCents(monthlyAmount, locale, currency),
+    billingPeriod: 'month' as const
   };
-  
+
   const annual = annualAmount ? {
-    amountFormatted: formatPriceCents(annualAmount, 'year', locale, currency),
-    billingLabel: 'year'
+    amountFormatted: formatPriceCents(annualAmount, locale, currency),
+    billingPeriod: 'year' as const
   } : undefined;
-  
+
   return { monthly, annual };
 }

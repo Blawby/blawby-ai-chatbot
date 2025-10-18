@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useTranslation } from '@/i18n/hooks';
-import { getBusinessPrices } from '../utils/stripe-products';
+import { getBusinessPrices, PRICES } from '../utils/stripe-products';
 import { buildPriceDisplay } from '../utils/currencyFormatter';
 import { mockUserDataService } from '../utils/mockUserData';
 import { type SubscriptionTier } from '../utils/mockUserData';
@@ -76,7 +76,12 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
     {
       id: 'business',
       name: t('plans.business.name'),
-      price: buildPriceDisplay(40, userCurrency, 'month', userLocale, t),
+      price: (() => {
+        const businessPrice = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3;
+        const businessAmount = (businessPrice?.unit_amount ?? 4000) / 100;
+        const businessCurrency = businessPrice?.currency ?? 'usd';
+        return buildPriceDisplay(businessAmount, businessCurrency, 'month', userLocale, t);
+      })(),
       description: t('plans.business.description'),
       features: [
         {

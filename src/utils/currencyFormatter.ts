@@ -126,10 +126,9 @@ export function buildPriceDisplay(
 ): string {
   const sanitizedCurrency = sanitizeCurrency(currency);
   const formattedAmount = formatCurrency(amount, sanitizedCurrency, locale);
-  const currencyCode = sanitizedCurrency.toUpperCase();
   const period = t(
     `pricing:billing.${billingPeriod === "month" ? "monthly" : "yearly"}`
   );
 
-  return `${formattedAmount} ${currencyCode} / ${period}`;
+  return `${formattedAmount} / ${period}`;
 }
