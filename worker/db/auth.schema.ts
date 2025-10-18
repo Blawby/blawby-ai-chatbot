@@ -62,6 +62,7 @@ export const organizations = sqliteTable("organizations", {
   stripeCustomerId: text("stripe_customer_id").unique(),
   subscriptionTier: text("subscription_tier", { enum: ["free", "plus", "business", "enterprise"] }).default("free"),
   seats: integer("seats").default(1),
+  isPersonal: integer("is_personal", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 }, (_table) => ({
@@ -69,7 +70,7 @@ export const organizations = sqliteTable("organizations", {
   // seatsPositive: check("seats_positive", sql`${table.seats} > 0`), // SQLite doesn't support named check constraints in Drizzle
 }));
 
-export const member = sqliteTable("member", {
+export const members = sqliteTable("members", {
   id: text("id").primaryKey().default(sql`(lower(hex(randomblob(16))))`),
   organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -86,6 +87,7 @@ export const subscriptions = sqliteTable("subscriptions", {
   plan: text("plan").notNull(),
   referenceId: text("reference_id").notNull().references(() => organizations.id, { onDelete: "cascade" }), // References organizations.id for organization-level subscriptions
   stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  stripeCustomerId: text("stripe_customer_id"),
   status: text("status").notNull().default("incomplete"), // Validated by CHECK constraint in SQL
   periodStart: integer("period_start", { mode: "timestamp" }),
   periodEnd: integer("period_end", { mode: "timestamp" }),

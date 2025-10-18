@@ -94,7 +94,13 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
         if (result.error) {
           console.error('Sign-up error:', result.error);
-          setError(result.error.message || t('errors.unknownError'));
+          const signupMessage = result.error.message || '';
+          const normalized = signupMessage.toLowerCase();
+          if (normalized.includes('already') && normalized.includes('exist')) {
+            setError('An account with this email already exists. Try signing in instead.');
+          } else {
+            setError(signupMessage || t('errors.unknownError'));
+          }
           setLoading(false);
           return;
         }
@@ -112,7 +118,15 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
         if (result.error) {
           console.error('Sign-in error:', result.error);
-          setError(result.error.message || t('errors.invalidCredentials'));
+          const signInMessage = result.error.message || '';
+          const normalized = signInMessage.toLowerCase();
+          if (normalized.includes('not found')) {
+            setError('We couldn’t find an account with that email.');
+          } else if (normalized.includes('invalid credentials')) {
+            setError(t('errors.invalidCredentials'));
+          } else {
+            setError(signInMessage || t('errors.invalidCredentials'));
+          }
           setLoading(false);
           return;
         }

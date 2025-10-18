@@ -1,11 +1,12 @@
 // API Configuration
-// Environment-aware configuration that uses relative URLs in production
+// Environment-aware configuration that uses hardcoded production URL for CORS fix
 // and explicit URLs in development
 
 /**
  * Get the base URL for API requests
- * - In development: Uses VITE_API_URL if set, otherwise falls back to localhost
- * - In production: Uses relative URLs (same-origin) to avoid CORS issues
+ * - In development: Uses localhost:8787 for local development
+ * - In production: Uses hardcoded ai.blawby.com to avoid CORS issues
+ * - Supports VITE_API_URL override for custom development setups
  */
 function getBaseUrl(): string {
   // Check for explicit API URL (development/override)
@@ -13,14 +14,16 @@ function getBaseUrl(): string {
     return import.meta.env.VITE_API_URL;
   }
   
-  // In production or when no explicit URL is set, use relative URLs
-  // This works because frontend and API are served from the same domain
+  // In browser environment, check for localhost
   if (typeof window !== 'undefined') {
-    return window.location.origin;
+    const origin = window.location.origin;
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return 'http://localhost:8787';
+    }
   }
-  
-  // Fallback for SSR/build-time (should not be used in runtime)
-  return '';
+
+  // Default to production domain when not running in a browser (SSR/build) or when on a custom domain.
+  return 'https://ai.blawby.com';
 }
 
 const API_CONFIG = {
@@ -94,4 +97,4 @@ export const getSubscriptionSyncEndpoint = () => {
 export const getOrganizationWorkspaceEndpoint = (orgId: string, resource: string) => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/organizations/${encodeURIComponent(orgId)}/workspace/${encodeURIComponent(resource)}`;
-}; 
+};

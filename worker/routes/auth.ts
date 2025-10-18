@@ -1,5 +1,6 @@
 import { Env } from "../types";
 import { getAuth } from "../auth/index";
+import { SubscriptionErrorHandler } from "../middleware/subscriptionErrorHandler.js";
 
 export async function handleAuth(request: Request, env: Env): Promise<Response> {
   const auth = await getAuth(env, request);
@@ -40,8 +41,19 @@ export async function handleAuth(request: Request, env: Env): Promise<Response> 
     }
   }
 
-  // Handle auth request
-  const response = await auth.handler(request);
+  // Handle auth request with enhanced error handling for subscription requests
+  let response: Response;
+  try {
+    response = await auth.handler(request);
+  } catch (error) {
+    // Use enhanced error handler for subscription-related requests
+    const url = new URL(request.url);
+    if (url.pathname.includes('/subscription/') || url.pathname.includes('/billing/')) {
+      return SubscriptionErrorHandler.handleError(error, request, env);
+    }
+    // Re-throw for non-subscription requests to maintain original behavior
+    throw error;
+  }
   
   // Clone response to modify headers
   const newResponse = new Response(response.body, response);

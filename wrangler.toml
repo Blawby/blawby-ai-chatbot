@@ -68,6 +68,7 @@ LOG_LEVEL = "debug"
 
 # Feature Flags
 ENABLE_STRIPE_SUBSCRIPTIONS = true
+REQUIRE_EMAIL_VERIFICATION = "false"
 
 # Authentication removed - frontend-only application
 
@@ -173,6 +174,7 @@ ENABLE_GATEWAY_OPENAI = false
 BETTER_AUTH_URL = "https://ai.blawby.com"
 DOMAIN = "ai.blawby.com"
 ENABLE_STRIPE_SUBSCRIPTIONS = true
+REQUIRE_EMAIL_VERIFICATION = "false"
 
 # Duplicate top-level vars for production environment
 BLAWBY_API_URL = "https://staging.blawby.com"
@@ -195,3 +197,7 @@ binding = "PARALEGAL_TASKS"
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
+
+[[env.production.routes]]
+pattern = "ai.blawby.com/api/*"
+zone_name = "blawby.com"

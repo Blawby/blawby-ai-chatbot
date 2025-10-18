@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SUPPORTED_LOCALES, DEFAULT_LOCALE, isRTLLocale, RTL_LOCALES } from './index';
+import { SUPPORTED_LOCALES, DEFAULT_LOCALE, isRTLLocale, RTL_LOCALES } from '../i18n/index';
 
 // Mock localStorage
 const localStorageMock = (() => {

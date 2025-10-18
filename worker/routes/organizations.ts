@@ -1,4 +1,4 @@
-import { OrganizationService, OrganizationConfig } from '../services/OrganizationService.js';
+import { OrganizationService } from '../services/OrganizationService.js';
 import { Env } from '../types.js';
 import { ValidationError } from '../utils/validationErrors.js';
 import { requireAuth, requireOrgOwner, requireOrgMember } from '../middleware/auth.js';
@@ -73,6 +73,7 @@ function createSuccessResponse(data: unknown): Response {
 function sanitizeOrganizationResponse(organization: Organization): Organization {
   return {
     ...organization,
+    isPersonal: Boolean(organization.isPersonal),
     config: {
       ...(organization.config ?? {}),
       voice: organization.config?.voice ?? {
@@ -183,6 +184,18 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       );
     }
 
+    if ((path === '/me/ensure-personal' || path === '/me/ensure-personal/') && request.method === 'POST') {
+      const authContext = await requireAuth(request, env);
+      const organization = await organizationService.ensurePersonalOrganization(
+        authContext.user.id,
+        authContext.user.name ?? authContext.user.email
+      );
+
+      return createSuccessResponse({
+        organization: organization ? sanitizeOrganizationResponse(organization) : null,
+      });
+    }
+
     if (pathSegments.length === 2 && pathSegments[1] === 'member') {
       const organizationIdentifier = pathSegments[0];
       const organization = await organizationService.getOrganization(organizationIdentifier);
@@ -201,7 +214,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
                     u.email,
                     u.name,
                     u.image
-               FROM member m
+               FROM members m
                LEFT JOIN users u ON u.id = m.user_id
               WHERE m.organization_id = ?
               ORDER BY m.role DESC, m.created_at ASC`
@@ -230,7 +243,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         }
 
         const existingMember = await env.DB.prepare(
-          `SELECT role FROM member WHERE organization_id = ? AND user_id = ?`
+          `SELECT role FROM members WHERE organization_id = ? AND user_id = ?`
         ).bind(organization.id, body.userId).first<{ role: string }>();
 
         if (!existingMember) {
@@ -240,7 +253,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         if (existingMember.role === 'owner' && body.role !== 'owner') {
           const ownerCountRow = await env.DB.prepare(
             `SELECT COUNT(*) as ownerCount 
-               FROM member 
+               FROM members 
               WHERE organization_id = ? AND role = 'owner'`
           ).bind(organization.id).first<{ ownerCount: number }>();
 
@@ -253,7 +266,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
 
         if (existingMember.role !== body.role) {
           const updateResult = await env.DB.prepare(
-            `UPDATE member
+            `UPDATE members
                 SET role = ?
               WHERE organization_id = ? AND user_id = ?`
           ).bind(body.role, organization.id, body.userId).run();
@@ -288,7 +301,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         }
 
         const memberRecord = await env.DB.prepare(
-          `SELECT role FROM member WHERE organization_id = ? AND user_id = ?`
+          `SELECT role FROM members WHERE organization_id = ? AND user_id = ?`
         ).bind(organization.id, userId).first<{ role: string }>();
 
         if (!memberRecord) {
@@ -298,7 +311,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         if (memberRecord.role === 'owner') {
           const ownerCountRow = await env.DB.prepare(
             `SELECT COUNT(*) as ownerCount 
-               FROM member 
+               FROM members 
               WHERE organization_id = ? AND role = 'owner'`
           ).bind(organization.id).first<{ ownerCount: number }>();
 
@@ -310,7 +323,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         }
 
         const removal = await env.DB.prepare(
-          `DELETE FROM member WHERE organization_id = ? AND user_id = ?`
+          `DELETE FROM members WHERE organization_id = ? AND user_id = ?`
         ).bind(organization.id, userId).run();
 
         if ((removal.meta?.changes ?? 0) === 0) {
@@ -661,7 +674,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       ).bind(invitationId).run();
 
       await env.DB.prepare(
-        `INSERT INTO member (id, organization_id, user_id, role, created_at)
+        `INSERT INTO members (id, organization_id, user_id, role, created_at)
            VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(organization_id, user_id) DO UPDATE SET role = excluded.role`
       ).bind(
@@ -988,7 +1001,8 @@ async function createOrganization(
       config: body.config,
       stripeCustomerId: body.stripeCustomerId,
       subscriptionTier: body.subscriptionTier,
-      seats: body.seats
+      seats: body.seats,
+      isPersonal: false,
     });
 
     if (userId) {
@@ -998,7 +1012,7 @@ async function createOrganization(
 
       try {
         await env.DB.prepare(`
-          INSERT INTO member (id, organization_id, user_id, role, created_at)
+          INSERT INTO members (id, organization_id, user_id, role, created_at)
           VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(organization_id, user_id) DO NOTHING
         `).bind(

@@ -130,6 +130,10 @@ export default defineConfig({
 			workbox: {
 				// Workbox options
 				globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,gif,webp}'],
+				navigateFallbackDenylist: [
+					/^\/api\//,
+					/^\/__better-auth__/,
+				],
 				runtimeCaching: [
 					{
 						urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

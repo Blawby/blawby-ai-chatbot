@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   stripe_customer_id TEXT UNIQUE,
   subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'plus', 'business', 'enterprise')),
   seats INTEGER DEFAULT 1 CHECK (seats > 0),
+  is_personal INTEGER DEFAULT 0 NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -326,7 +327,7 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_eve
 -- Users table for Better Auth
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
+  name TEXT,
   email TEXT NOT NULL UNIQUE,
   email_verified INTEGER DEFAULT 0 NOT NULL,
   image TEXT,
@@ -339,7 +340,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Organization members for Better Auth multi-tenancy
-CREATE TABLE IF NOT EXISTS member (
+CREATE TABLE IF NOT EXISTS members (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
@@ -366,6 +367,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   plan TEXT NOT NULL,
   reference_id TEXT NOT NULL, -- References organizations.id for organization-level subscriptions
   stripe_subscription_id TEXT UNIQUE,
+  stripe_customer_id TEXT,
   status TEXT DEFAULT 'incomplete' NOT NULL CHECK(status IN ('incomplete', 'incomplete_expired', 'active', 'canceled', 'past_due', 'unpaid', 'trialing')),
   period_start INTEGER,
   period_end INTEGER,
@@ -452,8 +454,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_verifications_value ON verifications(value
 CREATE INDEX IF NOT EXISTS idx_verifications_expires_at ON verifications(expires_at);
 
 -- Create indexes for organization membership tables
-CREATE INDEX IF NOT EXISTS idx_member_org ON member(organization_id);
-CREATE INDEX IF NOT EXISTS idx_member_user ON member(user_id);
+CREATE INDEX IF NOT EXISTS idx_member_org ON members(organization_id);
+CREATE INDEX IF NOT EXISTS idx_member_user ON members(user_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email);
 CREATE INDEX IF NOT EXISTS idx_invitations_organization ON invitations(organization_id);
 CREATE INDEX IF NOT EXISTS idx_org_events_org_created ON organization_events(organization_id, created_at DESC);
@@ -541,4 +543,3 @@ CREATE TRIGGER IF NOT EXISTS trigger_subscriptions_updated_at
 BEGIN
   UPDATE subscriptions SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
 END;
-

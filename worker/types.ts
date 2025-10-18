@@ -29,6 +29,7 @@ export interface Env {
   GOOGLE_CLIENT_SECRET?: string;
   ENABLE_AUTH_GEOLOCATION?: string;
   ENABLE_AUTH_IP_DETECTION?: string;
+  REQUIRE_EMAIL_VERIFICATION?: string | boolean;
   
   // Stripe Configuration
   STRIPE_SECRET_KEY?: string;
@@ -160,6 +161,7 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
+  isPersonal: boolean;
   createdAt: number;
   updatedAt: number;
 }

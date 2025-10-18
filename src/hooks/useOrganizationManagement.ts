@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect } from 'preact/hooks';
+import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { 
   getOrganizationsEndpoint, 
   getOrganizationWorkspaceEndpoint 
 } from '../config/api';
+import { authClient } from '../lib/authClient';
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -21,6 +22,7 @@ export interface Organization {
       planStatus?: string;
     };
   };
+  isPersonal?: boolean | null;
 }
 
 export interface Member {
@@ -109,6 +111,8 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, any[]>>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const personalOrgEnsuredRef = useRef(false);
+  const personalOrgEnsurePromiseRef = useRef<Promise<void> | null>(null);
 
   // Helper function to make API calls
   const apiCall = useCallback(async (url: string, options: RequestInit = {}, timeoutMs: number = 15000) => {
@@ -191,15 +195,65 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     return workspaceData[orgId]?.[resource] || [];
   }, [workspaceData]);
 
+  const ensurePersonalOrganization = useCallback(async () => {
+    if (personalOrgEnsuredRef.current) {
+      return;
+    }
+
+    if (!personalOrgEnsurePromiseRef.current) {
+      personalOrgEnsurePromiseRef.current = (async () => {
+        try {
+          await apiCall(`${getOrganizationsEndpoint()}/me/ensure-personal`, {
+            method: 'POST',
+          });
+          personalOrgEnsuredRef.current = true;
+        } catch (error) {
+          personalOrgEnsuredRef.current = false;
+          throw error;
+        } finally {
+          personalOrgEnsurePromiseRef.current = null;
+        }
+      })();
+    }
+
+    return personalOrgEnsurePromiseRef.current;
+  }, [apiCall]);
+
   // Fetch user's organizations
   const fetchOrganizations = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiCall(`${getOrganizationsEndpoint()}/me`);
-      setOrganizations(data || []);
-      // Set first organization as current (single org model)
-      setCurrentOrganization(data?.[0] || null);
+      
+      // Check authentication status first
+      const session = await authClient.getSession();
+      if (!session?.data?.user) {
+        // User is not authenticated - skip organization fetch
+        setOrganizations([]);
+        setCurrentOrganization(null);
+        setLoading(false);
+        return;
+      }
+      
+      // Only fetch user orgs if authenticated
+      let data = await apiCall(`${getOrganizationsEndpoint()}/me`);
+
+      if ((!Array.isArray(data) || data.length === 0) && !personalOrgEnsuredRef.current) {
+        try {
+          await ensurePersonalOrganization();
+          data = await apiCall(`${getOrganizationsEndpoint()}/me`);
+        } catch (ensureError) {
+          console.error('Failed to ensure personal organization:', ensureError);
+        }
+      }
+
+      const orgList = Array.isArray(data) ? data : [];
+      if (orgList.some(org => org?.isPersonal)) {
+        personalOrgEnsuredRef.current = true;
+      }
+      const personalOrg = orgList.find(org => org?.isPersonal);
+      setOrganizations(orgList);
+      setCurrentOrganization(personalOrg || orgList[0] || null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch organizations');
     } finally {
@@ -210,6 +264,15 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   // Fetch pending invitations
   const fetchInvitations = useCallback(async () => {
     try {
+      // Check authentication status first
+      const session = await authClient.getSession();
+      if (!session?.data?.user) {
+        // User is not authenticated - skip invitations fetch
+        setInvitations([]);
+        return;
+      }
+      
+      // Only fetch invitations if authenticated
       const data = await apiCall(`${getOrganizationsEndpoint()}/me/invitations`);
       setInvitations(data || []);
     } catch (err) {

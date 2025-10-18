@@ -107,12 +107,13 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
         targetOrganization = await organizationService.createOrganization({
           name: organizationName.trim(),
           slug: slug?.trim(),
-          config: baseConfig
+          config: baseConfig,
+          isPersonal: false,
         });
 
         // Ensure the upgrading user is the owner.
         await env.DB.prepare(
-          `INSERT INTO member (id, organization_id, user_id, role, created_at)
+          `INSERT INTO members (id, organization_id, user_id, role, created_at)
            VALUES (?, ?, ?, 'owner', ?)
            ON CONFLICT(organization_id, user_id) DO NOTHING`
         ).bind(

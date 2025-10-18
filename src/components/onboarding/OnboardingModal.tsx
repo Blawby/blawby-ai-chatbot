@@ -5,6 +5,7 @@ import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
 import { mockUserDataService, OnboardingData } from '../../utils/mockUserData';
 import { useToastContext } from '../../contexts/ToastContext';
+import { authClient } from '../../lib/authClient';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -34,16 +35,36 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
   // Load existing user data if available
   useEffect(() => {
     if (isOpen) {
-      const userProfile = mockUserDataService.getUserProfile();
-      if (userProfile.name) {
-        setOnboardingData(prev => ({
-          ...prev,
-          personalInfo: {
-            ...prev.personalInfo,
-            fullName: userProfile.name
+      const loadUserData = async () => {
+        try {
+          // Get real user data from Better Auth session
+          const session = await authClient.getSession();
+          if (session?.data?.user?.name) {
+            setOnboardingData(prev => ({
+              ...prev,
+              personalInfo: {
+                ...prev.personalInfo,
+                fullName: session.data.user.name
+              }
+            }));
           }
-        }));
-      }
+        } catch (error) {
+          // Fallback to mock data if session fails
+          console.warn('Failed to load user session for onboarding:', error);
+          const userProfile = mockUserDataService.getUserProfile();
+          if (userProfile.name) {
+            setOnboardingData(prev => ({
+              ...prev,
+              personalInfo: {
+                ...prev.personalInfo,
+                fullName: userProfile.name
+              }
+            }));
+          }
+        }
+      };
+      
+      loadUserData();
     }
   }, [isOpen]);
 

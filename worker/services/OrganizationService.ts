@@ -1,6 +1,7 @@
 import { Env } from '../types.js';
 import { ValidationService } from './ValidationService.js';
 import { ValidationError } from '../utils/validationErrors.js';
+import { getConfiguredDomain } from '../utils/domain.js';
 // import { getAuth } from '../auth/index.js'; // Unused import
 
 export type OrganizationVoiceProvider = 'cloudflare' | 'elevenlabs' | 'custom';
@@ -23,6 +24,7 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number;
+  isPersonal: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -182,6 +184,118 @@ export class OrganizationService {
 
   private getDefaultConfig(): OrganizationConfig {
     return buildDefaultOrganizationConfig(this.env);
+  }
+
+  private createSafeSlug(userId: string): string {
+    const fallbackBase = 'user';
+    const rawId = typeof userId === 'string' ? userId : '';
+    let slug = rawId.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    slug = slug.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+
+    if (!slug) {
+      slug = fallbackBase;
+    }
+
+    const prefix = slug.slice(0, 16) || fallbackBase;
+    const suffix = Date.now().toString(36).slice(-6);
+    const combined = `${prefix}-${suffix}`.replace(/-+/g, '-');
+    const normalized = combined.replace(/^-+/, '').slice(0, 32);
+
+    return normalized.length > 0 ? normalized : `${fallbackBase}-${suffix}`;
+  }
+
+  private buildPersonalOrganizationConfig(userName: string): OrganizationConfig {
+    const defaultConfig = this.getDefaultConfig();
+    const safeName = typeof userName === 'string' && userName.trim().length > 0 ? userName.trim() : 'New User';
+
+    return {
+      ...defaultConfig,
+      consultationFee: 0,
+      requiresPayment: false,
+      availableServices: ['General Consultation'],
+      serviceQuestions: {
+        'General Consultation': [
+          'What type of legal issue are you facing?',
+          'When did this issue occur?',
+          'Have you consulted with other attorneys about this matter?'
+        ]
+      },
+      domain: getConfiguredDomain(this.env),
+      description: 'Personal legal consultation organization',
+      brandColor: '#3B82F6',
+      accentColor: '#1E40AF',
+      introMessage: 'Hello! I\'m here to help you with your legal questions. What can I assist you with today?',
+      voice: {
+        enabled: false,
+        provider: 'cloudflare'
+      },
+      ownerEmail: defaultConfig.ownerEmail,
+      blawbyApi: defaultConfig.blawbyApi,
+    };
+  }
+
+  async createPersonalOrganizationForUser(userId: string, userName: string): Promise<Organization> {
+    const safeName = typeof userName === 'string' && userName.trim().length > 0 ? userName.trim() : 'New User';
+    const organizationName = `${safeName}'s Organization`;
+    const config = this.buildPersonalOrganizationConfig(safeName);
+    const slug = this.createSafeSlug(userId);
+
+    const organization = await this.createOrganization({
+      name: organizationName,
+      slug,
+      domain: config.domain ?? null,
+      config,
+      stripeCustomerId: null,
+      subscriptionTier: 'free',
+      seats: 1,
+      isPersonal: true,
+    });
+
+    try {
+      await this.env.DB.prepare(
+        `INSERT INTO members (id, organization_id, user_id, role, created_at)
+         VALUES (?, ?, ?, 'owner', ?)
+         ON CONFLICT(organization_id, user_id) DO NOTHING`
+      ).bind(
+        globalThis.crypto.randomUUID(),
+        organization.id,
+        userId,
+        Math.floor(Date.now() / 1000)
+      ).run();
+    } catch (error) {
+      const deleted = await this.deleteOrganization(organization.id);
+      if (!deleted) {
+        console.error('❌ Failed to roll back personal organization after member insert failure', {
+          organizationId: organization.id,
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      throw error;
+    }
+
+    this.clearCache(organization.id);
+    return organization;
+  }
+
+  async ensurePersonalOrganization(userId: string, userName: string): Promise<Organization> {
+    const personalMembership = await this.env.DB.prepare(
+      `SELECT o.id
+         FROM organizations o
+         INNER JOIN members m ON o.id = m.organization_id
+        WHERE m.user_id = ? AND o.is_personal = 1
+        ORDER BY o.created_at ASC
+        LIMIT 1`
+    ).bind(userId).first<{ id: string }>();
+
+    if (personalMembership?.id) {
+      const existing = await this.getOrganization(personalMembership.id);
+      if (existing) {
+        return existing;
+      }
+    }
+
+    return this.createPersonalOrganizationForUser(userId, userName);
   }
 
   /**
@@ -367,7 +481,7 @@ export class OrganizationService {
       // Query Better Auth organizations table - support both ID and slug lookups
       console.log('Querying database for organization...');
       const orgRow = await this.env.DB.prepare(
-        'SELECT id, name, slug, domain, config, stripe_customer_id, subscription_tier, seats, created_at, updated_at FROM organizations WHERE id = ? OR slug = ?'
+        'SELECT id, name, slug, domain, config, stripe_customer_id, subscription_tier, seats, is_personal, created_at, updated_at FROM organizations WHERE id = ? OR slug = ?'
       ).bind(organizationId, organizationId).first();
       
       if (orgRow) {
@@ -397,6 +511,7 @@ export class OrganizationService {
             const numSeats = Number(rawSeats ?? 1);
             return isNaN(numSeats) ? 1 : numSeats;
           })(),
+          isPersonal: Boolean((orgRow as Record<string, unknown>).is_personal),
           createdAt: new Date(orgRow.created_at as string).getTime(),
           updatedAt: updatedAt,
         };
@@ -425,9 +540,9 @@ export class OrganizationService {
       if (userId) {
         // Get organizations where user is a member
         const orgRows = await this.env.DB.prepare(`
-          SELECT o.id, o.name, o.slug, o.domain, o.config, o.stripe_customer_id, o.subscription_tier, o.seats, o.created_at, o.updated_at
+          SELECT o.id, o.name, o.slug, o.domain, o.config, o.stripe_customer_id, o.subscription_tier, o.seats, o.is_personal, o.created_at, o.updated_at
           FROM organizations o
-          INNER JOIN member m ON o.id = m.organization_id
+          INNER JOIN members m ON o.id = m.organization_id
           WHERE m.user_id = ?
           ORDER BY o.created_at DESC
         `).bind(userId).all();
@@ -446,6 +561,7 @@ export class OrganizationService {
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
+            isPersonal: Boolean(row.is_personal),
             createdAt: new Date(row.created_at as string).getTime(),
             updatedAt: row.updated_at && !isNaN(new Date(row.updated_at as string).getTime())
               ? new Date(row.updated_at as string).getTime()
@@ -455,7 +571,7 @@ export class OrganizationService {
       } else {
         // Get all organizations (for admin purposes)
         const orgRows = await this.env.DB.prepare(`
-          SELECT id, name, slug, domain, config, stripe_customer_id, subscription_tier, seats, created_at, updated_at
+          SELECT id, name, slug, domain, config, stripe_customer_id, subscription_tier, seats, is_personal, created_at, updated_at
           FROM organizations
           ORDER BY created_at DESC
         `).all();
@@ -474,6 +590,7 @@ export class OrganizationService {
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
+            isPersonal: Boolean(row.is_personal),
             createdAt: new Date(row.created_at as string).getTime(),
             updatedAt: row.updated_at && !isNaN(new Date(row.updated_at as string).getTime())
               ? new Date(row.updated_at as string).getTime()
@@ -535,7 +652,9 @@ export class OrganizationService {
     return this.normalizeConfigArrays(merged);
   }
 
-  async createOrganization(organizationData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>): Promise<Organization> {
+  async createOrganization(
+    organizationData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'isPersonal'> & { isPersonal?: boolean }
+  ): Promise<Organization> {
     const id = this.generateULID();
     const now = new Date().toISOString();
     
@@ -544,11 +663,14 @@ export class OrganizationService {
     
     const defaultSeats = Number(organizationData.seats ?? 1) || 1;
 
+    const isPersonal = Boolean(organizationData.isPersonal);
+
     const organization: Organization = {
       ...organizationData,
       stripeCustomerId: organizationData.stripeCustomerId ?? null,
       subscriptionTier: organizationData.subscriptionTier ?? 'free',
       seats: defaultSeats,
+      isPersonal,
       config: normalizedConfig,
       id,
       createdAt: new Date(now).getTime(),
@@ -559,8 +681,8 @@ export class OrganizationService {
     
     try {
       const result = await this.env.DB.prepare(`
-        INSERT INTO organizations (id, slug, name, domain, config, stripe_customer_id, subscription_tier, seats, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO organizations (id, slug, name, domain, config, stripe_customer_id, subscription_tier, seats, is_personal, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         organization.id,
         organization.slug,
@@ -570,6 +692,7 @@ export class OrganizationService {
         organization.stripeCustomerId ?? null,
         organization.subscriptionTier ?? 'free',
         organization.seats ?? 1,
+        organization.isPersonal ? 1 : 0,
         organization.createdAt,
         organization.updatedAt
       ).run();
@@ -598,7 +721,7 @@ export class OrganizationService {
     }
 
     // Extract only mutable fields from updates, excluding immutable fields
-    const { id: _ignoreId, createdAt: _ignoreCreatedAt, ...mutableUpdates } = updates;
+    const { id: _ignoreId, createdAt: _ignoreCreatedAt, isPersonal: _ignoreIsPersonal, ...mutableUpdates } = updates;
 
     // Validate and normalize the organization configuration if it's being updated
     let normalizedConfig = existingOrganization.config;
@@ -610,6 +733,7 @@ export class OrganizationService {
       ...existingOrganization,
       ...mutableUpdates,
       config: normalizedConfig,
+      isPersonal: existingOrganization.isPersonal,
       updatedAt: new Date().getTime()
     };
 

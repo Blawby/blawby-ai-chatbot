@@ -69,6 +69,7 @@ undo-migration.js
 
 # Backup files and archives
 .backups/
+backups/
 *.backup
 *.bak
 *.orig
