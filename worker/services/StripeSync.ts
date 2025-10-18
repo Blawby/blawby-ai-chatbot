@@ -2,17 +2,23 @@ import Stripe from "stripe";
 import type { Env, StripeSubscriptionCache } from "../types.js";
 import { stripeSubscriptionCacheSchema } from "../schemas/validation.js";
 
-const DEFAULT_STRIPE_API_VERSION: Stripe.StripeConfig["apiVersion"] = "2025-08-27.basil";
+const DEFAULT_STRIPE_API_VERSION: Stripe.StripeConfig["apiVersion"] = null;
 
-function getOrCreateStripeClient(env: Env, apiVersion = DEFAULT_STRIPE_API_VERSION): Stripe {
+let cachedStripeClient: Stripe | null = null;
+
+export function getOrCreateStripeClient(env: Env, apiVersion = DEFAULT_STRIPE_API_VERSION): Stripe {
   if (!env.STRIPE_SECRET_KEY) {
     throw new Error("STRIPE_SECRET_KEY is required to initialize the Stripe client");
   }
-
-  return new Stripe(env.STRIPE_SECRET_KEY, {
-    apiVersion,
-    httpClient: Stripe.createFetchHttpClient(),
-  });
+  
+  if (!cachedStripeClient) {
+    cachedStripeClient = new Stripe(env.STRIPE_SECRET_KEY, {
+      apiVersion,
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+  }
+  
+  return cachedStripeClient;
 }
 
 function getOrganizationCacheKey(organizationId: string): string {
@@ -289,6 +295,52 @@ export async function refreshStripeSubscriptionById(args: {
     // Rethrow with a clearer message while preserving the original error
     throw new Error(
       `Failed to retrieve Stripe subscription ${subscriptionId} for organization ${organizationId}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error }
+    );
+  }
+}
+
+export async function cancelSubscriptionsAndDeleteCustomer(args: {
+  env: Env;
+  stripeCustomerId: string;
+}): Promise<void> {
+  const { env, stripeCustomerId } = args;
+  const stripeEnabled =
+    env.ENABLE_STRIPE_SUBSCRIPTIONS === true || env.ENABLE_STRIPE_SUBSCRIPTIONS === 'true';
+
+  if (!stripeEnabled || !env.STRIPE_SECRET_KEY) {
+    console.warn(
+      `Skipping Stripe cleanup for customer ${stripeCustomerId}: Stripe integration disabled or credentials missing.`
+    );
+    return;
+  }
+
+  const client = getOrCreateStripeClient(env);
+
+  try {
+    // Cancel all active/pending subscriptions for the customer
+    const subscriptionList = client.subscriptions.list({
+      customer: stripeCustomerId,
+      status: "all",
+      limit: 100,
+    });
+
+    await subscriptionList.autoPagingEach(async (subscription) => {
+      if (subscription.status !== "canceled") {
+        await client.subscriptions.cancel(subscription.id, {
+          idempotencyKey: `cancel-sub-${subscription.id}-${Date.now()}`
+        });
+      }
+    });
+
+    await client.customers.del(stripeCustomerId, {
+      idempotencyKey: `delete-customer-${stripeCustomerId}-${Date.now()}`
+    });
+  } catch (error) {
+    throw new Error(
+      `Failed to clean up Stripe customer ${stripeCustomerId}: ${
         error instanceof Error ? error.message : String(error)
       }`,
       { cause: error }

@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { getBusinessPrices } from '../utils/stripe-products';
-import { type SubscriptionTier } from '../utils/mockUserData';
+import { type SubscriptionTier } from '../types/user';
 import { 
   ChatBubbleLeftRightIcon, 
   DocumentTextIcon, 

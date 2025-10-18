@@ -336,8 +336,135 @@ CREATE TABLE IF NOT EXISTS users (
   organization_id TEXT,
   stripe_customer_id TEXT UNIQUE,
   role TEXT,
-  phone TEXT
+  phone TEXT,
+  
+  -- Profile Information
+  bio TEXT,
+  -- TODO: These fields are named *_encrypted but not actually encrypted yet
+  -- TODO: Integrate PIIEncryptionService to encrypt/decrypt these fields
+  secondary_phone_encrypted TEXT, -- Encrypted PII
+  address_street_encrypted TEXT, -- Encrypted PII
+  address_city_encrypted TEXT, -- Encrypted PII
+  address_state_encrypted TEXT, -- Encrypted PII
+  address_zip_encrypted TEXT, -- Encrypted PII
+  address_country_encrypted TEXT, -- Encrypted PII
+  preferred_contact_method TEXT,
+  
+  -- App Preferences
+  theme TEXT DEFAULT 'system',
+  accent_color TEXT DEFAULT 'default',
+  font_size TEXT DEFAULT 'medium',
+  -- Interface language: Controls UI language (en, es, fr, de, etc.)
+  language TEXT DEFAULT 'en',
+  -- Spoken language: User's primary spoken language for AI interactions and content generation
+  spoken_language TEXT DEFAULT 'en',
+  country TEXT DEFAULT 'us',
+  timezone TEXT,
+  date_format TEXT DEFAULT 'MM/DD/YYYY',
+  time_format TEXT DEFAULT '12-hour',
+  
+  -- Chat Preferences
+  auto_save_conversations INTEGER DEFAULT 1,
+  typing_indicators INTEGER DEFAULT 1,
+  
+  -- Notification Settings
+  notification_responses_push INTEGER DEFAULT 1,
+  notification_tasks_push INTEGER DEFAULT 1,
+  notification_tasks_email INTEGER DEFAULT 1,
+  notification_messaging_push INTEGER DEFAULT 1,
+  
+  -- Email Settings
+  receive_feedback_emails INTEGER DEFAULT 0,
+  marketing_emails INTEGER DEFAULT 0,
+  security_alerts INTEGER DEFAULT 1,
+  
+  -- Security Settings
+  two_factor_enabled INTEGER DEFAULT 0,
+  email_notifications INTEGER DEFAULT 1,
+  login_alerts INTEGER DEFAULT 1,
+  -- Session timeout in seconds (604800 = 7 days)
+  session_timeout INTEGER DEFAULT 604800,
+  -- Last password change timestamp (Unix timestamp)
+  last_password_change INTEGER,
+  
+  -- Links
+  selected_domain TEXT,
+  linkedin_url TEXT,
+  github_url TEXT,
+  custom_domains TEXT, -- JSON string for custom domains array
+  
+  -- Onboarding
+  onboarding_completed INTEGER DEFAULT 0,
+  onboarding_data TEXT,
+  
+  -- Better Auth lastLoginMethod plugin
+  last_login_method TEXT,
+  
+  -- PII Compliance & Consent
+  pii_consent_given INTEGER DEFAULT 0,
+  pii_consent_date INTEGER,
+  data_retention_consent INTEGER DEFAULT 0,
+  marketing_consent INTEGER DEFAULT 0,
+  data_processing_consent INTEGER DEFAULT 0,
+  
+  -- Data Retention & Deletion
+  data_retention_expiry INTEGER,
+  last_data_access INTEGER,
+  data_deletion_requested INTEGER DEFAULT 0,
+  data_deletion_date INTEGER
 );
+
+-- PII Access Audit Log - Enhanced with encryption, retention, and compliance
+CREATE TABLE IF NOT EXISTS pii_access_audit (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  
+  -- Access type with enum constraint
+  access_type TEXT NOT NULL CHECK (access_type IN ('read', 'update', 'delete', 'export')),
+  
+  pii_fields TEXT NOT NULL, -- JSON array of accessed fields
+  access_reason TEXT, -- Business justification
+  accessed_by TEXT NOT NULL, -- User ID or system identifier - must be explicitly provided
+  
+  -- Encrypted PII fields with metadata
+  -- Key versioning: v1, v2, etc. - see ENCRYPTION_KEY_MANAGEMENT.md for details
+  ip_address_encrypted TEXT, -- Encrypted IP address
+  ip_address_key_version TEXT, -- Encryption key version (e.g., 'v1')
+  ip_address_hash TEXT, -- SHA-256 hash for lookups without decryption
+  
+  user_agent_encrypted TEXT, -- Encrypted user agent
+  user_agent_key_version TEXT, -- Encryption key version (e.g., 'v1')
+  user_agent_hash TEXT, -- SHA-256 hash for lookups without decryption
+  
+  -- Retention metadata
+  retention_expires_at INTEGER, -- When this log should be deleted
+  deleted_at INTEGER, -- Soft deletion timestamp
+  retention_policy_id TEXT, -- Reference to retention policy applied
+  
+  -- Consent tracking
+  consent_id TEXT, -- Reference to consent record
+  legal_basis TEXT CHECK (legal_basis IN ('consent', 'contract', 'legal_obligation', 
+                                          'vital_interests', 'public_task', 'legitimate_interest')), -- Legal basis for processing (GDPR Article 6)
+  consent_version TEXT, -- Version of consent at time of access
+  
+  timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+  organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+  
+  -- Consistency constraints for encrypted fields (all-or-nothing)
+  CHECK ((ip_address_encrypted IS NULL AND ip_address_hash IS NULL AND ip_address_key_version IS NULL) OR
+         (ip_address_encrypted IS NOT NULL AND ip_address_hash IS NOT NULL AND ip_address_key_version IS NOT NULL)),
+  CHECK ((user_agent_encrypted IS NULL AND user_agent_hash IS NULL AND user_agent_key_version IS NULL) OR
+         (user_agent_encrypted IS NOT NULL AND user_agent_hash IS NOT NULL AND user_agent_key_version IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS pii_audit_user_idx ON pii_access_audit(user_id);
+CREATE INDEX IF NOT EXISTS pii_audit_timestamp_idx ON pii_access_audit(timestamp);
+CREATE INDEX IF NOT EXISTS pii_audit_org_idx ON pii_access_audit(organization_id);
+CREATE INDEX IF NOT EXISTS pii_audit_retention_idx ON pii_access_audit(retention_expires_at);
+CREATE INDEX IF NOT EXISTS pii_audit_deleted_idx ON pii_access_audit(deleted_at);
+CREATE INDEX IF NOT EXISTS pii_audit_consent_idx ON pii_access_audit(consent_id);
+CREATE INDEX IF NOT EXISTS pii_audit_ip_hash_idx ON pii_access_audit(ip_address_hash);
+CREATE INDEX IF NOT EXISTS pii_audit_user_agent_hash_idx ON pii_access_audit(user_agent_hash);
 
 -- Organization members for Better Auth multi-tenancy
 CREATE TABLE IF NOT EXISTS members (
@@ -434,7 +561,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE TABLE IF NOT EXISTS verifications (
   id TEXT PRIMARY KEY,
   identifier TEXT NOT NULL,
-  value TEXT NOT NULL UNIQUE,
+  value TEXT NOT NULL,
   expires_at INTEGER NOT NULL,
   created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
   updated_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL
@@ -450,7 +577,6 @@ CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_provider ON accounts(provider_id, account_id);
 CREATE INDEX IF NOT EXISTS idx_accounts_provider_user ON accounts(provider_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_verifications_identifier ON verifications(identifier);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_verifications_value ON verifications(value);
 CREATE INDEX IF NOT EXISTS idx_verifications_expires_at ON verifications(expires_at);
 
 -- Create indexes for organization membership tables

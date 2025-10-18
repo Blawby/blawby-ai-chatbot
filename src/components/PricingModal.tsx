@@ -1,21 +1,18 @@
 import { FunctionComponent } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { useNavigation } from '../utils/navigation';
 import Modal from './Modal';
 import { Button } from './ui/Button';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
-import { Select } from './ui/input/Select';
-import { type SubscriptionTier } from '../utils/mockUserData';
 import { getBusinessPrices } from '../utils/stripe-products';
-import { mockUserDataService, getLanguageForCountry } from '../utils/mockUserData';
-// import { useToastContext } from '../contexts/ToastContext';
-// import { useTranslation } from 'react-i18next';
+import { useSession } from '../contexts/AuthContext';
+import type { SubscriptionTier } from '../types/user';
 
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentTier?: SubscriptionTier;
-  onUpgrade?: (tier: SubscriptionTier) => Promise<void> | void;
+  onUpgrade?: (tier: SubscriptionTier) => Promise<boolean | void> | boolean | void;
 }
 
 
@@ -26,224 +23,10 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   onUpgrade
 }) => {
   const { navigate } = useNavigation();
+  const { data: session } = useSession();
   const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
-  const [selectedCountry, setSelectedCountry] = useState('vn');
 
-  // Generate country options with language information
-  const countryOptions = [
-    { value: 'af', label: 'Afghanistan' },
-    { value: 'al', label: 'Albania' },
-    { value: 'dz', label: 'Algeria' },
-    { value: 'ad', label: 'Andorra' },
-    { value: 'ao', label: 'Angola' },
-    { value: 'ag', label: 'English (Antigua & Barbuda)' },
-    { value: 'ar', label: 'Spanish (Argentina)' },
-    { value: 'am', label: 'Armenia' },
-    { value: 'au', label: 'English (Australia)' },
-    { value: 'at', label: 'Austria' },
-    { value: 'az', label: 'Azerbaijan' },
-    { value: 'bs', label: 'English (Bahamas)' },
-    { value: 'bh', label: 'Bahrain' },
-    { value: 'bd', label: 'Bangladesh' },
-    { value: 'bb', label: 'English (Barbados)' },
-    { value: 'by', label: 'Belarus' },
-    { value: 'be', label: 'Belgium' },
-    { value: 'bz', label: 'English (Belize)' },
-    { value: 'bj', label: 'Benin' },
-    { value: 'bt', label: 'Bhutan' },
-    { value: 'bo', label: 'Spanish (Bolivia)' },
-    { value: 'ba', label: 'Bosnia & Herzegovina' },
-    { value: 'bw', label: 'English (Botswana)' },
-    { value: 'br', label: 'Brazil' },
-    { value: 'bn', label: 'Brunei' },
-    { value: 'bg', label: 'Bulgaria' },
-    { value: 'bf', label: 'Burkina Faso' },
-    { value: 'bi', label: 'Burundi' },
-    { value: 'kh', label: 'Cambodia' },
-    { value: 'cm', label: 'Cameroon' },
-    { value: 'ca', label: 'English (Canada)' },
-    { value: 'cv', label: 'Cape Verde' },
-    { value: 'cf', label: 'Central African Republic' },
-    { value: 'td', label: 'Chad' },
-    { value: 'cl', label: 'Spanish (Chile)' },
-    { value: 'cn', label: 'China' },
-    { value: 'co', label: 'Spanish (Colombia)' },
-    { value: 'km', label: 'Comoros' },
-    { value: 'cg', label: 'Congo' },
-    { value: 'cd', label: 'Congo (Democratic Republic)' },
-    { value: 'cr', label: 'Spanish (Costa Rica)' },
-    { value: 'ci', label: 'Côte d\'Ivoire' },
-    { value: 'hr', label: 'Croatia' },
-    { value: 'cu', label: 'Spanish (Cuba)' },
-    { value: 'cy', label: 'English (Cyprus)' },
-    { value: 'cz', label: 'Czech Republic' },
-    { value: 'dk', label: 'Denmark' },
-    { value: 'dj', label: 'Djibouti' },
-    { value: 'dm', label: 'English (Dominica)' },
-    { value: 'do', label: 'Spanish (Dominican Republic)' },
-    { value: 'ec', label: 'Spanish (Ecuador)' },
-    { value: 'eg', label: 'Egypt' },
-    { value: 'sv', label: 'Spanish (El Salvador)' },
-    { value: 'gq', label: 'Equatorial Guinea' },
-    { value: 'er', label: 'Eritrea' },
-    { value: 'ee', label: 'Estonia' },
-    { value: 'et', label: 'Ethiopia' },
-    { value: 'fj', label: 'English (Fiji)' },
-    { value: 'fi', label: 'Finland' },
-    { value: 'fr', label: 'France' },
-    { value: 'ga', label: 'Gabon' },
-    { value: 'gm', label: 'English (Gambia)' },
-    { value: 'ge', label: 'Georgia' },
-    { value: 'de', label: 'Germany' },
-    { value: 'gh', label: 'English (Ghana)' },
-    { value: 'gr', label: 'Greece' },
-    { value: 'gd', label: 'English (Grenada)' },
-    { value: 'gt', label: 'Spanish (Guatemala)' },
-    { value: 'gn', label: 'Guinea' },
-    { value: 'gw', label: 'Guinea-Bissau' },
-    { value: 'gy', label: 'English (Guyana)' },
-    { value: 'ht', label: 'Haiti' },
-    { value: 'hn', label: 'Spanish (Honduras)' },
-    { value: 'hu', label: 'Hungary' },
-    { value: 'is', label: 'Iceland' },
-    { value: 'in', label: 'English (India)' },
-    { value: 'id', label: 'Indonesia' },
-    { value: 'ir', label: 'Iran' },
-    { value: 'iq', label: 'Iraq' },
-    { value: 'ie', label: 'English (Ireland)' },
-    { value: 'il', label: 'Israel' },
-    { value: 'it', label: 'Italy' },
-    { value: 'jm', label: 'English (Jamaica)' },
-    { value: 'jp', label: 'Japan' },
-    { value: 'jo', label: 'Jordan' },
-    { value: 'kz', label: 'Kazakhstan' },
-    { value: 'ke', label: 'English (Kenya)' },
-    { value: 'ki', label: 'English (Kiribati)' },
-    { value: 'kp', label: 'Korea (North)' },
-    { value: 'kr', label: 'Korea (South)' },
-    { value: 'kw', label: 'Kuwait' },
-    { value: 'kg', label: 'Kyrgyzstan' },
-    { value: 'la', label: 'Laos' },
-    { value: 'lv', label: 'Latvia' },
-    { value: 'lb', label: 'Lebanon' },
-    { value: 'ls', label: 'English (Lesotho)' },
-    { value: 'lr', label: 'English (Liberia)' },
-    { value: 'ly', label: 'Libya' },
-    { value: 'li', label: 'Liechtenstein' },
-    { value: 'lt', label: 'Lithuania' },
-    { value: 'lu', label: 'Luxembourg' },
-    { value: 'mk', label: 'Macedonia' },
-    { value: 'mg', label: 'Madagascar' },
-    { value: 'mw', label: 'English (Malawi)' },
-    { value: 'my', label: 'English (Malaysia)' },
-    { value: 'mv', label: 'Maldives' },
-    { value: 'ml', label: 'Mali' },
-    { value: 'mt', label: 'English (Malta)' },
-    { value: 'mh', label: 'English (Marshall Islands)' },
-    { value: 'mr', label: 'Mauritania' },
-    { value: 'mu', label: 'English (Mauritius)' },
-    { value: 'mx', label: 'Spanish (Mexico)' },
-    { value: 'fm', label: 'English (Micronesia)' },
-    { value: 'md', label: 'Moldova' },
-    { value: 'mc', label: 'Monaco' },
-    { value: 'mn', label: 'Mongolia' },
-    { value: 'me', label: 'Montenegro' },
-    { value: 'ma', label: 'Morocco' },
-    { value: 'mz', label: 'Mozambique' },
-    { value: 'mm', label: 'Myanmar' },
-    { value: 'na', label: 'English (Namibia)' },
-    { value: 'nr', label: 'English (Nauru)' },
-    { value: 'np', label: 'Nepal' },
-    { value: 'nl', label: 'Netherlands' },
-    { value: 'nz', label: 'English (New Zealand)' },
-    { value: 'ni', label: 'Spanish (Nicaragua)' },
-    { value: 'ne', label: 'Niger' },
-    { value: 'ng', label: 'English (Nigeria)' },
-    { value: 'no', label: 'Norway' },
-    { value: 'om', label: 'Oman' },
-    { value: 'pk', label: 'Pakistan' },
-    { value: 'pw', label: 'English (Palau)' },
-    { value: 'pa', label: 'Spanish (Panama)' },
-    { value: 'pg', label: 'English (Papua New Guinea)' },
-    { value: 'py', label: 'Spanish (Paraguay)' },
-    { value: 'pe', label: 'Spanish (Peru)' },
-    { value: 'ph', label: 'English (Philippines)' },
-    { value: 'pl', label: 'Poland' },
-    { value: 'pt', label: 'Portugal' },
-    { value: 'qa', label: 'Qatar' },
-    { value: 'ro', label: 'Romania' },
-    { value: 'ru', label: 'Russia' },
-    { value: 'rw', label: 'Rwanda' },
-    { value: 'kn', label: 'English (Saint Kitts & Nevis)' },
-    { value: 'lc', label: 'English (Saint Lucia)' },
-    { value: 'vc', label: 'English (Saint Vincent & the Grenadines)' },
-    { value: 'ws', label: 'English (Samoa)' },
-    { value: 'sm', label: 'San Marino' },
-    { value: 'st', label: 'São Tomé & Príncipe' },
-    { value: 'sa', label: 'Saudi Arabia' },
-    { value: 'sn', label: 'Senegal' },
-    { value: 'rs', label: 'Serbia' },
-    { value: 'sc', label: 'English (Seychelles)' },
-    { value: 'sl', label: 'English (Sierra Leone)' },
-    { value: 'sg', label: 'English (Singapore)' },
-    { value: 'sk', label: 'Slovakia' },
-    { value: 'si', label: 'Slovenia' },
-    { value: 'sb', label: 'English (Solomon Islands)' },
-    { value: 'so', label: 'Somalia' },
-    { value: 'za', label: 'English (South Africa)' },
-    { value: 'ss', label: 'English (South Sudan)' },
-    { value: 'es', label: 'Spanish (Spain)' },
-    { value: 'lk', label: 'Sri Lanka' },
-    { value: 'sd', label: 'Sudan' },
-    { value: 'sr', label: 'Suriname' },
-    { value: 'sz', label: 'English (Swaziland)' },
-    { value: 'se', label: 'Sweden' },
-    { value: 'ch', label: 'Switzerland' },
-    { value: 'sy', label: 'Syria' },
-    { value: 'tw', label: 'Taiwan' },
-    { value: 'tj', label: 'Tajikistan' },
-    { value: 'tz', label: 'English (Tanzania)' },
-    { value: 'th', label: 'Thailand' },
-    { value: 'tl', label: 'Timor-Leste' },
-    { value: 'tg', label: 'Togo' },
-    { value: 'to', label: 'English (Tonga)' },
-    { value: 'tt', label: 'English (Trinidad & Tobago)' },
-    { value: 'tn', label: 'Tunisia' },
-    { value: 'tr', label: 'Turkey' },
-    { value: 'tm', label: 'Turkmenistan' },
-    { value: 'tv', label: 'English (Tuvalu)' },
-    { value: 'ug', label: 'English (Uganda)' },
-    { value: 'ua', label: 'Ukraine' },
-    { value: 'ae', label: 'United Arab Emirates' },
-    { value: 'gb', label: 'English (United Kingdom)' },
-    { value: 'us', label: 'English (United States)' },
-    { value: 'uy', label: 'Spanish (Uruguay)' },
-    { value: 'uz', label: 'Uzbekistan' },
-    { value: 'vu', label: 'English (Vanuatu)' },
-    { value: 'va', label: 'Vatican City' },
-    { value: 've', label: 'Spanish (Venezuela)' },
-    { value: 'vn', label: 'Vietnam' },
-    { value: 'ye', label: 'Yemen' },
-    { value: 'zm', label: 'English (Zambia)' },
-    { value: 'zw', label: 'English (Zimbabwe)' }
-  ];
 
-  // Load user's current country preference
-  useEffect(() => {
-    const preferences = mockUserDataService.getPreferences();
-    setSelectedCountry(preferences.country ?? 'us');
-  }, []);
-
-  const handleCountryChange = (country: string) => {
-    setSelectedCountry(country);
-    // Get the appropriate language for the selected country
-    const language = getLanguageForCountry(country);
-    // Update user preferences with both country and language
-    mockUserDataService.setPreferences({ 
-      country,
-      language 
-    });
-  };
 
   // Build pricing plans from real Stripe config
   const prices = getBusinessPrices();
@@ -343,17 +126,20 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   })();
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
+    let shouldNavigateToCart = true;
     try {
       // Call callbacks before navigation to ensure they complete
       if (onUpgrade) {
-        await onUpgrade(tier);
+        const result = await onUpgrade(tier);
+        if (result === false) {
+          shouldNavigateToCart = false;
+        }
       }
 
-      // Navigate to cart with the selected tier
-      navigate(`/cart?tier=${tier}`);
-
-      // Close modal after navigation
-      onClose();
+      if (shouldNavigateToCart) {
+        navigate(`/cart?tier=${tier}`);
+        onClose();
+      }
     } catch (error) {
       console.error('Error during upgrade process:', error);
       // Still navigate and close modal even if callback fails
@@ -516,16 +302,6 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                 </button>
               </div>
               
-              {/* Country/Region Selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">Country/Region:</span>
-                <Select
-                  value={selectedCountry}
-                  options={countryOptions}
-                  onChange={handleCountryChange}
-                  direction="up"
-                />
-              </div>
             </div>
           </div>
         </div>

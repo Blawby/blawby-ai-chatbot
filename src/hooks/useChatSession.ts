@@ -39,6 +39,7 @@ export function useChatSession(organizationId: string): ChatSessionState {
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const isDisposedRef = useRef(false);
+  const handshakeOrgRef = useRef<{ orgId: string; promise: Promise<SessionResponsePayload | void> } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -144,15 +145,22 @@ export function useChatSession(organizationId: string): ChatSessionState {
       return;
     }
 
-    const storedSessionId = readStoredSessionId();
-    const body: Record<string, unknown> = { organizationId };
-    if (storedSessionId) {
-      body.sessionId = storedSessionId;
+    // Prevent multiple simultaneous handshakes for the same organization
+    if (handshakeOrgRef.current && handshakeOrgRef.current.orgId === organizationId) {
+      return handshakeOrgRef.current.promise;
     }
 
-    if (!isDisposedRef.current) {
-      setIsInitializing(true);
-    }
+    // Create the handshake promise and store it with the organization ID
+    const handshakePromise = (async (): Promise<SessionResponsePayload | void> => {
+      const storedSessionId = readStoredSessionId();
+      const body: Record<string, unknown> = { organizationId };
+      if (storedSessionId) {
+        body.sessionId = storedSessionId;
+      }
+
+      if (!isDisposedRef.current) {
+        setIsInitializing(true);
+      }
 
     try {
       const response = await fetch('/api/sessions', {
@@ -168,19 +176,20 @@ export function useChatSession(organizationId: string): ChatSessionState {
         throw new Error(`Session initialization failed (${response.status})`);
       }
 
-      const json = await response.json();
+      const json = await response.json() as { success?: boolean; error?: string; data?: SessionResponsePayload };
       if (!json?.success) {
         throw new Error(json?.error || 'Session initialization failed');
       }
 
-      const data = json.data as SessionResponsePayload | undefined;
+      const data = json.data;
       if (!data || typeof data.sessionId !== 'string' || !data.sessionId) {
         throw new Error('Session ID missing from response');
       }
 
       writeStoredSessionId(data.sessionId);
 
-      if (!isDisposedRef.current) {
+      // Only update state if this handshake is still for the current organization
+      if (!isDisposedRef.current && handshakeOrgRef.current?.orgId === organizationId) {
         setSessionId(data.sessionId);
         setSessionToken(typeof data.sessionToken === 'string' ? data.sessionToken : null);
         setError(null);
@@ -191,16 +200,28 @@ export function useChatSession(organizationId: string): ChatSessionState {
       const message = handshakeError instanceof Error
         ? handshakeError.message
         : 'Unknown session error';
-      if (!isDisposedRef.current) {
+      // Only update error state if this handshake is still for the current organization
+      if (!isDisposedRef.current && handshakeOrgRef.current?.orgId === organizationId) {
         setError(message);
       }
       console.warn('Session handshake failed:', handshakeError);
       throw handshakeError;
     } finally {
-      if (!isDisposedRef.current) {
-        setIsInitializing(false);
+      // Only clear handshake state if this handshake is still for the current organization
+      if (handshakeOrgRef.current?.orgId === organizationId) {
+        handshakeOrgRef.current = null;
+        // Only clear isInitializing if this handshake is still the active one
+        if (!isDisposedRef.current) {
+          setIsInitializing(false);
+        }
       }
     }
+    })();
+
+    // Store the promise with the organization ID
+    handshakeOrgRef.current = { orgId: organizationId, promise: handshakePromise };
+    
+    return handshakePromise;
   }, [organizationId, readStoredSessionId, writeStoredSessionId]);
 
   useEffect(() => {
@@ -222,7 +243,7 @@ export function useChatSession(organizationId: string): ChatSessionState {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, performHandshake, clearStoredSession]);
+  }, [organizationId]); // Only re-run when organizationId actually changes
 
   return {
     sessionId,

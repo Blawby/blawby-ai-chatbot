@@ -16,13 +16,14 @@ import { Select } from '../../ui/input/Select';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { formatDate } from '../../../utils/dateTime';
 import { useNavigation } from '../../../utils/navigation';
-import { getSession } from '../../../lib/authClient';
+import { useSession } from '../../../contexts/AuthContext';
 
 interface OrganizationPageProps {
   className?: string;
 }
 
 export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
+  const { data: session } = useSession();
   const { 
     currentOrganization, 
     getMembers,
@@ -47,8 +48,9 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
-  // Get current user's identity from auth session
-  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
+  
+  // Get current user email from session
+  const currentUserEmail = session?.user?.email || '';
   
   // Form states
   const [editOrgForm, setEditOrgForm] = useState({
@@ -98,21 +100,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   const isAdmin = (currentUserRole === 'admin' || isOwner) ?? false;
 
 
-  // Get current user's identity from auth session
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      try {
-        const session = await getSession();
-        if (session && 'user' in session && session.user && typeof session.user === 'object' && 'email' in session.user) {
-          setCurrentUserEmail((session.user as { email: string }).email);
-        }
-      } catch (error) {
-        showError('Failed to get current user session');
-      }
-    };
-    
-    getCurrentUser();
-  }, []);
+  // Current user email is now derived from session - no need for useEffect
 
   // Initialize form with current organization data
   useEffect(() => {

@@ -380,12 +380,19 @@ export class SessionService {
         session.tokenHash = await hashToken(sessionToken);
       }
 
-      await this.touchSession(env, session.id);
-
-      const refreshed = await this.getSessionById(env, session.id);
+      try {
+        await this.touchSession(env, session.id);
+        
+        // Only update in-memory state after successful DB update
+        session.lastActive = new Date().toISOString();
+      } catch (error) {
+        console.error('[SessionService] Failed to touch session:', error);
+        // Rethrow or return error result; don't update in-memory state
+        throw error;
+      }
 
       return {
-        session: refreshed ?? session,
+        session: session,
         sessionToken,
         cookie,
         isNew: false

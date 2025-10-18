@@ -132,7 +132,6 @@
     },
     "email": {
       "title": "电子邮件",
-      "addressFallback": "chris@whynot.earth",
       "receiveFeedback": "接收反馈电子邮件"
     },
     "delete": {

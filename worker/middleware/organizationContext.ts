@@ -114,37 +114,43 @@ export async function extractOrganizationContext(
   // For anonymous users, try session cookie first
   const sessionToken = SessionService.getSessionTokenFromCookie(request);
   if (sessionToken) {
-    try {
-      // Try to resolve session with URL param or default
-      const targetOrgId = urlOrganizationId ?? defaultOrganizationId;
-      if (!targetOrgId) {
-        // No organization ID available, return without session resolution
-        if (requireOrganization) {
-          throw HttpErrors.badRequest('Organization context is required but could not be determined');
+    // Check if this is a read-only request that doesn't need session resolution
+    const isReadOnlyRequest = request.method === 'GET' || request.method === 'HEAD';
+    
+    if (!isReadOnlyRequest) {
+      // Only resolve session for endpoints that actually need it
+      try {
+        // Try to resolve session with URL param or default
+        const targetOrgId = urlOrganizationId ?? defaultOrganizationId;
+        if (!targetOrgId) {
+          // No organization ID available, return without session resolution
+          if (requireOrganization) {
+            throw HttpErrors.badRequest('Organization context is required but could not be determined');
+          }
+          return {
+            organizationId: null,
+            source: 'none',
+            isAuthenticated: false
+          };
         }
+        
+        const sessionResolution = await SessionService.resolveSession(env, {
+          request,
+          sessionToken,
+          organizationId: targetOrgId,
+          createIfMissing: false
+        });
+
         return {
-          organizationId: null,
-          source: 'none',
+          organizationId: sessionResolution.session.organizationId,
+          source: 'session',
+          sessionId: sessionResolution.session.id,
           isAuthenticated: false
         };
+      } catch (sessionError) {
+        // Session resolution failed, fall back to URL param
+        console.warn('Session resolution failed for anonymous user:', sessionError);
       }
-      
-      const sessionResolution = await SessionService.resolveSession(env, {
-        request,
-        sessionToken,
-        organizationId: targetOrgId,
-        createIfMissing: false
-      });
-
-      return {
-        organizationId: sessionResolution.session.organizationId,
-        source: 'session',
-        sessionId: sessionResolution.session.id,
-        isAuthenticated: false
-      };
-    } catch (sessionError) {
-      // Session resolution failed, fall back to URL param
-      console.warn('Session resolution failed for anonymous user:', sessionError);
     }
   }
 

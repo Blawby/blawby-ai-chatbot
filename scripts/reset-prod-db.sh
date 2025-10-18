@@ -90,6 +90,8 @@ DROP TABLE IF EXISTS passwords;
 DROP TABLE IF EXISTS subscriptions;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS pii_access_audit_backup;
+DROP TABLE IF EXISTS pii_access_audit;
 SQL
 )"
 

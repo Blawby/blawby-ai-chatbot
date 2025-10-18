@@ -3,7 +3,7 @@ import {
   getOrganizationsEndpoint, 
   getOrganizationWorkspaceEndpoint 
 } from '../config/api';
-import { authClient } from '../lib/authClient';
+import { useSession } from '../contexts/AuthContext';
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -103,6 +103,7 @@ interface UseOrganizationManagementReturn {
 }
 
 export function useOrganizationManagement(): UseOrganizationManagementReturn {
+  const { data: session, isPending: sessionLoading } = useSession();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<Record<string, Member[]>>({});
@@ -226,8 +227,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       setError(null);
       
       // Check authentication status first
-      const session = await authClient.getSession();
-      if (!session?.data?.user) {
+      if (!session?.user) {
         // User is not authenticated - skip organization fetch
         setOrganizations([]);
         setCurrentOrganization(null);
@@ -259,14 +259,13 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     } finally {
       setLoading(false);
     }
-  }, [apiCall]);
+  }, [apiCall, session]);
 
   // Fetch pending invitations
   const fetchInvitations = useCallback(async () => {
     try {
       // Check authentication status first
-      const session = await authClient.getSession();
-      if (!session?.data?.user) {
+      if (!session?.user) {
         // User is not authenticated - skip invitations fetch
         setInvitations([]);
         return;
@@ -279,7 +278,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       setError(err instanceof Error ? err.message : 'Failed to fetch invitations');
       setInvitations([]);
     }
-  }, [apiCall, setError, setInvitations]);
+  }, [apiCall, session]);
 
   // Create organization
   const createOrganization = useCallback(async (data: CreateOrgData): Promise<Organization> => {
@@ -421,10 +420,12 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     ]);
   }, [fetchOrganizations, fetchInvitations]);
 
-  // Initial load
+  // Refetch when session changes
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    if (!sessionLoading) {
+      refetch();
+    }
+  }, [session, sessionLoading, refetch]);
 
   return {
     organizations,
