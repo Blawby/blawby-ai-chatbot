@@ -5,6 +5,7 @@ import { requireAuth, requireOrgOwner, requireOrgMember } from '../middleware/au
 import { handleError, HttpErrors } from '../errorHandler.js';
 import type { Organization } from '../services/OrganizationService.js';
 import { organizationCreateSchema, organizationUpdateSchema } from '../schemas/validation.js';
+import { requireFeature } from '../middleware/featureGuard.js';
 
 /**
  * Helper function to create standardized error responses
@@ -518,6 +519,17 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
             case 'GET':
               return await listOrganizationTokens(organizationService, organizationId);
             case 'POST':
+              await requireFeature(
+                request,
+                env,
+                {
+                  feature: 'api',
+                  allowAnonymous: false,
+                  minTier: ['business', 'enterprise'],
+                  requireNonPersonal: true,
+                },
+                { organizationId }
+              );
               return await createOrganizationToken(organizationService, organizationId, request);
           }
         } else if (pathParts.length === 3) {

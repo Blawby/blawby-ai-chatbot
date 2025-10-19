@@ -8,6 +8,8 @@ import { Logger } from '../utils/logger';
 import type { MessageBatch } from '@cloudflare/workers-types';
 import type { DocumentEvent, AutoAnalysisEvent } from '../types/events.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
+import { requireFeature } from '../middleware/featureGuard.js';
+import { UsageService } from '../services/UsageService.js';
 
 /**
  * Updates status with retry logic and exponential backoff
@@ -395,6 +397,22 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       const resolvedOrganizationId = sessionResolution.session.organizationId;
       const resolvedSessionId = sessionResolution.session.id;
 
+      await requireFeature(
+        request,
+        env,
+        {
+          feature: 'files',
+          allowAnonymous: false,
+          quotaMetric: 'files',
+          minTier: ['business', 'enterprise'],
+          requireNonPersonal: true,
+        },
+        {
+          organizationId: resolvedOrganizationId,
+          sessionId: resolvedSessionId,
+        }
+      );
+
       // Create initial status update for file processing
       let statusId: string | null = null;
       let statusCreatedAt: number | null = null;
@@ -555,6 +573,16 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         }
       } else {
         Logger.info('Skipping inline processing - using queue-based processing only');
+      }
+
+      try {
+        await UsageService.incrementUsage(env, resolvedOrganizationId, 'files');
+      } catch (usageError) {
+        Logger.warn('Usage tracking failed; continuing without blocking response', {
+          error: usageError instanceof Error ? usageError.message : String(usageError),
+          organizationId: resolvedOrganizationId,
+          sessionId: resolvedSessionId,
+        });
       }
 
       const responseBody = {

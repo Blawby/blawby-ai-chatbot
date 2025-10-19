@@ -3,6 +3,7 @@ import { env } from '@cloudflare/vitest-pool-workers/testing';
 import { requireFeature } from '../../../worker/middleware/featureGuard.js';
 import { UsageService } from '../../../worker/services/UsageService.js';
 import * as authModule from '../../../worker/middleware/auth.js';
+import type { Env } from '../../../worker/types.js';
 
 const optionalAuthSpy = vi.spyOn(authModule, 'optionalAuth');
 
@@ -32,10 +33,13 @@ async function seedOrganization(options: { id: string; slug: string; tier: 'free
   ).run();
 }
 
-async function seedUsage(organizationId: string, { used, limit }: { used: number; limit: number }) {
+async function seedUsage(
+  organizationId: string,
+  { metric = 'messages', used, limit }: { metric?: 'messages' | 'files'; used: number; limit: number }
+) {
   const period = UsageService.getCurrentPeriod();
-  
-  // First ensure the row exists
+  const now = Date.now();
+
   await env.DB.prepare(`
     INSERT OR IGNORE INTO usage_quotas (
       organization_id,
@@ -48,23 +52,29 @@ async function seedUsage(organizationId: string, { used, limit }: { used: number
       override_files,
       last_updated
     )
-    VALUES (?, ?, 0, 100, NULL, 0, -1, NULL, ?)
-  `).bind(organizationId, period, Date.now()).run();
-  
-  // Then update with our test values
-  await env.DB.prepare(`
-    UPDATE usage_quotas
-       SET messages_used = ?,
-           messages_limit = ?,
-           override_messages = ?,
-           files_used = 0,
-           files_limit = -1,
-           override_files = NULL
-     WHERE organization_id = ? AND period = ?
-  `).bind(used, limit, limit, organizationId, period).run();
-}
+    VALUES (?, ?, 0, -1, NULL, 0, -1, NULL, ?)
+  `).bind(organizationId, period, now).run();
 
-import type { Env } from '../../../worker/types.js';
+  if (metric === 'messages') {
+    await env.DB.prepare(`
+      UPDATE usage_quotas
+         SET messages_used = ?,
+             messages_limit = ?,
+             override_messages = ?,
+             last_updated = ?
+       WHERE organization_id = ? AND period = ?
+    `).bind(used, limit, limit, now, organizationId, period).run();
+  } else {
+    await env.DB.prepare(`
+      UPDATE usage_quotas
+         SET files_used = ?,
+             files_limit = ?,
+             override_files = ?,
+             last_updated = ?
+       WHERE organization_id = ? AND period = ?
+    `).bind(used, limit, limit, now, organizationId, period).run();
+  }
+}
 
 describe('Feature Guard - quota enforcement', () => {
   beforeEach(async () => {
@@ -82,7 +92,7 @@ describe('Feature Guard - quota enforcement', () => {
   });
 
   it('allows requests when usage is below the limit', async () => {
-    await seedUsage(ORG_ID, { used: 1, limit: 2 });
+    await seedUsage(ORG_ID, { metric: 'messages', used: 1, limit: 2 });
 
     const result = await requireFeature(
       new Request('https://test.local/api/protected'),
@@ -102,7 +112,7 @@ describe('Feature Guard - quota enforcement', () => {
   });
 
   it('blocks requests when usage has reached the limit', async () => {
-    await seedUsage(ORG_ID, { used: 2, limit: 2 });
+    await seedUsage(ORG_ID, { metric: 'messages', used: 2, limit: 2 });
 
     await expect(
       requireFeature(
@@ -121,7 +131,7 @@ describe('Feature Guard - quota enforcement', () => {
   });
 
   it('blocks personal organizations when requireNonPersonal is true', async () => {
-    await seedUsage(PERSONAL_ORG_ID, { used: 0, limit: -1 });
+    await seedUsage(PERSONAL_ORG_ID, { metric: 'files', used: 0, limit: -1 });
 
     await expect(
       requireFeature(
@@ -138,8 +148,25 @@ describe('Feature Guard - quota enforcement', () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 
+  it('blocks file requests when file usage exceeds the limit', async () => {
+    await seedUsage(ORG_ID, { metric: 'files', used: 2, limit: 2 });
+
+    await expect(
+      requireFeature(
+        new Request('https://test.local/api/protected'),
+        env as unknown as Env,
+        {
+          feature: 'files',
+          allowAnonymous: true,
+          quotaMetric: 'files',
+        },
+        { organizationId: ORG_ID }
+      )
+    ).rejects.toMatchObject({ status: 402 });
+  });
+
   it('enforces minimum tier requirements', async () => {
-    await seedUsage(ORG_ID, { used: 0, limit: -1 });
+    await seedUsage(ORG_ID, { metric: 'messages', used: 0, limit: -1 });
 
     await expect(
       requireFeature(
