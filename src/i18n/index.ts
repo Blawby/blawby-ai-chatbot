@@ -59,17 +59,23 @@ export const isRTLLocale = (locale: AnyLocale): boolean => {
 
 const NAMESPACES = ['common', 'settings', 'auth', 'profile', 'pricing', 'organization'] as const;
 
-// Create typed loader maps for Vite static analysis
-const localeIndexLoaders = import.meta.glob('../locales/*/index.ts') as Record<string, () => Promise<{
-  common: any;
-  settings: any;
-  auth: any;
-  profile: any;
-  pricing: any;
-  organization: any;
-}>>;
+// Type for locale resource bundles
+type LocaleResourceBundle = Record<string, string>;
 
-const localeJsonLoaders = import.meta.glob('../locales/*/*.json') as Record<string, () => Promise<{ default: any }>>;
+// Type for locale index modules
+type LocaleIndexModule = {
+  common: LocaleResourceBundle;
+  settings: LocaleResourceBundle;
+  auth: LocaleResourceBundle;
+  profile: LocaleResourceBundle;
+  pricing: LocaleResourceBundle;
+  organization: LocaleResourceBundle;
+};
+
+// Create typed loader maps for Vite static analysis
+const localeIndexLoaders = import.meta.glob('../locales/*/index.ts') as Record<string, () => Promise<LocaleIndexModule>>;
+
+const localeJsonLoaders = import.meta.glob('../locales/*/*.json') as Record<string, () => Promise<{ default: LocaleResourceBundle }>>;
 
 const STORAGE_KEY = 'blawby_locale';
 let initialized = false;
@@ -134,12 +140,13 @@ const loadLocaleResources = async (locale: AnyLocale) => {
       });
       return; // Successfully loaded from index
     } catch (error) {
-      console.warn(`Failed to load locale index ${locale}:`, error);
+      console.warn(`Failed to load locale index ${locale}, falling back to JSON files:`, error);
+      // Continue to fallback logic below
     }
+  } else {
+    // No index loader found
+    console.warn(`No index loader found for locale ${locale}, falling back to JSON files`);
   }
-
-  // Fallback to individual JSON files
-  console.warn(`Index file not found for locale ${locale}, falling back to JSON files`);
   const namespaceData = await Promise.all(
     NAMESPACES.map(async (namespace) => {
       const jsonLoaderKey = `../locales/${locale}/${namespace}.json`;
