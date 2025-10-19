@@ -50,10 +50,6 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   // Generate stable ID for accessibility
   const generatedId = useUniqueId('datepicker');
   const inputId = id || generatedId;
-  
-  // Generate stable IDs for description and error elements
-  const descriptionId = displayDescription ? `${inputId}-description` : undefined;
-  const errorId = _displayError ? `${inputId}-error` : undefined;
 
   // TODO: Add i18n support when useTranslation hook is available
   // const { t } = useTranslation(namespace);
@@ -66,6 +62,10 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   const displayDescription = description;
   const displayPlaceholder = placeholder;
   const _displayError = error;
+
+  // Generate stable IDs for description and error elements
+  const descriptionId = displayDescription ? `${inputId}-description` : undefined;
+  const errorId = _displayError ? `${inputId}-error` : undefined;
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',

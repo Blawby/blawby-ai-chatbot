@@ -72,11 +72,7 @@ export async function getAppConfig(): Promise<AppConfig> {
       throw new Error('Config API returned error status');
     }
     
-    // Validate that data exists and is an object
-    if (!validationResult.data.data || typeof validationResult.data.data !== 'object') {
-      throw new Error('Config API returned invalid data structure');
-    }
-    
+    // Data structure is guaranteed by Zod validation above
     configCache = validationResult.data.data;
     return configCache;
   } catch (error) {
@@ -87,8 +83,7 @@ export async function getAppConfig(): Promise<AppConfig> {
       error.message.includes('validation failed') ||
       error.message.includes('invalid JSON') ||
       error.message.includes('non-object response') ||
-      error.message.includes('error status') ||
-      error.message.includes('invalid data structure')
+      error.message.includes('error status')
     )) {
       throw error;
     }

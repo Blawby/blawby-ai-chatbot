@@ -225,7 +225,7 @@ export const organizationMemberSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
   image: z.string().optional(),
-  createdAt: z.string().min(1)
+  createdAt: timestampSchema
 });
 
 export const organizationInvitationSchema = z.object({
@@ -236,16 +236,16 @@ export const organizationInvitationSchema = z.object({
   role: organizationRoleSchema,
   status: z.enum(['pending', 'accepted', 'declined']),
   invitedBy: z.string().min(1),
-  expiresAt: z.string().min(1),
-  createdAt: z.string().min(1)
+  expiresAt: timestampSchema,
+  createdAt: timestampSchema
 });
 
 export const organizationApiTokenSchema = z.object({
   id: z.string().min(1),
   tokenName: z.string().min(1),
   permissions: z.array(z.string()),
-  createdAt: z.string().min(1),
-  lastUsedAt: z.string().optional()
+  createdAt: timestampSchema,
+  lastUsedAt: timestampSchema.optional()
 });
 
 export const organizationSchema = z.object({
