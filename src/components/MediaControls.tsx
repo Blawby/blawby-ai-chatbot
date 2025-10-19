@@ -22,8 +22,9 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 	const chunksRef = useRef<Blob[]>([]);
 
 	useEffect(() => {
+		if (!features.enableAudioRecording) return;
 		onRecordingStateChange?.(isRecording);
-	}, [isRecording, onRecordingStateChange]);
+	}, [isRecording, onRecordingStateChange, features.enableAudioRecording]);
 
 	const stopMediaStream = () => {
 		if (mediaStreamRef.current) {

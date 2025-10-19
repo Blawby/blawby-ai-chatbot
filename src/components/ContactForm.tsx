@@ -127,7 +127,11 @@ export function ContactForm({
   
   // Always call hooks at the top level
   const normalizedInitialValues = useMemo(() => normalizeInitialValues(initialValues), [
-    initialValues
+    initialValues?.name,
+    initialValues?.email,
+    initialValues?.phone,
+    initialValues?.location,
+    initialValues?.opposingParty
   ]);
 
   const { t } = useTranslation('common');

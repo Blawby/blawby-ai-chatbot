@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { features } from '../config/features';
 import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
@@ -32,7 +32,7 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchProgress = useCallback(async () => {
+  const fetchProgress = useCallback(async (signal?: AbortSignal) => {
     if (!organizationId || !matterId) return;
 
     setLoading(true);
@@ -43,17 +43,21 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        signal
       });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch progress: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as MatterProgressData;
       setProgressData(data);
       setLastUpdated(new Date());
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // Don't set error for aborted requests
+      }
       console.error('Failed to fetch matter progress:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch progress');
     } finally {
@@ -65,11 +69,18 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
   useEffect(() => {
     if (!features.enableParalegalAgent || !visible) return;
 
-    fetchProgress(); // Initial fetch
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-    const interval = setInterval(fetchProgress, 10000); // Poll every 10 seconds
-    return () => clearInterval(interval);
-  }, [organizationId, matterId, visible, fetchProgress]);
+    fetchProgress(signal); // Initial fetch
+
+    const interval = setInterval(() => fetchProgress(signal), 10000); // Poll every 10 seconds
+    
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [visible, fetchProgress, features.enableParalegalAgent]);
 
   // Don't render if paralegal agent is disabled
   if (!features.enableParalegalAgent || !visible) {
@@ -140,7 +151,7 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
                 <p className="text-red-700">{error}</p>
               </div>
               <button
-                onClick={fetchProgress}
+                onClick={() => fetchProgress()}
                 className="mt-2 text-red-600 hover:text-red-800 text-sm underline"
               >
                 Try again
@@ -249,7 +260,7 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
         {/* Footer */}
         <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
           <button
-            onClick={fetchProgress}
+            onClick={() => fetchProgress()}
             disabled={loading}
             className="text-blue-600 hover:text-blue-800 text-sm font-medium disabled:opacity-50"
           >

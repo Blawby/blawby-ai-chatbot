@@ -59,8 +59,11 @@ function extractSubscription(result: unknown): unknown {
 }
 
 function extractProperty<T>(result: unknown, property: string): T | undefined {
-  if (result && typeof result === 'object' && result !== null && property in result) {
-    return result[property as keyof typeof result] as T;
+  if (result && typeof result === 'object' && result !== null) {
+    const obj = result as Record<string, unknown>;
+    if (property in obj) {
+      return obj[property] as T;
+    }
   }
   return undefined;
 }

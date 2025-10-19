@@ -16,12 +16,12 @@ interface MatterCanvasProps {
  * Shows markdown content with professional matter tracking
  */
 const MatterCanvas: FunctionalComponent<MatterCanvasProps> = ({
-  _matterId,
-  _matterNumber,
+  matterId: _matterId,
+  matterNumber: _matterNumber,
   service,
   matterSummary,
   
-  _answers
+  answers: _answers
 }) => {
 
 

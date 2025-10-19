@@ -79,20 +79,31 @@ export const AccountPage = ({
       setError(null);
       const user = session.user;
       
-      // Convert user data to links format
+      // Convert user data to links format - use type assertion for missing properties
+      const userWithExtendedProps = user as typeof user & {
+        selectedDomain?: string;
+        linkedinUrl?: string;
+        githubUrl?: string;
+        customDomains?: string;
+        receiveFeedbackEmails?: boolean;
+        marketingEmails?: boolean;
+        securityAlerts?: boolean;
+        lastLoginMethod?: string;
+      };
+      
       const linksData: UserLinks = {
-        selectedDomain: user.selectedDomain || 'Select a domain',
-        linkedinUrl: user.linkedinUrl,
-        githubUrl: user.githubUrl,
-        customDomains: user.customDomains ? JSON.parse(user.customDomains) : [] // Parse JSON string to array
+        selectedDomain: userWithExtendedProps.selectedDomain || 'Select a domain',
+        linkedinUrl: userWithExtendedProps.linkedinUrl,
+        githubUrl: userWithExtendedProps.githubUrl,
+        customDomains: userWithExtendedProps.customDomains ? JSON.parse(userWithExtendedProps.customDomains) : [] // Parse JSON string to array
       };
       
       // Convert user data to email settings format
       const emailData: EmailSettings = {
         email: user.email,
-        receiveFeedbackEmails: user.receiveFeedbackEmails ?? false,
-        marketingEmails: user.marketingEmails ?? false,
-        securityAlerts: user.securityAlerts ?? true
+        receiveFeedbackEmails: userWithExtendedProps.receiveFeedbackEmails ?? false,
+        marketingEmails: userWithExtendedProps.marketingEmails ?? false,
+        securityAlerts: userWithExtendedProps.securityAlerts ?? true
       };
       
       // Use real organization subscription tier directly (no mapping needed)
@@ -117,8 +128,11 @@ export const AccountPage = ({
   }, [loadAccountData, orgLoading, currentOrganization, session?.user]);
 
   // Detect OAuth vs password users based on lastLoginMethod
-  const normalizedLoginMethod = session?.user?.lastLoginMethod
-    ? String(session.user.lastLoginMethod).toLowerCase()
+  const userWithExtendedProps = session?.user as typeof session.user & {
+    lastLoginMethod?: string;
+  };
+  const normalizedLoginMethod = userWithExtendedProps?.lastLoginMethod
+    ? String(userWithExtendedProps.lastLoginMethod).toLowerCase()
     : null;
   const loginMethodRequiresPassword = normalizedLoginMethod
     ? ['email', 'credential', 'password'].includes(normalizedLoginMethod)
@@ -178,8 +192,13 @@ export const AccountPage = ({
           let newTier = currentOrganization?.subscriptionTier;
           
           // Prefer the sync response if it returns plan/tier info
-          if (subscription?.plan) {
-            newTier = subscription.plan;
+          const subscriptionWithPlan = subscription as { plan?: string } | undefined;
+          if (subscriptionWithPlan?.plan) {
+            const planValue = subscriptionWithPlan.plan;
+            // Type guard to ensure plan is a valid SubscriptionTier
+            if (['free', 'plus', 'business', 'enterprise'].includes(planValue)) {
+              newTier = planValue as SubscriptionTier;
+            }
             
             // Handle upgrade check immediately if we have tier info from sync response
             const wasUpgraded = (previousTier === 'free' || !previousTier) && 
@@ -320,9 +339,29 @@ export const AccountPage = ({
     } catch (error) {
       console.error('Failed to delete account:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Type-safe error property extraction
+      const getErrorCode = (err: unknown): string | undefined => {
+        if (typeof err === 'object' && err !== null) {
+          const errorObj = err as Record<string, unknown>;
+          // Check for direct code property
+          if ('code' in errorObj && typeof errorObj.code === 'string') {
+            return errorObj.code;
+          }
+          // Check for nested data.code property
+          if ('data' in errorObj && typeof errorObj.data === 'object' && errorObj.data !== null) {
+            const dataObj = errorObj.data as Record<string, unknown>;
+            if ('code' in dataObj && typeof dataObj.code === 'string') {
+              return dataObj.code;
+            }
+          }
+        }
+        return undefined;
+      };
+      
+      const errorCode = getErrorCode(error);
       const maybePasswordRequired =
-        (error as Record<string, unknown>)?.data?.code === 'PASSWORD_REQUIRED' ||
-        (error as Record<string, unknown>)?.code === 'PASSWORD_REQUIRED' ||
+        errorCode === 'PASSWORD_REQUIRED' ||
         /password/i.test(errorMessage);
 
       if (maybePasswordRequired) {
@@ -404,7 +443,7 @@ export const AccountPage = ({
       await updateUser({ 
         selectedDomain: normalized,
         customDomains: JSON.stringify(updatedCustomDomains)
-      });
+      } as Parameters<typeof updateUser>[0]);
       
       const updatedLinks = {
         ...links,
@@ -487,7 +526,7 @@ export const AccountPage = ({
         await updateUser({ 
           selectedDomain: domain,
           customDomains: JSON.stringify(links?.customDomains || [])
-        });
+        } as Parameters<typeof updateUser>[0]);
         
         setLinks(prev => prev ? { ...prev, selectedDomain: domain } : prev);
       } catch (error) {
@@ -505,7 +544,7 @@ export const AccountPage = ({
   const handleFeedbackEmailsChange = async (checked: boolean) => {
     try {
       // Update user in database
-      await updateUser({ receiveFeedbackEmails: checked });
+      await updateUser({ receiveFeedbackEmails: checked } as Parameters<typeof updateUser>[0]);
       
       setEmailSettings(prev => prev ? { 
         ...prev, 

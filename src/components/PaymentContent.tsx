@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useState, useRef } from 'preact/hooks';
+import { useState, useRef, useEffect } from 'preact/hooks';
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import { Button } from './ui/Button';
 
@@ -13,8 +13,8 @@ interface PaymentContentProps {
 const PaymentContent: FunctionComponent<PaymentContentProps> = ({
     paymentUrl,
     amount,
-    _description,
-    _onPaymentComplete
+    description,
+    onPaymentComplete
 }) => {
     const [hasError, setHasError] = useState(false);
     const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -26,6 +26,35 @@ const PaymentContent: FunctionComponent<PaymentContentProps> = ({
     const handleIframeError = () => {
         setHasError(true);
     };
+
+    // Listen for payment completion messages from iframe
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            // Validate event origin for security
+            try {
+                const url = new URL(paymentUrl);
+                if (event.origin !== url.origin) {
+                    return;
+                }
+            } catch {
+                // If paymentUrl is invalid, skip validation
+                return;
+            }
+
+            // Check if message indicates successful payment
+            if (event.data && typeof event.data === 'object') {
+                const { type, paymentId } = event.data;
+                if (type === 'payment_success' && typeof paymentId === 'string') {
+                    onPaymentComplete?.(paymentId);
+                }
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => {
+            window.removeEventListener('message', handleMessage);
+        };
+    }, [paymentUrl, onPaymentComplete]);
 
     const handleArrowTopRightOnSquareIcon = () => {
         window.open(paymentUrl, '_blank', 'noopener,noreferrer');
@@ -43,6 +72,11 @@ const PaymentContent: FunctionComponent<PaymentContentProps> = ({
                         </span>
                     )}
                 </div>
+                {description && (
+                    <div className="ml-auto text-sm text-gray-600 dark:text-gray-300">
+                        {description}
+                    </div>
+                )}
             </div>
             
             {/* Payment iframe */}

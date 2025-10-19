@@ -9,9 +9,11 @@ interface LazyMediaProps {
     className?: string;
     onClick?: () => void;
     captionSrc?: string;
+    captionLabel?: string;
+    captionLang?: string;
 }
 
-const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', className = '', onClick, captionSrc }) => {
+const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', className = '', onClick, captionSrc, captionLabel, captionLang }) => {
     const mediaRef = useRef<HTMLDivElement>(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
@@ -123,7 +125,8 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
                         <track 
                             kind="captions" 
                             src={captionSrc && captionSrc.trim() ? captionSrc : ""} 
-                            label={captionSrc && captionSrc.trim() ? "Captions" : "No captions available"}
+                            label={captionSrc && captionSrc.trim() ? (captionLabel || "Captions") : "No captions available"}
+                            srcLang={captionLang}
                             default={!!(captionSrc && captionSrc.trim())}
                         />
                     </video>
@@ -138,7 +141,8 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
                         <track 
                             kind="captions" 
                             src={captionSrc && captionSrc.trim() ? captionSrc : ""} 
-                            label={captionSrc && captionSrc.trim() ? "Captions" : "No captions available"}
+                            label={captionSrc && captionSrc.trim() ? (captionLabel || "Captions") : "No captions available"}
+                            srcLang={captionLang}
                             default={!!(captionSrc && captionSrc.trim())}
                         />
                     </audio>

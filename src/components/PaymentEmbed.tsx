@@ -18,7 +18,7 @@ const PaymentEmbed: FunctionComponent<PaymentEmbedProps> = ({
   amount,
   description,
   onPaymentComplete,
-  _onClose
+  onClose
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
@@ -32,6 +32,7 @@ const PaymentEmbed: FunctionComponent<PaymentEmbedProps> = ({
 
   const handlePaymentModalClose = () => {
     setShowPaymentModal(false);
+    onClose?.();
   };
 
   const handlePaymentComplete = (paymentId: string) => {
