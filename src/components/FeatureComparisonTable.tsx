@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { getBusinessPrices, TIER_FEATURES } from '../utils/stripe-products';
-import { type SubscriptionTier } from '../utils/mockUserData';
+import { type SubscriptionTier } from '../types/user';
 
 interface FeatureComparisonTableProps {
   className?: string;

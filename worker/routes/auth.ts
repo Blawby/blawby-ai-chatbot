@@ -41,6 +41,20 @@ export async function handleAuth(request: Request, env: Env): Promise<Response> 
     }
   }
 
+  // Handle custom session endpoint mapping
+  const url = new URL(request.url);
+  if (url.pathname === '/api/auth/session/get' && request.method === 'GET') {
+    // Redirect to the actual session endpoint
+    const newUrl = new URL(request.url);
+    newUrl.pathname = '/api/auth/get-session';
+    const newRequest = new Request(newUrl.toString(), {
+      method: request.method,
+      headers: request.headers,
+      body: request.body,
+    });
+    request = newRequest;
+  }
+
   // Handle auth request with enhanced error handling for subscription requests
   let response: Response;
   try {

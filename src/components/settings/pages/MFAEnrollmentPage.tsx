@@ -2,7 +2,7 @@ import { useState, useMemo } from 'preact/hooks';
 import { Button } from '../../ui/Button';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useNavigation } from '../../../utils/navigation';
-import { mockUserDataService } from '../../../utils/mockUserData';
+import { authClient } from '../../../lib/authClient';
 import { useTranslation } from '@/i18n/hooks';
 
 export interface MFAEnrollmentPageProps {
@@ -67,10 +67,8 @@ export const MFAEnrollmentPage = ({
         }, 1000);
       });
       
-      // Update security settings to enable MFA
-      const currentSettings = mockUserDataService.getSecuritySettings();
-      const updatedSettings = { ...currentSettings, twoFactorEnabled: true };
-      mockUserDataService.setSecuritySettings(updatedSettings);
+      // Enable MFA using Better Auth twoFactor plugin
+      await authClient.twoFactor.enable({ code: verificationCode });
       
       showSuccess(
         t('settings:security.mfa.toastEnabled.title'),

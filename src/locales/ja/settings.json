@@ -132,7 +132,6 @@
     },
     "email": {
       "title": "メール",
-      "addressFallback": "chris@whynot.earth",
       "receiveFeedback": "フィードバックメールを受け取る"
     },
     "delete": {

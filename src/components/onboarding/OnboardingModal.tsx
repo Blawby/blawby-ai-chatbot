@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { useTranslation } from '@/i18n/hooks';
 import Modal from '../Modal';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
-import { mockUserDataService, OnboardingData } from '../../utils/mockUserData';
+import { updateUser } from '../../lib/authClient';
+import type { OnboardingData } from '../../types/user';
+import { toOnboardingData, fromOnboardingData } from '../../types/user';
 import { useToastContext } from '../../contexts/ToastContext';
-import { authClient } from '../../lib/authClient';
+import { useSession } from '../../contexts/AuthContext';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -18,6 +20,7 @@ type OnboardingStep = 'personal' | 'useCase';
 const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) => {
   const { t } = useTranslation('common');
   const { showError, showSuccess } = useToastContext();
+  const { data: session } = useSession();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('personal');
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     personalInfo: {
@@ -31,42 +34,37 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     },
     skippedSteps: []
   });
+  const hasLoadedRef = useRef(false);
 
   // Load existing user data if available
   useEffect(() => {
-    if (isOpen) {
-      const loadUserData = async () => {
-        try {
-          // Get real user data from Better Auth session
-          const session = await authClient.getSession();
-          if (session?.data?.user?.name) {
-            setOnboardingData(prev => ({
-              ...prev,
-              personalInfo: {
-                ...prev.personalInfo,
-                fullName: session.data.user.name
-              }
-            }));
-          }
-        } catch (error) {
-          // Fallback to mock data if session fails
-          console.warn('Failed to load user session for onboarding:', error);
-          const userProfile = mockUserDataService.getUserProfile();
-          if (userProfile.name) {
-            setOnboardingData(prev => ({
-              ...prev,
-              personalInfo: {
-                ...prev.personalInfo,
-                fullName: userProfile.name
-              }
-            }));
-          }
-        }
-      };
+    if (isOpen && session?.user && !hasLoadedRef.current) {
+      // Load existing onboarding data from session if available
+      // Note: session.user.onboardingData comes from database as string, but our type expects OnboardingData | null
+      // We need to handle the type mismatch by treating it as the raw database value
+      const rawOnboardingData = (session.user as Record<string, unknown>).onboardingData as string | null;
+      const existingOnboardingData = toOnboardingData(rawOnboardingData);
       
-      loadUserData();
+      if (existingOnboardingData) {
+        // If we have existing onboarding data, merge it into state
+        setOnboardingData(prev => ({ ...prev, ...existingOnboardingData }));
+      } else if (session.user.name) {
+        // Otherwise, pre-fill with user's name if available
+        setOnboardingData(prev => ({
+          ...prev,
+          personalInfo: {
+            ...prev.personalInfo,
+            fullName: session.user.name
+          }
+        }));
+      }
+      
+      hasLoadedRef.current = true;
+    } else if (!isOpen) {
+      // Reset the ref when modal closes
+      hasLoadedRef.current = false;
     }
-  }, [isOpen]);
+  }, [isOpen, session?.user]);
 
   const handleStepComplete = async (step: OnboardingStep, data: Partial<OnboardingData>) => {
     // Compute merged snapshot locally to avoid stale state
@@ -110,10 +108,10 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
 
     try {
       // Save onboarding data to user preferences (single source of truth)
-      mockUserDataService.setPreferences({
+      await updateUser({
         onboardingCompleted: true,
-        onboardingData: completedData
-      });
+        onboardingData: fromOnboardingData(completedData)
+      } as Parameters<typeof updateUser>[0]);
 
       // Cache the completion status in localStorage for quick access
       // This is just a cache, not the source of truth

@@ -3,18 +3,21 @@ import { Button } from '../../ui/Button';
 import { Select, FormLabel } from '../../ui';
 import { FormItem } from '../../ui/form';
 import Modal from '../../Modal';
+import ConfirmationDialog from '../../ConfirmationDialog';
 import { 
-  EnvelopeIcon,
-  ExclamationTriangleIcon
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useNavigation } from '../../../utils/navigation';
-import { mockUserDataService, MockUserLinks, MockEmailSettings, type SubscriptionTier } from '../../../utils/mockUserData';
+import { useSession } from '../../../contexts/AuthContext';
+import { updateUser } from '../../../lib/authClient';
+import { signOut } from '../../../utils/auth';
 import { TIER_FEATURES } from '../../../utils/stripe-products';
 import { useTranslation } from '@/i18n/hooks';
 import { useLocation } from 'preact-iso';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
+import type { UserLinks, EmailSettings, SubscriptionTier } from '../../../types/user';
 
 
 export interface AccountPageProps {
@@ -36,18 +39,27 @@ export const AccountPage = ({
   const location = useLocation();
   const { syncSubscription } = usePaymentUpgrade();
   const { currentOrganization, loading: orgLoading, refetch } = useOrganizationManagement();
-  const [links, setLinks] = useState<MockUserLinks | null>(null);
-  const [emailSettings, setEmailSettings] = useState<MockEmailSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, isPending } = useSession();
+  const [links, setLinks] = useState<UserLinks | null>(null);
+  const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentTier, setCurrentTier] = useState<SubscriptionTier | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDomainModal, setShowDomainModal] = useState(false);
   const [domainInput, setDomainInput] = useState('');
   const [domainError, setDomainError] = useState<string | null>(null);
-  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  
+  const [deleteVerificationSent, setDeleteVerificationSent] = useState(false);
+  const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
+
+  const clearLocalAuthState = useCallback(() => {
+    try {
+      localStorage.removeItem('onboardingCompleted');
+      localStorage.removeItem('onboardingCheckDone');
+    } catch (error) {
+      console.warn('Failed to clear onboarding flags after account deletion:', error);
+    }
+  }, []);
+
   // Ref to store verification timeout ID for cleanup
   const verificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref to track if component is mounted to prevent state updates after unmount
@@ -59,13 +71,29 @@ export const AccountPage = ({
   // Ref to track if we need to check for upgrades after organization update
   const shouldCheckUpgradeRef = useRef(false);
 
-  // Extract data loading logic to eliminate duplication
+  // Load account data from Better Auth session
   const loadAccountData = useCallback(async () => {
+    if (!session?.user) return;
+    
     try {
       setError(null);
-      setLoading(true);
-      const linksData = mockUserDataService.getUserLinks();
-      const emailData = mockUserDataService.getEmailSettings();
+      const user = session.user;
+      
+      // Convert user data to links format
+      const linksData: UserLinks = {
+        selectedDomain: user.selectedDomain || 'Select a domain',
+        linkedinUrl: user.linkedinUrl,
+        githubUrl: user.githubUrl,
+        customDomains: user.customDomains ? JSON.parse(user.customDomains) : [] // Parse JSON string to array
+      };
+      
+      // Convert user data to email settings format
+      const emailData: EmailSettings = {
+        email: user.email,
+        receiveFeedbackEmails: user.receiveFeedbackEmails ?? false,
+        marketingEmails: user.marketingEmails ?? false,
+        securityAlerts: user.securityAlerts ?? true
+      };
       
       // Use real organization subscription tier directly (no mapping needed)
       const orgTier = currentOrganization?.subscriptionTier;
@@ -75,21 +103,28 @@ export const AccountPage = ({
       setEmailSettings(emailData);
       setCurrentTier(displayTier as SubscriptionTier);
     } catch (error) {
-       
       console.error('Failed to load account data:', error);
       setError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setLoading(false);
     }
-  }, [currentOrganization?.subscriptionTier]);
+  }, [session?.user, currentOrganization?.subscriptionTier]);
 
   // Load account data when component mounts or organization changes
-  // Only load when organization data is available (not loading)
+  // Only load when organization data is available (not loading) and session is available
   useEffect(() => {
-    if (!orgLoading && currentOrganization !== undefined) {
+    if (!orgLoading && currentOrganization !== undefined && session?.user) {
       loadAccountData();
     }
-  }, [loadAccountData, orgLoading, currentOrganization]);
+  }, [loadAccountData, orgLoading, currentOrganization, session?.user]);
+
+  // Detect OAuth vs password users based on lastLoginMethod
+  const normalizedLoginMethod = session?.user?.lastLoginMethod
+    ? String(session.user.lastLoginMethod).toLowerCase()
+    : null;
+  const loginMethodRequiresPassword = normalizedLoginMethod
+    ? ['email', 'credential', 'password'].includes(normalizedLoginMethod)
+    : false;
+  const requiresPassword = passwordRequiredOverride ?? loginMethodRequiresPassword;
+  const isOAuthUser = !requiresPassword;
 
   // Check for tier upgrades after organization data is updated
   useEffect(() => {
@@ -205,26 +240,14 @@ export const AccountPage = ({
   }, []);
 
 
-  // Listen for auth state changes to update tier
-  useEffect(() => {
-    const handleAuthStateChange = () => {
-      loadAccountData();
-    };
-
-    window.addEventListener('authStateChanged', handleAuthStateChange);
-    
-    return () => {
-      window.removeEventListener('authStateChanged', handleAuthStateChange);
-    };
-  }, [loadAccountData]);
+  // No need for custom event listeners - Better Auth handles reactivity automatically
 
   // Simple computed values for demo - only compute when currentTier is available
   const upgradeButtonText = 'Upgrade Plan';
   const currentPlanFeatures = currentTier && (currentTier === 'free' || currentTier === 'business')
     ? TIER_FEATURES[currentTier]
     : TIER_FEATURES['business'];
-  const emailFallback = t('settings:account.email.addressFallback');
-  const emailAddress = emailSettings?.email || emailFallback;
+  const emailAddress = emailSettings?.email || session?.user?.email || '';
   const customDomainOptions = (links?.customDomains || []).map(domain => ({
     value: domain.domain,
     label: domain.domain
@@ -245,59 +268,75 @@ export const AccountPage = ({
 
   const handleDeleteAccount = () => {
     setShowDeleteConfirm(true);
-    setDeleteConfirmInput('');
-    setDeleteError(null);
+    setDeleteVerificationSent(false);
+    setPasswordRequiredOverride(null);
   };
 
-  const handleConfirmDelete = async () => {
-    const normalizedInput = deleteConfirmInput.trim();
+  const passwordLabel = t('settings:account.delete.passwordLabel', {
+    defaultValue: 'Enter your password to confirm deletion.'
+  });
+  const passwordPlaceholder = t('settings:account.delete.passwordPlaceholder', {
+    defaultValue: 'Current password'
+  });
+  const passwordRequiredMessage = t('settings:account.delete.passwordRequired', {
+    defaultValue: 'Password is required to delete your account.'
+  });
 
-    if (normalizedInput !== emailAddress) {
-      const message = t('settings:account.delete.errorMismatch');
-      setDeleteError(message);
-      showError(t('settings:account.delete.toastFailedTitle'), message);
-      return;
-    }
-
+  const handleConfirmDelete = async ({ password }: { password?: string } = {}) => {
     try {
-      // Use the proper delete account method
-      await mockUserDataService.deleteAccount();
+      const { deleteUser } = await import('../../../lib/authClient');
       
-      setShowDeleteConfirm(false);
-      setDeleteConfirmInput('');
-      setDeleteError(null);
-      
-      showSuccess(
-        t('settings:account.delete.toastSuccessTitle'),
-        t('settings:account.delete.toastSuccessBody')
-      );
-      
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new CustomEvent('authStateChanged', { detail: null }));
-      
-      // Close the settings modal first
-      if (_onClose) {
-        _onClose();
+      if (isOAuthUser) {
+        // OAuth users: just call deleteUser, triggers verification email
+        await deleteUser();
+        setDeleteVerificationSent(true);
+        clearLocalAuthState();
+        showSuccess(
+          t('settings:account.delete.verificationSentTitle'),
+          t('settings:account.delete.verificationSentBody')
+        );
+      } else {
+        // Password users: call deleteUser with password (handled by Better Auth)
+        if (!password || password.trim().length === 0) {
+          throw new Error(passwordRequiredMessage);
+        }
+        await deleteUser({ password });
+        await signOut(); // Use top-level signOut from utils/auth
+        setShowDeleteConfirm(false);
+        setDeleteVerificationSent(false);
+        setPasswordRequiredOverride(null);
+        clearLocalAuthState();
+        showSuccess(
+          t('settings:account.delete.toastSuccessTitle'),
+          t('settings:account.delete.toastSuccessBody')
+        );
+        if (_onClose) {
+          _onClose();
+        }
+        setTimeout(() => {
+          navigate('/');
+        }, 1000);
       }
-      
-      // Navigate to root page after a short delay
-      setTimeout(() => {
-        navigate('/');
-      }, 1000);
-    } catch (_error) {
-      const message = t('settings:account.delete.errorFailed');
-      setDeleteError(message);
-      showError(
-        t('settings:account.delete.toastFailedTitle'),
-        t('settings:account.delete.toastFailedBody')
-      );
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const maybePasswordRequired =
+        (error as any)?.data?.code === 'PASSWORD_REQUIRED' ||
+        (error as any)?.code === 'PASSWORD_REQUIRED' ||
+        /password/i.test(errorMessage);
+
+      if (maybePasswordRequired) {
+        setPasswordRequiredOverride(true);
+      }
+
+      throw error; // Let ConfirmationDialog handle error display
     }
   };
 
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
-    setDeleteConfirmInput('');
-    setDeleteError(null);
+    setDeleteVerificationSent(false);
+    setPasswordRequiredOverride(null);
   };
 
   // Domain validation function
@@ -339,7 +378,7 @@ export const AccountPage = ({
     setDomainError(null);
   };
 
-  const handleDomainSubmit = () => {
+  const handleDomainSubmit = async () => {
     const errorKey = validateDomain(domainInput);
     if (errorKey) {
       const message = t(errorKey);
@@ -349,24 +388,43 @@ export const AccountPage = ({
     }
 
     const normalized = domainInput.trim().toLowerCase();
-    const updatedLinks = mockUserDataService.setUserLinks({
-      selectedDomain: normalized,
-      customDomains: [
+    
+    try {
+      // Create updated custom domains array
+      const updatedCustomDomains = [
         ...(links?.customDomains || []),
         {
           domain: normalized,
           verified: false,
           verifiedAt: null
         }
-      ]
-    });
-    
-    setLinks(updatedLinks);
-    handleCloseDomainModal();
-    showSuccess(
-      t('settings:account.links.addDomainToast.title'),
-      t('settings:account.links.addDomainToast.body', { domain: normalized })
-    );
+      ];
+      
+      // Update user in database with both selectedDomain and customDomains
+      await updateUser({ 
+        selectedDomain: normalized,
+        customDomains: JSON.stringify(updatedCustomDomains)
+      });
+      
+      const updatedLinks = {
+        ...links,
+        selectedDomain: normalized,
+        customDomains: updatedCustomDomains
+      };
+      
+      setLinks(updatedLinks);
+      handleCloseDomainModal();
+      showSuccess(
+        t('settings:account.links.addDomainToast.title'),
+        t('settings:account.links.addDomainToast.body', { domain: normalized })
+      );
+    } catch (error) {
+      console.error('Failed to update domain:', error);
+      showError(
+        t('common:notifications.errorTitle'),
+        t('common:notifications.settingsSaveError')
+      );
+    }
     
     // Simulate domain verification process with cancellable timeout
     // Clear any existing verification timeout to prevent race conditions
@@ -388,8 +446,8 @@ export const AccountPage = ({
           ) || []
         };
         
-        // Update the mock service with the latest state
-        mockUserDataService.setUserLinks(updatedVerifyLinks);
+        // Note: Domain verification would be handled by the backend
+        // For now, we just update the local state
         
         // Show success toast with translated strings
         showSuccess(
@@ -419,28 +477,58 @@ export const AccountPage = ({
     );
   };
 
-  const handleDomainChange = (domain: string) => {
+  const handleDomainChange = async (domain: string) => {
     if (domain === 'verify-new') {
       // Handle "Verify new domain" option
       handleOpenDomainModal();
     } else if (domain !== DOMAIN_SELECT_VALUE) {
-      const updatedLinks = mockUserDataService.setUserLinks({ selectedDomain: domain });
-      setLinks(updatedLinks);
+      try {
+        // Update user in database with current custom domains
+        await updateUser({ 
+          selectedDomain: domain,
+          customDomains: JSON.stringify(links?.customDomains || [])
+        });
+        
+        setLinks(prev => prev ? { ...prev, selectedDomain: domain } : prev);
+      } catch (error) {
+        console.error('Failed to update domain:', error);
+        showError(
+          t('common:notifications.errorTitle'),
+          t('common:notifications.settingsSaveError')
+        );
+      }
     } else {
       setLinks(prev => (prev ? { ...prev, selectedDomain: prev.selectedDomain ?? domain } : prev));
     }
   };
 
-  const handleFeedbackEmailsChange = (checked: boolean) => {
-    const updatedEmailSettings = mockUserDataService.setEmailSettings({ 
-      receiveFeedbackEmails: checked 
-    });
-    setEmailSettings(updatedEmailSettings);
+  const handleFeedbackEmailsChange = async (checked: boolean) => {
+    try {
+      // Update user in database
+      await updateUser({ receiveFeedbackEmails: checked });
+      
+      setEmailSettings(prev => prev ? { 
+        ...prev, 
+        receiveFeedbackEmails: checked 
+      } : { 
+        email: '', 
+        receiveFeedbackEmails: checked, 
+        marketingEmails: false, 
+        securityAlerts: false 
+      });
+    } catch (error) {
+      console.error('Failed to update email settings:', error);
+      showError(
+        t('common:notifications.errorTitle'),
+        t('common:notifications.settingsSaveError')
+      );
+    }
   };
 
   // Features are now loaded dynamically from the pricing service
 
-  if (loading || orgLoading) {
+  // Show loading state while session or organization is loading
+  if (isPending || orgLoading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -655,124 +743,34 @@ export const AccountPage = ({
         </div>
       </div>
 
-      {/* Delete Account Confirmation Modal */}
-      <Modal
+      {/* Delete Account Confirmation Dialog */}
+      <ConfirmationDialog
         isOpen={showDeleteConfirm}
         onClose={handleCancelDelete}
-        title={t('settings:account.delete.modalTitle')}
-        showCloseButton={true}
-        type="modal"
-        disableBackdropClick={true}
-      >
-        <div 
-          className="space-y-4" 
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
-          role="presentation"
-        >
-          {/* Confirmation Content */}
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0">
-                <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  {t('settings:account.delete.heading')}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  {t('settings:account.delete.description')}
-                </p>
-                <div 
-                  className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mb-4" 
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
-                  role="presentation"
-                >
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    <strong>{t('settings:account.delete.listIntro')}</strong>
-                  </p>
-                  <ul className="text-sm text-gray-600 dark:text-gray-400 mt-2 space-y-1">
-                    {deleteListItems.map((item, idx) => (
-                      <li key={idx}>• {item}</li>
-                    ))}
-                  </ul>
-                </div>
-                
-                {/* Confirmation Input */}
-                <div 
-                  className="space-y-2" 
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
-                  role="presentation"
-                >
-                  <label htmlFor="delete-confirm" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {confirmLabel} <span className="font-mono text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{emailAddress}</span>
-                  </label>
-                  <input
-                    id="delete-confirm"
-                    type="text"
-                    value={deleteConfirmInput}
-                    onChange={(e) => {
-                      setDeleteConfirmInput(e.currentTarget.value);
-                      setDeleteError(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleConfirmDelete();
-                      }
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                    }}
-                    onFocus={(e) => {
-                      e.stopPropagation();
-                    }}
-                    placeholder={t('settings:account.delete.inputPlaceholder')}
-                    className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-dark-bg text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                      deleteError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
-                    }`}
-                  />
-                  {deleteError && (
-                    <p className="text-sm text-red-600 dark:text-red-400">
-                      {deleteError}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div 
-            className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700" 
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
-            role="presentation"
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCancelDelete}
-              className="min-w-[80px]"
-            >
-              {t('settings:account.delete.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleConfirmDelete}
-              disabled={deleteConfirmInput.trim() !== emailAddress}
-              className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500 min-w-[80px] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t('settings:account.delete.confirmButton')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onConfirm={handleConfirmDelete}
+        title={t('settings:account.delete.heading')}
+        description={t('settings:account.delete.description')}
+        confirmText={t('settings:account.delete.confirmButton')}
+        cancelText={t('settings:account.delete.cancel')}
+        confirmationValue={emailAddress}
+        confirmationLabel={
+          isOAuthUser
+            ? t('settings:account.delete.confirmLabelOAuth', { email: emailAddress })
+            : t('settings:account.delete.confirmLabel', { email: emailAddress })
+        }
+        warningItems={deleteListItems}
+        successMessage={
+          deleteVerificationSent ? {
+            title: t('settings:account.delete.verificationSentTitle'),
+            body: t('settings:account.delete.checkYourEmail')
+          } : undefined
+        }
+        showSuccessMessage={deleteVerificationSent}
+        requirePassword={requiresPassword}
+        passwordLabel={passwordLabel}
+        passwordPlaceholder={passwordPlaceholder}
+        passwordMissingMessage={passwordRequiredMessage}
+      />
 
       {/* Domain Input Modal */}
       <Modal

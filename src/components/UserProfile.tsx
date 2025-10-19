@@ -1,19 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { UserIcon, Cog6ToothIcon, SparklesIcon, QuestionMarkCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
-import { authClient } from '../lib/authClient';
+import { useSession } from '../contexts/AuthContext';
+import { signOut } from '../utils/auth';
 import { sanitizeUserImageUrl } from '../utils/urlValidation';
 import { useNavigation } from '../utils/navigation';
-import { type SubscriptionTier } from '../utils/mockUserData';
+import { type SubscriptionTier } from '../types/user';
 import { getTierDisplayName } from '../utils/stripe-products';
 import { debounce } from '../utils/debounce';
 import { useTranslation } from '@/i18n/hooks';
 import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
+import type { User as BetterAuthUser } from 'better-auth/types';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  image?: string | null;
+interface User extends BetterAuthUser {
   organizationId?: string | null;
   role?: string | null;
   phone?: string | null;
@@ -27,72 +25,36 @@ interface UserProfileProps {
 
 const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const { currentOrganization, loading: orgLoading } = useOrganizationManagement();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentOrganization } = useOrganizationManagement();
+  const { data: session, isPending, error } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const requestIdRef = useRef(0);
   const { navigateToAuth, navigate } = useNavigation();
 
-  const checkAuthStatus = useCallback(async () => {
-    // Increment request ID to cancel previous requests
-    const currentRequestId = ++requestIdRef.current;
-    
-    try {
-      // Get session from Better Auth
-      const session = await authClient.getSession();
-      
-      // Check if this request is still current (not cancelled)
-      if (currentRequestId !== requestIdRef.current) {
-        return; // Ignore stale response
-      }
-      
-      if (session?.data?.user) {
-        // Use organization tier directly (no mapping needed)
-        const orgTier = currentOrganization?.subscriptionTier;
-        const displayTier = orgTier || 'free';
-        
-        // User is authenticated, create user object with real subscription tier
-        const userWithTier = {
-          id: session.data.user.id,
-          name: session.data.user.name,
-          email: session.data.user.email,
-          image: session.data.user.image,
-          organizationId: currentOrganization?.id || null,
-          role: 'user', // Default role
-          phone: null,
-          subscriptionTier: displayTier as SubscriptionTier
-        };
-        setUser(userWithTier);
-      } else {
-        // No session means user is signed out
-        setUser(null);
-      }
-    } catch (error) {
-      // Check if this request is still current (not cancelled)
-      if (currentRequestId !== requestIdRef.current) {
-        return; // Ignore stale response
-      }
-      
-      console.error('Error checking auth status:', error);
-      if (error instanceof Error && error.message.includes('fetch')) {
-        console.warn('Network error checking auth status - user may be offline');
-      }
-      setUser(null);
-    }
-    
-    // Only update loading state if this is still the current request
-    if (currentRequestId === requestIdRef.current) {
-      setLoading(false);
-    }
-  }, [currentOrganization]);
-
+  // Handle session fetch errors
   useEffect(() => {
-    checkAuthStatus();
-    
-    // Mobile detection with debouncing
+    if (error) {
+      console.error('Failed to load session:', error);
+    }
+  }, [error]);
+
+  // Derive user data from session and organization
+  const user = session?.user ? {
+    id: session.user.id,
+    name: session.user.name || session.user.email || 'User',  // Default when name is falsy
+    email: session.user.email,
+    image: session.user.image,
+    organizationId: currentOrganization?.id || null,
+    role: 'user', // Default role
+    phone: null,
+    subscriptionTier: (currentOrganization?.subscriptionTier || 'free') as SubscriptionTier
+  } : null;
+
+  const loading = isPending;
+
+  // Mobile detection with debouncing
+  useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
     };
@@ -103,20 +65,11 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
     const debouncedResizeHandler = debounce(checkMobile, 100);
     window.addEventListener('resize', debouncedResizeHandler);
     
-    // Listen for auth state changes (Better Auth handles cross-tab sync automatically)
-    const handleAuthStateChange = (e: CustomEvent) => {
-      // Re-check auth status when auth state changes
-      checkAuthStatus();
-    };
-    
-    window.addEventListener('authStateChanged', handleAuthStateChange as EventListener);
-    
     return () => {
       window.removeEventListener('resize', debouncedResizeHandler);
       debouncedResizeHandler.cancel();
-      window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
     };
-  }, [checkAuthStatus]);
+  }, []);
 
   // Handle dropdown close when clicking outside
   useEffect(() => {
@@ -134,18 +87,6 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showDropdown]);
-
-  // Initial load when organization data is available
-  useEffect(() => {
-    if (!orgLoading && currentOrganization) {
-      checkAuthStatus();
-    }
-  }, [orgLoading, currentOrganization, checkAuthStatus]);
-
-  // Re-run when organization tier changes
-  useEffect(() => {
-    if (user) checkAuthStatus();
-  }, [user, currentOrganization?.subscriptionTier, checkAuthStatus]);
 
 
 
@@ -188,21 +129,10 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
     setShowDropdown(false);
     
     try {
-      // Sign out using Better Auth
-      await authClient.signOut();
-      
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new CustomEvent('authStateChanged', { detail: null }));
-      
-      // Refresh the page to update the UI
-      window.location.reload();
+      // Use centralized sign out utility
+      await signOut();
     } catch (error) {
       console.error('Error signing out:', error);
-      if (error instanceof Error && error.message.includes('fetch')) {
-        console.warn('Network error during sign out - forcing page reload');
-      }
-      // Still refresh the page to clear any cached state
-      window.location.reload();
     }
   };
 
@@ -287,6 +217,29 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
       <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
         <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
         {!isCollapsed && <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />}
+      </div>
+    );
+  }
+
+  // Handle session fetch errors
+  if (error) {
+    return (
+      <div className={`p-2 border-t border-gray-200 dark:border-dark-border`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
+          <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <UserIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+          </div>
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                Failed to load session
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Please try refreshing the page
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

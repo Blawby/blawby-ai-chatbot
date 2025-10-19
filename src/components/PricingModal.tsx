@@ -4,17 +4,17 @@ import { useTranslation, i18n } from '@/i18n/hooks';
 import { useNavigation } from '../utils/navigation';
 import Modal from './Modal';
 import { Button } from './ui/Button';
-import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { Select } from './ui/input/Select';
-import { type SubscriptionTier } from '../utils/mockUserData';
+import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { getBusinessPrices } from '../utils/stripe-products';
-import { mockUserDataService, getLanguageForCountry } from '../utils/mockUserData';
+import { useSession } from '../contexts/AuthContext';
+import type { SubscriptionTier } from '../types/user';
 
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentTier?: SubscriptionTier;
-  onUpgrade?: (tier: SubscriptionTier) => Promise<void> | void;
+  onUpgrade?: (tier: SubscriptionTier) => Promise<boolean | void> | boolean | void;
 }
 
 const PricingModal: FunctionComponent<PricingModalProps> = ({
@@ -25,27 +25,24 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 }) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { navigate } = useNavigation();
+  const { data: session } = useSession();
   const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
   const [selectedCountry, setSelectedCountry] = useState('us');
 
   // Load user's current country preference
   useEffect(() => {
-    const preferences = mockUserDataService.getPreferences();
-    setSelectedCountry(preferences.country ?? 'us');
+    // TODO: Get from user profile when available
+    setSelectedCountry('us');
   }, []);
 
   const handleCountryChange = (country: string) => {
     setSelectedCountry(country);
-    const language = getLanguageForCountry(country);
-    mockUserDataService.setPreferences({ 
-      country,
-      language 
-    });
+    // TODO: Update user profile with country preference
   };
 
   // Get user preferences for locale and currency
-  const preferences = mockUserDataService.getPreferences();
-  const userLocale = preferences.language === 'auto-detect' ? 'en' : preferences.language;
+  // TODO: Get from user profile when available
+  const userLocale = 'en'; // Default to English for now
   const userCurrency = 'USD'; // TODO: Add currency preference to user preferences
   
   // Build pricing plans from real Stripe config
@@ -137,12 +134,19 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   })();
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
+    let shouldNavigateToCart = true;
     try {
       if (onUpgrade) {
-        await onUpgrade(tier);
+        const result = await onUpgrade(tier);
+        if (result === false) {
+          shouldNavigateToCart = false;
+        }
       }
-      navigate(`/cart?tier=${tier}`);
-      onClose();
+
+      if (shouldNavigateToCart) {
+        navigate(`/cart?tier=${tier}`);
+        onClose();
+      }
     } catch (error) {
       console.error('Error during upgrade process:', error);
       navigate(`/cart?tier=${tier}`);

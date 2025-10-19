@@ -2,9 +2,11 @@ import { useState, useEffect } from 'preact/hooks';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, SectionDivider } from '../../ui';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '../../../contexts/ToastContext';
-import { mockUserDataService, MockNotificationSettings } from '../../../utils/mockUserData';
+import { useSession } from '../../../contexts/AuthContext';
+import { updateUser } from '../../../lib/authClient';
 import { useTranslation } from '@/i18n/hooks';
 import { getNotificationDisplayText, NOTIFICATION_DEFAULTS } from '../../ui/validation/defaultValues';
+import type { NotificationSettings } from '../../../types/user';
 
 export interface NotificationsPageProps {
   className?: string;
@@ -14,39 +16,42 @@ export const NotificationsPage = ({
   className = ''
 }: NotificationsPageProps) => {
   const { showSuccess, showError } = useToastContext();
-  const [settings, setSettings] = useState<MockNotificationSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, isPending } = useSession();
+  const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const { t } = useTranslation(['settings', 'common']);
   
 
-  // Load settings from mock data service
+  // Load settings from Better Auth session
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        setLoading(true);
-        const notificationSettings = mockUserDataService.getNotificationSettings();
-        setSettings(notificationSettings);
-      } catch (error) {
-        showError(
-          'Error',
-          t('settings:notifications.loadError')
-        );
-      } finally {
-        setLoading(false);
+    if (!session?.user) return;
+    
+    const user = session.user;
+    
+    // Convert user data to notification settings format
+    const notificationSettings: NotificationSettings = {
+      responses: {
+        push: user.notificationResponsesPush ?? true
+      },
+      tasks: {
+        push: user.notificationTasksPush ?? true,
+        email: user.notificationTasksEmail ?? true
+      },
+      messaging: {
+        push: user.notificationMessagingPush ?? true
       }
     };
     
-    loadSettings();
-  }, []);
+    setSettings(notificationSettings);
+  }, [session?.user]);
 
-  const handleToggleChange = (section: string, toggleKey: string, value: boolean) => {
+  const handleToggleChange = async (section: string, toggleKey: string, value: boolean) => {
     if (!settings) return;
     
     // Create a new settings object to ensure React detects the change
     const updatedSettings = {
       ...settings,
       [section]: {
-        ...settings[section as keyof MockNotificationSettings],
+        ...settings[section as keyof NotificationSettings],
         [toggleKey]: value
       }
     };
@@ -54,18 +59,44 @@ export const NotificationsPage = ({
     // Update local state
     setSettings(updatedSettings);
     
-    // Save to mock data service
-    mockUserDataService.setNotificationSettings(updatedSettings);
-    
-    // Show success toast
-    showSuccess(
-      t('common:notifications.settingsSavedTitle'),
-      t('settings:notifications.toastBody')
-    );
+    try {
+      // Map the nested structure to flat fields for Better Auth
+      const updateData: Record<string, boolean> = {};
+      
+      if (section === 'responses' && toggleKey === 'push') {
+        updateData.notificationResponsesPush = value;
+      } else if (section === 'tasks') {
+        if (toggleKey === 'push') {
+          updateData.notificationTasksPush = value;
+        } else if (toggleKey === 'email') {
+          updateData.notificationTasksEmail = value;
+        }
+      } else if (section === 'messaging' && toggleKey === 'push') {
+        updateData.notificationMessagingPush = value;
+      }
+      
+      // Update user in database
+      await updateUser(updateData);
+      
+      // Show success toast
+      showSuccess(
+        t('common:notifications.settingsSavedTitle'),
+        t('settings:notifications.toastBody')
+      );
+    } catch (error) {
+      console.error('Failed to update notification settings:', error);
+      showError(
+        t('common:notifications.errorTitle'),
+        t('common:notifications.settingsSaveError')
+      );
+      
+      // Revert the local state on error
+      setSettings(settings);
+    }
   };
 
   // Generate display text for dropdown triggers using atomic design defaults
-  const getDisplayText = (section: keyof MockNotificationSettings) => {
+  const getDisplayText = (section: keyof NotificationSettings) => {
     if (!settings) return '';
     
     const sectionSettings = settings[section];
@@ -78,7 +109,8 @@ export const NotificationsPage = ({
     return getNotificationDisplayText(sectionSettings, translations);
   };
 
-  if (loading) {
+  // Show loading state while session is loading
+  if (isPending) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />

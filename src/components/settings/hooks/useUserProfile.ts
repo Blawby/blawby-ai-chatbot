@@ -1,19 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-// No authentication required - authClient removed
-
-// Better Auth session user type (what we get from authClient.getSession())
-interface BetterAuthUser {
-  id: string;
-  name: string;
-  email: string;
-  emailVerified?: boolean;
-  image?: string | null;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-  organizationId?: string | null;
-  role?: string | null;
-  phone?: string | null;
-}
+import type { User as BetterAuthUser } from 'better-auth/types';
 
 // Type guard to validate Better Auth user has required fields
 function isValidBetterAuthUser(user: unknown): user is BetterAuthUser {
@@ -194,6 +180,8 @@ export const useUserProfile = (): UseUserProfileReturn => {
 
       // For now, just update the local state
       // TODO: Implement proper profile updates using Better Auth's built-in endpoints
+      // TODO: Integrate PIIEncryptionService to encrypt PII fields (secondaryPhone, addressStreet, etc.)
+      // TODO: Add PII access audit logging via PIIEncryptionService.logPIIAccess()
       setProfile(prev => prev ? { ...prev, ...data } : null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';

@@ -1,12 +1,20 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { Switch } from '../../ui/input/Switch';
 import { Button } from '../../ui/Button';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useNavigation } from '../../../utils/navigation';
-import { mockUserDataService, MockSecuritySettings } from '../../../utils/mockUserData';
+import { useSession } from '../../../contexts/AuthContext';
+import { updateUser, authClient } from '../../../lib/authClient';
 import Modal from '../../Modal';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/i18n/hooks';
+import type { SecuritySettings } from '../../../types/user';
+import { convertSessionTimeoutToSeconds } from '../../../types/user';
+
+// Runtime validation for session timeout values
+const isValidSessionTimeout = (value: unknown): value is number => {
+  return typeof value === 'number' && value > 0;
+};
 
 export interface SecurityPageProps {
   isMobile?: boolean;
@@ -22,9 +30,8 @@ export const SecurityPage = ({
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
-  const [settings, setSettings] = useState<MockSecuritySettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: session, isPending } = useSession();
+  const [settings, setSettings] = useState<SecuritySettings | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showDisableMFAConfirm, setShowDisableMFAConfirm] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -32,45 +39,38 @@ export const SecurityPage = ({
     newPassword: '',
     confirmPassword: ''
   });
-  const isLoadingRef = useRef(false);
 
-  // Load settings from mock data service
-  const loadSettings = useCallback(async () => {
-    // Guard against concurrent calls
-    if (isLoadingRef.current) {
-      return;
-    }
-    
-    try {
-      isLoadingRef.current = true;
-      setLoading(true);
-      setError(null);
-      const securitySettings = mockUserDataService.getSecuritySettings();
-      setSettings(securitySettings);
-    } catch (error) {
-      // Failed to load security settings
-      setError(error instanceof Error ? error.message : t('settings:security.loadError'));
-    } finally {
-      setLoading(false);
-      isLoadingRef.current = false;
-    }
-  }, [t]);
-
+  // Load settings from Better Auth session
   useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
+    if (!session?.user) return;
+    
+    const user = session.user;
+    
+    // Convert user data to security settings format
+    const securitySettings: SecuritySettings = {
+      twoFactorEnabled: user.twoFactorEnabled ?? false,
+      emailNotifications: user.emailNotifications ?? true,
+      loginAlerts: user.loginAlerts ?? true,
+      sessionTimeout: isValidSessionTimeout(user.sessionTimeout) ? user.sessionTimeout : convertSessionTimeoutToSeconds('7 days'),
+      lastPasswordChange: user.lastPasswordChange,
+      connectedAccounts: [] // This would need to be populated from accounts table if needed
+    };
+    
+    setSettings(securitySettings);
+  }, [session?.user]);
 
   // Refresh settings when component regains focus (e.g., returning from MFA enrollment)
   useEffect(() => {
     const handleFocus = () => {
-      loadSettings();
+      // Settings will be refreshed automatically when session updates
+      // No need to manually reload since we're using reactive session data
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [loadSettings]);
+  }, []);
 
-  const handleToggleChange = (key: string, value: boolean) => {
+  const handleToggleChange = async (key: string, value: boolean) => {
     if (!settings) return;
     
     if (key === 'twoFactorEnabled') {
@@ -86,27 +86,62 @@ export const SecurityPage = ({
       const updatedSettings = { ...settings, [key]: value };
       setSettings(updatedSettings);
       
-      // Save to mock data service
-      mockUserDataService.setSecuritySettings(updatedSettings);
-      showSuccess(
-        t('common:notifications.settingsSavedTitle'),
-        t('settings:security.toasts.settingsUpdated')
-      );
+      try {
+        // Update user in database
+        await updateUser({ [key]: value });
+        
+        showSuccess(
+          t('common:notifications.settingsSavedTitle'),
+          t('settings:security.toasts.settingsUpdated')
+        );
+      } catch (error) {
+        console.error('Failed to update security settings:', error);
+        showError(
+          t('common:notifications.errorTitle'),
+          t('common:notifications.settingsSaveError')
+        );
+        
+        // Revert the local state on error
+        setSettings(settings);
+      }
     }
   };
 
-  const handleConfirmDisableMFA = () => {
+  const handleConfirmDisableMFA = async () => {
     if (!settings) return;
+    
+    // Check if user session is authenticated
+    if (!session?.user) {
+      showError(
+        t('common:notifications.errorTitle'),
+        t('common:notifications.sessionExpired')
+      );
+      setShowDisableMFAConfirm(false);
+      return;
+    }
     
     const updatedSettings = { ...settings, twoFactorEnabled: false };
     setSettings(updatedSettings);
     
-    // Save to mock data service
-    mockUserDataService.setSecuritySettings(updatedSettings);
-    showSuccess(
-      t('settings:security.mfa.disable.toastTitle'),
-      t('settings:security.mfa.disable.toastBody')
-    );
+    try {
+      // Disable MFA using Better Auth twoFactor plugin
+      await authClient.twoFactor.disable();
+      
+      showSuccess(
+        t('settings:security.mfa.disable.toastTitle'),
+        t('settings:security.mfa.disable.toastBody')
+      );
+    } catch (error) {
+      console.error('Failed to disable MFA:', error);
+      showError(
+        t('common:notifications.errorTitle'),
+        t('common:notifications.settingsSaveError')
+      );
+      
+      // Revert the local state on error
+      setSettings(settings);
+    }
+    
     setShowDisableMFAConfirm(false);
   };
 
@@ -183,7 +218,8 @@ export const SecurityPage = ({
     }
   };
 
-  if (loading) {
+  // Show loading state while session is loading
+  if (isPending) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -191,28 +227,6 @@ export const SecurityPage = ({
     );
   }
 
-  if (error) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <div className="text-red-600 dark:text-red-400 mb-4">
-            <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            <p className="text-sm font-medium">{t('settings:security.loadError')}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{error}</p>
-          </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={loadSettings}
-          >
-            {t('settings:account.retry')}
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   if (!settings) {
     return (

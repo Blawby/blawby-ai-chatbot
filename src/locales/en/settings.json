@@ -13,7 +13,9 @@
     },
     "signOut": {
       "toastTitle": "Signed out successfully",
-      "toastBody": "You have been signed out"
+      "toastBody": "You have been signed out",
+      "errorTitle": "Sign out failed",
+      "errorBody": "There was an error signing you out. Please try again."
     }
   },
   "general": {
@@ -133,7 +135,6 @@
     },
     "email": {
       "title": "Email",
-      "addressFallback": "chris@whynot.earth",
       "receiveFeedback": "Receive feedback emails"
     },
     "delete": {
@@ -150,6 +151,7 @@
         "Your subscription and billing information"
       ],
       "confirmLabel": "To confirm, type your email address:",
+      "confirmLabelOAuth": "To confirm, type your email address:",
       "inputPlaceholder": "Type your email address here",
       "errorMismatch": "Please type your email address exactly as shown to confirm deletion.",
       "errorFailed": "Failed to delete account. Please try again.",
@@ -157,6 +159,9 @@
       "toastFailedBody": "There was an error deleting your account. Please try again.",
       "toastSuccessTitle": "Account deleted",
       "toastSuccessBody": "Your account has been permanently deleted.",
+      "verificationSentTitle": "Verification email sent",
+      "verificationSentBody": "Please check your email and click the confirmation link to complete account deletion.",
+      "checkYourEmail": "Please check your email for a confirmation link to complete the deletion process.",
       "cancel": "Cancel",
       "confirmButton": "Delete Account"
     },

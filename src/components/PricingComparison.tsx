@@ -2,8 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useTranslation } from '@/i18n/hooks';
 import { getBusinessPrices, PRICES } from '../utils/stripe-products';
 import { buildPriceDisplay } from '../utils/currencyFormatter';
-import { mockUserDataService } from '../utils/mockUserData';
-import { type SubscriptionTier } from '../utils/mockUserData';
+import { type SubscriptionTier } from '../types/user';
 import { 
   ChatBubbleLeftRightIcon, 
   DocumentTextIcon, 
@@ -29,8 +28,8 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
   const { t } = useTranslation('pricing');
   
   // Get user preferences for locale and currency
-  const preferences = mockUserDataService.getPreferences();
-  const userLocale = preferences.language === 'auto-detect' ? 'en' : preferences.language;
+  // TODO: Get from auth context when available
+  const userLocale = 'en'; // Default to English for now
   const userCurrency = 'USD'; // TODO: Add currency preference to user preferences
   
   const _prices = getBusinessPrices(userLocale, userCurrency);

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { useTranslation } from '@/i18n/hooks';
 import { UserIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import OnboardingModal from './onboarding/OnboardingModal';
-import { OnboardingData } from '../utils/mockUserData';
+import { OnboardingData } from '../types/user';
 import { Logo } from './ui/Logo';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from './ui/form';
 import { Input, EmailInput, PasswordInput } from './ui/input';
@@ -29,12 +29,19 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [error, setError] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Check URL params for mode
+  // Check URL params for mode and onboarding
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlMode = urlParams.get('mode');
+    const needsOnboarding = urlParams.get('onboarding') === 'true';
+    
     if (urlMode === 'signin' || urlMode === 'signup') {
       setIsSignUp(urlMode === 'signup');
+    }
+    
+    // Show onboarding if redirected here for OAuth users
+    if (needsOnboarding) {
+      setShowOnboarding(true);
     }
   }, []);
 
@@ -215,6 +222,13 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     // Persist onboarding completion flag before redirecting
     localStorage.setItem('onboardingCompleted', 'true');
     
+    // Clear the onboarding check flag since user completed onboarding
+    try {
+      localStorage.removeItem('onboardingCheckDone');
+    } catch (error) {
+      // Handle localStorage failures gracefully
+    }
+    
     // Close onboarding modal and redirect to main app
     setShowOnboarding(false);
     
@@ -224,6 +238,14 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
   const handleOnboardingClose = async () => {
     setShowOnboarding(false);
+    
+    // Clear the onboarding check flag since user skipped onboarding
+    try {
+      localStorage.removeItem('onboardingCheckDone');
+    } catch (error) {
+      // Handle localStorage failures gracefully
+    }
+    
     // Redirect to home page if onboarding is closed, waiting for onSuccess if provided
     await handleRedirect();
   };

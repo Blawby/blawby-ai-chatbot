@@ -22,8 +22,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigation } from '../../utils/navigation';
 import { useToastContext } from '../../contexts/ToastContext';
 import { cn } from '../../utils/cn';
-import { mockUserDataService } from '../../utils/mockUserData';
 import { useTranslation } from '@/i18n/hooks';
+import { signOut } from '../../utils/auth';
 
 
 export interface SettingsPageProps {
@@ -37,7 +37,7 @@ export const SettingsPage = ({
   onClose,
   className = ''
 }: SettingsPageProps) => {
-  const { showSuccess } = useToastContext();
+  const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
@@ -65,20 +65,19 @@ export const SettingsPage = ({
   };
 
   const handleSignOut = async () => {
-    // Use the mock data service to properly clear all data
-    mockUserDataService.resetToDefaults();
-    
-    // Note: Auth data is now managed by Better Auth, not localStorage
-    
-    // Dispatch custom event to notify other components
-    window.dispatchEvent(new CustomEvent('authStateChanged', { detail: null }));
-    
-    showSuccess(t('settings:navigation.signOut.toastTitle'), t('settings:navigation.signOut.toastBody'));
-    if (onClose) {
-      onClose();
+    try {
+      // Use centralized sign out utility
+      await signOut({
+        onSuccess: () => {
+          showSuccess(t('settings:navigation.signOut.toastTitle'), t('settings:navigation.signOut.toastBody'));
+          if (onClose) {
+            onClose();
+          }
+        }
+      });
+    } catch (error) {
+      showError(t('settings:navigation.signOut.errorTitle'), t('settings:navigation.signOut.errorBody'));
     }
-    // Refresh the page to update the UI
-    window.location.reload();
   };
 
 
