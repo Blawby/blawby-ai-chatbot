@@ -20,6 +20,11 @@ binding = "CHAT_SESSIONS"
 id = "9ca96bd55b2d4455bad3fe0cda914f14"  # BLAWBY_AI_CHAT_SESSIONS
 preview_id = "e7bbadb101d44a828fb3ef34528b3540"  # BLAWBY_AI_CHAT_SESSIONS_preview
 
+[[kv_namespaces]]
+binding = "USAGE_QUOTAS"
+id = "ba98854ac295437dbc113871dcda2e72"       # USAGE_QUOTAS
+preview_id = "a0b465f329ae4bdf8817b5c13d46d8fe"  # USAGE_QUOTAS_preview
+
 [[d1_databases]]
 binding = "DB"
 database_name = "blawby-ai-chatbot"
@@ -115,7 +120,8 @@ queue = "paralegal-tasks"
 name = "blawby-ai-chatbot-dev"
 ai = { binding = "AI" }
 kv_namespaces = [
-  { binding = "CHAT_SESSIONS", id = "e7bbadb101d44a828fb3ef34528b3540" }
+  { binding = "CHAT_SESSIONS", id = "e7bbadb101d44a828fb3ef34528b3540" },
+  { binding = "USAGE_QUOTAS", id = "a0b465f329ae4bdf8817b5c13d46d8fe" } # USAGE_QUOTAS_preview
 ]
 d1_databases = [
   { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf" }
@@ -150,7 +156,8 @@ DOMAIN = "localhost"
 name = "blawby-ai-chatbot"
 ai = { binding = "AI" }
 kv_namespaces = [
-  { binding = "CHAT_SESSIONS", id = "9ca96bd55b2d4455bad3fe0cda914f14", preview_id = "e7bbadb101d44a828fb3ef34528b3540" }
+  { binding = "CHAT_SESSIONS", id = "9ca96bd55b2d4455bad3fe0cda914f14", preview_id = "e7bbadb101d44a828fb3ef34528b3540" },
+  { binding = "USAGE_QUOTAS", id = "ba98854ac295437dbc113871dcda2e72", preview_id = "a0b465f329ae4bdf8817b5c13d46d8fe" }
 ]
 d1_databases = [
   { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf" }

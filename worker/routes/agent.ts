@@ -19,6 +19,8 @@ import { StatusService } from '../services/StatusService.js';
 import { chunkResponseText } from '../utils/streaming.js';
 import { Logger } from '../utils/logger.js';
 import { ensureActiveSubscription } from '../middleware/subscription.js';
+import { UsageService } from '../services/UsageService.js';
+import { requireFeature } from '../middleware/featureGuard.js';
 
 // Interface for the request body
 interface RouteBody {
@@ -369,7 +371,68 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
       }
     }
 
-    // Persist the latest user message for auditing
+    await requireFeature(
+      request,
+      env,
+      {
+        feature: 'chat',
+        allowAnonymous: true,
+        quotaMetric: 'messages',
+      },
+      {
+        organizationId: resolvedOrganizationId,
+        sessionId: resolvedSessionId,
+      }
+    );
+
+    // Increment usage atomically before processing to prevent TOCTOU races
+    try {
+      const incrementResult = await UsageService.incrementUsageAtomic(env, resolvedOrganizationId, 'messages');
+      if (incrementResult === null) {
+        console.warn('Message processing blocked: quota limit reached', {
+          organizationId: resolvedOrganizationId,
+          sessionId: resolvedSessionId,
+        });
+        // Return error response when quota is exceeded - no further processing
+        return new Response(
+          JSON.stringify({
+            error: 'Payment Required',
+            message: 'You have reached your message limit. Please upgrade your plan or wait for the next billing period.'
+          }),
+          {
+            status: 402,
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': headers.get('Cache-Control') || 'no-cache',
+              'Connection': headers.get('Connection') || 'keep-alive'
+            }
+          }
+        );
+      }
+    } catch (usageError) {
+      console.warn('Usage tracking failed; blocking request to prevent quota bypass', {
+        error: usageError instanceof Error ? usageError.message : String(usageError),
+        organizationId: resolvedOrganizationId,
+        sessionId: resolvedSessionId,
+      });
+      // Return error response when usage tracking fails - no further processing
+      return new Response(
+        JSON.stringify({
+          error: 'Usage tracking failed',
+          message: 'Unable to track usage. Please try again.'
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': headers.get('Cache-Control') || 'no-cache',
+            'Connection': headers.get('Connection') || 'keep-alive'
+          }
+        }
+      );
+    }
+
+    // Persist the latest user message for auditing (only after successful usage increment)
     try {
       const metadata = attachments.length > 0
         ? {

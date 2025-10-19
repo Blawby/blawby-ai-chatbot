@@ -5,6 +5,7 @@ export interface Env {
   AI: Ai;
   DB: D1Database;
   CHAT_SESSIONS: KVNamespace;
+  USAGE_QUOTAS: KVNamespace;
   RESEND_API_KEY: string;
   FILES_BUCKET?: R2Bucket;
   DOC_EVENTS: Queue;

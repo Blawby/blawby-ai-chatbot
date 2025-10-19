@@ -15,4 +15,5 @@ export { handleReview } from './review';
 export { handlePayment } from './payment';
 export { handleSubscription } from './subscription';
 export { handlePDF } from './pdf';
-export { handleDebug } from './debug'; 
+export { handleDebug } from './debug';
+export { handleUsage } from './usage';

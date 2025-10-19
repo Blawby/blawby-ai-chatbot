@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { WORKER_URL } from '../../setup-real-api';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+
+// Worker URL for integration tests
+const WORKER_URL = process.env.WORKER_URL ?? 'http://localhost:8787';
 
 // Helper function to handle streaming responses
 async function handleStreamingResponse(response: Response, timeoutMs: number = 30000) {

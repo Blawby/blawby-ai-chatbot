@@ -36,6 +36,8 @@ interface ChatContainerProps {
   setIsRecording: (v: boolean) => void;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
+  isUsageRestricted?: boolean;
+  usageMessage?: string | null;
 
   // Input control prop
   clearInput?: number;
@@ -62,6 +64,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   setIsRecording,
   isReadyToUpload,
   isSessionReady,
+  isUsageRestricted,
+  usageMessage,
   clearInput
 }) => {
   const [inputValue, setInputValue] = useState('');
@@ -167,6 +171,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           textareaRef={textareaRef}
           isReadyToUpload={isReadyToUpload}
           isSessionReady={isSessionReady}
+          isUsageRestricted={isUsageRestricted}
+          usageMessage={usageMessage}
         />
       </main>
     </div>
