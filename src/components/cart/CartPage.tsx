@@ -5,6 +5,7 @@ import { useOrganizationManagement } from '../../hooks/useOrganizationManagement
 import { useToastContext } from '../../contexts/ToastContext';
 import { useLocation } from 'preact-iso';
 import { useNavigation } from '../../utils/navigation';
+import { useTranslation } from '../../i18n/hooks';
 import { QuantitySelector } from './QuantitySelector';
 import { PricingSummary } from '../ui/cards/PricingSummary';
 
@@ -14,6 +15,7 @@ export const CartPage = () => {
   const { submitUpgrade, submitting } = usePaymentUpgrade();
   const { currentOrganization } = useOrganizationManagement();
   const { showError } = useToastContext();
+  const { i18n } = useTranslation();
 
   const seatsQuery = location.query?.seats;
   const seatsFromQuery = Array.isArray(seatsQuery) ? seatsQuery[0] : seatsQuery;
@@ -90,6 +92,12 @@ export const CartPage = () => {
 
   const selectedPrice = priceIds ? (selectedPriceId === priceIds.annual ? PRICES.annual : PRICES.monthly) : null;
   const isAnnual = priceIds ? selectedPriceId === priceIds.annual : false;
+
+  // Create locale-aware currency formatter
+  const currencyFormatter = new Intl.NumberFormat(i18n.language, {
+    style: 'currency',
+    currency: PRICES.monthly.currency.toUpperCase()
+  });
 
   const monthlySeatPrice = PRICES.monthly.unit_amount / 100;
   const annualSeatPricePerYear = PRICES.annual.unit_amount / 100;
@@ -245,7 +253,7 @@ export const CartPage = () => {
                 onClick={() => priceIds && setSelectedPriceId(priceIds.annual)}
                 role="radio"
                 aria-checked={priceIds ? selectedPriceId === priceIds.annual : false}
-                aria-label="Annual plan - $420 per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users"
+                aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`}
                 tabIndex={priceIds && selectedPriceId === priceIds.annual ? 0 : -1}
                 className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
                   priceIds && selectedPriceId === priceIds.annual 
@@ -272,8 +280,8 @@ export const CartPage = () => {
 
                 {/* Pricing with strikethrough for discounts */}
                 <div className="text-xs md:text-sm text-white mb-1">
-                  USD $35
-                  <span className="text-xs md:text-sm text-gray-400 line-through ml-1">$40</span>
+                  {currencyFormatter.format(annualSeatPricePerMonth)}
+                  <span className="text-xs md:text-sm text-gray-400 line-through ml-1">{currencyFormatter.format(monthlySeatPrice)}</span>
                 </div>
                 <div className="text-xs md:text-sm text-gray-400 mb-3">per user/month</div>
 
@@ -289,7 +297,7 @@ export const CartPage = () => {
                 onClick={() => priceIds && setSelectedPriceId(priceIds.monthly)}
                 role="radio"
                 aria-checked={priceIds ? selectedPriceId === priceIds.monthly : false}
-                aria-label="Monthly plan - $40 per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users"
+                aria-label={`Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`}
                 tabIndex={priceIds && selectedPriceId === priceIds.monthly ? 0 : -1}
                 className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
                   priceIds && selectedPriceId === priceIds.monthly
@@ -308,7 +316,7 @@ export const CartPage = () => {
                 </div>
 
                 {/* Pricing */}
-                <div className="text-xs md:text-sm text-white mb-1">USD $40</div>
+                <div className="text-xs md:text-sm text-white mb-1">{currencyFormatter.format(monthlySeatPrice)}</div>
                 <div className="text-xs md:text-sm text-gray-400 mb-3">per user / month</div>
 
                 {/* Feature list */}
@@ -336,30 +344,30 @@ export const CartPage = () => {
               heading="Summary"
               planName={PRODUCTS.business.name}
               planDescription={`${quantity} users • ${isAnnual ? 'Billed annually' : 'Billed monthly'}`}
-              pricePerSeat={`$${(isAnnual ? annualSeatPricePerMonth : monthlySeatPrice).toFixed(2)} per user / month`}
+              pricePerSeat={`${currencyFormatter.format(isAnnual ? annualSeatPricePerMonth : monthlySeatPrice)} per user / month`}
               isAnnual={isAnnual}
               billingNote={
                 isAnnual
-                  ? `Billed annually at $${total.toFixed(2)}/year`
-                  : `Billed monthly at $${total.toFixed(2)}/month`
+                  ? `Billed annually at ${currencyFormatter.format(total)}/year`
+                  : `Billed monthly at ${currencyFormatter.format(total)}/month`
               }
               lineItems={[
                 { 
                   id: 'subtotal', 
                   label: 'Subtotal', 
-                  value: `$${subtotal.toFixed(2)}`,
+                  value: currencyFormatter.format(subtotal),
                   numericValue: subtotal
                 },
                 { 
                   id: 'discount', 
                   label: 'Discount', 
-                  value: discount > 0 ? `-$${discount.toFixed(2)}` : '$0.00',
+                  value: discount > 0 ? `-${currencyFormatter.format(discount)}` : currencyFormatter.format(0),
                   numericValue: -discount
                 },
                 { 
                   id: 'total', 
                   label: "Today's total", 
-                  value: `$${total.toFixed(2)}`, 
+                  value: currencyFormatter.format(total), 
                   emphasis: true,
                   numericValue: total
                 }

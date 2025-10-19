@@ -226,10 +226,9 @@ Last run: 2025-01-13
 
 **Summary:**
 - 19/19 languages have template files created
-- 4/19 languages are 100% complete
-- 1/19 languages are baseline (English)
-- 6/19 languages have partial translations
-- 8/19 languages pending translation
+- 5/19 languages are 100% complete (including baseline English)
+- 14/19 languages have partial translations
+- 0/19 languages pending translation
 
 **Common Issues:**
 - All non-English languages missing new language labels
