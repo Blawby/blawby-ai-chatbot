@@ -37,7 +37,7 @@ export const CartPage = () => {
       console.error('Failed to load price IDs:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to load pricing information';
       setLoadError(errorMsg);
-      showError(errorMsg);
+      showError('Failed to load pricing', errorMsg);
     }
   }, [showError]);
 
