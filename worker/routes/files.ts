@@ -326,6 +326,11 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
 
   // File upload endpoint
   if (path === '/api/files/upload' && request.method === 'POST') {
+    // Declare variables in outer scope for rollback capability
+    let resolvedOrganizationId: string;
+    let resolvedSessionId: string;
+    let usageIncremented = false;
+
     try {
       // Parse form data
       const formData = await request.formData();
@@ -394,11 +399,8 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         createIfMissing: true
       });
 
-      const resolvedOrganizationId = sessionResolution.session.organizationId;
-      const resolvedSessionId = sessionResolution.session.id;
-
-      // Declare usage tracking variables in outer scope for rollback capability
-      let usageIncremented = false;
+      resolvedOrganizationId = sessionResolution.session.organizationId;
+      resolvedSessionId = sessionResolution.session.id;
 
       await requireFeature(
         request,
@@ -664,19 +666,19 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
     } catch (error) {
       // CRITICAL: If usage was incremented but the upload failed, rollback the usage
       // This prevents quota drift when errors occur after usage tracking
-      if (typeof usageIncremented !== 'undefined' && usageIncremented && typeof resolvedOrganizationId !== 'undefined') {
+      if (usageIncremented && resolvedOrganizationId) {
         try {
           // Decrement usage to rollback the increment
           await UsageService.incrementUsage(env, resolvedOrganizationId, 'files', -1);
           Logger.info('Rolled back usage increment due to upload failure', {
             organizationId: resolvedOrganizationId,
-            sessionId: typeof resolvedSessionId !== 'undefined' ? resolvedSessionId : 'unknown',
+            sessionId: resolvedSessionId || 'unknown',
             error: error instanceof Error ? error.message : String(error)
           });
         } catch (rollbackError) {
           Logger.error('CRITICAL: Failed to rollback usage increment after upload failure', {
             organizationId: resolvedOrganizationId,
-            sessionId: typeof resolvedSessionId !== 'undefined' ? resolvedSessionId : 'unknown',
+            sessionId: resolvedSessionId || 'unknown',
             originalError: error instanceof Error ? error.message : String(error),
             rollbackError: rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
           });

@@ -385,7 +385,54 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
       }
     );
 
-    // Persist the latest user message for auditing
+    // Increment usage atomically before processing to prevent TOCTOU races
+    try {
+      const incrementResult = await UsageService.incrementUsageAtomic(env, resolvedOrganizationId, 'messages');
+      if (incrementResult === null) {
+        console.warn('Message processing blocked: quota limit reached', {
+          organizationId: resolvedOrganizationId,
+          sessionId: resolvedSessionId,
+        });
+        // Return error response when quota is exceeded - no further processing
+        return new Response(
+          JSON.stringify({
+            error: 'Quota limit exceeded',
+            message: 'You have reached your message limit. Please upgrade your plan or try again later.'
+          }),
+          {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': headers.get('Cache-Control') || 'no-cache',
+              'Connection': headers.get('Connection') || 'keep-alive'
+            }
+          }
+        );
+      }
+    } catch (usageError) {
+      console.warn('Usage tracking failed; blocking request to prevent quota bypass', {
+        error: usageError instanceof Error ? usageError.message : String(usageError),
+        organizationId: resolvedOrganizationId,
+        sessionId: resolvedSessionId,
+      });
+      // Return error response when usage tracking fails - no further processing
+      return new Response(
+        JSON.stringify({
+          error: 'Usage tracking failed',
+          message: 'Unable to track usage. Please try again.'
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': headers.get('Cache-Control') || 'no-cache',
+            'Connection': headers.get('Connection') || 'keep-alive'
+          }
+        }
+      );
+    }
+
+    // Persist the latest user message for auditing (only after successful usage increment)
     try {
       const metadata = attachments.length > 0
         ? {
@@ -412,24 +459,6 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
       });
     } catch (persistError) {
       console.warn('Failed to persist chat message to D1', persistError);
-    }
-
-    try {
-      const incrementResult = await UsageService.incrementUsageAtomic(env, resolvedOrganizationId, 'messages');
-      if (incrementResult === null) {
-        console.warn('Message processing blocked: quota limit reached', {
-          organizationId: resolvedOrganizationId,
-          sessionId: resolvedSessionId,
-        });
-        // Note: Message was already processed, but usage wasn't incremented
-        // This is acceptable since the guard should have prevented this
-      }
-    } catch (usageError) {
-      console.warn('Usage tracking failed; continuing without blocking request', {
-        error: usageError instanceof Error ? usageError.message : String(usageError),
-        organizationId: resolvedOrganizationId,
-        sessionId: resolvedSessionId,
-      });
     }
 
     // Get organization configuration

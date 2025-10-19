@@ -156,6 +156,10 @@ export class UsageService {
     const limits = await this.resolveLimits(env, organizationId);
     await this.ensureQuotaRow(env, organizationId, period, limits);
 
+    // Load snapshot before UPDATE to capture actual previous value
+    const previousSnapshot = await this.loadFromDatabase(env, organizationId, period);
+    const previousUsed = metric === "messages" ? previousSnapshot.messagesUsed : previousSnapshot.filesUsed;
+
     const usedColumn = metric === "messages" ? "messages_used" : "files_used";
     const limitColumn = metric === "messages" ? "messages_limit" : "files_limit";
     const overrideColumn = metric === "messages" ? "override_messages" : "override_files";
@@ -163,20 +167,25 @@ export class UsageService {
 
     // Atomic increment with capping: only increment up to the limit
     // Uses COALESCE to handle NULL override values (fall back to tier-based limit)
+    // Uses CASE to handle unlimited quotas (limit = -1) properly
     const result = await env.DB.prepare(
       `
         UPDATE usage_quotas
-           SET ${usedColumn} = MIN(${usedColumn} + ?, COALESCE(${overrideColumn}, ${limitColumn})),
+           SET ${usedColumn} = CASE 
+                 WHEN COALESCE(${overrideColumn}, ${limitColumn}) < 0 
+                 THEN ${usedColumn} + ?
+                 ELSE MIN(${usedColumn} + ?, COALESCE(${overrideColumn}, ${limitColumn}))
+               END,
                last_updated = ?
          WHERE organization_id = ? AND period = ?
            AND (COALESCE(${overrideColumn}, ${limitColumn}) < 0 OR ${usedColumn} < COALESCE(${overrideColumn}, ${limitColumn}))
       `
     )
-      .bind(amount, now, organizationId, period)
+      .bind(amount, amount, now, organizationId, period)
       .run();
 
     // If no rows were updated, we're already at or over quota
-    if (result.changes === 0) {
+    if (result.meta.changes === 0) {
       return null;
     }
 
@@ -190,11 +199,9 @@ export class UsageService {
       })
     );
 
-    // Calculate actual increment by comparing with previous state
-    const previousUsed = metric === "messages" 
-      ? snapshot.messagesUsed - amount 
-      : snapshot.filesUsed - amount;
-    const actualIncrement = Math.max(0, (metric === "messages" ? snapshot.messagesUsed : snapshot.filesUsed) - previousUsed);
+    // Calculate actual increment by comparing with actual previous value
+    const currentUsed = metric === "messages" ? snapshot.messagesUsed : snapshot.filesUsed;
+    const actualIncrement = Math.max(0, currentUsed - previousUsed);
 
     return { snapshot, actualIncrement };
   }
