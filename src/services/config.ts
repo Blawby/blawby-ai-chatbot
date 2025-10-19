@@ -1,4 +1,4 @@
-import { api } from '../config/api';
+import { getApiConfig } from '../config/api';
 
 export interface AppConfig {
   stripe: {
@@ -20,7 +20,7 @@ export async function getAppConfig(): Promise<AppConfig> {
   }
 
   try {
-    const response = await fetch(`${api.baseUrl}/config`);
+    const response = await fetch(`${getApiConfig().baseUrl}/config`);
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.status}`);
     }
