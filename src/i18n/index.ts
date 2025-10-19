@@ -59,6 +59,18 @@ export const isRTLLocale = (locale: AnyLocale): boolean => {
 
 const NAMESPACES = ['common', 'settings', 'auth', 'profile', 'pricing', 'organization'] as const;
 
+// Create typed loader maps for Vite static analysis
+const localeIndexLoaders = import.meta.glob('../locales/*/index.ts') as Record<string, () => Promise<{
+  common: any;
+  settings: any;
+  auth: any;
+  profile: any;
+  pricing: any;
+  organization: any;
+}>>;
+
+const localeJsonLoaders = import.meta.glob('../locales/*/*.json') as Record<string, () => Promise<{ default: any }>>;
+
 const STORAGE_KEY = 'blawby_locale';
 let initialized = false;
 
@@ -106,38 +118,53 @@ const loadLocaleResources = async (locale: AnyLocale) => {
     return;
   }
 
-  try {
-    // Import the pre-bundled locale index file
-    const localeModule = await import(`../locales/${locale}/index.ts`);
-    
-    NAMESPACES.forEach((namespace) => {
-      const alreadyLoaded = i18next.getResourceBundle(locale, namespace);
-      if (!alreadyLoaded && localeModule[namespace]) {
-        i18next.addResourceBundle(locale, namespace, localeModule[namespace], true, true);
-      }
-    });
-  } catch (error) {
-    console.warn(`Failed to load locale ${locale}:`, error);
-    // Fallback to individual JSON imports if index file doesn't exist
-    const namespaceData = await Promise.all(
-      NAMESPACES.map(async (namespace) => {
+  // Try to load from index file first
+  const indexLoaderKey = `../locales/${locale}/index.ts`;
+  const indexLoader = localeIndexLoaders[indexLoaderKey];
+  
+  if (indexLoader) {
+    try {
+      const localeModule = await indexLoader();
+      
+      NAMESPACES.forEach((namespace) => {
+        const alreadyLoaded = i18next.getResourceBundle(locale, namespace);
+        if (!alreadyLoaded && localeModule[namespace]) {
+          i18next.addResourceBundle(locale, namespace, localeModule[namespace], true, true);
+        }
+      });
+      return; // Successfully loaded from index
+    } catch (error) {
+      console.warn(`Failed to load locale index ${locale}:`, error);
+    }
+  }
+
+  // Fallback to individual JSON files
+  console.warn(`Index file not found for locale ${locale}, falling back to JSON files`);
+  const namespaceData = await Promise.all(
+    NAMESPACES.map(async (namespace) => {
+      const jsonLoaderKey = `../locales/${locale}/${namespace}.json`;
+      const jsonLoader = localeJsonLoaders[jsonLoaderKey];
+      
+      if (jsonLoader) {
         try {
-          const module = await import(`../locales/${locale}/${namespace}.json`);
+          const module = await jsonLoader();
           return [namespace, module.default] as const;
         } catch (error) {
           console.warn(`Failed to load ${locale}/${namespace}.json:`, error);
-          return [namespace, {}] as const;
         }
-      })
-    );
-
-    namespaceData.forEach(([namespace, data]) => {
-      const alreadyLoaded = i18next.getResourceBundle(locale, namespace);
-      if (!alreadyLoaded && Object.keys(data).length > 0) {
-        i18next.addResourceBundle(locale, namespace, data, true, true);
+      } else {
+        console.warn(`JSON loader not found for ${locale}/${namespace}.json`);
       }
-    });
-  }
+      return [namespace, {}] as const;
+    })
+  );
+
+  namespaceData.forEach(([namespace, data]) => {
+    const alreadyLoaded = i18next.getResourceBundle(locale, namespace);
+    if (!alreadyLoaded && Object.keys(data).length > 0) {
+      i18next.addResourceBundle(locale, namespace, data, true, true);
+    }
+  });
 };
 
 export const initI18n = async () => {
