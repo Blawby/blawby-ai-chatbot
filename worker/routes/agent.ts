@@ -396,11 +396,11 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
         // Return error response when quota is exceeded - no further processing
         return new Response(
           JSON.stringify({
-            error: 'Quota limit exceeded',
-            message: 'You have reached your message limit. Please upgrade your plan or try again later.'
+            error: 'Payment Required',
+            message: 'You have reached your message limit. Please upgrade your plan or wait for the next billing period.'
           }),
           {
-            status: 429,
+            status: 402,
             headers: {
               'Content-Type': 'application/json',
               'Cache-Control': headers.get('Cache-Control') || 'no-cache',
