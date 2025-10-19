@@ -79,6 +79,17 @@ async function seedUsage(
 describe('Feature Guard - quota enforcement', () => {
   beforeEach(async () => {
     optionalAuthSpy.mockResolvedValue(null);
+    
+    // Clear KV namespace to prevent stale usage snapshots
+    try {
+      const kvKeys = await env.USAGE_QUOTAS.list();
+      if (kvKeys.keys.length > 0) {
+        await Promise.all(kvKeys.keys.map(key => env.USAGE_QUOTAS.delete(key.name)));
+      }
+    } catch (error) {
+      console.warn('Failed to clear USAGE_QUOTAS KV namespace:', error);
+    }
+    
     await env.DB.prepare('DELETE FROM chat_sessions').run();
     await env.DB.prepare('DELETE FROM usage_quotas').run();
     await env.DB.prepare('DELETE FROM organizations').run();

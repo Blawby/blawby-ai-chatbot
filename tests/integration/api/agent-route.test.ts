@@ -2,10 +2,9 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { env } from 'cloudflare:test';
 
 // Worker URL for integration tests
-const WORKER_URL = 'http://localhost:8787';
+const WORKER_URL = process.env.WORKER_URL ?? 'http://localhost:8787';
 
 // Helper function to handle streaming responses
 async function handleStreamingResponse(response: Response, timeoutMs: number = 30000) {

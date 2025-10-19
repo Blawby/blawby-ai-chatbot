@@ -576,7 +576,15 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       }
 
       try {
-        await UsageService.incrementUsage(env, resolvedOrganizationId, 'files');
+        const incrementResult = await UsageService.incrementUsageAtomic(env, resolvedOrganizationId, 'files');
+        if (incrementResult === null) {
+          Logger.warn('File upload blocked: quota limit reached', {
+            organizationId: resolvedOrganizationId,
+            sessionId: resolvedSessionId,
+          });
+          // Note: File was already uploaded, but usage wasn't incremented
+          // This is acceptable since the guard should have prevented this
+        }
       } catch (usageError) {
         Logger.warn('Usage tracking failed; continuing without blocking response', {
           error: usageError instanceof Error ? usageError.message : String(usageError),

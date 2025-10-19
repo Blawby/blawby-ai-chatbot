@@ -17,7 +17,7 @@ import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
 import { setupGlobalKeyboardListeners } from './utils/keyboard';
-import { ChatMessageUI, FileAttachment } from '../worker/types';
+import type { ChatMessageUI, FileAttachment } from '../worker/types';
 // Settings components
 import { SettingsLayout } from './components/settings/SettingsLayout';
 import { useNavigation } from './utils/navigation';

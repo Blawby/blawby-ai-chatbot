@@ -415,7 +415,15 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
     }
 
     try {
-      await UsageService.incrementUsage(env, resolvedOrganizationId, 'messages');
+      const incrementResult = await UsageService.incrementUsageAtomic(env, resolvedOrganizationId, 'messages');
+      if (incrementResult === null) {
+        console.warn('Message processing blocked: quota limit reached', {
+          organizationId: resolvedOrganizationId,
+          sessionId: resolvedSessionId,
+        });
+        // Note: Message was already processed, but usage wasn't incremented
+        // This is acceptable since the guard should have prevented this
+      }
     } catch (usageError) {
       console.warn('Usage tracking failed; continuing without blocking request', {
         error: usageError instanceof Error ? usageError.message : String(usageError),

@@ -9,10 +9,16 @@ import { useOrganization } from './OrganizationContext';
 // Zod schema for runtime validation of QuotaCounter
 const quotaCounterSchema = z.object({
   used: z.number().int().min(0),
-  limit: z.number().int().min(0),
+  limit: z.number().int().min(-1), // Allow -1 for unlimited
   remaining: z.number().int().min(0).nullable(),
   unlimited: z.boolean(),
-});
+}).refine(
+  (data) => data.unlimited === (data.limit === -1),
+  {
+    message: "unlimited must be true when limit is -1, and false otherwise",
+    path: ["unlimited"]
+  }
+);
 
 // Zod schema for runtime validation of QuotaSnapshot with strengthened resetDate validation
 const quotaSnapshotSchema = z.object({

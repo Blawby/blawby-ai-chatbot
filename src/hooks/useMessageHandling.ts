@@ -176,7 +176,6 @@ export const useMessageHandling = ({ organizationId, sessionId, onError }: UseMe
           // ignore JSON parse failure
         }
 
-        onError?.(errorMessage);
         throw new Error(errorMessage);
       }
 

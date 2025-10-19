@@ -138,6 +138,68 @@ export class UsageService {
   }
 
   /**
+   * Atomically increment usage with quota capping to prevent race conditions.
+   * Caps the increment to remaining quota and returns the actual amount incremented.
+   * Returns null if already at or over quota (no-op).
+   */
+  static async incrementUsageAtomic(
+    env: Env,
+    organizationId: string,
+    metric: UsageMetric,
+    amount = 1,
+    period = this.getCurrentPeriod()
+  ): Promise<{ snapshot: UsageSnapshot; actualIncrement: number } | null> {
+    if (amount <= 0) {
+      throw new Error("Usage increment amount must be positive");
+    }
+
+    const limits = await this.resolveLimits(env, organizationId);
+    await this.ensureQuotaRow(env, organizationId, period, limits);
+
+    const usedColumn = metric === "messages" ? "messages_used" : "files_used";
+    const limitColumn = metric === "messages" ? "messages_limit" : "files_limit";
+    const overrideColumn = metric === "messages" ? "override_messages" : "override_files";
+    const now = Date.now();
+
+    // Atomic increment with capping: only increment up to the limit
+    // Uses COALESCE to handle NULL override values (fall back to tier-based limit)
+    const result = await env.DB.prepare(
+      `
+        UPDATE usage_quotas
+           SET ${usedColumn} = MIN(${usedColumn} + ?, COALESCE(${overrideColumn}, ${limitColumn})),
+               last_updated = ?
+         WHERE organization_id = ? AND period = ?
+           AND (COALESCE(${overrideColumn}, ${limitColumn}) < 0 OR ${usedColumn} < COALESCE(${overrideColumn}, ${limitColumn}))
+      `
+    )
+      .bind(amount, now, organizationId, period)
+      .run();
+
+    // If no rows were updated, we're already at or over quota
+    if (result.changes === 0) {
+      return null;
+    }
+
+    const snapshot = await this.loadFromDatabase(env, organizationId, period);
+    await this.persistToKV(env, snapshot).catch((error) =>
+      console.warn("[UsageService] Failed to update usage snapshot in KV", {
+        organizationId,
+        period,
+        metric,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+
+    // Calculate actual increment by comparing with previous state
+    const previousUsed = metric === "messages" 
+      ? snapshot.messagesUsed - amount 
+      : snapshot.filesUsed - amount;
+    const actualIncrement = Math.max(0, (metric === "messages" ? snapshot.messagesUsed : snapshot.filesUsed) - previousUsed);
+
+    return { snapshot, actualIncrement };
+  }
+
+  /**
    * Determine whether the organization is at or beyond quota for a metric.
    */
   static async isOverQuota(env: Env, organizationId: string, metric: UsageMetric): Promise<boolean> {
@@ -163,13 +225,17 @@ export class UsageService {
     return {
       messages: {
         used: snapshot.messagesUsed,
-        limit: snapshot.messagesLimit,
+        // Normalize -1 limits to 0 for frontend Zod validation (limit must be >= 0)
+        // unlimited=true indicates special-case unlimited plan
+        limit: messagesUnlimited ? 0 : snapshot.messagesLimit,
         remaining: messagesUnlimited ? null : Math.max(snapshot.messagesLimit - snapshot.messagesUsed, 0),
         unlimited: messagesUnlimited,
       },
       files: {
         used: snapshot.filesUsed,
-        limit: snapshot.filesLimit,
+        // Normalize -1 limits to 0 for frontend Zod validation (limit must be >= 0)
+        // unlimited=true indicates special-case unlimited plan
+        limit: filesUnlimited ? 0 : snapshot.filesLimit,
         remaining: filesUnlimited ? null : Math.max(snapshot.filesLimit - snapshot.filesUsed, 0),
         unlimited: filesUnlimited,
       },

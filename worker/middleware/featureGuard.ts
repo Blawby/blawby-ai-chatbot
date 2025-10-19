@@ -1,6 +1,6 @@
 import { HttpErrors } from "../errorHandler.js";
 import type { Env } from "../types.js";
-import { optionalAuth } from "./auth.js";
+import { optionalAuth, requireOrgMember } from "./auth.js";
 import { UsageService, type OrganizationUsageMetadata } from "../services/UsageService.js";
 
 export type FeatureName = "chat" | "files" | "api" | "team";
@@ -39,6 +39,11 @@ export async function requireFeature(
 
   if (!config.allowAnonymous && isAnonymous) {
     throw HttpErrors.unauthorized("Authentication required to access this feature");
+  }
+
+  // Validate organization membership for authenticated users
+  if (!isAnonymous) {
+    await requireOrgMember(request, env, options.organizationId);
   }
 
   const organization = await UsageService.getOrganizationMetadata(env, options.organizationId);
