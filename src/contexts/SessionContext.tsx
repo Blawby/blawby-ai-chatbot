@@ -6,21 +6,7 @@ import { z } from 'zod';
 import { authClient } from '../lib/authClient';
 import { useOrganization } from './OrganizationContext';
 
-type QuotaCounter = {
-  used: number;
-  limit: number;
-  remaining: number | null;
-  unlimited: boolean;
-};
-
-export interface QuotaSnapshot {
-  messages: QuotaCounter;
-  files: QuotaCounter;
-  resetDate: string;
-  tier: string;
-}
-
-// Zod schema for runtime validation of QuotaSnapshot
+// Zod schema for runtime validation of QuotaCounter
 const quotaCounterSchema = z.object({
   used: z.number().int().min(0),
   limit: z.number().int().min(0),
@@ -28,12 +14,19 @@ const quotaCounterSchema = z.object({
   unlimited: z.boolean(),
 });
 
+// Zod schema for runtime validation of QuotaSnapshot with strengthened resetDate validation
 const quotaSnapshotSchema = z.object({
   messages: quotaCounterSchema,
   files: quotaCounterSchema,
-  resetDate: z.string().min(1),
+  resetDate: z.string().datetime({
+    message: "resetDate must be a valid ISO datetime string (e.g., '2024-01-01T00:00:00.000Z')"
+  }),
   tier: z.string().min(1),
 });
+
+// Export TypeScript types derived from Zod schemas to prevent type drift
+export type QuotaCounter = z.infer<typeof quotaCounterSchema>;
+export type QuotaSnapshot = z.infer<typeof quotaSnapshotSchema>;
 
 // Type for API response
 interface QuotaApiResponse {
@@ -121,7 +114,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
       // Validate the quota data before setting it
       const validationResult = quotaSnapshotSchema.safeParse(json.data);
       if (validationResult.success) {
-        setQuota(validationResult.data as QuotaSnapshot);
+        setQuota(validationResult.data);
       } else {
         console.error('Invalid quota data received:', validationResult.error.issues);
         throw new Error('Invalid quota data format received from server');
