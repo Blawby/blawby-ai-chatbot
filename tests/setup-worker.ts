@@ -48,15 +48,17 @@ beforeAll(async () => {
         period TEXT NOT NULL,
         messages_used INTEGER NOT NULL DEFAULT 0 CHECK (messages_used >= 0),
         messages_limit INTEGER NOT NULL DEFAULT -1 CHECK (messages_limit >= -1),
-        override_messages INTEGER,
+        override_messages INTEGER CHECK (override_messages IS NULL OR override_messages >= -1),
         files_used INTEGER NOT NULL DEFAULT 0 CHECK (files_used >= 0),
         files_limit INTEGER NOT NULL DEFAULT -1 CHECK (files_limit >= -1),
-        override_files INTEGER,
+        override_files INTEGER CHECK (override_files IS NULL OR override_files >= -1),
         last_updated INTEGER NOT NULL,
         PRIMARY KEY (organization_id, period)
       )
     `).run();
   } catch (error) {
-    console.warn('Failed to initialize test database schema:', error);
+    console.error('CRITICAL: Failed to initialize test database schema. Tests cannot proceed without a valid database schema.');
+    console.error('Original error:', error);
+    throw new Error(`Database schema initialization failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 });

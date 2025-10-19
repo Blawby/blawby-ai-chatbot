@@ -95,14 +95,20 @@ function MainApp() {
 		}
 	});
 
-	const handleSendMessage = useCallback((message: string, attachments: FileAttachment[] = []) => {
-		(async () => {
-			await sendMessage(message, attachments);
+	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
+		// Let sendMessage errors propagate to its onError handler
+		await sendMessage(message, attachments);
+		
+		// Handle quota refresh separately to avoid leaving stale UI
+		try {
 			await refreshQuota();
-		})().catch((error) => {
-			console.error('Failed to send message:', error);
-		});
-	}, [sendMessage, refreshQuota]);
+		} catch (error) {
+			// Log for diagnostics
+			console.error('Failed to refresh quota after sending message:', error);
+			// Show user-facing notification for quota refresh failure
+			showError('Unable to update usage quota', 'Your message was sent, but we couldn\'t refresh your usage information.');
+		}
+	}, [sendMessage, refreshQuota, showError]);
 
 	const {
 		previewFiles,

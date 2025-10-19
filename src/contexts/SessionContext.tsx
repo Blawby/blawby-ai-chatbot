@@ -2,6 +2,7 @@ import { createContext } from 'preact';
 import { useContext } from 'preact/hooks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
+import { z } from 'zod';
 import { authClient } from '../lib/authClient';
 import { useOrganization } from './OrganizationContext';
 
@@ -17,6 +18,28 @@ export interface QuotaSnapshot {
   files: QuotaCounter;
   resetDate: string;
   tier: string;
+}
+
+// Zod schema for runtime validation of QuotaSnapshot
+const quotaCounterSchema = z.object({
+  used: z.number().int().min(0),
+  limit: z.number().int().min(0),
+  remaining: z.number().int().min(0).nullable(),
+  unlimited: z.boolean(),
+});
+
+const quotaSnapshotSchema = z.object({
+  messages: quotaCounterSchema,
+  files: quotaCounterSchema,
+  resetDate: z.string().min(1),
+  tier: z.string().min(1),
+});
+
+// Type for API response
+interface QuotaApiResponse {
+  success: boolean;
+  data?: unknown;
+  error?: string;
 }
 
 interface SessionContextValue {
@@ -82,7 +105,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
       if (!response.ok) {
         let errorMessage = `Failed to load usage quota (${response.status})`;
         try {
-          const errorJson = await response.json();
+          const errorJson = await response.json() as { error?: string };
           errorMessage = errorJson?.error ?? errorMessage;
         } catch {
           // ignore parse failure
@@ -90,12 +113,19 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
         throw new Error(errorMessage);
       }
 
-      const json = await response.json();
+      const json = await response.json() as QuotaApiResponse;
       if (!json?.success) {
         throw new Error(json?.error || 'Failed to load usage quota');
       }
 
-      setQuota(json.data as QuotaSnapshot);
+      // Validate the quota data before setting it
+      const validationResult = quotaSnapshotSchema.safeParse(json.data);
+      if (validationResult.success) {
+        setQuota(validationResult.data as QuotaSnapshot);
+      } else {
+        console.error('Invalid quota data received:', validationResult.error.issues);
+        throw new Error('Invalid quota data format received from server');
+      }
     } catch (error) {
       if ((error as DOMException)?.name === 'AbortError') {
         return;

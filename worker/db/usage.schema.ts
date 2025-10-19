@@ -11,7 +11,7 @@ export const usageQuotas = sqliteTable(
     filesUsed: integer("files_used").notNull().default(0),
     filesLimit: integer("files_limit").notNull().default(-1),
     overrideFiles: integer("override_files"),
-    lastUpdated: integer("last_updated", { mode: "timestamp" }).notNull(),
+    lastUpdated: integer("last_updated", { mode: "timestamp" }).notNull().defaultNow(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.organizationId, table.period], name: "usage_quotas_pk" }),
