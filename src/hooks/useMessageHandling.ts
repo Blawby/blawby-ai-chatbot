@@ -163,6 +163,23 @@ export const useMessageHandling = ({ organizationId, sessionId, onError }: UseMe
         signal: abortControllerRef.current.signal
       });
 
+      if (response.status === 402) {
+        let errorMessage = 'Monthly usage limit reached.';
+        try {
+          const errorJson = await response.json();
+          if (errorJson?.error) {
+            errorMessage = errorJson.error;
+          } else if (errorJson?.details?.message) {
+            errorMessage = errorJson.details.message;
+          }
+        } catch {
+          // ignore JSON parse failure
+        }
+
+        onError?.(errorMessage);
+        throw new Error(errorMessage);
+      }
+
       if (!response.ok) {
         throw new Error(`Streaming API error: ${response.status}`);
       }
@@ -523,7 +540,10 @@ ${matterData.opposing_party ? `- Opposing Party: ${matterData.opposing_party}` :
       });
       
       // Provide better error messages for auth-related issues
-      let errorMessage = "I'm having trouble connecting to our AI service right now. Please try again in a moment, or contact us directly if the issue persists.";
+      let errorMessage = error instanceof Error && error.message
+        ? error.message
+        : "I'm having trouble connecting to our AI service right now. Please try again in a moment, or contact us directly if the issue persists.";
+
       if (error instanceof Error) {
         if (error.message.includes('10000') || error.message.includes('Authentication')) {
           errorMessage = 'Please sign in to continue chatting';

@@ -16,7 +16,8 @@ import {
   handlePDF,
   handleDebug,
   handleAuth,
-  handleConfig
+  handleConfig,
+  handleUsage
 } from './routes';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
@@ -103,6 +104,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleStatus(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
+    } else if (path.startsWith('/api/usage')) {
+      response = await handleUsage(request, env);
     } else if (path === '/api/health') {
       response = await handleHealth(request, env);
     } else if (path === '/') {

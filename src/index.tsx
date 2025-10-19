@@ -9,6 +9,7 @@ import AuthPage from './components/AuthPage';
 import { SEOHead } from './components/SEOHead';
 import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
+import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
 import { type SubscriptionTier } from './types/user';
@@ -16,7 +17,7 @@ import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
 import { setupGlobalKeyboardListeners } from './utils/keyboard';
-import { ChatMessageUI } from '../worker/types';
+import { ChatMessageUI, FileAttachment } from '../worker/types';
 // Settings components
 import { SettingsLayout } from './components/settings/SettingsLayout';
 import { useNavigation } from './utils/navigation';
@@ -28,6 +29,8 @@ import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
 import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
 import { useToastContext } from './contexts/ToastContext';
+import { useSessionContext } from './contexts/SessionContext';
+import QuotaBanner from './components/QuotaBanner';
 // useSession is now imported from AuthContext above
 import './index.css';
 import { i18n, initI18n } from './i18n';
@@ -63,6 +66,21 @@ function MainApp() {
 	const { currentOrganization } = useOrganizationManagement();
 	const { submitUpgrade } = usePaymentUpgrade();
 	const { showError } = useToastContext();
+	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
+
+	const isQuotaRestricted = Boolean(
+		quota &&
+		!quota.messages.unlimited &&
+		quota.messages.limit > 0 &&
+		quota.messages.remaining !== null &&
+		quota.messages.remaining <= 0
+	);
+
+	const quotaUsageMessage = isQuotaRestricted
+		? (activeOrganizationSlug === 'blawby-ai'
+			? 'You have used all available anonymous messages for this month.'
+			: 'You have reached the monthly message limit for your current plan.')
+		: null;
 
 	const {
 		sessionId,
@@ -72,11 +90,19 @@ function MainApp() {
 	const { messages, sendMessage, handleContactFormSubmit, addMessage } = useMessageHandlingWithContext({
 		sessionId,
 		onError: (error) => {
-			// Handle message handling error
-			 
 			console.error('Message handling error:', error);
+			showError(typeof error === 'string' ? error : 'We hit a snag sending that message.');
 		}
 	});
+
+	const handleSendMessage = useCallback((message: string, attachments: FileAttachment[] = []) => {
+		(async () => {
+			await sendMessage(message, attachments);
+			await refreshQuota();
+		})().catch((error) => {
+			console.error('Failed to send message:', error);
+		});
+	}, [sendMessage, refreshQuota]);
 
 	const {
 		previewFiles,
@@ -384,14 +410,14 @@ function MainApp() {
 			const uploadedFiles = await handleFileSelect([file]);
 			
 			// Send a message with the uploaded file metadata
-			sendMessage(`I've recorded a ${type} message.`, uploadedFiles);
+			handleSendMessage(`I've recorded a ${type} message.`, uploadedFiles);
 			
 		} catch (error) {
 			// Handle media upload error
 			 
 			console.error('Failed to upload captured media:', error);
 			// Show error message to user
-			sendMessage("I'm sorry, I couldn't upload the recorded media. Please try again.", []);
+			handleSendMessage("I'm sorry, I couldn't upload the recorded media. Please try again.", []);
 		}
 	};
 
@@ -421,42 +447,55 @@ function MainApp() {
 					description: organizationConfig?.description ?? ''
 				}}
 				messages={messages}
-				onSendMessage={sendMessage}
+				onSendMessage={handleSendMessage}
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
 					return await handleFileSelect(files);
 				}}
 			>
-				<div className="relative h-full">
-					<ChatContainer
-						messages={messages}
-						onSendMessage={sendMessage}
-						onContactFormSubmit={handleContactFormSubmit}
-						organizationConfig={{
-							name: organizationConfig?.name ?? '',
-							profileImage: organizationConfig?.profileImage ?? null,
-							organizationId,
-							description: organizationConfig?.description ?? ''
-						}}
-						onOpenSidebar={() => setIsMobileSidebarOpen(true)}
-						sessionId={sessionId}
-						organizationId={organizationId}
-						onFeedbackSubmit={handleFeedbackSubmit}
-						previewFiles={previewFiles}
-						uploadingFiles={uploadingFiles}
-						removePreviewFile={removePreviewFile}
-						clearPreviewFiles={clearPreviewFiles}
-						handleCameraCapture={handleCameraCapture}
-						handleFileSelect={async (files: File[]) => {
-							await handleFileSelect(files);
-						}}
-						cancelUpload={cancelUpload}
-						handleMediaCapture={handleMediaCaptureWrapper}
-						isRecording={isRecording}
-						setIsRecording={setIsRecording}
-						clearInput={clearInputTrigger}
-						isReadyToUpload={isReadyToUpload}
-						isSessionReady={isSessionReady}
+				<div className="relative h-full flex flex-col">
+					{(quota && !quota.messages.unlimited) && (
+						<div className="px-4 pt-4">
+							<QuotaBanner
+								quota={quota}
+								loading={quotaLoading}
+								onUpgrade={() => navigate('/pricing')}
+							/>
+						</div>
+					)}
+					<div className="flex-1 min-h-0">
+						<ChatContainer
+							messages={messages}
+							onSendMessage={handleSendMessage}
+							onContactFormSubmit={handleContactFormSubmit}
+							organizationConfig={{
+								name: organizationConfig?.name ?? '',
+								profileImage: organizationConfig?.profileImage ?? null,
+								organizationId,
+								description: organizationConfig?.description ?? ''
+							}}
+							onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+							sessionId={sessionId}
+							organizationId={organizationId}
+							onFeedbackSubmit={handleFeedbackSubmit}
+							previewFiles={previewFiles}
+							uploadingFiles={uploadingFiles}
+							removePreviewFile={removePreviewFile}
+							clearPreviewFiles={clearPreviewFiles}
+							handleCameraCapture={handleCameraCapture}
+							handleFileSelect={async (files: File[]) => {
+								await handleFileSelect(files);
+							}}
+							cancelUpload={cancelUpload}
+							handleMediaCapture={handleMediaCaptureWrapper}
+							isRecording={isRecording}
+							setIsRecording={setIsRecording}
+							clearInput={clearInputTrigger}
+							isReadyToUpload={isReadyToUpload}
+							isSessionReady={isSessionReady}
+							isUsageRestricted={isQuotaRestricted}
+							usageMessage={quotaUsageMessage}
 						/>
+					</div>
 				</div>
 			</AppLayout>
 
@@ -568,9 +607,11 @@ export function App() {
 		<LocationProvider>
 			<AuthProvider>
 				<OrganizationProvider onError={(error) => console.error('Organization config error:', error)}>
-					<ToastProvider>
-						<AppWithSEO />
-					</ToastProvider>
+					<SessionProvider>
+						<ToastProvider>
+							<AppWithSEO />
+						</ToastProvider>
+					</SessionProvider>
 				</OrganizationProvider>
 			</AuthProvider>
 		</LocationProvider>

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { WORKER_URL } from '../../setup-real-api';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { env } from 'cloudflare:test';
 
 // Helper function to handle streaming responses
 async function handleStreamingResponse(response: Response, timeoutMs: number = 30000) {
@@ -84,7 +84,7 @@ async function uploadTestPdfFile(organizationId: string, sessionId: string): Pro
   formData.append('organizationId', organizationId);
   formData.append('sessionId', sessionId);
   
-  const uploadResponse = await fetch(`${WORKER_URL}/api/files/upload`, {
+  const uploadResponse = await fetch('http://localhost:8787/api/files/upload', {
     method: 'POST',
     body: formData
   });

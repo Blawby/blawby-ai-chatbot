@@ -19,6 +19,8 @@ import { StatusService } from '../services/StatusService.js';
 import { chunkResponseText } from '../utils/streaming.js';
 import { Logger } from '../utils/logger.js';
 import { ensureActiveSubscription } from '../middleware/subscription.js';
+import { UsageService } from '../services/UsageService.js';
+import { requireFeature } from '../middleware/featureGuard.js';
 
 // Interface for the request body
 interface RouteBody {
@@ -369,6 +371,20 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
       }
     }
 
+    await requireFeature(
+      request,
+      env,
+      {
+        feature: 'chat',
+        allowAnonymous: true,
+        quotaMetric: 'messages',
+      },
+      {
+        organizationId: resolvedOrganizationId,
+        sessionId: resolvedSessionId,
+      }
+    );
+
     // Persist the latest user message for auditing
     try {
       const metadata = attachments.length > 0
@@ -396,6 +412,16 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
       });
     } catch (persistError) {
       console.warn('Failed to persist chat message to D1', persistError);
+    }
+
+    try {
+      await UsageService.incrementUsage(env, resolvedOrganizationId, 'messages');
+    } catch (usageError) {
+      console.warn('Usage tracking failed; continuing without blocking request', {
+        error: usageError instanceof Error ? usageError.message : String(usageError),
+        organizationId: resolvedOrganizationId,
+        sessionId: resolvedSessionId,
+      });
     }
 
     // Get organization configuration

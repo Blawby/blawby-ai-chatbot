@@ -17,14 +17,17 @@
 		"lint:src": "eslint src/ --ext .ts,.tsx,.js,.jsx --max-warnings 20",
 		"type-check": "tsc --noEmit --skipLibCheck",
 		"lint:i18n": "node ./scripts/check-i18n.mjs",
-		"test": "vitest run",
+		"test": "npm run test:unit && npm run test:worker && npm run test:component",
+		"test:unit": "vitest run -c vitest.config.unit.ts",
+		"test:worker": "vitest run -c vitest.config.worker.ts",
+		"test:component": "vitest run -c vitest.config.component.ts",
 		"db:reset": "./scripts/reset-dev-db.sh && npm run db:seed",
 		"db:init": "wrangler d1 execute blawby-ai-chatbot --local --file worker/schema.sql",
 		"db:seed": "./scripts/seed-organizations.sh",
 		"test:all": "npm run test",
-		"test:watch": "vitest --watch",
-		"test:ui": "vitest --ui",
-		"test:coverage": "vitest --coverage",
+		"test:watch": "vitest --watch -c vitest.config.unit.ts",
+		"test:ui": "vitest --ui -c vitest.config.component.ts",
+		"test:coverage": "vitest --coverage -c vitest.config.unit.ts",
 		"test:i18n": "node ./scripts/test-i18n.mjs",
 		"test:conversation": "./test-conversation-flow.sh",
 		"test:e2e:api": "./test-conversation-flow.sh",
@@ -60,7 +63,7 @@
 		"zod": "^4.1.11"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "^0.8.63",
+		"@cloudflare/vitest-pool-workers": "^0.9.13",
 		"@cloudflare/workers-types": "^4.20250715.0",
 		"@eslint/compat": "^1.4.0",
 		"@eslint/js": "^9.36.0",
@@ -71,7 +74,7 @@
 		"@types/node-fetch": "^2.6.13",
 		"@typescript-eslint/eslint-plugin": "^8.44.1",
 		"@typescript-eslint/parser": "^8.44.1",
-		"@vitest/ui": "^2.1.5",
+		"@vitest/ui": "^3.2.4",
 		"autoprefixer": "^10.4.21",
 		"concurrently": "^8.2.2",
 		"critters": "^0.0.23",
@@ -93,7 +96,7 @@
 		"vite-plugin-compression": "^0.5.1",
 		"vite-plugin-html": "^3.2.2",
 		"vite-plugin-pwa": "^0.21.1",
-		"vitest": "^2.1.5",
+		"vitest": "^3.2.4",
 		"wrangler": "^4.38.0"
 	}
 }

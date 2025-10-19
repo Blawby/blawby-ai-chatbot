@@ -7,6 +7,7 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		CHAT_SESSIONS: KVNamespace;
+		USAGE_QUOTAS: KVNamespace;
 		BLAWBY_API_URL: "https://staging.blawby.com";
 		BLAWBY_ORGANIZATION_ULID: "01jq70jnstyfzevc6423czh50e";
 		LAWYER_SEARCH_API_URL: "https://search.blawby.com";

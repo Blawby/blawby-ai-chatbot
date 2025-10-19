@@ -27,6 +27,8 @@ interface MessageComposerProps {
   textareaRef: RefObject<HTMLTextAreaElement>;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
+  isUsageRestricted?: boolean;
+  usageMessage?: string | null;
 }
 
 const MessageComposer = ({
@@ -46,6 +48,8 @@ const MessageComposer = ({
   textareaRef,
   isReadyToUpload,
   isSessionReady,
+  isUsageRestricted,
+  usageMessage,
 }: MessageComposerProps) => {
   const handleInput = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
     const t = e.currentTarget;
@@ -57,6 +61,7 @@ const MessageComposer = ({
   const handleSubmit = () => {
     if (!inputValue.trim() && previewFiles.length === 0) return;
     if (isSessionReady === false) return;
+    if (isUsageRestricted) return;
     onSubmit();
     const el = textareaRef.current;
     if (el) { el.style.height = ''; }
@@ -69,7 +74,23 @@ const MessageComposer = ({
     el.style.height = `${Math.max(32, el.scrollHeight)}px`;
   }, [inputValue, textareaRef]);
 
-    return (
+  const statusMessage = (() => {
+    if (isUsageRestricted) {
+      return usageMessage ?? 'You have reached your current plan\'s usage limit.';
+    }
+    if (isSessionReady === false) {
+      return 'Setting up a secure session...';
+    }
+    return 'Blawby can make mistakes. Check for important information.';
+  })();
+
+  const sendDisabled = (
+    (!inputValue.trim() && previewFiles.length === 0) ||
+    isSessionReady === false ||
+    Boolean(isUsageRestricted)
+  );
+
+  return (
     <form 
       className="pl-4 pr-4 pb-2 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md" 
       aria-label="Message composition"
@@ -109,7 +130,7 @@ const MessageComposer = ({
               <FileMenu
                 onFileSelect={handleFileSelect}
                 onCameraCapture={handleCameraCapture}
-                isReadyToUpload={isSessionReady === false ? false : isReadyToUpload}
+                isReadyToUpload={isSessionReady === false || isUsageRestricted ? false : isReadyToUpload}
               />
             </div>
           )}
@@ -137,10 +158,13 @@ const MessageComposer = ({
               type="submit"
               variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
               size="sm"
-              disabled={(!inputValue.trim() && previewFiles.length === 0) || isSessionReady === false}
-              aria-label={isSessionReady === false
-                ? 'Send message (waiting for secure session)'
-                : (!inputValue.trim() && previewFiles.length === 0
+              disabled={sendDisabled}
+              aria-label={
+                isUsageRestricted
+                  ? 'Send message (usage limit reached)'
+                  : isSessionReady === false
+                    ? 'Send message (waiting for secure session)'
+                    : (!inputValue.trim() && previewFiles.length === 0
                   ? 'Send message (disabled)'
                   : 'Send message')}
               className="w-8 h-8 p-0 rounded-full"
@@ -152,9 +176,7 @@ const MessageComposer = ({
       </div>
 
       <div className="text-xs text-gray-600 dark:text-gray-400 text-center py-1 opacity-80">
-        {isSessionReady === false
-          ? 'Setting up a secure session...'
-          : 'Blawby can make mistakes. Check for important information.'}
+        {statusMessage}
       </div>
     </form>
   );
