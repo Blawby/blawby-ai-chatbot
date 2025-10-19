@@ -133,7 +133,7 @@ const loadLocaleResources = async (locale: AnyLocale) => {
 
     namespaceData.forEach(([namespace, data]) => {
       const alreadyLoaded = i18next.getResourceBundle(locale, namespace);
-      if (!alreadyLoaded) {
+      if (!alreadyLoaded && Object.keys(data).length > 0) {
         i18next.addResourceBundle(locale, namespace, data, true, true);
       }
     });
