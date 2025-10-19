@@ -13,7 +13,7 @@ import { useSession } from '../../../contexts/AuthContext';
 import { updateUser } from '../../../lib/authClient';
 import { signOut } from '../../../utils/auth';
 import { TIER_FEATURES } from '../../../utils/stripe-products';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/i18n/hooks';
 import { useLocation } from 'preact-iso';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';

@@ -13,8 +13,100 @@
     "es": "Tiếng Tây Ban Nha",
     "fr": "Tiếng Pháp",
     "de": "Tiếng Đức",
-    "zh": "中文",
-    "ja": "日本語"
+    "zh": "Tiếng Trung",
+    "ja": "Tiếng Nhật",
+    "pt": "Tiếng Bồ Đào Nha",
+    "ar": "Tiếng Ả Rập",
+    "ru": "Tiếng Nga",
+    "it": "Tiếng Ý",
+    "ko": "Tiếng Hàn",
+    "nl": "Tiếng Hà Lan",
+    "pl": "Tiếng Ba Lan",
+    "tr": "Tiếng Thổ Nhĩ Kỳ",
+    "th": "Tiếng Thái",
+    "id": "Tiếng Indonesia",
+    "hi": "Tiếng Hindi",
+    "uk": "Tiếng Ukraina"
+  },
+  "forms": {
+    "labels": {
+      "name": "Họ và tên",
+      "email": "Địa chỉ email",
+      "phone": "Số điện thoại",
+      "password": "Mật khẩu",
+      "confirmPassword": "Xác nhận mật khẩu",
+      "birthday": "Ngày sinh",
+      "terms": "Điều khoản và Điều kiện",
+      "privacy": "Chính sách Bảo mật",
+      "search": "Tìm kiếm",
+      "select": "Chọn một tùy chọn",
+      "upload": "Tải lên tệp",
+      "message": "Tin nhắn",
+      "subject": "Chủ đề"
+    },
+    "placeholders": {
+      "name": "Nhập họ và tên của bạn",
+      "email": "Nhập địa chỉ email của bạn",
+      "phone": "Nhập số điện thoại của bạn",
+      "password": "Nhập mật khẩu của bạn",
+      "confirmPassword": "Xác nhận mật khẩu của bạn",
+      "birthday": "Chọn ngày sinh của bạn",
+      "search": "Tìm kiếm...",
+      "select": "Chọn một tùy chọn",
+      "message": "Nhập tin nhắn của bạn",
+      "subject": "Nhập chủ đề"
+    },
+    "descriptions": {
+      "optional": "Tùy chọn",
+      "required": "Bắt buộc",
+      "passwordHelp": "Phải có ít nhất 8 ký tự",
+      "phoneHelp": "Bao gồm mã quốc gia cho số điện thoại quốc tế",
+      "fileHelp": "Định dạng được hỗ trợ: PDF, DOC, DOCX"
+    },
+    "validation": {
+      "required": "Trường này là bắt buộc",
+      "email": "Vui lòng nhập địa chỉ email hợp lệ",
+      "phone": "Vui lòng nhập số điện thoại hợp lệ",
+      "password": "Mật khẩu phải có ít nhất 8 ký tự",
+      "confirmPassword": "Mật khẩu không khớp",
+      "date": "Vui lòng nhập ngày hợp lệ (DD/MM/YYYY)",
+      "futureDate": "Ngày không thể ở tương lai",
+      "fileType": "Vui lòng chọn loại tệp hợp lệ",
+      "fileSize": "Kích thước tệp phải nhỏ hơn 10MB",
+      "termsRequired": "Bạn phải đồng ý với các điều khoản"
+    },
+    "accessibility": {
+      "togglePassword": "Chuyển đổi hiển thị mật khẩu",
+      "clearSearch": "Xóa tìm kiếm",
+      "selectOption": "Chọn tùy chọn",
+      "removeOption": "Xóa tùy chọn",
+      "uploadFile": "Tải lên tệp",
+      "removeFile": "Xóa tệp",
+      "calendarOpen": "Mở lịch",
+      "calendarClose": "Đóng lịch"
+    },
+    "actions": {
+      "submit": "Gửi",
+      "submitting": "Đang gửi...",
+      "reset": "Đặt lại",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "Ví dụ Biểu mẫu Đã xác thực"
+      }
+    },
+    "contactForm": {
+      "location": "Vị trí",
+      "opposingParty": "Bên đối lập (Tùy chọn)",
+      "submit": "Gửi thông tin liên hệ",
+      "placeholders": {
+        "location": "Thành phố, Tỉnh (ví dụ: Hà Nội, Hà Nội)",
+        "opposingParty": "Tên của bên khác liên quan (nếu có)"
+      }
+    }
   },
   "onboarding": {
     "title": "Chào mừng đến với Blawby AI",
@@ -28,6 +120,7 @@
       "birthdayPlaceholder": "DD/MM/YYYY",
       "termsAgreement": "Bằng cách nhấp vào \"Tiếp tục\", bạn đồng ý với <termsLink>Điều khoản</termsLink> của chúng tôi và đã đọc <privacyLink>Chính sách Bảo mật</privacyLink> của chúng tôi.",
       "continue": "Tiếp tục",
+      "back": "Quay lại",
       "required": "Trường này là bắt buộc"
     },
     "step2": {

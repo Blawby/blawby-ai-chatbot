@@ -1,5 +1,7 @@
 import { FunctionComponent } from 'preact';
-import { getBusinessPrices } from '../utils/stripe-products';
+import { useTranslation } from '@/i18n/hooks';
+import { getBusinessPrices, PRICES } from '../utils/stripe-products';
+import { buildPriceDisplay } from '../utils/currencyFormatter';
 import { type SubscriptionTier } from '../types/user';
 import { 
   ChatBubbleLeftRightIcon, 
@@ -23,88 +25,100 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
   showAllPlans = true,
   className = ''
 }) => {
-  const prices = getBusinessPrices();
+  const { t } = useTranslation('pricing');
+  
+  // Get user preferences for locale and currency
+  // TODO: Get from auth context when available
+  const userLocale = 'en'; // Default to English for now
+  const userCurrency = 'USD'; // TODO: Add currency preference to user preferences
+  
+  const _prices = getBusinessPrices(userLocale);
   
   const allPlans = [
     {
       id: 'free',
-      name: 'Free',
-      price: '$0 USD / month',
-      description: 'Legal AI assistance for everyday needs',
+      name: t('plans.free.name'),
+      price: t('plans.free.price'),
+      description: t('plans.free.description'),
       features: [
         {
           icon: ChatBubbleLeftRightIcon,
-          text: 'Basic AI chat assistance',
-          description: 'Get help with general legal questions'
+          text: t('plans.free.features.basicChat.text'),
+          description: t('plans.free.features.basicChat.description')
         },
         {
           icon: DocumentTextIcon,
-          text: 'Document analysis',
-          description: 'Upload and analyze up to 3 documents per month'
+          text: t('plans.free.features.documentAnalysis.text'),
+          description: t('plans.free.features.documentAnalysis.description')
         },
         {
           icon: ClockIcon,
-          text: 'Standard response time',
-          description: 'Responses within 24 hours'
+          text: t('plans.free.features.responseTime.text'),
+          description: t('plans.free.features.responseTime.description')
         }
       ],
-      buttonText: 'Your current plan',
+      buttonText: t('plans.free.buttonText'),
       isRecommended: false,
       popular: false,
       limitations: [
-        'Limited to 3 document uploads per month',
-        'No team collaboration features',
-        'Basic AI responses only',
-        'No priority support'
+        t('plans.free.limitations.documentLimit'),
+        t('plans.free.limitations.noTeam'),
+        t('plans.free.limitations.basicAI'),
+        t('plans.free.limitations.noPriority')
       ],
       benefits: [
-        'Perfect for personal use',
-        'No credit card required',
-        'Full access to basic features'
+        t('plans.free.benefits.personalUse'),
+        t('plans.free.benefits.noCard'),
+        t('plans.free.benefits.fullAccess')
       ]
     },
     {
       id: 'business',
-      name: 'Business',
-      price: prices.monthly,
-      description: 'Secure, collaborative workspace for organizations',
+      name: t('plans.business.name'),
+      price: (() => {
+        const businessPrice = PRICES.monthly;
+        const businessAmount = (businessPrice?.unit_amount ?? 4000) / 100;
+        const businessCurrency = businessPrice?.currency ?? 'usd';
+        return buildPriceDisplay(businessAmount, businessCurrency, 'month', userLocale, t);
+      })(),
+      description: t('plans.business.description'),
       features: [
         {
           icon: UserGroupIcon,
-          text: 'Team collaboration',
-          description: 'Unlimited team members and shared workspaces'
+          text: t('plans.business.features.teamCollaboration.text'),
+          description: t('plans.business.features.teamCollaboration.description')
         },
         {
           icon: DocumentTextIcon,
-          text: 'Unlimited document analysis',
-          description: 'Upload and analyze unlimited documents'
+          text: t('plans.business.features.unlimitedDocuments.text'),
+          description: t('plans.business.features.unlimitedDocuments.description')
         },
         {
           icon: ShieldCheckIcon,
-          text: 'Advanced security',
-          description: 'Enterprise-grade security and compliance'
+          text: t('plans.business.features.advancedSecurity.text'),
+          description: t('plans.business.features.advancedSecurity.description')
         },
         {
           icon: CloudIcon,
-          text: 'Cloud storage',
-          description: 'Secure cloud storage for all documents'
+          text: t('plans.business.features.cloudStorage.text'),
+          description: t('plans.business.features.cloudStorage.description')
         },
         {
           icon: ClockIcon,
-          text: 'Priority support',
-          description: '24/7 priority customer support'
+          text: t('plans.business.features.prioritySupport.text'),
+          description: t('plans.business.features.prioritySupport.description')
         }
       ],
-      buttonText: 'Get Business',
+      buttonText: t('plans.business.buttonText'),
       isRecommended: currentTier !== 'business',
       popular: true,
       limitations: [],
       benefits: [
-        'Unlimited document processing',
-        'Team collaboration tools',
-        'Advanced AI capabilities',
-        'Priority customer support',
-        'Custom integrations available'
+        t('plans.business.benefits.unlimitedProcessing'),
+        t('plans.business.benefits.teamTools'),
+        t('plans.business.benefits.advancedAI'),
+        t('plans.business.benefits.prioritySupport'),
+        t('plans.business.benefits.customIntegrations')
       ]
     }
   ];
@@ -127,7 +141,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
           {plan.isRecommended && (
             <div className="absolute -top-3 left-6">
               <span className="bg-accent-500 text-gray-900 text-xs font-medium px-3 py-1 rounded-full">
-                RECOMMENDED
+                {t('modal.recommended').toUpperCase()}
               </span>
             </div>
           )}
@@ -136,7 +150,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
           {plan.popular && (
             <div className="absolute -top-3 right-6">
               <span className="bg-blue-500 text-white text-xs font-medium px-3 py-1 rounded-full">
-                POPULAR
+                {t('modal.popular').toUpperCase()}
               </span>
             </div>
           )}
@@ -145,10 +159,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
           <div className="mb-6">
             <h3 className="text-2xl font-bold mb-2 text-white">{plan.name}</h3>
             <div className="text-3xl font-bold mb-2 text-white">
-              {plan.price.split(' ')[0]}
-              <span className="text-lg font-normal text-gray-300 ml-1">
-                {plan.price.split(' ').slice(1).join(' ')}
-              </span>
+              {plan.price}
             </div>
             <p className="text-gray-300">{plan.description}</p>
           </div>
@@ -165,7 +176,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
                 : 'bg-transparent border border-dark-border text-white hover:bg-dark-hover'
             }`}
           >
-            {plan.id === currentTier ? 'Your current plan' : plan.buttonText}
+            {plan.id === currentTier ? t('modal.currentPlan') : plan.buttonText}
           </button>
 
           {/* Features List */}
@@ -186,7 +197,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
           {/* Benefits */}
           {plan.benefits && plan.benefits.length > 0 && (
             <div className="mt-6 pt-4 border-t border-dark-border">
-              <h4 className="text-sm font-medium text-white mb-2">Benefits:</h4>
+              <h4 className="text-sm font-medium text-white mb-2">{t('sections.benefits')}</h4>
               <ul className="space-y-1">
                 {plan.benefits.map((benefit, index) => (
                   <li key={index} className="text-xs text-gray-400 flex items-center gap-2">
@@ -201,7 +212,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
           {/* Limitations */}
           {plan.limitations && plan.limitations.length > 0 && (
             <div className="mt-4 pt-4 border-t border-dark-border">
-              <h4 className="text-sm font-medium text-white mb-2">Limitations:</h4>
+              <h4 className="text-sm font-medium text-white mb-2">{t('sections.limitations')}</h4>
               <ul className="space-y-1">
                 {plan.limitations.map((limitation, index) => (
                   <li key={index} className="text-xs text-gray-500 flex items-center gap-2">

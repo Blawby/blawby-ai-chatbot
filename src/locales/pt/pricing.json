@@ -1,0 +1,235 @@
+{
+  "plans": {
+    "free": {
+      "name": "Gratuito",
+      "description": "Assistência jurídica por IA para necessidades cotidianas",
+      "buttonText": "Seu plano atual"
+    },
+    "plus": {
+      "name": "Plus",
+      "description": "Capacidades jurídicas de IA aprimoradas para profissionais",
+      "buttonText": "Obter Plus"
+    },
+    "business": {
+      "name": "Business",
+      "description": "Espaço de trabalho seguro e colaborativo para equipes",
+      "buttonText": "Obter Business"
+    }
+  },
+  "features": {
+    "aiAccess": {
+      "name": "Acesso à IA",
+      "description": "Acesso aos nossos modelos de IA jurídica",
+      "tiers": {
+        "free": "Blawby AI-1 (Limitado)",
+        "plus": "Blawby AI-1 (Aprimorado)",
+        "business": "Blawby AI-1 (Ilimitado)"
+      },
+      "text": {
+        "free": "Acesso ao Blawby AI-1",
+        "plus": "Acesso aprimorado ao Blawby AI-1",
+        "business": "Acesso ilimitado ao nosso melhor modelo para trabalho"
+      },
+      "detail": {
+        "free": "Acesso limitado ao nosso modelo de IA jurídica",
+        "plus": "Acesso prioritário ao nosso modelo de IA jurídica",
+        "business": "Acesso ilimitado a modelos de IA avançados"
+      }
+    },
+    "documentAnalysis": {
+      "name": "Análise de Documentos",
+      "description": "Envie e analise documentos jurídicos",
+      "tiers": {
+        "free": "Limitado",
+        "plus": "Aprimorado",
+        "business": "Ilimitado"
+      },
+      "text": {
+        "free": "Análise de documentos limitada",
+        "plus": "Análise de documentos aprimorada",
+        "business": "Análise avançada de documentos e preparação de casos"
+      },
+      "detail": {
+        "free": "Envie e analise documentos jurídicos básicos",
+        "plus": "Processamento de documentos jurídicos mais rápido e preciso",
+        "business": "Capacidades completas de processamento de documentos jurídicos"
+      }
+    },
+    "casePreparation": {
+      "name": "Preparação de PDF de Casos",
+      "description": "Preparação de documentos de casos assistida por IA",
+      "tiers": {
+        "free": "Limitado",
+        "plus": "Aprimorado",
+        "business": "Ilimitado"
+      },
+      "text": {
+        "free": "Preparação limitada de PDF de casos",
+        "plus": "Preparação aprimorada de PDF de casos",
+        "business": "Preparação avançada de PDF de casos"
+      },
+      "detail": {
+        "free": "Preparação básica de documentos de casos",
+        "plus": "Preparação avançada de documentos de casos",
+        "business": "Capacidades completas de preparação de documentos de casos"
+      }
+    },
+    "memoryContext": {
+      "name": "Memória e Contexto",
+      "description": "Memória e contexto de conversas",
+      "tiers": {
+        "free": "Limitado",
+        "plus": "Aprimorado",
+        "business": "Ilimitado"
+      },
+      "text": {
+        "free": "Memória e contexto limitados",
+        "plus": "Memória e contexto estendidos",
+        "business": "Memória e contexto ilimitados"
+      },
+      "detail": {
+        "free": "Memória básica de conversas",
+        "plus": "Memória de conversas mais longa",
+        "business": "Histórico de conversas ilimitado"
+      }
+    },
+    "lawyerSearch": {
+      "name": "Busca de Advogados",
+      "description": "Encontre e conecte-se com advogados qualificados",
+      "tiers": {
+        "free": "Limitado",
+        "plus": "Aprimorado",
+        "business": "Ilimitado"
+      },
+      "text": {
+        "free": "Busca limitada de advogados",
+        "plus": "Busca aprimorada de advogados",
+        "business": "Busca avançada de advogados"
+      },
+      "detail": {
+        "free": "Capacidades básicas de busca de advogados",
+        "plus": "Capacidades avançadas de correspondência de advogados",
+        "business": "Capacidades completas de correspondência e pesquisa de advogados"
+      }
+    },
+    "teamCollaboration": {
+      "name": "Colaboração em Equipe",
+      "description": "Projetos compartilhados e recursos de equipe",
+      "text": "Ferramentas para equipes como projetos e fluxos de trabalho compartilhados",
+      "detail": "Colaboração em equipe e gerenciamento de projetos"
+    },
+    "security": {
+      "name": "Segurança Avançada",
+      "description": "SSO, MFA e segurança empresarial",
+      "text": "Segurança avançada com SSO, MFA e mais",
+      "detail": "Recursos de segurança de nível empresarial"
+    },
+    "privacy": {
+      "name": "Proteção de Privacidade",
+      "description": "Dados nunca usados para treinamento",
+      "text": "Privacidade integrada; dados nunca usados para treinamento",
+      "detail": "Proteção completa de privacidade de dados"
+    },
+    "integrations": {
+      "name": "Integrações",
+      "description": "SharePoint e outras ferramentas",
+      "text": "Integração com Quickbooks e outras ferramentas",
+      "detail": "Conecte-se com seu fluxo de trabalho existente"
+    },
+    "billing": {
+      "name": "Cobrança Simplificada",
+      "description": "Gerenciamento de usuários e cobrança",
+      "text": "Cobrança simplificada e gerenciamento de usuários",
+      "detail": "Gerenciamento fácil de equipe e cobrança"
+    },
+    "transcription": {
+      "name": "Transcrição de Voz",
+      "description": "Transcrição de reuniões e voz",
+      "text": "Transcrição e análise de voz",
+      "detail": "Transcrição de voz e análise jurídica"
+    },
+    "agents": {
+      "name": "Agentes de IA",
+      "description": "Agentes de codificação e pesquisa",
+      "text": "Agentes de pesquisa jurídica e busca de advogados",
+      "detail": "Agentes de IA especializados para pesquisa jurídica e correspondência de advogados"
+    },
+    "plusIncludes": {
+      "text": "Tudo do Gratuito, com limites mais altos",
+      "detail": "Todos os recursos gratuitos com uso aumentado"
+    },
+    "businessIncludes": {
+      "text": "Tudo do Plus, com limites ainda mais altos",
+      "detail": "Todos os recursos Plus com uso ilimitado"
+    }
+  },
+  "limitations": {
+    "free": {
+      "messagesPerDay": "Limitado a 20 mensagens por dia",
+      "documentSupport": "Suporte básico de análise de documentos",
+      "responseTime": "Tempos de resposta padrão",
+      "noTeam": "Sem recursos de colaboração em equipe"
+    },
+    "plus": {
+      "messagesPerDay": "Limitado a 200 mensagens por dia",
+      "noTeam": "Sem recursos de colaboração em equipe",
+      "standardSupport": "Tempos de resposta de suporte padrão"
+    },
+    "business": {
+      "minUsers": "Requer 2+ usuários",
+      "annualBilling": "Cobrança anual recomendada"
+    }
+  },
+  "benefits": {
+    "free": {
+      "personal": "Perfeito para necessidades jurídicas pessoais",
+      "noCard": "Nenhum cartão de crédito necessário",
+      "fullAccess": "Acesso completo aos recursos principais de IA jurídica",
+      "support": "Suporte da comunidade"
+    },
+    "plus": {
+      "higherLimits": "Limites de uso 5x maiores",
+      "priorityAccess": "Acesso prioritário ao modelo de IA",
+      "enhanced": "Recursos jurídicos aprimorados",
+      "support": "Suporte por e-mail"
+    },
+    "business": {
+      "unlimited": "Uso ilimitado",
+      "team": "Colaboração em equipe",
+      "security": "Segurança empresarial",
+      "prioritySupport": "Suporte prioritário",
+      "customIntegrations": "Integrações personalizadas"
+    }
+  },
+  "modal": {
+    "title": "Faça upgrade do seu plano",
+    "tabs": {
+      "personal": "Pessoal",
+      "business": "Business"
+    },
+    "countryLabel": "Selecione seu país",
+    "currentPlan": "Plano Atual",
+    "recommended": "Recomendado",
+    "popular": "Mais Popular",
+    "close": "Fechar"
+  },
+  "billing": {
+    "monthly": "mês",
+    "yearly": "ano",
+    "billedMonthly": "Cobrado mensalmente",
+    "billedAnnually": "Cobrado anualmente",
+    "currency": {
+      "usd": "USD"
+    }
+  },
+  "comparison": {
+    "title": "Comparar Planos",
+    "feature": "Recurso",
+    "included": "Incluído",
+    "notIncluded": "Não incluído"
+  },
+  "sections": {
+    "benefits": "Benefícios:",
+    "limitations": "Limitações:"
+  }
+}

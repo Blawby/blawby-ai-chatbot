@@ -1,0 +1,161 @@
+{
+  "app": {
+    "loading": "Carregando…"
+  },
+  "notifications": {
+    "settingsSavedTitle": "Configurações salvas",
+    "settingsSavedBody": "Suas preferências foram atualizadas."
+  },
+  "language": {
+    "auto": "Detectar automaticamente",
+    "en": "English",
+    "vi": "Tiếng Việt",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский",
+    "it": "Italiano",
+    "ko": "한국어",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "tr": "Türkçe",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "hi": "हिन्दी",
+    "uk": "Українська"
+  },
+  "forms": {
+    "labels": {
+      "name": "Nome Completo",
+      "email": "Endereço de E-mail",
+      "phone": "Número de Telefone",
+      "password": "Senha",
+      "confirmPassword": "Confirmar Senha",
+      "birthday": "Data de Nascimento",
+      "terms": "Termos e Condições",
+      "privacy": "Política de Privacidade",
+      "search": "Pesquisar",
+      "select": "Selecione uma opção",
+      "upload": "Enviar Arquivo",
+      "message": "Mensagem",
+      "subject": "Assunto"
+    },
+    "placeholders": {
+      "name": "Digite seu nome completo",
+      "email": "Digite seu endereço de e-mail",
+      "phone": "Digite seu número de telefone",
+      "password": "Digite sua senha",
+      "confirmPassword": "Confirme sua senha",
+      "birthday": "Selecione sua data de nascimento",
+      "search": "Pesquisar...",
+      "select": "Selecione uma opção",
+      "message": "Digite sua mensagem",
+      "subject": "Digite o assunto"
+    },
+    "descriptions": {
+      "optional": "Opcional",
+      "required": "Obrigatório",
+      "passwordHelp": "Deve ter pelo menos 8 caracteres",
+      "phoneHelp": "Inclua o código do país para números internacionais",
+      "fileHelp": "Formatos suportados: PDF, DOC, DOCX"
+    },
+    "validation": {
+      "required": "Este campo é obrigatório",
+      "email": "Por favor, digite um endereço de e-mail válido",
+      "phone": "Por favor, digite um número de telefone válido",
+      "password": "A senha deve ter pelo menos 8 caracteres",
+      "confirmPassword": "As senhas não coincidem",
+      "date": "Por favor, digite uma data válida (DD/MM/AAAA)",
+      "futureDate": "A data não pode estar no futuro",
+      "fileType": "Por favor, selecione um tipo de arquivo válido",
+      "fileSize": "O tamanho do arquivo deve ser menor que 10MB",
+      "termsRequired": "Você deve concordar com os termos"
+    },
+    "accessibility": {
+      "togglePassword": "Alternar visibilidade da senha",
+      "clearSearch": "Limpar pesquisa",
+      "selectOption": "Selecionar opção",
+      "removeOption": "Remover opção",
+      "uploadFile": "Enviar arquivo",
+      "removeFile": "Remover arquivo",
+      "calendarOpen": "Abrir calendário",
+      "calendarClose": "Fechar calendário"
+    },
+    "actions": {
+      "submit": "Enviar",
+      "submitting": "Enviando...",
+      "reset": "Redefinir",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "saving": "Salvando..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "Exemplo de Formulário Validado"
+      }
+    },
+    "contactForm": {
+      "location": "Localização",
+      "opposingParty": "Parte Adversária (Opcional)",
+      "submit": "Enviar Informações de Contato",
+      "placeholders": {
+        "location": "Cidade, Estado (ex: São Paulo, SP)",
+        "opposingParty": "Nome da outra parte envolvida (se houver)"
+      }
+    }
+  },
+  "onboarding": {
+    "title": "Bem-vindo ao Blawby AI",
+    "subtitle": "Vamos configurar sua conta",
+    "step1": {
+      "title": "Conte-nos sobre você",
+      "subtitle": "Ajude-nos a personalizar sua experiência",
+      "fullName": "Nome completo",
+      "fullNamePlaceholder": "Digite seu nome completo",
+      "birthday": "Data de nascimento",
+      "birthdayPlaceholder": "DD/MM/AAAA",
+      "termsAgreement": "Ao clicar em \"Continuar\", você concorda com nossos <termsLink>Termos</termsLink> e leu nossa <privacyLink>Política de Privacidade</privacyLink>.",
+      "continue": "Continuar",
+      "back": "Voltar",
+      "required": "Este campo é obrigatório"
+    },
+    "step2": {
+      "title": "Para que você quer usar o Blawby AI?",
+      "subtitle": "Isso nos ajuda a fornecer sugestões mais relevantes",
+      "options": {
+        "personal": "Questões Jurídicas Pessoais",
+        "business": "Necessidades Jurídicas Empresariais",
+        "research": "Pesquisa Jurídica",
+        "documents": "Revisão de Documentos",
+        "other": "Outro"
+      },
+      "otherPlaceholder": "Conte-nos mais...",
+      "next": "Próximo",
+      "skip": "Pular"
+    },
+    "welcome": {
+      "title": "Blawby AI",
+      "subtitle": "Dicas para começar",
+      "tips": {
+        "askAway": {
+          "title": "Pergunte à vontade",
+          "description": "O Blawby AI pode responder perguntas jurídicas, ajudá-lo a entender conceitos legais, revisar documentos e muito mais."
+        },
+        "privacy": {
+          "title": "Não compartilhe informações sensíveis",
+          "description": "O histórico de conversas pode ser revisado ou usado para melhorar nossos serviços. Saiba mais sobre suas opções em nossa <helpCenterLink>Central de Ajuda</helpCenterLink>."
+        },
+        "accuracy": {
+          "title": "Verifique seus fatos",
+          "description": "Embora tenhamos salvaguardas, o Blawby AI pode fornecer informações imprecisas. Não se destina a fornecer aconselhamento jurídico."
+        }
+      },
+      "helpCenter": "Central de Ajuda",
+      "letsGo": "Ok, vamos lá"
+    }
+  }
+}

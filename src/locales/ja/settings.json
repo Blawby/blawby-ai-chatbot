@@ -186,7 +186,8 @@
     },
     "channels": {
       "push": "プッシュ",
-      "email": "メール"
+      "email": "メール",
+      "none": "なし"
     }
   },
   "security": {

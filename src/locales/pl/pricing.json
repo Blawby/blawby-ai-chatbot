@@ -1,0 +1,231 @@
+{
+  "plans": {
+    "free": {
+      "name": "Darmowy",
+      "description": "Aby zacząć od podstaw AI",
+      "buttonText": "[NEEDS TRANSLATION] Your current plan"
+    },
+    "plus": {
+      "name": "Plus",
+      "description": "Dla zaawansowanych użytkowników potrzebujących więcej",
+      "buttonText": "[NEEDS TRANSLATION] Get Plus"
+    },
+    "business": {
+      "name": "[NEEDS TRANSLATION] Business",
+      "description": "[NEEDS TRANSLATION] Secure, collaborative workspace for teams",
+      "buttonText": "[NEEDS TRANSLATION] Get Business"
+    }
+  },
+  "features": {
+    "aiAccess": {
+      "name": "[NEEDS TRANSLATION] AI Access",
+      "description": "[NEEDS TRANSLATION] Access to our legal AI models",
+      "tiers": {
+        "free": "[NEEDS TRANSLATION] Blawby AI-1 (Limited)",
+        "plus": "[NEEDS TRANSLATION] Blawby AI-1 (Enhanced)",
+        "business": "[NEEDS TRANSLATION] Blawby AI-1 (Unlimited)"
+      },
+      "text": {
+        "free": "[NEEDS TRANSLATION] Access to Blawby AI-1",
+        "plus": "[NEEDS TRANSLATION] Enhanced access to Blawby AI-1",
+        "business": "[NEEDS TRANSLATION] Unlimited access to our best model for work"
+      },
+      "detail": {
+        "free": "[NEEDS TRANSLATION] Limited access to our legal AI model",
+        "plus": "[NEEDS TRANSLATION] Priority access to our legal AI model",
+        "business": "[NEEDS TRANSLATION] Unlimited access to advanced AI models"
+      }
+    },
+    "documentAnalysis": {
+      "name": "[NEEDS TRANSLATION] Document Analysis",
+      "description": "[NEEDS TRANSLATION] Upload and analyze legal documents",
+      "tiers": {
+        "free": "[NEEDS TRANSLATION] Limited",
+        "plus": "[NEEDS TRANSLATION] Enhanced",
+        "business": "[NEEDS TRANSLATION] Unlimited"
+      },
+      "text": {
+        "free": "[NEEDS TRANSLATION] Limited document analysis",
+        "plus": "[NEEDS TRANSLATION] Enhanced document analysis",
+        "business": "[NEEDS TRANSLATION] Advanced document analysis & case preparation"
+      },
+      "detail": {
+        "free": "[NEEDS TRANSLATION] Upload and analyze basic legal documents",
+        "plus": "[NEEDS TRANSLATION] Faster and more accurate legal document processing",
+        "business": "[NEEDS TRANSLATION] Full legal document processing capabilities"
+      }
+    },
+    "casePreparation": {
+      "name": "[NEEDS TRANSLATION] Case PDF Preparation",
+      "description": "[NEEDS TRANSLATION] AI-powered case document preparation",
+      "tiers": {
+        "free": "[NEEDS TRANSLATION] Limited",
+        "plus": "[NEEDS TRANSLATION] Enhanced",
+        "business": "[NEEDS TRANSLATION] Unlimited"
+      },
+      "text": {
+        "free": "[NEEDS TRANSLATION] Limited case PDF preparation",
+        "plus": "[NEEDS TRANSLATION] Enhanced case PDF preparation",
+        "business": "[NEEDS TRANSLATION] Advanced case PDF preparation"
+      },
+      "detail": {
+        "free": "[NEEDS TRANSLATION] Basic case document preparation",
+        "plus": "[NEEDS TRANSLATION] Advanced case document preparation",
+        "business": "[NEEDS TRANSLATION] Full case document preparation capabilities"
+      }
+    },
+    "memoryContext": {
+      "name": "[NEEDS TRANSLATION] Memory & Context",
+      "description": "[NEEDS TRANSLATION] Conversation memory and context",
+      "tiers": {
+        "free": "[NEEDS TRANSLATION] Limited",
+        "plus": "[NEEDS TRANSLATION] Enhanced",
+        "business": "[NEEDS TRANSLATION] Unlimited"
+      },
+      "text": {
+        "free": "[NEEDS TRANSLATION] Limited memory and context",
+        "plus": "[NEEDS TRANSLATION] Extended memory and context",
+        "business": "[NEEDS TRANSLATION] Unlimited memory and context"
+      },
+      "detail": {
+        "free": "[NEEDS TRANSLATION] Basic conversation memory",
+        "plus": "[NEEDS TRANSLATION] Longer conversation memory",
+        "business": "[NEEDS TRANSLATION] Unlimited conversation history"
+      }
+    },
+    "lawyerSearch": {
+      "name": "[NEEDS TRANSLATION] Lawyer Search",
+      "description": "[NEEDS TRANSLATION] Find and connect with qualified lawyers",
+      "tiers": {
+        "free": "[NEEDS TRANSLATION] Limited",
+        "plus": "[NEEDS TRANSLATION] Enhanced",
+        "business": "[NEEDS TRANSLATION] Unlimited"
+      },
+      "text": {
+        "free": "[NEEDS TRANSLATION] Limited lawyer search",
+        "plus": "[NEEDS TRANSLATION] Enhanced lawyer search",
+        "business": "[NEEDS TRANSLATION] Advanced lawyer search"
+      },
+      "detail": {
+        "free": "[NEEDS TRANSLATION] Basic lawyer search capabilities",
+        "plus": "[NEEDS TRANSLATION] Advanced lawyer matching capabilities",
+        "business": "[NEEDS TRANSLATION] Full lawyer matching and research capabilities"
+      }
+    },
+    "teamCollaboration": {
+      "name": "[NEEDS TRANSLATION] Team Collaboration",
+      "description": "[NEEDS TRANSLATION] Shared projects and team features",
+      "text": "[NEEDS TRANSLATION] Tools for teams like shared projects & workflows",
+      "detail": "[NEEDS TRANSLATION] Team collaboration and project management"
+    },
+    "security": {
+      "name": "[NEEDS TRANSLATION] Advanced Security",
+      "description": "[NEEDS TRANSLATION] SSO, MFA, and enterprise security",
+      "text": "[NEEDS TRANSLATION] Advanced security with SSO, MFA, & more",
+      "detail": "[NEEDS TRANSLATION] Enterprise-grade security features"
+    },
+    "privacy": {
+      "name": "[NEEDS TRANSLATION] Privacy Protection",
+      "description": "[NEEDS TRANSLATION] Data never used for training",
+      "text": "[NEEDS TRANSLATION] Privacy built in; data never used for training",
+      "detail": "[NEEDS TRANSLATION] Complete data privacy protection"
+    },
+    "integrations": {
+      "name": "[NEEDS TRANSLATION] Integrations",
+      "description": "[NEEDS TRANSLATION] SharePoint and other tools",
+      "text": "[NEEDS TRANSLATION] Integration with Quickbooks & other tools",
+      "detail": "[NEEDS TRANSLATION] Connect with your existing workflow"
+    },
+    "billing": {
+      "name": "[NEEDS TRANSLATION] Simplified Billing",
+      "description": "[NEEDS TRANSLATION] User management and billing",
+      "text": "[NEEDS TRANSLATION] Simplified billing and user management",
+      "detail": "[NEEDS TRANSLATION] Easy team and billing management"
+    },
+    "transcription": {
+      "name": "[NEEDS TRANSLATION] Voice Transcription",
+      "description": "[NEEDS TRANSLATION] Meeting and voice transcription",
+      "text": "[NEEDS TRANSLATION] Voice transcription and analysis",
+      "detail": "[NEEDS TRANSLATION] Voice transcription and legal analysis"
+    },
+    "agents": {
+      "name": "[NEEDS TRANSLATION] AI Agents",
+      "description": "[NEEDS TRANSLATION] Coding and research agents",
+      "text": "[NEEDS TRANSLATION] Legal research and lawyer search agents",
+      "detail": "[NEEDS TRANSLATION] Specialized AI agents for legal research and lawyer matching"
+    },
+    "plusIncludes": {
+      "text": "[NEEDS TRANSLATION] Everything in Free, with higher limits",
+      "detail": "[NEEDS TRANSLATION] All free features with increased usage"
+    },
+    "businessIncludes": {
+      "text": "[NEEDS TRANSLATION] Everything in Plus, with even higher limits",
+      "detail": "[NEEDS TRANSLATION] All Plus features with unlimited usage"
+    }
+  },
+  "limitations": {
+    "free": {
+      "messagesPerDay": "[NEEDS TRANSLATION] Limited to 20 messages per day",
+      "documentSupport": "[NEEDS TRANSLATION] Basic document analysis support",
+      "responseTime": "[NEEDS TRANSLATION] Standard response times",
+      "noTeam": "[NEEDS TRANSLATION] No team collaboration features"
+    },
+    "plus": {
+      "messagesPerDay": "[NEEDS TRANSLATION] Limited to 200 messages per day",
+      "noTeam": "[NEEDS TRANSLATION] No team collaboration features",
+      "standardSupport": "[NEEDS TRANSLATION] Standard support response times"
+    },
+    "business": {
+      "minUsers": "[NEEDS TRANSLATION] Requires 2+ users",
+      "annualBilling": "[NEEDS TRANSLATION] Annual billing recommended"
+    }
+  },
+  "benefits": {
+    "free": {
+      "personal": "[NEEDS TRANSLATION] Perfect for personal legal needs",
+      "noCard": "[NEEDS TRANSLATION] No credit card required",
+      "fullAccess": "[NEEDS TRANSLATION] Full access to core legal AI features",
+      "support": "[NEEDS TRANSLATION] Community support"
+    },
+    "plus": {
+      "higherLimits": "[NEEDS TRANSLATION] 5x higher usage limits",
+      "priorityAccess": "[NEEDS TRANSLATION] Priority AI model access",
+      "enhanced": "[NEEDS TRANSLATION] Enhanced legal features",
+      "support": "[NEEDS TRANSLATION] Email support"
+    },
+    "business": {
+      "unlimited": "[NEEDS TRANSLATION] Unlimited usage",
+      "team": "[NEEDS TRANSLATION] Team collaboration",
+      "security": "[NEEDS TRANSLATION] Enterprise security",
+      "prioritySupport": "[NEEDS TRANSLATION] Priority support",
+      "customIntegrations": "[NEEDS TRANSLATION] Custom integrations"
+    }
+  },
+  "modal": {
+    "title": "[NEEDS TRANSLATION] Upgrade your plan",
+    "tabs": {
+      "personal": "[NEEDS TRANSLATION] Personal",
+      "business": "[NEEDS TRANSLATION] Business"
+    },
+    "countryLabel": "[NEEDS TRANSLATION] Select your country",
+    "currentPlan": "[NEEDS TRANSLATION] Current Plan",
+    "recommended": "[NEEDS TRANSLATION] Recommended",
+    "popular": "[NEEDS TRANSLATION] Most Popular",
+    "close": "[NEEDS TRANSLATION] Close"
+  },
+  "billing": {
+    "monthly": "[NEEDS TRANSLATION] month",
+    "yearly": "[NEEDS TRANSLATION] year",
+    "billedMonthly": "[NEEDS TRANSLATION] Billed monthly",
+    "billedAnnually": "[NEEDS TRANSLATION] Billed annually",
+    "currency": {
+      "usd": "[NEEDS TRANSLATION] USD"
+    }
+  },
+  "comparison": {
+    "title": "Szczegółowe porównanie planów",
+    "feature": "[NEEDS TRANSLATION] Feature",
+    "included": "[NEEDS TRANSLATION] Included",
+    "notIncluded": "[NEEDS TRANSLATION] Not included"
+  }
+}

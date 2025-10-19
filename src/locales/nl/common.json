@@ -1,0 +1,161 @@
+{
+  "app": {
+    "loading": "Laden…"
+  },
+  "notifications": {
+    "settingsSavedTitle": "Instellingen opgeslagen",
+    "settingsSavedBody": "Uw voorkeuren zijn bijgewerkt."
+  },
+  "language": {
+    "auto": "Automatisch detecteren",
+    "en": "English",
+    "vi": "Tiếng Việt",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский",
+    "it": "Italiano",
+    "ko": "한국어",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "tr": "Türkçe",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "hi": "हिन्दी",
+    "uk": "Українська"
+  },
+  "forms": {
+    "labels": {
+      "name": "Volledige naam",
+      "email": "E-mailadres",
+      "phone": "Telefoonnummer",
+      "password": "Wachtwoord",
+      "confirmPassword": "Bevestig wachtwoord",
+      "birthday": "Geboortedatum",
+      "terms": "Servicevoorwaarden",
+      "privacy": "Privacybeleid",
+      "search": "Zoeken",
+      "select": "Selecteer een optie",
+      "upload": "Bestand uploaden",
+      "message": "Bericht",
+      "subject": "Onderwerp"
+    },
+    "placeholders": {
+      "name": "Voer uw volledige naam in",
+      "email": "Voer uw e-mailadres in",
+      "phone": "Voer uw telefoonnummer in",
+      "password": "Voer wachtwoord in",
+      "confirmPassword": "Bevestig wachtwoord",
+      "birthday": "Selecteer geboortedatum",
+      "search": "Zoeken...",
+      "select": "Selecteer een optie",
+      "message": "Voer uw bericht in",
+      "subject": "Voer onderwerp in"
+    },
+    "descriptions": {
+      "optional": "Optioneel",
+      "required": "Verplicht",
+      "passwordHelp": "Moet minimaal 8 tekens bevatten",
+      "phoneHelp": "Voeg landcode toe voor internationale nummers",
+      "fileHelp": "Ondersteunde formaten: PDF, DOC, DOCX"
+    },
+    "validation": {
+      "required": "Dit veld is verplicht",
+      "email": "Voer een geldig e-mailadres in",
+      "phone": "Voer een geldig telefoonnummer in",
+      "password": "Wachtwoord moet minimaal 8 tekens bevatten",
+      "confirmPassword": "Wachtwoorden komen niet overeen",
+      "date": "Voer een geldige datum in (DD/MM/JJJJ)",
+      "futureDate": "Datum kan niet in de toekomst liggen",
+      "fileType": "Selecteer een geldig bestandstype",
+      "fileSize": "Bestandsgrootte moet kleiner zijn dan 10 MB",
+      "termsRequired": "U moet akkoord gaan met de voorwaarden"
+    },
+    "accessibility": {
+      "togglePassword": "Wachtwoord tonen/verbergen",
+      "clearSearch": "Zoekopdracht wissen",
+      "selectOption": "Optie selecteren",
+      "removeOption": "Optie verwijderen",
+      "uploadFile": "Bestand uploaden",
+      "removeFile": "Bestand verwijderen",
+      "calendarOpen": "Kalender openen",
+      "calendarClose": "Kalender sluiten"
+    },
+    "actions": {
+      "submit": "Indienen",
+      "submitting": "Indienen...",
+      "reset": "Resetten",
+      "cancel": "Annuleren",
+      "save": "Opslaan",
+      "saving": "Opslaan..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "Gevalideerd formuliervoorbeeld"
+      }
+    },
+    "contactForm": {
+      "location": "Locatie",
+      "opposingParty": "Wederpartij (optioneel)",
+      "submit": "Contactgegevens indienen",
+      "placeholders": {
+        "location": "Stad, provincie (bijv. Amsterdam, Noord-Holland)",
+        "opposingParty": "Naam van de andere partij (indien van toepassing)"
+      }
+    }
+  },
+  "onboarding": {
+    "title": "Welkom bij Blawby AI",
+    "subtitle": "Laten we uw account instellen",
+    "step1": {
+      "title": "Vertel ons over uzelf",
+      "subtitle": "Help ons uw ervaring te personaliseren",
+      "fullName": "Volledige naam",
+      "fullNamePlaceholder": "Voer uw volledige naam in",
+      "birthday": "Geboortedatum",
+      "birthdayPlaceholder": "DD/MM/JJJJ",
+      "termsAgreement": "Door op \"Doorgaan\" te klikken, gaat u akkoord met onze <termsLink>Voorwaarden</termsLink> en heeft u ons <privacyLink>Privacybeleid</privacyLink> gelezen.",
+      "continue": "Doorgaan",
+      "back": "Terug",
+      "required": "Dit veld is verplicht"
+    },
+    "step2": {
+      "title": "Waarvoor wilt u Blawby AI gebruiken?",
+      "subtitle": "Dit helpt ons relevantere suggesties te doen",
+      "options": {
+        "personal": "Persoonlijke juridische zaken",
+        "business": "Zakelijke juridische behoeften",
+        "research": "Juridisch onderzoek",
+        "documents": "Documentbeoordeling",
+        "other": "Anders"
+      },
+      "otherPlaceholder": "Vertel ons meer...",
+      "next": "Volgende",
+      "skip": "Overslaan"
+    },
+    "welcome": {
+      "title": "Blawby AI",
+      "subtitle": "Tips om te beginnen",
+      "tips": {
+        "askAway": {
+          "title": "Stel vragen",
+          "description": "Blawby AI kan juridische vragen beantwoorden, helpen juridische concepten te begrijpen, documenten beoordelen en meer."
+        },
+        "privacy": {
+          "title": "Deel geen gevoelige informatie",
+          "description": "Chatgeschiedenis kan worden beoordeeld of gebruikt om onze services te verbeteren. Lees meer over uw opties in ons <helpCenterLink>Helpcentrum</helpCenterLink>."
+        },
+        "accuracy": {
+          "title": "Controleer de feiten",
+          "description": "Ondanks voorzorgsmaatregelen kan Blawby AI onjuiste informatie geven. Het is niet ontworpen om juridisch advies te geven."
+        }
+      },
+      "helpCenter": "Helpcentrum",
+      "letsGo": "Oké, laten we beginnen"
+    }
+  }
+}

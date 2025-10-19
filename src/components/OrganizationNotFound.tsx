@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { Button } from './ui/Button';
-import { useTranslation } from './ui/i18n/useTranslation';
+import { useTranslation } from '../i18n/hooks';
 
 interface OrganizationNotFoundProps {
   organizationId: string;

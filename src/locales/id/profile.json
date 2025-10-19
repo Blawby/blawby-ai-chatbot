@@ -1,0 +1,19 @@
+{
+  "menu": {
+    "profile": "Profil",
+    "settings": "Pengaturan",
+    "upgrade": "Tingkatkan paket",
+    "upgradeShort": "Tingkatkan",
+    "help": "Dapatkan bantuan",
+    "signOut": "Keluar",
+    "signIn": "Masuk"
+  },
+  "status": {
+    "signingOut": "Keluar...",
+    "loading": "Memuat..."
+  },
+  "aria": {
+    "userProfile": "Profil pengguna untuk {{name}}",
+    "signInButton": "Masuk ke akun Anda"
+  }
+}

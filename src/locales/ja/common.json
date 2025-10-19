@@ -14,7 +14,99 @@
     "fr": "フランス語",
     "de": "ドイツ語",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "pt": "ポルトガル語",
+    "ar": "アラビア語",
+    "ru": "ロシア語",
+    "it": "イタリア語",
+    "ko": "韓国語",
+    "nl": "オランダ語",
+    "pl": "ポーランド語",
+    "tr": "トルコ語",
+    "th": "タイ語",
+    "id": "インドネシア語",
+    "hi": "ヒンディー語",
+    "uk": "ウクライナ語"
+  },
+  "forms": {
+    "labels": {
+      "name": "氏名",
+      "email": "メールアドレス",
+      "phone": "電話番号",
+      "password": "パスワード",
+      "confirmPassword": "パスワードの確認",
+      "birthday": "誕生日",
+      "terms": "利用規約",
+      "privacy": "プライバシーポリシー",
+      "search": "検索",
+      "select": "オプションを選択",
+      "upload": "ファイルをアップロード",
+      "message": "メッセージ",
+      "subject": "件名"
+    },
+    "placeholders": {
+      "name": "氏名を入力してください",
+      "email": "メールアドレスを入力してください",
+      "phone": "電話番号を入力してください",
+      "password": "パスワードを入力してください",
+      "confirmPassword": "パスワードを確認してください",
+      "birthday": "誕生日を選択してください",
+      "search": "検索...",
+      "select": "オプションを選択してください",
+      "message": "メッセージを入力してください",
+      "subject": "件名を入力してください"
+    },
+    "descriptions": {
+      "optional": "任意",
+      "required": "必須",
+      "passwordHelp": "8文字以上である必要があります",
+      "phoneHelp": "国際電話番号には国番号を含めてください",
+      "fileHelp": "サポートされている形式：PDF、DOC、DOCX"
+    },
+    "validation": {
+      "required": "この項目は必須です",
+      "email": "有効なメールアドレスを入力してください",
+      "phone": "有効な電話番号を入力してください",
+      "password": "パスワードは8文字以上である必要があります",
+      "confirmPassword": "パスワードが一致しません",
+      "date": "有効な日付を入力してください（YYYY/MM/DD）",
+      "futureDate": "日付は未来にすることはできません",
+      "fileType": "有効なファイルタイプを選択してください",
+      "fileSize": "ファイルサイズは10MB未満である必要があります",
+      "termsRequired": "利用規約に同意する必要があります"
+    },
+    "accessibility": {
+      "togglePassword": "パスワードの表示を切り替え",
+      "clearSearch": "検索をクリア",
+      "selectOption": "オプションを選択",
+      "removeOption": "オプションを削除",
+      "uploadFile": "ファイルをアップロード",
+      "removeFile": "ファイルを削除",
+      "calendarOpen": "カレンダーを開く",
+      "calendarClose": "カレンダーを閉じる"
+    },
+    "actions": {
+      "submit": "送信",
+      "submitting": "送信中...",
+      "reset": "リセット",
+      "cancel": "キャンセル",
+      "save": "保存",
+      "saving": "保存中..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "検証フォームの例"
+      }
+    },
+    "contactForm": {
+      "location": "住所",
+      "opposingParty": "相手方（任意）",
+      "submit": "連絡先情報を送信",
+      "placeholders": {
+        "location": "市区町村、都道府県（例：東京都、東京）",
+        "opposingParty": "関与する相手方の名前（該当する場合）"
+      }
+    }
   },
   "onboarding": {
     "title": "Blawby AI へようこそ",
@@ -28,6 +120,7 @@
       "birthdayPlaceholder": "YYYY/MM/DD",
       "termsAgreement": "「続ける」をクリックすることで、当社の<termsLink>利用規約</termsLink>に同意し、<privacyLink>プライバシーポリシー</privacyLink>を読んだことになります。",
       "continue": "続ける",
+      "back": "戻る",
       "required": "この項目は必須です"
     },
     "step2": {

@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/i18n/hooks';
 import { FormLabel, SectionDivider } from '../../ui';
 import { Select } from '../../ui/input';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useSession } from '../../../contexts/AuthContext';
 import { updateUser } from '../../../lib/authClient';
-import { DEFAULT_LOCALE, detectBestLocale, setLocale, SUPPORTED_LOCALES } from '../../../i18n';
+import { DEFAULT_LOCALE, detectBestLocale, setLocale, SUPPORTED_LOCALES } from '@/i18n/hooks';
 import type { Language } from '../../../types/user';
 
 export interface GeneralPageProps {

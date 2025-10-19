@@ -7,7 +7,7 @@ import {
   Cog6ToothIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
-import { useTranslation } from '../ui/i18n/useTranslation';
+import { useTranslation } from '../../i18n/hooks';
 
 interface BusinessSetupModalProps {
   isOpen: boolean;

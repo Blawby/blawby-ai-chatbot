@@ -1,0 +1,314 @@
+{
+  "plans": {
+    "free": {
+      "name": "Free",
+      "price": "$0 USD / month",
+      "description": "Legal AI assistance for everyday needs",
+      "buttonText": "Your current plan",
+      "features": {
+        "basicChat": {
+          "text": "Basic AI chat assistance",
+          "description": "Get help with general legal questions"
+        },
+        "documentAnalysis": {
+          "text": "Document analysis",
+          "description": "Upload and analyze up to 3 documents per month"
+        },
+        "responseTime": {
+          "text": "Standard response time",
+          "description": "Responses within 24 hours"
+        }
+      },
+      "limitations": {
+        "documentLimit": "Limited to 3 document uploads per month",
+        "noTeam": "No team collaboration features",
+        "basicAI": "Basic AI responses only",
+        "noPriority": "No priority support"
+      },
+      "benefits": {
+        "personalUse": "Perfect for personal use",
+        "noCard": "No credit card required",
+        "fullAccess": "Full access to basic features"
+      },
+      "footer": {
+        "existingPlan": "Have an existing plan?",
+        "billingHelp": "See billing help"
+      }
+    },
+    "plus": {
+      "name": "Plus",
+      "description": "Enhanced legal AI capabilities for professionals",
+      "buttonText": "Get Plus"
+    },
+    "business": {
+      "name": "Business",
+      "description": "Secure, collaborative workspace for organizations",
+      "buttonText": "Get Business",
+      "features": {
+        "teamCollaboration": {
+          "text": "Team collaboration",
+          "description": "Unlimited team members and shared workspaces"
+        },
+        "unlimitedDocuments": {
+          "text": "Unlimited document analysis",
+          "description": "Upload and analyze unlimited documents"
+        },
+        "advancedSecurity": {
+          "text": "Advanced security",
+          "description": "Enterprise-grade security and compliance"
+        },
+        "cloudStorage": {
+          "text": "Cloud storage",
+          "description": "Secure cloud storage for all documents"
+        },
+        "prioritySupport": {
+          "text": "Priority support",
+          "description": "24/7 priority customer support"
+        }
+      },
+      "benefits": {
+        "unlimitedProcessing": "Unlimited document processing",
+        "teamTools": "Team collaboration tools",
+        "advancedAI": "Advanced AI capabilities",
+        "prioritySupport": "Priority customer support",
+        "customIntegrations": "Custom integrations available"
+      },
+      "footer": {
+        "billing": "For 2+ users, billed annually",
+        "unlimited": "Unlimited subject to abuse guardrails.",
+        "learnMore": "Learn more"
+      }
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "Contact sales",
+      "description": "Custom solutions for large organizations",
+      "buttonText": "Contact Sales"
+    }
+  },
+  "features": {
+    "aiAccess": {
+      "name": "AI Access",
+      "description": "Access to our legal AI models",
+      "tiers": {
+        "free": "Blawby AI-1 (Limited)",
+        "plus": "Blawby AI-1 (Enhanced)",
+        "business": "Blawby AI-1 (Unlimited)"
+      },
+      "text": {
+        "free": "Access to Blawby AI-1",
+        "plus": "Enhanced access to Blawby AI-1",
+        "business": "Unlimited access to our best model for work"
+      },
+      "detail": {
+        "free": "Limited access to our legal AI model",
+        "plus": "Priority access to our legal AI model",
+        "business": "Unlimited access to advanced AI models"
+      }
+    },
+    "documentAnalysis": {
+      "name": "Document Analysis",
+      "description": "Upload and analyze legal documents",
+      "tiers": {
+        "free": "Limited",
+        "plus": "Enhanced",
+        "business": "Unlimited"
+      },
+      "text": {
+        "free": "Limited document analysis",
+        "plus": "Enhanced document analysis",
+        "business": "Advanced document analysis & case preparation"
+      },
+      "detail": {
+        "free": "Upload and analyze basic legal documents",
+        "plus": "Faster and more accurate legal document processing",
+        "business": "Full legal document processing capabilities"
+      }
+    },
+    "casePreparation": {
+      "name": "Case PDF Preparation",
+      "description": "AI-powered case document preparation",
+      "tiers": {
+        "free": "Limited",
+        "plus": "Enhanced",
+        "business": "Unlimited"
+      },
+      "text": {
+        "free": "Limited case PDF preparation",
+        "plus": "Enhanced case PDF preparation",
+        "business": "Advanced case PDF preparation"
+      },
+      "detail": {
+        "free": "Basic case document preparation",
+        "plus": "Advanced case document preparation",
+        "business": "Full case document preparation capabilities"
+      }
+    },
+    "memoryContext": {
+      "name": "Memory & Context",
+      "description": "Conversation memory and context",
+      "tiers": {
+        "free": "Limited",
+        "plus": "Enhanced",
+        "business": "Unlimited"
+      },
+      "text": {
+        "free": "Limited memory and context",
+        "plus": "Extended memory and context",
+        "business": "Unlimited memory and context"
+      },
+      "detail": {
+        "free": "Basic conversation memory",
+        "plus": "Longer conversation memory",
+        "business": "Unlimited conversation history"
+      }
+    },
+    "lawyerSearch": {
+      "name": "Lawyer Search",
+      "description": "Find and connect with qualified lawyers",
+      "tiers": {
+        "free": "Limited",
+        "plus": "Enhanced",
+        "business": "Unlimited"
+      },
+      "text": {
+        "free": "Limited lawyer search",
+        "plus": "Enhanced lawyer search",
+        "business": "Advanced lawyer search"
+      },
+      "detail": {
+        "free": "Basic lawyer search capabilities",
+        "plus": "Advanced lawyer matching capabilities",
+        "business": "Full lawyer matching and research capabilities"
+      }
+    },
+    "teamCollaboration": {
+      "name": "Team Collaboration",
+      "description": "Shared projects and team features",
+      "text": "Tools for teams like shared projects & workflows",
+      "detail": "Team collaboration and project management"
+    },
+    "security": {
+      "name": "Advanced Security",
+      "description": "SSO, MFA, and enterprise security",
+      "text": "Advanced security with SSO, MFA, & more",
+      "detail": "Enterprise-grade security features"
+    },
+    "privacy": {
+      "name": "Privacy Protection",
+      "description": "Data never used for training",
+      "text": "Privacy built in; data never used for training",
+      "detail": "Complete data privacy protection"
+    },
+    "integrations": {
+      "name": "Integrations",
+      "description": "SharePoint and other tools",
+      "text": "Integration with Quickbooks & other tools",
+      "detail": "Connect with your existing workflow"
+    },
+    "billing": {
+      "name": "Simplified Billing",
+      "description": "User management and billing",
+      "text": "Simplified billing and user management",
+      "detail": "Easy team and billing management"
+    },
+    "transcription": {
+      "name": "Voice Transcription",
+      "description": "Meeting and voice transcription",
+      "text": "Voice transcription and analysis",
+      "detail": "Voice transcription and legal analysis"
+    },
+    "agents": {
+      "name": "AI Agents",
+      "description": "Coding and research agents",
+      "text": "Legal research and lawyer search agents",
+      "detail": "Specialized AI agents for legal research and lawyer matching"
+    },
+    "plusIncludes": {
+      "text": "Everything in Free, with higher limits",
+      "detail": "All free features with increased usage"
+    },
+    "businessIncludes": {
+      "text": "Everything in Plus, with even higher limits",
+      "detail": "All Plus features with unlimited usage"
+    }
+  },
+  "limitations": {
+    "free": {
+      "messagesPerDay": "Limited to 20 messages per day",
+      "documentSupport": "Basic document analysis support",
+      "responseTime": "Standard response times",
+      "noTeam": "No team collaboration features"
+    },
+    "plus": {
+      "messagesPerDay": "Limited to 200 messages per day",
+      "noTeam": "No team collaboration features",
+      "standardSupport": "Standard support response times"
+    },
+    "business": {
+      "minUsers": "Requires 2+ users",
+      "annualBilling": "Annual billing recommended"
+    }
+  },
+  "benefits": {
+    "free": {
+      "personal": "Perfect for personal legal needs",
+      "noCard": "No credit card required",
+      "fullAccess": "Full access to core legal AI features",
+      "support": "Community support"
+    },
+    "plus": {
+      "higherLimits": "5x higher usage limits",
+      "priorityAccess": "Priority AI model access",
+      "enhanced": "Enhanced legal features",
+      "support": "Email support"
+    },
+    "business": {
+      "unlimited": "Unlimited usage",
+      "team": "Team collaboration",
+      "security": "Enterprise security",
+      "prioritySupport": "Priority support",
+      "customIntegrations": "Custom integrations"
+    }
+  },
+  "modal": {
+    "title": "Upgrade your plan",
+    "tabs": {
+      "personal": "Personal",
+      "business": "Business"
+    },
+    "countryLabel": "Select your country",
+    "currentPlan": "Your current plan",
+    "recommended": "Recommended",
+    "popular": "Most Popular",
+    "close": "Close"
+  },
+  "footer": {
+    "enterprise": {
+      "question": "Need more capabilities?",
+      "link": "See Blawby Enterprise"
+    },
+    "country": {
+      "label": "Country/Region:"
+    }
+  },
+  "billing": {
+    "monthly": "month",
+    "yearly": "year",
+    "billedMonthly": "Billed monthly",
+    "billedAnnually": "Billed annually",
+    "currency": {
+      "usd": "USD"
+    }
+  },
+  "comparison": {
+    "title": "Compare Plans",
+    "feature": "Feature",
+    "included": "Included",
+    "notIncluded": "Not included"
+  },
+  "sections": {
+    "benefits": "Benefits:",
+    "limitations": "Limitations:"
+  }
+}

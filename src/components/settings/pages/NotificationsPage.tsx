@@ -4,7 +4,7 @@ import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useSession } from '../../../contexts/AuthContext';
 import { updateUser } from '../../../lib/authClient';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/i18n/hooks';
 import { getNotificationDisplayText, NOTIFICATION_DEFAULTS } from '../../ui/validation/defaultValues';
 import type { NotificationSettings } from '../../../types/user';
 

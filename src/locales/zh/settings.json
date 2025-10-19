@@ -186,7 +186,8 @@
     },
     "channels": {
       "push": "推送",
-      "email": "电子邮件"
+      "email": "电子邮件",
+      "none": "无"
     }
   },
   "security": {

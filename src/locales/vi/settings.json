@@ -186,7 +186,8 @@
     },
     "channels": {
       "push": "Push",
-      "email": "Email"
+      "email": "Email",
+      "none": "Không có"
     }
   },
   "security": {

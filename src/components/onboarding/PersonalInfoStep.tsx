@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { useTranslation, Trans } from 'react-i18next';
+import { useTranslation, Trans } from '@/i18n/hooks';
 import { Button } from '../ui/Button';
 import { Logo } from '../ui/Logo';
 import { UserIcon } from '@heroicons/react/24/outline';

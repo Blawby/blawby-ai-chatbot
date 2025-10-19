@@ -1,0 +1,355 @@
+{
+  "navigation": {
+    "close": "Fechar configurações",
+    "backToSettings": "Voltar para configurações",
+    "items": {
+      "general": "Geral",
+      "notifications": "Notificações",
+      "account": "Conta",
+      "security": "Segurança",
+      "help": "Ajuda",
+      "signOut": "Sair"
+    },
+    "signOut": {
+      "toastTitle": "Desconectado com sucesso",
+      "toastBody": "Você foi desconectado"
+    }
+  },
+  "general": {
+    "title": "Geral",
+    "theme": {
+      "label": "Tema",
+      "options": {
+        "light": "Claro",
+        "dark": "Escuro",
+        "system": "Sistema"
+      }
+    },
+    "accent": {
+      "label": "Cor de destaque",
+      "options": {
+        "default": "Padrão",
+        "blue": "Azul",
+        "green": "Verde",
+        "purple": "Roxo",
+        "red": "Vermelho"
+      }
+    },
+    "language": {
+      "label": "Idioma",
+      "description": "Selecione o idioma usado para a interface.",
+      "toastTitle": "Idioma atualizado",
+      "toastBody": "Sua preferência de idioma foi aplicada."
+    },
+    "spokenLanguage": {
+      "label": "Idioma falado",
+      "description": "Para melhores resultados, selecione o idioma que você fala principalmente. Se não estiver listado, a detecção automática ainda pode funcionar."
+    }
+  },
+  "account": {
+    "title": "Conta",
+    "loadingError": "Falha ao carregar dados da conta",
+    "retry": "Tentar novamente",
+    "plan": {
+      "currentPlanLabel": "Plano Atual: {{tier}}",
+      "tiers": {
+        "free": "Gratuito",
+        "plus": "Plus",
+        "business": "Business"
+      },
+      "descriptions": {
+        "free": "Recursos básicos com uso limitado",
+        "plus": "Recursos aprimorados com limites mais altos",
+        "business": "Recursos completos com uso ilimitado"
+      },
+      "sections": {
+        "free": "Obter ChatGPT Plus",
+        "plus": "Obter ChatGPT Business",
+        "business": "Plano Atual",
+        "default": "Plano Atual"
+      },
+      "upgradeButton": "Fazer upgrade para {{plan}}",
+      "currentButton": "Plano atual",
+      "toasts": {
+        "upgrade": {
+          "title": "Upgrade",
+          "body": "Redirecionando para a página de upgrade..."
+        },
+        "upgradeWithPlan": {
+          "title": "Upgrade",
+          "body": "Redirecionando para fazer upgrade para {{plan}}..."
+        },
+        "highest": {
+          "title": "Conta",
+          "body": "Você já está no plano mais alto!"
+        }
+      }
+    },
+    "links": {
+      "title": "Links",
+      "domainLabel": "Selecione um domínio",
+      "selectOption": "Selecione um domínio",
+      "verifyNew": "Verificar novo domínio",
+      "addButton": "Adicionar",
+      "invalidDomainToast": {
+        "title": "Domínio inválido"
+      },
+      "addDomainToast": {
+        "title": "Domínio adicionado",
+        "body": "O domínio {{domain}} foi adicionado e está pendente de verificação."
+      },
+      "linkedinToast": {
+        "title": "LinkedIn",
+        "body": "Redirecionando para conexão com LinkedIn..."
+      },
+      "githubToast": {
+        "title": "GitHub",
+        "body": "Redirecionando para conexão com GitHub..."
+      },
+      "verifiedToast": {
+        "title": "Domínio Verificado",
+        "body": "O domínio {{domain}} foi verificado com sucesso!"
+      },
+      "domainPlaceholder": "exemplo.com"
+    },
+    "domainErrors": {
+      "empty": "O domínio não pode estar vazio",
+      "spaces": "O domínio não pode ter espaços no início ou no final",
+      "format": "Por favor, digite um formato de domínio válido (ex: exemplo.com)",
+      "duplicate": "Este domínio já foi adicionado"
+    },
+    "email": {
+      "title": "E-mail",
+      "receiveFeedback": "Receber e-mails de feedback"
+    },
+    "delete": {
+      "sectionTitle": "Excluir conta",
+      "button": "Excluir",
+      "modalTitle": "Excluir Conta",
+      "heading": "Tem certeza de que deseja excluir sua conta?",
+      "description": "Esta ação não pode ser desfeita. Todos os seus dados, conversas e configurações serão permanentemente excluídos.",
+      "listIntro": "Isto excluirá permanentemente:",
+      "listItems": [
+        "Todas as suas conversas e histórico de chat",
+        "Suas configurações e preferências de conta",
+        "Quaisquer arquivos e documentos enviados",
+        "Suas informações de assinatura e cobrança"
+      ],
+      "confirmLabel": "Para confirmar, digite seu endereço de e-mail:",
+      "inputPlaceholder": "Digite seu endereço de e-mail aqui",
+      "errorMismatch": "Por favor, digite seu endereço de e-mail exatamente como mostrado para confirmar a exclusão.",
+      "errorFailed": "Falha ao excluir a conta. Por favor, tente novamente.",
+      "toastFailedTitle": "Falha na exclusão da conta",
+      "toastFailedBody": "Houve um erro ao excluir sua conta. Por favor, tente novamente.",
+      "toastSuccessTitle": "Conta excluída",
+      "toastSuccessBody": "Sua conta foi permanentemente excluída.",
+      "cancel": "Cancelar",
+      "confirmButton": "Excluir Conta"
+    },
+    "domainModal": {
+      "title": "Adicionar Novo Domínio",
+      "label": "Domínio",
+      "cancel": "Cancelar",
+      "submit": "Adicionar Domínio"
+    }
+  },
+  "notifications": {
+    "title": "Notificações",
+    "loadError": "Falha ao carregar configurações de notificação",
+    "toastBody": "Suas preferências de notificação foram atualizadas",
+    "sections": {
+      "responses": {
+        "title": "Respostas",
+        "description": "Seja notificado quando o ChatGPT responder a solicitações que levam tempo, como pesquisa ou geração de imagens."
+      },
+      "tasks": {
+        "title": "Tarefas",
+        "description": "Seja notificado quando as tarefas que você criou tiverem atualizações.",
+        "manage": "Gerenciar tarefas"
+      },
+      "messaging": {
+        "title": "Mensagens",
+        "description": "Seja notificado quando você receber novas mensagens."
+      }
+    },
+    "channels": {
+      "push": "Push",
+      "email": "E-mail",
+      "none": "Nenhum"
+    }
+  },
+  "security": {
+    "title": "Segurança",
+    "loadError": "Falha ao carregar configurações de segurança",
+    "fallback": "Falha ao carregar configurações de segurança",
+    "toasts": {
+      "settingsUpdated": "Suas configurações de segurança foram atualizadas"
+    },
+    "password": {
+      "sectionTitle": "Senha",
+      "description": "Altere a senha da sua conta ou redefina-a se você a esqueceu.",
+      "changeButton": "Alterar senha",
+      "cancelButton": "Cancelar",
+      "resetButton": "Redefinir senha",
+      "fields": {
+        "current": {
+          "label": "Senha Atual",
+          "placeholder": "Digite a senha atual"
+        },
+        "new": {
+          "label": "Nova Senha",
+          "placeholder": "Digite a nova senha"
+        },
+        "confirm": {
+          "label": "Confirmar Nova Senha",
+          "placeholder": "Confirme a nova senha"
+        }
+      },
+      "submit": "Alterar Senha",
+      "errors": {
+        "missing": {
+          "title": "Campos faltando",
+          "body": "Por favor, preencha todos os campos de senha"
+        },
+        "mismatch": {
+          "title": "Senhas não coincidem",
+          "body": "A nova senha e a confirmação não coincidem"
+        },
+        "weak": {
+          "title": "Senha fraca",
+          "body": "A senha deve ter pelo menos 8 caracteres"
+        },
+        "failed": {
+          "title": "Falha ao alterar a senha",
+          "body": "Por favor, tente novamente"
+        }
+      },
+      "success": {
+        "title": "Senha alterada",
+        "body": "Sua senha foi atualizada com sucesso"
+      },
+      "reset": {
+        "title": "E-mail de redefinição enviado",
+        "body": "Verifique seu e-mail para obter instruções de redefinição de senha"
+      }
+    },
+    "mfa": {
+      "title": "Autenticação multifator",
+      "description": "Exija um desafio de segurança extra ao fazer login. Se você não conseguir passar por este desafio, terá a opção de recuperar sua conta por e-mail.",
+      "toastEnabled": {
+        "title": "MFA ativado",
+        "body": "A autenticação multifator foi ativada com sucesso"
+      },
+      "disable": {
+        "modalTitle": "Desativar Autenticação Multifator",
+        "heading": "Tem certeza de que deseja desativar a MFA?",
+        "description": "Desativar a autenticação multifator tornará sua conta menos segura. Você não precisará mais fornecer um segundo fator de autenticação ao fazer login.",
+        "cancel": "Cancelar",
+        "confirm": "Desativar MFA",
+        "toastTitle": "MFA desativado",
+        "toastBody": "A autenticação multifator foi desativada"
+      }
+    },
+    "trustedDevices": {
+      "title": "Dispositivos Confiáveis",
+      "description": "Quando você fizer login em outro dispositivo, ele será adicionado aqui e poderá receber automaticamente solicitações de dispositivo para fazer login."
+    },
+    "logout": {
+      "current": {
+        "title": "Sair deste dispositivo",
+        "button": "Sair",
+        "toastTitle": "Desconectado",
+        "toastBody": "Você foi desconectado deste dispositivo"
+      },
+      "all": {
+        "title": "Sair de todos os dispositivos",
+        "description": "Saia de todas as sessões ativas em todos os dispositivos, incluindo sua sessão atual. Pode levar até 30 minutos para que outros dispositivos sejam desconectados.",
+        "button": "Sair de todos",
+        "toastTitle": "Desconectado",
+        "toastBody": "Você foi desconectado de todos os dispositivos"
+      }
+    }
+  },
+  "mfa": {
+    "back": "← Voltar para Segurança",
+    "title": "Proteja sua conta",
+    "instructions": "Escaneie o código QR abaixo usando seu aplicativo autenticador preferido e insira o código único fornecido abaixo.",
+    "qrLabel": "Código QR",
+    "troubleScanning": "Problemas ao escanear?",
+    "then": "Então",
+    "codeLabel": "Insira seu código único*",
+    "codePlaceholder": "000000",
+    "verifyButton": "Continuar",
+    "verifying": "Verificando...",
+    "errors": {
+      "codeRequired": {
+        "title": "Código obrigatório",
+        "body": "Por favor, insira o código de verificação do seu aplicativo autenticador"
+      },
+      "codeInvalid": {
+        "title": "Código inválido",
+        "body": "Por favor, insira um código de 6 dígitos válido"
+      },
+      "verifyFailed": {
+        "title": "Falha na verificação",
+        "body": "Código inválido. Por favor, tente novamente."
+      },
+      "clipboardUnsupported": {
+        "title": "Área de transferência não suportada",
+        "body": "Seu navegador não suporta cópia para a área de transferência. Por favor, copie o código manualmente."
+      },
+      "copyFailed": {
+        "title": "Falha ao copiar",
+        "body": "Falha ao copiar o código para a área de transferência: {{message}}",
+        "unknown": "Erro desconhecido"
+      }
+    },
+    "copied": {
+      "title": "Copiado",
+      "body": "Código manual copiado para a área de transferência"
+    },
+    "footer": {
+      "terms": "Termos de Uso",
+      "privacy": "Política de Privacidade"
+    }
+  },
+  "help": {
+    "title": "Ajuda",
+    "sections": {
+      "helpCenter": {
+        "title": "Central de Ajuda",
+        "description": "Obtenha ajuda e encontre respostas para perguntas comuns",
+        "cta": "Visitar",
+        "ariaLabel": "Visitar ajuda do Blawby — abre em uma nova aba"
+      },
+      "releaseNotes": {
+        "title": "Notas de Versão",
+        "description": "Veja o que há de novo nas atualizações mais recentes",
+        "cta": "Ver",
+        "ariaLabel": "Ver notas de versão — abre em uma nova aba"
+      },
+      "terms": {
+        "title": "Termos e Políticas",
+        "description": "Leia nossos termos de serviço e política de privacidade",
+        "cta": "Ler",
+        "ariaLabel": "Ler termos e políticas — abre em uma nova aba"
+      },
+      "bug": {
+        "title": "Relatar Bug",
+        "description": "Ajude-nos a melhorar relatando problemas",
+        "cta": "Relatar"
+      },
+      "downloads": {
+        "title": "Baixar Aplicativos",
+        "description": "Obtenha nossos aplicativos móveis e de desktop",
+        "cta": "Baixar",
+        "ariaLabel": "Baixar aplicativos Blawby — abre em uma nova aba"
+      },
+      "shortcuts": {
+        "title": "Atalhos de Teclado",
+        "description": "Aprenda atalhos de teclado para trabalhar mais rápido",
+        "cta": "Ver"
+      }
+    }
+  }
+}

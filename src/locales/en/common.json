@@ -14,7 +14,19 @@
     "fr": "Français",
     "de": "Deutsch",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский",
+    "it": "Italiano",
+    "ko": "한국어",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "tr": "Türkçe",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "hi": "हिन्दी",
+    "uk": "Українська"
   },
   "forms": {
     "labels": {

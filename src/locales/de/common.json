@@ -14,7 +14,99 @@
     "fr": "Französisch",
     "de": "Deutsch",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "pt": "Portugiesisch",
+    "ar": "Arabisch",
+    "ru": "Russisch",
+    "it": "Italienisch",
+    "ko": "Koreanisch",
+    "nl": "Niederländisch",
+    "pl": "Polnisch",
+    "tr": "Türkisch",
+    "th": "Thailändisch",
+    "id": "Indonesisch",
+    "hi": "Hindi",
+    "uk": "Ukrainisch"
+  },
+  "forms": {
+    "labels": {
+      "name": "Vollständiger Name",
+      "email": "E-Mail-Adresse",
+      "phone": "Telefonnummer",
+      "password": "Passwort",
+      "confirmPassword": "Passwort bestätigen",
+      "birthday": "Geburtstag",
+      "terms": "Allgemeine Geschäftsbedingungen",
+      "privacy": "Datenschutzrichtlinie",
+      "search": "Suchen",
+      "select": "Wählen Sie eine Option",
+      "upload": "Datei hochladen",
+      "message": "Nachricht",
+      "subject": "Betreff"
+    },
+    "placeholders": {
+      "name": "Geben Sie Ihren vollständigen Namen ein",
+      "email": "Geben Sie Ihre E-Mail-Adresse ein",
+      "phone": "Geben Sie Ihre Telefonnummer ein",
+      "password": "Geben Sie Ihr Passwort ein",
+      "confirmPassword": "Bestätigen Sie Ihr Passwort",
+      "birthday": "Wählen Sie Ihren Geburtstag",
+      "search": "Suchen...",
+      "select": "Wählen Sie eine Option",
+      "message": "Geben Sie Ihre Nachricht ein",
+      "subject": "Geben Sie den Betreff ein"
+    },
+    "descriptions": {
+      "optional": "Optional",
+      "required": "Erforderlich",
+      "passwordHelp": "Muss mindestens 8 Zeichen lang sein",
+      "phoneHelp": "Ländervorwahl für internationale Nummern angeben",
+      "fileHelp": "Unterstützte Formate: PDF, DOC, DOCX"
+    },
+    "validation": {
+      "required": "Dieses Feld ist erforderlich",
+      "email": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+      "phone": "Bitte geben Sie eine gültige Telefonnummer ein",
+      "password": "Passwort muss mindestens 8 Zeichen lang sein",
+      "confirmPassword": "Passwörter stimmen nicht überein",
+      "date": "Bitte geben Sie ein gültiges Datum ein (TT.MM.JJJJ)",
+      "futureDate": "Datum darf nicht in der Zukunft liegen",
+      "fileType": "Bitte wählen Sie einen gültigen Dateityp",
+      "fileSize": "Dateigröße muss kleiner als 10 MB sein",
+      "termsRequired": "Sie müssen den Bedingungen zustimmen"
+    },
+    "accessibility": {
+      "togglePassword": "Passwortsichtbarkeit umschalten",
+      "clearSearch": "Suche löschen",
+      "selectOption": "Option auswählen",
+      "removeOption": "Option entfernen",
+      "uploadFile": "Datei hochladen",
+      "removeFile": "Datei entfernen",
+      "calendarOpen": "Kalender öffnen",
+      "calendarClose": "Kalender schließen"
+    },
+    "actions": {
+      "submit": "Absenden",
+      "submitting": "Wird gesendet...",
+      "reset": "Zurücksetzen",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "saving": "Wird gespeichert..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "Validiertes Formular Beispiel"
+      }
+    },
+    "contactForm": {
+      "location": "Standort",
+      "opposingParty": "Gegenpartei (Optional)",
+      "submit": "Kontaktinformationen absenden",
+      "placeholders": {
+        "location": "Stadt, Bundesland (z.B. Berlin, Berlin)",
+        "opposingParty": "Name der anderen beteiligten Partei (falls vorhanden)"
+      }
+    }
   },
   "onboarding": {
     "title": "Willkommen bei Blawby AI",
@@ -28,6 +120,7 @@
       "birthdayPlaceholder": "TT.MM.JJJJ",
       "termsAgreement": "Durch Klicken auf \"Weiter\" stimmen Sie unseren <termsLink>Bedingungen</termsLink> zu und haben unsere <privacyLink>Datenschutzrichtlinie</privacyLink> gelesen.",
       "continue": "Weiter",
+      "back": "Zurück",
       "required": "Dieses Feld ist erforderlich"
     },
     "step2": {

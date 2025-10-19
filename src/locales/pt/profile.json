@@ -1,0 +1,19 @@
+{
+  "menu": {
+    "profile": "Perfil",
+    "settings": "Configurações",
+    "upgrade": "Fazer upgrade do plano",
+    "upgradeShort": "Upgrade",
+    "help": "Obter ajuda",
+    "signOut": "Sair",
+    "signIn": "Entrar"
+  },
+  "status": {
+    "signingOut": "Saindo...",
+    "loading": "Carregando..."
+  },
+  "aria": {
+    "userProfile": "Perfil de usuário de {{name}}",
+    "signInButton": "Entrar na sua conta"
+  }
+}

@@ -7,7 +7,7 @@ import { useNavigation } from '../utils/navigation';
 import { type SubscriptionTier } from '../types/user';
 import { getTierDisplayName } from '../utils/stripe-products';
 import { debounce } from '../utils/debounce';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/i18n/hooks';
 import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
 import type { User as BetterAuthUser } from 'better-auth/types';
 

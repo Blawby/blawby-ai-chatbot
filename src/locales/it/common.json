@@ -1,0 +1,161 @@
+{
+  "app": {
+    "loading": "Caricamento…"
+  },
+  "notifications": {
+    "settingsSavedTitle": "Impostazioni salvate",
+    "settingsSavedBody": "Le tue preferenze sono state aggiornate."
+  },
+  "language": {
+    "auto": "Rilevamento automatico",
+    "en": "English",
+    "vi": "Tiếng Việt",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский",
+    "it": "Italiano",
+    "ko": "한국어",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "tr": "Türkçe",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "hi": "हिन्दी",
+    "uk": "Українська"
+  },
+  "forms": {
+    "labels": {
+      "name": "Nome completo",
+      "email": "Indirizzo email",
+      "phone": "Numero di telefono",
+      "password": "Password",
+      "confirmPassword": "Conferma password",
+      "birthday": "Data di nascita",
+      "terms": "Termini di servizio",
+      "privacy": "Informativa sulla privacy",
+      "search": "Cerca",
+      "select": "Seleziona un'opzione",
+      "upload": "Carica file",
+      "message": "Messaggio",
+      "subject": "Oggetto"
+    },
+    "placeholders": {
+      "name": "Inserisci il tuo nome completo",
+      "email": "Inserisci il tuo indirizzo email",
+      "phone": "Inserisci il tuo numero di telefono",
+      "password": "Inserisci la password",
+      "confirmPassword": "Conferma la password",
+      "birthday": "Seleziona la data di nascita",
+      "search": "Cerca...",
+      "select": "Seleziona un'opzione",
+      "message": "Inserisci il tuo messaggio",
+      "subject": "Inserisci l'oggetto"
+    },
+    "descriptions": {
+      "optional": "Facoltativo",
+      "required": "Obbligatorio",
+      "passwordHelp": "Deve contenere almeno 8 caratteri",
+      "phoneHelp": "Includi il prefisso internazionale per numeri internazionali",
+      "fileHelp": "Formati supportati: PDF, DOC, DOCX"
+    },
+    "validation": {
+      "required": "Questo campo è obbligatorio",
+      "email": "Inserisci un indirizzo email valido",
+      "phone": "Inserisci un numero di telefono valido",
+      "password": "La password deve contenere almeno 8 caratteri",
+      "confirmPassword": "Le password non corrispondono",
+      "date": "Inserisci una data valida (GG/MM/AAAA)",
+      "futureDate": "La data non può essere nel futuro",
+      "fileType": "Seleziona un tipo di file valido",
+      "fileSize": "La dimensione del file deve essere inferiore a 10 MB",
+      "termsRequired": "Devi accettare i termini"
+    },
+    "accessibility": {
+      "togglePassword": "Mostra/nascondi password",
+      "clearSearch": "Cancella ricerca",
+      "selectOption": "Seleziona opzione",
+      "removeOption": "Rimuovi opzione",
+      "uploadFile": "Carica file",
+      "removeFile": "Rimuovi file",
+      "calendarOpen": "Apri calendario",
+      "calendarClose": "Chiudi calendario"
+    },
+    "actions": {
+      "submit": "Invia",
+      "submitting": "Invio in corso...",
+      "reset": "Ripristina",
+      "cancel": "Annulla",
+      "save": "Salva",
+      "saving": "Salvataggio..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "Esempio di modulo validato"
+      }
+    },
+    "contactForm": {
+      "location": "Località",
+      "opposingParty": "Parte avversa (facoltativo)",
+      "submit": "Invia informazioni di contatto",
+      "placeholders": {
+        "location": "Città, regione (es. Roma, Lazio)",
+        "opposingParty": "Nome dell'altra parte (se applicabile)"
+      }
+    }
+  },
+  "onboarding": {
+    "title": "Benvenuto su Blawby AI",
+    "subtitle": "Configuriamo il tuo account",
+    "step1": {
+      "title": "Parlaci di te",
+      "subtitle": "Aiutaci a personalizzare la tua esperienza",
+      "fullName": "Nome completo",
+      "fullNamePlaceholder": "Inserisci il tuo nome completo",
+      "birthday": "Data di nascita",
+      "birthdayPlaceholder": "GG/MM/AAAA",
+      "termsAgreement": "Facendo clic su \"Continua\", accetti i nostri <termsLink>Termini</termsLink> e hai letto la nostra <privacyLink>Informativa sulla privacy</privacyLink>.",
+      "continue": "Continua",
+      "back": "Indietro",
+      "required": "Questo campo è obbligatorio"
+    },
+    "step2": {
+      "title": "Per cosa vuoi usare Blawby AI?",
+      "subtitle": "Questo ci aiuta a fornire suggerimenti più pertinenti",
+      "options": {
+        "personal": "Questioni legali personali",
+        "business": "Esigenze legali aziendali",
+        "research": "Ricerca legale",
+        "documents": "Revisione documenti",
+        "other": "Altro"
+      },
+      "otherPlaceholder": "Dicci di più...",
+      "next": "Avanti",
+      "skip": "Salta"
+    },
+    "welcome": {
+      "title": "Blawby AI",
+      "subtitle": "Suggerimenti per iniziare",
+      "tips": {
+        "askAway": {
+          "title": "Fai domande",
+          "description": "Blawby AI può rispondere a domande legali, aiutare a comprendere concetti legali, rivedere documenti e altro ancora."
+        },
+        "privacy": {
+          "title": "Non condividere informazioni sensibili",
+          "description": "La cronologia delle chat potrebbe essere rivista o utilizzata per migliorare i nostri servizi. Scopri di più sulle tue opzioni nel nostro <helpCenterLink>Centro Assistenza</helpCenterLink>."
+        },
+        "accuracy": {
+          "title": "Verifica i fatti",
+          "description": "Nonostante le precauzioni, Blawby AI potrebbe fornire informazioni imprecise. Non è progettato per fornire consulenza legale."
+        }
+      },
+      "helpCenter": "Centro Assistenza",
+      "letsGo": "Ok, iniziamo"
+    }
+  }
+}

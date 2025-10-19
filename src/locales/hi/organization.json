@@ -1,0 +1,25 @@
+{
+  "notFound": {
+    "title": "संगठन नहीं मिला",
+    "description": {
+      "prefix": "हम संगठन नहीं खोज सके",
+      "suffix": "यह इसलिए हो सकता है:"
+    },
+    "reasons": {
+      "incorrectId": "संगठन आईडी गलत हो सकती है",
+      "movedOrRemoved": "संगठन को स्थानांतरित या हटाया गया हो सकता है",
+      "outdatedLink": "आपके पास पुराना लिंक हो सकता है"
+    },
+    "helpText": {
+      "prefix": "कृपया URL जांचें या फिर से कोशिश करें। यदि समस्याएं जारी रहती हैं, तो कृपया देखें",
+      "middle": "या हमसे संपर्क करें",
+      "suffix": "सहायता के लिए।"
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "फिर से कोशिश करें",
+      "goToHome": "होम पर जाएं"
+    }
+  }
+}

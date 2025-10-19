@@ -1,0 +1,19 @@
+{
+  "menu": {
+    "profile": "प्रोफ़ाइल",
+    "settings": "सेटिंग्स",
+    "upgrade": "प्लान अपग्रेड करें",
+    "upgradeShort": "अपग्रेड",
+    "help": "मदद लें",
+    "signOut": "साइन आउट",
+    "signIn": "साइन इन"
+  },
+  "status": {
+    "signingOut": "साइन आउट हो रहा है...",
+    "loading": "लोड हो रहा है..."
+  },
+  "aria": {
+    "userProfile": "{{name}} के लिए उपयोगकर्ता प्रोफ़ाइल",
+    "signInButton": "अपने खाते में साइन इन करें"
+  }
+}

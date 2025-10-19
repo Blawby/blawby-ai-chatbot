@@ -7,7 +7,7 @@ import { useSession } from '../../../contexts/AuthContext';
 import { updateUser, authClient } from '../../../lib/authClient';
 import Modal from '../../Modal';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/i18n/hooks';
 import type { SecuritySettings } from '../../../types/user';
 import { convertSessionTimeoutToSeconds } from '../../../types/user';
 

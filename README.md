@@ -53,6 +53,7 @@ A production-ready legal intake chatbot built with Cloudflare Workers AI, featur
 ## 🎯 **Key Features**
 
 - **🤖 AI-Powered Legal Intake**: Intelligent conversation handling with Cloudflare Workers AI
+- **🌍 Global Language Support**: 18 languages covering 5+ billion speakers — ~90%+ of global internet users — with full RTL support for Arabic
 - **📋 Lead Qualification**: Smart filtering to ensure quality leads before contact collection
 - **⚖️ Matter Classification**: Automatic legal issue categorization (Employment, Family, Personal Injury, etc.)
 - **💰 Payment Integration**: Automated consultation fee collection with organization configuration
@@ -125,10 +126,28 @@ Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
 
 ### Internationalization
 
-- The app boots with English (`en`) and supports Spanish (`es`) out of the box. Locale assets live in `src/locales/<locale>/<namespace>.json`.
-- Use the Settings → General page to switch the UI language and to trigger auto-detection.
-- Contributors can follow the workflow in `docs/i18n.md` to add new strings or locales.
-- Run `npm run lint:i18n` before committing to make sure every locale contains the same keys as the English baseline.
+The application supports **18 languages** covering 5+ billion speakers — ~90%+ of global internet users:
+
+**Supported Languages:**
+- 🌍 **Americas**: English, Spanish, Portuguese, French
+- 🇪🇺 **Europe**: English, Spanish, French, German, Russian, Italian, Dutch, Polish, Ukrainian
+- 🌏 **Asia**: Chinese, Japanese, Vietnamese, Korean, Thai, Indonesian, Hindi
+- 🇸🇦 **Middle East/Africa**: Arabic (with full RTL support), French, English
+
+**Features:**
+- ✅ Seamless language switching via Settings → General
+- ✅ Automatic language detection based on user location
+- ✅ Complete Right-to-Left (RTL) support for Arabic
+- ✅ 5 namespaces: common, settings, auth, profile, pricing
+- ✅ 50+ country-to-language mappings
+- ✅ Lazy-loaded translations for optimal performance
+
+**Development:**
+- Locale files: `src/locales/<locale>/<namespace>.json`
+- Configuration: `src/i18n/index.ts`
+- Full guide: `docs/INTERNATIONALIZATION.md`
+- Run `npm run lint:i18n` to validate translation consistency
+- Run `npm run test:i18n` for internationalization smoke tests
 
 ### Organization Management
 Organizations are managed via REST API:

@@ -6,9 +6,9 @@ export const PRODUCTS = {
   }
 };
 
+// Price configuration - IDs come from environment variables via config API
 export const PRICES = {
-  price_1SHfgbDJLzJ14cfPBGuTvcG3: {
-    id: 'price_1SHfgbDJLzJ14cfPBGuTvcG3',
+  monthly: {
     product: PRODUCTS.business.id,
     unit_amount: 4000, // $40 in cents
     currency: 'usd',
@@ -17,8 +17,7 @@ export const PRICES = {
       interval_count: 1
     }
   },
-  price_1SHfhCDJLzJ14cfPGFGQ77vQ: {
-    id: 'price_1SHfhCDJLzJ14cfPGFGQ77vQ',
+  annual: {
     product: PRODUCTS.business.id,
     unit_amount: 42000, // $420 in cents
     currency: 'usd',
@@ -73,23 +72,70 @@ export function getTierDisplayName(tier: 'free' | 'business' | 'plus' | 'enterpr
   return TIER_NAMES[tier as 'free' | 'business'] ?? String(tier);
 }
 
-export function formatPriceCents(amountCents: number, interval: 'month' | 'year'): string {
+export function formatPriceCents(
+  amountCents: number, 
+  locale: string = 'en',
+  currency: string = 'USD'
+): string {
   const dollars = amountCents / 100;
-  const formatter = new Intl.NumberFormat('en-US', {
+  const formatter = new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'USD',
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
-  return `${formatter.format(dollars)} / ${interval}`;
+  return formatter.format(dollars);
 }
 
-export function getBusinessPrices(): { monthly: string; annual?: string } {
-  const monthly = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3
-    ? formatPriceCents(PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3.unit_amount, 'month')
-    : '$40 USD / month';
-  const annual = PRICES.price_1SHfhCDJLzJ14cfPGFGQ77vQ
-    ? formatPriceCents(PRICES.price_1SHfhCDJLzJ14cfPGFGQ77vQ.unit_amount, 'year')
-    : undefined;
+export function getBusinessPrices(locale: string = 'en'): { monthly: string; annual?: string } {
+  const monthlyAmount = PRICES.monthly.unit_amount;
+  const annualAmount = PRICES.annual.unit_amount;
+
+  const monthly = formatPriceCents(monthlyAmount, locale, 'USD');
+  const annual = formatPriceCents(annualAmount, locale, 'USD');
+
   return { monthly, annual };
+}
+
+export function getBusinessPricesStructured(locale: string = 'en'): {
+  monthly: { amountFormatted: string; billingPeriod: 'month' };
+  annual: { amountFormatted: string; billingPeriod: 'year' };
+} {
+  const monthlyAmount = PRICES.monthly.unit_amount;
+  const annualAmount = PRICES.annual.unit_amount;
+
+  const monthly = {
+    amountFormatted: formatPriceCents(monthlyAmount, locale, 'USD'),
+    billingPeriod: 'month' as const
+  };
+
+  const annual = {
+    amountFormatted: formatPriceCents(annualAmount, locale, 'USD'),
+    billingPeriod: 'year' as const
+  };
+
+  return { monthly, annual };
+}
+
+// Functions to get actual Stripe price IDs from config
+export async function getStripePriceIds(): Promise<{ monthly: string; annual: string }> {
+  const { getAppConfig } = await import('../services/config');
+  const config = await getAppConfig();
+  
+  return {
+    monthly: config.stripe.priceId,
+    annual: config.stripe.annualPriceId
+  };
+}
+
+export async function getMonthlyPriceId(): Promise<string> {
+  const { getAppConfig } = await import('../services/config');
+  const config = await getAppConfig();
+  return config.stripe.priceId;
+}
+
+export async function getAnnualPriceId(): Promise<string> {
+  const { getAppConfig } = await import('../services/config');
+  const config = await getAppConfig();
+  return config.stripe.annualPriceId;
 }

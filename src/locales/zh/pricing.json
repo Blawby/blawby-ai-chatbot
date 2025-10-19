@@ -1,0 +1,235 @@
+{
+  "plans": {
+    "free": {
+      "name": "免费",
+      "description": "满足日常需求的法律AI助手",
+      "buttonText": "您当前的计划"
+    },
+    "plus": {
+      "name": "Plus",
+      "description": "为专业人士提供增强的法律AI功能",
+      "buttonText": "获取Plus"
+    },
+    "business": {
+      "name": "Business",
+      "description": "安全的团队协作工作空间",
+      "buttonText": "获取Business"
+    }
+  },
+  "features": {
+    "aiAccess": {
+      "name": "AI访问",
+      "description": "访问我们的法律AI模型",
+      "tiers": {
+        "free": "Blawby AI-1（限制版）",
+        "plus": "Blawby AI-1（增强版）",
+        "business": "Blawby AI-1（无限制）"
+      },
+      "text": {
+        "free": "访问Blawby AI-1",
+        "plus": "增强访问Blawby AI-1",
+        "business": "无限访问我们最佳工作模型"
+      },
+      "detail": {
+        "free": "限制访问我们的法律AI模型",
+        "plus": "优先访问我们的法律AI模型",
+        "business": "无限访问高级AI模型"
+      }
+    },
+    "documentAnalysis": {
+      "name": "文档分析",
+      "description": "上传和分析法律文档",
+      "tiers": {
+        "free": "限制版",
+        "plus": "增强版",
+        "business": "无限制"
+      },
+      "text": {
+        "free": "限制文档分析",
+        "plus": "增强文档分析",
+        "business": "高级文档分析和案件准备"
+      },
+      "detail": {
+        "free": "上传和分析基本法律文档",
+        "plus": "更快更准确的法律文档处理",
+        "business": "完整的法律文档处理能力"
+      }
+    },
+    "casePreparation": {
+      "name": "案件PDF准备",
+      "description": "AI驱动的案件文档准备",
+      "tiers": {
+        "free": "限制版",
+        "plus": "增强版",
+        "business": "无限制"
+      },
+      "text": {
+        "free": "限制案件PDF准备",
+        "plus": "增强案件PDF准备",
+        "business": "高级案件PDF准备"
+      },
+      "detail": {
+        "free": "基本案件文档准备",
+        "plus": "高级案件文档准备",
+        "business": "完整的案件文档准备能力"
+      }
+    },
+    "memoryContext": {
+      "name": "记忆和上下文",
+      "description": "对话记忆和上下文",
+      "tiers": {
+        "free": "限制版",
+        "plus": "增强版",
+        "business": "无限制"
+      },
+      "text": {
+        "free": "限制记忆和上下文",
+        "plus": "扩展记忆和上下文",
+        "business": "无限记忆和上下文"
+      },
+      "detail": {
+        "free": "基本对话记忆",
+        "plus": "更长对话记忆",
+        "business": "无限对话历史"
+      }
+    },
+    "lawyerSearch": {
+      "name": "律师搜索",
+      "description": "查找并联系合格的律师",
+      "tiers": {
+        "free": "限制版",
+        "plus": "增强版",
+        "business": "无限制"
+      },
+      "text": {
+        "free": "限制律师搜索",
+        "plus": "增强律师搜索",
+        "business": "高级律师搜索"
+      },
+      "detail": {
+        "free": "基本律师搜索功能",
+        "plus": "高级律师匹配功能",
+        "business": "完整的律师匹配和研究功能"
+      }
+    },
+    "teamCollaboration": {
+      "name": "团队协作",
+      "description": "共享项目和团队功能",
+      "text": "团队工具，如共享项目和工作流程",
+      "detail": "团队协作和项目管理"
+    },
+    "security": {
+      "name": "高级安全",
+      "description": "SSO、MFA和企业安全",
+      "text": "具有SSO、MFA等的高级安全",
+      "detail": "企业级安全功能"
+    },
+    "privacy": {
+      "name": "隐私保护",
+      "description": "数据永不用于训练",
+      "text": "内置隐私；数据永不用于训练",
+      "detail": "完整的数据隐私保护"
+    },
+    "integrations": {
+      "name": "集成",
+      "description": "SharePoint和其他工具",
+      "text": "与Quickbooks和其他工具集成",
+      "detail": "连接到您现有的工作流程"
+    },
+    "billing": {
+      "name": "简化计费",
+      "description": "用户管理和计费",
+      "text": "简化计费和用户管理",
+      "detail": "轻松管理团队和计费"
+    },
+    "transcription": {
+      "name": "语音转录",
+      "description": "会议和语音转录",
+      "text": "语音转录和分析",
+      "detail": "语音转录和法律分析"
+    },
+    "agents": {
+      "name": "AI代理",
+      "description": "编码和研究代理",
+      "text": "法律研究和律师搜索代理",
+      "detail": "专门用于法律研究和律师匹配的AI代理"
+    },
+    "plusIncludes": {
+      "text": "免费中的所有功能，更高限制",
+      "detail": "所有免费功能，使用量增加"
+    },
+    "businessIncludes": {
+      "text": "Plus中的所有功能，更高限制",
+      "detail": "所有Plus功能，无限使用"
+    }
+  },
+  "limitations": {
+    "free": {
+      "messagesPerDay": "每天限制20条消息",
+      "documentSupport": "基本文档分析支持",
+      "responseTime": "标准响应时间",
+      "noTeam": "无团队协作功能"
+    },
+    "plus": {
+      "messagesPerDay": "每天限制200条消息",
+      "noTeam": "无团队协作功能",
+      "standardSupport": "标准支持响应时间"
+    },
+    "business": {
+      "minUsers": "需要2+用户",
+      "annualBilling": "建议年度计费"
+    }
+  },
+  "benefits": {
+    "free": {
+      "personal": "非常适合个人法律需求",
+      "noCard": "无需信用卡",
+      "fullAccess": "完全访问核心法律AI功能",
+      "support": "社区支持"
+    },
+    "plus": {
+      "higherLimits": "5倍更高的使用限制",
+      "priorityAccess": "优先访问AI模型",
+      "enhanced": "增强的法律功能",
+      "support": "电子邮件支持"
+    },
+    "business": {
+      "unlimited": "无限使用",
+      "team": "团队协作",
+      "security": "企业安全",
+      "prioritySupport": "优先支持",
+      "customIntegrations": "自定义集成"
+    }
+  },
+  "modal": {
+    "title": "升级您的计划",
+    "tabs": {
+      "personal": "个人",
+      "business": "商业"
+    },
+    "countryLabel": "选择您的国家",
+    "currentPlan": "当前计划",
+    "recommended": "推荐",
+    "popular": "最受欢迎",
+    "close": "关闭"
+  },
+  "billing": {
+    "monthly": "月",
+    "yearly": "年",
+    "billedMonthly": "按月计费",
+    "billedAnnually": "按年计费",
+    "currency": {
+      "usd": "美元"
+    }
+  },
+  "comparison": {
+    "title": "比较计划",
+    "feature": "功能",
+    "included": "包含",
+    "notIncluded": "不包含"
+  },
+  "sections": {
+    "benefits": "优势:",
+    "limitations": "限制:"
+  }
+}

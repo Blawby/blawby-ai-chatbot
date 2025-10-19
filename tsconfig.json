@@ -18,6 +18,9 @@
 		"jsxImportSource": "preact",
 		"skipLibCheck": true,
 		"paths": {
+			"@/*": [
+				"./src/*"
+			],
 			"react": [
 				"./node_modules/preact/compat/"
 			],

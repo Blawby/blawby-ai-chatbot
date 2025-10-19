@@ -1,8 +1,10 @@
 import { FunctionComponent } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
+import { useTranslation, i18n } from '@/i18n/hooks';
 import { useNavigation } from '../utils/navigation';
 import Modal from './Modal';
 import { Button } from './ui/Button';
+import { Select } from './ui/input/Select';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { getBusinessPrices } from '../utils/stripe-products';
 import { useSession } from '../contexts/AuthContext';
@@ -15,72 +17,84 @@ interface PricingModalProps {
   onUpgrade?: (tier: SubscriptionTier) => Promise<boolean | void> | boolean | void;
 }
 
-
 const PricingModal: FunctionComponent<PricingModalProps> = ({
   isOpen,
   onClose,
   currentTier = 'free',
   onUpgrade
 }) => {
+  const { t } = useTranslation(['pricing', 'common']);
   const { navigate } = useNavigation();
   const { data: session } = useSession();
   const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
+  const [selectedCountry, setSelectedCountry] = useState('us');
 
+  // Load user's current country preference
+  useEffect(() => {
+    // TODO: Get from user profile when available
+    setSelectedCountry('us');
+  }, []);
 
+  const handleCountryChange = (country: string) => {
+    setSelectedCountry(country);
+    // TODO: Update user profile with country preference
+  };
 
+  // Get active locale from i18n
+  const userLocale = i18n.language;
+  
   // Build pricing plans from real Stripe config
-  const prices = getBusinessPrices();
+  const prices = getBusinessPrices(userLocale);
   const allPlans = [
     {
       id: 'free' as SubscriptionTier,
-      name: 'Free',
-      price: '$0 USD / month',
-      description: 'Legal AI assistance for everyday needs',
+      name: t('plans.free.name'),
+      price: t('plans.free.price'),
+      description: t('plans.free.description'),
       features: [],
-      buttonText: 'Your current plan',
+      buttonText: t('plans.free.buttonText'),
       isRecommended: currentTier === 'free',
     },
-    // Plus tier temporarily hidden until backend Stripe integration is complete
-    // {
-    //   id: 'plus' as SubscriptionTier,
-    //   name: 'Plus',
-    //   price: '$20 USD / month',
-    //   description: 'Enhanced AI capabilities for individual professionals',
-    //   features: [],
-    //   buttonText: 'Get Plus',
-    //   isRecommended: currentTier === 'free',
-    // },
     {
       id: 'business' as SubscriptionTier,
-      name: 'Business',
+      name: t('plans.business.name'),
       price: prices.monthly,
-      description: 'Secure, collaborative workspace for organizations',
+      description: t('plans.business.description'),
       features: [],
-      buttonText: 'Get Business',
+      buttonText: t('plans.business.buttonText'),
       isRecommended: currentTier === 'free' || currentTier === 'plus',
     },
     {
       id: 'enterprise' as SubscriptionTier,
-      name: 'Enterprise',
-      price: 'Contact sales',
-      description: 'Custom solutions for large organizations',
+      name: t('plans.enterprise.name'),
+      price: t('plans.enterprise.price'),
+      description: t('plans.enterprise.description'),
       features: [],
-      buttonText: 'Contact Sales',
+      buttonText: t('plans.enterprise.buttonText'),
       isRecommended: currentTier === 'business',
     },
   ];
   
-  // Define upgrade paths - include current tier to show it
-  // Plus tier temporarily removed from upgrade paths until backend support is added
+  // Define upgrade paths
   const upgradeTiers = {
     'free': ['free', 'business'],
-    'plus': ['plus', 'business'],  // Keep for existing plus users
+    'plus': ['plus', 'business'],
     'business': ['business', 'enterprise'],
     'enterprise': ['enterprise']
   };
   
   // Show different plans based on selected tab and current tier
-  type SimplePlan = { id: SubscriptionTier; name: string; price: string; description: string; features: Array<{ icon?: unknown; text?: string }>; buttonText: string; isRecommended: boolean; isCurrent?: boolean };
+  type SimplePlan = { 
+    id: SubscriptionTier; 
+    name: string; 
+    price: string; 
+    description: string; 
+    features: Array<{ icon?: unknown; text?: string }>; 
+    buttonText: string; 
+    isRecommended: boolean; 
+    isCurrent?: boolean 
+  };
+  
   const mainPlans: SimplePlan[] = (() => {
     const availableTiers = upgradeTiers[currentTier] || [];
     
@@ -92,8 +106,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
           return {
             ...plan,
             isCurrent,
-            buttonText: isCurrent ? 'Your current plan' : plan.buttonText,
-            // Recommended = show current for clarity on personal tab
+            buttonText: isCurrent ? t('modal.currentPlan') : plan.buttonText,
             isRecommended: isCurrent
           };
         });
@@ -105,8 +118,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
           return {
             ...plan,
             isCurrent,
-            buttonText: isCurrent ? 'Your current plan' : plan.buttonText,
-            // Recommended = highlight Business when user is not already on it
+            buttonText: isCurrent ? t('modal.currentPlan') : plan.buttonText,
             isRecommended: !isCurrent && plan.id === 'business' && (currentTier === 'free' || currentTier === 'plus')
           };
         });
@@ -114,21 +126,14 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   })();
 
   // Determine if we should show the tab selector
-  // Only show tabs if there are different plans available for each tab
   const shouldShowTabs = (() => {
-    // Business, enterprise, and plus users don't need tab selector
-    // They can only see their current plan + enterprise upgrade (business)
-    // Or just their current plan (enterprise/plus)
     if (currentTier === 'business' || currentTier === 'enterprise' || currentTier === 'plus') return false;
-    
-    // Free users see tabs for personal vs business upgrade paths
     return true;
   })();
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
     let shouldNavigateToCart = true;
     try {
-      // Call callbacks before navigation to ensure they complete
       if (onUpgrade) {
         const result = await onUpgrade(tier);
         if (result === false) {
@@ -142,11 +147,19 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
       }
     } catch (error) {
       console.error('Error during upgrade process:', error);
-      // Still navigate and close modal even if callback fails
       navigate(`/cart?tier=${tier}`);
       onClose();
     }
   };
+
+  // Country options via Intl.DisplayNames (locale-aware)
+  const regionCodes = ['US','VN','GB','DE','FR','ES','JP','CN'] as const;
+  const locale = i18n.language || 'en';
+  const displayNames = new Intl.DisplayNames([locale], { type: 'region' });
+  const countryOptions = regionCodes.map(code => ({
+    value: code.toLowerCase(),
+    label: displayNames.of(code) || code
+  }));
 
   return (
     <Modal
@@ -158,13 +171,12 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
       <div className="h-full bg-dark-bg text-white overflow-y-auto">
         {/* Header */}
         <div className="relative p-6 border-b border-dark-border">
-          {/* Close Button */}
           <Button
             onClick={onClose}
             variant="icon"
             size="sm"
             className="absolute top-4 right-4"
-            aria-label="Close modal"
+            aria-label={t('common:close')}
             icon={
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -172,9 +184,8 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
             }
           />
           
-          {/* Centered Content */}
           <div className="flex flex-col items-center space-y-6">
-            <h1 className="text-2xl font-semibold text-white">Upgrade your plan</h1>
+            <h1 className="text-2xl font-semibold text-white">{t('modal.title')}</h1>
             {shouldShowTabs && (
               <div className="flex bg-dark-card-bg rounded-lg p-1">
                 <button
@@ -185,7 +196,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Personal
+                  {t('tabs.personal')}
                 </button>
                 <button
                   onClick={() => setSelectedTab('business')}
@@ -195,7 +206,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Business
+                  {t('tabs.business')}
                 </button>
               </div>
             )}
@@ -204,7 +215,6 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 
         {/* Content */}
         <div className="p-6">
-          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full mx-auto">
             {mainPlans.map((plan) => (
               <div
@@ -219,7 +229,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                 {plan.isRecommended && (
                   <div className="absolute -top-3 left-6">
                     <span className="bg-accent-500 text-gray-900 text-xs font-medium px-3 py-1 rounded-full">
-                      RECOMMENDED
+                      {t('modal.recommended').toUpperCase()}
                     </span>
                   </div>
                 )}
@@ -228,10 +238,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                 <div className="mb-6">
                   <h3 className="text-2xl font-bold mb-2 text-white">{plan.name}</h3>
                   <div className="text-3xl font-bold mb-2 text-white">
-                    {plan.price.split(' ')[0]}
-                    <span className="text-lg font-normal text-gray-300 ml-1">
-                      {plan.price.split(' ').slice(1).join(' ')}
-                    </span>
+                    {plan.price}
                   </div>
                   <p className="text-gray-300">{plan.description}</p>
                 </div>
@@ -251,17 +258,17 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 
                 {/* Features List */}
                 <div className="space-y-3 flex-1">
-                  {/* Placeholder features moved to AccountPage tier features */}
+                  {/* Features moved to AccountPage tier features */}
                 </div>
 
                 {/* Footer Text */}
                 {plan.id === 'free' && (
                   <div className="mt-6 pt-4 border-t border-dark-border">
                     <p className="text-xs text-gray-400">
-                      Have an existing plan?{' '}
-                    <button className="underline hover:text-white">
-                      See billing help
-                    </button>
+                      {t('plans.free.footer.existingPlan')}{' '}
+                      <button className="underline hover:text-white">
+                        {t('plans.free.footer.billingHelp')}
+                      </button>
                     </p>
                   </div>
                 )}
@@ -269,13 +276,13 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                 {plan.id === 'business' && (
                   <div className="mt-6 pt-4 border-t border-dark-border">
                     <p className="text-xs text-gray-400 mb-1">
-                      For 2+ users, billed annually
+                      {t('plans.business.footer.billing')}
                     </p>
                     <p className="text-xs text-gray-400">
-                      Unlimited subject to abuse guardrails.{' '}
-                    <button className="underline hover:text-white">
-                      Learn more
-                    </button>
+                      {t('plans.business.footer.unlimited')}{' '}
+                      <button className="underline hover:text-white">
+                        {t('plans.business.footer.learnMore')}
+                      </button>
                     </p>
                   </div>
                 )}
@@ -283,25 +290,33 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
             ))}
           </div>
 
-
           {/* Modal Footer */}
           <div className="border-t border-dark-border px-6 py-2 mt-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               {/* Enterprise Section */}
               <div className="flex items-center gap-2">
                 <UserGroupIcon className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-400">Need more capabilities?</span>
+                <span className="text-sm text-gray-400">{t('footer.enterprise.question')}</span>
                 <button 
                   className="text-sm text-white underline hover:text-gray-300 transition-colors"
                   onClick={() => {
-                    // Redirect to enterprise page
-                    window.open('/enterprise', '_blank');
+                    window.open('/enterprise', '_blank', 'noopener,noreferrer');
                   }}
                 >
-                  See Blawby Enterprise
+                  {t('footer.enterprise.link')}
                 </button>
               </div>
               
+              {/* Country/Region Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">{t('footer.country.label')}</span>
+                <Select
+                  value={selectedCountry}
+                  options={countryOptions}
+                  onChange={handleCountryChange}
+                  direction="up"
+                />
+              </div>
             </div>
           </div>
         </div>

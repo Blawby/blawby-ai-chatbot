@@ -1,15 +1,13 @@
 import { useState, useCallback, useEffect } from 'preact/hooks';
-import { PRODUCTS, PRICES, PriceId } from '../../utils/stripe-products';
+import { PRODUCTS, PRICES, getStripePriceIds } from '../../utils/stripe-products';
 import { usePaymentUpgrade } from '../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
 import { useToastContext } from '../../contexts/ToastContext';
 import { useLocation } from 'preact-iso';
 import { useNavigation } from '../../utils/navigation';
+import { useTranslation } from '../../i18n/hooks';
 import { QuantitySelector } from './QuantitySelector';
 import { PricingSummary } from '../ui/cards/PricingSummary';
-
-const MONTHLY_PRICE_ID: PriceId = 'price_1SHfgbDJLzJ14cfPBGuTvcG3';
-const ANNUAL_PRICE_ID: PriceId = 'price_1SHfhCDJLzJ14cfPGFGQ77vQ';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -17,6 +15,7 @@ export const CartPage = () => {
   const { submitUpgrade, submitting } = usePaymentUpgrade();
   const { currentOrganization } = useOrganizationManagement();
   const { showError } = useToastContext();
+  const { i18n } = useTranslation();
 
   const seatsQuery = location.query?.seats;
   const seatsFromQuery = Array.isArray(seatsQuery) ? seatsQuery[0] : seatsQuery;
@@ -25,8 +24,29 @@ export const CartPage = () => {
   const tierQuery = location.query?.tier;
   const tierFromQuery = Array.isArray(tierQuery) ? tierQuery[0] : tierQuery;
 
-  const [selectedPriceId, setSelectedPriceId] = useState<PriceId>(MONTHLY_PRICE_ID);
+  const [selectedPriceId, setSelectedPriceId] = useState<string>('');
   const [quantity, setQuantity] = useState(initialSeats);
+  const [priceIds, setPriceIds] = useState<{ monthly: string; annual: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadPriceIds = useCallback(async () => {
+    try {
+      setLoadError(null);
+      const ids = await getStripePriceIds();
+      setPriceIds(ids);
+      setSelectedPriceId(ids.monthly);
+    } catch (error) {
+      console.error('Failed to load price IDs:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to load pricing information';
+      setLoadError(errorMsg);
+      showError('Failed to load pricing', errorMsg);
+    }
+  }, [showError]);
+
+  // Load price IDs from config
+  useEffect(() => {
+    loadPriceIds();
+  }, [loadPriceIds]);
 
   // Redirect business/enterprise users away from cart
   useEffect(() => {
@@ -70,31 +90,38 @@ export const CartPage = () => {
     }
   }, [tierFromQuery]);
 
-  const selectedPrice = PRICES[selectedPriceId];
-  const isAnnual = selectedPriceId === ANNUAL_PRICE_ID;
+  const selectedPrice = priceIds ? (selectedPriceId === priceIds.annual ? PRICES.annual : PRICES.monthly) : null;
+  const isAnnual = priceIds ? selectedPriceId === priceIds.annual : false;
 
-  const monthlySeatPrice = PRICES[MONTHLY_PRICE_ID].unit_amount / 100;
-  const annualSeatPricePerYear = PRICES[ANNUAL_PRICE_ID].unit_amount / 100;
+  // Create locale-aware currency formatter
+  const currencyFormatter = new Intl.NumberFormat(i18n.language, {
+    style: 'currency',
+    currency: PRICES.monthly.currency.toUpperCase()
+  });
+
+  const monthlySeatPrice = PRICES.monthly.unit_amount / 100;
+  const annualSeatPricePerYear = PRICES.annual.unit_amount / 100;
   const annualSeatPricePerMonth = annualSeatPricePerYear / 12;
 
   // Keyboard navigation for radiogroup
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    const priceIds: PriceId[] = [ANNUAL_PRICE_ID, MONTHLY_PRICE_ID];
-    const currentIndex = priceIds.indexOf(selectedPriceId);
+    if (!priceIds) return;
+    const priceIdList = [priceIds.annual, priceIds.monthly];
+    const currentIndex = priceIdList.indexOf(selectedPriceId);
     
     switch (event.key) {
       case 'ArrowLeft':
       case 'ArrowUp': {
         event.preventDefault();
-        const prevIndex = currentIndex > 0 ? currentIndex - 1 : priceIds.length - 1;
-        setSelectedPriceId(priceIds[prevIndex]);
+        const prevIndex = currentIndex > 0 ? currentIndex - 1 : priceIdList.length - 1;
+        setSelectedPriceId(priceIdList[prevIndex]);
         break;
       }
       case 'ArrowRight':
       case 'ArrowDown': {
         event.preventDefault();
-        const nextIndex = currentIndex < priceIds.length - 1 ? currentIndex + 1 : 0;
-        setSelectedPriceId(priceIds[nextIndex]);
+        const nextIndex = currentIndex < priceIdList.length - 1 ? currentIndex + 1 : 0;
+        setSelectedPriceId(priceIdList[nextIndex]);
         break;
       }
     }
@@ -168,6 +195,33 @@ export const CartPage = () => {
     await submitUpgrade(upgradeParams);
   };
 
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{loadError}</p>
+          <button 
+            onClick={loadPriceIds}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!priceIds) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading pricing information...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -196,13 +250,13 @@ export const CartPage = () => {
               tabIndex={0}
             >
               <button
-                onClick={() => setSelectedPriceId(ANNUAL_PRICE_ID)}
+                onClick={() => priceIds && setSelectedPriceId(priceIds.annual)}
                 role="radio"
-                aria-checked={selectedPriceId === ANNUAL_PRICE_ID}
-                aria-label="Annual plan - $420 per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users"
-                tabIndex={selectedPriceId === ANNUAL_PRICE_ID ? 0 : -1}
+                aria-checked={priceIds ? selectedPriceId === priceIds.annual : false}
+                aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`}
+                tabIndex={priceIds && selectedPriceId === priceIds.annual ? 0 : -1}
                 className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
-                  selectedPriceId === ANNUAL_PRICE_ID 
+                  priceIds && selectedPriceId === priceIds.annual 
                     ? 'border-white bg-gray-800' 
                     : 'border-gray-700 hover:border-gray-600'
                 }`}
@@ -218,7 +272,7 @@ export const CartPage = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-base md:text-lg font-bold text-white">Annual</div>
                   <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
-                    {selectedPriceId === ANNUAL_PRICE_ID && (
+                    {priceIds && selectedPriceId === priceIds.annual && (
                       <div className="w-3 h-3 bg-accent-500 rounded-full" />
                     )}
                   </div>
@@ -226,8 +280,8 @@ export const CartPage = () => {
 
                 {/* Pricing with strikethrough for discounts */}
                 <div className="text-xs md:text-sm text-white mb-1">
-                  USD $35
-                  <span className="text-xs md:text-sm text-gray-400 line-through ml-1">$40</span>
+                  {currencyFormatter.format(annualSeatPricePerMonth)}
+                  <span className="text-xs md:text-sm text-gray-400 line-through ml-1">{currencyFormatter.format(monthlySeatPrice)}</span>
                 </div>
                 <div className="text-xs md:text-sm text-gray-400 mb-3">per user/month</div>
 
@@ -240,13 +294,13 @@ export const CartPage = () => {
               </button>
               
               <button
-                onClick={() => setSelectedPriceId(MONTHLY_PRICE_ID)}
+                onClick={() => priceIds && setSelectedPriceId(priceIds.monthly)}
                 role="radio"
-                aria-checked={selectedPriceId === MONTHLY_PRICE_ID}
-                aria-label="Monthly plan - $40 per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users"
-                tabIndex={selectedPriceId === MONTHLY_PRICE_ID ? 0 : -1}
+                aria-checked={priceIds ? selectedPriceId === priceIds.monthly : false}
+                aria-label={`Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`}
+                tabIndex={priceIds && selectedPriceId === priceIds.monthly ? 0 : -1}
                 className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
-                  selectedPriceId === MONTHLY_PRICE_ID
+                  priceIds && selectedPriceId === priceIds.monthly
                     ? 'border-white bg-gray-800'
                     : 'border-gray-700 hover:border-gray-600'
                 }`}
@@ -255,14 +309,14 @@ export const CartPage = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-base md:text-lg font-bold text-white">Monthly</div>
                   <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
-                    {selectedPriceId === MONTHLY_PRICE_ID && (
+                    {priceIds && selectedPriceId === priceIds.monthly && (
                       <div className="w-3 h-3 bg-accent-500 rounded-full" />
                     )}
                   </div>
                 </div>
 
                 {/* Pricing */}
-                <div className="text-xs md:text-sm text-white mb-1">USD $40</div>
+                <div className="text-xs md:text-sm text-white mb-1">{currencyFormatter.format(monthlySeatPrice)}</div>
                 <div className="text-xs md:text-sm text-gray-400 mb-3">per user / month</div>
 
                 {/* Feature list */}
@@ -290,30 +344,30 @@ export const CartPage = () => {
               heading="Summary"
               planName={PRODUCTS.business.name}
               planDescription={`${quantity} users • ${isAnnual ? 'Billed annually' : 'Billed monthly'}`}
-              pricePerSeat={`$${(isAnnual ? annualSeatPricePerMonth : monthlySeatPrice).toFixed(2)} per user / month`}
+              pricePerSeat={`${currencyFormatter.format(isAnnual ? annualSeatPricePerMonth : monthlySeatPrice)} per user / month`}
               isAnnual={isAnnual}
               billingNote={
                 isAnnual
-                  ? `Billed annually at $${total.toFixed(2)}/year`
-                  : `Billed monthly at $${total.toFixed(2)}/month`
+                  ? `Billed annually at ${currencyFormatter.format(total)}/year`
+                  : `Billed monthly at ${currencyFormatter.format(total)}/month`
               }
               lineItems={[
                 { 
                   id: 'subtotal', 
                   label: 'Subtotal', 
-                  value: `$${subtotal.toFixed(2)}`,
+                  value: currencyFormatter.format(subtotal),
                   numericValue: subtotal
                 },
                 { 
                   id: 'discount', 
                   label: 'Discount', 
-                  value: discount > 0 ? `-$${discount.toFixed(2)}` : '$0.00',
+                  value: discount > 0 ? `-${currencyFormatter.format(discount)}` : currencyFormatter.format(0),
                   numericValue: -discount
                 },
                 { 
                   id: 'total', 
                   label: "Today's total", 
-                  value: `$${total.toFixed(2)}`, 
+                  value: currencyFormatter.format(total), 
                   emphasis: true,
                   numericValue: total
                 }

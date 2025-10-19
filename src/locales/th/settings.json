@@ -1,0 +1,355 @@
+{
+  "navigation": {
+    "close": "[NEEDS TRANSLATION] Close settings",
+    "backToSettings": "[NEEDS TRANSLATION] Back to settings",
+    "items": {
+      "general": "[NEEDS TRANSLATION] General",
+      "notifications": "[NEEDS TRANSLATION] Notifications",
+      "account": "[NEEDS TRANSLATION] Account",
+      "security": "[NEEDS TRANSLATION] Security",
+      "help": "[NEEDS TRANSLATION] Help",
+      "signOut": "[NEEDS TRANSLATION] Sign Out"
+    },
+    "signOut": {
+      "toastTitle": "[NEEDS TRANSLATION] Signed out successfully",
+      "toastBody": "[NEEDS TRANSLATION] You have been signed out"
+    }
+  },
+  "general": {
+    "title": "การตั้งค่าทั่วไป",
+    "theme": {
+      "label": "[NEEDS TRANSLATION] Theme",
+      "options": {
+        "light": "[NEEDS TRANSLATION] Light",
+        "dark": "[NEEDS TRANSLATION] Dark",
+        "system": "[NEEDS TRANSLATION] System"
+      }
+    },
+    "accent": {
+      "label": "[NEEDS TRANSLATION] Accent color",
+      "options": {
+        "default": "[NEEDS TRANSLATION] Default",
+        "blue": "[NEEDS TRANSLATION] Blue",
+        "green": "[NEEDS TRANSLATION] Green",
+        "purple": "[NEEDS TRANSLATION] Purple",
+        "red": "[NEEDS TRANSLATION] Red"
+      }
+    },
+    "language": {
+      "label": "[NEEDS TRANSLATION] Language",
+      "description": "[NEEDS TRANSLATION] Select the language used for the interface.",
+      "toastTitle": "[NEEDS TRANSLATION] Language updated",
+      "toastBody": "[NEEDS TRANSLATION] Your language preference has been applied."
+    },
+    "spokenLanguage": {
+      "label": "[NEEDS TRANSLATION] Spoken language",
+      "description": "[NEEDS TRANSLATION] For best results, select the language you mainly speak. If it's not listed, auto-detection may still work."
+    }
+  },
+  "account": {
+    "title": "[NEEDS TRANSLATION] Account",
+    "loadingError": "[NEEDS TRANSLATION] Failed to load account data",
+    "retry": "[NEEDS TRANSLATION] Retry",
+    "plan": {
+      "currentPlanLabel": "[NEEDS TRANSLATION] Current Plan: {{tier}}",
+      "tiers": {
+        "free": "[NEEDS TRANSLATION] Free",
+        "plus": "[NEEDS TRANSLATION] Plus",
+        "business": "[NEEDS TRANSLATION] Business"
+      },
+      "descriptions": {
+        "free": "[NEEDS TRANSLATION] Basic features with limited usage",
+        "plus": "[NEEDS TRANSLATION] Enhanced features with higher limits",
+        "business": "[NEEDS TRANSLATION] Full features with unlimited usage"
+      },
+      "sections": {
+        "free": "[NEEDS TRANSLATION] Get ChatGPT Plus",
+        "plus": "[NEEDS TRANSLATION] Get ChatGPT Business",
+        "business": "[NEEDS TRANSLATION] Current Plan",
+        "default": "[NEEDS TRANSLATION] Current Plan"
+      },
+      "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
+      "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "toasts": {
+        "upgrade": {
+          "title": "[NEEDS TRANSLATION] Upgrade",
+          "body": "[NEEDS TRANSLATION] Redirecting to upgrade page..."
+        },
+        "upgradeWithPlan": {
+          "title": "[NEEDS TRANSLATION] Upgrade",
+          "body": "[NEEDS TRANSLATION] Redirecting to upgrade to {{plan}}..."
+        },
+        "highest": {
+          "title": "[NEEDS TRANSLATION] Account",
+          "body": "[NEEDS TRANSLATION] You are already on the highest tier!"
+        }
+      }
+    },
+    "links": {
+      "title": "[NEEDS TRANSLATION] Links",
+      "domainLabel": "[NEEDS TRANSLATION] Select a domain",
+      "selectOption": "[NEEDS TRANSLATION] Select a domain",
+      "verifyNew": "[NEEDS TRANSLATION] Verify new domain",
+      "addButton": "[NEEDS TRANSLATION] Add",
+      "invalidDomainToast": {
+        "title": "[NEEDS TRANSLATION] Invalid domain"
+      },
+      "addDomainToast": {
+        "title": "[NEEDS TRANSLATION] Domain added",
+        "body": "[NEEDS TRANSLATION] Domain {{domain}} has been added and is pending verification."
+      },
+      "linkedinToast": {
+        "title": "[NEEDS TRANSLATION] LinkedIn",
+        "body": "[NEEDS TRANSLATION] Redirecting to LinkedIn connection..."
+      },
+      "githubToast": {
+        "title": "[NEEDS TRANSLATION] GitHub",
+        "body": "[NEEDS TRANSLATION] Redirecting to GitHub connection..."
+      },
+      "verifiedToast": {
+        "title": "[NEEDS TRANSLATION] Domain Verified",
+        "body": "[NEEDS TRANSLATION] Domain {{domain}} has been successfully verified!"
+      },
+      "domainPlaceholder": "[NEEDS TRANSLATION] example.com"
+    },
+    "domainErrors": {
+      "empty": "[NEEDS TRANSLATION] Domain cannot be empty",
+      "spaces": "[NEEDS TRANSLATION] Domain cannot have leading or trailing spaces",
+      "format": "[NEEDS TRANSLATION] Please enter a valid domain format (e.g., example.com)",
+      "duplicate": "[NEEDS TRANSLATION] This domain has already been added"
+    },
+    "email": {
+      "title": "[NEEDS TRANSLATION] Email",
+      "receiveFeedback": "[NEEDS TRANSLATION] Receive feedback emails"
+    },
+    "delete": {
+      "sectionTitle": "[NEEDS TRANSLATION] Delete account",
+      "button": "[NEEDS TRANSLATION] Delete",
+      "modalTitle": "[NEEDS TRANSLATION] Delete Account",
+      "heading": "[NEEDS TRANSLATION] Are you sure you want to delete your account?",
+      "description": "[NEEDS TRANSLATION] This action cannot be undone. All your data, conversations, and settings will be permanently deleted.",
+      "listIntro": "[NEEDS TRANSLATION] This will permanently delete:",
+      "listItems": [
+        "[NEEDS TRANSLATION] All your conversations and chat history",
+        "[NEEDS TRANSLATION] Your account settings and preferences",
+        "[NEEDS TRANSLATION] Any uploaded files and documents",
+        "[NEEDS TRANSLATION] Your subscription and billing information"
+      ],
+      "confirmLabel": "[NEEDS TRANSLATION] To confirm, type your email address:",
+      "inputPlaceholder": "[NEEDS TRANSLATION] Type your email address here",
+      "errorMismatch": "[NEEDS TRANSLATION] Please type your email address exactly as shown to confirm deletion.",
+      "errorFailed": "[NEEDS TRANSLATION] Failed to delete account. Please try again.",
+      "toastFailedTitle": "[NEEDS TRANSLATION] Account deletion failed",
+      "toastFailedBody": "[NEEDS TRANSLATION] There was an error deleting your account. Please try again.",
+      "toastSuccessTitle": "[NEEDS TRANSLATION] Account deleted",
+      "toastSuccessBody": "[NEEDS TRANSLATION] Your account has been permanently deleted.",
+      "cancel": "[NEEDS TRANSLATION] Cancel",
+      "confirmButton": "[NEEDS TRANSLATION] Delete Account"
+    },
+    "domainModal": {
+      "title": "[NEEDS TRANSLATION] Add New Domain",
+      "label": "[NEEDS TRANSLATION] Domain",
+      "cancel": "[NEEDS TRANSLATION] Cancel",
+      "submit": "[NEEDS TRANSLATION] Add Domain"
+    }
+  },
+  "notifications": {
+    "title": "การแจ้งเตือน",
+    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
+    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
+    "sections": {
+      "responses": {
+        "title": "[NEEDS TRANSLATION] Responses",
+        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+      },
+      "tasks": {
+        "title": "[NEEDS TRANSLATION] Tasks",
+        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
+        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      },
+      "messaging": {
+        "title": "[NEEDS TRANSLATION] Messaging",
+        "description": "[NEEDS TRANSLATION] Calpico"
+      }
+    },
+    "channels": {
+      "push": "[NEEDS TRANSLATION] Push",
+      "email": "[NEEDS TRANSLATION] Email",
+      "none": "[NEEDS TRANSLATION] None"
+    }
+  },
+  "security": {
+    "title": "ความปลอดภัย",
+    "loadError": "[NEEDS TRANSLATION] Failed to load security settings",
+    "fallback": "[NEEDS TRANSLATION] Failed to load security settings",
+    "toasts": {
+      "settingsUpdated": "[NEEDS TRANSLATION] Your security settings have been updated"
+    },
+    "password": {
+      "sectionTitle": "[NEEDS TRANSLATION] Password",
+      "description": "เปลี่ยนรหัสผ่านของคุณ",
+      "changeButton": "[NEEDS TRANSLATION] Change password",
+      "cancelButton": "[NEEDS TRANSLATION] Cancel",
+      "resetButton": "[NEEDS TRANSLATION] Reset password",
+      "fields": {
+        "current": {
+          "label": "[NEEDS TRANSLATION] Current Password",
+          "placeholder": "[NEEDS TRANSLATION] Enter current password"
+        },
+        "new": {
+          "label": "[NEEDS TRANSLATION] New Password",
+          "placeholder": "[NEEDS TRANSLATION] Enter new password"
+        },
+        "confirm": {
+          "label": "[NEEDS TRANSLATION] Confirm New Password",
+          "placeholder": "[NEEDS TRANSLATION] Confirm new password"
+        }
+      },
+      "submit": "[NEEDS TRANSLATION] Change Password",
+      "errors": {
+        "missing": {
+          "title": "[NEEDS TRANSLATION] Missing fields",
+          "body": "[NEEDS TRANSLATION] Please fill in all password fields"
+        },
+        "mismatch": {
+          "title": "[NEEDS TRANSLATION] Password mismatch",
+          "body": "[NEEDS TRANSLATION] New password and confirmation do not match"
+        },
+        "weak": {
+          "title": "[NEEDS TRANSLATION] Weak password",
+          "body": "[NEEDS TRANSLATION] Password must be at least 8 characters long"
+        },
+        "failed": {
+          "title": "[NEEDS TRANSLATION] Failed to change password",
+          "body": "[NEEDS TRANSLATION] Please try again"
+        }
+      },
+      "success": {
+        "title": "[NEEDS TRANSLATION] Password changed",
+        "body": "[NEEDS TRANSLATION] Your password has been updated successfully"
+      },
+      "reset": {
+        "title": "[NEEDS TRANSLATION] Reset email sent",
+        "body": "[NEEDS TRANSLATION] Check your email for password reset instructions"
+      }
+    },
+    "mfa": {
+      "title": "[NEEDS TRANSLATION] Multi-factor authentication",
+      "description": "[NEEDS TRANSLATION] Require an extra security challenge when logging in. If you are unable to pass this challenge, you will have the option to recover your account via email.",
+      "toastEnabled": {
+        "title": "[NEEDS TRANSLATION] MFA enabled",
+        "body": "[NEEDS TRANSLATION] Multi-factor authentication has been successfully enabled"
+      },
+      "disable": {
+        "modalTitle": "[NEEDS TRANSLATION] Disable Multi-Factor Authentication",
+        "heading": "[NEEDS TRANSLATION] Are you sure you want to disable MFA?",
+        "description": "[NEEDS TRANSLATION] Disabling multi-factor authentication will make your account less secure. You will no longer be required to provide a second authentication factor when signing in.",
+        "cancel": "[NEEDS TRANSLATION] Cancel",
+        "confirm": "[NEEDS TRANSLATION] Disable MFA",
+        "toastTitle": "[NEEDS TRANSLATION] MFA disabled",
+        "toastBody": "[NEEDS TRANSLATION] Multi-factor authentication has been disabled"
+      }
+    },
+    "trustedDevices": {
+      "title": "[NEEDS TRANSLATION] Trusted Devices",
+      "description": "[NEEDS TRANSLATION] When you sign in on another device, it will be added here and can automatically receive device prompts for signing in."
+    },
+    "logout": {
+      "current": {
+        "title": "[NEEDS TRANSLATION] Log out of this device",
+        "button": "[NEEDS TRANSLATION] Log out",
+        "toastTitle": "[NEEDS TRANSLATION] Logged out",
+        "toastBody": "[NEEDS TRANSLATION] You have been logged out of this device"
+      },
+      "all": {
+        "title": "[NEEDS TRANSLATION] Log out of all devices",
+        "description": "[NEEDS TRANSLATION] Log out of all active sessions across all devices, including your current session. It may take up to 30 minutes for other devices to be logged out.",
+        "button": "[NEEDS TRANSLATION] Log out all",
+        "toastTitle": "[NEEDS TRANSLATION] Logged out",
+        "toastBody": "[NEEDS TRANSLATION] You have been logged out of all devices"
+      }
+    }
+  },
+  "mfa": {
+    "back": "[NEEDS TRANSLATION] ← Back to Security",
+    "title": "[NEEDS TRANSLATION] Secure your account",
+    "instructions": "[NEEDS TRANSLATION] Scan the QR Code below using your preferred authenticator app and then enter the provided one-time code below.",
+    "qrLabel": "[NEEDS TRANSLATION] QR Code",
+    "troubleScanning": "[NEEDS TRANSLATION] Trouble scanning?",
+    "then": "[NEEDS TRANSLATION] Then",
+    "codeLabel": "[NEEDS TRANSLATION] Enter your one-time code*",
+    "codePlaceholder": "[NEEDS TRANSLATION] 000000",
+    "verifyButton": "[NEEDS TRANSLATION] Continue",
+    "verifying": "[NEEDS TRANSLATION] Verifying...",
+    "errors": {
+      "codeRequired": {
+        "title": "[NEEDS TRANSLATION] Code required",
+        "body": "[NEEDS TRANSLATION] Please enter the verification code from your authenticator app"
+      },
+      "codeInvalid": {
+        "title": "[NEEDS TRANSLATION] Invalid code",
+        "body": "[NEEDS TRANSLATION] Please enter a valid 6-digit code"
+      },
+      "verifyFailed": {
+        "title": "[NEEDS TRANSLATION] Verification failed",
+        "body": "[NEEDS TRANSLATION] Invalid code. Please try again."
+      },
+      "clipboardUnsupported": {
+        "title": "[NEEDS TRANSLATION] Clipboard not supported",
+        "body": "[NEEDS TRANSLATION] Your browser does not support copying to clipboard. Please manually copy the code."
+      },
+      "copyFailed": {
+        "title": "[NEEDS TRANSLATION] Copy failed",
+        "body": "[NEEDS TRANSLATION] Failed to copy code to clipboard: {{message}}",
+        "unknown": "[NEEDS TRANSLATION] Unknown error"
+      }
+    },
+    "copied": {
+      "title": "[NEEDS TRANSLATION] Copied",
+      "body": "[NEEDS TRANSLATION] Manual code copied to clipboard"
+    },
+    "footer": {
+      "terms": "[NEEDS TRANSLATION] Terms of Use",
+      "privacy": "[NEEDS TRANSLATION] Privacy Policy"
+    }
+  },
+  "help": {
+    "title": "[NEEDS TRANSLATION] Help",
+    "sections": {
+      "helpCenter": {
+        "title": "[NEEDS TRANSLATION] Help Center",
+        "description": "[NEEDS TRANSLATION] Get help and find answers to common questions",
+        "cta": "[NEEDS TRANSLATION] Visit",
+        "ariaLabel": "[NEEDS TRANSLATION] Visit Blawby help — opens in a new tab"
+      },
+      "releaseNotes": {
+        "title": "[NEEDS TRANSLATION] Release Notes",
+        "description": "[NEEDS TRANSLATION] See what's new in the latest updates",
+        "cta": "[NEEDS TRANSLATION] View",
+        "ariaLabel": "[NEEDS TRANSLATION] View release notes — opens in a new tab"
+      },
+      "terms": {
+        "title": "[NEEDS TRANSLATION] Terms & Policies",
+        "description": "[NEEDS TRANSLATION] Read our terms of service and privacy policy",
+        "cta": "[NEEDS TRANSLATION] Read",
+        "ariaLabel": "[NEEDS TRANSLATION] Read terms and policies — opens in a new tab"
+      },
+      "bug": {
+        "title": "[NEEDS TRANSLATION] Report Bug",
+        "description": "[NEEDS TRANSLATION] Help us improve by reporting issues",
+        "cta": "[NEEDS TRANSLATION] Report"
+      },
+      "downloads": {
+        "title": "[NEEDS TRANSLATION] Download Apps",
+        "description": "[NEEDS TRANSLATION] Get our mobile and desktop applications",
+        "cta": "[NEEDS TRANSLATION] Download",
+        "ariaLabel": "[NEEDS TRANSLATION] Download Blawby apps — opens in a new tab"
+      },
+      "shortcuts": {
+        "title": "[NEEDS TRANSLATION] Keyboard Shortcuts",
+        "description": "[NEEDS TRANSLATION] Learn keyboard shortcuts to work faster",
+        "cta": "[NEEDS TRANSLATION] View"
+      }
+    }
+  }
+}

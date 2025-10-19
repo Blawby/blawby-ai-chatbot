@@ -5,7 +5,7 @@ import { EmailInput } from './ui/input/EmailInput';
 import { PhoneInput } from './ui/input/PhoneInput';
 import { LocationInput } from './ui/input/LocationInput';
 import { Button } from './ui/Button';
-import { useTranslation } from './ui/i18n';
+import { useTranslation } from '@/i18n/hooks';
 import { schemas } from './ui/validation/schemas';
 
 // Constants for allowed field names

@@ -1,0 +1,235 @@
+{
+  "plans": {
+    "free": {
+      "name": "Kostenlos",
+      "description": "Rechtliche KI-Unterstützung für den täglichen Bedarf",
+      "buttonText": "Ihr aktueller Tarif"
+    },
+    "plus": {
+      "name": "Plus",
+      "description": "Erweiterte rechtliche KI-Funktionen für Profis",
+      "buttonText": "Plus holen"
+    },
+    "business": {
+      "name": "Business",
+      "description": "Sicherer, kollaborativer Arbeitsbereich für Teams",
+      "buttonText": "Business holen"
+    }
+  },
+  "features": {
+    "aiAccess": {
+      "name": "KI-Zugang",
+      "description": "Zugang zu unseren rechtlichen KI-Modellen",
+      "tiers": {
+        "free": "Blawby AI-1 (Begrenzt)",
+        "plus": "Blawby AI-1 (Erweitert)",
+        "business": "Blawby AI-1 (Unbegrenzt)"
+      },
+      "text": {
+        "free": "Zugang zu Blawby AI-1",
+        "plus": "Erweiterter Zugang zu Blawby AI-1",
+        "business": "Unbegrenzter Zugang zu unserem besten Modell für die Arbeit"
+      },
+      "detail": {
+        "free": "Begrenzter Zugang zu unserem rechtlichen KI-Modell",
+        "plus": "Prioritätszugang zu unserem rechtlichen KI-Modell",
+        "business": "Unbegrenzter Zugang zu fortgeschrittenen KI-Modellen"
+      }
+    },
+    "documentAnalysis": {
+      "name": "Dokumentenanalyse",
+      "description": "Hochladen und Analysieren rechtlicher Dokumente",
+      "tiers": {
+        "free": "Begrenzt",
+        "plus": "Erweitert",
+        "business": "Unbegrenzt"
+      },
+      "text": {
+        "free": "Begrenzte Dokumentenanalyse",
+        "plus": "Erweiterte Dokumentenanalyse",
+        "business": "Fortgeschrittene Dokumentenanalyse und Fallvorbereitung"
+      },
+      "detail": {
+        "free": "Hochladen und Analysieren grundlegender rechtlicher Dokumente",
+        "plus": "Schnellere und genauere Verarbeitung rechtlicher Dokumente",
+        "business": "Vollständige Möglichkeiten zur Verarbeitung rechtlicher Dokumente"
+      }
+    },
+    "casePreparation": {
+      "name": "Fall-PDF-Vorbereitung",
+      "description": "KI-gestützte Fallvorbereitung",
+      "tiers": {
+        "free": "Begrenzt",
+        "plus": "Erweitert",
+        "business": "Unbegrenzt"
+      },
+      "text": {
+        "free": "Begrenzte Fall-PDF-Vorbereitung",
+        "plus": "Erweiterte Fall-PDF-Vorbereitung",
+        "business": "Fortgeschrittene Fall-PDF-Vorbereitung"
+      },
+      "detail": {
+        "free": "Grundlegende Fallvorbereitung",
+        "plus": "Fortgeschrittene Fallvorbereitung",
+        "business": "Vollständige Möglichkeiten zur Fallvorbereitung"
+      }
+    },
+    "memoryContext": {
+      "name": "Gedächtnis & Kontext",
+      "description": "Gesprächsgedächtnis und Kontext",
+      "tiers": {
+        "free": "Begrenzt",
+        "plus": "Erweitert",
+        "business": "Unbegrenzt"
+      },
+      "text": {
+        "free": "Begrenztes Gedächtnis und Kontext",
+        "plus": "Erweitertes Gedächtnis und Kontext",
+        "business": "Unbegrenztes Gedächtnis und Kontext"
+      },
+      "detail": {
+        "free": "Grundlegendes Gesprächsgedächtnis",
+        "plus": "Längeres Gesprächsgedächtnis",
+        "business": "Unbegrenzter Gesprächsverlauf"
+      }
+    },
+    "lawyerSearch": {
+      "name": "Anwaltssuche",
+      "description": "Qualifizierte Anwälte finden und kontaktieren",
+      "tiers": {
+        "free": "Begrenzt",
+        "plus": "Erweitert",
+        "business": "Unbegrenzt"
+      },
+      "text": {
+        "free": "Begrenzte Anwaltssuche",
+        "plus": "Erweiterte Anwaltssuche",
+        "business": "Fortgeschrittene Anwaltssuche"
+      },
+      "detail": {
+        "free": "Grundlegende Anwaltssuchfunktionen",
+        "plus": "Erweiterte Anwaltsvermittlung",
+        "business": "Vollständige Anwaltsvermittlung und Recherche"
+      }
+    },
+    "teamCollaboration": {
+      "name": "Team-Zusammenarbeit",
+      "description": "Gemeinsame Projekte und Team-Funktionen",
+      "text": "Tools für Teams wie gemeinsame Projekte und Workflows",
+      "detail": "Team-Zusammenarbeit und Projektmanagement"
+    },
+    "security": {
+      "name": "Erweiterte Sicherheit",
+      "description": "SSO, MFA und Unternehmenssicherheit",
+      "text": "Erweiterte Sicherheit mit SSO, MFA und mehr",
+      "detail": "Sicherheitsfunktionen auf Unternehmensniveau"
+    },
+    "privacy": {
+      "name": "Datenschutz",
+      "description": "Daten werden niemals zum Training verwendet",
+      "text": "Eingebauter Datenschutz; Daten werden niemals zum Training verwendet",
+      "detail": "Vollständiger Datenschutz"
+    },
+    "integrations": {
+      "name": "Integrationen",
+      "description": "SharePoint und andere Tools",
+      "text": "Integration mit Quickbooks und anderen Tools",
+      "detail": "Verbinden Sie sich mit Ihrem bestehenden Workflow"
+    },
+    "billing": {
+      "name": "Vereinfachte Abrechnung",
+      "description": "Benutzerverwaltung und Abrechnung",
+      "text": "Vereinfachte Abrechnung und Benutzerverwaltung",
+      "detail": "Einfache Team- und Abrechnungsverwaltung"
+    },
+    "transcription": {
+      "name": "Sprachtranskription",
+      "description": "Meeting- und Sprachtranskription",
+      "text": "Sprachtranskription und Analyse",
+      "detail": "Sprachtranskription und rechtliche Analyse"
+    },
+    "agents": {
+      "name": "KI-Agenten",
+      "description": "Code- und Recherche-Agenten",
+      "text": "Agenten für rechtliche Recherche und Anwaltssuche",
+      "detail": "Spezialisierte KI-Agenten für rechtliche Recherche und Anwaltsvermittlung"
+    },
+    "plusIncludes": {
+      "text": "Alles in Kostenlos, mit höheren Limits",
+      "detail": "Alle kostenlosen Funktionen mit erhöhter Nutzung"
+    },
+    "businessIncludes": {
+      "text": "Alles in Plus, mit noch höheren Limits",
+      "detail": "Alle Plus-Funktionen mit unbegrenzter Nutzung"
+    }
+  },
+  "limitations": {
+    "free": {
+      "messagesPerDay": "Begrenzt auf 20 Nachrichten pro Tag",
+      "documentSupport": "Grundlegender Dokumentenanalyse-Support",
+      "responseTime": "Standard-Antwortzeiten",
+      "noTeam": "Keine Team-Zusammenarbeit"
+    },
+    "plus": {
+      "messagesPerDay": "Begrenzt auf 200 Nachrichten pro Tag",
+      "noTeam": "Keine Team-Zusammenarbeit",
+      "standardSupport": "Standard-Support-Antwortzeiten"
+    },
+    "business": {
+      "minUsers": "Erfordert 2+ Benutzer",
+      "annualBilling": "Jährliche Abrechnung empfohlen"
+    }
+  },
+  "benefits": {
+    "free": {
+      "personal": "Perfekt für persönliche rechtliche Bedürfnisse",
+      "noCard": "Keine Kreditkarte erforderlich",
+      "fullAccess": "Vollständiger Zugang zu grundlegenden rechtlichen KI-Funktionen",
+      "support": "Community-Support"
+    },
+    "plus": {
+      "higherLimits": "5x höhere Nutzungslimits",
+      "priorityAccess": "Prioritätszugang zum KI-Modell",
+      "enhanced": "Erweiterte rechtliche Funktionen",
+      "support": "E-Mail-Support"
+    },
+    "business": {
+      "unlimited": "Unbegrenzte Nutzung",
+      "team": "Team-Zusammenarbeit",
+      "security": "Unternehmenssicherheit",
+      "prioritySupport": "Priority-Support",
+      "customIntegrations": "Benutzerdefinierte Integrationen"
+    }
+  },
+  "modal": {
+    "title": "Aktualisieren Sie Ihren Tarif",
+    "tabs": {
+      "personal": "Persönlich",
+      "business": "Geschäftlich"
+    },
+    "countryLabel": "Wählen Sie Ihr Land",
+    "currentPlan": "Aktueller Tarif",
+    "recommended": "Empfohlen",
+    "popular": "Am Beliebtesten",
+    "close": "Schließen"
+  },
+  "billing": {
+    "monthly": "Monat",
+    "yearly": "Jahr",
+    "billedMonthly": "Monatlich abgerechnet",
+    "billedAnnually": "Jährlich abgerechnet",
+    "currency": {
+      "usd": "USD"
+    }
+  },
+  "comparison": {
+    "title": "Pläne vergleichen",
+    "feature": "Funktion",
+    "included": "Inbegriffen",
+    "notIncluded": "Nicht inbegriffen"
+  },
+  "sections": {
+    "benefits": "Vorteile:",
+    "limitations": "Einschränkungen:"
+  }
+}

@@ -5,6 +5,10 @@
 # are now managed in wrangler.toml instead of this file.
 # 
 # Updated for Better Auth organization migration - all "team" references changed to "organization"
+#
+# Frontend Environment Variables (Vite):
+# - VITE_API_URL: Set to 'http://localhost:8787' for local development (automatically set by vite.config.ts)
+# - In production, VITE_API_URL is undefined, so the frontend uses relative URLs (/api/...)
 
 # API Keys and Tokens (SENSITIVE)
 BLAWBY_API_TOKEN=your_blawby_api_token_here

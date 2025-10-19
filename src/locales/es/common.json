@@ -14,7 +14,19 @@
     "fr": "Francés",
     "de": "Alemán",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "pt": "Portugués",
+    "ar": "Árabe",
+    "ru": "Ruso",
+    "it": "Italiano",
+    "ko": "Coreano",
+    "nl": "Holandés",
+    "pl": "Polaco",
+    "tr": "Turco",
+    "th": "Tailandés",
+    "id": "Indonesio",
+    "hi": "Hindi",
+    "uk": "Ucraniano"
   },
   "forms": {
     "labels": {
@@ -85,6 +97,15 @@
       "validatedForm": {
         "title": "Ejemplo de Formulario Validado"
       }
+    },
+    "contactForm": {
+      "location": "Ubicación",
+      "opposingParty": "Parte Contraria (Opcional)",
+      "submit": "Enviar Información de Contacto",
+      "placeholders": {
+        "location": "Ciudad, Estado (ej. Nueva York, NY)",
+        "opposingParty": "Nombre de la otra parte involucrada (si aplica)"
+      }
     }
   },
   "onboarding": {
@@ -99,6 +120,7 @@
       "birthdayPlaceholder": "DD/MM/AAAA",
       "termsAgreement": "Al hacer clic en \"Continuar\", aceptas nuestros <termsLink>Términos</termsLink> y has leído nuestra <privacyLink>Política de Privacidad</privacyLink>.",
       "continue": "Continuar",
+      "back": "Atrás",
       "required": "Este campo es obligatorio"
     },
     "step2": {

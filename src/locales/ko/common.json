@@ -1,0 +1,161 @@
+{
+  "app": {
+    "loading": "로딩 중…"
+  },
+  "notifications": {
+    "settingsSavedTitle": "설정 저장됨",
+    "settingsSavedBody": "환경설정이 업데이트되었습니다."
+  },
+  "language": {
+    "auto": "자동 감지",
+    "en": "English",
+    "vi": "Tiếng Việt",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский",
+    "it": "Italiano",
+    "ko": "한국어",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "tr": "Türkçe",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "hi": "हिन्दी",
+    "uk": "Українська"
+  },
+  "forms": {
+    "labels": {
+      "name": "전체 이름",
+      "email": "이메일 주소",
+      "phone": "전화번호",
+      "password": "비밀번호",
+      "confirmPassword": "비밀번호 확인",
+      "birthday": "생년월일",
+      "terms": "서비스 약관",
+      "privacy": "개인정보 처리방침",
+      "search": "검색",
+      "select": "옵션 선택",
+      "upload": "파일 업로드",
+      "message": "메시지",
+      "subject": "제목"
+    },
+    "placeholders": {
+      "name": "전체 이름을 입력하세요",
+      "email": "이메일 주소를 입력하세요",
+      "phone": "전화번호를 입력하세요",
+      "password": "비밀번호를 입력하세요",
+      "confirmPassword": "비밀번호를 다시 입력하세요",
+      "birthday": "생년월일을 선택하세요",
+      "search": "검색...",
+      "select": "옵션 선택",
+      "message": "메시지를 입력하세요",
+      "subject": "제목을 입력하세요"
+    },
+    "descriptions": {
+      "optional": "선택사항",
+      "required": "필수",
+      "passwordHelp": "최소 8자 이상이어야 합니다",
+      "phoneHelp": "국제 전화번호의 경우 국가 코드를 포함하세요",
+      "fileHelp": "지원되는 형식: PDF, DOC, DOCX"
+    },
+    "validation": {
+      "required": "이 항목은 필수입니다",
+      "email": "유효한 이메일 주소를 입력하세요",
+      "phone": "유효한 전화번호를 입력하세요",
+      "password": "비밀번호는 최소 8자 이상이어야 합니다",
+      "confirmPassword": "비밀번호가 일치하지 않습니다",
+      "date": "유효한 날짜를 입력하세요 (일/월/년)",
+      "futureDate": "날짜는 미래일 수 없습니다",
+      "fileType": "유효한 파일 유형을 선택하세요",
+      "fileSize": "파일 크기는 10MB 미만이어야 합니다",
+      "termsRequired": "약관에 동의해야 합니다"
+    },
+    "accessibility": {
+      "togglePassword": "비밀번호 표시/숨기기",
+      "clearSearch": "검색 지우기",
+      "selectOption": "옵션 선택",
+      "removeOption": "옵션 제거",
+      "uploadFile": "파일 업로드",
+      "removeFile": "파일 제거",
+      "calendarOpen": "달력 열기",
+      "calendarClose": "달력 닫기"
+    },
+    "actions": {
+      "submit": "제출",
+      "submitting": "제출 중...",
+      "reset": "초기화",
+      "cancel": "취소",
+      "save": "저장",
+      "saving": "저장 중..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "검증된 양식 예시"
+      }
+    },
+    "contactForm": {
+      "location": "위치",
+      "opposingParty": "상대방 (선택사항)",
+      "submit": "연락처 정보 제출",
+      "placeholders": {
+        "location": "도시, 지역 (예: 서울, 경기도)",
+        "opposingParty": "상대방 이름 (해당하는 경우)"
+      }
+    }
+  },
+  "onboarding": {
+    "title": "Blawby AI에 오신 것을 환영합니다",
+    "subtitle": "계정을 설정해 봅시다",
+    "step1": {
+      "title": "자신에 대해 알려주세요",
+      "subtitle": "경험을 맞춤화하는 데 도움을 주세요",
+      "fullName": "전체 이름",
+      "fullNamePlaceholder": "전체 이름을 입력하세요",
+      "birthday": "생년월일",
+      "birthdayPlaceholder": "일/월/년",
+      "termsAgreement": "\"계속\"을 클릭하면 당사의 <termsLink>약관</termsLink>에 동의하고 <privacyLink>개인정보 처리방침</privacyLink>을 읽은 것으로 간주됩니다.",
+      "continue": "계속",
+      "back": "뒤로",
+      "required": "이 항목은 필수입니다"
+    },
+    "step2": {
+      "title": "Blawby AI를 어떤 용도로 사용하시겠습니까?",
+      "subtitle": "더 관련성 높은 제안을 제공하는 데 도움이 됩니다",
+      "options": {
+        "personal": "개인 법률 문제",
+        "business": "비즈니스 법률 요구사항",
+        "research": "법률 연구",
+        "documents": "문서 검토",
+        "other": "기타"
+      },
+      "otherPlaceholder": "자세히 알려주세요...",
+      "next": "다음",
+      "skip": "건너뛰기"
+    },
+    "welcome": {
+      "title": "Blawby AI",
+      "subtitle": "시작하기 위한 팁",
+      "tips": {
+        "askAway": {
+          "title": "질문하세요",
+          "description": "Blawby AI는 법률 질문에 답변하고, 법률 개념을 이해하는 데 도움을 주며, 문서를 검토하는 등의 작업을 수행할 수 있습니다."
+        },
+        "privacy": {
+          "title": "민감한 정보를 공유하지 마세요",
+          "description": "채팅 기록은 검토되거나 서비스 개선에 사용될 수 있습니다. <helpCenterLink>고객센터</helpCenterLink>에서 옵션에 대해 자세히 알아보세요."
+        },
+        "accuracy": {
+          "title": "사실을 확인하세요",
+          "description": "예방 조치에도 불구하고 Blawby AI는 부정확한 정보를 제공할 수 있습니다. 법률 조언을 제공하기 위해 설계되지 않았습니다."
+        }
+      },
+      "helpCenter": "고객센터",
+      "letsGo": "알겠습니다, 시작합시다"
+    }
+  }
+}

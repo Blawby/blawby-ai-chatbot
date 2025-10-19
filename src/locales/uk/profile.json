@@ -1,0 +1,19 @@
+{
+  "menu": {
+    "profile": "Профіль",
+    "settings": "Налаштування",
+    "upgrade": "Оновити план",
+    "upgradeShort": "Оновити",
+    "help": "Отримати допомогу",
+    "signOut": "Вийти",
+    "signIn": "Увійти"
+  },
+  "status": {
+    "signingOut": "Вихід...",
+    "loading": "Завантаження..."
+  },
+  "aria": {
+    "userProfile": "Профіль користувача для {{name}}",
+    "signInButton": "Увійти в обліковий запис"
+  }
+}

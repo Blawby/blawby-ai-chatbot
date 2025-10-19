@@ -1,0 +1,161 @@
+{
+  "app": {
+    "loading": "جارٍ التحميل…"
+  },
+  "notifications": {
+    "settingsSavedTitle": "تم حفظ الإعدادات",
+    "settingsSavedBody": "تم تحديث تفضيلاتك."
+  },
+  "language": {
+    "auto": "الكشف التلقائي",
+    "en": "English",
+    "vi": "Tiếng Việt",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский",
+    "it": "Italiano",
+    "ko": "한국어",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "tr": "Türkçe",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "hi": "हिन्दी",
+    "uk": "Українська"
+  },
+  "forms": {
+    "labels": {
+      "name": "الاسم الكامل",
+      "email": "عنوان البريد الإلكتروني",
+      "phone": "رقم الهاتف",
+      "password": "كلمة المرور",
+      "confirmPassword": "تأكيد كلمة المرور",
+      "birthday": "تاريخ الميلاد",
+      "terms": "الشروط والأحكام",
+      "privacy": "سياسة الخصوصية",
+      "search": "بحث",
+      "select": "اختر خياراً",
+      "upload": "رفع ملف",
+      "message": "رسالة",
+      "subject": "الموضوع"
+    },
+    "placeholders": {
+      "name": "أدخل اسمك الكامل",
+      "email": "أدخل عنوان بريدك الإلكتروني",
+      "phone": "أدخل رقم هاتفك",
+      "password": "أدخل كلمة المرور",
+      "confirmPassword": "أكد كلمة المرور",
+      "birthday": "اختر تاريخ ميلادك",
+      "search": "بحث...",
+      "select": "اختر خياراً",
+      "message": "أدخل رسالتك",
+      "subject": "أدخل الموضوع"
+    },
+    "descriptions": {
+      "optional": "اختياري",
+      "required": "مطلوب",
+      "passwordHelp": "يجب أن تحتوي على 8 أحرف على الأقل",
+      "phoneHelp": "قم بتضمين رمز البلد للأرقام الدولية",
+      "fileHelp": "الصيغ المدعومة: PDF، DOC، DOCX"
+    },
+    "validation": {
+      "required": "هذا الحقل مطلوب",
+      "email": "يرجى إدخال عنوان بريد إلكتروني صالح",
+      "phone": "يرجى إدخال رقم هاتف صالح",
+      "password": "يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل",
+      "confirmPassword": "كلمات المرور غير متطابقة",
+      "date": "يرجى إدخال تاريخ صالح (DD/MM/YYYY)",
+      "futureDate": "لا يمكن أن يكون التاريخ في المستقبل",
+      "fileType": "يرجى اختيار نوع ملف صالح",
+      "fileSize": "يجب أن يكون حجم الملف أقل من 10 ميجابايت",
+      "termsRequired": "يجب أن توافق على الشروط"
+    },
+    "accessibility": {
+      "togglePassword": "تبديل رؤية كلمة المرور",
+      "clearSearch": "مسح البحث",
+      "selectOption": "اختر خياراً",
+      "removeOption": "إزالة الخيار",
+      "uploadFile": "رفع ملف",
+      "removeFile": "إزالة الملف",
+      "calendarOpen": "فتح التقويم",
+      "calendarClose": "إغلاق التقويم"
+    },
+    "actions": {
+      "submit": "إرسال",
+      "submitting": "جارٍ الإرسال...",
+      "reset": "إعادة تعيين",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "مثال على نموذج مُحقق"
+      }
+    },
+    "contactForm": {
+      "location": "الموقع",
+      "opposingParty": "الطرف الآخر (اختياري)",
+      "submit": "إرسال معلومات الاتصال",
+      "placeholders": {
+        "location": "المدينة، المحافظة (مثال: القاهرة، القاهرة)",
+        "opposingParty": "اسم الطرف الآخر المعني (إن وُجد)"
+      }
+    }
+  },
+  "onboarding": {
+    "title": "مرحباً بك في Blawby AI",
+    "subtitle": "دعنا نقوم بإعداد حسابك",
+    "step1": {
+      "title": "أخبرنا عن نفسك",
+      "subtitle": "ساعدنا في تخصيص تجربتك",
+      "fullName": "الاسم الكامل",
+      "fullNamePlaceholder": "أدخل اسمك الكامل",
+      "birthday": "تاريخ الميلاد",
+      "birthdayPlaceholder": "DD/MM/YYYY",
+      "termsAgreement": "بالنقر على \"متابعة\"، فإنك توافق على <termsLink>شروطنا</termsLink> وقرأت <privacyLink>سياسة الخصوصية</privacyLink> الخاصة بنا.",
+      "continue": "متابعة",
+      "back": "رجوع",
+      "required": "هذا الحقل مطلوب"
+    },
+    "step2": {
+      "title": "لأي غرض تريد استخدام Blawby AI؟",
+      "subtitle": "هذا يساعدنا على تقديم اقتراحات أكثر صلة",
+      "options": {
+        "personal": "قضايا قانونية شخصية",
+        "business": "احتياجات قانونية تجارية",
+        "research": "بحث قانوني",
+        "documents": "مراجعة المستندات",
+        "other": "أخرى"
+      },
+      "otherPlaceholder": "أخبرنا المزيد...",
+      "next": "التالي",
+      "skip": "تخطي"
+    },
+    "welcome": {
+      "title": "Blawby AI",
+      "subtitle": "نصائح للبدء",
+      "tips": {
+        "askAway": {
+          "title": "اسأل بحرية",
+          "description": "يمكن لـ Blawby AI الإجابة على الأسئلة القانونية، ومساعدتك على فهم المفاهيم القانونية، ومراجعة المستندات، والمزيد."
+        },
+        "privacy": {
+          "title": "لا تشارك معلومات حساسة",
+          "description": "قد تتم مراجعة سجل المحادثة أو استخدامه لتحسين خدماتنا. تعرف على المزيد حول خياراتك في <helpCenterLink>مركز المساعدة</helpCenterLink>."
+        },
+        "accuracy": {
+          "title": "تحقق من حقائقك",
+          "description": "على الرغم من وجود ضمانات، قد يعطيك Blawby AI معلومات غير دقيقة. لا يُقصد به تقديم استشارات قانونية."
+        }
+      },
+      "helpCenter": "مركز المساعدة",
+      "letsGo": "حسناً، لنبدأ"
+    }
+  }
+}

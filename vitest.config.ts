@@ -4,7 +4,7 @@ import { resolve } from 'path';
 // Unified test configuration - all tests use real API calls
 export default defineConfig({
   test: {
-    environment: 'node',
+    environment: 'jsdom',
     globals: true,
     setupFiles: ["./tests/setup-real-api.ts", "./tests/setup-node.ts"],
     testTimeout: 60000, // 60 seconds for real API tests

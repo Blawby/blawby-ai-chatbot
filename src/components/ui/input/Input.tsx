@@ -1,7 +1,7 @@
 import { forwardRef } from 'preact/compat';
 import { ComponentChildren } from 'preact';
 import { cn } from '../../../utils/cn';
-import { useTranslation } from '../i18n';
+import { useTranslation } from '@/i18n/hooks';
 import { useUniqueId } from '../../../hooks/useUniqueId';
 
 export interface InputProps {

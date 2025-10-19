@@ -275,11 +275,11 @@ export const Select = ({
           id={listboxId}
           role="listbox"
           className={cn(
-            "absolute right-0 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50",
+            "absolute right-0 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col",
             direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           )}
         >
-          <div className="py-1">
+          <div className="py-1 overflow-y-auto">
             {searchable && (
               <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
                 <input

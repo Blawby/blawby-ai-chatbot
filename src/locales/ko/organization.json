@@ -1,0 +1,25 @@
+{
+  "notFound": {
+    "title": "조직을 찾을 수 없음",
+    "description": {
+      "prefix": "조직을 찾을 수 없습니다",
+      "suffix": "이는 다음 이유 때문일 수 있습니다:"
+    },
+    "reasons": {
+      "incorrectId": "조직 ID가 잘못되었을 수 있습니다",
+      "movedOrRemoved": "조직이 이동되었거나 제거되었을 수 있습니다",
+      "outdatedLink": "오래된 링크를 가지고 있을 수 있습니다"
+    },
+    "helpText": {
+      "prefix": "URL을 확인하거나 다시 시도해 주세요. 문제가 계속되면 방문하세요",
+      "middle": "또는 연락하세요",
+      "suffix": "지원을 위해."
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "다시 시도",
+      "goToHome": "홈으로 이동"
+    }
+  }
+}

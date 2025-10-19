@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigation } from '../../utils/navigation';
 import { useToastContext } from '../../contexts/ToastContext';
 import { cn } from '../../utils/cn';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/i18n/hooks';
 import { signOut } from '../../utils/auth';
 
 

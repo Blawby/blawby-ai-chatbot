@@ -1,0 +1,161 @@
+{
+  "app": {
+    "loading": "लोड हो रहा है…"
+  },
+  "notifications": {
+    "settingsSavedTitle": "सेटिंग्स सहेजी गईं",
+    "settingsSavedBody": "आपकी प्राथमिकताएं अपडेट कर दी गई हैं।"
+  },
+  "language": {
+    "auto": "स्वतः पहचानें",
+    "en": "English",
+    "vi": "Tiếng Việt",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский",
+    "it": "Italiano",
+    "ko": "한국어",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "tr": "Türkçe",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "hi": "हिन्दी",
+    "uk": "Українська"
+  },
+  "forms": {
+    "labels": {
+      "name": "पूरा नाम",
+      "email": "ईमेल पता",
+      "phone": "फ़ोन नंबर",
+      "password": "पासवर्ड",
+      "confirmPassword": "पासवर्ड की पुष्टि करें",
+      "birthday": "जन्मदिन",
+      "terms": "नियम और शर्तें",
+      "privacy": "गोपनीयता नीति",
+      "search": "खोजें",
+      "select": "विकल्प चुनें",
+      "upload": "फ़ाइल अपलोड करें",
+      "message": "संदेश",
+      "subject": "विषय"
+    },
+    "placeholders": {
+      "name": "अपना पूरा नाम दर्ज करें",
+      "email": "अपना ईमेल पता दर्ज करें",
+      "phone": "अपना फ़ोन नंबर दर्ज करें",
+      "password": "अपना पासवर्ड दर्ज करें",
+      "confirmPassword": "अपने पासवर्ड की पुष्टि करें",
+      "birthday": "अपना जन्मदिन चुनें",
+      "search": "खोजें...",
+      "select": "विकल्प चुनें",
+      "message": "अपना संदेश दर्ज करें",
+      "subject": "अपना विषय दर्ज करें"
+    },
+    "descriptions": {
+      "optional": "वैकल्पिक",
+      "required": "आवश्यक",
+      "passwordHelp": "कम से कम 8 अक्षर लंबा होना चाहिए",
+      "phoneHelp": "अंतर्राष्ट्रीय नंबरों के लिए देश कोड शामिल करें",
+      "fileHelp": "समर्थित प्रारूप: PDF, DOC, DOCX"
+    },
+    "validation": {
+      "required": "यह फ़ील्ड आवश्यक है",
+      "email": "कृपया एक मान्य ईमेल पता दर्ज करें",
+      "phone": "कृपया एक मान्य फ़ोन नंबर दर्ज करें",
+      "password": "पासवर्ड कम से कम 8 अक्षर का होना चाहिए",
+      "confirmPassword": "पासवर्ड मेल नहीं खाते",
+      "date": "कृपया एक मान्य तारीख दर्ज करें (DD/MM/YYYY)",
+      "futureDate": "तारीख भविष्य में नहीं हो सकती",
+      "fileType": "कृपया एक मान्य फ़ाइल प्रकार चुनें",
+      "fileSize": "फ़ाइल का आकार 10MB से कम होना चाहिए",
+      "termsRequired": "आपको शर्तों से सहमत होना आवश्यक है"
+    },
+    "accessibility": {
+      "togglePassword": "पासवर्ड दृश्यता टॉगल करें",
+      "clearSearch": "खोज साफ़ करें",
+      "selectOption": "विकल्प चुनें",
+      "removeOption": "विकल्प हटाएं",
+      "uploadFile": "फ़ाइल अपलोड करें",
+      "removeFile": "फ़ाइल हटाएं",
+      "calendarOpen": "कैलेंडर खोलें",
+      "calendarClose": "कैलेंडर बंद करें"
+    },
+    "actions": {
+      "submit": "सबमिट करें",
+      "submitting": "सबमिट हो रहा है...",
+      "reset": "रीसेट करें",
+      "cancel": "रद्द करें",
+      "save": "सहेजें",
+      "saving": "सहेज रहा है..."
+    },
+    "examples": {
+      "validatedForm": {
+        "title": "सत्यापित फ़ॉर्म उदाहरण"
+      }
+    },
+    "contactForm": {
+      "location": "स्थान",
+      "opposingParty": "विरोधी पक्ष (वैकल्पिक)",
+      "submit": "संपर्क जानकारी जमा करें",
+      "placeholders": {
+        "location": "शहर, राज्य (जैसे, मुंबई, महाराष्ट्र)",
+        "opposingParty": "दूसरे पक्ष का नाम (यदि कोई हो)"
+      }
+    }
+  },
+  "onboarding": {
+    "title": "Blawby AI में आपका स्वागत है",
+    "subtitle": "आइए आपको सेटअप करें",
+    "step1": {
+      "title": "हमें अपने बारे में बताएं",
+      "subtitle": "हमें आपके अनुभव को व्यक्तिगत बनाने में मदद करें",
+      "fullName": "पूरा नाम",
+      "fullNamePlaceholder": "अपना पूरा नाम दर्ज करें",
+      "birthday": "जन्मदिन",
+      "birthdayPlaceholder": "DD/MM/YYYY",
+      "termsAgreement": "\"जारी रखें\" पर क्लिक करके, आप हमारी <termsLink>शर्तों</termsLink> से सहमत होते हैं और हमारी <privacyLink>गोपनीयता नीति</privacyLink> पढ़ चुके हैं।",
+      "continue": "जारी रखें",
+      "back": "वापस",
+      "required": "यह फ़ील्ड आवश्यक है"
+    },
+    "step2": {
+      "title": "आप Blawby AI का उपयोग किस लिए करना चाहते हैं?",
+      "subtitle": "यह हमें अधिक प्रासंगिक सुझाव देने में मदद करता है",
+      "options": {
+        "personal": "व्यक्तिगत कानूनी मुद्दे",
+        "business": "व्यावसायिक कानूनी आवश्यकताएं",
+        "research": "कानूनी अनुसंधान",
+        "documents": "दस्तावेज़ समीक्षा",
+        "other": "अन्य"
+      },
+      "otherPlaceholder": "हमें और बताएं...",
+      "next": "अगला",
+      "skip": "छोड़ें"
+    },
+    "welcome": {
+      "title": "Blawby AI",
+      "subtitle": "शुरुआत के लिए टिप्स",
+      "tips": {
+        "askAway": {
+          "title": "पूछते रहें",
+          "description": "Blawby AI कानूनी प्रश्नों का उत्तर दे सकता है, आपको कानूनी अवधारणाओं को समझने में मदद कर सकता है, दस्तावेज़ों की समीक्षा कर सकता है, और बहुत कुछ।"
+        },
+        "privacy": {
+          "title": "संवेदनशील जानकारी साझा न करें",
+          "description": "चैट इतिहास की समीक्षा की जा सकती है या हमारी सेवाओं को बेहतर बनाने के लिए उपयोग किया जा सकता है। हमारे <helpCenterLink>सहायता केंद्र</helpCenterLink> में अपने विकल्पों के बारे में और जानें।"
+        },
+        "accuracy": {
+          "title": "अपने तथ्यों की जांच करें",
+          "description": "हालांकि हमारे पास सुरक्षा उपाय हैं, Blawby AI आपको गलत जानकारी दे सकता है। इसका उद्देश्य कानूनी सलाह देना नहीं है।"
+        }
+      },
+      "helpCenter": "सहायता केंद्र",
+      "letsGo": "ठीक है, चलिए शुरू करें"
+    }
+  }
+}

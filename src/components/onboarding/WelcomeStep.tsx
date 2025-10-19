@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { useTranslation, Trans } from 'react-i18next';
+import { useTranslation, Trans } from '@/i18n/hooks';
 import { Button } from '../ui/Button';
 import { useToastContext } from '../../contexts/ToastContext';
 import { 

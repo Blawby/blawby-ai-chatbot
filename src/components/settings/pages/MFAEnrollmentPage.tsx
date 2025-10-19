@@ -3,7 +3,7 @@ import { Button } from '../../ui/Button';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useNavigation } from '../../../utils/navigation';
 import { authClient } from '../../../lib/authClient';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/i18n/hooks';
 
 export interface MFAEnrollmentPageProps {
   className?: string;

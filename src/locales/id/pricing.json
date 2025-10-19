@@ -1,0 +1,231 @@
+{
+  "plans": {
+    "free": {
+      "name": "Gratis",
+      "description": "Bantuan AI hukum untuk kebutuhan sehari-hari",
+      "buttonText": "Paket Anda saat ini"
+    },
+    "plus": {
+      "name": "Plus",
+      "description": "Kemampuan AI hukum yang ditingkatkan untuk profesional",
+      "buttonText": "Dapatkan Plus"
+    },
+    "business": {
+      "name": "Business",
+      "description": "Ruang kerja kolaboratif yang aman untuk tim",
+      "buttonText": "Dapatkan Business"
+    }
+  },
+  "features": {
+    "aiAccess": {
+      "name": "Akses AI",
+      "description": "Akses ke model AI hukum kami",
+      "tiers": {
+        "free": "Blawby AI-1 (Terbatas)",
+        "plus": "Blawby AI-1 (Ditingkatkan)",
+        "business": "Blawby AI-1 (Tanpa Batas)"
+      },
+      "text": {
+        "free": "Akses ke Blawby AI-1",
+        "plus": "Akses yang ditingkatkan ke Blawby AI-1",
+        "business": "Akses tanpa batas ke model terbaik kami untuk pekerjaan"
+      },
+      "detail": {
+        "free": "Akses terbatas ke model AI hukum kami",
+        "plus": "Akses prioritas ke model AI hukum kami",
+        "business": "Akses tanpa batas ke model AI tingkat lanjut"
+      }
+    },
+    "documentAnalysis": {
+      "name": "Analisis Dokumen",
+      "description": "Unggah dan analisis dokumen hukum",
+      "tiers": {
+        "free": "Terbatas",
+        "plus": "Ditingkatkan",
+        "business": "Tanpa Batas"
+      },
+      "text": {
+        "free": "Analisis dokumen terbatas",
+        "plus": "Analisis dokumen yang ditingkatkan",
+        "business": "Analisis dokumen tingkat lanjut & persiapan kasus"
+      },
+      "detail": {
+        "free": "Unggah dan analisis dokumen hukum dasar",
+        "plus": "Pemrosesan dokumen hukum yang lebih cepat dan akurat",
+        "business": "Kemampuan pemrosesan dokumen hukum penuh"
+      }
+    },
+    "casePreparation": {
+      "name": "Persiapan PDF Kasus",
+      "description": "Persiapan dokumen kasus dengan AI",
+      "tiers": {
+        "free": "Terbatas",
+        "plus": "Ditingkatkan",
+        "business": "Tanpa Batas"
+      },
+      "text": {
+        "free": "Persiapan PDF kasus terbatas",
+        "plus": "Persiapan PDF kasus yang ditingkatkan",
+        "business": "Persiapan PDF kasus tingkat lanjut"
+      },
+      "detail": {
+        "free": "Persiapan dokumen kasus dasar",
+        "plus": "Persiapan dokumen kasus tingkat lanjut",
+        "business": "Kemampuan persiapan dokumen kasus penuh"
+      }
+    },
+    "memoryContext": {
+      "name": "Memori & Konteks",
+      "description": "Memori percakapan dan konteks",
+      "tiers": {
+        "free": "Terbatas",
+        "plus": "Ditingkatkan",
+        "business": "Tanpa Batas"
+      },
+      "text": {
+        "free": "Memori dan konteks terbatas",
+        "plus": "Memori dan konteks yang diperluas",
+        "business": "Memori dan konteks tanpa batas"
+      },
+      "detail": {
+        "free": "Memori percakapan dasar",
+        "plus": "Memori percakapan yang lebih panjang",
+        "business": "Riwayat percakapan tanpa batas"
+      }
+    },
+    "lawyerSearch": {
+      "name": "Pencarian Pengacara",
+      "description": "Temukan dan hubungkan dengan pengacara berkualitas",
+      "tiers": {
+        "free": "Terbatas",
+        "plus": "Ditingkatkan",
+        "business": "Tanpa Batas"
+      },
+      "text": {
+        "free": "Pencarian pengacara terbatas",
+        "plus": "Pencarian pengacara yang ditingkatkan",
+        "business": "Pencarian pengacara tingkat lanjut"
+      },
+      "detail": {
+        "free": "Kemampuan pencarian pengacara dasar",
+        "plus": "Kemampuan pencocokan pengacara tingkat lanjut",
+        "business": "Kemampuan pencocokan dan riset pengacara penuh"
+      }
+    },
+    "teamCollaboration": {
+      "name": "Kolaborasi Tim",
+      "description": "Proyek bersama dan fitur tim",
+      "text": "Alat untuk tim seperti proyek & alur kerja bersama",
+      "detail": "Kolaborasi tim dan manajemen proyek"
+    },
+    "security": {
+      "name": "Keamanan Tingkat Lanjut",
+      "description": "SSO, MFA, dan keamanan enterprise",
+      "text": "Keamanan tingkat lanjut dengan SSO, MFA, & lainnya",
+      "detail": "Fitur keamanan tingkat enterprise"
+    },
+    "privacy": {
+      "name": "Perlindungan Privasi",
+      "description": "Data tidak pernah digunakan untuk pelatihan",
+      "text": "Privasi tertanam; data tidak pernah digunakan untuk pelatihan",
+      "detail": "Perlindungan privasi data yang lengkap"
+    },
+    "integrations": {
+      "name": "Integrasi",
+      "description": "SharePoint dan alat lainnya",
+      "text": "Integrasi dengan Quickbooks & alat lainnya",
+      "detail": "Hubungkan dengan alur kerja yang ada"
+    },
+    "billing": {
+      "name": "Penagihan yang Disederhanakan",
+      "description": "Manajemen pengguna dan penagihan",
+      "text": "Penagihan dan manajemen pengguna yang disederhanakan",
+      "detail": "Manajemen tim dan penagihan yang mudah"
+    },
+    "transcription": {
+      "name": "Transkripsi Suara",
+      "description": "Transkripsi rapat dan suara",
+      "text": "Transkripsi dan analisis suara",
+      "detail": "Transkripsi suara dan analisis hukum"
+    },
+    "agents": {
+      "name": "Agen AI",
+      "description": "Agen coding dan riset",
+      "text": "Agen riset hukum dan pencarian pengacara",
+      "detail": "Agen AI khusus untuk riset hukum dan pencocokan pengacara"
+    },
+    "plusIncludes": {
+      "text": "Semua fitur Gratis, dengan batas lebih tinggi",
+      "detail": "Semua fitur gratis dengan penggunaan yang ditingkatkan"
+    },
+    "businessIncludes": {
+      "text": "Semua fitur Plus, dengan batas yang lebih tinggi lagi",
+      "detail": "Semua fitur Plus dengan penggunaan tanpa batas"
+    }
+  },
+  "limitations": {
+    "free": {
+      "messagesPerDay": "Terbatas hingga 20 pesan per hari",
+      "documentSupport": "Dukungan analisis dokumen dasar",
+      "responseTime": "Waktu respons standar",
+      "noTeam": "Tidak ada fitur kolaborasi tim"
+    },
+    "plus": {
+      "messagesPerDay": "Terbatas hingga 200 pesan per hari",
+      "noTeam": "Tidak ada fitur kolaborasi tim",
+      "standardSupport": "Waktu respons dukungan standar"
+    },
+    "business": {
+      "minUsers": "Memerlukan 2+ pengguna",
+      "annualBilling": "Penagihan tahunan direkomendasikan"
+    }
+  },
+  "benefits": {
+    "free": {
+      "personal": "Sempurna untuk kebutuhan hukum pribadi",
+      "noCard": "Tidak memerlukan kartu kredit",
+      "fullAccess": "Akses penuh ke fitur AI hukum inti",
+      "support": "Dukungan komunitas"
+    },
+    "plus": {
+      "higherLimits": "Batas penggunaan 5x lebih tinggi",
+      "priorityAccess": "Akses prioritas model AI",
+      "enhanced": "Fitur hukum yang ditingkatkan",
+      "support": "Dukungan email"
+    },
+    "business": {
+      "unlimited": "Penggunaan tanpa batas",
+      "team": "Kolaborasi tim",
+      "security": "Keamanan enterprise",
+      "prioritySupport": "Dukungan prioritas",
+      "customIntegrations": "Integrasi khusus"
+    }
+  },
+  "modal": {
+    "title": "Tingkatkan paket Anda",
+    "tabs": {
+      "personal": "Pribadi",
+      "business": "Bisnis"
+    },
+    "countryLabel": "Pilih negara Anda",
+    "currentPlan": "Paket Saat Ini",
+    "recommended": "Direkomendasikan",
+    "popular": "Paling Populer",
+    "close": "Tutup"
+  },
+  "billing": {
+    "monthly": "bulan",
+    "yearly": "tahun",
+    "billedMonthly": "Ditagih bulanan",
+    "billedAnnually": "Ditagih tahunan",
+    "currency": {
+      "usd": "USD"
+    }
+  },
+  "comparison": {
+    "title": "Bandingkan Paket",
+    "feature": "Fitur",
+    "included": "Termasuk",
+    "notIncluded": "Tidak termasuk"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "menu": {
+    "profile": "[NEEDS TRANSLATION] Profile",
+    "settings": "[NEEDS TRANSLATION] Settings",
+    "upgrade": "[NEEDS TRANSLATION] Upgrade plan",
+    "upgradeShort": "[NEEDS TRANSLATION] Upgrade",
+    "help": "[NEEDS TRANSLATION] Get help",
+    "signOut": "[NEEDS TRANSLATION] Sign out",
+    "signIn": "[NEEDS TRANSLATION] Sign In"
+  },
+  "status": {
+    "signingOut": "[NEEDS TRANSLATION] Signing Out...",
+    "loading": "[NEEDS TRANSLATION] Loading..."
+  },
+  "aria": {
+    "userProfile": "[NEEDS TRANSLATION] User profile for {{name}}",
+    "signInButton": "[NEEDS TRANSLATION] Sign in to your account"
+  }
+}

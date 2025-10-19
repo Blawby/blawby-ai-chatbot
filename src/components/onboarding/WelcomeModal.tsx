@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { useTranslation, Trans } from 'react-i18next';
+import { useTranslation, Trans } from '@/i18n/hooks';
 import Modal from '../Modal';
 import { Button } from '../ui/Button';
 import { 

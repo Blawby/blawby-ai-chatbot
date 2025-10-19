@@ -1,0 +1,235 @@
+{
+  "plans": {
+    "free": {
+      "name": "Miễn phí",
+      "description": "Trợ lý AI pháp lý cho nhu cầu hàng ngày",
+      "buttonText": "Gói hiện tại của bạn"
+    },
+    "plus": {
+      "name": "Plus",
+      "description": "Khả năng AI pháp lý nâng cao cho chuyên gia",
+      "buttonText": "Nhận Plus"
+    },
+    "business": {
+      "name": "Business",
+      "description": "Không gian làm việc an toàn, cộng tác cho nhóm",
+      "buttonText": "Nhận Business"
+    }
+  },
+  "features": {
+    "aiAccess": {
+      "name": "Truy cập AI",
+      "description": "Truy cập các mô hình AI pháp lý của chúng tôi",
+      "tiers": {
+        "free": "Blawby AI-1 (Giới hạn)",
+        "plus": "Blawby AI-1 (Nâng cao)",
+        "business": "Blawby AI-1 (Không giới hạn)"
+      },
+      "text": {
+        "free": "Truy cập Blawby AI-1",
+        "plus": "Truy cập nâng cao Blawby AI-1",
+        "business": "Truy cập không giới hạn mô hình tốt nhất cho công việc"
+      },
+      "detail": {
+        "free": "Truy cập giới hạn vào mô hình AI pháp lý của chúng tôi",
+        "plus": "Truy cập ưu tiên vào mô hình AI pháp lý của chúng tôi",
+        "business": "Truy cập không giới hạn vào các mô hình AI tiên tiến"
+      }
+    },
+    "documentAnalysis": {
+      "name": "Phân tích Tài liệu",
+      "description": "Tải lên và phân tích tài liệu pháp lý",
+      "tiers": {
+        "free": "Giới hạn",
+        "plus": "Nâng cao",
+        "business": "Không giới hạn"
+      },
+      "text": {
+        "free": "Phân tích tài liệu giới hạn",
+        "plus": "Phân tích tài liệu nâng cao",
+        "business": "Phân tích tài liệu và chuẩn bị hồ sơ nâng cao"
+      },
+      "detail": {
+        "free": "Tải lên và phân tích tài liệu pháp lý cơ bản",
+        "plus": "Xử lý tài liệu pháp lý nhanh hơn và chính xác hơn",
+        "business": "Khả năng xử lý tài liệu pháp lý đầy đủ"
+      }
+    },
+    "casePreparation": {
+      "name": "Chuẩn bị PDF Hồ sơ",
+      "description": "Chuẩn bị tài liệu hồ sơ bằng AI",
+      "tiers": {
+        "free": "Giới hạn",
+        "plus": "Nâng cao",
+        "business": "Không giới hạn"
+      },
+      "text": {
+        "free": "Chuẩn bị PDF hồ sơ giới hạn",
+        "plus": "Chuẩn bị PDF hồ sơ nâng cao",
+        "business": "Chuẩn bị PDF hồ sơ tiên tiến"
+      },
+      "detail": {
+        "free": "Chuẩn bị tài liệu hồ sơ cơ bản",
+        "plus": "Chuẩn bị tài liệu hồ sơ tiên tiến",
+        "business": "Khả năng chuẩn bị tài liệu hồ sơ đầy đủ"
+      }
+    },
+    "memoryContext": {
+      "name": "Bộ nhớ & Ngữ cảnh",
+      "description": "Bộ nhớ và ngữ cảnh cuộc trò chuyện",
+      "tiers": {
+        "free": "Giới hạn",
+        "plus": "Nâng cao",
+        "business": "Không giới hạn"
+      },
+      "text": {
+        "free": "Bộ nhớ và ngữ cảnh giới hạn",
+        "plus": "Bộ nhớ và ngữ cảnh mở rộng",
+        "business": "Bộ nhớ và ngữ cảnh không giới hạn"
+      },
+      "detail": {
+        "free": "Bộ nhớ cuộc trò chuyện cơ bản",
+        "plus": "Bộ nhớ cuộc trò chuyện dài hơn",
+        "business": "Lịch sử cuộc trò chuyện không giới hạn"
+      }
+    },
+    "lawyerSearch": {
+      "name": "Tìm kiếm Luật sư",
+      "description": "Tìm và kết nối với luật sư có trình độ",
+      "tiers": {
+        "free": "Giới hạn",
+        "plus": "Nâng cao",
+        "business": "Không giới hạn"
+      },
+      "text": {
+        "free": "Tìm kiếm luật sư giới hạn",
+        "plus": "Tìm kiếm luật sư nâng cao",
+        "business": "Tìm kiếm luật sư tiên tiến"
+      },
+      "detail": {
+        "free": "Khả năng tìm kiếm luật sư cơ bản",
+        "plus": "Khả năng kết nối luật sư tiên tiến",
+        "business": "Khả năng kết nối và nghiên cứu luật sư đầy đủ"
+      }
+    },
+    "teamCollaboration": {
+      "name": "Cộng tác Nhóm",
+      "description": "Dự án chia sẻ và tính năng nhóm",
+      "text": "Công cụ cho nhóm như dự án và quy trình làm việc chia sẻ",
+      "detail": "Cộng tác nhóm và quản lý dự án"
+    },
+    "security": {
+      "name": "Bảo mật Nâng cao",
+      "description": "SSO, MFA và bảo mật doanh nghiệp",
+      "text": "Bảo mật nâng cao với SSO, MFA và nhiều hơn",
+      "detail": "Tính năng bảo mật cấp doanh nghiệp"
+    },
+    "privacy": {
+      "name": "Bảo vệ Quyền riêng tư",
+      "description": "Dữ liệu không bao giờ được sử dụng để đào tạo",
+      "text": "Quyền riêng tư được tích hợp; dữ liệu không bao giờ được sử dụng để đào tạo",
+      "detail": "Bảo vệ quyền riêng tư dữ liệu hoàn toàn"
+    },
+    "integrations": {
+      "name": "Tích hợp",
+      "description": "SharePoint và các công cụ khác",
+      "text": "Tích hợp với Quickbooks và các công cụ khác",
+      "detail": "Kết nối với quy trình làm việc hiện có của bạn"
+    },
+    "billing": {
+      "name": "Thanh toán Đơn giản",
+      "description": "Quản lý người dùng và thanh toán",
+      "text": "Thanh toán đơn giản và quản lý người dùng",
+      "detail": "Quản lý nhóm và thanh toán dễ dàng"
+    },
+    "transcription": {
+      "name": "Phiên âm Giọng nói",
+      "description": "Phiên âm cuộc họp và giọng nói",
+      "text": "Phiên âm và phân tích giọng nói",
+      "detail": "Phiên âm giọng nói và phân tích pháp lý"
+    },
+    "agents": {
+      "name": "Đại lý AI",
+      "description": "Đại lý mã hóa và nghiên cứu",
+      "text": "Đại lý nghiên cứu pháp lý và tìm kiếm luật sư",
+      "detail": "Đại lý AI chuyên dụng cho nghiên cứu pháp lý và kết nối luật sư"
+    },
+    "plusIncludes": {
+      "text": "Tất cả trong Miễn phí, với giới hạn cao hơn",
+      "detail": "Tất cả tính năng miễn phí với mức sử dụng tăng lên"
+    },
+    "businessIncludes": {
+      "text": "Tất cả trong Plus, với giới hạn còn cao hơn",
+      "detail": "Tất cả tính năng Plus với mức sử dụng không giới hạn"
+    }
+  },
+  "limitations": {
+    "free": {
+      "messagesPerDay": "Giới hạn 20 tin nhắn mỗi ngày",
+      "documentSupport": "Hỗ trợ phân tích tài liệu cơ bản",
+      "responseTime": "Thời gian phản hồi tiêu chuẩn",
+      "noTeam": "Không có tính năng cộng tác nhóm"
+    },
+    "plus": {
+      "messagesPerDay": "Giới hạn 200 tin nhắn mỗi ngày",
+      "noTeam": "Không có tính năng cộng tác nhóm",
+      "standardSupport": "Thời gian phản hồi hỗ trợ tiêu chuẩn"
+    },
+    "business": {
+      "minUsers": "Yêu cầu 2+ người dùng",
+      "annualBilling": "Khuyến nghị thanh toán hàng năm"
+    }
+  },
+  "benefits": {
+    "free": {
+      "personal": "Hoàn hảo cho nhu cầu pháp lý cá nhân",
+      "noCard": "Không cần thẻ tín dụng",
+      "fullAccess": "Truy cập đầy đủ các tính năng AI pháp lý cốt lõi",
+      "support": "Hỗ trợ cộng đồng"
+    },
+    "plus": {
+      "higherLimits": "Giới hạn sử dụng cao hơn 5 lần",
+      "priorityAccess": "Truy cập ưu tiên mô hình AI",
+      "enhanced": "Tính năng pháp lý nâng cao",
+      "support": "Hỗ trợ email"
+    },
+    "business": {
+      "unlimited": "Sử dụng không giới hạn",
+      "team": "Cộng tác nhóm",
+      "security": "Bảo mật doanh nghiệp",
+      "prioritySupport": "Hỗ trợ ưu tiên",
+      "customIntegrations": "Tích hợp tùy chỉnh"
+    }
+  },
+  "modal": {
+    "title": "Nâng cấp gói của bạn",
+    "tabs": {
+      "personal": "Cá nhân",
+      "business": "Doanh nghiệp"
+    },
+    "countryLabel": "Chọn quốc gia của bạn",
+    "currentPlan": "Gói Hiện tại",
+    "recommended": "Được đề xuất",
+    "popular": "Phổ biến nhất",
+    "close": "Đóng"
+  },
+  "billing": {
+    "monthly": "tháng",
+    "yearly": "năm",
+    "billedMonthly": "Thanh toán hàng tháng",
+    "billedAnnually": "Thanh toán hàng năm",
+    "currency": {
+      "usd": "USD"
+    }
+  },
+  "comparison": {
+    "title": "So sánh gói",
+    "feature": "Tính năng",
+    "included": "Đã bao gồm",
+    "notIncluded": "Không bao gồm"
+  },
+  "sections": {
+    "benefits": "Lợi ích:",
+    "limitations": "Hạn chế:"
+  }
+}
