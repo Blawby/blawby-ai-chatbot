@@ -11,8 +11,7 @@ import organizationEn from '../locales/en/organization.json';
 
 export const DEFAULT_LOCALE = 'en' as const;
 
-// Only includes languages that are 100% translated
-// Translation files exist for all languages but incomplete ones are hidden from the UI selector
+// Locales fully exposed in the UI (100% translated)
 export const SUPPORTED_LOCALES = [
   'en',  // English - 100%
   'pt',  // Português - 100%
@@ -25,6 +24,14 @@ export const SUPPORTED_LOCALES = [
   'fr',  // Français - 100%
 ] as const;
 
+// All locales we can load (may be incomplete; hidden from UI if not 100%)
+export const AVAILABLE_LOCALES = [
+  'en','pt','ar','es','ja','zh','vi','de','fr',
+  'hi','uk','id','th','ko','pl','it','ru','tr','nl'
+] as const;
+
+export type AnyLocale = typeof AVAILABLE_LOCALES[number];
+
 // Languages with incomplete translations (<100%) - files exist but not shown in selector:
 // 'hi'  - हिन्दी - 60.3% (203 keys remaining)
 // 'uk'  - Українська - 60.3% (203 keys remaining)
@@ -32,10 +39,10 @@ export const SUPPORTED_LOCALES = [
 // 'th'  - ไทย - 38.9% (312 keys remaining)
 // 'ko'  - 한국어 - 24.9% (384 keys remaining)
 // 'pl'  - Polski - 24.9% (384 keys remaining)
-// 'nl'  - Nederlands - 24.9% (384 keys remaining)
 // 'it'  - Italiano - 24.9% (384 keys remaining)
 // 'ru'  - Русский - 24.9% (384 keys remaining)
 // 'tr'  - Türkçe - 2.3% (499 keys remaining)
+// 'nl'  - Nederlands - 24.9% (384 keys remaining) - moved to incomplete due to excessive placeholders
 
 export type AppLocale = typeof SUPPORTED_LOCALES[number];
 
@@ -69,6 +76,10 @@ const isSupportedLocale = (locale: string): locale is AppLocale => {
   return SUPPORTED_LOCALES.includes(locale as AppLocale);
 };
 
+const isAvailableLocale = (locale: string): locale is AnyLocale => {
+  return AVAILABLE_LOCALES.includes(locale as AnyLocale);
+};
+
 const normalizeLocale = (locale?: string | null): AppLocale => {
   if (!locale) return DEFAULT_LOCALE;
   const lower = locale.toLowerCase();
@@ -79,7 +90,17 @@ const normalizeLocale = (locale?: string | null): AppLocale => {
   return match ?? DEFAULT_LOCALE;
 };
 
-const loadLocaleResources = async (locale: AppLocale) => {
+const normalizeAnyLocale = (locale?: string | null): AnyLocale => {
+  if (!locale) return DEFAULT_LOCALE;
+  const lower = locale.toLowerCase();
+  const explicitMatch = isAvailableLocale(lower) ? lower : null;
+  if (explicitMatch) return explicitMatch;
+
+  const match = AVAILABLE_LOCALES.find((available) => lower.startsWith(`${available}-`));
+  return match ?? DEFAULT_LOCALE;
+};
+
+const loadLocaleResources = async (locale: AnyLocale) => {
   if (locale === DEFAULT_LOCALE) {
     return;
   }
@@ -116,7 +137,7 @@ export const initI18n = async () => {
       fallbackLng: DEFAULT_LOCALE,
       lng: initialLocale,
       load: 'languageOnly',
-      supportedLngs: [...SUPPORTED_LOCALES],
+      supportedLngs: [...AVAILABLE_LOCALES],
       ns: [...NAMESPACES],
       defaultNS: 'common',
       interpolation: {
@@ -132,7 +153,7 @@ export const initI18n = async () => {
       }
     });
 
-  await loadLocaleResources(normalizeLocale(i18next.language));
+  await loadLocaleResources(normalizeAnyLocale(i18next.language));
 
   // Set initial HTML dir and lang attributes
   if (typeof window !== 'undefined') {
@@ -147,7 +168,7 @@ export const initI18n = async () => {
 };
 
 export const setLocale = async (nextLocale: string) => {
-  const target = normalizeLocale(nextLocale);
+  const target = normalizeAnyLocale(nextLocale);
   await loadLocaleResources(target);
   await i18next.changeLanguage(target);
   
@@ -156,7 +177,7 @@ export const setLocale = async (nextLocale: string) => {
     window.localStorage.setItem(STORAGE_KEY, target);
     
     // Set HTML dir attribute for RTL support
-    const isRTL = isRTLLocale(target);
+    const isRTL = isRTLLocale(target as AppLocale);
     document.documentElement.setAttribute('dir', isRTL ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', target);
   }

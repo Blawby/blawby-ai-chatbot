@@ -46,7 +46,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   const userCurrency = 'USD'; // TODO: Add currency preference to user preferences
   
   // Build pricing plans from real Stripe config
-  const prices = getBusinessPrices(userLocale, userCurrency);
+  const prices = getBusinessPrices(userLocale);
   const allPlans = [
     {
       id: 'free' as SubscriptionTier,
@@ -302,7 +302,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                 <button 
                   className="text-sm text-white underline hover:text-gray-300 transition-colors"
                   onClick={() => {
-                    window.open('/enterprise', '_blank');
+                    window.open('/enterprise', '_blank', 'noopener,noreferrer');
                   }}
                 >
                   {t('footer.enterprise.link')}

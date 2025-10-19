@@ -68,7 +68,7 @@ export const SUPPORTED_LOCALES = [
 
 ### Directory Structure
 
-```
+```typescript
 src/
 ├── locales/
 │   ├── en/

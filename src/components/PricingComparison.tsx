@@ -32,7 +32,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
   const userLocale = 'en'; // Default to English for now
   const userCurrency = 'USD'; // TODO: Add currency preference to user preferences
   
-  const _prices = getBusinessPrices(userLocale, userCurrency);
+  const _prices = getBusinessPrices(userLocale);
   
   const allPlans = [
     {
@@ -76,7 +76,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
       id: 'business',
       name: t('plans.business.name'),
       price: (() => {
-        const businessPrice = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3;
+        const businessPrice = PRICES.monthly;
         const businessAmount = (businessPrice?.unit_amount ?? 4000) / 100;
         const businessCurrency = businessPrice?.currency ?? 'usd';
         return buildPriceDisplay(businessAmount, businessCurrency, 'month', userLocale, t);

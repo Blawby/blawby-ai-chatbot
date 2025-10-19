@@ -266,7 +266,7 @@ describe("Pricing Internationalization", () => {
       ];
 
       for (const lang of languages) {
-        await i18n.loadNamespaces("pricing");
+        await i18n.changeLanguage(lang);
         const resources = i18n.getResourceBundle(lang, "pricing");
 
         // Should have loaded resources

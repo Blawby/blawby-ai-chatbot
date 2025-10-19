@@ -6,9 +6,9 @@ export const PRODUCTS = {
   }
 };
 
+// Price configuration - IDs come from environment variables
 export const PRICES = {
-  price_1SHfgbDJLzJ14cfPBGuTvcG3: {
-    id: 'price_1SHfgbDJLzJ14cfPBGuTvcG3',
+  monthly: {
     product: PRODUCTS.business.id,
     unit_amount: 4000, // $40 in cents
     currency: 'usd',
@@ -17,8 +17,7 @@ export const PRICES = {
       interval_count: 1
     }
   },
-  price_1SHfhCDJLzJ14cfPGFGQ77vQ: {
-    id: 'price_1SHfhCDJLzJ14cfPGFGQ77vQ',
+  annual: {
     product: PRODUCTS.business.id,
     unit_amount: 42000, // $420 in cents
     currency: 'usd',
@@ -88,34 +87,32 @@ export function formatPriceCents(
   return formatter.format(dollars);
 }
 
-export function getBusinessPrices(locale: string = 'en', currency: string = 'USD'): { monthly: string; annual?: string } {
-  const monthlyAmount = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3?.unit_amount ?? 4000;
-  const annualAmount = PRICES.price_1SHfhCDJLzJ14cfPGFGQ77vQ?.unit_amount;
+export function getBusinessPrices(locale: string = 'en'): { monthly: string; annual?: string } {
+  const monthlyAmount = PRICES.monthly.unit_amount;
+  const annualAmount = PRICES.annual.unit_amount;
 
-  const monthly = formatPriceCents(monthlyAmount, locale, currency);
-  const annual = annualAmount 
-    ? formatPriceCents(annualAmount, locale, currency)
-    : undefined;
+  const monthly = formatPriceCents(monthlyAmount, locale, 'USD');
+  const annual = formatPriceCents(annualAmount, locale, 'USD');
 
   return { monthly, annual };
 }
 
-export function getBusinessPricesStructured(locale: string = 'en', currency: string = 'USD'): {
+export function getBusinessPricesStructured(locale: string = 'en'): {
   monthly: { amountFormatted: string; billingPeriod: 'month' };
-  annual?: { amountFormatted: string; billingPeriod: 'year' };
+  annual: { amountFormatted: string; billingPeriod: 'year' };
 } {
-  const monthlyAmount = PRICES.price_1SHfgbDJLzJ14cfPBGuTvcG3?.unit_amount ?? 4000;
-  const annualAmount = PRICES.price_1SHfhCDJLzJ14cfPGFGQ77vQ?.unit_amount;
+  const monthlyAmount = PRICES.monthly.unit_amount;
+  const annualAmount = PRICES.annual.unit_amount;
 
   const monthly = {
-    amountFormatted: formatPriceCents(monthlyAmount, locale, currency),
+    amountFormatted: formatPriceCents(monthlyAmount, locale, 'USD'),
     billingPeriod: 'month' as const
   };
 
-  const annual = annualAmount ? {
-    amountFormatted: formatPriceCents(annualAmount, locale, currency),
+  const annual = {
+    amountFormatted: formatPriceCents(annualAmount, locale, 'USD'),
     billingPeriod: 'year' as const
-  } : undefined;
+  };
 
   return { monthly, annual };
 }

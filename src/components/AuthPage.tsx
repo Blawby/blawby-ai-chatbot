@@ -128,7 +128,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
           const signInMessage = result.error.message || '';
           const normalized = signInMessage.toLowerCase();
           if (normalized.includes('not found')) {
-            setError('We couldn’t find an account with that email.');
+            setError(t('errors.userNotFound'));
           } else if (normalized.includes('invalid credentials')) {
             setError(t('errors.invalidCredentials'));
           } else {

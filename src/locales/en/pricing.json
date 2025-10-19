@@ -283,20 +283,6 @@
     "popular": "Most Popular",
     "close": "Close"
   },
-  "tabs": {
-    "personal": "Personal",
-    "business": "Business"
-  },
-  "country": {
-    "us": "United States",
-    "vn": "Vietnam",
-    "gb": "United Kingdom",
-    "de": "Germany",
-    "fr": "France",
-    "es": "Spain",
-    "jp": "Japan",
-    "cn": "China"
-  },
   "footer": {
     "enterprise": {
       "question": "Need more capabilities?",

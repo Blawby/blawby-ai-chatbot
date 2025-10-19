@@ -120,7 +120,6 @@
     },
     "email": {
       "title": "البريد الإلكتروني",
-      "addressFallback": "chris@whynot.earth",
       "receiveFeedback": "تلقي رسائل البريد الإلكتروني للملاحظات"
     },
     "delete": {
@@ -170,7 +169,7 @@
       },
       "messaging": {
         "title": "المراسلة",
-        "description": "Calpico"
+        "description": "احصل على إشعار عند وصول رسائل جديدة."
       }
     },
     "channels": {

@@ -1,0 +1,25 @@
+{
+  "notFound": {
+    "title": "Organisasi Tidak Ditemukan",
+    "description": {
+      "prefix": "Kami tidak dapat menemukan organisasi",
+      "suffix": "Ini bisa jadi karena:"
+    },
+    "reasons": {
+      "incorrectId": "ID organisasi mungkin salah",
+      "movedOrRemoved": "Organisasi mungkin telah dipindahkan atau dihapus",
+      "outdatedLink": "Anda mungkin memiliki tautan yang sudah usang"
+    },
+    "helpText": {
+      "prefix": "Silakan periksa URL atau coba lagi. Jika masalah berlanjut, silakan kunjungi",
+      "middle": "atau hubungi kami di",
+      "suffix": "untuk dukungan."
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "Coba Lagi",
+      "goToHome": "Ke Beranda"
+    }
+  }
+}

@@ -120,7 +120,6 @@
     },
     "email": {
       "title": "[NEEDS TRANSLATION] Email",
-      "addressFallback": "[NEEDS TRANSLATION] chris@whynot.earth",
       "receiveFeedback": "[NEEDS TRANSLATION] Receive feedback emails"
     },
     "delete": {
@@ -130,7 +129,12 @@
       "heading": "[NEEDS TRANSLATION] Are you sure you want to delete your account?",
       "description": "[NEEDS TRANSLATION] This action cannot be undone. All your data, conversations, and settings will be permanently deleted.",
       "listIntro": "[NEEDS TRANSLATION] This will permanently delete:",
-      "listItems": "[NEEDS TRANSLATION] All your conversations and chat history,Your account settings and preferences,Any uploaded files and documents,Your subscription and billing information",
+      "listItems": [
+        "Все ваши беседы и история чатов",
+        "Настройки и предпочтения вашего аккаунта",
+        "Все загруженные файлы и документы",
+        "Информация о подписке и выставлении счетов"
+      ],
       "confirmLabel": "[NEEDS TRANSLATION] To confirm, type your email address:",
       "inputPlaceholder": "[NEEDS TRANSLATION] Type your email address here",
       "errorMismatch": "[NEEDS TRANSLATION] Please type your email address exactly as shown to confirm deletion.",
@@ -165,7 +169,7 @@
       },
       "messaging": {
         "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+        "description": "Получайте уведомления о новых сообщениях."
       }
     },
     "channels": {

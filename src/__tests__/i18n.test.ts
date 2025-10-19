@@ -24,11 +24,11 @@ Object.defineProperty(window, 'localStorage', {
 
 describe('i18n Configuration', () => {
   it('should have all supported locales defined', () => {
-    expect(SUPPORTED_LOCALES).toHaveLength(19);
+    expect(SUPPORTED_LOCALES).toHaveLength(9);
     expect(SUPPORTED_LOCALES).toContain('en');
     expect(SUPPORTED_LOCALES).toContain('ar');
-    expect(SUPPORTED_LOCALES).toContain('hi');
-    expect(SUPPORTED_LOCALES).toContain('uk');
+    expect(SUPPORTED_LOCALES).toContain('pt');
+    expect(SUPPORTED_LOCALES).toContain('es');
   });
 
   it('should have default locale as English', () => {

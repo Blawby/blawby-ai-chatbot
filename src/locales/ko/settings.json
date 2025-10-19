@@ -120,7 +120,6 @@
     },
     "email": {
       "title": "[NEEDS TRANSLATION] Email",
-      "addressFallback": "[NEEDS TRANSLATION] chris@whynot.earth",
       "receiveFeedback": "[NEEDS TRANSLATION] Receive feedback emails"
     },
     "delete": {

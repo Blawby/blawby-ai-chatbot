@@ -282,4 +282,287 @@
     padding-left: 0.75rem;
     padding-right: 2.5rem;
   }
+
+  /* Comprehensive margin RTL rules */
+  [dir="rtl"] .ml-1 {
+    margin-left: unset;
+    margin-right: 0.25rem;
+  }
+
+  [dir="rtl"] .ml-2 {
+    margin-left: unset;
+    margin-right: 0.5rem;
+  }
+
+  [dir="rtl"] .ml-3 {
+    margin-left: unset;
+    margin-right: 0.75rem;
+  }
+
+  [dir="rtl"] .ml-4 {
+    margin-left: unset;
+    margin-right: 1rem;
+  }
+
+  [dir="rtl"] .ml-5 {
+    margin-left: unset;
+    margin-right: 1.25rem;
+  }
+
+  [dir="rtl"] .ml-6 {
+    margin-left: unset;
+    margin-right: 1.5rem;
+  }
+
+  [dir="rtl"] .ml-8 {
+    margin-left: unset;
+    margin-right: 2rem;
+  }
+
+  [dir="rtl"] .ml-10 {
+    margin-left: unset;
+    margin-right: 2.5rem;
+  }
+
+  [dir="rtl"] .ml-12 {
+    margin-left: unset;
+    margin-right: 3rem;
+  }
+
+  [dir="rtl"] .mr-1 {
+    margin-right: unset;
+    margin-left: 0.25rem;
+  }
+
+  [dir="rtl"] .mr-2 {
+    margin-right: unset;
+    margin-left: 0.5rem;
+  }
+
+  [dir="rtl"] .mr-3 {
+    margin-right: unset;
+    margin-left: 0.75rem;
+  }
+
+  [dir="rtl"] .mr-4 {
+    margin-right: unset;
+    margin-left: 1rem;
+  }
+
+  [dir="rtl"] .mr-5 {
+    margin-right: unset;
+    margin-left: 1.25rem;
+  }
+
+  [dir="rtl"] .mr-6 {
+    margin-right: unset;
+    margin-left: 1.5rem;
+  }
+
+  [dir="rtl"] .mr-8 {
+    margin-right: unset;
+    margin-left: 2rem;
+  }
+
+  [dir="rtl"] .mr-10 {
+    margin-right: unset;
+    margin-left: 2.5rem;
+  }
+
+  [dir="rtl"] .mr-12 {
+    margin-right: unset;
+    margin-left: 3rem;
+  }
+
+  /* Comprehensive padding RTL rules */
+  [dir="rtl"] .pl-1 {
+    padding-left: unset;
+    padding-right: 0.25rem;
+  }
+
+  [dir="rtl"] .pl-2 {
+    padding-left: unset;
+    padding-right: 0.5rem;
+  }
+
+  [dir="rtl"] .pl-3 {
+    padding-left: unset;
+    padding-right: 0.75rem;
+  }
+
+  [dir="rtl"] .pl-4 {
+    padding-left: unset;
+    padding-right: 1rem;
+  }
+
+  [dir="rtl"] .pl-5 {
+    padding-left: unset;
+    padding-right: 1.25rem;
+  }
+
+  [dir="rtl"] .pl-6 {
+    padding-left: unset;
+    padding-right: 1.5rem;
+  }
+
+  [dir="rtl"] .pl-8 {
+    padding-left: unset;
+    padding-right: 2rem;
+  }
+
+  [dir="rtl"] .pl-10 {
+    padding-left: unset;
+    padding-right: 2.5rem;
+  }
+
+  [dir="rtl"] .pl-12 {
+    padding-left: unset;
+    padding-right: 3rem;
+  }
+
+  [dir="rtl"] .pr-1 {
+    padding-right: unset;
+    padding-left: 0.25rem;
+  }
+
+  [dir="rtl"] .pr-2 {
+    padding-right: unset;
+    padding-left: 0.5rem;
+  }
+
+  [dir="rtl"] .pr-3 {
+    padding-right: unset;
+    padding-left: 0.75rem;
+  }
+
+  [dir="rtl"] .pr-4 {
+    padding-right: unset;
+    padding-left: 1rem;
+  }
+
+  [dir="rtl"] .pr-5 {
+    padding-right: unset;
+    padding-left: 1.25rem;
+  }
+
+  [dir="rtl"] .pr-6 {
+    padding-right: unset;
+    padding-left: 1.5rem;
+  }
+
+  [dir="rtl"] .pr-8 {
+    padding-right: unset;
+    padding-left: 2rem;
+  }
+
+  [dir="rtl"] .pr-10 {
+    padding-right: unset;
+    padding-left: 2.5rem;
+  }
+
+  [dir="rtl"] .pr-12 {
+    padding-right: unset;
+    padding-left: 3rem;
+  }
+
+  /* Comprehensive positioning RTL rules */
+  [dir="rtl"] .left-0 {
+    left: unset;
+    right: 0;
+  }
+
+  [dir="rtl"] .left-1 {
+    left: unset;
+    right: 0.25rem;
+  }
+
+  [dir="rtl"] .left-2 {
+    left: unset;
+    right: 0.5rem;
+  }
+
+  [dir="rtl"] .left-3 {
+    left: unset;
+    right: 0.75rem;
+  }
+
+  [dir="rtl"] .left-4 {
+    left: unset;
+    right: 1rem;
+  }
+
+  [dir="rtl"] .left-5 {
+    left: unset;
+    right: 1.25rem;
+  }
+
+  [dir="rtl"] .left-6 {
+    left: unset;
+    right: 1.5rem;
+  }
+
+  [dir="rtl"] .left-8 {
+    left: unset;
+    right: 2rem;
+  }
+
+  [dir="rtl"] .left-10 {
+    left: unset;
+    right: 2.5rem;
+  }
+
+  [dir="rtl"] .left-12 {
+    left: unset;
+    right: 3rem;
+  }
+
+  [dir="rtl"] .right-0 {
+    right: unset;
+    left: 0;
+  }
+
+  [dir="rtl"] .right-1 {
+    right: unset;
+    left: 0.25rem;
+  }
+
+  [dir="rtl"] .right-2 {
+    right: unset;
+    left: 0.5rem;
+  }
+
+  [dir="rtl"] .right-3 {
+    right: unset;
+    left: 0.75rem;
+  }
+
+  [dir="rtl"] .right-4 {
+    right: unset;
+    left: 1rem;
+  }
+
+  [dir="rtl"] .right-5 {
+    right: unset;
+    left: 1.25rem;
+  }
+
+  [dir="rtl"] .right-6 {
+    right: unset;
+    left: 1.5rem;
+  }
+
+  [dir="rtl"] .right-8 {
+    right: unset;
+    left: 2rem;
+  }
+
+  [dir="rtl"] .right-10 {
+    right: unset;
+    left: 2.5rem;
+  }
+
+  [dir="rtl"] .right-12 {
+    right: unset;
+    left: 3rem;
+  }
 }
