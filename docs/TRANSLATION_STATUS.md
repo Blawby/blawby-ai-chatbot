@@ -257,7 +257,7 @@ Last run: 2025-01-13
 
 For translation questions or to volunteer:
 - Create an issue on GitHub with `[Translation]` tag
-- Email: translations@blawby.com
+- Email: [translations@blawby.com](mailto:translations@blawby.com)
 - Include: Language, namespace, specific question/issue
 
 ## Change Log

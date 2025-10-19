@@ -40,10 +40,8 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
     // TODO: Update user profile with country preference
   };
 
-  // Get user preferences for locale and currency
-  // TODO: Get from user profile when available
-  const userLocale = 'en'; // Default to English for now
-  const userCurrency = 'USD'; // TODO: Add currency preference to user preferences
+  // Get active locale from i18n
+  const userLocale = i18n.language;
   
   // Build pricing plans from real Stripe config
   const prices = getBusinessPrices(userLocale);

@@ -129,7 +129,12 @@
       "heading": "[NEEDS TRANSLATION] Are you sure you want to delete your account?",
       "description": "[NEEDS TRANSLATION] This action cannot be undone. All your data, conversations, and settings will be permanently deleted.",
       "listIntro": "[NEEDS TRANSLATION] This will permanently delete:",
-      "listItems": "[NEEDS TRANSLATION] All your conversations and chat history,Your account settings and preferences,Any uploaded files and documents,Your subscription and billing information",
+      "listItems": [
+        "[NEEDS TRANSLATION] All your conversations and chat history",
+        "[NEEDS TRANSLATION] Your account settings and preferences",
+        "[NEEDS TRANSLATION] Any uploaded files and documents",
+        "[NEEDS TRANSLATION] Your subscription and billing information"
+      ],
       "confirmLabel": "[NEEDS TRANSLATION] To confirm, type your email address:",
       "inputPlaceholder": "[NEEDS TRANSLATION] Type your email address here",
       "errorMismatch": "[NEEDS TRANSLATION] Please type your email address exactly as shown to confirm deletion.",
@@ -164,7 +169,7 @@
       },
       "messaging": {
         "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+        "description": "Ricevi notifiche quando arrivano nuovi messaggi"
       }
     },
     "channels": {

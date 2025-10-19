@@ -52,8 +52,9 @@ export const RTL_LOCALES: ReadonlySet<AppLocale> = new Set(['ar'] as const);
 /**
  * Check if a locale uses RTL (Right-to-Left) text direction
  */
-export const isRTLLocale = (locale: AppLocale): boolean => {
-  return RTL_LOCALES.has(locale);
+export const isRTLLocale = (locale: AnyLocale): boolean => {
+  const normalized = locale.toLowerCase().split('-')[0];
+  return RTL_LOCALES.has(normalized as AppLocale);
 };
 
 const NAMESPACES = ['common', 'settings', 'auth', 'profile', 'pricing', 'organization'] as const;
@@ -153,14 +154,14 @@ export const initI18n = async () => {
       }
     });
 
-  await loadLocaleResources(normalizeAnyLocale(i18next.language));
+  const normalizedAnyLocale = normalizeAnyLocale(i18next.language);
+  await loadLocaleResources(normalizedAnyLocale);
 
   // Set initial HTML dir and lang attributes
   if (typeof window !== 'undefined') {
-    const currentLocale = normalizeLocale(i18next.language);
-    const isRTL = isRTLLocale(currentLocale);
+    const isRTL = isRTLLocale(normalizedAnyLocale);
     document.documentElement.setAttribute('dir', isRTL ? 'rtl' : 'ltr');
-    document.documentElement.setAttribute('lang', currentLocale);
+    document.documentElement.setAttribute('lang', normalizedAnyLocale);
   }
 
   initialized = true;
@@ -177,7 +178,7 @@ export const setLocale = async (nextLocale: string) => {
     window.localStorage.setItem(STORAGE_KEY, target);
     
     // Set HTML dir attribute for RTL support
-    const isRTL = isRTLLocale(target as AppLocale);
+    const isRTL = isRTLLocale(target);
     document.documentElement.setAttribute('dir', isRTL ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', target);
   }

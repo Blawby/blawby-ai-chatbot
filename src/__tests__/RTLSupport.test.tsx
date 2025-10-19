@@ -200,19 +200,19 @@ describe('RTL (Right-to-Left) Support', () => {
     it('should handle uppercase locale codes', () => {
       // Simulate what would happen with uppercase codes
       document.documentElement.setAttribute('dir', 'rtl');
-      document.documentElement.setAttribute('lang', 'ar');
+      document.documentElement.setAttribute('lang', 'AR');
       
       expect(document.documentElement.getAttribute('dir')).toBe('rtl');
-      expect(document.documentElement.getAttribute('lang')).toBe('ar');
+      expect(document.documentElement.getAttribute('lang')).toBe('AR');
     });
 
     it('should handle locale with region codes', () => {
       // Simulate what would happen with region codes
       document.documentElement.setAttribute('dir', 'rtl');
-      document.documentElement.setAttribute('lang', 'ar');
+      document.documentElement.setAttribute('lang', 'ar-EG');
       
       expect(document.documentElement.getAttribute('dir')).toBe('rtl');
-      expect(document.documentElement.getAttribute('lang')).toBe('ar');
+      expect(document.documentElement.getAttribute('lang')).toBe('ar-EG');
     });
 
     it('should fallback to LTR for unsupported locales', () => {

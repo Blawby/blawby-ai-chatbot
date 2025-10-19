@@ -25,17 +25,26 @@ export const CartPage = () => {
   const [selectedPriceId, setSelectedPriceId] = useState<string>('');
   const [quantity, setQuantity] = useState(initialSeats);
   const [priceIds, setPriceIds] = useState<{ monthly: string; annual: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadPriceIds = useCallback(async () => {
+    try {
+      setLoadError(null);
+      const ids = await getStripePriceIds();
+      setPriceIds(ids);
+      setSelectedPriceId(ids.monthly);
+    } catch (error) {
+      console.error('Failed to load price IDs:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to load pricing information';
+      setLoadError(errorMsg);
+      showError(errorMsg);
+    }
+  }, [showError]);
 
   // Load price IDs from config
   useEffect(() => {
-    getStripePriceIds().then(ids => {
-      setPriceIds(ids);
-      setSelectedPriceId(ids.monthly); // Default to monthly
-    }).catch(error => {
-      console.error('Failed to load price IDs:', error);
-      showError('Failed to load pricing information');
-    });
-  }, [showError]);
+    loadPriceIds();
+  }, [loadPriceIds]);
 
   // Redirect business/enterprise users away from cart
   useEffect(() => {
@@ -177,6 +186,22 @@ export const CartPage = () => {
 
     await submitUpgrade(upgradeParams);
   };
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{loadError}</p>
+          <button 
+            onClick={loadPriceIds}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!priceIds) {
     return (
