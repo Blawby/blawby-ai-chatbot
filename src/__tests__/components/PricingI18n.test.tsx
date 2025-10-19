@@ -11,7 +11,7 @@ vi.mock("@/i18n/hooks", async () => {
   return {
     ...actual,
     useTranslation: (namespace?: string) => {
-      const translate = (key: string, options?: any) => {
+      const translate = (key: string, _options?: Record<string, unknown>) => {
         // Return key for simple verification in tests
         return `${namespace || "common"}.${key}`;
       };
@@ -66,7 +66,7 @@ describe("Pricing Internationalization", () => {
     });
 
     it("should fall back to English for unsupported language", async () => {
-      await changeLanguage("xx" as any);
+      await changeLanguage("xx" as string);
       // Should fall back to English (including regional variants like en-US, en-GB)
       expect(i18n.language).toMatch(/^en(-|$)/);
     });
@@ -154,7 +154,7 @@ describe("Pricing Internationalization", () => {
 
     it("should respect locale formatting", () => {
       const enResult = formatCurrency(1234.56, "USD", "en");
-      const deResult = formatCurrency(1234.56, "EUR", "de");
+      const _deResult = formatCurrency(1234.56, "EUR", "de");
 
       // English uses dots for decimals, German uses commas
       expect(enResult).toContain(".");
@@ -313,14 +313,14 @@ describe("Pricing Internationalization", () => {
     it("should handle null/undefined currency gracefully", () => {
       // Should not throw error
       expect(() => {
-        formatCurrency(100, null as any, "en");
+        formatCurrency(100, null as unknown, "en");
       }).not.toThrow();
     });
 
     it("should handle invalid locale gracefully", () => {
       // Should not throw error
       expect(() => {
-        formatCurrency(100, "USD", "invalid" as any);
+        formatCurrency(100, "USD", "invalid" as string);
       }).not.toThrow();
     });
   });

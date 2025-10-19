@@ -80,7 +80,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
   refreshInterval = 30000
 }) => {
   // Use the activity hook to fetch real data
-  const { events, loading, error, hasMore, loadMore, refresh } = useActivity({
+  const { events, loading: _loading, error, hasMore, loadMore, refresh } = useActivity({
     organizationId,
     matterId,
     sessionId,

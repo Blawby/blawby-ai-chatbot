@@ -48,7 +48,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
   
   const displayLabel = label;
   const displayDescription = description;
-  const displayError = error;
+  const _displayError = error;
 
   // Generate stable unique ID for this component instance
   const generatedId = useUniqueId('checkbox');

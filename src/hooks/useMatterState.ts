@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'preact/hooks';
+import { useState, useMemo } from 'preact/hooks';
 import { ChatMessageUI } from '../../worker/types';
 import { analyzeMissingInfo } from '../utils/matterAnalysis';
 import { MatterData, MatterStatus } from '../types/matter';
@@ -15,7 +15,7 @@ export interface MatterState {
  * Frontend-only solution that parses existing message data
  */
 export function useMatterState(messages: ChatMessageUI[]): MatterState {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, _setIsLoading] = useState(false);
 
   // Extract matter data from messages
   const matterData = useMemo(() => {

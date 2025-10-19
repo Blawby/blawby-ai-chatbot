@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'preact/hooks';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, SectionDivider } from '../../ui';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from '../../ui';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useSession } from '../../../contexts/AuthContext';
 import { updateUser } from '../../../lib/authClient';
 import { useTranslation } from '@/i18n/hooks';
-import { getNotificationDisplayText, NOTIFICATION_DEFAULTS } from '../../ui/validation/defaultValues';
+import { getNotificationDisplayText } from '../../ui/validation/defaultValues';
 import type { NotificationSettings } from '../../../types/user';
 
 export interface NotificationsPageProps {

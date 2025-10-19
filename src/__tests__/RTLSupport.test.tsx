@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { isRTLLocale, RTL_LOCALES } from '../i18n';
 
 describe('RTL (Right-to-Left) Support', () => {
@@ -27,7 +27,7 @@ describe('RTL (Right-to-Left) Support', () => {
       const ltrLanguages = ['en', 'es', 'fr', 'de', 'zh', 'ja', 'vi', 'pt', 'ru', 'it', 'ko', 'nl', 'pl', 'tr', 'th', 'id', 'hi', 'uk'];
       
       ltrLanguages.forEach(lang => {
-        expect(isRTLLocale(lang as any)).toBe(false);
+        expect(isRTLLocale(lang as string)).toBe(false);
       });
     });
 
@@ -126,7 +126,7 @@ describe('RTL (Right-to-Left) Support', () => {
             if (hasRTLRules) break;
           }
         }
-      } catch (e) {
+		} catch (_e) {
         // Cross-origin restrictions may prevent access to stylesheets
         // In that case, we assume RTL rules exist if we can't verify
         hasRTLRules = true;
@@ -147,8 +147,8 @@ describe('RTL (Right-to-Left) Support', () => {
       // Check if the element has the expected RTL behavior
       // In a real browser with CSS loaded, .ml-auto would become .mr-auto
       const computedStyle = window.getComputedStyle(testDiv);
-      const marginLeft = computedStyle.marginLeft;
-      const marginRight = computedStyle.marginRight;
+		const _marginLeft = computedStyle.marginLeft;
+		const _marginRight = computedStyle.marginRight;
       
       // Verify RTL direction is set
       expect(document.documentElement.getAttribute('dir')).toBe('rtl');

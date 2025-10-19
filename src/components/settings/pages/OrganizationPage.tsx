@@ -85,8 +85,8 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   const [editMemberData, setEditMemberData] = useState<{ userId: string; email: string; name?: string; role: Role } | null>(null);
 
   const hasOrganization = !!currentOrganization;
-  const members = currentOrganization ? getMembers(currentOrganization.id) : [];
-  const memberCount = members.length;
+  const members = useMemo(() => currentOrganization ? getMembers(currentOrganization.id) : [], [currentOrganization, getMembers]);
+  const _memberCount = members.length;
   const tokens = currentOrganization ? getTokens(currentOrganization.id) : [];
   
   // Better approach - get role directly from current org context
@@ -114,15 +114,15 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       const fetchMembersData = async () => {
         try {
           await fetchMembers(currentOrganization.id);
-        } catch (err) {
-          showError('Failed to fetch organization members');
+		} catch (err) {
+          showError(err?.message || String(err) || 'Failed to fetch organization members');
         }
       };
       
       fetchMembersData();
       fetchTokens(currentOrganization.id);
     }
-  }, [currentOrganization, fetchMembers, fetchTokens, getMembers]);
+  }, [currentOrganization, fetchMembers, fetchTokens, getMembers, showError]);
 
   const handleCreateOrganization = async () => {
     if (!createForm.name.trim()) {
@@ -140,7 +140,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       showSuccess('Organization created successfully!');
       setShowCreateModal(false);
       setCreateForm({ name: '', slug: '', description: '' });
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to create organization');
     }
   };
@@ -149,7 +149,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     try {
       await acceptInvitation(invitationId);
       showSuccess('Invitation accepted!');
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to accept invitation');
     }
   };
@@ -158,7 +158,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     try {
       await declineInvitation(invitationId);
       showSuccess('Invitation declined successfully!');
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to decline invitation');
     }
   };
@@ -170,7 +170,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       await updateOrganization(currentOrganization.id, editOrgForm);
       showSuccess('Organization updated successfully!');
       setIsEditingOrg(false);
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update organization');
     }
   };
@@ -186,7 +186,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       showSuccess('Invitation sent successfully!');
       setIsInvitingMember(false);
       setInviteForm({ email: '', role: 'attorney' });
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to send invitation');
     }
   };
@@ -203,7 +203,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       showSuccess('API token created successfully!');
       setShowTokenModal(false);
       setTokenForm({ name: '' });
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to create token');
     }
   };
@@ -214,7 +214,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     try {
       await revokeToken(currentOrganization.id, tokenId);
       showSuccess('Token revoked successfully!');
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to revoke token');
     }
   };
@@ -233,7 +233,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       setShowDeleteModal(false);
       setDeleteConfirmText('');
       navigate('/');
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to delete organization');
     }
   };
@@ -245,7 +245,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       await updateMemberRole(currentOrganization.id, editMemberData.userId, editMemberData.role);
       showSuccess('Member role updated successfully!');
       setEditMemberData(null);
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update member role');
     }
   };
@@ -257,7 +257,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       await removeMember(currentOrganization.id, member.userId);
       showSuccess('Member removed successfully!');
       setEditMemberData(null);
-    } catch (err) {
+		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to remove member');
     }
   };
@@ -658,7 +658,6 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="Create Organization"
-        size="md"
       >
         <div className="space-y-4">
           <div>
@@ -751,13 +750,13 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
               {newToken?.token}
             </code>
             <p className="text-xs text-gray-500 mt-2">
-              ⚠️ Copy this token now. You won't be able to see it again.
+              ⚠️ Copy this token now. You won&apos;t be able to see it again.
             </p>
           </div>
           
           <div className="flex justify-end">
             <Button onClick={() => setNewToken(null)}>
-              I've Copied It
+              I&apos;ve Copied It
             </Button>
           </div>
         </div>

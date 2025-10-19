@@ -1,4 +1,4 @@
-import { h } from 'preact';
+// import { h } from 'preact'; // Unused
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n/hooks';
 

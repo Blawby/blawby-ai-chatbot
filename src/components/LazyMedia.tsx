@@ -8,10 +8,13 @@ interface LazyMediaProps {
     alt?: string;
     className?: string;
     onClick?: () => void;
+    captionSrc?: string;
+    captionLabel?: string;
+    captionLang?: string;
 }
 
-const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', className = '', onClick }) => {
-    const mediaRef = useRef<HTMLElement>(null);
+const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', className = '', onClick, captionSrc, captionLabel, captionLang }) => {
+    const mediaRef = useRef<HTMLDivElement>(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     const [error, setError] = useState(false);
@@ -79,24 +82,38 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
 
             {isVisible && !error && (
                 isImage ? (
-                    <img
-                        src={src}
-                        alt={alt}
-                        onLoad={handleLoad}
-                        onError={handleError}
-                        onClick={handleImageClick}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-                                e.preventDefault();
-                                handleImageClick();
-                            }
-                        }}
-                        className={isLoaded ? 'visible' : 'hidden'}
-                        loading="lazy"
-                        tabIndex={0}
-                        role="button"
-                        aria-label={onClick ? `View ${alt || 'image'}` : undefined}
-                    />
+                    onClick ? (
+                        <button
+                            type="button"
+                            onClick={handleImageClick}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                                    e.preventDefault();
+                                    handleImageClick();
+                                }
+                            }}
+                            className="border-0 bg-transparent p-0 cursor-pointer"
+                            aria-label={`View ${alt || 'image'}`}
+                        >
+                            <img
+                                src={src}
+                                alt={alt}
+                                onLoad={handleLoad}
+                                onError={handleError}
+                                className={isLoaded ? 'visible' : 'hidden'}
+                                loading="lazy"
+                            />
+                        </button>
+                    ) : (
+                        <img
+                            src={src}
+                            alt={alt}
+                            onLoad={handleLoad}
+                            onError={handleError}
+                            className={isLoaded ? 'visible' : 'hidden'}
+                            loading="lazy"
+                        />
+                    )
                 ) : isVideo ? (
                     <video
                         src={src}
@@ -104,7 +121,15 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
                         onLoadedData={handleLoad}
                         onError={handleError}
                         className={isLoaded ? 'visible' : 'hidden'}
-                    />
+                    >
+                        <track 
+                            kind="captions" 
+                            src={captionSrc && captionSrc.trim() ? captionSrc : ""} 
+                            label={captionSrc && captionSrc.trim() ? (captionLabel || "Captions") : "No captions available"}
+                            srcLang={captionLang}
+                            default={!!(captionSrc && captionSrc.trim())}
+                        />
+                    </video>
                 ) : isAudio ? (
                     <audio
                         src={src}
@@ -112,7 +137,15 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
                         onLoadedData={handleLoad}
                         onError={handleError}
                         className={isLoaded ? 'visible' : 'hidden'}
-                    />
+                    >
+                        <track 
+                            kind="captions" 
+                            src={captionSrc && captionSrc.trim() ? captionSrc : ""} 
+                            label={captionSrc && captionSrc.trim() ? (captionLabel || "Captions") : "No captions available"}
+                            srcLang={captionLang}
+                            default={!!(captionSrc && captionSrc.trim())}
+                        />
+                    </audio>
                 ) : (
                     <div className="unsupported-media">
                         <a href={src} target="_blank" rel="noopener noreferrer">

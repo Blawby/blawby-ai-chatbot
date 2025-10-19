@@ -7,7 +7,7 @@ const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
 // Helper function to create mock Response objects
-const createMockResponse = (data: any, options: { ok?: boolean; status?: number; statusText?: string } = {}) => ({
+const createMockResponse = (data: unknown, options: { ok?: boolean; status?: number; statusText?: string } = {}) => ({
   ok: options.ok ?? true,
   status: options.status ?? 200,
   statusText: options.statusText ?? 'OK',

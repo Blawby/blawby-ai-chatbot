@@ -102,9 +102,9 @@ function MainApp() {
 		// Handle quota refresh separately to avoid leaving stale UI
 		try {
 			await refreshQuota();
-		} catch (error) {
+		} catch (_error) {
 			// Log for diagnostics
-			console.error('Failed to refresh quota after sending message:', error);
+			console.error('Failed to refresh quota after sending message:', _error);
 			// Show user-facing notification for quota refresh failure
 			showError('Unable to update usage quota', 'Your message was sent, but we couldn\'t refresh your usage information.');
 		}
@@ -154,11 +154,11 @@ function MainApp() {
 				// Don't remove the flag here - let the completion handler do it
 				// This prevents permanent loss if the modal fails to render
 			}
-		} catch (error) {
+		} catch (_error) {
 			// Handle localStorage access failures (private browsing, etc.)
 			if (import.meta.env.DEV) {
 				 
-				console.warn('Failed to check onboarding completion status:', error);
+				console.warn('Failed to check onboarding completion status:', _error);
 			}
 		}
 	}, []);
@@ -172,14 +172,15 @@ function MainApp() {
 			
 			// If user hasn't completed onboarding and we haven't checked yet
 			if (!hasOnboardingFlag && !hasOnboardingCheckFlag) {
-				const needsOnboarding = session.user.onboardingCompleted === false || 
-										session.user.onboardingCompleted === undefined;
+				const userWithOnboarding = session.user as typeof session.user & { onboardingCompleted?: boolean };
+				const needsOnboarding = userWithOnboarding.onboardingCompleted === false || 
+										userWithOnboarding.onboardingCompleted === undefined;
 				
 				if (needsOnboarding) {
 					// Set flag to prevent repeated checks
 					try {
 						localStorage.setItem('onboardingCheckDone', 'true');
-					} catch (error) {
+					} catch (_error) {
 						// Handle localStorage failures gracefully
 					}
 					
@@ -189,13 +190,13 @@ function MainApp() {
 					// User has completed onboarding, set the flag
 					try {
 						localStorage.setItem('onboardingCheckDone', 'true');
-					} catch (error) {
+					} catch (_error) {
 						// Handle localStorage failures gracefully
 					}
 				}
 			}
 		}
-	}, [session?.user, sessionIsPending]);
+	}, [session?.user, sessionIsPending, session]);
 
 	// Check if we should show business setup modal (after tier upgrade)
 	useEffect(() => {
@@ -205,9 +206,9 @@ function MainApp() {
 				setShowBusinessSetup(true);
 				// Don't remove the flag here - let the modal handlers do it
 			}
-		} catch (error) {
+		} catch (_error) {
 			if (import.meta.env.DEV) {
-				console.warn('Failed to check business setup status:', error);
+				console.warn('Failed to check business setup status:', _error);
 			}
 		}
 	}, []);
@@ -370,11 +371,11 @@ function MainApp() {
 		// Remove the onboarding completion flag now that the welcome modal has been shown
 		try {
 			localStorage.removeItem('onboardingCompleted');
-		} catch (error) {
+		} catch (_error) {
 			// Handle localStorage access failures (private browsing, etc.)
 			if (import.meta.env.DEV) {
 				 
-				console.warn('Failed to remove onboarding completion flag:', error);
+				console.warn('Failed to remove onboarding completion flag:', _error);
 			}
 		}
 	};
@@ -386,11 +387,11 @@ function MainApp() {
 		// This prevents the welcome modal from showing again
 		try {
 			localStorage.removeItem('onboardingCompleted');
-		} catch (error) {
+		} catch (_error) {
 			// Handle localStorage access failures (private browsing, etc.)
 			if (import.meta.env.DEV) {
 				 
-				console.warn('Failed to remove onboarding completion flag:', error);
+				console.warn('Failed to remove onboarding completion flag:', _error);
 			}
 		}
 	};
@@ -418,10 +419,10 @@ function MainApp() {
 			// Send a message with the uploaded file metadata
 			handleSendMessage(`I've recorded a ${type} message.`, uploadedFiles);
 			
-		} catch (error) {
+		} catch (_error) {
 			// Handle media upload error
 			 
-			console.error('Failed to upload captured media:', error);
+			console.error('Failed to upload captured media:', _error);
 			// Show error message to user
 			handleSendMessage("I'm sorry, I couldn't upload the recorded media. Please try again.", []);
 		}
@@ -554,13 +555,13 @@ function MainApp() {
 									...parsed,
 									tier,
 								}));
-							} catch (error) {
-								console.warn('Unable to store cart preferences for upgrade:', error);
+					} catch (_error) {
+						console.warn('Unable to store cart preferences for upgrade:', _error);
 							}
 						}
-					} catch (error) {
-						console.error('Error initiating subscription upgrade:', error);
-						const message = error instanceof Error ? error.message : 'Unable to start upgrade.';
+					} catch (_error) {
+						console.error('Error initiating subscription upgrade:', _error);
+						const message = _error instanceof Error ? _error.message : 'Unable to start upgrade.';
 						showError('Upgrade failed', message);
 						shouldNavigateToCart = true;
 					} finally {
@@ -594,9 +595,9 @@ function MainApp() {
 					// Clear the localStorage flag so modal doesn't reappear on reload
 					try {
 						localStorage.removeItem('businessSetupPending');
-					} catch (error) {
+					} catch (_error) {
 						if (import.meta.env.DEV) {
-							console.warn('Failed to remove business setup flag:', error);
+							console.warn('Failed to remove business setup flag:', _error);
 						}
 					}
 					setShowBusinessSetup(false);
@@ -680,9 +681,9 @@ if (typeof window !== 'undefined') {
 		.then(() => {
 			hydrate(<AppWithProviders />, document.getElementById('app'));
 		})
-		.catch((error) => {
+		.catch((_error) => {
 			 
-			console.error('Failed to initialize i18n:', error);
+			console.error('Failed to initialize i18n:', _error);
 			hydrate(<AppWithProviders />, document.getElementById('app'));
 		});
 }

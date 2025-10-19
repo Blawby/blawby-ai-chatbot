@@ -14,11 +14,7 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 	onMediaCapture,
 	onRecordingStateChange 
 }) => {
-	// If audio recording is disabled via feature flag, don't render anything
-	if (!features.enableAudioRecording) {
-		return null;
-	}
-	
+	// Always call hooks at the top level
 	const [isRecording, setIsRecording] = useState(false);
 	const [permissionDenied, setPermissionDenied] = useState(false);
 	const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -26,8 +22,9 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 	const chunksRef = useRef<Blob[]>([]);
 
 	useEffect(() => {
+		if (!features.enableAudioRecording) return;
 		onRecordingStateChange?.(isRecording);
-	}, [isRecording, onRecordingStateChange]);
+	}, [isRecording, onRecordingStateChange, features.enableAudioRecording]);
 
 	const stopMediaStream = () => {
 		if (mediaStreamRef.current) {
@@ -43,6 +40,11 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 			stopMediaStream();
 		};
 	}, []);
+
+	// If audio recording is disabled via feature flag, don't render anything
+	if (!features.enableAudioRecording) {
+		return null;
+	}
 
 	const startRecording = async () => {
 		try {

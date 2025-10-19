@@ -5,7 +5,6 @@ import { memo } from 'preact/compat';
 import { getFeedbackEndpoint } from '../config/api';
 
 interface FeedbackUIProps {
-  messageId?: string;
   sessionId?: string;
   organizationId?: string;
   onFeedbackSubmit?: (feedback: FeedbackData) => void;
@@ -19,7 +18,6 @@ interface FeedbackData {
 }
 
 const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({ 
-  messageId, 
   sessionId, 
   organizationId, 
   onFeedbackSubmit 
@@ -33,7 +31,7 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
     const newFeedback = { ...feedback, thumbsUp: true };
     setFeedback(newFeedback);
     submitFeedback(newFeedback);
-  }, [feedback]);
+  }, [feedback, submitFeedback]);
 
   const handleThumbsDown = useCallback(() => {
     const newFeedback = { ...feedback, thumbsUp: false };
@@ -54,7 +52,7 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
     setFeedback(prev => ({ ...prev, comments: target.value }));
   }, []);
 
-  const submitFeedback = async (feedbackData: FeedbackData) => {
+  const submitFeedback = useCallback(async (feedbackData: FeedbackData) => {
     if (isSubmitting || hasSubmitted) return;
     
     setIsSubmitting(true);
@@ -89,11 +87,11 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [isSubmitting, hasSubmitted, onFeedbackSubmit, organizationId, sessionId]);
 
   const handleSubmitComment = useCallback(() => {
     submitFeedback(feedback);
-  }, [feedback]);
+  }, [feedback, submitFeedback]);
 
   if (hasSubmitted) {
     return (

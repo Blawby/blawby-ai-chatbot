@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'preact/compat';
+import { forwardRef } from 'preact/compat';
 import { cn } from '../../../utils/cn';
 import { useUniqueId } from '../../../hooks/useUniqueId';
 
@@ -40,11 +40,11 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   min,
   max,
   format = 'date',
-  labelKey,
-  descriptionKey,
-  placeholderKey,
-  errorKey,
-  namespace = 'common',
+  labelKey: _labelKey,
+  descriptionKey: _descriptionKey,
+  placeholderKey: _placeholderKey,
+  errorKey: _errorKey,
+  namespace: _namespace = 'common',
   id
 }, ref) => {
   // Generate stable ID for accessibility
@@ -61,7 +61,11 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   const displayLabel = label;
   const displayDescription = description;
   const displayPlaceholder = placeholder;
-  const displayError = error;
+  const _displayError = error;
+
+  // Generate stable IDs for description and error elements
+  const descriptionId = displayDescription ? `${inputId}-description` : undefined;
+  const errorId = _displayError ? `${inputId}-error` : undefined;
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',
@@ -105,10 +109,18 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
         min={min}
         max={max}
         className={inputClasses}
+        aria-describedby={[descriptionId, errorId].filter(Boolean).join(' ') || undefined}
+        aria-invalid={_displayError ? 'true' : 'false'}
       />
       
-      {displayDescription && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      {_displayError && (
+        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+          {_displayError}
+        </p>
+      )}
+      
+      {displayDescription && !_displayError && (
+        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           {displayDescription}
         </p>
       )}

@@ -7,7 +7,6 @@ import { Button } from './ui/Button';
 import { Select } from './ui/input/Select';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { getBusinessPrices } from '../utils/stripe-products';
-import { useSession } from '../contexts/AuthContext';
 import type { SubscriptionTier } from '../types/user';
 
 interface PricingModalProps {
@@ -25,7 +24,6 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 }) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { navigate } = useNavigation();
-  const { data: session } = useSession();
   const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
   const [selectedCountry, setSelectedCountry] = useState('us');
 

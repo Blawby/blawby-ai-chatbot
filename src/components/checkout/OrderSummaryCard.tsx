@@ -43,7 +43,7 @@ export const OrderSummaryCard = ({
   const calculatedVatRate = vatRate ?? (subtotal > 0 ? vat / subtotal : 0);
   const vatPercentage = isNaN(calculatedVatRate) ? 0 : calculatedVatRate;
   const percentage = vatPercentage * 100;
-  const vatPercentageDisplay = percentage.toFixed(percentage % 1 === 0 ? 0 : 2) + '%';
+  const vatPercentageDisplay = `${percentage.toFixed(percentage % 1 === 0 ? 0 : 2)}%`;
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6">
       <h3 className="text-lg font-semibold mb-4">Order Summary</h3>

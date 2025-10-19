@@ -125,7 +125,7 @@ export const CartPage = () => {
         break;
       }
     }
-  }, [selectedPriceId]);
+  }, [selectedPriceId, priceIds]);
 
   const subtotal = isAnnual
     ? monthlySeatPrice * quantity * 12 // baseline yearly cost at monthly rate
@@ -215,7 +215,7 @@ export const CartPage = () => {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4" />
           <p>Loading pricing information...</p>
         </div>
       </div>
@@ -339,7 +339,7 @@ export const CartPage = () => {
           {/* Right: Summary */}
           <div className="relative">
             {/* Shadow border down center */}
-            <div className="hidden lg:block absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-600 to-transparent shadow-lg"></div>
+            <div className="hidden lg:block absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-600 to-transparent shadow-lg" />
             <PricingSummary
               heading="Summary"
               planName={PRODUCTS.business.name}

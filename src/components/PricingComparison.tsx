@@ -30,7 +30,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
   // Get user preferences for locale and currency
   // TODO: Get from auth context when available
   const userLocale = 'en'; // Default to English for now
-  const userCurrency = 'USD'; // TODO: Add currency preference to user preferences
+  const _userCurrency = 'USD'; // TODO: Add currency preference to user preferences
   
   const _prices = getBusinessPrices(userLocale);
   

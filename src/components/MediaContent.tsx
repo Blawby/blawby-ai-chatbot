@@ -20,7 +20,19 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
             return (
                 <div className="max-w-full max-h-[80vh] rounded-lg overflow-hidden shadow-2xl">
                     {!isVideoPlayIconing ? (
-                        <div className="relative cursor-pointer max-w-full max-h-[80vh]" onClick={handleVideoClick}>
+                        <div 
+                            className="relative cursor-pointer max-w-full max-h-[80vh]" 
+                            onClick={handleVideoClick}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleVideoClick(e);
+                                }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Play video"
+                        >
                             <video 
                                 src={media.url} 
                                 className="w-full h-auto max-h-[80vh] object-contain"
@@ -37,9 +49,10 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
                             src={media.url} 
                             className="w-full h-auto max-h-[80vh]"
                             controls
-                            autoPlayIcon
                             playsInline
-                        />
+                        >
+                            <track kind="captions" src="" label="No captions available" />
+                        </video>
                     )}
                 </div>
             );
@@ -50,7 +63,6 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
                 src={media.url} 
                 alt={media.name} 
                 className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl cursor-default" 
-                onClick={(e) => e.stopPropagation()} 
             />
         );
     };

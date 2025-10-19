@@ -4,18 +4,15 @@ import { Button } from './ui/Button';
 import ContactOptionsModal from './ContactOptionsModal';
 import {
   UserIcon,
-  BuildingOfficeIconOfficeIcon,
+  BuildingOfficeIcon,
   MapPinIcon,
   StarIcon,
-  StarIcon as StarIconHalfIcon,
-  PhoneIcon,
-  EnvelopeIcon,
-  GlobeAltIconAltIcon,
   ClockIcon,
   CurrencyDollarIcon,
   ChatBubbleOvalLeftIcon,
   EllipsisVerticalIcon
 } from "@heroicons/react/24/outline";
+import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { useTheme } from '../hooks/useTheme';
 
 interface LawyerProfile {
@@ -84,7 +81,14 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
 
     if (hasHalfStarIcon) {
       stars.push(
-        <StarIconHalf key="half" className="w-4 h-4 text-yellow-400 fill-current" />
+        <div key="half" className="relative w-4 h-4">
+          {/* Background outline star */}
+          <StarIcon className="absolute inset-0 w-4 h-4 text-gray-300" />
+          {/* Clipped solid star for half fill */}
+          <div className="absolute inset-0 w-4 h-4 overflow-hidden" style={{ width: '50%' }}>
+            <StarIconSolid className="w-4 h-4 text-yellow-400" />
+          </div>
+        </div>
       );
     }
 
@@ -105,7 +109,7 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
           No Lawyers Found
         </h3>
         <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          We couldn't find any lawyers in your area for {matterType}. Try searching again or contact us for assistance.
+          We couldn&apos;t find any lawyers in your area for {matterType}. Try searching again or contact us for assistance.
         </p>
         <Button variant="primary" onClick={onSearchAgain}>
           Search Again

@@ -6,7 +6,6 @@
  */
 
 import { cn } from '../../../../utils/cn';
-import { ProgressRing } from './ProgressRing';
 import { LoadingSpinner } from '../../layout/LoadingSpinner';
 
 export type StatusType = 'uploading' | 'completed' | 'processing' | 'analyzing' | 'none';

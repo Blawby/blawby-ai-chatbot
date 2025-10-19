@@ -6,6 +6,68 @@ import {
 } from '../config/api';
 import { useToastContext } from '../contexts/ToastContext';
 
+// Helper functions for safe type extraction from API responses
+function extractUrl(result: unknown): string | undefined {
+  if (result && typeof result === 'object' && result !== null) {
+    // Check for direct url property
+    if ('url' in result && typeof result.url === 'string') {
+      return result.url;
+    }
+    
+    // Check for url in data property
+    if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
+      if ('url' in result.data && typeof result.data.url === 'string') {
+        return result.data.url;
+      }
+    }
+  }
+  return undefined;
+}
+
+function extractErrorMessage(result: unknown, fallback: string): string {
+  if (result && typeof result === 'object' && result !== null) {
+    // Check for direct error property
+    if ('error' in result && typeof result.error === 'string') {
+      return result.error;
+    }
+    
+    // Check for error in data property
+    if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
+      if ('error' in result.data && typeof result.data.error === 'string') {
+        return result.data.error;
+      }
+    }
+  }
+  return fallback;
+}
+
+function extractSubscription(result: unknown): unknown {
+  if (result && typeof result === 'object' && result !== null) {
+    // Check for direct subscription property
+    if ('subscription' in result) {
+      return result.subscription;
+    }
+    
+    // Check for subscription in data property
+    if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
+      if ('subscription' in result.data) {
+        return result.data.subscription;
+      }
+    }
+  }
+  return null;
+}
+
+function extractProperty<T>(result: unknown, property: string): T | undefined {
+  if (result && typeof result === 'object' && result !== null) {
+    const obj = result as Record<string, unknown>;
+    if (property in obj) {
+      return obj[property] as T;
+    }
+  }
+  return undefined;
+}
+
 // Error codes for subscription operations (matching backend)
 enum SubscriptionErrorCode {
   SUBSCRIPTION_ALREADY_ACTIVE = 'SUBSCRIPTION_ALREADY_ACTIVE',
@@ -102,19 +164,23 @@ export const usePaymentUpgrade = () => {
           }),
         });
 
-        const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-        const url: string | undefined = result?.url ?? result?.data?.url;
+        const result = await response.json().catch(() => ({}));
+        
+        const url = extractUrl(result);
+        if (!url) {
+          console.error('Invalid response structure: missing or invalid url property', result);
+        }
         if (!response.ok || !url) {
           // Handle specific error codes
-          if (result?.errorCode) {
+          if (result && typeof result === 'object' && 'errorCode' in result) {
             throw new Error(JSON.stringify({
               errorCode: result.errorCode,
-              message: result.error || 'Unable to open billing portal',
-              details: result.details
+              message: extractErrorMessage(result, 'Unable to open billing portal'),
+              details: (result && typeof result === 'object' && 'details' in result) ? result.details : undefined
             }));
           }
           
-          const message = result?.error || 'Unable to open billing portal';
+          const message = extractErrorMessage(result, 'Unable to open billing portal');
           throw new Error(message);
         }
 
@@ -173,31 +239,32 @@ export const usePaymentUpgrade = () => {
           body: JSON.stringify(requestBody),
         });
 
-        const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-        const checkoutUrl: string | undefined = result?.url ?? result?.data?.url;
+        const result = await response.json().catch(() => ({}));
+        const checkoutUrl = extractUrl(result);
 
         if (!response.ok || !checkoutUrl) {
           if (import.meta.env.DEV) {
             // Only log in development, and sanitize sensitive data
             const sanitizedResult = {
-              error: result?.error,
-              success: result?.success,
-              errorCode: result?.errorCode,
+              error: extractProperty<string>(result, 'error'),
+              success: extractProperty<boolean>(result, 'success'),
+              errorCode: extractProperty<string>(result, 'errorCode'),
               // Exclude sensitive fields like organizationId, subscription details, etc.
             };
             console.error('❌ Subscription upgrade failed with response:', sanitizedResult);
           }
           
           // Handle specific error codes
-          if (result?.errorCode) {
+          const errorCode = extractProperty<string>(result, 'errorCode');
+          if (errorCode) {
             throw new Error(JSON.stringify({
-              errorCode: result.errorCode,
-              message: result.error || 'Subscription upgrade failed',
-              details: result.details
+              errorCode,
+              message: extractErrorMessage(result, 'Subscription upgrade failed'),
+              details: extractProperty<unknown>(result, 'details')
             }));
           }
           
-          const message = result?.error || 'Unable to initiate Stripe checkout';
+          const message = extractErrorMessage(result, 'Unable to initiate Stripe checkout');
           throw new Error(message);
         }
 
@@ -306,22 +373,24 @@ export const usePaymentUpgrade = () => {
         });
 
         const result = await response.json().catch(() => ({})) as SubscriptionApiResponse<{ subscription: unknown }>;
-        if (!response.ok || result?.success === false) {
+        const success = extractProperty<boolean>(result, 'success');
+        if (!response.ok || success === false) {
           // Handle specific error codes
-          if (result?.errorCode) {
+          const errorCode = extractProperty<string>(result, 'errorCode');
+          if (errorCode) {
             throw new Error(JSON.stringify({
-              errorCode: result.errorCode,
-              message: result.error || 'Failed to refresh subscription status',
-              details: result.details
+              errorCode,
+              message: extractErrorMessage(result, 'Failed to refresh subscription status'),
+              details: extractProperty<unknown>(result, 'details')
             }));
           }
           
-          const message = result?.error || 'Failed to refresh subscription status';
+          const message = extractErrorMessage(result, 'Failed to refresh subscription status');
           throw new Error(message);
         }
 
         showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        return result?.subscription ?? null;
+        return extractSubscription(result);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to refresh subscription status';
         

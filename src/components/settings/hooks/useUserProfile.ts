@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import type { User as BetterAuthUser } from 'better-auth/types';
+import type { ExtendedUser } from '../../../types/user';
 
 // Type guard to validate Better Auth user has required fields
-function isValidBetterAuthUser(user: unknown): user is BetterAuthUser {
+function _isValidBetterAuthUser(user: unknown): user is ExtendedUser {
   return (
     user !== null &&
     typeof user === 'object' &&
@@ -22,7 +22,7 @@ function isValidBetterAuthUser(user: unknown): user is BetterAuthUser {
 }
 
 // Safe mapper function to convert Better Auth user to UserProfile
-function mapBetterAuthUserToProfile(authUser: BetterAuthUser): UserProfile {
+function _mapBetterAuthUserToProfile(authUser: ExtendedUser): UserProfile {
   // Convert timestamps to ISO strings if they're Date objects
   const createdAt = authUser.createdAt instanceof Date 
     ? authUser.createdAt.toISOString() 

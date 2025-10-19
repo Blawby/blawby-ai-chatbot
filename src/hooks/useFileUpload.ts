@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
 import { FileAttachment } from '../../worker/types';
-import { uploadWithProgress, validateFile, type UploadResult } from '../services/upload/UploadTransport';
+import { uploadWithProgress, validateFile } from '../services/upload/UploadTransport';
 import { useOrganizationId } from '../contexts/OrganizationContext.js';
 
 export type FileStatus = 
@@ -44,7 +44,7 @@ export const useFileUploadWithContext = ({ sessionId, onError }: Omit<UseFileUpl
 };
 
 // Utility function to upload a file to backend
-async function uploadFileToBackend(file: File, organizationId: string, sessionId: string, signal?: AbortSignal): Promise<UploadResponse> {
+async function _uploadFileToBackend(file: File, organizationId: string, sessionId: string, signal?: AbortSignal): Promise<UploadResponse> {
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -230,7 +230,7 @@ export const useFileUpload = ({ organizationId, sessionId, onError }: UseFileUpl
     // Return empty array since files will be handled by the upload system
     // and moved to previewFiles automatically when complete
     return [];
-  }, [uploadFiles, isReadyToUpload, onError]);
+  }, [uploadFiles, isReadyToUpload, onError, resolvedOrganizationId, resolvedSessionId]);
 
   // Cancel upload
   const cancelUpload = useCallback((uploadId: string) => {
@@ -262,7 +262,7 @@ export const useFileUpload = ({ organizationId, sessionId, onError }: UseFileUpl
   }, []);
 
   // Handle media capture (audio/video)
-  const handleMediaCapture = useCallback((blob: Blob, type: 'audio' | 'video') => {
+  const handleMediaCapture = useCallback((blob: Blob, _type: 'audio' | 'video') => {
     const url = URL.createObjectURL(blob);
     const file: FileAttachment = {
       name: `Recording_${new Date().toISOString()}.webm`,

@@ -4,6 +4,24 @@ import {
   getOrganizationWorkspaceEndpoint 
 } from '../config/api';
 import { useSession } from '../contexts/AuthContext';
+import { 
+  organizationInvitationSchema,
+  organizationSchema,
+  membersResponseSchema,
+  organizationApiTokenSchema,
+  createTokenResponseSchema
+} from '../../worker/schemas/validation';
+
+// API Response interfaces
+interface ApiErrorResponse {
+  error?: string;
+}
+
+interface ApiSuccessResponse {
+  success?: boolean;
+  data?: unknown;
+  error?: string;
+}
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -96,7 +114,7 @@ interface UseOrganizationManagementReturn {
   revokeToken: (orgId: string, tokenId: string) => Promise<void>;
   
   // Workspace data
-  getWorkspaceData: (orgId: string, resource: string) => any[];
+  getWorkspaceData: (orgId: string, resource: string) => Record<string, unknown>[];
   fetchWorkspaceData: (orgId: string, resource: string) => Promise<void>;
   
   refetch: () => Promise<void>;
@@ -109,7 +127,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   const [members, setMembers] = useState<Record<string, Member[]>>({});
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [tokens, setTokens] = useState<Record<string, ApiToken[]>>({});
-  const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, any[]>>>({});
+  const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const personalOrgEnsuredRef = useRef(false);
@@ -160,15 +178,35 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
 
       if (!response.ok) {
         const errorData = await safeJsonParse(response);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        
+        // Runtime guard: verify errorData is a non-null object
+        if (typeof errorData === 'object' && errorData !== null && !Array.isArray(errorData)) {
+          const errorResponse = errorData as ApiErrorResponse;
+          const errorMessage = typeof errorResponse.error === 'string' ? errorResponse.error : `HTTP ${response.status}`;
+          throw new Error(errorMessage);
+        } else {
+          // If parsed data is not an object, include raw value for debugging
+          throw new Error(`HTTP ${response.status} - Invalid error response format: ${JSON.stringify(errorData)}`);
+        }
       }
 
       const data = await safeJsonParse(response);
-      if (!data.success) {
-        throw new Error(data.error || 'API call failed');
+      
+      // Runtime guard: verify data is a non-null object
+      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        const successResponse = data as ApiSuccessResponse;
+        // Check if success property exists and is boolean
+        if (typeof successResponse.success === 'boolean' && !successResponse.success) {
+          const errorMessage = typeof successResponse.error === 'string' ? successResponse.error : 'API call failed';
+          throw new Error(errorMessage);
+        }
+        
+        // Return data property if it exists
+        return successResponse.data;
+      } else {
+        // If parsed data is not an object, include raw value for debugging
+        throw new Error(`Invalid response format: ${JSON.stringify(data)}`);
       }
-
-      return data.data;
     } catch (error) {
       // Clear timeout in case of error
       clearTimeout(timeoutId);
@@ -192,7 +230,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     return tokens[orgId] || [];
   }, [tokens]);
 
-  const getWorkspaceData = useCallback((orgId: string, resource: string): any[] => {
+  const getWorkspaceData = useCallback((orgId: string, resource: string): Record<string, unknown>[] => {
     return workspaceData[orgId]?.[resource] || [];
   }, [workspaceData]);
 
@@ -259,7 +297,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     } finally {
       setLoading(false);
     }
-  }, [apiCall, session]);
+  }, [apiCall, session, ensurePersonalOrganization]);
 
   // Fetch pending invitations
   const fetchInvitations = useCallback(async () => {
@@ -273,7 +311,27 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       
       // Only fetch invitations if authenticated
       const data = await apiCall(`${getOrganizationsEndpoint()}/me/invitations`);
-      setInvitations(data || []);
+      
+      // Validate response with runtime checks
+      if (!Array.isArray(data)) {
+        console.error('Invalid invitations response: expected array, got', typeof data);
+        setInvitations([]);
+        return;
+      }
+      
+      // Validate each invitation with Zod schema
+      const validatedInvitations = data
+        .map(invitation => {
+          try {
+            return organizationInvitationSchema.parse(invitation);
+          } catch (error) {
+            console.error('Invalid invitation data:', invitation, error);
+            return null;
+          }
+        })
+        .filter((invitation): invitation is Invitation => invitation !== null);
+      
+      setInvitations(validatedInvitations);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch invitations');
       setInvitations([]);
@@ -286,8 +344,26 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    await fetchOrganizations(); // Refresh list
-    return result;
+    
+    // Validate response with runtime checks
+    if (typeof result !== 'object' || result === null) {
+      throw new Error(`Invalid organization response: expected object, got ${typeof result}`);
+    }
+    
+    // Validate with Zod schema
+    try {
+      // Ensure slug is present, use id as fallback if missing
+      const resultWithSlug = {
+        ...result,
+        slug: (result as Record<string, unknown>).slug || (result as Record<string, unknown>).id || 'unknown'
+      };
+      const validatedResult = organizationSchema.parse(resultWithSlug);
+      await fetchOrganizations(); // Refresh list
+      return validatedResult as unknown as Organization;
+    } catch (error) {
+      console.error('Invalid organization data:', result, error);
+      throw new Error('Invalid organization response format');
+    }
   }, [apiCall, fetchOrganizations]);
 
   // Update organization
@@ -311,7 +387,22 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   const fetchMembers = useCallback(async (orgId: string): Promise<void> => {
     try {
       const data = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/member`);
-      setMembers(prev => ({ ...prev, [orgId]: data.members || [] }));
+      
+      // Validate response with runtime checks
+      if (typeof data !== 'object' || data === null) {
+        console.error('Invalid members response: expected object, got', typeof data);
+        setMembers(prev => ({ ...prev, [orgId]: [] }));
+        return;
+      }
+      
+      // Validate with Zod schema
+      try {
+        const validatedData = membersResponseSchema.parse(data);
+        setMembers(prev => ({ ...prev, [orgId]: validatedData.members || [] }));
+      } catch (error) {
+        console.error('Invalid members data:', data, error);
+        setMembers(prev => ({ ...prev, [orgId]: [] }));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');
     }
@@ -363,16 +454,36 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   const fetchTokens = useCallback(async (orgId: string): Promise<void> => {
     try {
       const data = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/tokens`);
-      // Map API response to ApiToken shape
-      const mappedTokens = (data || []).map((token: any) => ({
-        id: token.id,
-        name: token.tokenName,
-        permissions: token.permissions || [],
-        createdAt: token.createdAt,
-        lastUsed: token.lastUsedAt,
-        ...token // Include any other fields
-      }));
-      setTokens(prev => ({ ...prev, [orgId]: mappedTokens }));
+      
+      // Validate response with runtime checks
+      if (!Array.isArray(data)) {
+        console.error('Invalid tokens response: expected array, got', typeof data);
+        setTokens(prev => ({ ...prev, [orgId]: [] }));
+        return;
+      }
+      
+      // Validate each token with Zod schema and map to ApiToken shape
+      const validatedTokens: ApiToken[] = data
+        .map((token: unknown) => {
+          try {
+            const validatedToken = organizationApiTokenSchema.parse(token);
+            // Create a clean ApiToken object with only the required fields
+            const apiToken: ApiToken = {
+              id: validatedToken.id,
+              name: validatedToken.tokenName,
+              permissions: validatedToken.permissions,
+              createdAt: validatedToken.createdAt,
+              lastUsed: validatedToken.lastUsedAt,
+            };
+            return apiToken;
+          } catch (error) {
+            console.error('Invalid token data:', token, error);
+            return null;
+          }
+        })
+        .filter((token): token is ApiToken => token !== null);
+      
+      setTokens(prev => ({ ...prev, [orgId]: validatedTokens }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch tokens');
     }
@@ -384,8 +495,21 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       method: 'POST',
       body: JSON.stringify({ tokenName: name }),
     });
-    await fetchTokens(orgId); // Refresh tokens
-    return { token: result.token, tokenId: result.tokenId };
+    
+    // Validate response with runtime checks
+    if (typeof result !== 'object' || result === null) {
+      throw new Error(`Invalid create token response: expected object, got ${typeof result}`);
+    }
+    
+    // Validate with Zod schema
+    try {
+      const validatedResult = createTokenResponseSchema.parse(result);
+      await fetchTokens(orgId); // Refresh tokens
+      return { token: validatedResult.token, tokenId: validatedResult.tokenId };
+    } catch (error) {
+      console.error('Invalid create token data:', result, error);
+      throw new Error('Invalid create token response format');
+    }
   }, [apiCall, fetchTokens]);
 
   // Revoke API token
