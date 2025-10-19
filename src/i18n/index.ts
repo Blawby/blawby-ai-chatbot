@@ -106,19 +106,38 @@ const loadLocaleResources = async (locale: AnyLocale) => {
     return;
   }
 
-  const namespaceData = await Promise.all(
-    NAMESPACES.map(async (namespace) => {
-      const module = await import(/* @vite-ignore */ `../locales/${locale}/${namespace}.json`);
-      return [namespace, module.default] as const;
-    })
-  );
+  try {
+    // Import the pre-bundled locale index file
+    const localeModule = await import(`../locales/${locale}/index.ts`);
+    
+    NAMESPACES.forEach((namespace) => {
+      const alreadyLoaded = i18next.getResourceBundle(locale, namespace);
+      if (!alreadyLoaded && localeModule[namespace]) {
+        i18next.addResourceBundle(locale, namespace, localeModule[namespace], true, true);
+      }
+    });
+  } catch (error) {
+    console.warn(`Failed to load locale ${locale}:`, error);
+    // Fallback to individual JSON imports if index file doesn't exist
+    const namespaceData = await Promise.all(
+      NAMESPACES.map(async (namespace) => {
+        try {
+          const module = await import(`../locales/${locale}/${namespace}.json`);
+          return [namespace, module.default] as const;
+        } catch (error) {
+          console.warn(`Failed to load ${locale}/${namespace}.json:`, error);
+          return [namespace, {}] as const;
+        }
+      })
+    );
 
-  namespaceData.forEach(([namespace, data]) => {
-    const alreadyLoaded = i18next.getResourceBundle(locale, namespace);
-    if (!alreadyLoaded) {
-      i18next.addResourceBundle(locale, namespace, data, true, true);
-    }
-  });
+    namespaceData.forEach(([namespace, data]) => {
+      const alreadyLoaded = i18next.getResourceBundle(locale, namespace);
+      if (!alreadyLoaded && Object.keys(data).length > 0) {
+        i18next.addResourceBundle(locale, namespace, data, true, true);
+      }
+    });
+  }
 };
 
 export const initI18n = async () => {
@@ -150,7 +169,9 @@ export const initI18n = async () => {
         lookupLocalStorage: STORAGE_KEY
       },
       react: {
-        useSuspense: true
+        useSuspense: true,
+        bindI18n: 'languageChanged loaded',
+        bindI18nStore: 'added removed'
       }
     });
 
