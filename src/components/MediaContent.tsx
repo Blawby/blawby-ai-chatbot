@@ -26,7 +26,7 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
-                                    handleVideoClick();
+                                    handleVideoClick(e);
                                 }
                             }}
                             role="button"

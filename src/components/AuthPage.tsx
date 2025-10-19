@@ -225,7 +225,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     // Clear the onboarding check flag since user completed onboarding
     try {
       localStorage.removeItem('onboardingCheckDone');
-		} catch (_error) {
+    } catch (_error) {
       // Handle localStorage failures gracefully
     }
     
@@ -242,7 +242,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     // Clear the onboarding check flag since user skipped onboarding
     try {
       localStorage.removeItem('onboardingCheckDone');
-		} catch (_error) {
+    } catch (_error) {
       // Handle localStorage failures gracefully
     }
     

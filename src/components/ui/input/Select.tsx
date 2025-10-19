@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'preact/hooks';
 import { ChevronDownIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { cn } from '../../../utils/cn';
+import { useTranslation } from '@/i18n/hooks';
 
 export interface SelectOption {
   value: string;
@@ -38,10 +39,10 @@ export const Select = ({
   mobile = false,
   placeholder = 'Select an option',
   searchable = false,
-  _labelKey,
-  _descriptionKey,
-  _placeholderKey,
-  _namespace = 'common'
+  labelKey,
+  descriptionKey,
+  placeholderKey,
+  namespace = 'common'
 }: SelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -53,15 +54,10 @@ export const Select = ({
   const dropdownId = useMemo(() => `select-${Math.random().toString(36).substr(2, 9)}`, []);
   const listboxId = `${dropdownId}-listbox`;
 
-  // TODO: Add i18n support when useTranslation hook is available
-  // const { t } = useTranslation(namespace);
-  // const displayLabel = labelKey ? t(labelKey) : label;
-  // const displayDescription = descriptionKey ? t(descriptionKey) : description;
-  // const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
-  
-  const displayLabel = label;
-  const displayDescription = description;
-  const displayPlaceholder = placeholder;
+  const { t } = useTranslation(namespace);
+  const displayLabel = labelKey ? t(labelKey) : label;
+  const displayDescription = descriptionKey ? t(descriptionKey) : description;
+  const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
 
   // Filter options based on search term
   const filteredOptions = useMemo(() => {

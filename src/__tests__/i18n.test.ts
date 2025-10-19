@@ -91,7 +91,7 @@ describe('Translation Files Structure', () => {
       try {
         const module = await import(`../locales/${locale}/${namespace}.json`);
         return module.default;
-      } catch (_error) {
+      } catch (error) {
         throw new Error(`Failed to load ${locale}/${namespace}.json: ${error}`);
       }
     }
@@ -102,7 +102,7 @@ describe('Translation Files Structure', () => {
     return Object.entries(obj).flatMap(([key, value]) => {
       const fullKey = prefix ? `${prefix}.${key}` : key;
       if (value && typeof value === 'object' && !Array.isArray(value)) {
-        return getAllKeys(value, fullKey);
+        return getAllKeys(value as Record<string, unknown>, fullKey);
       }
       return [fullKey];
     });
@@ -187,7 +187,7 @@ describe('Translation Files Structure', () => {
             emptyValues.push(currentPath.join('.'));
           }
         } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-          checkForEmptyValues(value, currentPath);
+          checkForEmptyValues(value as Record<string, unknown>, currentPath);
         }
       });
     };
@@ -278,7 +278,7 @@ describe('Translation Files Structure', () => {
               }
             }
           } else if (enValue && typeof enValue === 'object' && !Array.isArray(enValue)) {
-            await checkPlaceholders(enValue, currentPath);
+            await checkPlaceholders(enValue as Record<string, unknown>, currentPath);
           }
         }
       };

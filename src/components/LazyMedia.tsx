@@ -8,10 +8,11 @@ interface LazyMediaProps {
     alt?: string;
     className?: string;
     onClick?: () => void;
+    captionSrc?: string;
 }
 
-const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', className = '', onClick }) => {
-    const mediaRef = useRef<HTMLElement>(null);
+const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', className = '', onClick, captionSrc }) => {
+    const mediaRef = useRef<HTMLDivElement>(null);
     const [isLoaded, setIsLoaded] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     const [error, setError] = useState(false);
@@ -119,7 +120,12 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
                         onError={handleError}
                         className={isLoaded ? 'visible' : 'hidden'}
                     >
-                        <track kind="captions" src="" label="No captions available" />
+                        <track 
+                            kind="captions" 
+                            src={captionSrc && captionSrc.trim() ? captionSrc : ""} 
+                            label={captionSrc && captionSrc.trim() ? "Captions" : "No captions available"}
+                            default={!!(captionSrc && captionSrc.trim())}
+                        />
                     </video>
                 ) : isAudio ? (
                     <audio
@@ -129,7 +135,12 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
                         onError={handleError}
                         className={isLoaded ? 'visible' : 'hidden'}
                     >
-                        <track kind="captions" src="" label="No captions available" />
+                        <track 
+                            kind="captions" 
+                            src={captionSrc && captionSrc.trim() ? captionSrc : ""} 
+                            label={captionSrc && captionSrc.trim() ? "Captions" : "No captions available"}
+                            default={!!(captionSrc && captionSrc.trim())}
+                        />
                     </audio>
                 ) : (
                     <div className="unsupported-media">

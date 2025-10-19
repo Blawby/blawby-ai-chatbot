@@ -85,8 +85,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
     }, [startIndex, checkIfScrolledToBottom]);
 
-    const debouncedHandleScroll = useCallback(() => {
-        debounce(handleScroll, DEBOUNCE_DELAY)();
+    const debouncedHandleScroll = useMemo(() => {
+        return debounce(handleScroll, DEBOUNCE_DELAY);
     }, [handleScroll]);
 
     useEffect(() => {

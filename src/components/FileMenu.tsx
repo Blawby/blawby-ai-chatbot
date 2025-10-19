@@ -30,19 +30,19 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
 
   useEffect(() => setIsBrowser(true), []);
 
-  const handleClickOutside = useCallback((e: Event) => {
-    const target = e.target as Node;
-    if (menuRef.current && !menuRef.current.contains(target)) {
-      handleClose();
-    }
-  }, [handleClose]);
-
   const handleClose = useCallback(() => {
     if (isOpen && !isClosing) {
       setIsClosing(true);
       setTimeout(() => { setIsOpen(false); setIsClosing(false); }, 150);
     }
   }, [isOpen, isClosing]);
+
+  const handleClickOutside = useCallback((e: Event) => {
+    const target = e.target as Node;
+    if (menuRef.current && !menuRef.current.contains(target)) {
+      handleClose();
+    }
+  }, [handleClose]);
 
   const handleFileClick = () => {
     // Batch file input click and menu close operations

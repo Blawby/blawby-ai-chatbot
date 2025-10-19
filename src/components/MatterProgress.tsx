@@ -61,9 +61,9 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
     }
   }, [organizationId, matterId]);
 
-  // Poll for updates every 10 seconds when visible
+  // Poll for updates every 10 seconds when visible and feature is enabled
   useEffect(() => {
-    if (!visible) return;
+    if (!features.enableParalegalAgent || !visible) return;
 
     fetchProgress(); // Initial fetch
 

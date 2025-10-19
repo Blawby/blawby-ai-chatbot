@@ -84,11 +84,6 @@ export const organizationConfigSchema = z.object({
 
 });
 
-export const organizationSchema = z.object({
-  id: idSchema,
-  name: z.string().min(1),
-  config: organizationConfigSchema
-});
 
 // Organization database schema with constraints
 export const organizationDbSchema = z.object({
@@ -221,4 +216,61 @@ export const stripeSubscriptionCacheSchema = z.object({
   }),
   cachedAt: z.number().int().positive(),
   expiresAt: z.number().int().positive().optional()
+});
+
+// Organization Management API Response Schemas
+export const organizationMemberSchema = z.object({
+  userId: z.string().min(1),
+  role: organizationRoleSchema,
+  email: z.string().email(),
+  name: z.string().optional(),
+  image: z.string().optional(),
+  createdAt: z.string().min(1)
+});
+
+export const organizationInvitationSchema = z.object({
+  id: z.string().min(1),
+  organizationId: z.string().min(1),
+  organizationName: z.string().optional(),
+  email: z.string().email(),
+  role: organizationRoleSchema,
+  status: z.enum(['pending', 'accepted', 'declined']),
+  invitedBy: z.string().min(1),
+  expiresAt: z.string().min(1),
+  createdAt: z.string().min(1)
+});
+
+export const organizationApiTokenSchema = z.object({
+  id: z.string().min(1),
+  tokenName: z.string().min(1),
+  permissions: z.array(z.string()),
+  createdAt: z.string().min(1),
+  lastUsedAt: z.string().optional()
+});
+
+export const organizationSchema = z.object({
+  id: z.string().min(1),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  stripeCustomerId: z.string().nullable().optional(),
+  subscriptionTier: subscriptionTierSchema.nullable().optional(),
+  seats: z.number().int().positive().nullable().optional(),
+  config: z.object({
+    metadata: z.object({
+      subscriptionPlan: z.string().optional(),
+      planStatus: z.string().optional()
+    }).optional()
+  }).optional(),
+  isPersonal: z.boolean().nullable().optional()
+});
+
+// API Response schemas
+export const membersResponseSchema = z.object({
+  members: z.array(organizationMemberSchema)
+});
+
+export const createTokenResponseSchema = z.object({
+  token: z.string().min(1),
+  tokenId: z.string().min(1)
 });

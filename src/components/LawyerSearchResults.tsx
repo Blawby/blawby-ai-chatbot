@@ -7,12 +7,12 @@ import {
   BuildingOfficeIcon,
   MapPinIcon,
   StarIcon,
-  StarIcon as StarIconHalf,
   ClockIcon,
   CurrencyDollarIcon,
   ChatBubbleOvalLeftIcon,
   EllipsisVerticalIcon
 } from "@heroicons/react/24/outline";
+import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { useTheme } from '../hooks/useTheme';
 
 interface LawyerProfile {
@@ -81,7 +81,14 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
 
     if (hasHalfStarIcon) {
       stars.push(
-        <StarIconHalf key="half" className="w-4 h-4 text-yellow-400 fill-current" />
+        <div key="half" className="relative w-4 h-4">
+          {/* Background outline star */}
+          <StarIcon className="absolute inset-0 w-4 h-4 text-gray-300" />
+          {/* Clipped solid star for half fill */}
+          <div className="absolute inset-0 w-4 h-4 overflow-hidden" style={{ width: '50%' }}>
+            <StarIconSolid className="w-4 h-4 text-yellow-400" />
+          </div>
+        </div>
       );
     }
 

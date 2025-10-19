@@ -25,7 +25,7 @@ export const mockApiResponse = (data: unknown, status = 200) => {
 };
 
 // Mock API error
-export const mockApiError = (_status = 500, message = 'Internal Server Error') => {
+export const mockApiError = (message = 'Internal Server Error') => {
   return Promise.reject(new Error(message));
 };
 

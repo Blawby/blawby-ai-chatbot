@@ -5,7 +5,6 @@ import { memo } from 'preact/compat';
 import { getFeedbackEndpoint } from '../config/api';
 
 interface FeedbackUIProps {
-  messageId?: string;
   sessionId?: string;
   organizationId?: string;
   onFeedbackSubmit?: (feedback: FeedbackData) => void;
@@ -19,7 +18,6 @@ interface FeedbackData {
 }
 
 const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({ 
-  _messageId, 
   sessionId, 
   organizationId, 
   onFeedbackSubmit 

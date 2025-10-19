@@ -94,6 +94,14 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
     };
   }, [isDropdownOpen]);
 
+  const handleCountrySelect = useCallback((country: typeof countries[0]) => {
+    setSelectedCountryCode(country.code);
+    onCountryChange?.(country.code);
+    setIsDropdownOpen(false);
+    setFocusedIndex(-1);
+    buttonRef.current?.focus();
+  }, [onCountryChange]);
+
   // Keyboard navigation handler
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!isDropdownOpen) {
@@ -216,14 +224,6 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
     const formattedValue = formatPhoneNumber(rawValue);
     onChange?.(formattedValue);
   }, [onChange, formatPhoneNumber]);
-
-  const handleCountrySelect = useCallback((country: typeof countries[0]) => {
-    setSelectedCountryCode(country.code);
-    onCountryChange?.(country.code);
-    setIsDropdownOpen(false);
-    setFocusedIndex(-1);
-    buttonRef.current?.focus();
-  }, [onCountryChange]);
 
   const inputClasses = cn(
     'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
