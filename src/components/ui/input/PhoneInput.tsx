@@ -134,7 +134,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
         setFocusedIndex(-1);
         break;
     }
-  }, [isDropdownOpen, focusedIndex]);
+  }, [isDropdownOpen, focusedIndex, handleCountrySelect]);
 
   // Focus management
   useEffect(() => {
@@ -268,14 +268,14 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
             
             {isDropdownOpen && (
               <div className="absolute z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg w-52 top-full left-0 mt-1">
-                <ul 
+                <div 
                   ref={listRef}
-                  role="menu"
+                  role="listbox"
                   aria-label="Country selection"
                   className="py-1 text-sm"
                 >
                   {countries.map((country, index) => (
-                    <li key={country.code}>
+                    <div key={country.code} role="option" aria-selected={index === focusedIndex}>
                       <button
                         type="button"
                         onClick={() => handleCountrySelect(country)}
@@ -283,18 +283,16 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                           "inline-flex w-full px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-700",
                           index === focusedIndex && "bg-gray-100 dark:bg-gray-700"
                         )}
-                        role="menuitem"
                         tabIndex={-1}
-                        aria-selected={index === focusedIndex}
                       >
                         <span className="inline-flex items-center">
                           <span className="text-base mr-2">{country.emoji}</span>
                           <span>{country.name} ({country.code})</span>
                         </span>
                       </button>
-                    </li>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
           </div>

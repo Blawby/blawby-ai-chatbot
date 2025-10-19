@@ -52,7 +52,7 @@ export const FileUploadStatus = ({ file, onCancel, className }: FileUploadStatus
         URL.revokeObjectURL(createdUrl);
       }
     };
-  }, [file.file]); // Re-run when file changes
+  }, [file.file, objectUrl]); // Re-run when file changes
 
   // Create file object with URL for images
   const fileWithUrl = {

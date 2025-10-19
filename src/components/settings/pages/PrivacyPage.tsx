@@ -3,7 +3,7 @@
 // TODO: Add UI for managing PII consent, data retention, marketing consent
 // TODO: Add GDPR compliance features (data export, deletion requests)
 
-import { h } from 'preact';
+// import { h } from 'preact'; // Unused
 
 export default function PrivacyPage() {
   return (

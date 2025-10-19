@@ -4,13 +4,10 @@ import { Button } from './ui/Button';
 import ContactOptionsModal from './ContactOptionsModal';
 import {
   UserIcon,
-  BuildingOfficeIconOfficeIcon,
+  BuildingOfficeIcon,
   MapPinIcon,
   StarIcon,
-  StarIcon as StarIconHalfIcon,
-  PhoneIcon,
-  EnvelopeIcon,
-  GlobeAltIconAltIcon,
+  StarIcon as StarIconHalf,
   ClockIcon,
   CurrencyDollarIcon,
   ChatBubbleOvalLeftIcon,
@@ -105,7 +102,7 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
           No Lawyers Found
         </h3>
         <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          We couldn't find any lawyers in your area for {matterType}. Try searching again or contact us for assistance.
+          We couldn&apos;t find any lawyers in your area for {matterType}. Try searching again or contact us for assistance.
         </p>
         <Button variant="primary" onClick={onSearchAgain}>
           Search Again

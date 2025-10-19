@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useRef, useEffect, useState } from 'preact/hooks';
+import { useRef, useEffect, useState, useCallback } from 'preact/hooks';
 import Modal from './Modal';
 import { CameraIcon } from "@heroicons/react/24/outline";
 import { Button } from './ui/Button';
@@ -29,9 +29,9 @@ const CameraIconModal: FunctionComponent<CameraIconModalProps> = ({
         return () => {
             stopCameraIcon();
         };
-    }, [isOpen]);
+    }, [isOpen, startCameraIcon]);
 
-    const startCameraIcon = async () => {
+    const startCameraIcon = useCallback(async () => {
         try {
             setError('');
             setIsCameraIconReady(false);
@@ -68,7 +68,7 @@ const CameraIconModal: FunctionComponent<CameraIconModalProps> = ({
             console.error('Error accessing camera:', err);
             setError('Could not access camera. Please check permissions and ensure your device has a camera.');
         }
-    };
+    }, []);
 
     const stopCameraIcon = () => {
         if (streamRef.current) {

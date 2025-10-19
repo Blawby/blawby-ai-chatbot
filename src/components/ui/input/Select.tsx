@@ -38,10 +38,10 @@ export const Select = ({
   mobile = false,
   placeholder = 'Select an option',
   searchable = false,
-  labelKey,
-  descriptionKey,
-  placeholderKey,
-  namespace = 'common'
+  _labelKey,
+  _descriptionKey,
+  _placeholderKey,
+  _namespace = 'common'
 }: SelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -198,7 +198,7 @@ export const Select = ({
                     onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                     placeholder="Search..."
                     className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
-                    autoFocus
+                    autoFocus // eslint-disable-line jsx-a11y/no-autofocus
                   />
                 </div>
               )}
@@ -288,7 +288,7 @@ export const Select = ({
                   onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                   placeholder="Search..."
                   className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
-                  autoFocus
+                  autoFocus // eslint-disable-line jsx-a11y/no-autofocus
                 />
               </div>
             )}

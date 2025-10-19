@@ -109,8 +109,8 @@ export default function ConfirmationDialog({
       type="modal"
       disableBackdropClick={true}
     >
-      <form onSubmit={handleSubmit} noValidate onClick={(e) => e.stopPropagation()}>
-        <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
+      <form onSubmit={handleSubmit} noValidate>
+        <div className="space-y-4">
           {/* Warning Content */}
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
@@ -209,7 +209,7 @@ export default function ConfirmationDialog({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+        <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
           <Button
             type="button"
             variant="secondary"

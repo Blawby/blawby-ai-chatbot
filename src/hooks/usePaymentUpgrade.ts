@@ -103,7 +103,7 @@ export const usePaymentUpgrade = () => {
         });
 
         const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-        const url: string | undefined = result?.url ?? result?.data?.url;
+        const url: string | undefined = (result?.url as string) ?? ((result?.data as Record<string, unknown>)?.url as string);
         if (!response.ok || !url) {
           // Handle specific error codes
           if (result?.errorCode) {
@@ -114,7 +114,7 @@ export const usePaymentUpgrade = () => {
             }));
           }
           
-          const message = result?.error || 'Unable to open billing portal';
+          const message = (result?.error as string) || 'Unable to open billing portal';
           throw new Error(message);
         }
 
@@ -174,7 +174,7 @@ export const usePaymentUpgrade = () => {
         });
 
         const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-        const checkoutUrl: string | undefined = result?.url ?? result?.data?.url;
+        const checkoutUrl: string | undefined = (result?.url as string) ?? ((result?.data as Record<string, unknown>)?.url as string);
 
         if (!response.ok || !checkoutUrl) {
           if (import.meta.env.DEV) {
@@ -197,7 +197,7 @@ export const usePaymentUpgrade = () => {
             }));
           }
           
-          const message = result?.error || 'Unable to initiate Stripe checkout';
+          const message = (result?.error as string) || 'Unable to initiate Stripe checkout';
           throw new Error(message);
         }
 
@@ -321,7 +321,7 @@ export const usePaymentUpgrade = () => {
         }
 
         showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        return result?.subscription ?? null;
+        return (result as unknown as Record<string, unknown>)?.subscription ?? null;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to refresh subscription status';
         

@@ -243,7 +243,7 @@ export function useChatSession(organizationId: string): ChatSessionState {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]); // Only re-run when organizationId actually changes
+  }, [organizationId, clearStoredSession, performHandshake]); // Only re-run when organizationId actually changes
 
   return {
     sessionId,

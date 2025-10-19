@@ -13,8 +13,8 @@ interface PaymentContentProps {
 const PaymentContent: FunctionComponent<PaymentContentProps> = ({
     paymentUrl,
     amount,
-    description,
-    onPaymentComplete
+    _description,
+    _onPaymentComplete
 }) => {
     const [hasError, setHasError] = useState(false);
     const iframeRef = useRef<HTMLIFrameElement>(null);

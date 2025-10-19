@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { SUPPORTED_LOCALES, AVAILABLE_LOCALES, DEFAULT_LOCALE, isRTLLocale, RTL_LOCALES } from '../i18n/index';
 
 // Mock localStorage
@@ -91,14 +91,14 @@ describe('Translation Files Structure', () => {
       try {
         const module = await import(`../locales/${locale}/${namespace}.json`);
         return module.default;
-      } catch (error) {
+      } catch (_error) {
         throw new Error(`Failed to load ${locale}/${namespace}.json: ${error}`);
       }
     }
   };
 
   // Helper to get all keys from nested object
-  const getAllKeys = (obj: any, prefix = ''): string[] => {
+  const getAllKeys = (obj: Record<string, unknown>, prefix = ''): string[] => {
     return Object.entries(obj).flatMap(([key, value]) => {
       const fullKey = prefix ? `${prefix}.${key}` : key;
       if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -115,7 +115,7 @@ describe('Translation Files Structure', () => {
       for (const namespace of NAMESPACES) {
         try {
           await loadTranslation(locale, namespace);
-        } catch (error) {
+        } catch (_error) {
           missingFiles.push(`${locale}/${namespace}.json`);
         }
       }
@@ -159,7 +159,7 @@ describe('Translation Files Structure', () => {
               `${locale}/${namespace}: Extra keys: ${extraInLocale.join(', ')}`
             );
           }
-        } catch (error) {
+        } catch (_error) {
           inconsistencies.push(`${locale}/${namespace}: Failed to load`);
         }
       }
@@ -178,7 +178,7 @@ describe('Translation Files Structure', () => {
   it('should not have empty translation values', async () => {
     const emptyValues: string[] = [];
 
-    const checkForEmptyValues = (obj: any, path: string[] = []): void => {
+    const checkForEmptyValues = (obj: Record<string, unknown>, path: string[] = []): void => {
       Object.entries(obj).forEach(([key, value]) => {
         const currentPath = [...path, key];
         
@@ -197,7 +197,7 @@ describe('Translation Files Structure', () => {
         try {
           const translation = await loadTranslation(locale, namespace);
           checkForEmptyValues(translation, [locale, namespace]);
-        } catch (error) {
+        } catch (_error) {
           // Skip if file doesn't exist (covered by other test)
         }
       }
@@ -222,7 +222,7 @@ describe('Translation Files Structure', () => {
           if (typeof translation !== 'object' || translation === null) {
             invalidFiles.push(`${locale}/${namespace}.json - not an object`);
           }
-        } catch (error) {
+        } catch (_error) {
           invalidFiles.push(`${locale}/${namespace}.json - invalid JSON`);
         }
       }
@@ -244,7 +244,7 @@ describe('Translation Files Structure', () => {
     for (const namespace of NAMESPACES) {
       const enTranslation = await loadTranslation('en', namespace);
       
-      const checkPlaceholders = async (enObj: any, path: string[] = []): Promise<void> => {
+      const checkPlaceholders = async (enObj: Record<string, unknown>, path: string[] = []): Promise<void> => {
         for (const [key, enValue] of Object.entries(enObj)) {
           const currentPath = [...path, key];
           
@@ -272,7 +272,7 @@ describe('Translation Files Structure', () => {
                       );
                     }
                   }
-                } catch (error) {
+                } catch (_error) {
                   // Skip if file doesn't exist
                 }
               }
@@ -324,7 +324,7 @@ describe('Locale-specific Features', () => {
         const translation = await import(`../locales/${locale}/common.json`);
         const hasSpecialChars = JSON.stringify(translation.default).match(pattern);
         expect(hasSpecialChars, `${locale} should contain its script characters`).toBeTruthy();
-      } catch (error) {
+      } catch (_error) {
         throw new Error(`Failed to load ${locale}/common.json`);
       }
     }
@@ -358,7 +358,7 @@ describe('Translation Quality', () => {
               `${locale}/${namespace}: Found ${matches.length} English words: ${[...new Set(matches)].slice(0, 5).join(', ')}`
             );
           }
-        } catch (error) {
+        } catch (_error) {
           // Skip if file doesn't exist
         }
       }

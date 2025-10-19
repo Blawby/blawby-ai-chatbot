@@ -113,7 +113,7 @@ export async function uploadWithProgress(
             // Final progress update to 100%
             if (onProgress) {
               const total = lastProgress?.total || file.size;
-              const loaded = lastProgress?.loaded || file.size;
+              const _loaded = lastProgress?.loaded || file.size;
               onProgress({
                 loaded: total, // Use total as loaded for 100% completion
                 total,

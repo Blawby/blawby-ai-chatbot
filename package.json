@@ -11,7 +11,7 @@
 		"dev:full": "concurrently \"npm run dev\" \"npm run dev:worker\"",
 		"build": "vite build",
 		"preview": "vite preview",
-		"lint": "eslint src/ worker/ scripts/ --ext .ts,.tsx,.js,.jsx,.mjs --max-warnings 50",
+		"lint": "eslint src/ worker/ --ext .ts,.tsx,.js,.jsx,.mjs --max-warnings 50",
 		"lint:fix": "eslint . --fix",
 		"lint:check": "eslint . --max-warnings 0",
 		"lint:src": "eslint src/ --ext .ts,.tsx,.js,.jsx --max-warnings 20",

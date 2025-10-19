@@ -11,7 +11,7 @@ import { useTranslation } from '@/i18n/hooks';
 import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
 import type { User as BetterAuthUser } from 'better-auth/types';
 
-interface User extends BetterAuthUser {
+interface _User extends BetterAuthUser {
   organizationId?: string | null;
   role?: string | null;
   phone?: string | null;

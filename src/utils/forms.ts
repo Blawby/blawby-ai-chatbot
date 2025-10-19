@@ -1,7 +1,7 @@
 // API endpoints - moved inline since api.ts was removed
 const getFormsEndpoint = () => '/api/forms';
 const getOrganizationsEndpoint = () => '/api/organizations';
-import { ChatMessageUI } from '../../worker/types';
+// import { ChatMessageUI } from '../../worker/types'; // Unused
 
 // Type definitions for organization data
 interface Organization {

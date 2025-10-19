@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'preact/compat';
+import { forwardRef } from 'preact/compat';
 import { cn } from '../../../utils/cn';
 import { useUniqueId } from '../../../hooks/useUniqueId';
 
@@ -40,11 +40,11 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   min,
   max,
   format = 'date',
-  labelKey,
-  descriptionKey,
-  placeholderKey,
-  errorKey,
-  namespace = 'common',
+  _labelKey,
+  _descriptionKey,
+  _placeholderKey,
+  _errorKey,
+  _namespace = 'common',
   id
 }, ref) => {
   // Generate stable ID for accessibility
@@ -61,7 +61,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   const displayLabel = label;
   const displayDescription = description;
   const displayPlaceholder = placeholder;
-  const displayError = error;
+  const _displayError = error;
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',

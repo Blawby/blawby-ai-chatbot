@@ -89,7 +89,7 @@ describe('RTL (Right-to-Left) Support - Simple', () => {
             if (hasRTLRules) break;
           }
         }
-      } catch (e) {
+		} catch (_e) {
         // Cross-origin restrictions may prevent access to stylesheets
         // In that case, we assume RTL rules exist if we can't verify
         hasRTLRules = true;
@@ -115,8 +115,8 @@ describe('RTL (Right-to-Left) Support - Simple', () => {
       
       // Check if the element has the expected RTL behavior
       const computedStyle = window.getComputedStyle(testDiv);
-      const marginLeft = computedStyle.marginLeft;
-      const marginRight = computedStyle.marginRight;
+		const _marginLeft = computedStyle.marginLeft;
+		const _marginRight = computedStyle.marginRight;
       
       // Verify RTL direction is set
       expect(document.documentElement.getAttribute('dir')).toBe('rtl');

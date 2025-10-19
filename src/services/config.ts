@@ -25,12 +25,12 @@ export async function getAppConfig(): Promise<AppConfig> {
       throw new Error(`Failed to fetch config: ${response.status}`);
     }
     
-    const result = await response.json();
-    if (!result.success) {
+    const result = await response.json() as Record<string, unknown>;
+    if (!(result.success as boolean)) {
       throw new Error('Config API returned error');
     }
     
-    configCache = result.data;
+    configCache = result.data as AppConfig;
     return configCache;
   } catch (error) {
     console.error('Failed to fetch app configuration:', error);

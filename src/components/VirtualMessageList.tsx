@@ -85,10 +85,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
     }, [startIndex, checkIfScrolledToBottom]);
 
-    const debouncedHandleScroll = useCallback(
-        debounce(handleScroll, DEBOUNCE_DELAY),
-        [handleScroll]
-    );
+    const debouncedHandleScroll = useCallback(() => {
+        debounce(handleScroll, DEBOUNCE_DELAY)();
+    }, [handleScroll]);
 
     useEffect(() => {
         const list = listRef.current;
@@ -153,7 +152,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 </div>
             )}
             <ErrorBoundary>
-                {visibleMessages.map((message, index) => (
+                {visibleMessages.map((message, _index) => (
                     <Message
                         key={message.id}
                         content={message.content}

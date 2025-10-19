@@ -5,8 +5,8 @@ import Modal from './Modal';
 import {
   PhoneIcon,
   EnvelopeIcon,
-  GlobeAltIconAltIcon,
-  XMarkIconMarkIcon,
+  XMarkIcon,
+  GlobeAltIcon,
   ClipboardDocumentIcon,
   CheckIcon
 } from "@heroicons/react/24/outline";
@@ -125,7 +125,7 @@ const ContactOptionsModal: FunctionComponent<ContactOptionsModalProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => copyToClipboard(lawyer.phone!, 'phone')}
+                    onClick={() => copyToClipboard(lawyer.phone || '', 'phone')}
                     className="p-1"
                   >
                     {copiedField === 'phone' ? (
@@ -164,7 +164,7 @@ const ContactOptionsModal: FunctionComponent<ContactOptionsModalProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => copyToClipboard(lawyer.email!, 'email')}
+                    onClick={() => copyToClipboard(lawyer.email || '', 'email')}
                     className="p-1"
                   >
                     {copiedField === 'email' ? (
@@ -203,7 +203,7 @@ const ContactOptionsModal: FunctionComponent<ContactOptionsModalProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => copyToClipboard(lawyer.website!, 'website')}
+                    onClick={() => copyToClipboard(lawyer.website || '', 'website')}
                     className="p-1"
                   >
                     {copiedField === 'website' ? (

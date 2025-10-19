@@ -25,7 +25,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 }) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { navigate } = useNavigation();
-  const { data: session } = useSession();
+  const { data: _session } = useSession();
   const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
   const [selectedCountry, setSelectedCountry] = useState('us');
 

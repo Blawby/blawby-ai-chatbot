@@ -253,7 +253,7 @@ export const AccountPage = ({
     label: domain.domain
   }));
   const deleteListItems = t('settings:account.delete.listItems', { returnObjects: true }) as string[];
-  const confirmLabel = t('settings:account.delete.confirmLabel', { email: emailAddress });
+  const _confirmLabel = t('settings:account.delete.confirmLabel', { email: emailAddress });
   const selectedDomain = links?.selectedDomain && links.selectedDomain !== 'Select a domain'
     ? links.selectedDomain
     : DOMAIN_SELECT_VALUE;
@@ -321,8 +321,8 @@ export const AccountPage = ({
       console.error('Failed to delete account:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       const maybePasswordRequired =
-        (error as any)?.data?.code === 'PASSWORD_REQUIRED' ||
-        (error as any)?.code === 'PASSWORD_REQUIRED' ||
+        (error as Record<string, unknown>)?.data?.code === 'PASSWORD_REQUIRED' ||
+        (error as Record<string, unknown>)?.code === 'PASSWORD_REQUIRED' ||
         /password/i.test(errorMessage);
 
       if (maybePasswordRequired) {

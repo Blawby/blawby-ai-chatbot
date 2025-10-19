@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
 import { PlusIcon, PhotoIcon, CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from './ui/Button';
 import CameraModal from './CameraModal';
@@ -30,19 +30,19 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
 
   useEffect(() => setIsBrowser(true), []);
 
-  const handleClickOutside = (e: Event) => {
+  const handleClickOutside = useCallback((e: Event) => {
     const target = e.target as Node;
     if (menuRef.current && !menuRef.current.contains(target)) {
       handleClose();
     }
-  };
+  }, [handleClose]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (isOpen && !isClosing) {
       setIsClosing(true);
       setTimeout(() => { setIsOpen(false); setIsClosing(false); }, 150);
     }
-  };
+  }, [isOpen, isClosing]);
 
   const handleFileClick = () => {
     // Batch file input click and menu close operations
@@ -73,7 +73,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         focusAnimationFrameRef.current = null;
       }
     };
-  }, [isOpen, isBrowser]);
+  }, [isOpen, isBrowser, handleClickOutside]);
 
   // trap simple Tab focus within menu
   useEffect(() => {
@@ -100,7 +100,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [isOpen, isBrowser]);
+  }, [isOpen, isBrowser, handleClose]);
 
   const filterDisallowedFiles = (files: File[]) => {
     const disallowed = ['zip', 'exe', 'bat', 'cmd', 'msi', 'app'];

@@ -125,6 +125,13 @@ export function ContactForm({
   const validatedProps = validateContactFormProps(fields, required, message);
   const { fields: validFields, required: validRequired, message: validMessage } = validatedProps;
   
+  // Always call hooks at the top level
+  const normalizedInitialValues = useMemo(() => normalizeInitialValues(initialValues), [
+    initialValues
+  ]);
+
+  const { t } = useTranslation('common');
+
   // Validate onSubmit function
   if (typeof onSubmit !== 'function') {
     console.error('[ContactForm] Invalid onSubmit prop: must be a function. Returning fallback UI.');
@@ -137,16 +144,6 @@ export function ContactForm({
       </div>
     );
   }
-
-  const normalizedInitialValues = useMemo(() => normalizeInitialValues(initialValues), [
-    initialValues?.name,
-    initialValues?.email,
-    initialValues?.phone,
-    initialValues?.location,
-    initialValues?.opposingParty
-  ]);
-
-  const { t } = useTranslation('common');
 
   // Create initial data for form
   const initialData = {

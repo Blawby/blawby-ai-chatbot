@@ -6,7 +6,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   CloudArrowUpIcon,
-  XMarkIconMarkIcon
+  XMarkIcon
 } from "@heroicons/react/24/outline";
 
 interface DocumentItem {
@@ -126,6 +126,8 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
             onDrop={(e) => handleDrop(doc.id, e)}
             onDragOver={(e) => handleDragOver(doc.id, e)}
             onDragLeave={handleDragLeave}
+            role="region"
+            aria-label={`Document drop zone for ${doc.name}`}
           >
             <div className="flex items-start gap-3">
               {getStatusIcon(doc.status, doc.required)}

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'preact/hooks';
-import { z, ZodSchema, ZodError, ZodObject } from 'zod';
+import { ZodSchema, ZodError, ZodObject } from 'zod';
 
 export interface ValidationResult {
   isValid: boolean;

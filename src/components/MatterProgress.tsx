@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'preact/hooks';
 import { features } from '../config/features';
 import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
@@ -32,12 +32,7 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Don't render if paralegal agent is disabled
-  if (!features.enableParalegalAgent || !visible) {
-    return null;
-  }
-
-  const fetchProgress = async () => {
+  const fetchProgress = useCallback(async () => {
     if (!organizationId || !matterId) return;
 
     setLoading(true);
@@ -64,7 +59,7 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId, matterId]);
 
   // Poll for updates every 10 seconds when visible
   useEffect(() => {
@@ -74,7 +69,12 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
 
     const interval = setInterval(fetchProgress, 10000); // Poll every 10 seconds
     return () => clearInterval(interval);
-  }, [organizationId, matterId, visible]);
+  }, [organizationId, matterId, visible, fetchProgress]);
+
+  // Don't render if paralegal agent is disabled
+  if (!features.enableParalegalAgent || !visible) {
+    return null;
+  }
 
   const getStageDisplayName = (stage: string): string => {
     const stageNames: Record<string, string> = {

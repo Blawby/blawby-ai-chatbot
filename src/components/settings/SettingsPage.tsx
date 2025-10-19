@@ -75,7 +75,7 @@ export const SettingsPage = ({
           }
         }
       });
-    } catch (error) {
+		} catch (_error) {
       showError(t('settings:navigation.signOut.errorTitle'), t('settings:navigation.signOut.errorBody'));
     }
   };

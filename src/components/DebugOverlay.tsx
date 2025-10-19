@@ -187,7 +187,6 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
       role="region"
       aria-label="Debug information overlay"
       aria-live="polite"
-      aria-expanded={isExpanded}
     >
       <div className="mb-2 flex justify-between items-center">
         <strong>Debug Overlay</strong>

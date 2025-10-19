@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useCallback } from 'preact/hooks';
 import { CloudArrowUpIcon } from "@heroicons/react/24/outline";
 
 interface DragDropOverlayProps {
@@ -16,18 +16,18 @@ const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, o
     }
   }, [isVisible]);
 
-  const handleKeyDown = (e: KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape' && onClose) {
       onClose();
     }
-  };
+  }, [onClose]);
 
   useEffect(() => {
     if (isVisible) {
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isVisible, onClose]);
+  }, [isVisible, onClose, handleKeyDown]);
 
   if (!isVisible) return null;
 

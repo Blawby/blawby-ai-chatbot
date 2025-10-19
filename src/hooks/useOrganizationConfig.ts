@@ -253,19 +253,19 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
       currentRequestRef.current = null;
     }
     fetchOrganizationConfig(organizationId);
-  }, [organizationId]);
+  }, [organizationId, fetchOrganizationConfig]);
 
   // Initialize URL parameters on mount
   useEffect(() => {
     parseUrlParams();
-  }, []);
+  }, [parseUrlParams]);
 
   // Fetch organization config when organizationId changes
   useEffect(() => {
     if (organizationId) {
       fetchOrganizationConfig(organizationId);
     }
-  }, [organizationId]);
+  }, [organizationId, fetchOrganizationConfig]);
 
   return {
     organizationId,

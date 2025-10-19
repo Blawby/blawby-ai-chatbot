@@ -79,24 +79,38 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
 
             {isVisible && !error && (
                 isImage ? (
-                    <img
-                        src={src}
-                        alt={alt}
-                        onLoad={handleLoad}
-                        onError={handleError}
-                        onClick={handleImageClick}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-                                e.preventDefault();
-                                handleImageClick();
-                            }
-                        }}
-                        className={isLoaded ? 'visible' : 'hidden'}
-                        loading="lazy"
-                        tabIndex={0}
-                        role="button"
-                        aria-label={onClick ? `View ${alt || 'image'}` : undefined}
-                    />
+                    onClick ? (
+                        <button
+                            type="button"
+                            onClick={handleImageClick}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                                    e.preventDefault();
+                                    handleImageClick();
+                                }
+                            }}
+                            className="border-0 bg-transparent p-0 cursor-pointer"
+                            aria-label={`View ${alt || 'image'}`}
+                        >
+                            <img
+                                src={src}
+                                alt={alt}
+                                onLoad={handleLoad}
+                                onError={handleError}
+                                className={isLoaded ? 'visible' : 'hidden'}
+                                loading="lazy"
+                            />
+                        </button>
+                    ) : (
+                        <img
+                            src={src}
+                            alt={alt}
+                            onLoad={handleLoad}
+                            onError={handleError}
+                            className={isLoaded ? 'visible' : 'hidden'}
+                            loading="lazy"
+                        />
+                    )
                 ) : isVideo ? (
                     <video
                         src={src}
@@ -104,7 +118,9 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
                         onLoadedData={handleLoad}
                         onError={handleError}
                         className={isLoaded ? 'visible' : 'hidden'}
-                    />
+                    >
+                        <track kind="captions" src="" label="No captions available" />
+                    </video>
                 ) : isAudio ? (
                     <audio
                         src={src}
@@ -112,7 +128,9 @@ const LazyMedia: FunctionComponent<LazyMediaProps> = ({ src, type, alt = '', cla
                         onLoadedData={handleLoad}
                         onError={handleError}
                         className={isLoaded ? 'visible' : 'hidden'}
-                    />
+                    >
+                        <track kind="captions" src="" label="No captions available" />
+                    </audio>
                 ) : (
                     <div className="unsupported-media">
                         <a href={src} target="_blank" rel="noopener noreferrer">

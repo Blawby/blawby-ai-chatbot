@@ -1,4 +1,4 @@
-import { ComponentChildren } from 'preact';
+// import { ComponentChildren } from 'preact'; // Unused
 import { cn } from '../../../utils/cn';
 
 export interface SwitchProps {

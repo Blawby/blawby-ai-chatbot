@@ -96,7 +96,7 @@ interface UseOrganizationManagementReturn {
   revokeToken: (orgId: string, tokenId: string) => Promise<void>;
   
   // Workspace data
-  getWorkspaceData: (orgId: string, resource: string) => any[];
+  getWorkspaceData: (orgId: string, resource: string) => Record<string, unknown>[];
   fetchWorkspaceData: (orgId: string, resource: string) => Promise<void>;
   
   refetch: () => Promise<void>;
@@ -109,7 +109,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   const [members, setMembers] = useState<Record<string, Member[]>>({});
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [tokens, setTokens] = useState<Record<string, ApiToken[]>>({});
-  const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, any[]>>>({});
+  const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const personalOrgEnsuredRef = useRef(false);
@@ -160,15 +160,15 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
 
       if (!response.ok) {
         const errorData = await safeJsonParse(response);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        throw new Error((errorData as Record<string, unknown>)?.error as string || `HTTP ${response.status}`);
       }
 
       const data = await safeJsonParse(response);
-      if (!data.success) {
-        throw new Error(data.error || 'API call failed');
+      if (!(data as Record<string, unknown>)?.success) {
+        throw new Error((data as Record<string, unknown>)?.error as string || 'API call failed');
       }
 
-      return data.data;
+      return (data as Record<string, unknown>)?.data;
     } catch (error) {
       // Clear timeout in case of error
       clearTimeout(timeoutId);
@@ -192,7 +192,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     return tokens[orgId] || [];
   }, [tokens]);
 
-  const getWorkspaceData = useCallback((orgId: string, resource: string): any[] => {
+  const getWorkspaceData = useCallback((orgId: string, resource: string): Record<string, unknown>[] => {
     return workspaceData[orgId]?.[resource] || [];
   }, [workspaceData]);
 
@@ -259,7 +259,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     } finally {
       setLoading(false);
     }
-  }, [apiCall, session]);
+  }, [apiCall, session, ensurePersonalOrganization]);
 
   // Fetch pending invitations
   const fetchInvitations = useCallback(async () => {
@@ -272,7 +272,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       }
       
       // Only fetch invitations if authenticated
-      const data = await apiCall(`${getOrganizationsEndpoint()}/me/invitations`);
+      const data = await apiCall(`${getOrganizationsEndpoint()}/me/invitations`) as Invitation[];
       setInvitations(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch invitations');
@@ -285,7 +285,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     const result = await apiCall(getOrganizationsEndpoint(), {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }) as Organization;
     await fetchOrganizations(); // Refresh list
     return result;
   }, [apiCall, fetchOrganizations]);
@@ -310,7 +310,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   // Fetch members
   const fetchMembers = useCallback(async (orgId: string): Promise<void> => {
     try {
-      const data = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/member`);
+      const data = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/member`) as { members: Member[] };
       setMembers(prev => ({ ...prev, [orgId]: data.members || [] }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');
@@ -362,14 +362,14 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   // Fetch API tokens
   const fetchTokens = useCallback(async (orgId: string): Promise<void> => {
     try {
-      const data = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/tokens`);
+      const data = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/tokens`) as Record<string, unknown>[];
       // Map API response to ApiToken shape
-      const mappedTokens = (data || []).map((token: any) => ({
-        id: token.id,
-        name: token.tokenName,
-        permissions: token.permissions || [],
-        createdAt: token.createdAt,
-        lastUsed: token.lastUsedAt,
+      const mappedTokens: ApiToken[] = (data || []).map((token: Record<string, unknown>) => ({
+        id: token.id as string,
+        name: token.tokenName as string,
+        permissions: (token.permissions as string[]) || [],
+        createdAt: token.createdAt as string,
+        lastUsed: token.lastUsedAt as string,
         ...token // Include any other fields
       }));
       setTokens(prev => ({ ...prev, [orgId]: mappedTokens }));
@@ -383,7 +383,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     const result = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/tokens`, {
       method: 'POST',
       body: JSON.stringify({ tokenName: name }),
-    });
+    }) as { token: string; tokenId: string };
     await fetchTokens(orgId); // Refresh tokens
     return { token: result.token, tokenId: result.tokenId };
   }, [apiCall, fetchTokens]);

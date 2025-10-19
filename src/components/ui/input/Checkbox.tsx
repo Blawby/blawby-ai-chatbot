@@ -34,10 +34,10 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
   description,
   error,
   indeterminate = false,
-  labelKey,
-  descriptionKey,
-  errorKey,
-  namespace = 'common',
+  _labelKey,
+  _descriptionKey,
+  _errorKey,
+  _namespace = 'common',
   id
 }, ref) => {
   // TODO: Add i18n support when useTranslation hook is available
@@ -48,7 +48,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
   
   const displayLabel = label;
   const displayDescription = description;
-  const displayError = error;
+  const _displayError = error;
 
   // Generate stable unique ID for this component instance
   const generatedId = useUniqueId('checkbox');

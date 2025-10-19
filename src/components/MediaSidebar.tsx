@@ -1,13 +1,12 @@
 import { useState } from 'preact/hooks';
 import {
   PhotoIcon,
-  EyeIcon,
   ArrowDownTrayIcon
 } from "@heroicons/react/24/outline";
 import { 
   aggregateMediaFromMessages, 
   formatFileSize, 
-  type MediaGroup,
+  // type MediaGroup, // Unused
   type AggregatedMedia 
 } from '../utils/mediaAggregation';
 import { getMimeTypeFromFilename } from '../utils/fileTypeUtils';

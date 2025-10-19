@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useEffect, useState, useRef } from 'preact/hooks';
+import { useEffect, useState, useRef, useCallback } from 'preact/hooks';
 import { XMarkIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { Button } from './ui/Button';
 
@@ -129,9 +129,9 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 animationFrameRef.current = undefined;
             }
         };
-    }, [isRecording, isBrowser, mediaStream]);
+    }, [isRecording, isBrowser, mediaStream, fallbackVisualization, visualizeAudio]);
 
-    const visualizeAudio = () => {
+    const visualizeAudio = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas || !analyserRef.current || !dataArrayRef.current) return;
 
@@ -214,10 +214,10 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         
         // Start the animation loop
         animationFrameRef.current = requestAnimationFrame(draw);
-    };
+    }, [isRecording]);
 
     // Fallback to fake visualization if real audio analysis fails
-    const fallbackVisualization = (): number => {
+    const fallbackVisualization = useCallback((): number => {
         const canvas = canvasRef.current;
         if (!canvas) return 0;
 
@@ -309,7 +309,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         
         // Start the animation loop and return the animation frame ID
         return requestAnimationFrame(drawBars);
-    };
+    }, [isRecording]);
 
     const formatTime = (seconds: number): string => {
         const mins = Math.floor(seconds / 60);

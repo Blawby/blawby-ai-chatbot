@@ -50,7 +50,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     if (onSuccess) {
       try {
         await onSuccess();
-      } catch (error) {
+      } catch (_error) {
         // onSuccess callback failed - use production-safe error handling
         handleError(error, {
           component: 'AuthPage',
@@ -168,7 +168,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       // Use Better Auth for Google OAuth
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: window.location.origin + '/',
+        callbackURL: `${window.location.origin}/`,
       });
 
       if (result.error) {
@@ -225,7 +225,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     // Clear the onboarding check flag since user completed onboarding
     try {
       localStorage.removeItem('onboardingCheckDone');
-    } catch (error) {
+		} catch (_error) {
       // Handle localStorage failures gracefully
     }
     
@@ -242,7 +242,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     // Clear the onboarding check flag since user skipped onboarding
     try {
       localStorage.removeItem('onboardingCheckDone');
-    } catch (error) {
+		} catch (_error) {
       // Handle localStorage failures gracefully
     }
     
