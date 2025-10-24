@@ -127,13 +127,14 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
 
     try {
+      const fee = parseCurrencyToCents(createForm.consultationFee);
       await createOrganization({
         name: createForm.name,
         slug: createForm.slug || undefined,
         description: createForm.description || undefined,
         businessPhone: createForm.businessPhone || undefined,
         businessEmail: createForm.businessEmail || undefined,
-        consultationFee: parseCurrencyToCents(createForm.consultationFee),
+        consultationFee: fee === undefined ? undefined : String(fee),
         paymentUrl: createForm.paymentUrl || undefined,
         calendlyUrl: createForm.calendlyUrl || undefined,
       });
@@ -165,12 +166,13 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
     
     try {
+      const fee = parseCurrencyToCents(editOrgForm.consultationFee);
       await updateOrganization(currentOrganization.id, {
         name: editOrgForm.name,
         description: editOrgForm.description,
         businessPhone: editOrgForm.businessPhone,
         businessEmail: editOrgForm.businessEmail,
-        consultationFee: parseCurrencyToCents(editOrgForm.consultationFee),
+        consultationFee: fee === undefined ? undefined : String(fee),
         paymentUrl: editOrgForm.paymentUrl,
         calendlyUrl: editOrgForm.calendlyUrl,
       });

@@ -1,8 +1,10 @@
 import '@testing-library/jest-dom';
-import { vi, beforeAll, afterAll } from 'vitest';
+import { vi, beforeAll, afterAll, afterEach } from 'vitest';
+import { cleanup } from '@testing-library/preact';
 import { spawn, ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { setTimeout as setTimeoutPromise } from 'timers/promises';
+import { resetTestState } from '../src/__tests__/test-utils';
 
 // Configuration for real API testing
 const WORKER_URL = process.env.WORKER_URL ?? 'http://localhost:8787';
@@ -415,6 +417,12 @@ afterAll(async () => {
   } catch (error) {
     console.error('❌ Failed to stop wrangler dev:', error);
   }
+});
+
+// Global test cleanup - run after each test
+afterEach(() => {
+  cleanup();
+  resetTestState();
 });
 
 // Export helper functions for use in tests

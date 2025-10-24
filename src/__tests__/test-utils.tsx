@@ -1,199 +1,260 @@
-import { render, RenderOptions } from '@testing-library/preact';
-import { ComponentChildren } from 'preact';
-// import { ToastProvider } from '../contexts/ToastContext';
-// import { OrganizationProvider } from '../contexts/OrganizationContext';
+import { render as rtlRender, RenderOptions } from '@testing-library/preact';
+import { ComponentChild, ComponentChildren, h } from 'preact';
+import * as userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
-// Mock useLocation hook with dynamic path
-let mockCurrentPath = '/settings';
-const mockRoute = vi.fn((newPath: string) => {
-  mockCurrentPath = newPath;
-});
+// --- Router test utilities (no routing mocks here) ------------------------
 
-// Helper function to reset mock path
-export const resetMockPath = () => {
-  mockCurrentPath = '/settings';
+let mockCurrentPath = '/settings';
+
+export const resetMockPath = () => { 
+  mockCurrentPath = '/settings'; 
 };
 
-// Helper to read current mocked path
 export const getMockPath = () => mockCurrentPath;
 
-// Mock the navigation hook
-const mockNavigate = vi.fn((url: string) => {
-  mockCurrentPath = url;
-});
-vi.mock('../hooks/useNavigation', () => ({
-  useNavigation: () => ({
-    navigate: mockNavigate,
-  }),
-}));
+// Removed unused route/navigate spies - not wired to any mocks
 
-// Intentionally do NOT mock '../utils/navigation'
-// We rely on the real implementation which calls useLocation().route(),
-// allowing us to assert calls through the mocked preact-iso route function.
+// --- Shared mocks for cross-cutting concerns (global scope) --------------
 
-vi.mock('preact-iso', () => ({
-  useLocation: () => ({
-    path: mockCurrentPath,
-    pathname: mockCurrentPath,
-    search: '',
-    hash: '',
-    query: {},
-    route: mockRoute,
-  }),
-}));
+// Feature flags: single, consistent API
+const featureMap = {
+  enableAudioRecording: false,
+  enableVideoRecording: false,
+  enableFileAttachments: true,
+  enableLeftSidebar: true,
+  enableMessageFeedback: false,
+  enableDisclaimerText: false,
+  enableLearnServicesButton: false,
+  enableConsultationButton: false,
+  enableMobileBottomNav: false,
+  enablePaymentIframe: false,
+  enableLeadQualification: true,
+  enableMultipleOrganizations: false,
+  enablePDFGeneration: false,
+} as const;
 
-// Mock the feature flags
 vi.mock('../config/features', () => ({
-  useFeatureFlag: (flag: string) => {
-    if (flag === 'enableMultipleOrganizations') return false;
-    return false;
-  },
+  features: featureMap,
+  useFeatureFlag: (flag: keyof typeof featureMap) => !!featureMap[flag],
 }));
 
-// Mock the auth client
-vi.mock('../lib/authClient', () => ({
-  authClient: {
-    getSession: vi.fn().mockResolvedValue({
-      user: { id: 'test-user-id', email: 'test@example.com' },
-    }),
-    signOut: vi.fn().mockResolvedValue(undefined),
-  },
-}));
+// Icons: minimal stubs
+vi.mock('@heroicons/react/24/outline', () => {
+  const Svg = ({ className, 'data-testid': tid }: any) =>
+    h('svg', { className, 'data-testid': tid });
+  const make = (tid: string) => (p: any) => h(Svg, { ...p, 'data-testid': tid });
+  return {
+    ChevronRightIcon: make('chevron-right-icon'),
+    Cog6ToothIcon: make('cog-icon'),
+    BellIcon: make('bell-icon'),
+    UserIcon: make('user-icon'),
+    ShieldCheckIcon: make('shield-check-icon'),
+    QuestionMarkCircleIcon: make('question-mark-icon'),
+    ClipboardIcon: make('clipboard-icon'),
+    BuildingOfficeIcon: make('building-office-icon'),
+    XMarkIcon: make('x-mark-icon'),
+    ArrowRightOnRectangleIcon: make('arrow-right-on-rectangle-icon'),
+    ArrowLeftIcon: make('arrow-left-icon'),
+    PlusIcon: make('plus-icon'),
+    PencilIcon: make('pencil-icon'),
+  TrashIcon: make('trash-icon'),
+  BoltIcon: make('bolt-icon'),
+  DocumentIcon: make('document-icon'),
+  UserGroupIcon: make('user-group-icon'),
+  LockClosedIcon: make('lock-closed-icon'),
+  ChatBubbleLeftRightIcon: make('chat-bubble-left-right-icon'),
+  };
+});
 
-// Mock Heroicons
-vi.mock('@heroicons/react/24/outline', () => ({
-  ChevronRightIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="chevron-right-icon" />,
-  Cog6ToothIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="cog-icon" />,
-  BellIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="bell-icon" />,
-  UserIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="user-icon" />,
-  ShieldCheckIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="shield-check-icon" />,
-  QuestionMarkCircleIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="question-mark-icon" />,
-  ClipboardIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="clipboard-icon" />,
-  BuildingOfficeIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="building-office-icon" />,
-  XMarkIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="x-mark-icon" />,
-  ArrowRightOnRectangleIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="arrow-right-on-rectangle-icon" />,
-  ArrowLeftIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="arrow-left-icon" />,
-  PlusIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="plus-icon" />,
-  PencilIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="pencil-icon" />,
-}));
-
-// Mock i18n hooks
+// i18n: return keys with common translations
 vi.mock('../i18n/hooks', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: {
-      changeLanguage: vi.fn(),
-    },
+    t: (key: string) =>
+      ({
+        'settings:navigation.items.general': 'General',
+        'settings:navigation.items.notifications': 'Notifications',
+        'settings:navigation.items.account': 'Account',
+        'settings:navigation.items.organization': 'Organization',
+        'settings:navigation.items.security': 'Security',
+        'settings:navigation.items.help': 'Help',
+        'settings:navigation.items.signOut': 'Sign Out',
+      } as Record<string, string>)[key] ?? key,
+    i18n: { changeLanguage: vi.fn() },
   }),
   Trans: ({ children }: { children: any }) => children,
 }));
 
-// Mock ToastContext
+// Settings page stubs
+vi.mock('../components/settings/pages/GeneralPage', () => ({ 
+  GeneralPage: () => h('div', null, 'General Settings') 
+}));
+vi.mock('../components/settings/pages/NotificationsPage', () => ({ 
+  NotificationsPage: () => h('div', null, 'Notification Settings') 
+}));
+vi.mock('../components/settings/pages/AccountPage', () => ({ 
+  AccountPage: () => h('div', null, 'Account Settings') 
+}));
+vi.mock('../components/settings/pages/SecurityPage', () => ({ 
+  SecurityPage: () => h('div', null, 'Security Settings') 
+}));
+vi.mock('../components/settings/pages/MFAEnrollmentPage', () => ({ 
+  MFAEnrollmentPage: () => h('div', null, 'MFA Enrollment') 
+}));
+vi.mock('../components/settings/pages/HelpPage', () => ({ 
+  HelpPage: () => h('div', null, 'Help & Support') 
+}));
+
+// Toast context mock
 vi.mock('../contexts/ToastContext', () => ({
-  ToastProvider: ({ children }: { children: ComponentChildren }) => children,
+  ToastProvider: ({ children }: { children: any }) => children,
   useToast: () => ({
+    showToast: vi.fn(),
+    hideToast: vi.fn(),
     showSuccess: vi.fn(),
     showError: vi.fn(),
     showInfo: vi.fn(),
     showWarning: vi.fn(),
-    toasts: [],
     removeToast: vi.fn(),
   }),
   useToastContext: () => ({
+    showToast: vi.fn(),
+    hideToast: vi.fn(),
     showSuccess: vi.fn(),
     showError: vi.fn(),
     showInfo: vi.fn(),
     showWarning: vi.fn(),
+    removeToast: vi.fn(),
   }),
 }));
 
-// Mock OrganizationContext
+// Auth context mock
+vi.mock('../contexts/AuthContext', () => ({
+  AuthProvider: ({ children }: { children: any }) => children,
+  useAuth: () => ({
+    session: { data: null, isPending: false },
+    activeOrg: { data: null, isPending: false },
+    signin: vi.fn(),
+    signup: vi.fn(),
+    signout: vi.fn(),
+    refreshSession: vi.fn(),
+  }),
+  useSession: () => ({ data: null, isPending: false }),
+  useActiveOrganization: () => ({ data: null, isPending: false }),
+}));
+
+// Organization context mock
 vi.mock('../contexts/OrganizationContext', () => ({
-  OrganizationProvider: ({ children }: { children: ComponentChildren }) => children,
+  OrganizationProvider: ({ children }: { children: any }) => children,
   useOrganization: () => ({
-    organization: null,
+    organizations: [],
+    invitations: [],
+    isLoading: false,
+    error: null,
+    createOrganization: vi.fn(),
+    inviteMember: vi.fn(),
+    acceptInvitation: vi.fn(),
+    declineInvitation: vi.fn(),
+    fetchOrganizations: vi.fn(),
+    fetchInvitations: vi.fn(),
+  }),
+}));
+
+// Organization management hook mock
+vi.mock('../hooks/useOrganizationManagement', () => ({
+  useOrganizationManagement: () => ({
+    currentOrganization: null,
+    organizations: [],
+    invitations: [],
     loading: false,
     error: null,
+    createOrganization: vi.fn(),
+    updateOrganization: vi.fn(),
+    deleteOrganization: vi.fn(),
+    acceptInvitation: vi.fn(),
+    declineInvitation: vi.fn(),
+    inviteMember: vi.fn(),
+    refetch: vi.fn(),
+    getMembers: vi.fn(),
+    fetchMembers: vi.fn(),
+    updateMemberRole: vi.fn(),
+    removeMember: vi.fn(),
+    sendInvitation: vi.fn(),
+    getTokens: vi.fn(),
+    fetchTokens: vi.fn(),
+    createToken: vi.fn(),
+    revokeToken: vi.fn(),
+    getWorkspaceData: vi.fn(),
+    fetchWorkspaceData: vi.fn(),
   }),
 }));
 
-// Mock features config
-vi.mock('../config/features', () => ({
-  features: {
-    enableAudioRecording: false,
-    enableVideoRecording: false,
-    enableFileAttachments: true,
-    enableLeftSidebar: true,
-    enableMessageFeedback: false,
-    enableDisclaimerText: false,
-    enableLearnServicesButton: false,
-    enableConsultationButton: false,
-    enableMobileBottomNav: false,
-    enablePaymentIframe: false,
-    enableLeadQualification: true,
-    enableMultipleOrganizations: true,
-  }
-}));
-
-// Mock settings page components
-vi.mock('../components/settings/pages/GeneralPage', () => ({
-  GeneralPage: () => <div>General Settings</div>,
-}));
-
-vi.mock('../components/settings/pages/NotificationsPage', () => ({
-  NotificationsPage: () => <div>Notification Settings</div>,
-}));
-
-vi.mock('../components/settings/pages/AccountPage', () => ({
-  AccountPage: () => <div>Account Settings</div>,
-}));
-
-vi.mock('../components/settings/pages/SecurityPage', () => ({
-  SecurityPage: () => <div>Security Settings</div>,
-}));
-
-vi.mock('../components/settings/pages/MFAEnrollmentPage', () => ({
-  MFAEnrollmentPage: () => <div>MFA Enrollment</div>,
-}));
-
-vi.mock('../components/settings/pages/HelpPage', () => ({
-  HelpPage: () => <div>Help & Support</div>,
-}));
-
-// Note: Individual test files should mock fetch as needed
-// Global fetch mocking is removed to avoid interference with specific test mocks
-
-interface AllTheProvidersProps {
-  children: ComponentChildren;
+// PDF generation service mock - opt-in helper
+export function mockPDFService() {
+  vi.mock('../../worker/services/PDFGenerationService', () => ({
+    PDFGenerationService: {
+      convertHTMLToPDF: vi.fn().mockResolvedValue(new Uint8Array()),
+      generatePDFFromTemplate: vi.fn().mockResolvedValue(new Uint8Array()),
+    },
+  }));
 }
 
-const AllTheProviders = ({ children }: AllTheProvidersProps) => {
-  return children;
-};
+// --- Clean render function (no global providers) ------------------------
 
-const customRender = (
-  ui: ComponentChildren,
-  options?: Omit<RenderOptions, 'wrapper'>
-) => render(ui, { wrapper: AllTheProviders, ...options });
+export const render = (ui: ComponentChild, options?: Omit<RenderOptions, 'wrapper'>) =>
+  rtlRender(ui, options);
 
-// Re-export everything
-export * from '@testing-library/preact';
+// --- Re-exports with proper naming --------------------------------------
 
-// Override render method
-export { customRender as render };
-// Export route spy for navigation assertions
-export { mockRoute as mockNavigate, mockRoute };
+// Re-export testing library utilities with explicit names to avoid conflicts
+export {
+  screen,
+  waitFor,
+  fireEvent,
+  userEvent,
+  act,
+  within,
+  getByRole,
+  getByText,
+  getByLabelText,
+  getByPlaceholderText,
+  getByTestId,
+  queryByRole,
+  queryByText,
+  queryByLabelText,
+  queryByPlaceholderText,
+  queryByTestId,
+  findByRole,
+  findByText,
+  findByLabelText,
+  findByPlaceholderText,
+  findByTestId,
+  getAllByRole,
+  getAllByText,
+  getAllByLabelText,
+  getAllByPlaceholderText,
+  getAllByTestId,
+  queryAllByRole,
+  queryAllByText,
+  queryAllByLabelText,
+  queryAllByPlaceholderText,
+  queryAllByTestId,
+  findAllByRole,
+  findAllByText,
+  findAllByLabelText,
+  findAllByPlaceholderText,
+  findAllByTestId,
+} from '@testing-library/preact';
+
+export { userEvent };
+
+// Test cleanup - call this in afterEach hooks
+export function resetTestState() {
+  vi.clearAllMocks();
+  resetMockPath();
+}
+
+// Feature flag helper for per-test overrides
+export function setFeatureFlags(overrides: Partial<typeof featureMap>) {
+  Object.assign(featureMap, overrides);
+}

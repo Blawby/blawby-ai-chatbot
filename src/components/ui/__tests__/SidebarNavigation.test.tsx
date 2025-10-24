@@ -8,6 +8,7 @@ vi.mock('@heroicons/react/24/outline', () => ({
   Cog6ToothIcon: () => 'CogIcon',
   BellIcon: () => 'BellIcon',
   UserIcon: () => 'UserIcon',
+  ChevronRightIcon: () => 'ChevronRightIcon',
 }));
 
 describe('SidebarNavigation', () => {

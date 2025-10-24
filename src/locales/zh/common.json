@@ -114,8 +114,10 @@
     "step1": {
       "title": "告诉我们关于您的信息",
       "subtitle": "帮助我们个性化您的体验",
-      "fullName": "全名",
-      "fullNamePlaceholder": "输入您的全名",
+      "firstName": "名字",
+      "firstNamePlaceholder": "输入您的名字",
+      "lastName": "姓氏",
+      "lastNamePlaceholder": "输入您的姓氏",
       "birthday": "生日",
       "birthdayPlaceholder": "YYYY-MM-DD",
       "termsAgreement": "点击\"继续\"即表示您同意我们的<termsLink>条款</termsLink>并已阅读我们的<privacyLink>隐私政策</privacyLink>。",
@@ -125,7 +127,7 @@
     },
     "step2": {
       "title": "您想用 Blawby AI 做什么?",
-      "subtitle": "这有助于我们提供更相关的建议",
+      "subtitle": "选择所有适用的选项 - 这有助于我们提供更相关的建议",
       "options": {
         "personal": "个人法律问题",
         "business": "企业法律需求",

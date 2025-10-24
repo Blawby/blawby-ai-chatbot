@@ -46,29 +46,66 @@ Watch / UI modes:
 - Prefer feature-focused directories (e.g., `tests/integration/usage/`).
 - Keep shell scripts for local smoke checks only; migrate flows into Vitest/Playwright for CI.
 
-## Backend API Testing
+## Railway Backend API Testing
 
 ### External API Integration
-- **Authentication Tests**: E2E tests verify signup/signin flows with Blawby Backend API
+- **Authentication Tests**: E2E tests verify signup/signin flows with Railway Backend API
 - **Token Management**: Tests validate JWT token storage and retrieval from IndexedDB
-- **API Client**: Unit tests for `backendClient.ts` with mocked API responses
+- **API Client**: Unit tests for `backendClient.ts` with real Railway API calls and mocked storage
 - **Error Handling**: Tests cover network failures, token expiry, and API errors
 
 ### Test Data Management
-- **User Accounts**: E2E tests create temporary user accounts via backend API
-- **Cleanup**: Tests clean up test data after completion
-- **Isolation**: Each test uses unique email addresses to avoid conflicts
-- **Mocking**: Unit tests mock external API calls for faster execution
+- **User Accounts**: E2E tests create temporary user accounts via Railway backend API
+- **Cleanup**: Tests clean up test data after completion using `tests/helpers/auth-cleanup.ts`
+- **Isolation**: Each test uses unique email addresses with pattern `test-{timestamp}-{random}@blawby-test.com`
+- **Real API**: Unit tests use real Railway API calls, not mocks (following user preference)
+
+### Test Patterns by Layer
+
+#### Unit Tests (Node Environment)
+- **Location**: `tests/unit/lib/backendClient.test.ts`
+- **Pattern**: Real Railway API + Mocked IndexedDB storage
+- **Mocking**: Only IndexedDB functions are mocked using `vi.mock()`
+- **Cleanup**: Automatic cleanup via `afterEach` hooks
+
+#### Integration Tests (JSDOM Environment)  
+- **Location**: `tests/integration/auth/AuthContext.integration.test.ts`
+- **Pattern**: Real Railway API + Mocked IndexedDB + Real AuthContext
+- **Testing**: Full auth flow with context state management
+- **Cleanup**: Automatic cleanup via `afterEach` hooks
+
+#### E2E Tests (Real Browser)
+- **Location**: `tests/e2e/auth.spec.ts`, `tests/e2e/indexeddb-storage.spec.ts`
+- **Pattern**: Real Railway API + Real IndexedDB in browser
+- **Testing**: Full user flows with real browser storage
+- **Cleanup**: Automatic cleanup via `afterEach` hooks
+
+### IndexedDB Testing Strategy
+- **Unit Tests**: Mock IndexedDB functions (no real browser APIs in Node)
+- **E2E Tests**: Use `page.evaluate()` to access real IndexedDB in browser
+- **Integration Tests**: Mock IndexedDB for faster execution
 
 ### Authentication Flow Testing
 ```typescript
 // Example E2E test structure
-test('user profile update after signup', async ({ page }) => {
+test('should store JWT token in IndexedDB after signup', async ({ page }) => {
   // 1. Navigate to auth page
   // 2. Fill signup form with unique email
-  // 3. Submit and verify backend API call
-  // 4. Check token storage in IndexedDB
+  // 3. Submit and verify Railway API call
+  // 4. Check token storage in IndexedDB via page.evaluate()
   // 5. Verify user profile display
-  // 6. Clean up test data
+  // 6. Clean up test data automatically
 });
 ```
+
+### Cleanup Strategy
+- **Test Email Pattern**: `test-{timestamp}-{random}@blawby-test.com`
+- **Cleanup Helper**: `tests/helpers/auth-cleanup.ts` handles user deletion
+- **Manual Cleanup**: May be required if Railway backend lacks user deletion endpoint
+- **Batch Cleanup**: Support for cleaning multiple users at once
+
+### Railway API Configuration
+- **Production URL**: `https://blawby-backend-production.up.railway.app/api`
+- **Development Override**: `VITE_BACKEND_API_URL` environment variable
+- **Test Timeouts**: Increased to 15 seconds for real API calls
+- **Error Handling**: Tests cover 400, 401, 500 responses from Railway API

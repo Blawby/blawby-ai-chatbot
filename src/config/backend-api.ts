@@ -11,7 +11,8 @@
  */
 function getBackendBaseUrl(): string {
   // Check for explicit backend API URL (development/override)
-  if (import.meta.env.VITE_BACKEND_API_URL) {
+  // Handle both browser and Node.js environments
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_BACKEND_API_URL) {
     // VITE_BACKEND_API_URL should include /api prefix for local development
     return import.meta.env.VITE_BACKEND_API_URL;
   }

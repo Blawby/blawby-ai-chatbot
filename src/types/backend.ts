@@ -5,6 +5,8 @@ export interface SignupData {
   email: string;
   password: string;
   name?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface SigninData {
@@ -21,18 +23,10 @@ export interface User {
   updatedAt: string;
 }
 
-export interface Session {
-  id: string;
-  userId: string;
-  expiresAt: string;
-  token: string;
-  activeOrganizationId: string | null;
-}
-
+// Railway API doesn't use sessions, only JWT tokens
 export interface AuthResponse {
+  token: string;
   user: User;
-  session: Session;
-  token?: string; // JWT from sign-in/up; optional to allow getSession responses without a token
 }
 
 // Practice API Types

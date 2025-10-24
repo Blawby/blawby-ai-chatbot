@@ -43,10 +43,6 @@ ENABLE_AUTH_IP_DETECTION=false
 GOOGLE_CLIENT_ID=your_google_client_id_here
 GOOGLE_CLIENT_SECRET=your_google_client_secret_here
 
-# Blawby Backend API Configuration
-# - Uses https://blawby-backend-production.up.railway.app/api for both development and production
-# - VITE_BACKEND_API_URL: Override to use local backend if needed (uncomment and set)
-# VITE_BACKEND_API_URL=http://localhost:3000/api
 
 # Stripe Configuration (SENSITIVE)
 STRIPE_SECRET_KEY=your_stripe_secret_key_here

@@ -24,12 +24,13 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('personal');
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     personalInfo: {
-      fullName: '',
+      firstName: '',
+      lastName: '',
       birthday: undefined,
       agreedToTerms: false
     },
     useCase: {
-      primaryUseCase: 'personal',
+      selectedUseCases: ['personal'],
       additionalInfo: undefined
     },
     skippedSteps: []
@@ -50,11 +51,17 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
         setOnboardingData(prev => ({ ...prev, ...existingOnboardingData }));
       } else if (session.user.name) {
         // Otherwise, pre-fill with user's name if available
+        // Split the name into first and last name
+        const nameParts = session.user.name.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
         setOnboardingData(prev => ({
           ...prev,
           personalInfo: {
             ...prev.personalInfo,
-            fullName: session.user.name
+            firstName,
+            lastName
           }
         }));
       }
@@ -116,8 +123,9 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
         localStorage.setItem('onboardingData', JSON.stringify(completedData));
         
         // Also store user preferences that might be used by the app
-        if (completedData.personalInfo?.fullName) {
-          localStorage.setItem('userDisplayName', completedData.personalInfo.fullName);
+        if (completedData.personalInfo?.firstName && completedData.personalInfo?.lastName) {
+          const fullName = `${completedData.personalInfo.firstName} ${completedData.personalInfo.lastName}`.trim();
+          localStorage.setItem('userDisplayName', fullName);
         }
       } catch (storageError) {
         // Handle localStorage failures (private browsing, quota exceeded, etc.)

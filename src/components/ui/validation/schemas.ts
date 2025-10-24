@@ -78,13 +78,14 @@ export const authSchemas = {
 
 export const onboardingSchemas = {
   personalInfo: z.object({
-    fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+    firstName: z.string().min(1, 'First name is required'),
+    lastName: z.string().min(1, 'Last name is required'),
     birthday: commonSchemas.birthday.optional(),
     agreedToTerms: commonSchemas.termsAgreement,
   }),
   
   useCase: z.object({
-    primaryUseCase: z.enum(['personal', 'business', 'research', 'documents', 'other']),
+    selectedUseCases: z.array(z.enum(['personal', 'business', 'research', 'documents', 'other'])).min(1, 'Please select at least one use case'),
     additionalInfo: z.string().optional(),
   }),
 };

@@ -2,9 +2,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    environment: 'node',
+    environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup-unit.ts'],
+    testTimeout: 15000, // Increased for Railway API calls
     include: [
       'tests/unit/**/*.test.{ts,tsx,js,jsx}',
       'tests/unit/**/*.spec.{ts,tsx,js,jsx}'

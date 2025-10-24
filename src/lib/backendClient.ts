@@ -132,21 +132,31 @@ class BackendApiClient {
 
   // Auth methods
   async signup(data: SignupData): Promise<AuthResponse> {
-    // Only send required fields: email, password, name
+    // Combine firstName and lastName into name, or use provided name
+    let fullName = data.name;
+    if (!fullName && data.firstName && data.lastName) {
+      fullName = `${data.firstName} ${data.lastName}`;
+    } else if (!fullName && data.firstName) {
+      fullName = data.firstName;
+    } else if (!fullName) {
+      fullName = data.email.split('@')[0] || 'User';
+    }
+
+    // Send to Better Auth API with proper structure
     const signupData = {
       email: data.email,
       password: data.password,
-      name: data.name || data.email.split('@')[0] || 'User'
+      name: fullName
     };
     
-    const response = await this.request<AuthResponse>('/auth/sign-up/email', {
+    const response = await this.request<{ token: string; user: User }>('/auth/sign-up/email', {
       method: 'POST',
       body: JSON.stringify(signupData),
     });
     
     // Save token and user data from successful signup
-    if (response.session.token) {
-      await this.saveToken(response.session.token);
+    if (response.token) {
+      await this.saveToken(response.token);
       await saveUserDataToIndexedDB(response.user);
     }
     
@@ -154,14 +164,14 @@ class BackendApiClient {
   }
 
   async signin(data: SigninData): Promise<AuthResponse> {
-    const response = await this.request<AuthResponse>('/auth/sign-in/email', {
+    const response = await this.request<{ token: string; user: User }>('/auth/sign-in/email', {
       method: 'POST',
       body: JSON.stringify(data),
     });
     
     // Save token and user data from successful signin
-    if (response.session.token) {
-      await this.saveToken(response.session.token);
+    if (response.token) {
+      await this.saveToken(response.token);
       await saveUserDataToIndexedDB(response.user);
     }
     
@@ -173,17 +183,39 @@ class BackendApiClient {
     if (!this.token) {
       throw new Error('No session token available');
     }
-    
-    return this.request<AuthResponse>('/auth/me');
+
+    const response = await this.request<{ user: User }>('/auth/me', {
+      method: 'GET',
+    });
+
+    // Return Railway API format with current token
+    return {
+      token: this.token,
+      user: response.user
+    };
   }
 
   async signout(): Promise<{ message: string }> {
     let response: { message: string };
     
     try {
-      response = await this.request<{ message: string }>('/auth/sign-out', {
-        method: 'POST',
-      });
+      // Check if we have a token before attempting signout
+      await this.ensureTokenLoaded();
+      if (!this.token) {
+        // No token to sign out, just clear local state
+        response = { message: 'No active session to sign out' };
+      } else {
+        const signoutResponse = await this.request<{ success: boolean }>('/auth/sign-out', {
+          method: 'POST',
+          body: JSON.stringify({ all: true }),
+        });
+        
+        // Convert Railway API response to expected format
+        response = { message: signoutResponse.success ? 'Signed out successfully' : 'Sign out failed' };
+      }
+    } catch (error) {
+      // If signout fails, still clear local state
+      response = { message: 'Sign out failed' };
     } finally {
       // Clear local auth state even if backend signout fails
       await this.clearToken();

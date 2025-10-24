@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, mockNavigate, resetMockPath, mockRoute } from '../../../__tests__/test-utils';
+import { render, screen, fireEvent, waitFor, resetMockPath } from '../../../__tests__/test-utils';
 import { SettingsPage } from '../SettingsPage';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
 import { i18n } from '../../../i18n';
@@ -181,7 +181,7 @@ describe('SettingsPage Integration Tests', () => {
     vi.clearAllMocks();
     mockLoadOrganizations.mockClear();
     mockLoadInvitations.mockClear();
-    mockRoute.mockClear();
+    // mockRoute removed - not needed
     mockOnClose.mockClear();
     
     // Reset the mutable mock object to default values
@@ -283,6 +283,21 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should handle sign out when sign out is clicked', async () => {
+    // Mock the signOut utility function for this test only
+    const mockSignOut = vi.fn().mockImplementation(async (options?: { skipReload?: boolean; onSuccess?: () => void }) => {
+      if (options?.onSuccess) {
+        options.onSuccess();
+      }
+      if (!options?.skipReload) {
+        window.location.reload();
+      }
+    });
+
+    // Mock the entire utils/auth module
+    vi.mock('../../utils/auth', () => ({
+      signOut: mockSignOut,
+    }));
+
     // Stub window.location.reload
     const reloadStub = vi.fn();
     const originalReload = window.location.reload;

@@ -2,11 +2,28 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { ComponentChildren } from 'preact';
 import { backendClient } from '../lib/backendClient';
 import { loadUserData as loadUserDataFromIndexedDB } from '../lib/indexedDBStorage';
-import type { User, Session, AuthResponse } from '../types/backend';
+import type { User, AuthResponse } from '../types/backend';
+
+// Type guard to validate user data structure
+const isUser = (obj: unknown): obj is User => {
+  if (!obj || typeof obj !== 'object') return false;
+  
+  const user = obj as Record<string, unknown>;
+  
+  // Check required fields and their types
+  return (
+    typeof user.id === 'string' &&
+    typeof user.email === 'string' &&
+    (user.name === null || typeof user.name === 'string') &&
+    typeof user.emailVerified === 'boolean' &&
+    typeof user.createdAt === 'string' &&
+    typeof user.updatedAt === 'string'
+  );
+};
 
 interface AuthState {
   user: User | null;
-  session: Session | null;
+  token: string | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -21,7 +38,7 @@ interface AuthContextType {
     isPending: boolean;
   };
   signin: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name?: string) => Promise<void>;
+  signup: (email: string, password: string, firstName?: string, lastName?: string, name?: string) => Promise<void>;
   signout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -34,7 +51,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
-    session: null,
+    token: null,
     isLoading: true,
     error: null
   });
@@ -55,30 +72,54 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
           if (import.meta?.env?.DEV) console.log('🔍 checkAuth - loaded user data:', userData);
           
           if (userData) {
-            // Use stored user data directly, don't fabricate sessions
-            setAuthState({
-              user: userData,
-              session: null,
-              isLoading: false,
-              error: null
-            });
-          } else {
-            // Fallback: try to fetch from backend (may fail)
-            try {
-              console.log('🔍 checkAuth - fetching session from backend');
-              const response = await backendClient.getSession();
-              if (import.meta?.env?.DEV) console.log('🔍 checkAuth - session response:', { hasUser: !!response?.user, hasSession: !!response?.session });
+            // Validate user data structure before using it
+            if (isUser(userData)) {
+              // Use stored user data directly with token
               setAuthState({
-                user: response.user,
-                session: response.session,
+                user: userData,
+                token: 'stored-token', // Token is managed by backendClient
                 isLoading: false,
                 error: null
               });
+            } else {
+              // Invalid user data, treat as no user
+              console.warn('Invalid user data structure from IndexedDB:', userData);
+              setAuthState({
+                user: null,
+                token: null,
+                isLoading: false,
+                error: null
+              });
+            }
+          } else {
+            // Fallback: try to fetch from backend (may fail)
+            try {
+              console.log('🔍 checkAuth - fetching user from backend');
+              const response = await backendClient.getSession();
+              if (import.meta?.env?.DEV) console.log('🔍 checkAuth - user response:', { hasUser: !!response?.user, hasToken: !!response?.token });
+              
+              // Validate user data from backend response
+              if (response?.user && isUser(response.user)) {
+                setAuthState({
+                  user: response.user,
+                  token: response.token,
+                  isLoading: false,
+                  error: null
+                });
+              } else {
+                console.warn('Invalid user data structure from backend:', response?.user);
+                setAuthState({
+                  user: null,
+                  token: null,
+                  isLoading: false,
+                  error: null
+                });
+              }
             } catch (backendError) {
               console.error('🔍 checkAuth - backend session check failed:', backendError);
               setAuthState({
                 user: null,
-                session: null,
+                token: null,
                 isLoading: false,
                 error: null
               });
@@ -88,7 +129,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
           console.error('🔍 checkAuth - IndexedDB user data load failed:', error);
           setAuthState({
             user: null,
-            session: null,
+            token: null,
             isLoading: false,
             error: null
           });
@@ -97,7 +138,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         console.log('🔍 checkAuth - not authenticated, setting null state');
         setAuthState({
           user: null,
-          session: null,
+          token: null,
           isLoading: false,
           error: null
         });
@@ -113,10 +154,10 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     try {
       const response = await backendClient.signin({ email, password });
       
-      // Use backend session data directly, don't fabricate
+      // Use Railway API response with token
       setAuthState({
         user: response.user,
-        session: response.session,
+        token: response.token,
         isLoading: false,
         error: null
       });
@@ -130,25 +171,27 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     }
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, name?: string) => {
+  const signup = useCallback(async (email: string, password: string, firstName?: string, lastName?: string, name?: string) => {
     setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
     
     try {
-      // Only send required fields to backend
+      // Send firstName, lastName, or name to backend
       const response = await backendClient.signup({ 
         email, 
         password, 
+        firstName,
+        lastName,
         name: name || email.split('@')[0] || 'User'
       });
       
       if (import.meta?.env?.DEV) {
-        console.log('🔍 Signup response:', { hasUser: !!response?.user, hasSession: !!response?.session });
+        console.log('🔍 Signup response:', { hasUser: !!response?.user, hasToken: !!response?.token });
       }
       
-      // Use backend session data directly, don't fabricate
+      // Use Railway API response with token
       setAuthState({
         user: response.user,
-        session: response.session,
+        token: response.token,
         isLoading: false,
         error: null
       });
@@ -173,7 +216,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     } finally {
       setAuthState({
         user: null,
-        session: null,
+        token: null,
         isLoading: false,
         error: null
       });
@@ -188,7 +231,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         setAuthState(prev => ({
           ...prev,
           user: response.user,
-          session: response.session,
+          token: response.token,
           error: null
         }));
       } catch (error) {
@@ -196,7 +239,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         setAuthState(prev => ({
           ...prev,
           user: null,
-          session: null,
+          token: null,
           error: 'Session expired'
         }));
       }
@@ -221,7 +264,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   // Debug logging for context value
   if (import.meta?.env?.DEV) {
     console.log('🔍 AuthContext - contextId:', contextId.current);
-    console.log('🔍 AuthContext - authState:', { isLoading: authState.isLoading, hasUser: !!authState.user, hasSession: !!authState.session });
+    console.log('🔍 AuthContext - authState:', { isLoading: authState.isLoading, hasUser: !!authState.user, hasToken: !!authState.token });
   }
 
   return (

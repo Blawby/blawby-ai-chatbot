@@ -114,8 +114,10 @@
     "step1": {
       "title": "あなたについて教えてください",
       "subtitle": "あなたの体験をパーソナライズするのを手伝ってください",
-      "fullName": "氏名",
-      "fullNamePlaceholder": "氏名を入力してください",
+      "firstName": "名",
+      "firstNamePlaceholder": "名を入力してください",
+      "lastName": "姓",
+      "lastNamePlaceholder": "姓を入力してください",
       "birthday": "誕生日",
       "birthdayPlaceholder": "YYYY/MM/DD",
       "termsAgreement": "「続ける」をクリックすることで、当社の<termsLink>利用規約</termsLink>に同意し、<privacyLink>プライバシーポリシー</privacyLink>を読んだことになります。",
@@ -125,7 +127,7 @@
     },
     "step2": {
       "title": "Blawby AI を何に使用しますか？",
-      "subtitle": "より関連性の高い提案を提供するのに役立ちます",
+      "subtitle": "該当するものをすべて選択してください - より関連性の高い提案を提供するのに役立ちます",
       "options": {
         "personal": "個人的な法律問題",
         "business": "ビジネス上の法的ニーズ",

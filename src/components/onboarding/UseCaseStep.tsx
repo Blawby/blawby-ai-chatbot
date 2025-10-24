@@ -14,7 +14,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { Textarea } from '../ui/input';
 
 interface UseCaseData {
-  primaryUseCase: 'personal' | 'business' | 'research' | 'documents' | 'other';
+  selectedUseCases: ('personal' | 'business' | 'research' | 'documents' | 'other')[];
   additionalInfo?: string;
 }
 
@@ -54,7 +54,7 @@ const useCaseOptions = [
 
 const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
   const { t } = useTranslation('common');
-  const [selectedUseCase, setSelectedUseCase] = useState<UseCaseData['primaryUseCase']>(data.primaryUseCase);
+  const [selectedUseCases, setSelectedUseCases] = useState<UseCaseData['selectedUseCases']>(data.selectedUseCases || []);
   const [additionalInfo, setAdditionalInfo] = useState(data.additionalInfo || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -65,18 +65,28 @@ const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     onComplete({
-      primaryUseCase: selectedUseCase,
-      additionalInfo: selectedUseCase === 'other' && additionalInfo.trim() ? additionalInfo.trim() : undefined
+      selectedUseCases: selectedUseCases,
+      additionalInfo: selectedUseCases.includes('other') && additionalInfo.trim() ? additionalInfo.trim() : undefined
     });
     
     setIsSubmitting(false);
   };
 
-  const handleUseCaseSelect = (useCase: UseCaseData['primaryUseCase']) => {
-    setSelectedUseCase(useCase);
-    if (useCase !== 'other') {
-      setAdditionalInfo('');
-    }
+  const handleUseCaseToggle = (useCase: 'personal' | 'business' | 'research' | 'documents' | 'other') => {
+    setSelectedUseCases(prev => {
+      if (prev.includes(useCase)) {
+        // Remove from selection
+        const newSelection = prev.filter(item => item !== useCase);
+        // Clear additional info if "other" is deselected
+        if (useCase === 'other') {
+          setAdditionalInfo('');
+        }
+        return newSelection;
+      } else {
+        // Add to selection
+        return [...prev, useCase];
+      }
+    });
   };
 
   return (
@@ -98,19 +108,18 @@ const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
         <div className="bg-white dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <Form onSubmit={handleSubmit} className="space-y-6">
             {/* Use Case Options */}
-            <div role="radiogroup" aria-labelledby="use-case-title" className="space-y-3">
+            <div role="group" aria-labelledby="use-case-title" className="space-y-3">
               {useCaseOptions.map((option) => {
                 const Icon = option.icon;
-                const isSelected = selectedUseCase === option.id;
+                const isSelected = selectedUseCases.includes(option.id);
                 
                 return (
                   <button
                     key={option.id}
                     type="button"
-                    role="radio"
+                    role="checkbox"
                     aria-checked={isSelected}
-                    tabIndex={isSelected ? 0 : -1}
-                    onClick={() => handleUseCaseSelect(option.id)}
+                    onClick={() => handleUseCaseToggle(option.id)}
                     className={`w-full text-left p-4 rounded-lg border-2 transition-all duration-200 ${
                       isSelected
                         ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
@@ -142,7 +151,7 @@ const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
             </div>
 
             {/* Additional Info for "Other" option */}
-            {selectedUseCase === 'other' && (
+            {selectedUseCases.includes('other') && (
               <FormField name="additionalInfo">
                 {({ value, error, onChange }) => (
                   <FormItem>

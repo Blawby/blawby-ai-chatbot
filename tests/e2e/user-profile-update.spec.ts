@@ -16,9 +16,9 @@ test('should authenticate user after signup', async ({ page }) => {
   
   // Fill signup form
   const testEmail = `test-profile-${Date.now()}@example.com`;
-  const testName = 'Test Profile User';
   await page.fill('input[placeholder="Enter your email"]', testEmail);
-  await page.fill('input[placeholder="Enter your full name"]', testName);
+  await page.fill('input[placeholder="Enter your first name"]', 'Test');
+  await page.fill('input[placeholder="Enter your last name"]', 'Profile User');
   await page.fill('input[placeholder="Enter your password"]', 'TestPassword123!');
   await page.fill('input[placeholder="Confirm your password"]', 'TestPassword123!');
   

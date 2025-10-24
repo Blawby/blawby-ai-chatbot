@@ -21,7 +21,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const { signin, signup } = useAuth();
   const [isSignUp, setIsSignUp] = useState(mode === 'signup');
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -98,7 +99,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
             await signup(
               formData.email,
               formData.password,
-              formData.name || formData.email.split('@')[0] || t('defaults.demoUserName')
+              formData.firstName,
+              formData.lastName
             );
 
         setMessage(t('messages.accountCreated'));
@@ -177,12 +179,13 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     if (import.meta.env.DEV) {
       const _redactedData = {
         personalInfo: {
-          fullName: data.personalInfo.fullName ? '[REDACTED]' : undefined,
+          firstName: data.personalInfo.firstName ? '[REDACTED]' : undefined,
+          lastName: data.personalInfo.lastName ? '[REDACTED]' : undefined,
           birthday: data.personalInfo.birthday ? '[REDACTED]' : undefined,
           agreedToTerms: data.personalInfo.agreedToTerms
         },
         useCase: {
-          primaryUseCase: data.useCase.primaryUseCase,
+          selectedUseCases: data.useCase.selectedUseCases,
           additionalInfo: data.useCase.additionalInfo ? '[REDACTED]' : undefined
         },
         completedAt: data.completedAt,
@@ -284,29 +287,55 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
           <Form onSubmit={handleSubmit}>
             <div className="space-y-4">
               {isSignUp && (
-                <FormField name="name">
-                  {({ error, onChange }) => (
-                    <FormItem>
-                      <FormLabel htmlFor="signup-fullname">{t('signup.fullName')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          id="signup-fullname"
-                          type="text"
-                          required={isSignUp}
-                          value={formData.name}
-                          onChange={(value) => {
-                            onChange(value);
-                            setFormData(prev => ({ ...prev, name: String(value) }));
-                          }}
-                          placeholder={t('signup.fullNamePlaceholder')}
-                          icon={<UserIcon className="h-5 w-5 text-gray-400" />}
-                          error={error?.message}
-                        />
-                      </FormControl>
-                      {error && <FormMessage>{error.message}</FormMessage>}
-                    </FormItem>
-                  )}
-                </FormField>
+                <>
+                  <FormField name="firstName">
+                    {({ error, onChange }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="signup-firstname">{t('signup.firstName')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            id="signup-firstname"
+                            type="text"
+                            required={isSignUp}
+                            value={formData.firstName}
+                            onChange={(value) => {
+                              onChange(value);
+                              setFormData(prev => ({ ...prev, firstName: String(value) }));
+                            }}
+                            placeholder={t('signup.firstNamePlaceholder')}
+                            icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                            error={error?.message}
+                          />
+                        </FormControl>
+                        {error && <FormMessage>{error.message}</FormMessage>}
+                      </FormItem>
+                    )}
+                  </FormField>
+                  
+                  <FormField name="lastName">
+                    {({ error, onChange }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="signup-lastname">{t('signup.lastName')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            id="signup-lastname"
+                            type="text"
+                            required={isSignUp}
+                            value={formData.lastName}
+                            onChange={(value) => {
+                              onChange(value);
+                              setFormData(prev => ({ ...prev, lastName: String(value) }));
+                            }}
+                            placeholder={t('signup.lastNamePlaceholder')}
+                            icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                            error={error?.message}
+                          />
+                        </FormControl>
+                        {error && <FormMessage>{error.message}</FormMessage>}
+                      </FormItem>
+                    )}
+                  </FormField>
+                </>
               )}
 
               <FormField name="email">
@@ -410,7 +439,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
                   setIsSignUp(!isSignUp);
                   setError('');
                   setMessage('');
-                  setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+                  setFormData({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '' });
                 }}
                 className="text-sm text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 transition-colors"
               >

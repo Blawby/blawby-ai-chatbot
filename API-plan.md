@@ -94,7 +94,7 @@ Authorization: Bearer <jwt_token>
 **Response:**
 ```json
 {
-  "message": "Successfully signed out"
+  "success": true
 }
 ```
 
