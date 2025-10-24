@@ -39,12 +39,13 @@ export interface ExtendedUser extends BetterAuthUser {
 // Onboarding data type (extracted from UserPreferences for standalone use)
 export interface OnboardingData {
   personalInfo: {
-    fullName: string;
+    firstName: string;
+    lastName: string;
     birthday?: string;
     agreedToTerms: boolean;
   };
   useCase: {
-    primaryUseCase: 'personal' | 'business' | 'research' | 'documents' | 'other';
+    selectedUseCases: ('personal' | 'business' | 'research' | 'documents' | 'other')[];
     additionalInfo?: string;
   };
   completedAt?: string;

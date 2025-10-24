@@ -186,7 +186,7 @@ export class OrganizationService {
     return buildDefaultOrganizationConfig(this.env);
   }
 
-  private createSafeSlug(userId: string): string {
+  public createSafeSlug(userId: string): string {
     const fallbackBase = 'user';
     const rawId = typeof userId === 'string' ? userId : '';
     let slug = rawId.toLowerCase().replace(/[^a-z0-9]/g, '-');

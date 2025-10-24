@@ -3,7 +3,7 @@ import { useTranslation } from '@/i18n/hooks';
 import Modal from '../Modal';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
-import { updateUser } from '../../lib/authClient';
+// TODO: User profile updates will be handled by the Blawby Backend API (not yet implemented)
 import type { OnboardingData } from '../../types/user';
 import { toOnboardingData, fromOnboardingData } from '../../types/user';
 import { useToastContext } from '../../contexts/ToastContext';
@@ -24,12 +24,13 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('personal');
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     personalInfo: {
-      fullName: '',
+      firstName: '',
+      lastName: '',
       birthday: undefined,
       agreedToTerms: false
     },
     useCase: {
-      primaryUseCase: 'personal',
+      selectedUseCases: ['personal'],
       additionalInfo: undefined
     },
     skippedSteps: []
@@ -50,11 +51,18 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
         setOnboardingData(prev => ({ ...prev, ...existingOnboardingData }));
       } else if (session.user.name) {
         // Otherwise, pre-fill with user's name if available
+        // Split the name into first and last name
+        const trimmedName = session.user.name.trim();
+        const nameParts = trimmedName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
         setOnboardingData(prev => ({
           ...prev,
           personalInfo: {
             ...prev.personalInfo,
-            fullName: session.user.name
+            firstName,
+            lastName
           }
         }));
       }
@@ -107,20 +115,22 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     };
 
     try {
-      // Save onboarding data to user preferences (single source of truth)
-      await updateUser({
-        onboardingCompleted: true,
-        onboardingData: fromOnboardingData(completedData)
-      } as Parameters<typeof updateUser>[0]);
-
-      // Cache the completion status in localStorage for quick access
-      // This is just a cache, not the source of truth
+      // TODO: When backend API supports user updates, implement proper API call
+      // For now, store onboarding data locally since backend doesn't support user updates yet
+      
+      // Store onboarding data in localStorage as a temporary solution
       try {
         localStorage.setItem('onboardingCompleted', 'true');
+        localStorage.setItem('onboardingData', JSON.stringify(completedData));
+        
+        // Also store user preferences that might be used by the app
+        if (completedData.personalInfo?.firstName && completedData.personalInfo?.lastName) {
+          const fullName = `${completedData.personalInfo.firstName} ${completedData.personalInfo.lastName}`.trim();
+          localStorage.setItem('userDisplayName', fullName);
+        }
       } catch (storageError) {
         // Handle localStorage failures (private browsing, quota exceeded, etc.)
         if (import.meta.env.DEV) {
-           
           console.warn('Failed to cache onboarding completion in localStorage:', storageError);
         }
         // Continue execution - this is just a cache, not critical
@@ -137,7 +147,6 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     } catch (error) {
       // Log the error for debugging in development
       if (import.meta.env.DEV) {
-         
         console.error('Failed to save onboarding data:', error);
       }
       

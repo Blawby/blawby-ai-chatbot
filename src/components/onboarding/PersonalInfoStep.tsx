@@ -8,7 +8,8 @@ import { Input, DatePicker } from '../ui/input';
 import { Checkbox } from '../ui/input';
 
 interface PersonalInfoData {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   birthday?: string;
   agreedToTerms: boolean;
 }
@@ -69,18 +70,41 @@ const PersonalInfoStep = ({ data: _data, onComplete, onBack }: PersonalInfoStepP
         <div className="bg-white dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <Form onSubmit={handleSubmit} initialData={_data}>
             <div className="space-y-4">
-              {/* Full Name */}
-              <FormField name="fullName">
+              {/* First Name */}
+              <FormField name="firstName">
                 {({ value, error, onChange }) => (
                   <FormItem>
-                    <FormLabel>{t('onboarding.step1.fullName')}</FormLabel>
+                    <FormLabel>{t('onboarding.step1.firstName')}</FormLabel>
                     <FormControl>
                       <Input
                         type="text"
                         required
                         value={(value as string) || ''}
                         onChange={(value) => onChange(value)}
-                        placeholder={t('onboarding.step1.fullNamePlaceholder')}
+                        placeholder={t('onboarding.step1.firstNamePlaceholder')}
+                        icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                        error={error?.message}
+                      />
+                    </FormControl>
+                    {error && (
+                      <FormMessage>{error.message}</FormMessage>
+                    )}
+                  </FormItem>
+                )}
+              </FormField>
+
+              {/* Last Name */}
+              <FormField name="lastName">
+                {({ value, error, onChange }) => (
+                  <FormItem>
+                    <FormLabel>{t('onboarding.step1.lastName')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        required
+                        value={(value as string) || ''}
+                        onChange={(value) => onChange(value)}
+                        placeholder={t('onboarding.step1.lastNamePlaceholder')}
                         icon={<UserIcon className="h-5 w-5 text-gray-400" />}
                         error={error?.message}
                       />

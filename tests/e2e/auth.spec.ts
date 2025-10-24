@@ -1,6 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { generateTestEmail, cleanupTestUser } from '../helpers/auth-cleanup';
 
-test.describe('Better Auth Integration', () => {
+test.describe('Railway Backend Auth', () => {
+  let testUsers: Array<{ email: string; token?: string }> = [];
+
+  test.afterEach(async () => {
+    // Cleanup test users
+    for (const user of testUsers) {
+      await cleanupTestUser(user.email, user.token);
+    }
+    testUsers = [];
+  });
   test('should allow anonymous chat', async ({ page }) => {
     await page.goto('/');
     
@@ -16,15 +26,17 @@ test.describe('Better Auth Integration', () => {
   });
 
   test('should sign up with email/password', async ({ page }) => {
+    const testEmail = generateTestEmail('e2e-signup');
+    
     await page.goto('/auth');
     
     // Click sign up toggle button
     await page.click('text=Don\'t have an account? Sign up');
     
     // Fill signup form
-    const testEmail = `test-${Date.now()}@example.com`;
     await page.fill('input[placeholder="Enter your email"]', testEmail);
-    await page.fill('input[placeholder="Enter your full name"]', 'Test User');
+    await page.fill('input[placeholder="Enter your first name"]', 'Test');
+    await page.fill('input[placeholder="Enter your last name"]', 'User');
     await page.fill('input[placeholder="Enter your password"]', 'TestPassword123!');
     await page.fill('input[placeholder="Confirm your password"]', 'TestPassword123!');
     
@@ -33,17 +45,21 @@ test.describe('Better Auth Integration', () => {
     
     // Verify account created
     await expect(page.locator('text=/Account created|Welcome/')).toBeVisible({ timeout: 10000 });
+    
+    // Track for cleanup
+    testUsers.push({ email: testEmail });
   });
 
   test('should sign in with existing account', async ({ page, context }) => {
     // First create an account
-    const testEmail = `test-${Date.now()}@example.com`;
+    const testEmail = generateTestEmail('e2e-signin');
     const testPassword = 'TestPassword123!';
     
     await page.goto('/auth');
     await page.click('text=Don\'t have an account? Sign up');
     await page.fill('input[placeholder="Enter your email"]', testEmail);
-    await page.fill('input[placeholder="Enter your full name"]', 'Test User');
+    await page.fill('input[placeholder="Enter your first name"]', 'Test');
+    await page.fill('input[placeholder="Enter your last name"]', 'User');
     await page.fill('input[placeholder="Enter your password"]', testPassword);
     await page.fill('input[placeholder="Confirm your password"]', testPassword);
     await page.click('button:has-text("Create account")');
@@ -53,6 +69,9 @@ test.describe('Better Auth Integration', () => {
       page.waitForURL('/', { timeout: 15000 }),
       page.waitForSelector('text=/Account created|Welcome/', { timeout: 15000 })
     ]);
+    
+    // Track for cleanup
+    testUsers.push({ email: testEmail });
     
     // Sign out (if needed)
     const cookies = await context.cookies();
@@ -70,11 +89,12 @@ test.describe('Better Auth Integration', () => {
 
   test('should persist session on reload', async ({ page }) => {
     // Sign up
-    const testEmail = `test-${Date.now()}@example.com`;
+    const testEmail = generateTestEmail('e2e-persistence');
     await page.goto('/auth');
     await page.click('text=Don\'t have an account? Sign up');
     await page.fill('input[placeholder="Enter your email"]', testEmail);
-    await page.fill('input[placeholder="Enter your full name"]', 'Test User');
+    await page.fill('input[placeholder="Enter your first name"]', 'Test');
+    await page.fill('input[placeholder="Enter your last name"]', 'User');
     await page.fill('input[placeholder="Enter your password"]', 'TestPassword123!');
     await page.fill('input[placeholder="Confirm your password"]', 'TestPassword123!');
     await page.click('button:has-text("Create account")');
@@ -84,6 +104,9 @@ test.describe('Better Auth Integration', () => {
       page.waitForURL('/', { timeout: 15000 }),
       page.waitForSelector('text=/Account created|Welcome/', { timeout: 15000 })
     ]);
+    
+    // Track for cleanup
+    testUsers.push({ email: testEmail });
     
     // Navigate to home page manually if still on auth page
     if (page.url().includes('/auth')) {
@@ -97,44 +120,71 @@ test.describe('Better Auth Integration', () => {
     await expect(page).not.toHaveURL(/\/auth/);
   });
 
-  test('should allow chat after authentication', async ({ page }) => {
-    // Start anonymous chat
-    await page.goto('/');
-    await page.fill('[data-testid="message-input"]', 'Anonymous message');
-    await page.click('button[type="submit"]');
+
+  test('should store JWT token in IndexedDB after signup', async ({ page }) => {
+    const testEmail = generateTestEmail('e2e-token-storage');
     
-    // Wait for message to appear
-    await expect(page.locator('text=Anonymous message')).toBeVisible({ timeout: 10000 });
-    
-    // Sign up
     await page.goto('/auth');
     await page.click('text=Don\'t have an account? Sign up');
-    const testEmail = `test-${Date.now()}@example.com`;
     await page.fill('input[placeholder="Enter your email"]', testEmail);
-    await page.fill('input[placeholder="Enter your full name"]', 'Test User');
+    await page.fill('input[placeholder="Enter your first name"]', 'Token');
+    await page.fill('input[placeholder="Enter your last name"]', 'Test User');
     await page.fill('input[placeholder="Enter your password"]', 'TestPassword123!');
     await page.fill('input[placeholder="Confirm your password"]', 'TestPassword123!');
     await page.click('button:has-text("Create account")');
     
-    // Wait for success message or redirect
+    // Wait for success
     await Promise.race([
       page.waitForURL('/', { timeout: 15000 }),
       page.waitForSelector('text=/Account created|Welcome/', { timeout: 15000 })
     ]);
     
-    // Navigate to home page manually if still on auth page
+    // Track for cleanup
+    testUsers.push({ email: testEmail });
+    
+    // Navigate to home if needed
     if (page.url().includes('/auth')) {
       await page.goto('/');
     }
     
-    // Wait for page to load completely
     await page.waitForLoadState('networkidle');
     
-    // Send a message after authentication to verify chat still works
-    await page.fill('[data-testid="message-input"]', 'Post-auth message');
-    await page.click('button[type="submit"]');
+    // Check IndexedDB for token
+    const tokenExists = await page.evaluate(async () => {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('blawby_auth', 1);
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction(['tokens'], 'readonly');
+          const store = transaction.objectStore('tokens');
+          const getRequest = store.get('backend_session_token');
+          
+          getRequest.onsuccess = () => {
+            const result = getRequest.result;
+            resolve(!!result?.value);
+          };
+          getRequest.onerror = () => reject(getRequest.error);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    });
     
-    // Verify the new message appears
-    await expect(page.locator('text=Post-auth message')).toBeVisible({ timeout: 10000 });
+    expect(tokenExists).toBe(true);
+  });
+
+  test('should handle Railway API error responses', async ({ page }) => {
+    // Test with invalid email format
+    await page.goto('/auth');
+    await page.click('text=Don\'t have an account? Sign up');
+    await page.fill('input[placeholder="Enter your email"]', 'invalid-email');
+    await page.fill('input[placeholder="Enter your first name"]', 'Error');
+    await page.fill('input[placeholder="Enter your last name"]', 'Test User');
+    await page.fill('input[placeholder="Enter your password"]', 'TestPassword123!');
+    await page.fill('input[placeholder="Confirm your password"]', 'TestPassword123!');
+    await page.click('button:has-text("Create account")');
+    
+    // Should show email validation error message
+    await expect(page.locator('[role="alert"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[role="alert"]')).toHaveText(/Please enter a valid email address/);
   });
 });

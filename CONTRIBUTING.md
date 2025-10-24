@@ -1,6 +1,6 @@
-# Contributing to Preact ChatGPT Clone
+# Contributing to Blawby AI Legal Intake Chatbot
 
-Thank you for considering contributing to the Preact ChatGPT Clone! This document provides guidelines and instructions for contributing to this project.
+Thank you for considering contributing to the Blawby AI Legal Intake Chatbot! This document provides guidelines and instructions for contributing to this project.
 
 ## Code of Conduct
 
@@ -60,14 +60,18 @@ We actively welcome pull requests:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/preact-chat-gpt-interface.git
-cd preact-chat-gpt-interface
+git clone https://github.com/blawby/blawby-ai-chatbot.git
+cd blawby-ai-chatbot
 
 # Install dependencies
 npm install
 
+# Set up environment variables
+cp dev.vars.example .dev.vars
+# Edit .dev.vars with your API keys
+
 # Start the development server
-npm run dev
+npm run dev:full
 ```
 
 ### Code Style
@@ -76,27 +80,42 @@ This project uses:
 - TypeScript for type checking
 - ESLint for code linting
 - Prettier for code formatting
+- Blawby Backend API for user authentication and organization management
 
 Before submitting a PR, please run:
 
 ```bash
 npm run lint
 npm run format
+npm test
 ```
 
 ## Project Structure
 
 - `src/components/` - Reusable UI components
+- `src/contexts/` - React contexts for state management
+- `src/hooks/` - Custom React hooks
+- `src/lib/` - API clients and utilities
+- `src/types/` - TypeScript type definitions
 - `src/utils/` - Utility functions and helpers
 - `src/index.tsx` - Main application entry point
-- `src/style.css` - Global styling
-- `integrations/` - Integration examples for various frameworks
+- `worker/` - Cloudflare Workers backend
+- `tests/` - Test files (unit, integration, e2e)
 
 ## Testing
 
 ```bash
-# Run tests
+# Run all tests
 npm test
+
+# Run specific test types
+npm run test:unit      # Unit tests
+npm run test:worker    # Worker integration tests
+npm run test:component # Component tests
+npm run test:e2e       # End-to-end tests
+
+# Run tests with coverage
+npm run test:coverage
 ```
 
 ## Building

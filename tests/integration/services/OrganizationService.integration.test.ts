@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { WORKER_URL } from '../../setup-real-api';
+import { WORKER_URL } from '../../setup-worker-integration';
 import { ApiResponse } from '../../../worker/types.js';
 import { Organization } from '../../../worker/services/OrganizationService.js';
 

@@ -43,6 +43,7 @@ ENABLE_AUTH_IP_DETECTION=false
 GOOGLE_CLIENT_ID=your_google_client_id_here
 GOOGLE_CLIENT_SECRET=your_google_client_secret_here
 
+
 # Stripe Configuration (SENSITIVE)
 STRIPE_SECRET_KEY=your_stripe_secret_key_here
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret_here

@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { handleError, handleAsyncError, safeLog } from '../errorHandler';
+import { handleError, handleAsyncError, safeLog } from '../../../src/utils/errorHandler';
 
 // Mock the environment utility
-vi.mock('../environment', () => ({
+vi.mock('../../../src/utils/environment', () => ({
   isProduction: vi.fn(() => false)
 }));
 
@@ -93,7 +93,7 @@ describe('errorHandler', () => {
 
     it('should log to console in development mode', async () => {
       // Mock isProduction to return false (development mode)
-      const { isProduction } = await import('../environment');
+      const { isProduction } = await import('../../../src/utils/environment');
       vi.mocked(isProduction).mockReturnValue(false);
 
       const error = new Error('Test error');
@@ -115,7 +115,7 @@ describe('errorHandler', () => {
 
     it('should log minimal information to console in production mode', async () => {
       // Mock isProduction to return true (production mode)
-      const { isProduction } = await import('../environment');
+      const { isProduction } = await import('../../../src/utils/environment');
       vi.mocked(isProduction).mockReturnValue(true);
 
       const error = new Error('Test error');
@@ -152,7 +152,7 @@ describe('errorHandler', () => {
       });
 
       // Mock isProduction to return false (development mode)
-      const { isProduction } = await import('../environment');
+      const { isProduction } = await import('../../../src/utils/environment');
       vi.mocked(isProduction).mockReturnValue(false);
 
       const error = new Error('Test error');
@@ -195,7 +195,7 @@ describe('errorHandler', () => {
   describe('safeLog', () => {
     it('should log in development mode', async () => {
       // Mock isProduction to return false (development mode)
-      const { isProduction } = await import('../environment');
+      const { isProduction } = await import('../../../src/utils/environment');
       vi.mocked(isProduction).mockReturnValue(false);
 
       safeLog('log', 'Test message', { data: 'test' }, { component: 'TestComponent' });
@@ -205,7 +205,7 @@ describe('errorHandler', () => {
 
     it('should not log in production mode', async () => {
       // Mock isProduction to return true (production mode)
-      const { isProduction } = await import('../environment');
+      const { isProduction } = await import('../../../src/utils/environment');
       vi.mocked(isProduction).mockReturnValue(true);
 
       safeLog('log', 'Test message', { data: 'test' }, { component: 'TestComponent' });
@@ -215,7 +215,7 @@ describe('errorHandler', () => {
 
     it('should log in production when force option is true', async () => {
       // Mock isProduction to return true (production mode)
-      const { isProduction } = await import('../environment');
+      const { isProduction } = await import('../../../src/utils/environment');
       vi.mocked(isProduction).mockReturnValue(true);
 
       safeLog('log', 'Test message', { data: 'test' }, { component: 'TestComponent', force: true });

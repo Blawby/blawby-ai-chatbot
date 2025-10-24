@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { WORKER_URL } from '../../setup-real-api';
+import { WORKER_URL } from '../../setup-worker-integration';
 
 // Type definitions for API responses
 interface ApiResponse<T = unknown> {

@@ -4,6 +4,7 @@
  */
 
 import { isProduction } from './environment';
+import { ApiErrorResponse } from '../types/backend';
 
 interface ErrorContext {
   component?: string;
@@ -191,6 +192,70 @@ export async function handleAsyncError<T>(
     handleError(error, context, options);
     return options.fallback;
   }
+}
+
+/**
+ * Extracts a safe error message from various error types
+ * Handles ApiErrorResponse objects, Error instances, and other error shapes
+ * Prevents "[object Object]" from being displayed to users
+ */
+export function extractErrorMessage(error: unknown, fallback: string = 'An unexpected error occurred'): string {
+  // Handle null/undefined
+  if (error == null) {
+    return fallback;
+  }
+
+  // Handle string errors
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  // Handle Error instances
+  if (error instanceof Error) {
+    return error.message.trim() || fallback;
+  }
+
+  // Handle objects (including ApiErrorResponse)
+  if (error && typeof error === 'object') {
+    const errorObj = error as Record<string, unknown>;
+
+    // Check for ApiErrorResponse shape: { statusCode, message, error }
+    if ('message' in errorObj && typeof errorObj.message === 'string') {
+      return errorObj.message.trim() || fallback;
+    }
+
+    // Check for nested error in response.data.message (common API pattern)
+    if ('response' in errorObj && 
+        errorObj.response && 
+        typeof errorObj.response === 'object' &&
+        'data' in errorObj.response &&
+        errorObj.response.data &&
+        typeof errorObj.response.data === 'object' &&
+        'message' in errorObj.response.data &&
+        typeof errorObj.response.data.message === 'string') {
+      return (errorObj.response.data as { message: string }).message.trim() || fallback;
+    }
+
+    // Check for direct error property
+    if ('error' in errorObj && typeof errorObj.error === 'string') {
+      return errorObj.error.trim() || fallback;
+    }
+
+    // Check for nested error in data
+    if ('data' in errorObj && 
+        errorObj.data && 
+        typeof errorObj.data === 'object' &&
+        'error' in errorObj.data &&
+        typeof errorObj.data.error === 'string') {
+      return (errorObj.data as { error: string }).error.trim() || fallback;
+    }
+
+    // Last resort: return fallback message instead of attempting to sanitize/stringify
+    // the unknown object which produces verbose, unfriendly output
+  }
+
+  // Final fallback
+  return fallback;
 }
 
 /**

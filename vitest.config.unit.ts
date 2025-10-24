@@ -5,10 +5,10 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['./tests/setup-unit.ts'],
+    testTimeout: 15000, // Increased for Railway API calls
     include: [
       'tests/unit/**/*.test.{ts,tsx,js,jsx}',
-      'tests/unit/**/*.spec.{ts,tsx,js,jsx}',
-      'src/**/__tests__/**/*.{test,spec}.{ts,tsx,js,jsx}'
+      'tests/unit/**/*.spec.{ts,tsx,js,jsx}'
     ],
     exclude: [
       'node_modules/**',

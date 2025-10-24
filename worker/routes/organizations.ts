@@ -6,6 +6,7 @@ import { handleError, HttpErrors } from '../errorHandler.js';
 import type { Organization } from '../services/OrganizationService.js';
 import { organizationCreateSchema, organizationUpdateSchema } from '../schemas/validation.js';
 import { requireFeature } from '../middleware/featureGuard.js';
+import { randomBytes } from 'crypto';
 
 /**
  * Helper function to create standardized error responses
@@ -991,8 +992,20 @@ async function createOrganization(
     );
   }
 
+  // Generate slug if not provided
+  let finalSlug = body.slug;
+  if (!finalSlug && userId) {
+    // Auto-generate slug based on user ID
+    finalSlug = organizationService.createSafeSlug(userId);
+  } else if (!finalSlug) {
+    // Fallback for cases without userId - include entropy to prevent collisions
+    const timestamp = Date.now().toString(36);
+    const randomToken = randomBytes(4).toString('hex');
+    finalSlug = `org-${timestamp}-${randomToken}`;
+  }
+
   // Check if organization with slug already exists
-  const existingOrganization = await organizationService.getOrganization(body.slug);
+  const existingOrganization = await organizationService.getOrganization(finalSlug);
   if (existingOrganization) {
     return new Response(
       JSON.stringify({ 
@@ -1008,7 +1021,7 @@ async function createOrganization(
 
   try {
     const organization = await organizationService.createOrganization({
-      slug: body.slug,
+      slug: finalSlug,
       name: body.name,
       config: body.config,
       stripeCustomerId: body.stripeCustomerId,

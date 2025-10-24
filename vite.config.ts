@@ -225,7 +225,8 @@ export default defineConfig({
 	},
 	server: {
 		// Proxy API calls to local backend, but exclude file endpoints
-		proxy: {
+		// Only proxy if VITE_BACKEND_API_URL is not set (local development)
+		proxy: process.env.VITE_BACKEND_API_URL ? {} : {
 			'/api': {
 				target: 'http://localhost:8787',
 				changeOrigin: true,
@@ -249,6 +250,8 @@ export default defineConfig({
 	define: {
 		// Set VITE_API_URL for development mode to use localhost
 		// In production builds, this will be undefined, triggering relative URL usage
-		'import.meta.env.VITE_API_URL': JSON.stringify(process.env.NODE_ENV === 'development' ? 'http://localhost:8787' : undefined)
+		'import.meta.env.VITE_API_URL': JSON.stringify(process.env.NODE_ENV === 'development' ? 'http://localhost:8787' : undefined),
+		// Define VITE_BACKEND_API_URL for backend API configuration
+		'import.meta.env.VITE_BACKEND_API_URL': JSON.stringify(process.env.VITE_BACKEND_API_URL || undefined)
 	}
 });

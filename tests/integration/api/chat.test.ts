@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { WORKER_URL } from '../../setup-real-api';
+import { WORKER_URL } from '../../setup-worker-integration';
 
 // Helper function to handle streaming responses
 async function handleStreamingResponse(response: Response, timeoutMs: number = 30000) {

@@ -78,13 +78,14 @@ export const authSchemas = {
 
 export const onboardingSchemas = {
   personalInfo: z.object({
-    fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+    firstName: z.string().min(1, 'First name is required'),
+    lastName: z.string().min(1, 'Last name is required'),
     birthday: commonSchemas.birthday.optional(),
     agreedToTerms: commonSchemas.termsAgreement,
   }),
   
   useCase: z.object({
-    primaryUseCase: z.enum(['personal', 'business', 'research', 'documents', 'other']),
+    selectedUseCases: z.array(z.enum(['personal', 'business', 'research', 'documents', 'other'])).min(1, 'Please select at least one use case'),
     additionalInfo: z.string().optional(),
   }),
 };
@@ -131,6 +132,83 @@ export const contactSchemas = {
   }),
 };
 
+// Organization/Practice schemas
+export const organizationSchemas = {
+  createOrganization: z.object({
+    name: z.string().min(1, 'Organization name is required').max(100, 'Name must be less than 100 characters'),
+    slug: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^[a-z0-9-]+$/.test(val),
+      'Slug must contain only lowercase letters, numbers, and hyphens'
+    ),
+    description: z.string().optional(),
+    businessPhone: z.string().optional().refine(
+      (val) => {
+        if (val === undefined || val === '') return true;
+        const matchesPattern = /^\+?[\d\s-()]+$/.test(val);
+        const digitCount = val.replace(/\D/g, '').length;
+        return matchesPattern && digitCount >= 7;
+      },
+      'Invalid phone format (minimum 7 digits required)'
+    ),
+    businessEmail: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      'Invalid email format'
+    ),
+    consultationFee: z.string().optional().refine(
+      (val) => {
+        if (val === undefined || val === '') return true;
+        // Strict currency format: optional $, requires at least one digit, commas only as thousand separators, optional decimal with 1-2 digits
+        const strictPattern = /^\$?(\d{1,3}(,\d{3})*(\.\d{1,2})?|\d+(\.\d{1,2})?)$/;
+        return strictPattern.test(val);
+      },
+      'Invalid fee format (accepts numbers with optional $, commas, and decimals)'
+    ),
+    paymentUrl: z.string().optional().refine(
+      (val) => val === undefined || val === '' || commonSchemas.url.safeParse(val).success,
+      'Invalid URL format'
+    ),
+    calendlyUrl: z.string().optional().refine(
+      (val) => val === undefined || val === '' || commonSchemas.url.safeParse(val).success,
+      'Invalid URL format'
+    ),
+  }),
+  
+  updateOrganization: z.object({
+    name: z.string().min(1, 'Organization name is required').max(100, 'Name must be less than 100 characters').optional(),
+    description: z.string().optional(),
+    businessPhone: z.string().optional().refine(
+      (val) => {
+        if (val === undefined || val === '') return true;
+        const matchesPattern = /^\+?[\d\s-()]+$/.test(val);
+        const digitCount = val.replace(/\D/g, '').length;
+        return matchesPattern && digitCount >= 7;
+      },
+      'Invalid phone format (minimum 7 digits required)'
+    ),
+    businessEmail: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      'Invalid email format'
+    ),
+    consultationFee: z.string().optional().refine(
+      (val) => {
+        if (val === undefined || val === '') return true;
+        // Strict currency format: optional $, requires at least one digit, commas only as thousand separators, optional decimal with 1-2 digits
+        const strictPattern = /^\$?(\d{1,3}(,\d{3})*(\.\d{1,2})?|\d+(\.\d{1,2})?)$/;
+        return strictPattern.test(val);
+      },
+      'Invalid fee format (accepts numbers with optional $, commas, and decimals)'
+    ),
+    paymentUrl: z.string().optional().refine(
+      (val) => val === undefined || val === '' || commonSchemas.url.safeParse(val).success,
+      'Invalid URL format'
+    ),
+    calendlyUrl: z.string().optional().refine(
+      (val) => val === undefined || val === '' || commonSchemas.url.safeParse(val).success,
+      'Invalid URL format'
+    ),
+  }),
+};
+
 // Export all schemas
 export const schemas = {
   common: commonSchemas,
@@ -138,4 +216,5 @@ export const schemas = {
   onboarding: onboardingSchemas,
   settings: settingsSchemas,
   contact: contactSchemas,
+  organization: organizationSchemas,
 };

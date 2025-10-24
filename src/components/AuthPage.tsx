@@ -6,8 +6,10 @@ import { OnboardingData } from '../types/user';
 import { Logo } from './ui/Logo';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from './ui/form';
 import { Input, EmailInput, PasswordInput } from './ui/input';
-import { handleError } from '../utils/errorHandler';
-import { authClient } from '../lib/authClient';
+import { handleError, extractErrorMessage } from '../utils/errorHandler';
+import { useAuth } from '../contexts/AuthContext';
+import { features } from '../config/features';
+import { backendClient } from '../lib/backendClient';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -17,9 +19,11 @@ interface AuthPageProps {
 
 const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPageProps) => {
   const { t } = useTranslation('auth');
+  const { signin, signup } = useAuth();
   const [isSignUp, setIsSignUp] = useState(mode === 'signup');
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -92,67 +96,53 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
           return;
         }
 
-        // Use Better Auth for sign-up
-        const result = await authClient.signUp.email({
-          email: formData.email,
-          password: formData.password,
-          name: formData.name || formData.email.split('@')[0] || t('defaults.demoUserName'),
-        });
-
-        if (result.error) {
-          console.error('Sign-up error:', result.error);
-          const signupMessage = result.error.message || '';
-          const normalized = signupMessage.toLowerCase();
-          if (normalized.includes('already') && normalized.includes('exist')) {
-            setError('An account with this email already exists. Try signing in instead.');
-          } else {
-            setError(signupMessage || t('errors.unknownError'));
-          }
-          setLoading(false);
-          return;
-        }
+            // Use backend API for sign-up (only send required fields)
+            await signup(
+              formData.email,
+              formData.password,
+              formData.firstName,
+              formData.lastName
+            );
 
         setMessage(t('messages.accountCreated'));
         
-        // Show onboarding for new sign-ups
-        setShowOnboarding(true);
-      } else {
-        // Use Better Auth for sign-in
-        const result = await authClient.signIn.email({
-          email: formData.email,
-          password: formData.password,
-        });
-
-        if (result.error) {
-          console.error('Sign-in error:', result.error);
-          const signInMessage = result.error.message || '';
-          const normalized = signInMessage.toLowerCase();
-          if (normalized.includes('not found')) {
-            setError(t('errors.userNotFound'));
-          } else if (normalized.includes('invalid credentials')) {
-            setError(t('errors.invalidCredentials'));
-          } else {
-            setError(signInMessage || t('errors.invalidCredentials'));
-          }
-          setLoading(false);
-          return;
+        // Set onboarding completion flag to prevent redirect loop
+        try {
+          localStorage.setItem('onboardingCompleted', 'true');
+          localStorage.setItem('onboardingCheckDone', 'true');
+        } catch (error) {
+          console.warn('Failed to set onboarding flags:', error);
         }
+        
+        // Skip onboarding for now (onboarding modal needs to be updated for new backend API)
+        // setShowOnboarding(true);
+        
+        // Redirect to home page after successful signup
+        await handleRedirect();
+      } else {
+        // Use backend API for sign-in
+        await signin(formData.email, formData.password);
 
         setMessage(t('messages.signedIn'));
         
         // Redirect to home page after successful sign in
         await handleRedirect();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Auth error:', err);
-      if (err instanceof Error) {
-        if (err.message.includes('fetch')) {
-          setError('Network error. Please check your connection and try again.');
-        } else {
-          setError(err.message);
-        }
+      const errorMessage = extractErrorMessage(err, t('errors.unknownError'));
+      const normalized = errorMessage.toLowerCase();
+      
+      if (normalized.includes('already') && normalized.includes('exist')) {
+        setError(t('errors.accountExists'));
+      } else if (normalized.includes('invalid') && normalized.includes('credentials')) {
+        setError(t('errors.invalidCredentials'));
+      } else if (normalized.includes('not') && normalized.includes('found')) {
+        setError(t('errors.accountNotFound'));
+      } else if (errorMessage.includes('fetch')) {
+        setError(t('errors.networkError'));
       } else {
-        setError(t('errors.unknownError'));
+        setError(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -160,37 +150,22 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   };
 
   const handleGoogleSignIn = async () => {
+    if (!features.enableGoogleAuth) {
+      setError(t('errors.googleAuthNotAvailable'));
+      return;
+    }
+
     setLoading(true);
     setError('');
     setMessage('');
 
     try {
-      // Use Better Auth for Google OAuth
-      const result = await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: `${window.location.origin}/`,
-      });
-
-      if (result.error) {
-        console.error('Google sign-in error:', result.error);
-        setError(result.error.message || t('errors.unknownError'));
-        setLoading(false);
-        return;
-      }
-
-      // Google OAuth will redirect, so we don't need to handle success here
-      // The redirect will be handled by Better Auth
+      // TODO: Implement Google OAuth with backend API when available
+      setError(t('errors.googleAuthComingSoon'));
     } catch (err) {
       console.error('Google auth error:', err);
-      if (err instanceof Error) {
-        if (err.message.includes('fetch')) {
-          setError('Network error. Please check your connection and try again.');
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError(t('errors.unknownError'));
-      }
+      setError(t('errors.googleAuthNotAvailable'));
+    } finally {
       setLoading(false);
     }
   };
@@ -201,39 +176,71 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   };
 
   const handleOnboardingComplete = async (data: OnboardingData) => {
-    // Development-only debug log with redacted sensitive data
-    if (import.meta.env.DEV) {
-      const _redactedData = {
-        personalInfo: {
-          fullName: data.personalInfo.fullName ? '[REDACTED]' : undefined,
-          birthday: data.personalInfo.birthday ? '[REDACTED]' : undefined,
-          agreedToTerms: data.personalInfo.agreedToTerms
-        },
-        useCase: {
-          primaryUseCase: data.useCase.primaryUseCase,
-          additionalInfo: data.useCase.additionalInfo ? '[REDACTED]' : undefined
-        },
-        completedAt: data.completedAt,
-        skippedSteps: data.skippedSteps
-      };
-      // Onboarding completed with redacted data
-    }
-    
-    // Persist onboarding completion flag before redirecting
-    localStorage.setItem('onboardingCompleted', 'true');
-    
-    // Clear the onboarding check flag since user completed onboarding
     try {
-      localStorage.removeItem('onboardingCheckDone');
-    } catch (_error) {
-      // Handle localStorage failures gracefully
+      // Development-only debug log with redacted sensitive data
+      if (import.meta.env.DEV) {
+        const _redactedData = {
+          personalInfo: {
+            firstName: data.personalInfo.firstName ? '[REDACTED]' : undefined,
+            lastName: data.personalInfo.lastName ? '[REDACTED]' : undefined,
+            birthday: data.personalInfo.birthday ? '[REDACTED]' : undefined,
+            agreedToTerms: data.personalInfo.agreedToTerms
+          },
+          useCase: {
+            selectedUseCases: data.useCase.selectedUseCases,
+            additionalInfo: data.useCase.additionalInfo ? '[REDACTED]' : undefined
+          },
+          completedAt: data.completedAt,
+          skippedSteps: data.skippedSteps
+        };
+        console.log('📝 Onboarding completed with redacted data:', _redactedData);
+      }
+      
+      // Submit onboarding data to backend
+      const response = await backendClient.submitOnboarding(data);
+      
+      if (response.success) {
+        if (import.meta.env.DEV) {
+          console.log('✅ Onboarding data saved successfully:', response.data);
+        }
+        
+        // Persist onboarding completion flag before redirecting
+        localStorage.setItem('onboardingCompleted', 'true');
+        
+        // Clear the onboarding check flag since user completed onboarding
+        try {
+          localStorage.removeItem('onboardingCheckDone');
+        } catch (_error) {
+          // Handle localStorage failures gracefully
+        }
+        
+        // Close onboarding modal and redirect to main app
+        setShowOnboarding(false);
+        
+        // Redirect to main app where the welcome modal will show, waiting for onSuccess if provided
+        await handleRedirect();
+      } else {
+        throw new Error('Failed to save onboarding data');
+      }
+    } catch (error) {
+      console.error('❌ Failed to submit onboarding data:', error);
+      
+      // Show error to user but still allow them to continue
+      // This ensures the onboarding flow doesn't break if the backend is unavailable
+      setError('Failed to save your onboarding preferences. You can update them later in settings.');
+      
+      // Still persist local completion flag and redirect
+      localStorage.setItem('onboardingCompleted', 'true');
+      
+      try {
+        localStorage.removeItem('onboardingCheckDone');
+      } catch (_error) {
+        // Handle localStorage failures gracefully
+      }
+      
+      setShowOnboarding(false);
+      await handleRedirect();
     }
-    
-    // Close onboarding modal and redirect to main app
-    setShowOnboarding(false);
-    
-    // Redirect to main app where the welcome modal will show, waiting for onSuccess if provided
-    await handleRedirect();
   };
 
   const handleOnboardingClose = async () => {
@@ -279,23 +286,25 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-light-card-bg dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {/* Google Sign In Button */}
-          <div className="mb-6">
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-              className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-dark-input-bg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
+          {/* Google Sign In Button - conditionally rendered */}
+          {features.enableGoogleAuth && (
+            <div className="mb-6">
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-dark-input-bg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-{t(isSignUp ? 'signup.googleSignIn' : 'signin.googleSignIn')}
+              {t(isSignUp ? 'signup.googleSignIn' : 'signin.googleSignIn')}
             </button>
           </div>
+          )}
 
           {/* Divider */}
           <div className="relative mb-6">
@@ -310,29 +319,55 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
           <Form onSubmit={handleSubmit}>
             <div className="space-y-4">
               {isSignUp && (
-                <FormField name="name">
-                  {({ error, onChange }) => (
-                    <FormItem>
-                      <FormLabel htmlFor="signup-fullname">{t('signup.fullName')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          id="signup-fullname"
-                          type="text"
-                          required={isSignUp}
-                          value={formData.name}
-                          onChange={(value) => {
-                            onChange(value);
-                            setFormData(prev => ({ ...prev, name: String(value) }));
-                          }}
-                          placeholder={t('signup.fullNamePlaceholder')}
-                          icon={<UserIcon className="h-5 w-5 text-gray-400" />}
-                          error={error?.message}
-                        />
-                      </FormControl>
-                      {error && <FormMessage>{error.message}</FormMessage>}
-                    </FormItem>
-                  )}
-                </FormField>
+                <>
+                  <FormField name="firstName">
+                    {({ error, onChange }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="signup-firstname">{t('signup.firstName')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            id="signup-firstname"
+                            type="text"
+                            required={isSignUp}
+                            value={formData.firstName}
+                            onChange={(value) => {
+                              onChange(value);
+                              setFormData(prev => ({ ...prev, firstName: String(value) }));
+                            }}
+                            placeholder={t('signup.firstNamePlaceholder')}
+                            icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                            error={error?.message}
+                          />
+                        </FormControl>
+                        {error && <FormMessage>{error.message}</FormMessage>}
+                      </FormItem>
+                    )}
+                  </FormField>
+                  
+                  <FormField name="lastName">
+                    {({ error, onChange }) => (
+                      <FormItem>
+                        <FormLabel htmlFor="signup-lastname">{t('signup.lastName')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            id="signup-lastname"
+                            type="text"
+                            required={isSignUp}
+                            value={formData.lastName}
+                            onChange={(value) => {
+                              onChange(value);
+                              setFormData(prev => ({ ...prev, lastName: String(value) }));
+                            }}
+                            placeholder={t('signup.lastNamePlaceholder')}
+                            icon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                            error={error?.message}
+                          />
+                        </FormControl>
+                        {error && <FormMessage>{error.message}</FormMessage>}
+                      </FormItem>
+                    )}
+                  </FormField>
+                </>
               )}
 
               <FormField name="email">
@@ -436,7 +471,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
                   setIsSignUp(!isSignUp);
                   setError('');
                   setMessage('');
-                  setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+                  setFormData({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '' });
                 }}
                 className="text-sm text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 transition-colors"
               >

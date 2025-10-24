@@ -176,6 +176,13 @@ const loadLocaleResources = async (locale: AnyLocale) => {
 
 export const initI18n = async () => {
   if (initialized) {
+    // Already initialized, but update DOM attributes in case locale changed
+    if (typeof window !== 'undefined') {
+      const currentLocale = normalizeAnyLocale(i18next.language);
+      const isRTL = isRTLLocale(currentLocale);
+      document.documentElement.setAttribute('dir', isRTL ? 'rtl' : 'ltr');
+      document.documentElement.setAttribute('lang', currentLocale);
+    }
     return i18next;
   }
 

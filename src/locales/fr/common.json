@@ -114,8 +114,10 @@
     "step1": {
       "title": "Parlez-nous de vous",
       "subtitle": "Aidez-nous à personnaliser votre expérience",
-      "fullName": "Nom complet",
-      "fullNamePlaceholder": "Entrez votre nom complet",
+      "firstName": "Prénom",
+      "firstNamePlaceholder": "Entrez votre prénom",
+      "lastName": "Nom",
+      "lastNamePlaceholder": "Entrez votre nom",
       "birthday": "Date de naissance",
       "birthdayPlaceholder": "JJ/MM/AAAA",
       "termsAgreement": "En cliquant sur \"Continuer\", vous acceptez nos <termsLink>Conditions</termsLink> et avez lu notre <privacyLink>Politique de confidentialité</privacyLink>.",
@@ -125,7 +127,7 @@
     },
     "step2": {
       "title": "Comment souhaitez-vous utiliser Blawby AI ?",
-      "subtitle": "Cela nous aide à fournir des suggestions plus pertinentes",
+      "subtitle": "Sélectionnez toutes les options applicables - cela nous aide à fournir des suggestions plus pertinentes",
       "options": {
         "personal": "Problèmes juridiques personnels",
         "business": "Besoins juridiques professionnels",

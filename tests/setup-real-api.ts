@@ -1,8 +1,10 @@
-import '@testing-library/jest-dom';
-import { vi, beforeAll, afterAll } from 'vitest';
+// Removed @testing-library/jest-dom - using Playwright for UI testing
+import { vi, beforeAll, afterAll, afterEach } from 'vitest';
+// Removed @testing-library/preact - using Playwright for UI testing
 import { spawn, ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { setTimeout as setTimeoutPromise } from 'timers/promises';
+// Removed test-utils import - using Playwright for UI testing
 
 // Configuration for real API testing
 const WORKER_URL = process.env.WORKER_URL ?? 'http://localhost:8787';
@@ -14,62 +16,7 @@ let wranglerProcess: ChildProcess | null = null;
 // For real API tests, we want to use the actual fetch
 // Don't mock fetch - let it use the real implementation
 
-// Only mock browser APIs that don't exist in Node.js environment
-// Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
-
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
-
-// Mock matchMedia only if window exists (browser environment)
-if (typeof window !== 'undefined') {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation(query => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(), // deprecated
-      removeListener: vi.fn(), // deprecated
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-}
-
-// Mock URL.createObjectURL only if URL exists
-if (typeof URL !== 'undefined') {
-  global.URL.createObjectURL = vi.fn(() => 'mocked-url');
-  global.URL.revokeObjectURL = vi.fn();
-}
-
-// Mock FileReader only if it exists
-if (typeof FileReader !== 'undefined') {
-  global.FileReader = vi.fn().mockImplementation(() => ({
-    readAsDataURL: vi.fn(),
-    readAsText: vi.fn(),
-    readAsArrayBuffer: vi.fn(),
-    result: null,
-    error: null,
-    onload: null,
-    onerror: null,
-    onloadend: null,
-  })) as any;
-  
-  // Add static properties
-  (global.FileReader as any).EMPTY = 0;
-  (global.FileReader as any).LOADING = 1;
-  (global.FileReader as any).DONE = 2;
-}
+// Removed DOM mocks - using Playwright for UI testing
 
 // Helper function to kill processes on a specific port (cross-platform)
 async function killProcessesOnPort(port: number): Promise<void> {
@@ -416,6 +363,8 @@ afterAll(async () => {
     console.error('❌ Failed to stop wrangler dev:', error);
   }
 });
+
+// Removed test cleanup - using Playwright for UI testing
 
 // Export helper functions for use in tests
 export { WORKER_URL, startWranglerDev, stopWranglerDev };
