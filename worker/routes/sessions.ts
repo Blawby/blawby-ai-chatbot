@@ -93,7 +93,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
       sessionId: body.sessionId,
       sessionToken: body.sessionToken,
       organizationId,
-      userId: authContext?.user.id,
+      userId: authContext?.user?.id,
       retentionHorizonDays: body.retentionHorizonDays,
       createIfMissing: true
     });

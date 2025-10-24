@@ -7,8 +7,7 @@ export default defineConfig({
     setupFiles: ['./tests/setup-unit.ts'],
     include: [
       'tests/unit/**/*.test.{ts,tsx,js,jsx}',
-      'tests/unit/**/*.spec.{ts,tsx,js,jsx}',
-      'src/**/__tests__/**/*.{test,spec}.{ts,tsx,js,jsx}'
+      'tests/unit/**/*.spec.{ts,tsx,js,jsx}'
     ],
     exclude: [
       'node_modules/**',

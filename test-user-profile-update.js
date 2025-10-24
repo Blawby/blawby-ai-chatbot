@@ -34,7 +34,6 @@ test('should update user profile after signup', async ({ page }) => {
   await page.waitForLoadState('networkidle');
   
   // Check if user profile shows the registered user info instead of "Sign In"
-  const userProfileButton = page.locator('button:has-text("Sign In"), [data-testid="user-profile"], .user-profile');
   
   // Look for user profile elements that should show the user's name or email
   const profileElements = [
@@ -42,8 +41,8 @@ test('should update user profile after signup', async ({ page }) => {
     page.locator(`text=${testEmail}`),
     page.locator('[data-testid="user-profile"]'),
     page.locator('.user-profile'),
-    page.locator('button:has-text("' + testName + '")'),
-    page.locator('button:has-text("' + testEmail.split('@')[0] + '")')
+    page.locator(`button:has-text("${testName}")`),
+    page.locator(`button:has-text("${testEmail.split('@')[0]}")`)
   ];
   
   // Check if any profile element is visible (indicating successful authentication)

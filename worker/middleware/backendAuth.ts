@@ -17,13 +17,16 @@ export interface BackendAuthContext {
  */
 async function validateBackendToken(token: string, env: Env): Promise<any | null> {
   try {
-    // For now, we'll decode the JWT token locally
-    // In production, you might want to verify the signature with the backend's public key
+    // CRITICAL: Implement proper JWT signature verification
+    // Currently only decodes without verifying signature - major security vulnerability
+    
     const parts = token.split('.');
     if (parts.length !== 3) {
       return null;
     }
 
+    // TODO: Implement signature verification with backend's public key
+    // For now, we'll decode the JWT token locally (INSECURE - for development only)
     const payload = JSON.parse(atob(parts[1]));
     
     // Check if token is expired

@@ -5,10 +5,14 @@
  * Get the base URL for Blawby Backend API requests
  * - Development & Production: Uses Railway production backend
  * - Supports VITE_BACKEND_API_URL override for local development if needed
+ * 
+ * Note: VITE_BACKEND_API_URL should include the /api prefix if using a local backend
+ * Example: VITE_BACKEND_API_URL=http://localhost:3000/api
  */
 function getBackendBaseUrl(): string {
   // Check for explicit backend API URL (development/override)
   if (import.meta.env.VITE_BACKEND_API_URL) {
+    // VITE_BACKEND_API_URL should include /api prefix for local development
     return import.meta.env.VITE_BACKEND_API_URL;
   }
   

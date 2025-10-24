@@ -60,7 +60,7 @@ We actively welcome pull requests:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/blawby-ai-chatbot.git
+git clone https://github.com/blawby/blawby-ai-chatbot.git
 cd blawby-ai-chatbot
 
 # Install dependencies

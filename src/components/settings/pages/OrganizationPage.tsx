@@ -80,6 +80,12 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       return;
     }
 
+    // Validate required fields
+    if (!createForm.name.trim()) {
+      showError('Organization name is required');
+      return;
+    }
+
     try {
       await createOrganization({
         name: createForm.name,
@@ -111,6 +117,12 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
 
   const handleUpdateOrganization = async () => {
     if (!currentOrganization) return;
+    
+    // Validate required fields
+    if (!editOrgForm.name.trim()) {
+      showError('Organization name is required');
+      return;
+    }
     
     try {
       await updateOrganization(currentOrganization.id, {

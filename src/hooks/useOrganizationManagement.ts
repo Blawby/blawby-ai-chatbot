@@ -101,9 +101,9 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
 
   // Helper function to map Organization to Practice data
   const mapOrganizationToPracticeData = useCallback((data: CreateOrgData | UpdateOrgData): CreatePracticeData | UpdatePracticeData => {
-    const practiceData: any = {
+    const practiceData: CreatePracticeData | UpdatePracticeData = {
       name: data.name,
-      slug: data.slug || data.name?.toLowerCase().replace(/\s+/g, '-'),
+      slug: data.slug || (data.name ? data.name.toLowerCase().replace(/\s+/g, '-') : undefined),
       description: data.description,
       businessPhone: data.businessPhone,
       businessEmail: data.businessEmail,
@@ -137,9 +137,12 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
         setOrganizations(orgs);
         
         // Set current organization if not already set
-        if (!currentOrganization && orgs.length > 0) {
-          setCurrentOrganization(orgs[0]);
-        }
+        setCurrentOrganization(prev => {
+          if (!prev && orgs.length > 0) {
+            return orgs[0];
+          }
+          return prev;
+        });
       } else {
         throw new Error('Failed to fetch practices');
       }
@@ -150,7 +153,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.id, currentOrganization, mapPracticeToOrganization]);
+  }, [session?.user?.id, mapPracticeToOrganization]);
 
   // Create organization
   const createOrganization = useCallback(async (data: CreateOrgData): Promise<Organization> => {
@@ -217,10 +220,13 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       setOrganizations(prev => prev.filter(org => org.id !== id));
       
       // Clear current organization if it's the one being deleted
-      if (currentOrganization?.id === id) {
-        const remainingOrgs = organizations.filter(org => org.id !== id);
-        setCurrentOrganization(remainingOrgs.length > 0 ? remainingOrgs[0] : null);
-      }
+      setCurrentOrganization(prev => {
+        if (prev?.id === id) {
+          const remainingOrgs = organizations.filter(org => org.id !== id);
+          return remainingOrgs.length > 0 ? remainingOrgs[0] : null;
+        }
+        return prev;
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete organization';
       setError(errorMessage);

@@ -186,7 +186,7 @@ User authentication and organization membership is handled by the Blawby Backend
 - File upload validation (25MB max)
 - Rate limiting (60 requests/minute)
 - Input sanitization
-- Secure session management with JWT tokens and IndexedDB storage
+- Secure session management with JWT tokens and IndexedDB storage (more secure than localStorage, supports larger storage capacity, and provides better privacy isolation)
 
 ## 🔧 **Troubleshooting**
 

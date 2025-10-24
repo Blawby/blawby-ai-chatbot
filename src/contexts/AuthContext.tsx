@@ -11,7 +11,7 @@ interface AuthState {
   error: string | null;
 }
 
-type AuthContextType = {
+interface AuthContextType {
   session: {
     data: AuthState | null;
     isPending: boolean;
@@ -24,13 +24,13 @@ type AuthContextType = {
   signup: (email: string, password: string, name?: string) => Promise<void>;
   signout: () => Promise<void>;
   refreshSession: () => Promise<void>;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   // Add unique identifier to track if AuthContext is being recreated
-  const contextId = useRef(Math.random().toString(36).substr(2, 9));
+  const contextId = useRef(Math.random().toString(36).substring(2, 11));
   
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -55,18 +55,10 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
           console.log('🔍 checkAuth - loaded user data:', userData);
           
           if (userData) {
-            // Create a session object from the stored user data
-            const sessionData = {
-              id: 'stored-session',
-              userId: userData.id,
-              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-              token: await backendClient['token'], // Access private token
-              activeOrganizationId: null
-            };
-            
+            // Use stored user data directly, don't fabricate sessions
             setAuthState({
               user: userData,
-              session: sessionData,
+              session: null,
               isLoading: false,
               error: null
             });
@@ -121,19 +113,10 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     try {
       const response = await backendClient.signin({ email, password });
       
-      // Handle the actual response structure from backend
-      // The backend returns { token, user } not { user, session }
-      const sessionData = response.session || {
-        id: 'temp-session',
-        userId: response.user.id,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-        token: response.token,
-        activeOrganizationId: null
-      };
-      
+      // Use backend session data directly, don't fabricate
       setAuthState({
         user: response.user,
-        session: sessionData,
+        session: response.session,
         isLoading: false,
         error: null
       });
@@ -162,25 +145,13 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
       console.log('🔍 User data:', response.user);
       console.log('🔍 Session data:', response.session);
       
-      // Handle the actual response structure from backend
-      // The backend returns { token, user } not { user, session }
-      const sessionData = response.session || {
-        id: 'temp-session',
-        userId: response.user.id,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-        token: response.token,
-        activeOrganizationId: null
-      };
-      
+      // Use backend session data directly, don't fabricate
       setAuthState({
         user: response.user,
-        session: sessionData,
+        session: response.session,
         isLoading: false,
         error: null
       });
-      
-      // Add a small delay to ensure token is fully saved before any navigation
-      await new Promise(resolve => setTimeout(resolve, 200));
       
       console.log('🔍 AuthState updated after signup');
     } catch (error: any) {

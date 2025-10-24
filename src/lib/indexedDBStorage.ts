@@ -55,11 +55,12 @@ function openDB(): Promise<IDBDatabase> {
  */
 export async function saveToken(token: string): Promise<void> {
   console.log('🔍 indexedDBStorage.saveToken - saving token:', token ? 'present' : 'null');
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDB();
+    db = await openDB();
     
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
+      const transaction = db!.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       
       const data: TokenData = {
@@ -80,11 +81,14 @@ export async function saveToken(token: string): Promise<void> {
       };
       
       transaction.oncomplete = () => {
-        db.close();
+        db!.close();
       };
     });
   } catch (error) {
     console.error('Error saving token to IndexedDB:', error);
+    if (db) {
+      db.close();
+    }
     throw error;
   }
 }
@@ -94,11 +98,12 @@ export async function saveToken(token: string): Promise<void> {
  */
 export async function loadToken(): Promise<string | null> {
   console.log('🔍 indexedDBStorage.loadToken - loading token from IndexedDB');
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDB();
+    db = await openDB();
     
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
+      const transaction = db!.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.get(TOKEN_KEY);
       
@@ -114,11 +119,14 @@ export async function loadToken(): Promise<string | null> {
       };
       
       transaction.oncomplete = () => {
-        db.close();
+        db!.close();
       };
     });
   } catch (error) {
     console.error('Error loading token from IndexedDB:', error);
+    if (db) {
+      db.close();
+    }
     return null;
   }
 }
@@ -127,11 +135,12 @@ export async function loadToken(): Promise<string | null> {
  * Clear token from IndexedDB
  */
 export async function clearToken(): Promise<void> {
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDB();
+    db = await openDB();
     
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
+      const transaction = db!.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.delete(TOKEN_KEY);
       
@@ -144,11 +153,14 @@ export async function clearToken(): Promise<void> {
       };
       
       transaction.oncomplete = () => {
-        db.close();
+        db!.close();
       };
     });
   } catch (error) {
     console.error('Error clearing token from IndexedDB:', error);
+    if (db) {
+      db.close();
+    }
     throw error;
   }
 }
@@ -163,10 +175,11 @@ export async function hasToken(): Promise<boolean> {
 
 export async function saveUserData(userData: unknown): Promise<void> {
   console.log('🔍 indexedDBStorage.saveUserData - saving user data:', userData);
+  let database: IDBDatabase | null = null;
   try {
-    const database = await openDB();
+    database = await openDB();
     return new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, 'readwrite');
+      const transaction = database!.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.put({ key: USER_KEY, value: userData, timestamp: Date.now() });
 
@@ -178,19 +191,27 @@ export async function saveUserData(userData: unknown): Promise<void> {
         console.error('Error saving user data to IndexedDB:', (event.target as IDBRequest).error);
         reject((event.target as IDBRequest).error);
       };
+      
+      transaction.oncomplete = () => {
+        database!.close();
+      };
     });
   } catch (error) {
     console.error('Error opening IndexedDB for saving user data:', error);
+    if (database) {
+      database.close();
+    }
     throw error;
   }
 }
 
 export async function loadUserData(): Promise<unknown | null> {
   console.log('🔍 indexedDBStorage.loadUserData - loading user data from IndexedDB');
+  let database: IDBDatabase | null = null;
   try {
-    const database = await openDB();
+    database = await openDB();
     return new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, 'readonly');
+      const transaction = database!.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.get(USER_KEY);
 
@@ -204,25 +225,45 @@ export async function loadUserData(): Promise<unknown | null> {
         console.error('Error loading user data from IndexedDB:', (event.target as IDBRequest).error);
         reject((event.target as IDBRequest).error);
       };
+      
+      transaction.oncomplete = () => {
+        database!.close();
+      };
     });
   } catch (error) {
     console.error('Error opening IndexedDB for loading user data:', error);
+    if (database) {
+      database.close();
+    }
     throw error;
   }
 }
 
 export async function clearUserData(): Promise<void> {
-  const database = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete(USER_KEY);
+  let database: IDBDatabase | null = null;
+  try {
+    database = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = database!.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.delete(USER_KEY);
 
-    request.onsuccess = () => resolve();
-    request.onerror = (event) => {
-      console.error('Error clearing user data from IndexedDB:', (event.target as IDBRequest).error);
-      reject((event.target as IDBRequest).error);
-    };
-  });
+      request.onsuccess = () => resolve();
+      request.onerror = (event) => {
+        console.error('Error clearing user data from IndexedDB:', (event.target as IDBRequest).error);
+        reject((event.target as IDBRequest).error);
+      };
+      
+      transaction.oncomplete = () => {
+        database!.close();
+      };
+    });
+  } catch (error) {
+    console.error('Error opening IndexedDB for clearing user data:', error);
+    if (database) {
+      database.close();
+    }
+    throw error;
+  }
 }
 

@@ -97,6 +97,41 @@ vi.mock('framer-motion', () => ({
   usePresence: () => [true, null],
 }));
 
+// Mock @heroicons/react/24/outline
+vi.mock('@heroicons/react/24/outline', () => ({
+  UserIcon: 'svg',
+  ArrowLeftIcon: 'svg',
+  PencilIcon: 'svg',
+  BuildingOfficeIcon: 'svg',
+  PlusIcon: 'svg',
+  MinusIcon: 'svg',
+  XMarkIcon: 'svg',
+  CheckIcon: 'svg',
+  Cog6ToothIcon: 'svg',
+  SparklesIcon: 'svg',
+  QuestionMarkCircleIcon: 'svg',
+  ArrowRightOnRectangleIcon: 'svg',
+  ChevronRightIcon: 'svg',
+  LinkIcon: 'svg',
+  PhoneIcon: 'svg',
+  ChevronDownIcon: 'svg',
+  EyeIcon: 'svg',
+  EyeSlashIcon: 'svg',
+  EnvelopeIcon: 'svg',
+  UserGroupIcon: 'svg',
+  ExclamationTriangleIcon: 'svg',
+  HandThumbUpIcon: 'svg',
+  HandThumbDownIcon: 'svg',
+  StarIcon: 'svg',
+  ChatBubbleLeftRightIcon: 'svg',
+  ClipboardIcon: 'svg',
+  KeyIcon: 'svg',
+  FaceSmileIcon: 'svg',
+  CheckBadgeIcon: 'svg',
+  MapPinIcon: 'svg',
+  BellIcon: 'svg',
+}));
+
 
 // Mock window.location
 Object.defineProperty(window, 'location', {
@@ -132,6 +167,39 @@ Object.defineProperty(navigator, 'clipboard', {
   },
   writable: true,
 });
+
+// Mock IndexedDB
+const mockIndexedDB = {
+  open: vi.fn().mockResolvedValue({
+    result: {
+      transaction: vi.fn().mockReturnValue({
+        objectStore: vi.fn().mockReturnValue({
+          get: vi.fn().mockReturnValue({
+            onsuccess: null,
+            onerror: null,
+            result: null,
+          }),
+          put: vi.fn().mockReturnValue({
+            onsuccess: null,
+            onerror: null,
+          }),
+          delete: vi.fn().mockReturnValue({
+            onsuccess: null,
+            onerror: null,
+          }),
+        }),
+        oncomplete: null,
+        onerror: null,
+      }),
+      close: vi.fn(),
+    },
+    onsuccess: null,
+    onerror: null,
+  }),
+};
+
+// @ts-expect-error - assigning to global
+globalThis.indexedDB = mockIndexedDB;
 
 // Initialize i18n before all tests
 beforeAll(async () => {

@@ -131,13 +131,13 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       const normalized = errorMessage.toLowerCase();
       
       if (normalized.includes('already') && normalized.includes('exist')) {
-        setError('An account with this email already exists. Try signing in instead.');
+        setError(t('errors.accountExists'));
       } else if (normalized.includes('invalid') && normalized.includes('credentials')) {
-        setError('Invalid email or password. Please try again.');
+        setError(t('errors.invalidCredentials'));
       } else if (normalized.includes('not') && normalized.includes('found')) {
-        setError('No account found with this email. Try signing up instead.');
+        setError(t('errors.accountNotFound'));
       } else if (errorMessage.includes('fetch')) {
-        setError('Network error. Please check your connection and try again.');
+        setError(t('errors.networkError'));
       } else {
         setError(errorMessage);
       }
@@ -148,7 +148,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
   const handleGoogleSignIn = async () => {
     if (!features.enableGoogleAuth) {
-      setError('Google authentication is not available yet. Please use email and password.');
+      setError(t('errors.googleAuthNotAvailable'));
       return;
     }
 
@@ -158,10 +158,10 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
     try {
       // TODO: Implement Google OAuth with backend API when available
-      setError('Google authentication coming soon. Please use email and password.');
+      setError(t('errors.googleAuthComingSoon'));
     } catch (err) {
       console.error('Google auth error:', err);
-      setError('Google authentication is not available yet. Please use email and password.');
+      setError(t('errors.googleAuthNotAvailable'));
     } finally {
       setLoading(false);
     }

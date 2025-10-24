@@ -28,7 +28,6 @@ class BackendApiClient {
       try {
         this.token = await loadTokenFromIndexedDB();
         console.log('🔍 backendClient.loadToken - loaded token:', this.token ? 'present' : 'null');
-        console.log('🔍 backendClient.loadToken - token value:', this.token);
       } catch (error) {
         console.error('Failed to load token from IndexedDB:', error);
         this.token = null;
@@ -77,7 +76,6 @@ class BackendApiClient {
   async isAuthenticated(): Promise<boolean> {
     await this.ensureTokenLoaded();
     console.log('🔍 backendClient.isAuthenticated - token:', this.token ? 'present' : 'null');
-    console.log('🔍 backendClient.isAuthenticated - token value:', this.token);
     return !!this.token;
   }
 
@@ -111,6 +109,11 @@ class BackendApiClient {
           message: `HTTP ${response.status}: ${response.statusText}`
         }));
         throw error;
+      }
+
+      // Handle empty response bodies (e.g., 204 No Content)
+      if (response.status === 204) {
+        return {} as T;
       }
 
       return response.json();
@@ -174,13 +177,17 @@ class BackendApiClient {
   }
 
   async signout(): Promise<{ message: string }> {
-    const response = await this.request<{ message: string }>('/auth/sign-out', {
-      method: 'POST',
-    });
+    let response: { message: string };
     
-    // Clear token and user data after successful signout
-    await this.clearToken();
-    await clearUserDataFromIndexedDB();
+    try {
+      response = await this.request<{ message: string }>('/auth/sign-out', {
+        method: 'POST',
+      });
+    } finally {
+      // Clear local auth state even if backend signout fails
+      await this.clearToken();
+      await clearUserDataFromIndexedDB();
+    }
     
     return response;
   }
@@ -215,7 +222,9 @@ class BackendApiClient {
   }
 
   // Token management
-  getToken(): string | null {
+  async getToken(): Promise<string | null> {
+    // Race condition: ensure token is loaded before returning
+    await this.ensureTokenLoaded();
     return this.token;
   }
 
@@ -223,8 +232,14 @@ class BackendApiClient {
     if (!this.token) return true;
     
     try {
+      // Validate JWT structure before splitting
+      const parts = this.token.split('.');
+      if (parts.length !== 3) {
+        return true;
+      }
+      
       // Decode JWT token to check expiry
-      const payload = JSON.parse(atob(this.token.split('.')[1]));
+      const payload = JSON.parse(atob(parts[1]));
       const now = Math.floor(Date.now() / 1000);
       return payload.exp < now;
     } catch {

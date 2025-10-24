@@ -177,6 +177,28 @@ GET /practice/{practice_id}
 Authorization: Bearer <jwt_token>
 ```
 
+**Response:**
+```json
+{
+  "practice": {
+    "id": "practice_id",
+    "name": "My Law Practice",
+    "slug": "my-law-practice",
+    "logo": "https://example.com/logo.png",
+    "metadata": {
+      "description": "A law practice description"
+    },
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z",
+    "business_phone": "+1-555-123-4567",
+    "business_email": "contact@example.com",
+    "consultation_fee": 25000,
+    "payment_url": "https://example.com/payment",
+    "calendly_url": "https://calendly.com/example"
+  }
+}
+```
+
 #### Update Practice
 ```http
 PUT /practice/{practice_id}
@@ -242,6 +264,8 @@ interface Practice {
 3. **API Requests**: All subsequent requests include `Authorization: Bearer <token>` header
 4. **Token Validation**: Backend validates JWT on each request
 5. **Session Management**: Tokens expire after 24 hours, requiring re-authentication
+6. **Token Refresh**: When tokens expire, users are automatically redirected to login page
+7. **Automatic Refresh**: Frontend checks token expiry before making requests and refreshes session when needed
 
 ## Error Handling
 
@@ -279,11 +303,17 @@ interface Practice {
 - **HTTPS Only**: All API communication over HTTPS
 - **Token Expiry**: 24-hour token lifetime with automatic refresh
 - **CORS**: Backend configured for cross-origin requests from frontend
+- **CORS Configuration**: Specific allowed origins should be configured on backend
+- **Token Security**: Never log token values in console, only presence indicators
+- **Session Validation**: Backend validates JWT signature and expiry on each request
 
 ### Development vs Production
 - **Default Backend**: Production backend used for both development and production
 - **Override**: Set `VITE_BACKEND_API_URL` to use local backend for development
-- **Testing**: Backend API integration tested via Playwright e2e tests
+- **Environment Variable Override**: 
+  - Development: `VITE_BACKEND_API_URL=http://localhost:3000/api` (include /api prefix)
+  - Production: Uses default Railway backend
+  - Testing: Backend API integration tested via Playwright e2e tests
 
 ## Future Enhancements
 

@@ -87,6 +87,19 @@ vi.mock('@heroicons/react/24/outline', () => ({
     <svg className={className} data-testid="arrow-left-icon" />,
   PlusIcon: ({ className }: { className?: string }) => 
     <svg className={className} data-testid="plus-icon" />,
+  PencilIcon: ({ className }: { className?: string }) => 
+    <svg className={className} data-testid="pencil-icon" />,
+}));
+
+// Mock i18n hooks
+vi.mock('../i18n/hooks', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: {
+      changeLanguage: vi.fn(),
+    },
+  }),
+  Trans: ({ children }: { children: any }) => children,
 }));
 
 // Mock ToastContext
