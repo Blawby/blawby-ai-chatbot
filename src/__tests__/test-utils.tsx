@@ -198,13 +198,17 @@ vi.mock('../hooks/useOrganizationManagement', () => ({
  * import { mockPDFService } from './test-utils';
  * 
  * test('PDF generation', async () => {
- *   const { PDFGenerationService } = await mockPDFService();
+ *   const { PDFGenerationService, cleanup } = await mockPDFService();
  *   // Use PDFGenerationService here - it will be mocked
+ *   
+ *   // Clean up after test
+ *   cleanup();
  * });
  * ```
  * 
  * Note: This function uses vi.doMock() which requires dynamic imports.
  * You must use the returned module instead of static imports.
+ * Always call the cleanup function after each test to prevent mock persistence.
  */
 export async function mockPDFService() {
   vi.doMock('../../worker/services/PDFGenerationService', () => ({
@@ -214,9 +218,19 @@ export async function mockPDFService() {
     },
   }));
   
-  // Return the dynamically imported mocked module
-  // Callers must use this returned module instead of static imports
-  return await import('../../worker/services/PDFGenerationService');
+  // Return the dynamically imported mocked module and cleanup function
+  const mockedModule = await import('../../worker/services/PDFGenerationService');
+  
+  const cleanup = () => {
+    vi.doUnmock('../../worker/services/PDFGenerationService');
+    vi.resetModules();
+    vi.clearAllMocks();
+  };
+  
+  return {
+    ...mockedModule,
+    cleanup,
+  };
 }
 
 // --- Clean render function (no global providers) ------------------------

@@ -5,6 +5,8 @@ import { useOrganizationManagement } from '../../../hooks/useOrganizationManagem
 import { i18n } from '../../../i18n';
 
 // Mock navigation utilities
+// Note: SettingsPage uses useNavigation hook (mockNavigate) for all navigation,
+// not preact-iso route (mockRoute). All navigation assertions should use mockNavigate.
 const mockRoute = vi.fn();
 const mockNavigate = vi.fn();
 
@@ -308,7 +310,7 @@ describe('SettingsPage Integration Tests', () => {
     const helpBtn = screen.getByRole('button', { name: /Help/i });
     fireEvent.click(helpBtn);
     
-    expect(mockRoute).toHaveBeenCalledWith('/settings/help', false);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/help');
   });
 
   it('should handle sign out when sign out is clicked', async () => {
@@ -348,7 +350,7 @@ describe('SettingsPage Integration Tests', () => {
     render(<SettingsPage onClose={mockOnClose} isMobile={true} />);
     
     // Should show mobile header with close button
-    expect(screen.getByLabelText('Close settings')).toBeInTheDocument();
+    expect(screen.getByLabelText('settings:navigation.close')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
@@ -367,7 +369,7 @@ describe('SettingsPage Integration Tests', () => {
     fireEvent.click(accountBtn);
     
     // Assert navigation called instead of relying on content rerender
-    expect(mockRoute).toHaveBeenCalledWith('/settings/account', false);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/account');
   });
 
 
@@ -389,14 +391,14 @@ describe('SettingsPage Integration Tests', () => {
     fireEvent.click(accountBtn);
     
     // Check that navigation was called with the correct path
-    expect(mockRoute).toHaveBeenCalledWith('/settings/account', false);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/account');
     
     // Go back to general
     const generalBtn = screen.getByRole('button', { name: /General/i });
     fireEvent.click(generalBtn);
     
     // Check that navigation was called with the correct path
-    expect(mockRoute).toHaveBeenCalledWith('/settings/general', false);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/general');
     
     // Account nav should still be visible
     expect(screen.getByText('Account')).toBeInTheDocument();

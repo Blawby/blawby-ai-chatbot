@@ -58,6 +58,40 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
 
   const [activeOrg, setActiveOrg] = useState<unknown | null>(null);
 
+  // Helper function to fetch and validate session
+  const fetchAndValidateSession = async (): Promise<AuthState> => {
+    try {
+      const response = await backendClient.getSession();
+      if (import.meta?.env?.DEV) console.log('🔍 fetchAndValidateSession - getSession response:', { hasUser: !!response?.user, hasToken: !!response?.token });
+      
+      // Validate user data from backend response
+      if (response?.user && isUser(response.user)) {
+        return {
+          user: response.user,
+          token: response.token,
+          isLoading: false,
+          error: null
+        };
+      } else {
+        console.warn('Invalid user data structure from getSession:', response?.user);
+        return {
+          user: null,
+          token: null,
+          isLoading: false,
+          error: null
+        };
+      }
+    } catch (sessionError) {
+      console.error('🔍 fetchAndValidateSession - getSession failed:', sessionError);
+      return {
+        user: null,
+        token: null,
+        isLoading: false,
+        error: null
+      };
+    }
+  };
+
   // Check if user is authenticated on mount
   useEffect(() => {
     const checkAuth = async () => {
@@ -88,70 +122,12 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
                 } else {
                   // No token found, fall back to getSession() flow
                   console.log('🔍 checkAuth - no token found, falling back to getSession()');
-                  try {
-                    const response = await backendClient.getSession();
-                    if (import.meta?.env?.DEV) console.log('🔍 checkAuth - getSession response:', { hasUser: !!response?.user, hasToken: !!response?.token });
-                    
-                    // Validate user data from backend response
-                    if (response?.user && isUser(response.user)) {
-                      setAuthState({
-                        user: response.user,
-                        token: response.token,
-                        isLoading: false,
-                        error: null
-                      });
-                    } else {
-                      console.warn('Invalid user data structure from getSession:', response?.user);
-                      setAuthState({
-                        user: null,
-                        token: null,
-                        isLoading: false,
-                        error: null
-                      });
-                    }
-                  } catch (sessionError) {
-                    console.error('🔍 checkAuth - getSession fallback failed:', sessionError);
-                    setAuthState({
-                      user: null,
-                      token: null,
-                      isLoading: false,
-                      error: null
-                    });
-                  }
+                  setAuthState(await fetchAndValidateSession());
                 }
               } catch (tokenError) {
                 console.error('🔍 checkAuth - token retrieval failed:', tokenError);
                 // Fall back to getSession() flow
-                try {
-                  const response = await backendClient.getSession();
-                  if (import.meta?.env?.DEV) console.log('🔍 checkAuth - getSession fallback response:', { hasUser: !!response?.user, hasToken: !!response?.token });
-                  
-                  // Validate user data from backend response
-                  if (response?.user && isUser(response.user)) {
-                    setAuthState({
-                      user: response.user,
-                      token: response.token,
-                      isLoading: false,
-                      error: null
-                    });
-                  } else {
-                    console.warn('Invalid user data structure from getSession fallback:', response?.user);
-                    setAuthState({
-                      user: null,
-                      token: null,
-                      isLoading: false,
-                      error: null
-                    });
-                  }
-                } catch (sessionError) {
-                  console.error('🔍 checkAuth - getSession fallback failed:', sessionError);
-                  setAuthState({
-                    user: null,
-                    token: null,
-                    isLoading: false,
-                    error: null
-                  });
-                }
+                setAuthState(await fetchAndValidateSession());
               }
             } else {
               // Invalid user data, treat as no user

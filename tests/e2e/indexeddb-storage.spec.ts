@@ -166,13 +166,13 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
           const userRequest = store.get('backend_user_data');
           
           Promise.all([
-            new Promise(res => {
+            new Promise((res, rej) => {
               tokenRequest.onsuccess = () => res(tokenRequest.result?.value || null);
-              tokenRequest.onerror = () => res(null);
+              tokenRequest.onerror = () => rej(tokenRequest.error ?? new Error('IDB request failed'));
             }),
-            new Promise(res => {
+            new Promise((res, rej) => {
               userRequest.onsuccess = () => res(userRequest.result?.value || null);
-              userRequest.onerror = () => res(null);
+              userRequest.onerror = () => rej(userRequest.error ?? new Error('IDB request failed'));
             })
           ]).then(([token, user]) => {
             resolve({ hasToken: !!token, hasUser: !!user, token, user });
@@ -228,13 +228,13 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
           const userRequest = store.get('backend_user_data');
           
           Promise.all([
-            new Promise(res => {
+            new Promise((res, rej) => {
               tokenRequest.onsuccess = () => res(!!tokenRequest.result?.value);
-              tokenRequest.onerror = () => res(false);
+              tokenRequest.onerror = () => rej(tokenRequest.error ?? new Error('IDB request failed'));
             }),
-            new Promise(res => {
+            new Promise((res, rej) => {
               userRequest.onsuccess = () => res(!!userRequest.result?.value);
-              userRequest.onerror = () => res(false);
+              userRequest.onerror = () => rej(userRequest.error ?? new Error('IDB request failed'));
             })
           ]).then(([hasToken, hasUser]) => {
             resolve({ hasToken, hasUser });
@@ -270,13 +270,13 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
           const userRequest = store.get('backend_user_data');
           
           Promise.all([
-            new Promise(res => {
+            new Promise((res, rej) => {
               tokenRequest.onsuccess = () => res(!!tokenRequest.result?.value);
-              tokenRequest.onerror = () => res(false);
+              tokenRequest.onerror = () => rej(tokenRequest.error ?? new Error('IDB request failed'));
             }),
-            new Promise(res => {
+            new Promise((res, rej) => {
               userRequest.onsuccess = () => res(!!userRequest.result?.value);
-              userRequest.onerror = () => res(false);
+              userRequest.onerror = () => rej(userRequest.error ?? new Error('IDB request failed'));
             })
           ]).then(([hasToken, hasUser]) => {
             resolve({ hasToken, hasUser });
@@ -354,13 +354,13 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
           const userRequest = store.get('backend_user_data');
           
           Promise.all([
-            new Promise(res => {
+            new Promise((res, rej) => {
               tokenRequest.onsuccess = () => res(tokenRequest.result?.value || null);
-              tokenRequest.onerror = () => res(null);
+              tokenRequest.onerror = () => rej(tokenRequest.error ?? new Error('IDB request failed'));
             }),
-            new Promise(res => {
+            new Promise((res, rej) => {
               userRequest.onsuccess = () => res(userRequest.result?.value || null);
-              userRequest.onerror = () => res(null);
+              userRequest.onerror = () => rej(userRequest.error ?? new Error('IDB request failed'));
             })
           ]).then(([token, user]) => {
             resolve({ token, user });

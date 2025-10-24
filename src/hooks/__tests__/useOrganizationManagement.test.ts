@@ -108,6 +108,11 @@ describe('useOrganizationManagement (Feature Flagged Off)', () => {
   });
 
   it('should handle create organization when feature flag is disabled', async () => {
+    // Mock initial listPractices call that happens on mount
+    vi.mocked(backendClient.listPractices).mockResolvedValue({
+      practices: []
+    });
+
     const mockCreatedPractice = {
       id: 'new-org-id',
       slug: 'new-org',
@@ -129,6 +134,11 @@ describe('useOrganizationManagement (Feature Flagged Off)', () => {
 
     const { result } = renderHook(() => useOrganizationManagement());
 
+    // Wait for the hook to finish its initial fetch
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
     // Test that create operation works
     await expect(result.current.createOrganization({
       name: 'New Organization',
@@ -143,6 +153,11 @@ describe('useOrganizationManagement (Feature Flagged Off)', () => {
   });
 
   it('should handle update organization when feature flag is disabled', async () => {
+    // Mock initial listPractices call that happens on mount
+    vi.mocked(backendClient.listPractices).mockResolvedValue({
+      practices: []
+    });
+
     const mockUpdatedPractice = {
       id: 'test-org-id',
       slug: 'test-org',
@@ -164,6 +179,11 @@ describe('useOrganizationManagement (Feature Flagged Off)', () => {
 
     const { result } = renderHook(() => useOrganizationManagement());
 
+    // Wait for the hook to finish its initial fetch
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
     // Test that update operation works
     await expect(result.current.updateOrganization('test-org-id', {
       name: 'Updated Organization',
@@ -175,9 +195,19 @@ describe('useOrganizationManagement (Feature Flagged Off)', () => {
   });
 
   it('should handle delete organization when feature flag is disabled', async () => {
+    // Mock initial listPractices call that happens on mount
+    vi.mocked(backendClient.listPractices).mockResolvedValue({
+      practices: []
+    });
+
     vi.mocked(backendClient.deletePractice).mockResolvedValue({});
 
     const { result } = renderHook(() => useOrganizationManagement());
+
+    // Wait for the hook to finish its initial fetch
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
 
     // Test that delete operation works
     await expect(result.current.deleteOrganization('test-org-id')).resolves.not.toThrow();

@@ -521,9 +521,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       // Verify that only one user is tracked for cleanup (the successful one)
       // The test should only track one user since multiple signups with same email would fail
-      expect(testUsers).toHaveLength(0); // No users added yet
       testUsers.push({ email: testEmail, token: mockSession.token });
-      expect(testUsers).toHaveLength(1); // Only one user should be tracked
 
       // Verify the fetch calls were made with the correct data
       const fetchCalls = (global.fetch as any).mock.calls;

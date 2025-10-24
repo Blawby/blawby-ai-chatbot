@@ -44,29 +44,32 @@ async function indexedDBAccess<T>(
  */
 async function indexedDBWrite(
   page: Page,
-  operations: (store: IDBObjectStore) => IDBRequest[]
+  keys: string[]
 ): Promise<void> {
-  return await page.evaluate(async (ops) => {
+  return await page.evaluate(async (keysToDelete) => {
     return new Promise<void>((resolve, reject) => {
       const request = indexedDB.open('blawby_auth', 1);
       request.onsuccess = () => {
         const db = request.result;
         const transaction = db.transaction(['tokens'], 'readwrite');
         const store = transaction.objectStore('tokens');
-        const requests = ops(store);
+        
+        // Create delete requests for each key
+        const requests = keysToDelete.map(key => store.delete(key));
         
         Promise.all(
           requests.map(req => 
-            new Promise<boolean>(res => {
-              req.onsuccess = () => res(true);
-              req.onerror = () => res(false);
+            new Promise<void>((res, rej) => {
+              req.onsuccess = () => res();
+              req.onerror = () => rej(req.error);
             })
           )
-        ).then(() => resolve());
+        ).then(() => resolve())
+        .catch(error => reject(error));
       };
       request.onerror = () => reject(request.error);
     });
-  }, operations);
+  }, keys);
 }
 
 export const test = base.extend<AuthFixtures>({
@@ -177,10 +180,7 @@ export const test = base.extend<AuthFixtures>({
    */
   clearIndexedDB: async ({ page }, use) => {
     const clear = async (page: Page): Promise<void> => {
-      await indexedDBWrite(page, (store) => [
-        store.delete('backend_session_token'),
-        store.delete('backend_user_data')
-      ]);
+      await indexedDBWrite(page, ['backend_session_token', 'backend_user_data']);
     };
 
     await use(clear);
