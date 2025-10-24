@@ -84,7 +84,7 @@ class BackendApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<T | null> {
+  ): Promise<T> {
     // Ensure token is loaded before making request
     await this.ensureTokenLoaded();
     
@@ -122,7 +122,7 @@ class BackendApiClient {
 
       // Handle empty response bodies (e.g., 204 No Content)
       if (response.status === 204) {
-        return null;
+        return {} as T;
       }
 
       return response.json();
@@ -163,10 +163,6 @@ class BackendApiClient {
       body: JSON.stringify(signupData),
     });
     
-    if (!response) {
-      throw new Error('Signup failed: No response from server');
-    }
-    
     // Save token and user data from successful signup
     if (response.token) {
       await this.saveToken(response.token);
@@ -181,10 +177,6 @@ class BackendApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    
-    if (!response) {
-      throw new Error('Signin failed: No response from server');
-    }
     
     // Save token and user data from successful signin
     if (response.token) {
@@ -204,10 +196,6 @@ class BackendApiClient {
     const response = await this.request<{ user: User }>('/auth/me', {
       method: 'GET',
     });
-
-    if (!response) {
-      throw new Error('Get session failed: No response from server');
-    }
 
     // Return Railway API format with current token
     return {
@@ -231,11 +219,12 @@ class BackendApiClient {
           body: JSON.stringify({ all: true }),
         });
         
-        if (!signoutResponse) {
-          response = { message: 'Sign out failed: No response from server' };
+        // Handle both successful responses and 204 No Content (empty object)
+        if (signoutResponse && signoutResponse.success) {
+          response = { message: 'Signed out successfully' };
         } else {
-          // Convert Railway API response to expected format
-          response = { message: signoutResponse.success ? 'Signed out successfully' : 'Sign out failed' };
+          // For 204 No Content or other cases, assume success
+          response = { message: 'Signed out successfully' };
         }
       }
     } catch (_error) {
@@ -257,29 +246,17 @@ class BackendApiClient {
       body: JSON.stringify(data),
     });
     
-    if (!response) {
-      throw new Error('Create practice failed: No response from server');
-    }
-    
     return response;
   }
 
   async listPractices(): Promise<PracticeListResponse> {
     const response = await this.request<PracticeListResponse>('/practice/list');
     
-    if (!response) {
-      throw new Error('List practices failed: No response from server');
-    }
-    
     return response;
   }
 
   async getPractice(id: string): Promise<PracticeResponse> {
     const response = await this.request<PracticeResponse>(`/practice/${id}`);
-    
-    if (!response) {
-      throw new Error('Get practice failed: No response from server');
-    }
     
     return response;
   }
@@ -290,10 +267,6 @@ class BackendApiClient {
       body: JSON.stringify(data),
     });
     
-    if (!response) {
-      throw new Error('Update practice failed: No response from server');
-    }
-    
     return response;
   }
 
@@ -301,10 +274,6 @@ class BackendApiClient {
     const response = await this.request<{ message: string }>(`/practice/${id}`, {
       method: 'DELETE',
     });
-    
-    if (!response) {
-      throw new Error('Delete practice failed: No response from server');
-    }
     
     return response;
   }
@@ -316,10 +285,6 @@ class BackendApiClient {
       body: JSON.stringify(data),
     });
     
-    if (!response) {
-      throw new Error('Submit onboarding failed: No response from server');
-    }
-    
     return response;
   }
 
@@ -327,10 +292,6 @@ class BackendApiClient {
     const response = await this.request<{ success: boolean; data: { onboardingData: OnboardingData | null; onboardingCompleted: boolean } }>('/users/onboarding', {
       method: 'GET',
     });
-    
-    if (!response) {
-      throw new Error('Get onboarding data failed: No response from server');
-    }
     
     return response;
   }

@@ -124,12 +124,13 @@ export async function handleUsers(request: Request, env: Env): Promise<Response>
         try {
           onboardingData = JSON.parse(result.onboarding_data as string);
         } catch (error) {
-          // Log full error details server-side
+          // Log sanitized error details server-side (no PII)
           console.error('Failed to parse onboarding data for user:', {
             userId: user.id,
             error: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-            rawData: result.onboarding_data
+            dataSize: result.onboarding_data ? result.onboarding_data.length : 0,
+            dataType: typeof result.onboarding_data,
+            hasData: !!result.onboarding_data
           });
           
           // Return 500 response to client with generic message

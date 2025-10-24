@@ -326,6 +326,7 @@ test.describe('BackendClient - Real API Integration Tests', () => {
     });
 
     test('should handle network errors', async ({ page }) => {
+      const client = new BackendApiClient();
       // Mock network failure for signup endpoint
       await page.route('**/auth/sign-up/email', route => {
         route.abort('failed');
@@ -339,6 +340,7 @@ test.describe('BackendClient - Real API Integration Tests', () => {
     });
 
     test('should handle 401 unauthorized for getSession', async ({ page }) => {
+      const client = new BackendApiClient();
       // Mock 401 response for getSession endpoint
       await page.route('**/auth/session', route => {
         route.fulfill({
@@ -356,6 +358,7 @@ test.describe('BackendClient - Real API Integration Tests', () => {
     });
 
     test('should handle 500 server errors', async ({ page }) => {
+      const client = new BackendApiClient();
       // Mock 500 response for signup endpoint
       await page.route('**/auth/sign-up/email', route => {
         route.fulfill({
@@ -379,6 +382,7 @@ test.describe('BackendClient - Real API Integration Tests', () => {
 
   test.describe('request headers', () => {
     test('should include proper headers for signup', async ({ page }) => {
+      const client = new BackendApiClient();
       const testEmail = generateTestEmail('headers-test');
       const testPassword = 'TestPassword123!';
 
@@ -408,6 +412,7 @@ test.describe('BackendClient - Real API Integration Tests', () => {
     });
 
     test('should include authorization header for authenticated requests', async ({ page }) => {
+      const client = new BackendApiClient();
       const testEmail = generateTestEmail('auth-headers-test');
       const testPassword = 'TestPassword123!';
 
