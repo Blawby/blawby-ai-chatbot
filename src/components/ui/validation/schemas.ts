@@ -157,9 +157,9 @@ export const organizationSchemas = {
     consultationFee: z.string().optional().refine(
       (val) => {
         if (val === undefined || val === '') return true;
-        // Accept flexible currency formats: with/without $, commas, periods
-        const flexiblePattern = /^[\$]?[\d,]+(\.\d{1,2})?$/;
-        return flexiblePattern.test(val);
+        // Strict currency format: optional $, requires at least one digit, commas only as thousand separators, optional decimal with 1-2 digits
+        const strictPattern = /^\$?(\d{1,3}(,\d{3})*(\.\d{1,2})?|\d+(\.\d{1,2})?)$/;
+        return strictPattern.test(val);
       },
       'Invalid fee format (accepts numbers with optional $, commas, and decimals)'
     ),
@@ -192,9 +192,9 @@ export const organizationSchemas = {
     consultationFee: z.string().optional().refine(
       (val) => {
         if (val === undefined || val === '') return true;
-        // Accept flexible currency formats: with/without $, commas, periods
-        const flexiblePattern = /^[\$]?[\d,]+(\.\d{1,2})?$/;
-        return flexiblePattern.test(val);
+        // Strict currency format: optional $, requires at least one digit, commas only as thousand separators, optional decimal with 1-2 digits
+        const strictPattern = /^\$?(\d{1,3}(,\d{3})*(\.\d{1,2})?|\d+(\.\d{1,2})?)$/;
+        return strictPattern.test(val);
       },
       'Invalid fee format (accepts numbers with optional $, commas, and decimals)'
     ),

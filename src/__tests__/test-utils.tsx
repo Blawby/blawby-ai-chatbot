@@ -204,11 +204,19 @@ vi.mock('../hooks/useOrganizationManagement', () => ({
  *   // Clean up after test
  *   cleanup();
  * });
+ * 
+ * // If you need to reset mock state between tests, use targeted clearing:
+ * afterEach(() => {
+ *   PDFGenerationService.convertHTMLToPDF.mockClear();
+ *   PDFGenerationService.generatePDFFromTemplate.mockClear();
+ * });
  * ```
  * 
  * Note: This function uses vi.doMock() which requires dynamic imports.
  * You must use the returned module instead of static imports.
  * Always call the cleanup function after each test to prevent mock persistence.
+ * For targeted mock state clearing, use .mockClear() on specific mocked functions
+ * instead of global vi.clearAllMocks() to avoid interfering with other tests.
  */
 export async function mockPDFService() {
   vi.doMock('../../worker/services/PDFGenerationService', () => ({
@@ -223,8 +231,6 @@ export async function mockPDFService() {
   
   const cleanup = () => {
     vi.doUnmock('../../worker/services/PDFGenerationService');
-    vi.resetModules();
-    vi.clearAllMocks();
   };
   
   return {
