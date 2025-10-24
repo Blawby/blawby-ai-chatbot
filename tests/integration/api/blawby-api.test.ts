@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { WORKER_URL } from '../../setup-real-api';
+import { WORKER_URL } from '../../setup-worker-integration';
 import { Currency } from '../../../worker/agents/legal-intake/index.js';
 
 // Real Blawby API configuration for integration testing

@@ -6,9 +6,10 @@ import { OnboardingData } from '../types/user';
 import { Logo } from './ui/Logo';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from './ui/form';
 import { Input, EmailInput, PasswordInput } from './ui/input';
-import { handleError } from '../utils/errorHandler';
+import { handleError, extractErrorMessage } from '../utils/errorHandler';
 import { useAuth } from '../contexts/AuthContext';
 import { features } from '../config/features';
+import { backendClient } from '../lib/backendClient';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -129,7 +130,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       }
     } catch (err: unknown) {
       console.error('Auth error:', err);
-      const errorMessage = (err instanceof Error ? err.message : String(err)) || t('errors.unknownError');
+      const errorMessage = extractErrorMessage(err, t('errors.unknownError'));
       const normalized = errorMessage.toLowerCase();
       
       if (normalized.includes('already') && normalized.includes('exist')) {
@@ -175,40 +176,69 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   };
 
   const handleOnboardingComplete = async (data: OnboardingData) => {
-    // Development-only debug log with redacted sensitive data
-    if (import.meta.env.DEV) {
-      const _redactedData = {
-        personalInfo: {
-          firstName: data.personalInfo.firstName ? '[REDACTED]' : undefined,
-          lastName: data.personalInfo.lastName ? '[REDACTED]' : undefined,
-          birthday: data.personalInfo.birthday ? '[REDACTED]' : undefined,
-          agreedToTerms: data.personalInfo.agreedToTerms
-        },
-        useCase: {
-          selectedUseCases: data.useCase.selectedUseCases,
-          additionalInfo: data.useCase.additionalInfo ? '[REDACTED]' : undefined
-        },
-        completedAt: data.completedAt,
-        skippedSteps: data.skippedSteps
-      };
-      // Onboarding completed with redacted data
-    }
-    
-    // Persist onboarding completion flag before redirecting
-    localStorage.setItem('onboardingCompleted', 'true');
-    
-    // Clear the onboarding check flag since user completed onboarding
     try {
-      localStorage.removeItem('onboardingCheckDone');
-    } catch (_error) {
-      // Handle localStorage failures gracefully
+      // Development-only debug log with redacted sensitive data
+      if (import.meta.env.DEV) {
+        const _redactedData = {
+          personalInfo: {
+            firstName: data.personalInfo.firstName ? '[REDACTED]' : undefined,
+            lastName: data.personalInfo.lastName ? '[REDACTED]' : undefined,
+            birthday: data.personalInfo.birthday ? '[REDACTED]' : undefined,
+            agreedToTerms: data.personalInfo.agreedToTerms
+          },
+          useCase: {
+            selectedUseCases: data.useCase.selectedUseCases,
+            additionalInfo: data.useCase.additionalInfo ? '[REDACTED]' : undefined
+          },
+          completedAt: data.completedAt,
+          skippedSteps: data.skippedSteps
+        };
+        console.log('📝 Onboarding completed with redacted data:', _redactedData);
+      }
+      
+      // Submit onboarding data to backend
+      const response = await backendClient.submitOnboarding(data);
+      
+      if (response.success) {
+        console.log('✅ Onboarding data saved successfully:', response.data);
+        
+        // Persist onboarding completion flag before redirecting
+        localStorage.setItem('onboardingCompleted', 'true');
+        
+        // Clear the onboarding check flag since user completed onboarding
+        try {
+          localStorage.removeItem('onboardingCheckDone');
+        } catch (_error) {
+          // Handle localStorage failures gracefully
+        }
+        
+        // Close onboarding modal and redirect to main app
+        setShowOnboarding(false);
+        
+        // Redirect to main app where the welcome modal will show, waiting for onSuccess if provided
+        await handleRedirect();
+      } else {
+        throw new Error('Failed to save onboarding data');
+      }
+    } catch (error) {
+      console.error('❌ Failed to submit onboarding data:', error);
+      
+      // Show error to user but still allow them to continue
+      // This ensures the onboarding flow doesn't break if the backend is unavailable
+      alert('Failed to save your onboarding preferences. You can update them later in settings.');
+      
+      // Still persist local completion flag and redirect
+      localStorage.setItem('onboardingCompleted', 'true');
+      
+      try {
+        localStorage.removeItem('onboardingCheckDone');
+      } catch (_error) {
+        // Handle localStorage failures gracefully
+      }
+      
+      setShowOnboarding(false);
+      await handleRedirect();
     }
-    
-    // Close onboarding modal and redirect to main app
-    setShowOnboarding(false);
-    
-    // Redirect to main app where the welcome modal will show, waiting for onSuccess if provided
-    await handleRedirect();
   };
 
   const handleOnboardingClose = async () => {

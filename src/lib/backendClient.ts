@@ -10,7 +10,8 @@ import type {
   ApiErrorResponse,
   User
 } from '../types/backend';
-import { saveToken as saveTokenToIndexedDB, loadToken as loadTokenFromIndexedDB, clearToken as clearTokenFromIndexedDB, saveUserData as saveUserDataToIndexedDB, loadUserData as loadUserDataFromIndexedDB, clearUserData as clearUserDataFromIndexedDB } from './indexedDBStorage';
+import type { OnboardingData } from '../types/user';
+import { saveToken as saveTokenToIndexedDB, loadToken as loadTokenFromIndexedDB, clearToken as clearTokenFromIndexedDB, saveUserData as saveUserDataToIndexedDB, clearUserData as clearUserDataFromIndexedDB } from './indexedDBStorage';
 
 class BackendApiClient {
   private baseUrl: string;
@@ -88,9 +89,9 @@ class BackendApiClient {
     await this.ensureTokenLoaded();
     
     const url = `${this.baseUrl}${endpoint}`;
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     if (this.token) {
@@ -104,23 +105,28 @@ class BackendApiClient {
       });
 
       if (!response.ok) {
-        const error: ApiErrorResponse = await response.json().catch(() => ({
-          statusCode: response.status,
-          error: response.statusText,
-          message: `HTTP ${response.status}: ${response.statusText}`
-        }));
+        let error: ApiErrorResponse;
+        try {
+          error = await response.json();
+        } catch {
+          error = {
+            statusCode: response.status,
+            error: response.statusText,
+            message: `HTTP ${response.status}: ${response.statusText}`
+          };
+        }
         throw error;
       }
 
       // Handle empty response bodies (e.g., 204 No Content)
       if (response.status === 204) {
-        return {} as T;
+        return null as T;
       }
 
       return response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle network errors
-      if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+      if (error instanceof Error && error.name === 'TypeError' && error.message === 'Failed to fetch') {
         throw {
           statusCode: 0,
           error: 'Network Error',
@@ -214,7 +220,7 @@ class BackendApiClient {
         // Convert Railway API response to expected format
         response = { message: signoutResponse.success ? 'Signed out successfully' : 'Sign out failed' };
       }
-    } catch (error) {
+    } catch (_error) {
       // If signout fails, still clear local state
       response = { message: 'Sign out failed' };
     } finally {
@@ -252,6 +258,20 @@ class BackendApiClient {
   async deletePractice(id: string): Promise<{ message: string }> {
     return this.request<{ message: string }>(`/practice/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // User/Onboarding methods
+  async submitOnboarding(data: OnboardingData): Promise<{ success: boolean; message: string; data: { onboardingCompleted: boolean; completedAt: string } }> {
+    return this.request<{ success: boolean; message: string; data: { onboardingCompleted: boolean; completedAt: string } }>('/users/onboarding', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getOnboardingData(): Promise<{ success: boolean; data: { onboardingData: OnboardingData | null; onboardingCompleted: boolean } }> {
+    return this.request<{ success: boolean; data: { onboardingData: OnboardingData | null; onboardingCompleted: boolean } }>('/users/onboarding', {
+      method: 'GET',
     });
   }
 

@@ -7,6 +7,7 @@ export { handleSessions } from './sessions';
 export { handleActivity } from './activity';
 export { handleAuth } from './auth';
 export { handleConfig } from './config';
+export { handleUsers } from './users';
 
 export { handleFiles } from './files';
 export { handleAnalyze } from './analyze';

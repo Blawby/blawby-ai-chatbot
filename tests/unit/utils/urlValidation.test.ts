@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { isValidUrl, isValidImageUrl, sanitizeImageUrl, sanitizeUserImageUrl } from '../urlValidation';
+import { isValidUrl, isValidImageUrl, sanitizeImageUrl, sanitizeUserImageUrl } from '../../../src/utils/urlValidation';
 
 describe('urlValidation', () => {
   let originalWindow: any;

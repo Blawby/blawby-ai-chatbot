@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import '@testing-library/jest-dom';
+// Removed @testing-library/jest-dom - using Playwright for UI testing
 import { TextEncoder as NodeTextEncoder, TextDecoder as NodeTextDecoder } from 'node:util';
 import { webcrypto, randomUUID } from 'node:crypto';
 

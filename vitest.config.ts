@@ -4,21 +4,20 @@ import { resolve } from 'path';
 // Unified test configuration - all tests use real API calls
 export default defineConfig({
   test: {
-    environment: 'jsdom',
+    environment: 'node',
     globals: true,
-    setupFiles: ["./tests/setup-real-api.ts", "./tests/setup-node.ts"],
+    setupFiles: ["./tests/setup-node.ts"],
     testTimeout: 60000, // 60 seconds for real API tests
     hookTimeout: 60000, // 60 seconds for hooks (beforeAll/afterAll)
     fileParallelism: false, // Force single-file execution to prevent file-level parallelism
     include: [
-      'tests/**/*.{test,spec}.{js,ts,jsx,tsx}',
-      'src/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
-      'src/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}'
+      'tests/unit/**/*.{test,spec}.{js,ts,jsx,tsx}'
     ],
     exclude: [
       'node_modules/**',
       'dist/**',
-      'tests/e2e/**'
+      'tests/e2e/**',
+      'tests/integration/**'
     ],
     coverage: {
       provider: 'v8',

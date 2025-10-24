@@ -100,7 +100,7 @@ export const organizationDbSchema = z.object({
 // Organization creation/update schemas
 export const organizationCreateSchema = z.object({
   name: z.string().min(1),
-  slug: z.string().min(1),
+  slug: z.string().min(1).optional(),
   config: organizationConfigSchema,
   stripeCustomerId: stripeCustomerIdSchema,
   subscriptionTier: subscriptionTierSchema.default('free'),

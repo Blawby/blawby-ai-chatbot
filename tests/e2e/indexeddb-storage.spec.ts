@@ -246,11 +246,20 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
     expect(beforeSignout).toHaveProperty('hasToken', true);
     expect(beforeSignout).toHaveProperty('hasUser', true);
 
-    // Trigger signout via JavaScript by calling the backend client directly
+    // Trigger signout via API endpoint instead of importing backendClient
     await page.evaluate(async () => {
-      // Import and use the backend client to sign out
-      const { backendClient } = await import('/src/lib/backendClient.ts');
-      await backendClient.signout();
+      // Use the existing sign-out API endpoint
+      const response = await fetch('/api/auth/sign-out', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ all: true }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Sign-out failed: ${response.status} ${response.statusText}`);
+      }
     });
 
     // Wait a moment for signout to complete

@@ -66,11 +66,12 @@ export async function cleanupTestUser(email: string, token?: string): Promise<Cl
     console.log(`ℹ️ Consider implementing user deletion endpoint in Railway backend`);
     
     // Since actual deletion is not implemented, this is always a partial cleanup
+    const success = signoutSuccess || !token;
     return { 
-      success: true, 
+      success, 
       partial: true, 
       signoutSuccess,
-      error: 'User deletion not implemented - manual cleanup required'
+      ...(success ? {} : { error: 'User deletion not implemented - manual cleanup required' })
     };
     
   } catch (error) {

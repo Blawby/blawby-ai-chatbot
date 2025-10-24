@@ -11,6 +11,7 @@ import Modal from '../../Modal';
 import { Input } from '../../ui/input';
 import { FormLabel } from '../../ui/form/FormLabel';
 import { useToastContext } from '../../../contexts/ToastContext';
+import { formatCurrency } from '../../../utils/currencyFormatter';
 
 interface OrganizationPageProps {
   className?: string;
@@ -47,6 +48,47 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     
     const value = parseFloat(sanitized);
     return Number.isFinite(value) ? Math.round(value * 100) : undefined;
+  };
+
+  // Helper function to format consultation fee for display
+  const formatConsultationFeeDisplay = (fee: string | number | undefined): string => {
+    if (!fee) return '';
+    
+    try {
+      // If it's already a number, treat it as dollars
+      if (typeof fee === 'number') {
+        return formatCurrency(fee);
+      }
+      
+      // If it's a string, try to parse it
+      if (typeof fee === 'string') {
+        const trimmed = fee.trim();
+        if (!trimmed) return '';
+        
+        // Check if it's an all-digit string (likely cents)
+        if (/^\d+$/.test(trimmed)) {
+          const cents = parseInt(trimmed, 10);
+          if (Number.isFinite(cents)) {
+            const dollars = cents / 100;
+            return formatCurrency(dollars);
+          }
+        }
+        
+        // Try to parse as a decimal number (dollars)
+        const parsed = parseFloat(trimmed);
+        if (Number.isFinite(parsed)) {
+          return formatCurrency(parsed);
+        }
+        
+        // If it's already a formatted string, return as-is
+        return trimmed;
+      }
+      
+      return '';
+    } catch (error) {
+      console.warn('Failed to format consultation fee:', error);
+      return '';
+    }
   };
   
   // Form states
@@ -86,9 +128,9 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       const formatConsultationFee = (fee: string | number | undefined): string => {
         if (!fee) return '';
         
-        // If it's a string that looks like cents (numeric string > 100), convert to dollars
+        // If it's a string that looks like cents (all-digit string), convert to dollars
         // This handles legacy data that might still be stored as cents
-        if (typeof fee === 'string' && /^\d+$/.test(fee) && parseInt(fee) > 100) {
+        if (typeof fee === 'string' && /^\d+$/.test(fee)) {
           const dollars = parseInt(fee) / 100;
           return `$${dollars.toFixed(2)}`;
         }
@@ -320,7 +362,9 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="org-fee-display">
                         Consultation Fee
                       </label>
-                      <p id="org-fee-display" className="text-gray-900 dark:text-white">{currentOrganization.consultationFee}</p>
+                      <p id="org-fee-display" className="text-gray-900 dark:text-white">
+                        {formatConsultationFeeDisplay(currentOrganization.consultationFee)}
+                      </p>
                     </div>
                   )}
 

@@ -3,8 +3,8 @@
 ## Test Pyramid
 
 - **Unit** (`npm run test:unit`)
-  - Location: `tests/unit/**`, `src/**/__tests__/**`
-  - Environment: Node
+  - Location: `tests/unit/**`
+  - Environment: Node (no DOM, no browser APIs)
   - Goal: Pure business logic and small helpers with mocks/stubs.
 
 - **Worker Integration** (`npm run test:worker`)
@@ -13,15 +13,11 @@
   - Goal: Exercise route handlers, middleware, and services against D1/KV.
   - Use per-spec fixtures to seed D1/KV, no external Wrangler process.
 
-- **Component/UI** (`npm run test:component`)
-  - Location: `src/**/__tests__/**`, `tests/component/**`
-  - Environment: JSDOM with Testing Library
-  - Goal: Verify Preact components and hooks with minimal mocking.
-
 - **End-to-End** (`npm run test:e2e`)
   - Tooling: Playwright (`tests/e2e/**`)
-  - Goal: Full happy-path flows in the browser. Keep the suite small and tag smoke cases.
+  - Goal: All UI/browser testing including components, flows, and user interactions.
   - **Backend API Integration**: Tests include authentication flows with external Blawby Backend API
+  - **Real Browser**: Tests run in actual Chrome/Firefox with real CSS, real browser APIs, real user experience
 
 ## Running Tests
 
@@ -29,15 +25,22 @@
 |------------------|-----------------------------|-------------------------------------------------|
 | Unit             | `npm run test:unit`         | Fast feedback, no Cloudflare worker spin-up.    |
 | Worker           | `npm run test:worker`       | Uses Miniflare pool with fresh D1/KV per spec.  |
-| Component        | `npm run test:component`    | JSDOM + Testing Library.                        |
-| All (unit→worker→component) | `npm run test` | Sequential execution to keep output readable.   |
+| All (unit→worker) | `npm run test` | Sequential execution to keep output readable.   |
 | End-to-end       | `npm run test:e2e`          | Playwright; requires Vite + Worker dev servers. |
+| Complete Suite   | `npm run test:all`          | All tests: unit + worker + e2e.                 |
 
 Watch / UI modes:
 
 - `npm run test:watch` → unit tests in watch mode.
-- `npm run test:ui` → component tests via Vitest UI.
 - `npm run test:coverage` → coverage report for the unit layer.
+
+## Why Playwright for All UI Testing
+
+- **Real Browser**: Tests run in actual Chrome/Firefox with real CSS, real browser APIs, real user experience
+- **No False Positives**: Eliminates issues where tests pass in fake DOM but fail in real browsers
+- **Test What Users See**: Verify actual user interactions, not simulated component renders
+- **Simpler Mental Model**: Clear separation between logic tests (Vitest) and browser tests (Playwright)
+- **Real IndexedDB**: Test actual browser storage APIs instead of mocked implementations
 
 ## Conventions
 
@@ -45,6 +48,7 @@ Watch / UI modes:
 - Seed D1 via helper utilities instead of hitting live APIs.
 - Prefer feature-focused directories (e.g., `tests/integration/usage/`).
 - Keep shell scripts for local smoke checks only; migrate flows into Vitest/Playwright for CI.
+- Group related UI tests in logical E2E test files (e.g., `tests/e2e/ui-components.spec.ts`)
 
 ## Railway Backend API Testing
 
@@ -63,27 +67,20 @@ Watch / UI modes:
 ### Test Patterns by Layer
 
 #### Unit Tests (Node Environment)
-- **Location**: `tests/unit/lib/backendClient.test.ts`
-- **Pattern**: Real Railway API + Mocked IndexedDB storage
+- **Location**: `tests/unit/utils/*.test.ts` - Pure utility functions
+- **Pattern**: Real Railway API + Mocked IndexedDB storage for API client tests
 - **Mocking**: Only IndexedDB functions are mocked using `vi.mock()`
 - **Cleanup**: Automatic cleanup via `afterEach` hooks
 
-#### Integration Tests (JSDOM Environment)  
-- **Location**: `tests/integration/auth/AuthContext.integration.test.ts`
-- **Pattern**: Real Railway API + Mocked IndexedDB + Real AuthContext
-- **Testing**: Full auth flow with context state management
-- **Cleanup**: Automatic cleanup via `afterEach` hooks
-
 #### E2E Tests (Real Browser)
-- **Location**: `tests/e2e/auth.spec.ts`, `tests/e2e/indexeddb-storage.spec.ts`
+- **Location**: `tests/e2e/auth.spec.ts`, `tests/e2e/backend-client.spec.ts`, `tests/e2e/indexeddb-storage.spec.ts`
 - **Pattern**: Real Railway API + Real IndexedDB in browser
-- **Testing**: Full user flows with real browser storage
+- **Testing**: Full user flows with real browser storage and UI interactions
 - **Cleanup**: Automatic cleanup via `afterEach` hooks
 
 ### IndexedDB Testing Strategy
 - **Unit Tests**: Mock IndexedDB functions (no real browser APIs in Node)
 - **E2E Tests**: Use `page.evaluate()` to access real IndexedDB in browser
-- **Integration Tests**: Mock IndexedDB for faster execution
 
 ### Authentication Flow Testing
 ```typescript

@@ -16,27 +16,28 @@ interface AuthFixtures {
 }
 
 /**
- * Helper function to access IndexedDB with a generic operation
+ * Helper function to get data from IndexedDB by key
  */
-async function indexedDBAccess<T>(
+async function getIndexedDBValue<T>(
   page: Page,
-  operation: (store: IDBObjectStore) => IDBRequest<T>
-): Promise<T> {
-  return await page.evaluate(async (op) => {
-    return new Promise<T>((resolve, reject) => {
+  key: string,
+  storeName: string = 'tokens'
+): Promise<T | null> {
+  return await page.evaluate(async ({ key, storeName }) => {
+    return new Promise<T | null>((resolve, reject) => {
       const request = indexedDB.open('blawby_auth', 1);
       request.onsuccess = () => {
         const db = request.result;
-        const transaction = db.transaction(['tokens'], 'readonly');
-        const store = transaction.objectStore('tokens');
-        const dbRequest = op(store);
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const dbRequest = store.get(key);
         
         dbRequest.onsuccess = () => resolve(dbRequest.result);
         dbRequest.onerror = () => reject(dbRequest.error);
       };
       request.onerror = () => reject(request.error);
     });
-  }, operation);
+  }, { key, storeName });
 }
 
 /**
@@ -51,21 +52,23 @@ async function indexedDBWrite(
       const request = indexedDB.open('blawby_auth', 1);
       request.onsuccess = () => {
         const db = request.result;
+        
+        // Check if 'tokens' store exists
+        if (!db.objectStoreNames.contains('tokens')) {
+          reject(new Error('tokens store does not exist'));
+          return;
+        }
+        
         const transaction = db.transaction(['tokens'], 'readwrite');
         const store = transaction.objectStore('tokens');
         
         // Create delete requests for each key
-        const requests = keysToDelete.map(key => store.delete(key));
+        keysToDelete.forEach(key => store.delete(key));
         
-        Promise.all(
-          requests.map(req => 
-            new Promise<void>((res, rej) => {
-              req.onsuccess = () => res();
-              req.onerror = () => rej(req.error);
-            })
-          )
-        ).then(() => resolve())
-        .catch(error => reject(error));
+        // Resolve when transaction completes successfully
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(new Error('Transaction was aborted'));
       };
       request.onerror = () => reject(request.error);
     });
@@ -88,14 +91,15 @@ export const test = base.extend<AuthFixtures>({
       // Go to auth page
       await page.goto('/auth');
       
-      // Click sign up toggle
-      await page.click('text=Don\'t have an account? Sign up');
+      // Click sign up toggle using role-based selector
+      await page.getByRole('button', { name: /don't have an account\? sign up/i }).click();
       
-      // Fill signup form
-      await page.fill('input[placeholder="Enter your email"]', testEmail);
-      await page.fill('input[placeholder="Enter your full name"]', testName);
-      await page.fill('input[placeholder="Enter your password"]', testPassword);
-      await page.fill('input[placeholder="Confirm your password"]', testPassword);
+      // Fill signup form using stable selectors
+      await page.getByRole('textbox', { name: /first name/i }).fill(testName.split(' ')[0]);
+      await page.getByRole('textbox', { name: /last name/i }).fill(testName.split(' ')[1] || '');
+      await page.getByRole('textbox', { name: /email/i }).fill(testEmail);
+      await page.getByRole('textbox', { name: /^password$/i }).fill(testPassword);
+      await page.getByRole('textbox', { name: /confirm password/i }).fill(testPassword);
       
       // Submit form
       await page.click('button:has-text("Create account")');
@@ -114,10 +118,8 @@ export const test = base.extend<AuthFixtures>({
       await page.waitForLoadState('networkidle');
 
       // Get token from IndexedDB for cleanup
-      const token = await indexedDBAccess(page, (store) => {
-        const result = store.get('backend_session_token');
-        return result;
-      }).then(result => result?.value || null);
+      const result = await getIndexedDBValue<{ value: string }>(page, 'backend_session_token');
+      const token = result?.value || null;
 
       // Check if token exists before creating TestUser
       if (token === null) {
@@ -141,7 +143,7 @@ export const test = base.extend<AuthFixtures>({
   /**
    * Cleanup multiple test users
    */
-  cleanupTestUsers: async ({}, use) => {
+  cleanupTestUsers: async (_, use) => {
     const cleanup = async (users: TestUser[]): Promise<void> => {
       for (const user of users) {
         await cleanupTestUser(user.email, user.token);
@@ -156,7 +158,7 @@ export const test = base.extend<AuthFixtures>({
    */
   checkIndexedDBToken: async ({ page }, use) => {
     const checkToken = async (page: Page): Promise<boolean> => {
-      const result = await indexedDBAccess(page, (store) => store.get('backend_session_token'));
+      const result = await getIndexedDBValue<{ value: string }>(page, 'backend_session_token');
       return !!result?.value;
     };
 
@@ -168,7 +170,7 @@ export const test = base.extend<AuthFixtures>({
    */
   checkIndexedDBUser: async ({ page }, use) => {
     const checkUser = async (page: Page): Promise<any> => {
-      const result = await indexedDBAccess(page, (store) => store.get('backend_user_data'));
+      const result = await getIndexedDBValue<{ value: any }>(page, 'backend_user_data');
       return result?.value || null;
     };
 

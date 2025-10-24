@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { WORKER_URL } from '../../setup-real-api';
+import { WORKER_URL } from '../../setup-worker-integration';
 
 // Conditional debug logger - only logs when TEST_DEBUG environment variable is set
 const debugLog = (...args: unknown[]) => {

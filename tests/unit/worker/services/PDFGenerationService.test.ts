@@ -10,24 +10,7 @@ vi.mock('../../../../worker/utils/logger.js', () => ({
   },
 }));
 
-// Mock pdf-lib to avoid actual PDF generation during tests
-vi.mock('pdf-lib', () => ({
-  PDFDocument: {
-    create: vi.fn().mockResolvedValue({
-      addPage: vi.fn().mockReturnValue({
-        getSize: vi.fn().mockReturnValue({ width: 612, height: 792 }),
-        drawText: vi.fn(),
-      }),
-      embedFont: vi.fn().mockResolvedValue({}),
-      save: vi.fn().mockResolvedValue(new ArrayBuffer(100)),
-    }),
-  },
-  StandardFonts: {
-    Helvetica: 'Helvetica',
-    HelveticaBold: 'HelveticaBold',
-  },
-  rgb: vi.fn().mockReturnValue({}),
-}));
+// Note: pdf-lib is installed as a dev dependency and used for PDF generation
 
 // Create a mockable useFeatureFlag function
 const mockUseFeatureFlag = vi.fn();
@@ -41,9 +24,7 @@ vi.mock('../../../../src/config/features.js', () => ({
 }));
 
 describe('PDFGenerationService', () => {
-  const mockEnv = {
-    // Mock environment variables that might be needed
-  } as any;
+  const mockEnv = {} as unknown;
 
   const mockCaseDraft = {
     matter_type: 'Personal Injury',
@@ -87,6 +68,7 @@ describe('PDFGenerationService', () => {
       // Since the service doesn't currently check the feature flag internally,
       // we verify that the service can still be instantiated but operations
       // would be controlled by the calling code
+      // @ts-expect-error - Mock environment for testing
       expect(() => PDFGenerationService.initialize(mockEnv)).not.toThrow();
     });
 
@@ -109,16 +91,20 @@ describe('PDFGenerationService', () => {
     });
 
     it('should initialize successfully when feature is enabled', () => {
+      // @ts-expect-error - Mock environment for testing
       expect(() => PDFGenerationService.initialize(mockEnv)).not.toThrow();
     });
 
-    it('should generate case summary PDF successfully', async () => {
+    it('should generate PDF successfully when pdf-lib is available', async () => {
+      // @ts-expect-error - Mock environment for testing
       const result = await PDFGenerationService.generateCaseSummaryPDF(mockOptions, mockEnv);
       
-      // Since pdf-lib is not installed (feature flagged), this will fail
-      expect(result.success).toBe(false);
-      expect(result.pdfBuffer).toBeUndefined();
-      expect(result.error).toBeDefined();
+      // Since pdf-lib is available in test environment, this should succeed
+      expect(result.success).toBe(true);
+      expect(result.pdfBuffer).toBeDefined();
+      expect(result.pdfBuffer).toBeInstanceOf(ArrayBuffer);
+      expect(result.pdfBuffer.byteLength).toBeGreaterThan(0);
+      expect(result.error).toBeUndefined();
     });
 
 
@@ -151,7 +137,7 @@ describe('PDFGenerationService', () => {
 
     it('should escape HTML content to prevent XSS', () => {
       const maliciousInput = '<script>alert("xss")</script>';
-      const escaped = (PDFGenerationService as any).escapeHtml(maliciousInput);
+      const escaped = (PDFGenerationService as unknown as { escapeHtml: (input: string) => string }).escapeHtml(maliciousInput);
       expect(escaped).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;&#x2F;script&gt;');
     });
 
@@ -174,12 +160,15 @@ describe('PDFGenerationService', () => {
         organizationBrandColor: undefined,
       };
 
+      // @ts-expect-error - Mock environment for testing
       const result = await PDFGenerationService.generateCaseSummaryPDF(minimalOptions, mockEnv);
       
-      // Since pdf-lib is not installed (feature flagged), this will fail
-      expect(result.success).toBe(false);
-      expect(result.pdfBuffer).toBeUndefined();
-      expect(result.error).toBeDefined();
+      // Since pdf-lib is available, this should succeed even with minimal options
+      expect(result.success).toBe(true);
+      expect(result.pdfBuffer).toBeDefined();
+      expect(result.pdfBuffer).toBeInstanceOf(ArrayBuffer);
+      expect(result.pdfBuffer.byteLength).toBeGreaterThan(0);
+      expect(result.error).toBeUndefined();
     });
   });
 });

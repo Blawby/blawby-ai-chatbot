@@ -32,7 +32,7 @@ export interface AuthResponse {
 // Practice API Types
 export interface CreatePracticeData {
   name: string;
-  slug: string;
+  slug?: string;
   logo?: string;
   metadata?: Record<string, any>;
   businessPhone?: string;

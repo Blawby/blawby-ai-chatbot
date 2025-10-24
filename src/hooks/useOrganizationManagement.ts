@@ -30,7 +30,7 @@ export interface Organization {
 
 export interface CreateOrgData {
   name: string;
-  slug?: string;
+  slug?: string; // Optional in interface, but will be auto-generated if not provided
   description?: string;
   businessPhone?: string;
   businessEmail?: string;
@@ -109,7 +109,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
         // Only auto-generate slug on create; on update, include slug only if explicitly provided
         slug:
           opts?.forCreate
-            ? (('slug' in data && data.slug) ? data.slug : (data.name ? data.name.toLowerCase().replace(/\s+/g, '-') : undefined))
+            ? (('slug' in data && data.slug) ? data.slug : (data.name ? data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : 'organization'))
             : (('slug' in data && data.slug) ? data.slug : undefined),
         businessPhone: data.businessPhone,
         businessEmail: data.businessEmail,
