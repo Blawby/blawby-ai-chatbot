@@ -87,13 +87,20 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
 
     try {
+      const parseCurrencyToCents = (s: string) => {
+        const n = Number(s.replace(/[^0-9.]/g, ''));
+        return Number.isFinite(n) ? Math.round(n * 100) : undefined;
+      };
       await createOrganization({
         name: createForm.name,
         slug: createForm.slug || undefined,
         description: createForm.description || undefined,
         businessPhone: createForm.businessPhone || undefined,
         businessEmail: createForm.businessEmail || undefined,
-        consultationFee: createForm.consultationFee || undefined,
+        consultationFee: (() => {
+          const cents = parseCurrencyToCents(createForm.consultationFee);
+          return typeof cents === 'number' ? String(cents) : undefined;
+        })(),
         paymentUrl: createForm.paymentUrl || undefined,
         calendlyUrl: createForm.calendlyUrl || undefined,
       });
@@ -125,12 +132,19 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
     
     try {
+      const parseCurrencyToCents = (s: string) => {
+        const n = Number(s.replace(/[^0-9.]/g, ''));
+        return Number.isFinite(n) ? Math.round(n * 100) : undefined;
+      };
       await updateOrganization(currentOrganization.id, {
         name: editOrgForm.name,
         description: editOrgForm.description,
         businessPhone: editOrgForm.businessPhone,
         businessEmail: editOrgForm.businessEmail,
-        consultationFee: editOrgForm.consultationFee,
+        consultationFee: (() => {
+          const cents = parseCurrencyToCents(editOrgForm.consultationFee);
+          return typeof cents === 'number' ? String(cents) : undefined;
+        })(),
         paymentUrl: editOrgForm.paymentUrl,
         calendlyUrl: editOrgForm.calendlyUrl,
       });
@@ -288,14 +302,23 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                         Payment URL
                       </label>
                       <p id="org-payment-display" className="text-gray-900 dark:text-white">
-                        <a 
-                          href={currentOrganization.paymentUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-accent-600 hover:text-accent-500"
-                        >
-                          {currentOrganization.paymentUrl}
-                        </a>
+                        {(() => {
+                          const url = currentOrganization.paymentUrl;
+                          try {
+                            const u = new URL(url);
+                            if (u.protocol === 'http:' || u.protocol === 'https:') {
+                              return (
+                                <a href={url} target="_blank" rel="noopener noreferrer"
+                                   className="text-accent-600 hover:text-accent-500">
+                                  {url}
+                                </a>
+                              );
+                            }
+                          } catch {
+                            // Invalid URL, will be displayed as text
+                          }
+                          return <span>{url}</span>;
+                        })()}
                       </p>
                     </div>
                   )}
@@ -306,14 +329,23 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                         Calendly URL
                       </label>
                       <p id="org-calendly-display" className="text-gray-900 dark:text-white">
-                        <a 
-                          href={currentOrganization.calendlyUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-accent-600 hover:text-accent-500"
-                        >
-                          {currentOrganization.calendlyUrl}
-                        </a>
+                        {(() => {
+                          const url = currentOrganization.calendlyUrl;
+                          try {
+                            const u = new URL(url);
+                            if (u.protocol === 'http:' || u.protocol === 'https:') {
+                              return (
+                                <a href={url} target="_blank" rel="noopener noreferrer"
+                                   className="text-accent-600 hover:text-accent-500">
+                                  {url}
+                                </a>
+                              );
+                            }
+                          } catch {
+                            // Invalid URL, will be displayed as text
+                          }
+                          return <span>{url}</span>;
+                        })()}
                       </p>
                     </div>
                   )}

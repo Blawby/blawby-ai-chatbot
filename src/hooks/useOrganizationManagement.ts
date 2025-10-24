@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
+import { useState, useCallback, useEffect } from 'preact/hooks';
 import { backendClient } from '../lib/backendClient';
 import type { Practice, CreatePracticeData, UpdatePracticeData } from '../types/backend';
 import { useSession } from '../contexts/AuthContext';
@@ -10,7 +10,7 @@ export interface Organization {
   name: string;
   description?: string;
   logo?: string | null;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: string | null;
@@ -74,6 +74,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
 
   // Helper function to map Practice to Organization
   const mapPracticeToOrganization = useCallback((practice: Practice): Organization => {
+    const d = practice.practiceDetails;
     return {
       id: practice.id,
       slug: practice.slug,
@@ -81,11 +82,11 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       description: practice.metadata?.description,
       logo: practice.logo,
       metadata: practice.metadata,
-      businessPhone: practice.business_phone || null,
-      businessEmail: practice.business_email || null,
-      consultationFee: practice.consultation_fee ? `$${(practice.consultation_fee / 100).toFixed(2)}` : null,
-      paymentUrl: practice.payment_url || null,
-      calendlyUrl: practice.calendly_url || null,
+      businessPhone: d?.businessPhone ?? null,
+      businessEmail: d?.businessEmail ?? null,
+      consultationFee: d?.consultationFee ?? null,
+      paymentUrl: d?.paymentUrl ?? null,
+      calendlyUrl: d?.calendlyUrl ?? null,
       stripeCustomerId: practice.metadata?.stripeCustomerId || null,
       subscriptionTier: practice.metadata?.subscriptionTier || 'free',
       seats: practice.metadata?.seats || 1,
@@ -100,27 +101,33 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   }, []);
 
   // Helper function to map Organization to Practice data
-  const mapOrganizationToPracticeData = useCallback((data: CreateOrgData | UpdateOrgData): CreatePracticeData | UpdatePracticeData => {
-    const practiceData: CreatePracticeData | UpdatePracticeData = {
-      name: data.name,
-      slug: data.slug || (data.name ? data.name.toLowerCase().replace(/\s+/g, '-') : undefined),
-      description: data.description,
-      businessPhone: data.businessPhone,
-      businessEmail: data.businessEmail,
-      consultationFee: data.consultationFee,
-      paymentUrl: data.paymentUrl,
-      calendlyUrl: data.calendlyUrl
-    };
+  const mapOrganizationToPracticeData = useCallback(
+    (data: CreateOrgData | UpdateOrgData, opts?: { forCreate?: boolean }): CreatePracticeData | UpdatePracticeData => {
+      // Build a partial, then strip undefined safely
+      const base: Partial<CreatePracticeData & UpdatePracticeData> = {
+        name: data.name,
+        // Only auto-generate slug on create; on update, include slug only if explicitly provided
+        slug:
+          opts?.forCreate
+            ? (('slug' in data && data.slug) ? data.slug : (data.name ? data.name.toLowerCase().replace(/\s+/g, '-') : undefined))
+            : (('slug' in data && data.slug) ? data.slug : undefined),
+        businessPhone: data.businessPhone,
+        businessEmail: data.businessEmail,
+        consultationFee: data.consultationFee,
+        paymentUrl: data.paymentUrl,
+        calendlyUrl: data.calendlyUrl,
+        // Persist description under metadata to align with current backend types
+        metadata: data.description ? { description: data.description } : undefined,
+      };
 
-    // Remove undefined values
-    Object.keys(practiceData).forEach(key => {
-      if (practiceData[key] === undefined) {
-        delete practiceData[key];
-      }
-    });
+      const cleaned = Object.fromEntries(
+        Object.entries(base).filter(([, v]) => v !== undefined)
+      ) as CreatePracticeData | UpdatePracticeData;
 
-    return practiceData;
-  }, []);
+      return cleaned;
+    },
+    []
+  );
 
   // Fetch organizations for the current user
   const fetchOrganizations = useCallback(async () => {
@@ -161,7 +168,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     setError(null);
 
     try {
-      const practiceData = mapOrganizationToPracticeData(data);
+      const practiceData = mapOrganizationToPracticeData(data, { forCreate: true });
       const response = await backendClient.createPractice(practiceData as CreatePracticeData);
       
       const organization = mapPracticeToOrganization(response.practice);
@@ -237,7 +244,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     } finally {
       setLoading(false);
     }
-  }, [currentOrganization?.id]);
+  }, []);
 
   // Refetch all data
   const refetch = useCallback(async () => {

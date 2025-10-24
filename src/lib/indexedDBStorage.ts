@@ -174,7 +174,7 @@ export async function hasToken(): Promise<boolean> {
 }
 
 export async function saveUserData(userData: unknown): Promise<void> {
-  console.log('🔍 indexedDBStorage.saveUserData - saving user data:', userData);
+  // Intentionally no verbose logging to avoid PII in logs.
   let database: IDBDatabase | null = null;
   try {
     database = await openDB();

@@ -42,7 +42,7 @@ global.URL.createObjectURL = vi.fn(() => 'mocked-url');
 global.URL.revokeObjectURL = vi.fn();
 
 // Mock FileReader
-global.FileReader = vi.fn().mockImplementation(() => ({
+const FileReaderMock = vi.fn().mockImplementation(() => ({
   readAsDataURL: vi.fn(),
   readAsText: vi.fn(),
   readAsArrayBuffer: vi.fn(),
@@ -52,6 +52,15 @@ global.FileReader = vi.fn().mockImplementation(() => ({
   onerror: null,
   onloadend: null,
 }));
+
+// Add static properties to FileReader mock
+Object.assign(FileReaderMock, {
+  EMPTY: 0,
+  LOADING: 1,
+  DONE: 2,
+});
+
+global.FileReader = FileReaderMock as any;
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
@@ -102,35 +111,41 @@ vi.mock('framer-motion', () => ({
 vi.mock('@heroicons/react/24/outline', () => ({
   UserIcon: 'svg',
   ArrowLeftIcon: 'svg',
-  PencilIcon: 'svg',
+  ArrowTopRightOnSquareIcon: 'svg',
+  ArrowUpIcon: 'svg',
+  Bars3Icon: 'svg',
   BuildingOfficeIcon: 'svg',
-  PlusIcon: 'svg',
-  MinusIcon: 'svg',
-  XMarkIcon: 'svg',
+  CameraIcon: 'svg',
+  CheckCircleIcon: 'svg',
   CheckIcon: 'svg',
-  Cog6ToothIcon: 'svg',
-  SparklesIcon: 'svg',
-  QuestionMarkCircleIcon: 'svg',
-  ArrowRightOnRectangleIcon: 'svg',
-  ChevronRightIcon: 'svg',
-  LinkIcon: 'svg',
-  PhoneIcon: 'svg',
   ChevronDownIcon: 'svg',
-  EyeIcon: 'svg',
-  EyeSlashIcon: 'svg',
-  EnvelopeIcon: 'svg',
-  UserGroupIcon: 'svg',
-  ExclamationTriangleIcon: 'svg',
-  HandThumbUpIcon: 'svg',
-  HandThumbDownIcon: 'svg',
-  StarIcon: 'svg',
+  ChevronRightIcon: 'svg',
   ChatBubbleLeftRightIcon: 'svg',
   ClipboardIcon: 'svg',
-  KeyIcon: 'svg',
+  CloudArrowUpIcon: 'svg',
+  Cog6ToothIcon: 'svg',
+  CreditCardIcon: 'svg',
+  EnvelopeIcon: 'svg',
+  ExclamationTriangleIcon: 'svg',
+  EyeIcon: 'svg',
+  EyeSlashIcon: 'svg',
   FaceSmileIcon: 'svg',
-  CheckBadgeIcon: 'svg',
+  HandThumbDownIcon: 'svg',
+  HandThumbUpIcon: 'svg',
+  InformationCircleIcon: 'svg',
+  KeyIcon: 'svg',
+  LinkIcon: 'svg',
   MapPinIcon: 'svg',
-  BellIcon: 'svg',
+  MicrophoneIcon: 'svg',
+  MinusIcon: 'svg',
+  PhoneIcon: 'svg',
+  PhotoIcon: 'svg',
+  PlayIcon: 'svg',
+  PlusIcon: 'svg',
+  QuestionMarkCircleIcon: 'svg',
+  SparklesIcon: 'svg',
+  StarIcon: 'svg',
+  XMarkIcon: 'svg',
 }));
 
 

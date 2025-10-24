@@ -145,8 +145,8 @@ class BackendApiClient {
     });
     
     // Save token and user data from successful signup
-    if (response.token) {
-      await this.saveToken(response.token);
+    if (response.session.token) {
+      await this.saveToken(response.session.token);
       await saveUserDataToIndexedDB(response.user);
     }
     
@@ -160,8 +160,8 @@ class BackendApiClient {
     });
     
     // Save token and user data from successful signin
-    if (response.token) {
-      await this.saveToken(response.token);
+    if (response.session.token) {
+      await this.saveToken(response.session.token);
       await saveUserDataToIndexedDB(response.user);
     }
     
@@ -169,6 +169,7 @@ class BackendApiClient {
   }
 
   async getSession(): Promise<AuthResponse> {
+    await this.ensureTokenLoaded();
     if (!this.token) {
       throw new Error('No session token available');
     }
@@ -238,8 +239,12 @@ class BackendApiClient {
         return true;
       }
       
-      // Decode JWT token to check expiry
-      const payload = JSON.parse(atob(parts[1]));
+      // Decode JWT payload (base64url → base64)
+      const b64 = parts[1]
+        .replace(/-/g, '+')
+        .replace(/_/g, '/')
+        .padEnd(parts[1].length + (4 - (parts[1].length % 4 || 4)) % 4, '=');
+      const payload = JSON.parse(atob(b64));
       const now = Math.floor(Date.now() / 1000);
       return payload.exp < now;
     } catch {

@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         try {
           console.log('🔍 checkAuth - loading user data from IndexedDB');
           const userData = await loadUserDataFromIndexedDB();
-          console.log('🔍 checkAuth - loaded user data:', userData);
+          if (import.meta?.env?.DEV) console.log('🔍 checkAuth - loaded user data:', userData);
           
           if (userData) {
             // Use stored user data directly, don't fabricate sessions
@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
             try {
               console.log('🔍 checkAuth - fetching session from backend');
               const response = await backendClient.getSession();
-              console.log('🔍 checkAuth - session response:', response);
+              if (import.meta?.env?.DEV) console.log('🔍 checkAuth - session response:', { hasUser: !!response?.user, hasSession: !!response?.session });
               setAuthState({
                 user: response.user,
                 session: response.session,
@@ -141,9 +141,9 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         name: name || email.split('@')[0] || 'User'
       });
       
-      console.log('🔍 Signup response:', response);
-      console.log('🔍 User data:', response.user);
-      console.log('🔍 Session data:', response.session);
+      if (import.meta?.env?.DEV) {
+        console.log('🔍 Signup response:', { hasUser: !!response?.user, hasSession: !!response?.session });
+      }
       
       // Use backend session data directly, don't fabricate
       setAuthState({
@@ -219,9 +219,10 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   };
   
   // Debug logging for context value
-  console.log('🔍 AuthContext - contextId:', contextId.current);
-  console.log('🔍 AuthContext - authState:', authState);
-  console.log('🔍 AuthContext - contextValue:', contextValue);
+  if (import.meta?.env?.DEV) {
+    console.log('🔍 AuthContext - contextId:', contextId.current);
+    console.log('🔍 AuthContext - authState:', { isLoading: authState.isLoading, hasUser: !!authState.user, hasSession: !!authState.session });
+  }
 
   return (
     <AuthContext.Provider value={contextValue}>

@@ -48,7 +48,7 @@ interface RouteBody {
  */
 export async function handleAgentStreamV2(request: Request, env: Env): Promise<Response> {
   // Optional backend authentication (allow anonymous chat)
-  const authContext = await getBackendAuth(request, env);
+  // Note: authContext removed as it's not used for anonymous chat functionality
 
   // Handle GET requests for SSE connections
   if (request.method === 'GET') {

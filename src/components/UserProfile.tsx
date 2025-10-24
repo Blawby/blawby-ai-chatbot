@@ -9,7 +9,7 @@ import { getTierDisplayName } from '../utils/stripe-products';
 import { debounce } from '../utils/debounce';
 import { useTranslation } from '@/i18n/hooks';
 import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
-import type { User } from '../types/backend';
+// import type { User } from '../types/backend';
 
 interface _User {
   id: string;
@@ -39,13 +39,12 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
   // Extract session data from new backend API structure
   const sessionData = session?.data;
   const isPending = session?.isPending || false;
-  const error = sessionData?.error || null;
+  const error = sessionData?.error ?? null;
   
-  // Debug logging
-  console.log('🔍 UserProfile - session:', session);
-  console.log('🔍 UserProfile - sessionData:', sessionData);
-  console.log('🔍 UserProfile - isPending:', isPending);
-  console.log('🔍 UserProfile - error:', error);
+  if (import.meta.env.DEV) {
+    // Minimal, non‑PII diagnostics
+    // console.debug('UserProfile session pending:', isPending, 'hasError:', Boolean(error));
+  }
 
   // Handle session fetch errors
   useEffect(() => {

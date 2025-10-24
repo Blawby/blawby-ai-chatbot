@@ -75,16 +75,23 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     
     const body = validationResult.data;
     
-    // Determine organization ID: body takes precedence over auth context
+    // Determine organization ID with strict auth enforcement
     let organizationId: string;
-    if (body.organizationId) {
-      // Use organization from request body
+    const authOrg = authContext?.organizationId
+      ? await normalizeOrganizationId(env, authContext.organizationId)
+      : null;
+
+    if (authOrg) {
+      if (body.organizationId) {
+        const requested = await normalizeOrganizationId(env, body.organizationId);
+        if (requested !== authOrg) {
+          throw HttpErrors.forbidden('Organization mismatch with authenticated context');
+        }
+      }
+      organizationId = authOrg;
+    } else if (body.organizationId) {
       organizationId = await normalizeOrganizationId(env, body.organizationId);
-    } else if (authContext?.organizationId) {
-      // Use organization from auth context
-      organizationId = await normalizeOrganizationId(env, authContext.organizationId);
     } else {
-      // Fallback to default
       organizationId = DEFAULT_ORGANIZATION_ID;
     }
 

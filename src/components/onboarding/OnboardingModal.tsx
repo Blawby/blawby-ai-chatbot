@@ -3,7 +3,7 @@ import { useTranslation } from '@/i18n/hooks';
 import Modal from '../Modal';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
-// User profile updates are handled by the Blawby Backend API
+// TODO: User profile updates will be handled by the Blawby Backend API (not yet implemented)
 import type { OnboardingData } from '../../types/user';
 import { toOnboardingData, fromOnboardingData } from '../../types/user';
 import { useToastContext } from '../../contexts/ToastContext';

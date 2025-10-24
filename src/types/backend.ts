@@ -32,6 +32,7 @@ export interface Session {
 export interface AuthResponse {
   user: User;
   session: Session;
+  token?: string; // JWT from sign-in/up; optional to allow getSession responses without a token
 }
 
 // Practice API Types
