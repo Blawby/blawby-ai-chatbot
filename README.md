@@ -60,19 +60,22 @@ A production-ready legal intake chatbot built with Cloudflare Workers AI, featur
 - **👨‍💼 Human Review Queue**: Lawyer oversight for urgent/complex matters
 - **📱 Mobile-First Design**: Responsive interface with modern UI/UX
 - **📎 File Upload Support**: Photos, videos, audio, documents (25MB max) with camera capture
-- **🔐 Authentication**: Google OAuth and email/password with Better Auth
+- **🔐 Authentication**: Email/password with Blawby Backend API (Google OAuth coming soon)
 - **🔒 Production Security**: OWASP-compliant headers and validation
 
 ## 🏗️ **Architecture**
 
 ```
-Frontend (Preact) → Cloudflare Workers → AI Agent → Tool Handlers → Actions
+Frontend (Preact) → Blawby Backend API → User/Organization Management
+                ↓
+         Cloudflare Workers → AI Agent → Tool Handlers → Actions
 ```
 
 **Core Components:**
+- **Blawby Backend API**: External service handling user authentication and organization management
 - **Legal Intake Agent**: Self-contained AI with built-in memory and tool execution
 - **Tool Handlers**: Modular functions for contact collection, matter creation, lawyer review
-- **organization Configuration**: Dynamic payment and service configuration per organization
+- **Organization Configuration**: Dynamic payment and service configuration per organization
 - **Review Queue**: Human-in-the-loop system for lawyer oversight
 
 ## 🛠️ **Technology Stack**
@@ -80,7 +83,8 @@ Frontend (Preact) → Cloudflare Workers → AI Agent → Tool Handlers → Acti
 - **Frontend**: Preact, TypeScript, Tailwind CSS
 - **Backend**: Cloudflare Workers, D1 Database, KV Storage, R2 Object Storage
 - **AI**: Cloudflare Workers AI (GPT-OSS 20B)
-- **Auth**: Better Auth with Google OAuth & Email/Password
+- **Auth**: Blawby Backend API (Email/Password, Google OAuth coming soon)
+- **User Management**: External Blawby Backend API
 - **Deployment**: Cloudflare Workers
 
 ## 🧪 **Testing**
@@ -117,10 +121,16 @@ npm run lint:i18n          # Validate locale files stay in sync
 
 ### Environment Variables
 Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
+
+**Core API Keys:**
 - `BLAWBY_API_TOKEN` - Blawby services API key
 - `LAWYER_SEARCH_API_KEY` - Lawyer search API key
 - `CLOUDFLARE_API_TOKEN` - Cloudflare operations API key
 - `RESEND_API_KEY` - Email notifications API key
+
+**Blawby Backend API Configuration:**
+- `VITE_BACKEND_API_URL` - Override backend API URL (optional, defaults to production)
+- Backend API: `https://blawby-backend-production.up.railway.app/api`
 
 **Note:** Wrangler automatically loads `.dev.vars` during local development - no additional setup required.
 
@@ -150,23 +160,25 @@ The application supports **18 languages** covering 5+ billion speakers — ~90%+
 - Run `npm run test:i18n` for internationalization smoke tests
 
 ### Organization Management
-Organizations are managed via REST API:
+Organizations (practices) are managed via the external Blawby Backend API:
 ```bash
-# List organizations
-curl -X GET http://localhost:8787/api/organizations
+# List practices (requires authentication)
+curl -X GET https://blawby-backend-production.up.railway.app/api/practice/list \
+  -H "Authorization: Bearer $JWT_TOKEN"
 
-# Create organization (requires admin token)
-curl -X POST http://localhost:8787/api/organizations \
+# Create practice (requires authentication)
+curl -X POST https://blawby-backend-production.up.railway.app/api/practice \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"slug": "new-organization", "name": "New Organization", "config": {"aiModel": "@cf/openai/gpt-oss-20b"}}'
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -d '{"name": "My Law Practice", "slug": "my-law-practice", "business_phone": "+1-555-123-4567"}'
 ```
 
 ### Authentication & User Management
-User authentication and organization membership is handled by Better Auth:
-- Users sign up/sign in through the `/auth` page
-- Organization membership and roles are managed through Better Auth
-- Access the application with `?organizationId=<org-slug>` parameter
+User authentication and organization membership is handled by the Blawby Backend API:
+- Users sign up/sign in through the `/auth` page using email/password
+- JWT tokens are stored securely in IndexedDB
+- Organization (practice) management is handled by the external backend
+- Google OAuth integration is planned for future release
 
 ## 🔒 **Security**
 
@@ -174,7 +186,7 @@ User authentication and organization membership is handled by Better Auth:
 - File upload validation (25MB max)
 - Rate limiting (60 requests/minute)
 - Input sanitization
-- Secure session management with Better Auth
+- Secure session management with JWT tokens and IndexedDB storage
 
 ## 🔧 **Troubleshooting**
 

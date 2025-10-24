@@ -88,6 +88,13 @@ interface FeatureFlags {
      */
     enableParalegalAgent: boolean;
 
+    /**
+     * Enable Google OAuth authentication
+     * When false, Google OAuth button will be hidden
+     * When true, Google OAuth will be available (requires backend implementation)
+     */
+    enableGoogleAuth: boolean;
+
 }
 
 // Immutable base configuration
@@ -105,6 +112,7 @@ const baseFeatureConfig: FeatureFlags = {
     enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
     enableMultipleOrganizations: true, // Enable multiple organizations feature
     enableParalegalAgent: false, // Disable paralegal agent features by default
+    enableGoogleAuth: false, // Disable Google OAuth until backend implements it
 };
 
 // DEV-only overrides (computed via spread, no mutation)

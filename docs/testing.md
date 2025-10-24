@@ -21,6 +21,7 @@
 - **End-to-End** (`npm run test:e2e`)
   - Tooling: Playwright (`tests/e2e/**`)
   - Goal: Full happy-path flows in the browser. Keep the suite small and tag smoke cases.
+  - **Backend API Integration**: Tests include authentication flows with external Blawby Backend API
 
 ## Running Tests
 
@@ -44,3 +45,30 @@ Watch / UI modes:
 - Seed D1 via helper utilities instead of hitting live APIs.
 - Prefer feature-focused directories (e.g., `tests/integration/usage/`).
 - Keep shell scripts for local smoke checks only; migrate flows into Vitest/Playwright for CI.
+
+## Backend API Testing
+
+### External API Integration
+- **Authentication Tests**: E2E tests verify signup/signin flows with Blawby Backend API
+- **Token Management**: Tests validate JWT token storage and retrieval from IndexedDB
+- **API Client**: Unit tests for `backendClient.ts` with mocked API responses
+- **Error Handling**: Tests cover network failures, token expiry, and API errors
+
+### Test Data Management
+- **User Accounts**: E2E tests create temporary user accounts via backend API
+- **Cleanup**: Tests clean up test data after completion
+- **Isolation**: Each test uses unique email addresses to avoid conflicts
+- **Mocking**: Unit tests mock external API calls for faster execution
+
+### Authentication Flow Testing
+```typescript
+// Example E2E test structure
+test('user profile update after signup', async ({ page }) => {
+  // 1. Navigate to auth page
+  // 2. Fill signup form with unique email
+  // 3. Submit and verify backend API call
+  // 4. Check token storage in IndexedDB
+  // 5. Verify user profile display
+  // 6. Clean up test data
+});
+```

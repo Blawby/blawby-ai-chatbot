@@ -9,9 +9,13 @@ import { getTierDisplayName } from '../utils/stripe-products';
 import { debounce } from '../utils/debounce';
 import { useTranslation } from '@/i18n/hooks';
 import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
-import type { User as BetterAuthUser } from 'better-auth/types';
+import type { User } from '../types/backend';
 
-interface _User extends BetterAuthUser {
+interface _User {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
   organizationId?: string | null;
   role?: string | null;
   phone?: string | null;
@@ -26,11 +30,22 @@ interface UserProfileProps {
 const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
   const { t } = useTranslation(['profile', 'common']);
   const { currentOrganization } = useOrganizationManagement();
-  const { data: session, isPending, error } = useSession();
+  const session = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { navigateToAuth, navigate } = useNavigation();
+
+  // Extract session data from new backend API structure
+  const sessionData = session?.data;
+  const isPending = session?.isPending || false;
+  const error = sessionData?.error || null;
+  
+  // Debug logging
+  console.log('🔍 UserProfile - session:', session);
+  console.log('🔍 UserProfile - sessionData:', sessionData);
+  console.log('🔍 UserProfile - isPending:', isPending);
+  console.log('🔍 UserProfile - error:', error);
 
   // Handle session fetch errors
   useEffect(() => {
@@ -40,12 +55,26 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
   }, [error]);
 
   // Derive user data from session and organization
-  const user = session?.user ? {
-    id: session.user.id,
-    name: session.user.name || session.user.email || 'User',  // Default when name is falsy
-    email: session.user.email,
-    image: session.user.image,
-    organizationId: currentOrganization?.id || null,
+  const user = sessionData?.user ? {
+    id: sessionData.user.id,
+    name: (() => {
+      // Check for stored display name from onboarding first
+      try {
+        const storedDisplayName = localStorage.getItem('userDisplayName');
+        if (storedDisplayName) {
+          return storedDisplayName;
+        }
+      } catch (error) {
+        // localStorage might not be available
+        console.warn('Failed to access localStorage for user display name:', error);
+      }
+      
+      // Fall back to backend user name or email
+      return sessionData.user.name || sessionData.user.email || 'User';
+    })(),
+    email: sessionData.user.email,
+    image: null, // Backend API doesn't provide image yet
+    organizationId: sessionData.session?.activeOrganizationId || currentOrganization?.id || null,
     role: 'user', // Default role
     phone: null,
     subscriptionTier: (currentOrganization?.subscriptionTier || 'free') as SubscriptionTier

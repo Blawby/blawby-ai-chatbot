@@ -177,6 +177,7 @@ export class SessionService {
 
   static async createSession(env: Env, options: {
     organizationId: string;
+    userId?: string;
     sessionId?: string;
     sessionToken?: string;
     retentionHorizonDays?: number;
@@ -191,15 +192,16 @@ export class SessionService {
 
     const insertStmt = env.DB.prepare(`
       INSERT INTO chat_sessions (
-        id, organization_id, token_hash, state, status_reason, retention_horizon_days,
+        id, organization_id, user_id, token_hash, state, status_reason, retention_horizon_days,
         is_hold, created_at, updated_at, last_active
-      ) VALUES (?, ?, ?, 'active', NULL, ?, 0, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, 'active', NULL, ?, 0, ?, ?, ?)
       ON CONFLICT(id) DO NOTHING
     `);
 
     const insertResult = await insertStmt.bind(
       sessionId,
       organizationId,
+      options.userId || null,
       initialTokenHash,
       retention,
       nowIso,
@@ -334,6 +336,7 @@ export class SessionService {
     sessionId?: string;
     sessionToken?: string | null;
     organizationId: string;
+    userId?: string;
     retentionHorizonDays?: number;
     createIfMissing?: boolean;
   }): Promise<SessionResolution> {
@@ -363,6 +366,7 @@ export class SessionService {
         }
         const created = await this.createSession(env, {
           organizationId: normalizedOrganization,
+          userId: options.userId,
           sessionId: options.sessionId,
           sessionToken: providedToken ?? undefined,
           retentionHorizonDays: options.retentionHorizonDays

@@ -21,6 +21,7 @@ import { Logger } from '../utils/logger.js';
 import { ensureActiveSubscription } from '../middleware/subscription.js';
 import { UsageService } from '../services/UsageService.js';
 import { requireFeature } from '../middleware/featureGuard.js';
+import { getBackendAuth } from '../middleware/backendAuth.js';
 
 // Interface for the request body
 interface RouteBody {
@@ -46,6 +47,8 @@ interface RouteBody {
  * Uses context-aware middleware instead of hard security filters
  */
 export async function handleAgentStreamV2(request: Request, env: Env): Promise<Response> {
+  // Optional backend authentication (allow anonymous chat)
+  const authContext = await getBackendAuth(request, env);
 
   // Handle GET requests for SSE connections
   if (request.method === 'GET') {

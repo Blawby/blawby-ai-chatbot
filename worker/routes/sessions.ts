@@ -4,6 +4,7 @@ import type { Env } from '../types.js';
 import { SessionService } from '../services/SessionService.js';
 import { sessionRequestBodySchema } from '../schemas/validation.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
+import { getBackendAuth } from '../middleware/backendAuth.js';
 import { DEFAULT_ORGANIZATION_ID } from '../../src/utils/constants.js';
 
 async function normalizeOrganizationId(env: Env, organizationId?: string | null): Promise<string> {
@@ -58,6 +59,9 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
 
   // POST /api/sessions
   if (segments.length === 2 && request.method === 'POST') {
+    // Optional backend authentication (allow anonymous chat)
+    const authContext = await getBackendAuth(request, env);
+
     const rawBody = await parseJsonBody(request);
     
     // Runtime validation of request body
@@ -71,20 +75,17 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     
     const body = validationResult.data;
     
-    // Determine organization ID: body takes precedence over URL param
+    // Determine organization ID: body takes precedence over auth context
     let organizationId: string;
     if (body.organizationId) {
       // Use organization from request body
       organizationId = await normalizeOrganizationId(env, body.organizationId);
+    } else if (authContext?.organizationId) {
+      // Use organization from auth context
+      organizationId = await normalizeOrganizationId(env, authContext.organizationId);
     } else {
-      // Use organization context middleware to extract from URL/cookies
-      const requestWithContext = await withOrganizationContext(request, env, {
-        requireOrganization: false,  // Allow fallback to default
-        allowUrlOverride: true,
-        defaultOrganizationId: DEFAULT_ORGANIZATION_ID
-      });
-      const contextOrgId = getOrganizationId(requestWithContext) || DEFAULT_ORGANIZATION_ID;
-      organizationId = await normalizeOrganizationId(env, contextOrgId);
+      // Fallback to default
+      organizationId = DEFAULT_ORGANIZATION_ID;
     }
 
     const resolution = await SessionService.resolveSession(env, {
@@ -92,6 +93,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
       sessionId: body.sessionId,
       sessionToken: body.sessionToken,
       organizationId,
+      userId: authContext?.user.id,
       retentionHorizonDays: body.retentionHorizonDays,
       createIfMissing: true
     });

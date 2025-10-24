@@ -1,8 +1,8 @@
-import { signOut as betterAuthSignOut } from '../lib/authClient';
+import { backendClient } from '../lib/backendClient';
 
 /**
  * Centralized sign out utility that handles:
- * 1. Better Auth sign out (revokes session)
+ * 1. Backend API sign out (revokes session)
  * 2. Remove auth-related localStorage hints (without touching unrelated app data)
  * 3. Optional callback for custom behavior
  */
@@ -11,8 +11,8 @@ export async function signOut(options?: {
   onSuccess?: () => void;
 }): Promise<void> {
   try {
-    // 1. Sign out from Better Auth (revokes server session)
-    await betterAuthSignOut();
+    // 1. Sign out from Backend API (revokes server session)
+    await backendClient.signout();
     
     // 2. Remove auth-related client state
     try {
@@ -27,8 +27,10 @@ export async function signOut(options?: {
       for (const key of authKeys) {
         localStorage.removeItem(key);
       }
+      
+      // Token is now stored in IndexedDB, cleared by backendClient.signout()
 
-      // Clean any Better Auth specific markers we may have stored locally
+      // Clean any Better Auth specific markers we may have stored locally (for migration)
       const betterAuthKeys = Object.keys(localStorage).filter((key) =>
         key.startsWith('better-auth') || key.startsWith('__better-auth')
       );
