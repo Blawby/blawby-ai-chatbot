@@ -200,7 +200,9 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       const response = await backendClient.submitOnboarding(data);
       
       if (response.success) {
-        console.log('✅ Onboarding data saved successfully:', response.data);
+        if (import.meta.env.DEV) {
+          console.log('✅ Onboarding data saved successfully:', response.data);
+        }
         
         // Persist onboarding completion flag before redirecting
         localStorage.setItem('onboardingCompleted', 'true');
@@ -225,7 +227,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       
       // Show error to user but still allow them to continue
       // This ensures the onboarding flow doesn't break if the backend is unavailable
-      alert('Failed to save your onboarding preferences. You can update them later in settings.');
+      setError('Failed to save your onboarding preferences. You can update them later in settings.');
       
       // Still persist local completion flag and redirect
       localStorage.setItem('onboardingCompleted', 'true');

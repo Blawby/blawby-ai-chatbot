@@ -3,6 +3,28 @@ import { backendClient } from '../lib/backendClient';
 import type { Practice, CreatePracticeData, UpdatePracticeData } from '../types/backend';
 import { useSession } from '../contexts/AuthContext';
 
+/**
+ * Generates a URL-safe slug from a name string.
+ * - Lowercases the input
+ * - Trims whitespace
+ * - Converts spaces to hyphens
+ * - Removes non-alphanumeric characters (except hyphens)
+ * - Collapses consecutive hyphens
+ * - Strips leading/trailing hyphens
+ * - Returns 'organization' if the result is empty
+ */
+function generateSlug(name: string): string {
+  if (!name) return 'organization';
+  
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'organization';
+}
+
 // Types
 export interface Organization {
   id: string;
@@ -109,7 +131,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
         // Only auto-generate slug on create; on update, include slug only if explicitly provided
         slug:
           opts?.forCreate
-            ? (('slug' in data && data.slug) ? data.slug : (data.name ? data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : 'organization'))
+            ? (('slug' in data && data.slug) ? data.slug : generateSlug(data.name))
             : (('slug' in data && data.slug) ? data.slug : undefined),
         businessPhone: data.businessPhone,
         businessEmail: data.businessEmail,

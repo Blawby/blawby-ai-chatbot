@@ -250,15 +250,16 @@ export function extractErrorMessage(error: unknown, fallback: string = 'An unexp
       return (errorObj.data as { error: string }).error.trim() || fallback;
     }
 
-    // Last resort: try to stringify the object safely
+    // Last resort: sanitize the object before stringifying to prevent data leaks
     try {
-      const stringified = JSON.stringify(errorObj);
+      const sanitized = sanitizeError(errorObj);
+      const stringified = JSON.stringify(sanitized);
       // Only use stringified version if it's not just "{}" or similar
       if (stringified && stringified !== '{}' && stringified !== 'null') {
         return stringified;
       }
     } catch {
-      // If JSON.stringify fails, fall through to final fallback
+      // If sanitization or JSON.stringify fails, fall through to final fallback
     }
   }
 

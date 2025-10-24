@@ -1,8 +1,25 @@
 import type { Env } from '../types.js';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
+import { HttpError } from '../types.js';
 import { requireAuth } from '../middleware/auth.js';
 import { OnboardingData } from '../../src/types/user.js';
+
+type UseCase = 'personal' | 'business' | 'research' | 'documents' | 'other';
+
+interface OnboardingRequest {
+  personalInfo: {
+    firstName: string;
+    lastName: string;
+    birthday?: string;
+    agreedToTerms?: boolean;
+  };
+  useCase: {
+    selectedUseCases: UseCase[];
+    additionalInfo?: string;
+  };
+  skippedSteps?: string[];
+}
 
 export async function handleUsers(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -13,7 +30,7 @@ export async function handleUsers(request: Request, env: Env): Promise<Response>
     if (path === '/onboarding' && request.method === 'POST') {
       const { user } = await requireAuth(request, env);
       
-      const body = await parseJsonBody(request);
+      const body = await parseJsonBody(request) as OnboardingRequest;
       
       // Validate the onboarding data structure
       if (!body || typeof body !== 'object') {
@@ -27,6 +44,11 @@ export async function handleUsers(request: Request, env: Env): Promise<Response>
       
       if (!body.personalInfo.firstName || !body.personalInfo.lastName) {
         throw HttpErrors.badRequest('First name and last name are required');
+      }
+      
+      // Validate that firstName and lastName are strings
+      if (typeof body.personalInfo.firstName !== 'string' || typeof body.personalInfo.lastName !== 'string') {
+        throw HttpErrors.badRequest('First name and last name must be strings');
       }
       
       if (!body.useCase.selectedUseCases || !Array.isArray(body.useCase.selectedUseCases) || body.useCase.selectedUseCases.length === 0) {
@@ -100,9 +122,27 @@ export async function handleUsers(request: Request, env: Env): Promise<Response>
       let onboardingData = null;
       if (result.onboarding_data) {
         try {
-          onboardingData = JSON.parse(result.onboarding_data);
+          onboardingData = JSON.parse(result.onboarding_data as string);
         } catch (error) {
-          console.warn('Failed to parse onboarding data for user:', user.id);
+          // Log full error details server-side
+          console.error('Failed to parse onboarding data for user:', {
+            userId: user.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+            rawData: result.onboarding_data
+          });
+          
+          // Return 500 response to client with generic message
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Onboarding data corrupted'
+            }),
+            {
+              status: 500,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
         }
       }
       
@@ -131,7 +171,7 @@ export async function handleUsers(request: Request, env: Env): Promise<Response>
         error: error instanceof Error ? error.message : 'Internal server error'
       }),
       {
-        status: error instanceof HttpErrors ? error.status : 500,
+        status: error instanceof HttpError ? error.status : 500,
         headers: { 'Content-Type': 'application/json' }
       }
     );

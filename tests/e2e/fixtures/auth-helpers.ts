@@ -95,8 +95,12 @@ export const test = base.extend<AuthFixtures>({
       await page.getByRole('button', { name: /don't have an account\? sign up/i }).click();
       
       // Fill signup form using stable selectors
-      await page.getByRole('textbox', { name: /first name/i }).fill(testName.split(' ')[0]);
-      await page.getByRole('textbox', { name: /last name/i }).fill(testName.split(' ')[1] || '');
+      const parts = testName.split(' ');
+      const firstName = parts[0]?.trim() || '';
+      const lastName = parts.slice(1).join(' ').trim();
+      
+      await page.getByRole('textbox', { name: /first name/i }).fill(firstName);
+      await page.getByRole('textbox', { name: /last name/i }).fill(lastName);
       await page.getByRole('textbox', { name: /email/i }).fill(testEmail);
       await page.getByRole('textbox', { name: /^password$/i }).fill(testPassword);
       await page.getByRole('textbox', { name: /confirm password/i }).fill(testPassword);

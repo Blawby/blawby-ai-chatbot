@@ -75,7 +75,7 @@ test.describe('Auth Context Integration', () => {
     testUsers.push({ email: testEmail });
     
     // Sign out
-    await page.click('button:has-text("Sign out"), [data-testid*="signout"]');
+    await page.click('button[data-testid*="signout"]:has-text("Sign out")');
     await page.waitForLoadState('networkidle');
     
     // Sign back in
@@ -92,7 +92,7 @@ test.describe('Auth Context Integration', () => {
     await page.waitForLoadState('networkidle');
     
     // Should still be signed in
-    const isSignedIn = await page.locator('button:has-text("Sign out"), [data-testid*="signout"]').isVisible();
+    const isSignedIn = await page.locator('button[data-testid*="signout"]:has-text("Sign out")').isVisible();
     expect(isSignedIn).toBeTruthy();
   });
 
@@ -114,7 +114,7 @@ test.describe('Auth Context Integration', () => {
     testUsers.push({ email: testEmail });
     
     // Sign out
-    await page.click('button:has-text("Sign out"), [data-testid*="signout"]');
+    await page.click('button[data-testid*="signout"]:has-text("Sign out")');
     await page.waitForLoadState('networkidle');
     
     // Verify IndexedDB is cleared

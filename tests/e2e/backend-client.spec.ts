@@ -1,6 +1,24 @@
 import { test, expect } from '@playwright/test';
 import { generateTestEmail, cleanupTestUser } from '../helpers/auth-cleanup';
 
+// Helper function to get token from IndexedDB
+async function getTokenFromStorage(page: any): Promise<string | null> {
+  return await page.evaluate(async () => {
+    return new Promise((resolve) => {
+      const request = indexedDB.open('blawby-storage', 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(['tokens'], 'readonly');
+        const store = transaction.objectStore('tokens');
+        const getRequest = store.get('auth-token');
+        getRequest.onsuccess = () => resolve(getRequest.result);
+        getRequest.onerror = () => resolve(null);
+      };
+      request.onerror = () => resolve(null);
+    });
+  });
+}
+
 test.describe('BackendClient - Real API Integration Tests', () => {
   let testUsers: Array<{ email: string; token?: string }> = [];
 
@@ -44,20 +62,7 @@ test.describe('BackendClient - Real API Integration Tests', () => {
       await expect(page.locator('text=/Account created|Welcome/')).toBeVisible({ timeout: 10000 });
 
       // Verify token is stored in IndexedDB
-      const tokenInStorage = await page.evaluate(async () => {
-        return new Promise((resolve) => {
-          const request = indexedDB.open('blawby-storage', 1);
-          request.onsuccess = () => {
-            const db = request.result;
-            const transaction = db.transaction(['tokens'], 'readonly');
-            const store = transaction.objectStore('tokens');
-            const getRequest = store.get('auth-token');
-            getRequest.onsuccess = () => resolve(getRequest.result);
-            getRequest.onerror = () => resolve(null);
-          };
-          request.onerror = () => resolve(null);
-        });
-      });
+      const tokenInStorage = await getTokenFromStorage(page);
 
       expect(tokenInStorage).toBeTruthy();
       
@@ -81,8 +86,11 @@ test.describe('BackendClient - Real API Integration Tests', () => {
       await page.click('button:has-text("Create account")');
       await expect(page.locator('text=/Account created|Welcome/')).toBeVisible({ timeout: 10000 });
 
+      // Get token for cleanup
+      const tokenInStorage = await getTokenFromStorage(page);
+
       // Track for cleanup
-      testUsers.push({ email: testEmail });
+      testUsers.push({ email: testEmail, token: tokenInStorage as string });
 
       // Try to signup again with same email
       await page.click('text=Don\'t have an account? Sign up');
@@ -142,11 +150,14 @@ test.describe('BackendClient - Real API Integration Tests', () => {
       await page.click('button:has-text("Create account")');
       await expect(page.locator('text=/Account created|Welcome/')).toBeVisible({ timeout: 10000 });
 
+      // Get token for cleanup
+      const tokenInStorage = await getTokenFromStorage(page);
+
       // Track for cleanup
-      testUsers.push({ email: testEmail });
+      testUsers.push({ email: testEmail, token: tokenInStorage as string });
 
       // Sign out
-      await page.click('button:has-text("Sign out"), [data-testid*="signout"]');
+      await page.click('button:has-text("Sign out")');
       await page.waitForLoadState('networkidle');
 
       // Sign back in
@@ -159,20 +170,7 @@ test.describe('BackendClient - Real API Integration Tests', () => {
       await expect(page.locator('text=/Welcome|Dashboard/')).toBeVisible({ timeout: 10000 });
 
       // Verify token is stored in IndexedDB
-      const tokenInStorage = await page.evaluate(async () => {
-        return new Promise((resolve) => {
-          const request = indexedDB.open('blawby-storage', 1);
-          request.onsuccess = () => {
-            const db = request.result;
-            const transaction = db.transaction(['tokens'], 'readonly');
-            const store = transaction.objectStore('tokens');
-            const getRequest = store.get('auth-token');
-            getRequest.onsuccess = () => resolve(getRequest.result);
-            getRequest.onerror = () => resolve(null);
-          };
-          request.onerror = () => resolve(null);
-        });
-      });
+      const tokenInStorage = await getTokenFromStorage(page);
 
       expect(tokenInStorage).toBeTruthy();
     });
@@ -216,30 +214,20 @@ test.describe('BackendClient - Real API Integration Tests', () => {
       await page.click('button:has-text("Create account")');
       await expect(page.locator('text=/Account created|Welcome/')).toBeVisible({ timeout: 10000 });
 
+      // Get token for cleanup
+      const tokenInStorage = await getTokenFromStorage(page);
+
       // Track for cleanup
-      testUsers.push({ email: testEmail });
+      testUsers.push({ email: testEmail, token: tokenInStorage as string });
 
       // Sign out
-      await page.click('button:has-text("Sign out"), [data-testid*="signout"]');
+      await page.click('button:has-text("Sign out")');
       await page.waitForLoadState('networkidle');
 
       // Verify IndexedDB is cleared
-      const tokenInStorage = await page.evaluate(async () => {
-        return new Promise((resolve) => {
-          const request = indexedDB.open('blawby-storage', 1);
-          request.onsuccess = () => {
-            const db = request.result;
-            const transaction = db.transaction(['tokens'], 'readonly');
-            const store = transaction.objectStore('tokens');
-            const getRequest = store.get('auth-token');
-            getRequest.onsuccess = () => resolve(getRequest.result);
-            getRequest.onerror = () => resolve(null);
-          };
-          request.onerror = () => resolve(null);
-        });
-      });
+      const tokenAfterSignout = await getTokenFromStorage(page);
 
-      expect(tokenInStorage).toBeNull();
+      expect(tokenAfterSignout).toBeNull();
     });
   });
 });

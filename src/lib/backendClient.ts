@@ -84,18 +84,20 @@ class BackendApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<T> {
+  ): Promise<T | null> {
     // Ensure token is loaded before making request
     await this.ensureTokenLoaded();
     
     const url = `${this.baseUrl}${endpoint}`;
-    const headers: Record<string, string> = {
+    
+    // Use Headers constructor for safe type handling
+    const headers = new Headers({
       'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string>),
-    };
+      ...options.headers,
+    });
 
     if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
+      headers.set('Authorization', `Bearer ${this.token}`);
     }
 
     try {
@@ -120,7 +122,7 @@ class BackendApiClient {
 
       // Handle empty response bodies (e.g., 204 No Content)
       if (response.status === 204) {
-        return null as T;
+        return null;
       }
 
       return response.json();
@@ -161,6 +163,10 @@ class BackendApiClient {
       body: JSON.stringify(signupData),
     });
     
+    if (!response) {
+      throw new Error('Signup failed: No response from server');
+    }
+    
     // Save token and user data from successful signup
     if (response.token) {
       await this.saveToken(response.token);
@@ -175,6 +181,10 @@ class BackendApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    
+    if (!response) {
+      throw new Error('Signin failed: No response from server');
+    }
     
     // Save token and user data from successful signin
     if (response.token) {
@@ -194,6 +204,10 @@ class BackendApiClient {
     const response = await this.request<{ user: User }>('/auth/me', {
       method: 'GET',
     });
+
+    if (!response) {
+      throw new Error('Get session failed: No response from server');
+    }
 
     // Return Railway API format with current token
     return {
@@ -217,8 +231,12 @@ class BackendApiClient {
           body: JSON.stringify({ all: true }),
         });
         
-        // Convert Railway API response to expected format
-        response = { message: signoutResponse.success ? 'Signed out successfully' : 'Sign out failed' };
+        if (!signoutResponse) {
+          response = { message: 'Sign out failed: No response from server' };
+        } else {
+          // Convert Railway API response to expected format
+          response = { message: signoutResponse.success ? 'Signed out successfully' : 'Sign out failed' };
+        }
       }
     } catch (_error) {
       // If signout fails, still clear local state
@@ -234,45 +252,87 @@ class BackendApiClient {
 
   // Practice methods
   async createPractice(data: CreatePracticeData): Promise<PracticeResponse> {
-    return this.request<PracticeResponse>('/practice', {
+    const response = await this.request<PracticeResponse>('/practice', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    
+    if (!response) {
+      throw new Error('Create practice failed: No response from server');
+    }
+    
+    return response;
   }
 
   async listPractices(): Promise<PracticeListResponse> {
-    return this.request<PracticeListResponse>('/practice/list');
+    const response = await this.request<PracticeListResponse>('/practice/list');
+    
+    if (!response) {
+      throw new Error('List practices failed: No response from server');
+    }
+    
+    return response;
   }
 
   async getPractice(id: string): Promise<PracticeResponse> {
-    return this.request<PracticeResponse>(`/practice/${id}`);
+    const response = await this.request<PracticeResponse>(`/practice/${id}`);
+    
+    if (!response) {
+      throw new Error('Get practice failed: No response from server');
+    }
+    
+    return response;
   }
 
   async updatePractice(id: string, data: UpdatePracticeData): Promise<PracticeResponse> {
-    return this.request<PracticeResponse>(`/practice/${id}`, {
+    const response = await this.request<PracticeResponse>(`/practice/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+    
+    if (!response) {
+      throw new Error('Update practice failed: No response from server');
+    }
+    
+    return response;
   }
 
   async deletePractice(id: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/practice/${id}`, {
+    const response = await this.request<{ message: string }>(`/practice/${id}`, {
       method: 'DELETE',
     });
+    
+    if (!response) {
+      throw new Error('Delete practice failed: No response from server');
+    }
+    
+    return response;
   }
 
   // User/Onboarding methods
   async submitOnboarding(data: OnboardingData): Promise<{ success: boolean; message: string; data: { onboardingCompleted: boolean; completedAt: string } }> {
-    return this.request<{ success: boolean; message: string; data: { onboardingCompleted: boolean; completedAt: string } }>('/users/onboarding', {
+    const response = await this.request<{ success: boolean; message: string; data: { onboardingCompleted: boolean; completedAt: string } }>('/users/onboarding', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    
+    if (!response) {
+      throw new Error('Submit onboarding failed: No response from server');
+    }
+    
+    return response;
   }
 
   async getOnboardingData(): Promise<{ success: boolean; data: { onboardingData: OnboardingData | null; onboardingCompleted: boolean } }> {
-    return this.request<{ success: boolean; data: { onboardingData: OnboardingData | null; onboardingCompleted: boolean } }>('/users/onboarding', {
+    const response = await this.request<{ success: boolean; data: { onboardingData: OnboardingData | null; onboardingCompleted: boolean } }>('/users/onboarding', {
       method: 'GET',
     });
+    
+    if (!response) {
+      throw new Error('Get onboarding data failed: No response from server');
+    }
+    
+    return response;
   }
 
   // Token management
@@ -307,3 +367,4 @@ class BackendApiClient {
 }
 
 export const backendClient = new BackendApiClient();
+export { BackendApiClient };

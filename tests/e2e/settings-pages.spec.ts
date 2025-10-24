@@ -11,17 +11,21 @@ test.describe('Settings Pages', () => {
     const orgEmail = page.locator('input[name*="email"], [data-testid*="org-email"]');
     const orgPhone = page.locator('input[name*="phone"], [data-testid*="org-phone"]');
     
-    // Verify organization form fields are present
-    if (await orgName.isVisible()) {
-      await expect(orgName).toBeVisible();
+    // Verify organization form fields are present - use count to ensure at least some fields exist
+    const fieldCount = await orgName.count() + await orgEmail.count() + await orgPhone.count();
+    expect(fieldCount).toBeGreaterThan(0);
+    
+    // Assert directly on visible fields
+    if (await orgName.count() > 0) {
+      await expect(orgName.first()).toBeVisible();
     }
     
-    if (await orgEmail.isVisible()) {
-      await expect(orgEmail).toBeVisible();
+    if (await orgEmail.count() > 0) {
+      await expect(orgEmail.first()).toBeVisible();
     }
     
-    if (await orgPhone.isVisible()) {
-      await expect(orgPhone).toBeVisible();
+    if (await orgPhone.count() > 0) {
+      await expect(orgPhone.first()).toBeVisible();
     }
   });
 
@@ -33,12 +37,24 @@ test.describe('Settings Pages', () => {
     const navLinks = page.locator('nav a, [role="tab"], [data-testid*="nav"]');
     
     if (await navLinks.count() > 0) {
+      // Capture initial URL
+      const initialUrl = page.url();
+      
       // Click on first navigation link
       await navLinks.first().click();
-      await page.waitForLoadState('networkidle');
       
-      // Verify page content changed
-      await expect(page).toHaveURL(/settings/);
+      // Wait for navigation to complete by checking for URL change or content change
+      await Promise.race([
+        page.waitForURL(url => url !== initialUrl),
+        page.waitForSelector('[data-testid*="content"], .settings-content', { timeout: 5000 })
+      ]);
+      
+      // Verify navigation actually occurred by checking URL changed or content is different
+      const finalUrl = page.url();
+      const navigationOccurred = finalUrl !== initialUrl || 
+        await page.locator('[data-testid*="content"], .settings-content').count() > 0;
+      
+      expect(navigationOccurred).toBe(true);
     } else {
       test.skip(true, 'No navigation found on settings page');
     }
@@ -56,10 +72,35 @@ test.describe('Settings Pages', () => {
     if (await nameInput.isVisible() && await saveButton.isVisible()) {
       // Test form interaction
       await nameInput.fill('Test User');
-      await saveButton.click();
       
-      // Wait for any success message or redirect
-      await page.waitForTimeout(1000);
+      // Wait for API response or success indicator instead of fixed timeout
+      const savePromise = saveButton.click();
+      
+      // Wait for either success toast, API response, or form state change
+      await Promise.race([
+        // Wait for success toast
+        page.waitForSelector('[data-testid*="toast"], .toast, [role="alert"]', { timeout: 5000 }),
+        // Wait for API response (if using network monitoring)
+        page.waitForResponse(resp => 
+          resp.url().includes('/api/') && 
+          (resp.url().includes('user') || resp.url().includes('profile')) && 
+          resp.status() === 200, 
+          { timeout: 5000 }
+        ),
+        // Wait for form to show success state or disable
+        page.waitForFunction(() => {
+          const button = document.querySelector('button[type="submit"], button:has-text("Save")');
+          return button && (button.hasAttribute('disabled') || button.textContent?.includes('Saved'));
+        }, { timeout: 5000 })
+      ]);
+      
+      await savePromise;
+      
+      // Verify success by checking for toast or updated form state
+      const hasSuccessToast = await page.locator('[data-testid*="toast"], .toast, [role="alert"]').count() > 0;
+      const hasSuccessState = await page.locator('button:has-text("Saved"), button[disabled]').count() > 0;
+      
+      expect(hasSuccessToast || hasSuccessState).toBe(true);
     } else {
       test.skip(true, 'Profile form not found on this page');
     }

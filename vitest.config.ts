@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 
-// Unified test configuration - all tests use real API calls
+// Unified test configuration — unit tests use real API calls; integration and e2e tests are excluded here
 export default defineConfig({
   test: {
     environment: 'node',
