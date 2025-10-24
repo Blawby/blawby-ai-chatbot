@@ -28,6 +28,26 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   } = useOrganizationManagement();
   
   const { showSuccess, showError } = useToastContext();
+
+  // Helper function to parse currency string to cents
+  const parseCurrencyToCents = (input: string): number | undefined => {
+    const trimmed = input.trim();
+    if (!trimmed) return undefined;
+    
+    // Validate input to allow at most one decimal point
+    const decimalCount = (trimmed.match(/\./g) || []).length;
+    if (decimalCount > 1) return undefined;
+    
+    // Strip all non-digit and non-decimal characters
+    const sanitized = trimmed.replace(/[^0-9.]/g, '');
+    
+    // Ensure there is at most one '.' before parsing
+    const parts = sanitized.split('.');
+    if (parts.length > 2) return undefined;
+    
+    const value = parseFloat(sanitized);
+    return Number.isFinite(value) ? Math.round(value * 100) : undefined;
+  };
   
   // Form states
   const [editOrgForm, setEditOrgForm] = useState({
@@ -62,12 +82,32 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   // Load organization data into edit form
   useEffect(() => {
     if (currentOrganization) {
+      // Convert consultationFee to formatted currency string
+      const formatConsultationFee = (fee: string | number | undefined): string => {
+        if (!fee) return '';
+        
+        // If it's a string that looks like cents (numeric string > 100), convert to dollars
+        // This handles legacy data that might still be stored as cents
+        if (typeof fee === 'string' && /^\d+$/.test(fee) && parseInt(fee) > 100) {
+          const dollars = parseInt(fee) / 100;
+          return `$${dollars.toFixed(2)}`;
+        }
+        
+        // If it's a number (dollars), format it
+        if (typeof fee === 'number') {
+          return `$${fee.toFixed(2)}`;
+        }
+        
+        // If it's already a formatted string, use as is
+        return String(fee);
+      };
+
       setEditOrgForm({
         name: currentOrganization.name || '',
         description: currentOrganization.description || '',
         businessPhone: currentOrganization.businessPhone || '',
         businessEmail: currentOrganization.businessEmail || '',
-        consultationFee: currentOrganization.consultationFee || '',
+        consultationFee: formatConsultationFee(currentOrganization.consultationFee),
         paymentUrl: currentOrganization.paymentUrl || '',
         calendlyUrl: currentOrganization.calendlyUrl || ''
       });
@@ -87,20 +127,13 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
 
     try {
-      const parseCurrencyToCents = (s: string) => {
-        const n = Number(s.replace(/[^0-9.]/g, ''));
-        return Number.isFinite(n) ? Math.round(n * 100) : undefined;
-      };
       await createOrganization({
         name: createForm.name,
         slug: createForm.slug || undefined,
         description: createForm.description || undefined,
         businessPhone: createForm.businessPhone || undefined,
         businessEmail: createForm.businessEmail || undefined,
-        consultationFee: (() => {
-          const cents = parseCurrencyToCents(createForm.consultationFee);
-          return typeof cents === 'number' ? String(cents) : undefined;
-        })(),
+        consultationFee: parseCurrencyToCents(createForm.consultationFee),
         paymentUrl: createForm.paymentUrl || undefined,
         calendlyUrl: createForm.calendlyUrl || undefined,
       });
@@ -132,19 +165,12 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
     
     try {
-      const parseCurrencyToCents = (s: string) => {
-        const n = Number(s.replace(/[^0-9.]/g, ''));
-        return Number.isFinite(n) ? Math.round(n * 100) : undefined;
-      };
       await updateOrganization(currentOrganization.id, {
         name: editOrgForm.name,
         description: editOrgForm.description,
         businessPhone: editOrgForm.businessPhone,
         businessEmail: editOrgForm.businessEmail,
-        consultationFee: (() => {
-          const cents = parseCurrencyToCents(editOrgForm.consultationFee);
-          return typeof cents === 'number' ? String(cents) : undefined;
-        })(),
+        consultationFee: parseCurrencyToCents(editOrgForm.consultationFee),
         paymentUrl: editOrgForm.paymentUrl,
         calendlyUrl: editOrgForm.calendlyUrl,
       });
