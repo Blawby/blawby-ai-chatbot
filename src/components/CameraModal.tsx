@@ -21,16 +21,6 @@ const CameraIconModal: FunctionComponent<CameraIconModalProps> = ({
     const [isCameraIconReady, setIsCameraIconReady] = useState(false);
     const [error, setError] = useState('');
 
-    // Initialize the camera
-    useEffect(() => {
-        if (isOpen) {
-            startCameraIcon();
-        }
-        return () => {
-            stopCameraIcon();
-        };
-    }, [isOpen, startCameraIcon]);
-
     const startCameraIcon = useCallback(async () => {
         try {
             setError('');
@@ -77,6 +67,16 @@ const CameraIconModal: FunctionComponent<CameraIconModalProps> = ({
         }
         setIsCameraIconReady(false);
     };
+
+    // Initialize the camera
+    useEffect(() => {
+        if (isOpen) {
+            startCameraIcon();
+        }
+        return () => {
+            stopCameraIcon();
+        };
+    }, [isOpen, startCameraIcon]);
 
     const takePhoto = () => {
         if (!isCameraIconReady || !videoRef.current || !canvasRef.current) {
