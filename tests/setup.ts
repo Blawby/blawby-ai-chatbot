@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import 'fake-indexeddb/auto';
 import { vi, beforeAll } from 'vitest';
 import { initI18n } from '../src/i18n';
 
@@ -168,38 +169,7 @@ Object.defineProperty(navigator, 'clipboard', {
   writable: true,
 });
 
-// Mock IndexedDB
-const mockIndexedDB = {
-  open: vi.fn().mockResolvedValue({
-    result: {
-      transaction: vi.fn().mockReturnValue({
-        objectStore: vi.fn().mockReturnValue({
-          get: vi.fn().mockReturnValue({
-            onsuccess: null,
-            onerror: null,
-            result: null,
-          }),
-          put: vi.fn().mockReturnValue({
-            onsuccess: null,
-            onerror: null,
-          }),
-          delete: vi.fn().mockReturnValue({
-            onsuccess: null,
-            onerror: null,
-          }),
-        }),
-        oncomplete: null,
-        onerror: null,
-      }),
-      close: vi.fn(),
-    },
-    onsuccess: null,
-    onerror: null,
-  }),
-};
-
-// @ts-expect-error - assigning to global
-globalThis.indexedDB = mockIndexedDB;
+// IndexedDB is now mocked by fake-indexeddb/auto import above
 
 // Initialize i18n before all tests
 beforeAll(async () => {

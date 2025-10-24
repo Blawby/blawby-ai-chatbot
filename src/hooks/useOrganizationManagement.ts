@@ -217,15 +217,18 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     try {
       await backendClient.deletePractice(id);
       
-      setOrganizations(prev => prev.filter(org => org.id !== id));
-      
-      // Clear current organization if it's the one being deleted
-      setCurrentOrganization(prev => {
-        if (prev?.id === id) {
-          const remainingOrgs = organizations.filter(org => org.id !== id);
-          return remainingOrgs.length > 0 ? remainingOrgs[0] : null;
-        }
-        return prev;
+      setOrganizations(prev => {
+        const remaining = prev.filter(org => org.id !== id);
+        
+        // Clear current organization if it's the one being deleted
+        setCurrentOrganization(curr => {
+          if (curr?.id === id) {
+            return remaining.length > 0 ? remaining[0] : null;
+          }
+          return curr;
+        });
+        
+        return remaining;
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete organization';
@@ -234,7 +237,7 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
     } finally {
       setLoading(false);
     }
-  }, [currentOrganization?.id, organizations]);
+  }, [currentOrganization?.id]);
 
   // Refetch all data
   const refetch = useCallback(async () => {
