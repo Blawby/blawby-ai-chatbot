@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { ComponentChildren } from 'preact';
 import { backendClient } from '../lib/backendClient';
 import { loadUserData as loadUserDataFromIndexedDB } from '../lib/indexedDBStorage';
-import type { User, AuthResponse } from '../types/backend';
+import type { User } from '../types/backend';
 
 // Type guard to validate user data structure
 const isUser = (obj: unknown): obj is User => {
@@ -34,7 +34,7 @@ interface AuthContextType {
     isPending: boolean;
   };
   activeOrg: {
-    data: any | null;
+    data: unknown | null;
     isPending: boolean;
   };
   signin: (email: string, password: string) => Promise<void>;
@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     error: null
   });
 
-  const [activeOrg, setActiveOrg] = useState<any | null>(null);
+  const [activeOrg, setActiveOrg] = useState<unknown | null>(null);
 
   // Check if user is authenticated on mount
   useEffect(() => {
@@ -74,13 +74,85 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
           if (userData) {
             // Validate user data structure before using it
             if (isUser(userData)) {
-              // Use stored user data directly with token
-              setAuthState({
-                user: userData,
-                token: 'stored-token', // Token is managed by backendClient
-                isLoading: false,
-                error: null
-              });
+              try {
+                // Retrieve the actual token from IndexedDB
+                const token = await backendClient.getToken();
+                if (token) {
+                  // Use stored user data with real token
+                  setAuthState({
+                    user: userData,
+                    token,
+                    isLoading: false,
+                    error: null
+                  });
+                } else {
+                  // No token found, fall back to getSession() flow
+                  console.log('🔍 checkAuth - no token found, falling back to getSession()');
+                  try {
+                    const response = await backendClient.getSession();
+                    if (import.meta?.env?.DEV) console.log('🔍 checkAuth - getSession response:', { hasUser: !!response?.user, hasToken: !!response?.token });
+                    
+                    // Validate user data from backend response
+                    if (response?.user && isUser(response.user)) {
+                      setAuthState({
+                        user: response.user,
+                        token: response.token,
+                        isLoading: false,
+                        error: null
+                      });
+                    } else {
+                      console.warn('Invalid user data structure from getSession:', response?.user);
+                      setAuthState({
+                        user: null,
+                        token: null,
+                        isLoading: false,
+                        error: null
+                      });
+                    }
+                  } catch (sessionError) {
+                    console.error('🔍 checkAuth - getSession fallback failed:', sessionError);
+                    setAuthState({
+                      user: null,
+                      token: null,
+                      isLoading: false,
+                      error: null
+                    });
+                  }
+                }
+              } catch (tokenError) {
+                console.error('🔍 checkAuth - token retrieval failed:', tokenError);
+                // Fall back to getSession() flow
+                try {
+                  const response = await backendClient.getSession();
+                  if (import.meta?.env?.DEV) console.log('🔍 checkAuth - getSession fallback response:', { hasUser: !!response?.user, hasToken: !!response?.token });
+                  
+                  // Validate user data from backend response
+                  if (response?.user && isUser(response.user)) {
+                    setAuthState({
+                      user: response.user,
+                      token: response.token,
+                      isLoading: false,
+                      error: null
+                    });
+                  } else {
+                    console.warn('Invalid user data structure from getSession fallback:', response?.user);
+                    setAuthState({
+                      user: null,
+                      token: null,
+                      isLoading: false,
+                      error: null
+                    });
+                  }
+                } catch (sessionError) {
+                  console.error('🔍 checkAuth - getSession fallback failed:', sessionError);
+                  setAuthState({
+                    user: null,
+                    token: null,
+                    isLoading: false,
+                    error: null
+                  });
+                }
+              }
             } else {
               // Invalid user data, treat as no user
               console.warn('Invalid user data structure from IndexedDB:', userData);
@@ -161,11 +233,12 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         isLoading: false,
         error: null
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
       setAuthState(prev => ({
         ...prev,
         isLoading: false,
-        error: error.message || 'Sign in failed'
+        error: errorMessage
       }));
       throw error;
     }
@@ -197,12 +270,13 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
       });
       
       console.log('🔍 AuthState updated after signup');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('🔍 Signup error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
       setAuthState(prev => ({
         ...prev,
         isLoading: false,
-        error: error.message || 'Sign up failed'
+        error: errorMessage
       }));
       throw error;
     }

@@ -13,12 +13,20 @@ This guide provides comprehensive documentation for implementing authentication 
 
 ### CORS Configuration
 
-The Railway backend is configured to allow all origins with the following settings:
+The Railway backend is configured with the following CORS settings:
 
-- **Origin**: `*` (allows all origins)
+- **Origin**: `https://yourdomain.com` (explicit origin required when credentials are enabled)
 - **Methods**: `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`
 - **Headers**: `Content-Type`, `Authorization`
 - **Credentials**: `true`
+
+**Important**: When `Credentials: true` is set, you cannot use `Origin: *` (wildcard). The origin must be explicitly specified. For production, replace `https://yourdomain.com` with your actual frontend domain.
+
+**Dynamic Origin Configuration**: If you need to support multiple origins dynamically, configure your backend to:
+1. Read the `Origin` header from the request
+2. Check if it's in your allowed origins list
+3. Set the `Access-Control-Allow-Origin` header to the specific origin (not `*`)
+4. This allows credentials to work properly with multiple domains
 
 ## Authentication APIs (Railway Backend)
 
@@ -623,6 +631,22 @@ export const clearToken = async (): Promise<void> => {
 ### 6. Form Validation
 
 ```typescript
+import { isValidUrl } from './utils/urlValidation';
+
+// URL validation helper function
+export const isValidUrl = (url: string): boolean => {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+  
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // Validation schemas for Railway API
 export const signupSchema = {
   email: (value: string) => {

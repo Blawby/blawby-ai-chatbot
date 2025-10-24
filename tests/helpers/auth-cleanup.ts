@@ -10,7 +10,9 @@ interface TestUser {
 
 interface CleanupResult {
   success: boolean;
+  partial?: boolean;
   error?: string;
+  signoutSuccess?: boolean;
 }
 
 /**
@@ -19,6 +21,8 @@ interface CleanupResult {
  * This attempts to delete via signout and account deletion if available
  */
 export async function cleanupTestUser(email: string, token?: string): Promise<CleanupResult> {
+  let signoutSuccess = false;
+  
   try {
     console.log(`🧹 Cleaning up test user: ${email}`);
     
@@ -37,12 +41,15 @@ export async function cleanupTestUser(email: string, token?: string): Promise<Cl
         
         if (signoutResponse.ok) {
           console.log(`✅ Successfully signed out user: ${email}`);
+          signoutSuccess = true;
         } else {
           console.warn(`⚠️ Signout failed for ${email}: ${signoutResponse.status}`);
         }
       } catch (error) {
         console.warn(`⚠️ Signout error for ${email}:`, error);
       }
+    } else {
+      console.log(`ℹ️ No token provided for ${email}, skipping signout`);
     }
     
     // Note: Railway backend may not have user deletion endpoint
@@ -58,12 +65,18 @@ export async function cleanupTestUser(email: string, token?: string): Promise<Cl
     console.log(`ℹ️ Manual cleanup may be required for user: ${email}`);
     console.log(`ℹ️ Consider implementing user deletion endpoint in Railway backend`);
     
-    return { success: true };
+    // Since actual deletion is not implemented, this is always a partial cleanup
+    return { 
+      success: true, 
+      partial: true, 
+      signoutSuccess,
+      error: 'User deletion not implemented - manual cleanup required'
+    };
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`❌ Cleanup failed for ${email}:`, errorMessage);
-    return { success: false, error: errorMessage };
+    return { success: false, error: errorMessage, signoutSuccess };
   }
 }
 
@@ -87,7 +100,16 @@ export async function cleanupTestUsers(users: TestUser[]): Promise<CleanupResult
   });
   
   const successCount = cleanupResults.filter(r => r.success).length;
+  const partialCount = cleanupResults.filter(r => r.partial).length;
+  const signoutSuccessCount = cleanupResults.filter(r => r.signoutSuccess).length;
+  
   console.log(`✅ Cleanup complete: ${successCount}/${users.length} users processed`);
+  if (partialCount > 0) {
+    console.log(`⚠️ ${partialCount} users require manual cleanup (deletion not implemented)`);
+  }
+  if (signoutSuccessCount > 0) {
+    console.log(`🔓 ${signoutSuccessCount} users successfully signed out`);
+  }
   
   return cleanupResults;
 }
@@ -134,7 +156,7 @@ export function logCleanupSummary(users: TestUser[]): void {
   if (users.length > 0) {
     console.log('\n📋 Test Users Created (Manual Cleanup May Be Required):');
     users.forEach(user => {
-      console.log(`  - ${user.email}${user.token ? ` (token: ${user.token.substring(0, 20)}...)` : ''}`);
+      console.log(`  - ${user.email}${user.token ? ' [token present]' : ''}`);
     });
     console.log('\n💡 Consider implementing user deletion endpoint in Railway backend');
     console.log('💡 Or implement automated cleanup via Better Auth account deletion');

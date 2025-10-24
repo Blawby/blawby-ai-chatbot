@@ -52,7 +52,8 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
       } else if (session.user.name) {
         // Otherwise, pre-fill with user's name if available
         // Split the name into first and last name
-        const nameParts = session.user.name.split(' ');
+        const trimmedName = session.user.name.trim();
+        const nameParts = trimmedName.split(' ');
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
         

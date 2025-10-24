@@ -183,7 +183,8 @@ test.describe('Railway Backend Auth', () => {
     await page.fill('input[placeholder="Confirm your password"]', 'TestPassword123!');
     await page.click('button:has-text("Create account")');
     
-    // Should show error message - check for any error text that appears
-    await expect(page.locator('text=/Invalid|Error|email|format|valid/')).toBeVisible({ timeout: 10000 });
+    // Should show email validation error message
+    await expect(page.locator('[role="alert"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[role="alert"]')).toHaveText(/Please enter a valid email address/);
   });
 });

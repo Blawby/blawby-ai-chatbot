@@ -7,7 +7,8 @@ import type {
   UpdatePracticeData,
   PracticeResponse,
   PracticeListResponse,
-  ApiErrorResponse
+  ApiErrorResponse,
+  User
 } from '../types/backend';
 import { saveToken as saveTokenToIndexedDB, loadToken as loadTokenFromIndexedDB, clearToken as clearTokenFromIndexedDB, saveUserData as saveUserDataToIndexedDB, loadUserData as loadUserDataFromIndexedDB, clearUserData as clearUserDataFromIndexedDB } from './indexedDBStorage';
 

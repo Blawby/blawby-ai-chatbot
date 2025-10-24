@@ -29,10 +29,27 @@ export function isValidImageUrl(url: string): boolean {
  * @param url - The URL to sanitize
  * @returns The sanitized URL if valid, null if invalid
  */
-export function sanitizeUserImageUrl(url: string | null | undefined): string | null {
-  if (!url || typeof url !== 'string') {
+export function sanitizeImageUrl(url: string): string | null {
+  if (!isValidImageUrl(url)) {
     return null;
   }
+  return url;
+}
 
-  return isValidImageUrl(url) ? url : null;
+/**
+ * Validates if a string is a valid URL
+ * @param url - The URL string to validate
+ * @returns true if the URL is valid, false otherwise
+ */
+export function isValidUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+  
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
 }

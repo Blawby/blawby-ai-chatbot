@@ -24,7 +24,13 @@ import {
 } from '../../../src/lib/indexedDBStorage';
 
 // Test component that uses auth context
-function TestComponent() {
+interface TestComponentProps {
+  email: string;
+  password: string;
+  name: string;
+}
+
+function TestComponent({ email, password, name }: TestComponentProps) {
   const { session, signin, signup, signout } = useAuth();
   
   return (
@@ -34,13 +40,13 @@ function TestComponent() {
       <div data-testid="error">{session.data?.error || 'No error'}</div>
       <button 
         data-testid="signup-btn" 
-        onClick={() => signup('test@example.com', 'password', 'Test User')}
+        onClick={() => signup(email, password, name)}
       >
         Sign Up
       </button>
       <button 
         data-testid="signin-btn" 
-        onClick={() => signin('test@example.com', 'password')}
+        onClick={() => signin(email, password)}
       >
         Sign In
       </button>
@@ -105,7 +111,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name={testName} />
         </AuthProvider>
       );
 
@@ -136,6 +142,10 @@ describe('AuthContext Integration - Railway Backend API', () => {
     });
 
     it('should handle signup errors and update error state', async () => {
+      const testEmail = generateTestEmail('auth-context-signup-error');
+      const testPassword = 'TestPassword123!';
+      const testName = 'Auth Context Test User';
+
       // Mock fetch to return error
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
@@ -147,7 +157,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name={testName} />
         </AuthProvider>
       );
 
@@ -200,7 +210,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name="Test User" />
         </AuthProvider>
       );
 
@@ -225,6 +235,9 @@ describe('AuthContext Integration - Railway Backend API', () => {
     });
 
     it('should handle signin with invalid credentials', async () => {
+      const testEmail = generateTestEmail('auth-context-signin-error');
+      const testPassword = 'TestPassword123!';
+
       // Mock fetch to return 401
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
@@ -236,7 +249,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name="Test User" />
         </AuthProvider>
       );
 
@@ -260,11 +273,15 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
   describe('signout flow', () => {
     it('should handle signout and clear context state', async () => {
+      const testEmail = 'test@example.com';
+      const testPassword = 'TestPassword123!';
+      const testName = 'Test User';
+
       // Mock initial authenticated state
       const mockUser = {
         id: 'test-user-id',
-        email: 'test@example.com',
-        name: 'Test User',
+        email: testEmail,
+        name: testName,
         emailVerified: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -283,7 +300,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name={testName} />
         </AuthProvider>
       );
 
@@ -309,10 +326,14 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
   describe('session persistence', () => {
     it('should load user from storage on mount', async () => {
+      const testEmail = 'persisted@example.com';
+      const testPassword = 'TestPassword123!';
+      const testName = 'Persisted User';
+
       const mockUser = {
         id: 'test-user-id',
-        email: 'persisted@example.com',
-        name: 'Persisted User',
+        email: testEmail,
+        name: testName,
         emailVerified: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -324,7 +345,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name={testName} />
         </AuthProvider>
       );
 
@@ -339,6 +360,10 @@ describe('AuthContext Integration - Railway Backend API', () => {
     });
 
     it('should handle invalid stored data gracefully', async () => {
+      const testEmail = generateTestEmail('auth-context-invalid-data');
+      const testPassword = 'TestPassword123!';
+      const testName = 'Test User';
+
       // Mock storage to return invalid data
       vi.mocked(loadToken).mockResolvedValue('invalid-token');
       vi.mocked(loadUserData).mockResolvedValue({ invalid: 'data' });
@@ -354,7 +379,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name={testName} />
         </AuthProvider>
       );
 
@@ -368,12 +393,16 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
   describe('error handling', () => {
     it('should handle network errors during signup', async () => {
+      const testEmail = generateTestEmail('auth-context-network-error');
+      const testPassword = 'TestPassword123!';
+      const testName = 'Test User';
+
       // Mock fetch to throw network error
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name={testName} />
         </AuthProvider>
       );
 
@@ -392,6 +421,10 @@ describe('AuthContext Integration - Railway Backend API', () => {
     });
 
     it('should handle server errors during signin', async () => {
+      const testEmail = generateTestEmail('auth-context-server-error');
+      const testPassword = 'TestPassword123!';
+      const testName = 'Test User';
+
       // Mock fetch to return 500
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
@@ -403,7 +436,7 @@ describe('AuthContext Integration - Railway Backend API', () => {
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name={testName} />
         </AuthProvider>
       );
 
@@ -425,12 +458,14 @@ describe('AuthContext Integration - Railway Backend API', () => {
   describe('concurrent operations', () => {
     it('should handle multiple rapid signup attempts', async () => {
       const testEmail = generateTestEmail('concurrent-signup');
+      const testPassword = 'TestPassword123!';
+      const testName = 'Concurrent Test User';
       
       // Mock successful response
       const mockUser = {
         id: 'test-user-id',
         email: testEmail,
-        name: 'Concurrent Test User',
+        name: testName,
         emailVerified: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -441,17 +476,27 @@ describe('AuthContext Integration - Railway Backend API', () => {
         user: mockUser
       };
 
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          user: mockUser,
-          session: mockSession
+      // Mock fetch to handle multiple calls with different responses
+      // First call succeeds, subsequent calls fail (user already exists)
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({
+            user: mockUser,
+            session: mockSession
+          })
         })
-      });
+        .mockResolvedValue({
+          ok: false,
+          status: 409,
+          json: () => Promise.resolve({
+            error: 'User already exists'
+          })
+        });
 
       render(
         <AuthProvider>
-          <TestComponent />
+          <TestComponent email={testEmail} password={testPassword} name={testName} />
         </AuthProvider>
       );
 
@@ -470,7 +515,25 @@ describe('AuthContext Integration - Railway Backend API', () => {
         expect(screen.getByTestId('user')).toHaveTextContent(testEmail);
       }, { timeout: 15000 });
 
+      // Verify that multiple API requests were made (no deduplication implemented)
+      // AuthContext doesn't implement request deduplication, so all 3 clicks should result in 3 API calls
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+
+      // Verify that only one user is tracked for cleanup (the successful one)
+      // The test should only track one user since multiple signups with same email would fail
+      expect(testUsers).toHaveLength(0); // No users added yet
       testUsers.push({ email: testEmail, token: mockSession.token });
+      expect(testUsers).toHaveLength(1); // Only one user should be tracked
+
+      // Verify the fetch calls were made with the correct data
+      const fetchCalls = (global.fetch as any).mock.calls;
+      expect(fetchCalls).toHaveLength(3);
+      
+      // All calls should be to the signup endpoint
+      fetchCalls.forEach((call: any) => {
+        expect(call[0]).toContain('/auth/sign-up/email');
+        expect(call[1].method).toBe('POST');
+      });
     });
   });
 });

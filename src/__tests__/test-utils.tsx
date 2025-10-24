@@ -58,12 +58,12 @@ vi.mock('@heroicons/react/24/outline', () => {
     ArrowLeftIcon: make('arrow-left-icon'),
     PlusIcon: make('plus-icon'),
     PencilIcon: make('pencil-icon'),
-  TrashIcon: make('trash-icon'),
-  BoltIcon: make('bolt-icon'),
-  DocumentIcon: make('document-icon'),
-  UserGroupIcon: make('user-group-icon'),
-  LockClosedIcon: make('lock-closed-icon'),
-  ChatBubbleLeftRightIcon: make('chat-bubble-left-right-icon'),
+    TrashIcon: make('trash-icon'),
+    BoltIcon: make('bolt-icon'),
+    DocumentIcon: make('document-icon'),
+    UserGroupIcon: make('user-group-icon'),
+    LockClosedIcon: make('lock-closed-icon'),
+    ChatBubbleLeftRightIcon: make('chat-bubble-left-right-icon'),
   };
 });
 
@@ -189,14 +189,34 @@ vi.mock('../hooks/useOrganizationManagement', () => ({
   }),
 }));
 
-// PDF generation service mock - opt-in helper
-export function mockPDFService() {
-  vi.mock('../../worker/services/PDFGenerationService', () => ({
+/**
+ * PDF generation service mock - opt-in helper
+ * 
+ * Usage:
+ * ```typescript
+ * // In your test file:
+ * import { mockPDFService } from './test-utils';
+ * 
+ * test('PDF generation', async () => {
+ *   const { PDFGenerationService } = await mockPDFService();
+ *   // Use PDFGenerationService here - it will be mocked
+ * });
+ * ```
+ * 
+ * Note: This function uses vi.doMock() which requires dynamic imports.
+ * You must use the returned module instead of static imports.
+ */
+export async function mockPDFService() {
+  vi.doMock('../../worker/services/PDFGenerationService', () => ({
     PDFGenerationService: {
       convertHTMLToPDF: vi.fn().mockResolvedValue(new Uint8Array()),
       generatePDFFromTemplate: vi.fn().mockResolvedValue(new Uint8Array()),
     },
   }));
+  
+  // Return the dynamically imported mocked module
+  // Callers must use this returned module instead of static imports
+  return await import('../../worker/services/PDFGenerationService');
 }
 
 // --- Clean render function (no global providers) ------------------------
@@ -211,7 +231,6 @@ export {
   screen,
   waitFor,
   fireEvent,
-  userEvent,
   act,
   within,
   getByRole,
@@ -245,8 +264,6 @@ export {
   findAllByPlaceholderText,
   findAllByTestId,
 } from '@testing-library/preact';
-
-export { userEvent };
 
 // Test cleanup - call this in afterEach hooks
 export function resetTestState() {

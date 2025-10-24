@@ -132,6 +132,63 @@ export const contactSchemas = {
   }),
 };
 
+// Organization/Practice schemas
+export const organizationSchemas = {
+  createOrganization: z.object({
+    name: z.string().min(1, 'Organization name is required').max(100, 'Name must be less than 100 characters'),
+    slug: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^[a-z0-9-]+$/.test(val),
+      'Slug must contain only lowercase letters, numbers, and hyphens'
+    ),
+    description: z.string().optional(),
+    businessPhone: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^\+?[\d\s-()]+$/.test(val),
+      'Invalid phone format'
+    ),
+    businessEmail: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      'Invalid email format'
+    ),
+    consultationFee: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^\$\d+(\.\d{2})?$/.test(val),
+      'Invalid fee format (use $XX.XX)'
+    ),
+    paymentUrl: z.string().optional().refine(
+      (val) => val === undefined || val === '' || commonSchemas.url.safeParse(val).success,
+      'Invalid URL format'
+    ),
+    calendlyUrl: z.string().optional().refine(
+      (val) => val === undefined || val === '' || commonSchemas.url.safeParse(val).success,
+      'Invalid URL format'
+    ),
+  }),
+  
+  updateOrganization: z.object({
+    name: z.string().min(1, 'Organization name is required').max(100, 'Name must be less than 100 characters').optional(),
+    description: z.string().optional(),
+    businessPhone: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^\+?[\d\s-()]+$/.test(val),
+      'Invalid phone format'
+    ),
+    businessEmail: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      'Invalid email format'
+    ),
+    consultationFee: z.string().optional().refine(
+      (val) => val === undefined || val === '' || /^\$\d+(\.\d{2})?$/.test(val),
+      'Invalid fee format (use $XX.XX)'
+    ),
+    paymentUrl: z.string().optional().refine(
+      (val) => val === undefined || val === '' || commonSchemas.url.safeParse(val).success,
+      'Invalid URL format'
+    ),
+    calendlyUrl: z.string().optional().refine(
+      (val) => val === undefined || val === '' || commonSchemas.url.safeParse(val).success,
+      'Invalid URL format'
+    ),
+  }),
+};
+
 // Export all schemas
 export const schemas = {
   common: commonSchemas,
@@ -139,4 +196,5 @@ export const schemas = {
   onboarding: onboardingSchemas,
   settings: settingsSchemas,
   contact: contactSchemas,
+  organization: organizationSchemas,
 };

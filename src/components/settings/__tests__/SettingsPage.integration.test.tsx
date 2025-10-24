@@ -4,6 +4,10 @@ import { SettingsPage } from '../SettingsPage';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
 import { i18n } from '../../../i18n';
 
+// Mock navigation utilities
+const mockRoute = vi.fn();
+const mockNavigate = vi.fn();
+
 // Mock react-i18next to use the real i18n instance but avoid React provider issues
 vi.mock('react-i18next', () => ({
   useTranslation: (_namespaces: string[] = ['common']) => ({
@@ -45,6 +49,8 @@ vi.mock('@heroicons/react/24/outline', () => ({
   ArrowRightOnRectangleIcon: () => 'ArrowRightOnRectangleIcon',
   QuestionMarkCircleIcon: () => 'QuestionMarkCircleIcon',
   ArrowLeftIcon: () => 'ArrowLeftIcon',
+  BuildingOfficeIcon: () => 'BuildingOfficeIcon',
+  ChevronRightIcon: () => 'ChevronRightIcon',
 }));
 
 // Mock the page components to avoid complex dependencies
@@ -127,8 +133,18 @@ vi.mock('../../../contexts/ToastContext', async () => {
   };
 });
 
+// Mock preact-iso location
+vi.mock('preact-iso', () => ({
+  useLocation: () => ({
+    path: '/settings',
+    url: '/settings',
+    query: {},
+    route: mockRoute,
+  }),
+}));
+
 // Mock the navigation hook
-vi.mock('../../../hooks/useNavigation', () => ({
+vi.mock('../../../utils/navigation', () => ({
   useNavigation: () => ({
     navigate: mockNavigate,
   }),
@@ -172,6 +188,18 @@ vi.mock('../../../lib/authClient', async () => {
   };
 });
 
+// Mock the auth utility
+vi.mock('../../../utils/auth', () => ({
+  signOut: vi.fn().mockImplementation(async (options?: { skipReload?: boolean; onSuccess?: () => void }) => {
+    if (options?.onSuccess) {
+      options.onSuccess();
+    }
+    if (!options?.skipReload) {
+      window.location.reload();
+    }
+  }),
+}));
+
 
 
 describe('SettingsPage Integration Tests', () => {
@@ -181,7 +209,8 @@ describe('SettingsPage Integration Tests', () => {
     vi.clearAllMocks();
     mockLoadOrganizations.mockClear();
     mockLoadInvitations.mockClear();
-    // mockRoute removed - not needed
+    mockRoute.mockClear();
+    mockNavigate.mockClear();
     mockOnClose.mockClear();
     
     // Reset the mutable mock object to default values
@@ -252,7 +281,7 @@ describe('SettingsPage Integration Tests', () => {
     const notificationsBtn = screen.getByRole('button', { name: /Notifications/i });
     fireEvent.click(notificationsBtn);
     
-    expect(mockRoute).toHaveBeenCalledWith('/settings/notifications', false);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/notifications');
   });
 
   it('should navigate to account page when account is clicked', async () => {
@@ -261,7 +290,7 @@ describe('SettingsPage Integration Tests', () => {
     const accountBtn = screen.getByRole('button', { name: /Account/i });
     fireEvent.click(accountBtn);
     
-    expect(mockRoute).toHaveBeenCalledWith('/settings/account', false);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/account');
   });
 
   it('should navigate to security page when security is clicked', async () => {
@@ -270,7 +299,7 @@ describe('SettingsPage Integration Tests', () => {
     const securityBtn = screen.getByRole('button', { name: /Security/i });
     fireEvent.click(securityBtn);
     
-    expect(mockRoute).toHaveBeenCalledWith('/settings/security', false);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/security');
   });
 
   it('should navigate to help page when help is clicked', async () => {
@@ -283,28 +312,12 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should handle sign out when sign out is clicked', async () => {
-    // Mock the signOut utility function for this test only
-    const mockSignOut = vi.fn().mockImplementation(async (options?: { skipReload?: boolean; onSuccess?: () => void }) => {
-      if (options?.onSuccess) {
-        options.onSuccess();
-      }
-      if (!options?.skipReload) {
-        window.location.reload();
-      }
-    });
-
-    // Mock the entire utils/auth module
-    vi.mock('../../utils/auth', () => ({
-      signOut: mockSignOut,
-    }));
-
     // Stub window.location.reload
     const reloadStub = vi.fn();
     const originalReload = window.location.reload;
-    Object.defineProperty(window.location, 'reload', {
-      configurable: true,
-      value: reloadStub,
-    });
+    
+    // Use vi.spyOn instead of Object.defineProperty
+    const reloadSpy = vi.spyOn(window.location, 'reload').mockImplementation(reloadStub);
 
     try {
       render(<SettingsPage onClose={mockOnClose} />);
@@ -317,17 +330,14 @@ describe('SettingsPage Integration Tests', () => {
       });
     } finally {
       // Restore original reload
-      Object.defineProperty(window.location, 'reload', {
-        configurable: true,
-        value: originalReload,
-      });
+      reloadSpy.mockRestore();
     }
   });
 
   it('should close settings modal when close button is clicked', () => {
     render(<SettingsPage onClose={mockOnClose} />);
     
-    const closeButton = screen.getByLabelText('Close settings');
+    const closeButton = screen.getByLabelText('settings:navigation.close');
     fireEvent.click(closeButton);
     
     expect(mockOnClose).toHaveBeenCalled();
@@ -365,7 +375,7 @@ describe('SettingsPage Integration Tests', () => {
   it('should close when clicking the close button', () => {
     render(<SettingsPage onClose={mockOnClose} />);
     
-    const closeBtn = screen.getByLabelText('Close settings');
+    const closeBtn = screen.getByLabelText('settings:navigation.close');
     fireEvent.click(closeBtn);
     
     expect(mockOnClose).toHaveBeenCalled();

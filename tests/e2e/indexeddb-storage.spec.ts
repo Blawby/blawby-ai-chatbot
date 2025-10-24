@@ -96,8 +96,8 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
     expect(userData).toHaveProperty('hasUserData', true);
     expect(userData).toHaveProperty('user');
     expect((userData as any).user).toHaveProperty('email', testEmail);
-    // Railway API uses email prefix as name, so check for that pattern
-    const expectedName = testEmail.split('@')[0];
+    // Backend combines firstName and lastName into full name
+    const expectedName = 'Test User';
     expect((userData as any).user).toHaveProperty('name', expectedName);
 
     // Track for cleanup
@@ -131,6 +131,7 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
     const tokenData = await page.evaluate(async () => {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open('blawby_auth', 1);
+        request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;
           const transaction = db.transaction(['tokens'], 'readonly');
@@ -140,6 +141,7 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
             const result = getRequest.result;
             resolve(result ? result.value : null);
           };
+          getRequest.onerror = () => reject(getRequest.error);
         };
       });
     });
@@ -154,6 +156,7 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
     const persistedData = await page.evaluate(async () => {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open('blawby_auth', 1);
+        request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;
           const transaction = db.transaction(['tokens'], 'readonly');
@@ -165,9 +168,11 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
           Promise.all([
             new Promise(res => {
               tokenRequest.onsuccess = () => res(tokenRequest.result?.value || null);
+              tokenRequest.onerror = () => res(null);
             }),
             new Promise(res => {
               userRequest.onsuccess = () => res(userRequest.result?.value || null);
+              userRequest.onerror = () => res(null);
             })
           ]).then(([token, user]) => {
             resolve({ hasToken: !!token, hasUser: !!user, token, user });
@@ -213,6 +218,7 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
     const beforeSignout = await page.evaluate(async () => {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open('blawby_auth', 1);
+        request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;
           const transaction = db.transaction(['tokens'], 'readonly');
@@ -224,9 +230,11 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
           Promise.all([
             new Promise(res => {
               tokenRequest.onsuccess = () => res(!!tokenRequest.result?.value);
+              tokenRequest.onerror = () => res(false);
             }),
             new Promise(res => {
               userRequest.onsuccess = () => res(!!userRequest.result?.value);
+              userRequest.onerror = () => res(false);
             })
           ]).then(([hasToken, hasUser]) => {
             resolve({ hasToken, hasUser });
@@ -252,6 +260,7 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
     const afterSignout = await page.evaluate(async () => {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open('blawby_auth', 1);
+        request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;
           const transaction = db.transaction(['tokens'], 'readonly');
@@ -263,9 +272,11 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
           Promise.all([
             new Promise(res => {
               tokenRequest.onsuccess = () => res(!!tokenRequest.result?.value);
+              tokenRequest.onerror = () => res(false);
             }),
             new Promise(res => {
               userRequest.onsuccess = () => res(!!userRequest.result?.value);
+              userRequest.onerror = () => res(false);
             })
           ]).then(([hasToken, hasUser]) => {
             resolve({ hasToken, hasUser });
@@ -333,6 +344,7 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
     const initialData = await page.evaluate(async () => {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open('blawby_auth', 1);
+        request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;
           const transaction = db.transaction(['tokens'], 'readonly');
@@ -344,9 +356,11 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
           Promise.all([
             new Promise(res => {
               tokenRequest.onsuccess = () => res(tokenRequest.result?.value || null);
+              tokenRequest.onerror = () => res(null);
             }),
             new Promise(res => {
               userRequest.onsuccess = () => res(userRequest.result?.value || null);
+              userRequest.onerror = () => res(null);
             })
           ]).then(([token, user]) => {
             resolve({ token, user });
@@ -389,6 +403,7 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
     const updatedData = await page.evaluate(async () => {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open('blawby_auth', 1);
+        request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;
           const transaction = db.transaction(['tokens'], 'readonly');
@@ -399,6 +414,7 @@ test.describe('IndexedDB Storage - Railway Backend Auth', () => {
             const result = userRequest.result;
             resolve(result ? result.value : null);
           };
+          userRequest.onerror = () => reject(userRequest.error);
         };
       });
     });

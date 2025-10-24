@@ -55,18 +55,19 @@ const useCaseOptions = [
 const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
   const { t } = useTranslation('common');
   const [selectedUseCases, setSelectedUseCases] = useState<UseCaseData['selectedUseCases']>(data.selectedUseCases || []);
-  const [additionalInfo, setAdditionalInfo] = useState(data.additionalInfo || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (formData: Record<string, unknown>) => {
     setIsSubmitting(true);
     
     // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 500));
     
+    const additionalInfo = formData.additionalInfo as string;
+    
     onComplete({
       selectedUseCases: selectedUseCases,
-      additionalInfo: selectedUseCases.includes('other') && additionalInfo.trim() ? additionalInfo.trim() : undefined
+      additionalInfo: selectedUseCases.includes('other') && additionalInfo?.trim() ? additionalInfo.trim() : undefined
     });
     
     setIsSubmitting(false);
@@ -76,12 +77,7 @@ const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
     setSelectedUseCases(prev => {
       if (prev.includes(useCase)) {
         // Remove from selection
-        const newSelection = prev.filter(item => item !== useCase);
-        // Clear additional info if "other" is deselected
-        if (useCase === 'other') {
-          setAdditionalInfo('');
-        }
-        return newSelection;
+        return prev.filter(item => item !== useCase);
       } else {
         // Add to selection
         return [...prev, useCase];

@@ -23,7 +23,7 @@ export interface User {
   updatedAt: string;
 }
 
-// Railway API doesn't use sessions, only JWT tokens
+// Blawby Backend API doesn't use sessions, only JWT tokens
 export interface AuthResponse {
   token: string;
   user: User;

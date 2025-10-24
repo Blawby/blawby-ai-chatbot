@@ -186,7 +186,7 @@ describe('BackendClient - Railway API Integration', () => {
         expect(sessionResponse.token).toBeDefined();
       } catch (error) {
         // If Railway API doesn't have /auth/me endpoint, skip this test
-        if (error.message.includes('404')) {
+        if (error instanceof Error && error.message.includes('404')) {
           console.log('⚠️ Railway API /auth/me endpoint not implemented, skipping test');
           return;
         }
@@ -269,14 +269,16 @@ describe('BackendClient - Railway API Integration', () => {
       const originalFetch = global.fetch;
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
-      await expect(backendClient.signup({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-        name: 'Test User'
-      })).rejects.toThrow('Network error');
-
-      // Restore fetch
-      global.fetch = originalFetch;
+      try {
+        await expect(backendClient.signup({
+          email: 'test@example.com',
+          password: 'TestPassword123!',
+          name: 'Test User'
+        })).rejects.toThrow('Network error');
+      } finally {
+        // Restore fetch
+        global.fetch = originalFetch;
+      }
     });
 
     it('should handle 401 unauthorized', async () => {
@@ -308,14 +310,16 @@ describe('BackendClient - Railway API Integration', () => {
         json: () => Promise.resolve({ error: 'Server error' })
       });
 
-      await expect(backendClient.signup({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-        name: 'Test User'
-      })).rejects.toThrow();
-
-      // Restore fetch
-      global.fetch = originalFetch;
+      try {
+        await expect(backendClient.signup({
+          email: 'test@example.com',
+          password: 'TestPassword123!',
+          name: 'Test User'
+        })).rejects.toThrow();
+      } finally {
+        // Restore fetch
+        global.fetch = originalFetch;
+      }
     });
   });
 
@@ -327,23 +331,28 @@ describe('BackendClient - Railway API Integration', () => {
       // Spy on fetch to verify headers
       const fetchSpy = vi.spyOn(global, 'fetch');
 
-      await backendClient.signup({
-        email: testEmail,
-        password: testPassword,
-        name: 'Test User'
-      });
+      try {
+        await backendClient.signup({
+          email: testEmail,
+          password: testPassword,
+          name: 'Test User'
+        });
 
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/auth/sign-up/email'),
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json'
+        expect(fetchSpy).toHaveBeenCalledWith(
+          expect.stringContaining('/auth/sign-up/email'),
+          expect.objectContaining({
+            method: 'POST',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json'
+            })
           })
-        })
-      );
+        );
 
-      testUsers.push({ email: testEmail });
+        testUsers.push({ email: testEmail });
+      } finally {
+        // Restore fetch spy
+        fetchSpy.mockRestore();
+      }
     });
 
     it('should include authorization header for authenticated requests', async () => {
@@ -380,11 +389,14 @@ describe('BackendClient - Railway API Integration', () => {
         );
       } catch (error) {
         // If Railway API doesn't have /auth/me endpoint, skip this test
-        if (error.message.includes('404')) {
+        if (error instanceof Error && error.message.includes('404')) {
           console.log('⚠️ Railway API /auth/me endpoint not implemented, skipping test');
           return;
         }
         throw error;
+      } finally {
+        // Restore fetch spy
+        fetchSpy.mockRestore();
       }
     });
   });
