@@ -4,7 +4,6 @@ import { Button } from '../../ui/Button';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useNavigation } from '../../../utils/navigation';
 import { useSession } from '../../../contexts/AuthContext';
-import { updateUser, authClient } from '../../../lib/authClient';
 import Modal from '../../Modal';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/i18n/hooks';
@@ -75,10 +74,12 @@ export const SecurityPage = ({
     
     if (key === 'twoFactorEnabled') {
       if (value) {
-        // Enable MFA: Navigate to enrollment page without updating state
-        navigate('/settings/mfa-enrollment');
+        showError(
+          t('common:notifications.errorTitle'),
+          'Multi-factor authentication is not available yet.'
+        );
+        setSettings(settings);
       } else {
-        // Disable MFA: Show confirmation dialog
         setShowDisableMFAConfirm(true);
       }
     } else {
@@ -86,24 +87,10 @@ export const SecurityPage = ({
       const updatedSettings = { ...settings, [key]: value };
       setSettings(updatedSettings);
       
-      try {
-        // Update user in database
-        await updateUser({ [key]: value });
-        
-        showSuccess(
-          t('common:notifications.settingsSavedTitle'),
-          t('settings:security.toasts.settingsUpdated')
-        );
-      } catch (error) {
-        console.error('Failed to update security settings:', error);
-        showError(
-          t('common:notifications.errorTitle'),
-          t('common:notifications.settingsSaveError')
-        );
-        
-        // Revert the local state on error
-        setSettings(settings);
-      }
+      showSuccess(
+        t('common:notifications.settingsSavedTitle'),
+        t('settings:security.toasts.settingsUpdated')
+      );
     }
   };
 
@@ -123,25 +110,12 @@ export const SecurityPage = ({
     const updatedSettings = { ...settings, twoFactorEnabled: false };
     setSettings(updatedSettings);
     
-    try {
-      // Disable MFA using Better Auth twoFactor plugin
-      await authClient.twoFactor.disable();
-      
-      showSuccess(
-        t('settings:security.mfa.disable.toastTitle'),
-        t('settings:security.mfa.disable.toastBody')
-      );
-    } catch (error) {
-      console.error('Failed to disable MFA:', error);
-      showError(
-        t('common:notifications.errorTitle'),
-        t('common:notifications.settingsSaveError')
-      );
-      
-      // Revert the local state on error
-      setSettings(settings);
-    }
-    
+    showError(
+      t('common:notifications.errorTitle'),
+      'Multi-factor authentication is not available yet.'
+    );
+    setSettings(settings);
+
     setShowDisableMFAConfirm(false);
   };
 

@@ -1,48 +1,36 @@
-import { createAuthClient } from "better-auth/react";
-import { organizationClient } from "better-auth/client/plugins";
-import { cloudflareClient } from "better-auth-cloudflare/client";
-import { stripeClient } from "@better-auth/stripe/client";
+import { backendClient } from './backendClient';
+import { useSession as useAuthSession, useActiveOrganization as useAuthActiveOrg } from '../contexts/AuthContext';
 
-// Safe baseURL computation for SSR/build-time compatibility
-const getBaseURL = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // Guard against undefined window in SSR/build-time
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-  
-  // Safe fallback for SSR/build-time
-  return "";
-};
-
-export const authClient = createAuthClient({
-  baseURL: getBaseURL(),
-  plugins: [organizationClient(), cloudflareClient(), stripeClient({ subscription: true })],
-  fetchOptions: {
-    credentials: "include", // Important for CORS
+export const authClient = {
+  signIn: backendClient.signin.bind(backendClient),
+  signOut: backendClient.signout.bind(backendClient),
+  signUp: backendClient.signup.bind(backendClient),
+  updateUser: async (_data: Record<string, unknown>) => {
+    console.warn('updateUser is not implemented with the current backend.');
+    return { success: false };
   },
-  endpoints: {
-    session: {
-      get: "/get-session"  // Override client default to match server endpoint
+  deleteUser: async () => {
+    console.warn('deleteUser is not implemented with the current backend.');
+    return { success: false };
+  },
+  useSession: () => useAuthSession(),
+  useActiveOrganization: () => useAuthActiveOrg(),
+  getSession: backendClient.getSession.bind(backendClient),
+  twoFactor: {
+    enable: async () => {
+      throw new Error('Two-factor authentication is not supported yet.');
+    },
+    disable: async () => {
+      throw new Error('Two-factor authentication is not supported yet.');
     }
   }
-});
+};
 
-export type AuthClient = typeof authClient;
-
-// Export individual methods for easier use
 export const signIn = authClient.signIn;
 export const signOut = authClient.signOut;
 export const signUp = authClient.signUp;
 export const updateUser = authClient.updateUser;
 export const deleteUser = authClient.deleteUser;
-
-// Export Better Auth's reactive hooks (primary method for components)
 export const useSession = authClient.useSession;
 export const useActiveOrganization = authClient.useActiveOrganization;
-
-// Export getSession for one-time checks (secondary method)
 export const getSession = authClient.getSession;

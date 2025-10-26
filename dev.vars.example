@@ -27,8 +27,6 @@ ADOBE_TECHNICAL_ACCOUNT_EMAIL=your_technical_account_email@techacct.adobe.com
 ADOBE_ORGANIZATION_ID=your_organization_id@AdobeOrg
 
 # Better Auth Configuration (SENSITIVE)
-BETTER_AUTH_SECRET=your_better_auth_secret_here
-BETTER_AUTH_URL=http://localhost:8787
 
 # Better Auth Feature Flags (NON-SENSITIVE)
 # Set to 'true' to enable geolocation and IP detection features

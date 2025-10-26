@@ -1,5 +1,4 @@
 import { Env, HttpError } from "../types";
-import { getAuth } from "../auth/index";
 import { HttpErrors } from "../errorHandler";
 import { organizationMembershipSchema } from "../schemas/validation";
 
@@ -13,35 +12,52 @@ export interface AuthenticatedUser {
 
 export interface AuthContext {
   user: AuthenticatedUser;
-  session: {
-    id: string;
-    expiresAt: Date;
-  };
+  token: string;
+}
+
+function getBackendBaseUrl(env: Env): string {
+  if (env.BLAWBY_API_URL) {
+    return env.BLAWBY_API_URL;
+  }
+  return 'https://blawby-backend-production.up.railway.app/api';
+}
+
+async function fetchAuthenticatedUser(token: string, env: Env): Promise<AuthenticatedUser> {
+  const response = await fetch(`${getBackendBaseUrl(env)}/auth/me`, {
+    method: 'GET',
+    headers: {
+      Authorization: token,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw HttpErrors.unauthorized("Authentication required");
+  }
+
+  const payload = await response.json() as { user?: AuthenticatedUser };
+  if (!payload.user) {
+    throw HttpErrors.unauthorized("Authentication required");
+  }
+
+  return payload.user;
 }
 
 export async function requireAuth(
   request: Request,
   env: Env
 ): Promise<AuthContext> {
-  const auth = await getAuth(env, request);
-  const session = await auth.api.getSession({ headers: request.headers });
+  const authHeader = request.headers.get('Authorization');
 
-  if (!session || !session.user) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw HttpErrors.unauthorized("Authentication required");
   }
 
+  const user = await fetchAuthenticatedUser(authHeader, env);
+
   return {
-    user: {
-      id: session.user.id,
-      email: session.user.email,
-      name: session.user.name,
-      emailVerified: session.user.emailVerified,
-      image: session.user.image,
-    },
-    session: {
-      id: session.session.id,
-      expiresAt: new Date(session.session.expiresAt),
-    },
+    user,
+    token: authHeader.replace(/^Bearer\s+/i, '')
   };
 }
 

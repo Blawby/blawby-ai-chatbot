@@ -52,7 +52,7 @@ export class PIIEncryptionService {
       return this.encryptionKey;
     }
 
-    const keyMaterial = this.env.BETTER_AUTH_SECRET || this.env.IDEMPOTENCY_SALT;
+    const keyMaterial = this.env.IDEMPOTENCY_SALT;
     if (!keyMaterial) {
       throw new Error('Encryption key material not found in environment');
     }

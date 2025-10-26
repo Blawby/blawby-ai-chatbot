@@ -402,7 +402,7 @@ migrations/
 ## Dependencies
 
 ### Existing Dependencies (package.json)
-- `better-auth` - User authentication
+- Railway Auth API - User authentication
 - `framer-motion` - Animations for notifications
 - `@heroicons/react` - Notification icons
 

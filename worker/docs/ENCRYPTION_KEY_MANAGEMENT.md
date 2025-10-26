@@ -10,7 +10,7 @@ The system uses AES-GCM encryption with 256-bit keys derived from environment va
 
 ### Current Version: v1
 - **Format**: `v{N}` where N is the version number
-- **Key Derivation**: Uses `BETTER_AUTH_SECRET` or `IDEMPOTENCY_SALT` as base material
+- **Key Derivation**: Uses `IDEMPOTENCY_SALT` as base material
 - **Algorithm**: HKDF with SHA-256, salt: `pii-encryption-v1`, info: `audit-log-encryption`
 - **Encryption**: AES-GCM with 256-bit keys
 
@@ -21,9 +21,7 @@ The system uses AES-GCM encryption with 256-bit keys derived from environment va
 ## Key Storage
 
 ### Environment Variables
-Keys are derived from the following environment variables (in order of preference):
-1. `BETTER_AUTH_SECRET` - Primary secret for authentication and encryption
-2. `IDEMPOTENCY_SALT` - Fallback secret for key derivation
+Keys are derived from the `IDEMPOTENCY_SALT` environment variable. Rotate this secret via Workers Secrets when necessary.
 
 ### Key Derivation Process
 ```typescript

@@ -23,15 +23,6 @@ export interface Env {
   ENABLE_ADOBE_EXTRACT?: string | boolean;
   ADOBE_EXTRACTOR_SERVICE?: import('./services/AdobeDocumentService.js').IAdobeExtractor; // Optional mock extractor for testing
   
-  // Better Auth Configuration
-  BETTER_AUTH_SECRET?: string;
-  BETTER_AUTH_URL?: string;
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
-  ENABLE_AUTH_GEOLOCATION?: string;
-  ENABLE_AUTH_IP_DETECTION?: string;
-  REQUIRE_EMAIL_VERIFICATION?: string | boolean;
-  
   // Stripe Configuration
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;

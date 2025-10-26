@@ -1,3 +1,4 @@
+import { ComponentChildren } from 'preact';
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
 import { useState, useEffect, useCallback, useLayoutEffect } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
@@ -37,8 +38,8 @@ import { i18n, initI18n } from './i18n';
 
 
 
-// Main application component (non-auth pages)
-function MainApp() {
+// Messages page component hosting the core chat experience
+function MessagesPage() {
 	// Core state
 	const [clearInputTrigger, setClearInputTrigger] = useState(0);
 	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
@@ -137,12 +138,6 @@ function MainApp() {
 			console.error('Session initialization error:', sessionError);
 		}
 	}, [sessionError]);
-
-	// Handle settings modal based on URL
-	useEffect(() => {
-		const isSettingsRoute = location.path.startsWith('/settings');
-		setShowSettingsModal(isSettingsRoute);
-	}, [location.path]);
 
 	// Check if we should show welcome modal (after onboarding completion)
 	useEffect(() => {
@@ -398,7 +393,7 @@ function MainApp() {
 
 	const handleBusinessWelcomeClose = () => {
 		setShowBusinessWelcome(false);
-		navigate('/settings/organization');
+		navigate('/app/settings/organization');
 	};
 
 
@@ -439,15 +434,15 @@ function MainApp() {
 		<>
 			<DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
 			
-			<AppLayout
-				organizationNotFound={organizationNotFound}
-				organizationId={organizationId}
-				onRetryOrganizationConfig={handleRetryOrganizationConfig}
-				currentTab={currentTab}
-				onTabChange={setCurrentTab}
-				isMobileSidebarOpen={isMobileSidebarOpen}
-				onToggleMobileSidebar={setIsMobileSidebarOpen}
-				isSettingsModalOpen={showSettingsModal}
+				<AppLayout
+					organizationNotFound={organizationNotFound}
+					organizationId={organizationId}
+					onRetryOrganizationConfig={handleRetryOrganizationConfig}
+					currentTab={currentTab}
+					onTabChange={setCurrentTab}
+					isMobileSidebarOpen={isMobileSidebarOpen}
+					onToggleMobileSidebar={setIsMobileSidebarOpen}
+					isSettingsModalOpen={showSettingsModal}
 				organizationConfig={{
 					name: organizationConfig?.name ?? '',
 					profileImage: organizationConfig?.profileImage ?? null,
@@ -505,19 +500,6 @@ function MainApp() {
 					</div>
 				</div>
 			</AppLayout>
-
-			{/* Settings Modal */}
-			{showSettingsModal && (
-				<SettingsLayout
-					isMobile={isMobile}
-					onClose={() => {
-						setShowSettingsModal(false);
-						setIsMobileSidebarOpen(false); // Close mobile sidebar when settings close
-						navigate('/');
-					}}
-					className="h-full"
-				/>
-			)}
 
 			{/* Pricing Modal */}
 			<PricingModal
@@ -580,7 +562,7 @@ function MainApp() {
 				onComplete={handleWelcomeComplete}
 			/>
 
-			{/* Business Welcome Modal */}
+				{/* Business Welcome Modal */}
 			{showBusinessWelcome && (
 				<BusinessWelcomeModal
 					isOpen={showBusinessWelcome}
@@ -588,10 +570,10 @@ function MainApp() {
 				/>
 			)}
 
-			{/* Business Setup Modal */}
-			<BusinessSetupModal
-				isOpen={showBusinessSetup}
-				onClose={() => {
+				{/* Business Setup Modal */}
+				<BusinessSetupModal
+					isOpen={showBusinessSetup}
+					onClose={() => {
 					// Clear the localStorage flag so modal doesn't reappear on reload
 					try {
 						localStorage.removeItem('businessSetupPending');
@@ -625,6 +607,78 @@ export function App() {
 	);
 }
 
+function RequireAuth({ children }: { children: ComponentChildren }) {
+	const { data: session, isPending } = useSession();
+	const { navigate } = useNavigation();
+
+	useEffect(() => {
+		if (isPending) {
+			return;
+		}
+		if (!session?.user) {
+			navigate('/auth?mode=signin', true);
+		}
+	}, [isPending, session?.user, navigate]);
+
+	if (isPending) {
+		return <FallbackLoader />;
+	}
+
+	if (!session?.user) {
+		return null;
+	}
+
+	return <>{children}</>;
+}
+
+function MessagesRoute() {
+	return (
+		<RequireAuth>
+			<MessagesPage />
+		</RequireAuth>
+	);
+}
+
+function SettingsRoute() {
+	return (
+		<RequireAuth>
+			<MessagesPage />
+		</RequireAuth>
+	);
+}
+
+function AppRootRedirect() {
+	const { data: session, isPending } = useSession();
+	const { navigate } = useNavigation();
+
+	useEffect(() => {
+		if (isPending) return;
+		if (session?.user) {
+			navigate('/app/messages', true);
+		} else {
+			navigate('/auth?mode=signin', true);
+		}
+	}, [session?.user, isPending, navigate]);
+
+	return <FallbackLoader />;
+}
+
+function RootRedirect() {
+	const { data: session, isPending } = useSession();
+	const { navigate } = useNavigation();
+
+	useEffect(() => {
+		if (isPending) return;
+		if (session?.user) {
+			navigate('/app/messages', true);
+		} else {
+			navigate('/auth?mode=signin', true);
+		}
+	}, [session?.user, isPending, navigate]);
+
+	return <FallbackLoader />;
+}
+
 // Component that uses organization context for SEO
 function AppWithSEO() {
 	const { organizationConfig } = useOrganization();
@@ -644,8 +698,10 @@ function AppWithSEO() {
 			<Router>
 				<Route path="/auth" component={AuthPage} />
 				<Route path="/cart" component={CartPage} />
-				<Route path="/settings/*" component={MainApp} />
-				<Route default component={MainApp} />
+				<Route path="/app/messages" component={MessagesRoute} />
+				<Route path="/app/settings/*" component={SettingsRoute} />
+				<Route path="/app" component={AppRootRedirect} />
+				<Route default component={RootRedirect} />
 			</Router>
 		</>
 	);

@@ -15,7 +15,7 @@ export const BusinessWelcomeModal = ({ isOpen, onClose }: BusinessWelcomeModalPr
 
   const handleGoToSettings = () => {
     onClose();
-    navigate('/settings/organization');
+    navigate('/app/settings/organization');
   };
 
   return (

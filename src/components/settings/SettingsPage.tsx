@@ -45,17 +45,21 @@ export const SettingsPage = ({
   // Get current page from URL path
   const getCurrentPage = () => {
     const path = location.path;
-    if (path === '/settings' || path === '/settings/') {
+    if (path === '/app/settings' || path === '/app/settings/') {
       return 'navigation'; // Show main navigation on mobile
     }
     const segments = path.split('/').filter(Boolean);
-    return segments[1] || 'navigation'; // Get the page from /settings/page
+    const settingsIndex = segments.findIndex(segment => segment === 'settings');
+    if (settingsIndex === -1) {
+      return 'navigation';
+    }
+    return segments[settingsIndex + 1] || 'navigation';
   };
   
   const currentPage = getCurrentPage();
 
   const handleNavigation = (page: string) => {
-    navigate(`/settings/${page}`);
+    navigate(`/app/settings/${page}`);
   };
 
   const handleBack = () => {
@@ -174,7 +178,7 @@ export const SettingsPage = ({
                 {/* Mobile Header with Back Button */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
                   <button
-                    onClick={() => navigate('/settings')}
+                    onClick={() => navigate('/app/settings')}
                     className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     aria-label={t('settings:navigation.backToSettings')}
                   >

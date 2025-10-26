@@ -15,7 +15,6 @@ import {
   handlePayment,
   handlePDF,
   handleDebug,
-  handleAuth,
   handleConfig,
   handleUsage,
   handleUsers
@@ -81,8 +80,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleOrganizations(request, env);
     } else if (path.startsWith('/api/forms')) {
       response = await handleForms(request, env);
-    } else if (path.startsWith('/api/auth')) {
-      response = await handleAuth(request, env);
     } else if (path.startsWith('/api/sessions')) {
       response = await handleSessions(request, env);
     } else if (path.startsWith('/api/activity')) {

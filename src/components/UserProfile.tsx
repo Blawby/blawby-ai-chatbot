@@ -131,7 +131,7 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
   const handleProfileClick = () => {
     if (isMobile) {
       // On mobile, directly navigate to settings (skip dropdown)
-      navigate('/settings');
+      navigate('/app/settings');
     } else {
       // On desktop, show dropdown
       setShowDropdown(!showDropdown);
@@ -140,7 +140,7 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
 
   const handleSettingsClick = () => {
     setShowDropdown(false);
-    navigate('/settings');
+    navigate('/app/settings');
   };
 
   const handleUpgradeClick = () => {
@@ -150,7 +150,7 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
 
   const handleHelpClick = () => {
     setShowDropdown(false);
-    navigate('/settings/help');
+    navigate('/app/settings/help');
   };
 
   const handleLogoutClick = async () => {

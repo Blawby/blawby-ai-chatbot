@@ -136,16 +136,16 @@ export const usePaymentUpgrade = () => {
   const { showError, showSuccess } = useToastContext();
 
   const buildSuccessUrl = useCallback((organizationId: string) => {
-    if (typeof window === 'undefined') return '/settings/account';
-    const url = new URL(`${window.location.origin}/settings/account`);
+    if (typeof window === 'undefined') return '/app/settings/account';
+    const url = new URL(`${window.location.origin}/app/settings/account`);
     url.searchParams.set('organizationId', organizationId);
     url.searchParams.set('sync', '1');
     return url.toString();
   }, []);
 
   const buildCancelUrl = useCallback((organizationId: string) => {
-    if (typeof window === 'undefined') return '/settings/account';
-    const url = new URL(`${window.location.origin}/settings/account`);
+    if (typeof window === 'undefined') return '/app/settings/account';
+    const url = new URL(`${window.location.origin}/app/settings/account`);
     url.searchParams.set('organizationId', organizationId);
     url.searchParams.set('cancelled', '1');
     return url.toString();
@@ -160,7 +160,7 @@ export const usePaymentUpgrade = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             referenceId: organizationId,
-            returnUrl: returnUrl ?? '/settings/account',
+            returnUrl: returnUrl ?? '/app/settings/account',
           }),
         });
 

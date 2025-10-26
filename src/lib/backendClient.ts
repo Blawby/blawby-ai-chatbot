@@ -11,73 +11,59 @@ import type {
   User
 } from '../types/backend';
 import type { OnboardingData } from '../types/user';
-import { saveToken as saveTokenToIndexedDB, loadToken as loadTokenFromIndexedDB, clearToken as clearTokenFromIndexedDB, saveUserData as saveUserDataToIndexedDB, clearUserData as clearUserDataFromIndexedDB } from './indexedDBStorage';
+
+const STORAGE_KEY = 'blawby.auth.token';
 
 class BackendApiClient {
   private baseUrl: string;
   private token: string | null = null;
-  private tokenLoadPromise: Promise<void> | null = null;
 
   constructor() {
     const config = getBackendApiConfig();
     this.baseUrl = config.baseUrl;
-    // Initialize token loading (async)
-    this.tokenLoadPromise = this.loadToken();
+    this.token = this.loadTokenFromStorage();
   }
 
-  private async loadToken(): Promise<void> {
-    if (typeof window !== 'undefined') {
-      try {
-        this.token = await loadTokenFromIndexedDB();
-        console.log('🔍 backendClient.loadToken - loaded token:', this.token ? 'present' : 'null');
-      } catch (error) {
-        console.error('Failed to load token from IndexedDB:', error);
-        this.token = null;
+  private loadTokenFromStorage(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      return stored ?? null;
+    } catch (error) {
+      console.warn('Failed to read auth token from storage:', error);
+      return null;
+    }
+  }
+
+  private persistToken(token: string | null): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      if (token) {
+        window.localStorage.setItem(STORAGE_KEY, token);
+      } else {
+        window.localStorage.removeItem(STORAGE_KEY);
       }
+    } catch (error) {
+      console.warn('Failed to persist auth token:', error);
     }
   }
 
-  private async saveToken(token: string): Promise<void> {
-    if (typeof window !== 'undefined') {
-      try {
-        await saveTokenToIndexedDB(token);
-        this.token = token;
-        console.log('🔍 backendClient.saveToken - token saved successfully');
-      } catch (error) {
-        console.error('Failed to save token to IndexedDB:', error);
-        throw error;
-      }
-    }
+  setToken(token: string | null): void {
+    this.token = token;
+    this.persistToken(token);
   }
 
-  private async clearToken(): Promise<void> {
-    if (typeof window !== 'undefined') {
-      try {
-        await clearTokenFromIndexedDB();
-        this.token = null;
-      } catch (error) {
-        console.error('Failed to clear token from IndexedDB:', error);
-        throw error;
-      }
-    }
-  }
-
-  /**
-   * Ensure token is loaded before making requests
-   */
-  private async ensureTokenLoaded(): Promise<void> {
-    console.log('🔍 backendClient.ensureTokenLoaded - tokenLoadPromise:', this.tokenLoadPromise ? 'exists' : 'null');
-    if (this.tokenLoadPromise) {
-      console.log('🔍 backendClient.ensureTokenLoaded - waiting for token load');
-      await this.tokenLoadPromise;
-      this.tokenLoadPromise = null;
-      console.log('🔍 backendClient.ensureTokenLoaded - token load completed');
-    }
+  getToken(): string | null {
+    return this.token;
   }
 
   async isAuthenticated(): Promise<boolean> {
-    await this.ensureTokenLoaded();
-    console.log('🔍 backendClient.isAuthenticated - token:', this.token ? 'present' : 'null');
     return !!this.token;
   }
 
@@ -85,9 +71,6 @@ class BackendApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    // Ensure token is loaded before making request
-    await this.ensureTokenLoaded();
-    
     const url = `${this.baseUrl}${endpoint}`;
     
     // Use Headers constructor for safe type handling
@@ -151,7 +134,7 @@ class BackendApiClient {
       fullName = data.email.split('@')[0] || 'User';
     }
 
-    // Send to Better Auth API with proper structure
+    // Send to backend API with proper structure
     const signupData = {
       email: data.email,
       password: data.password,
@@ -165,8 +148,7 @@ class BackendApiClient {
     
     // Save token and user data from successful signup
     if (response.token) {
-      await this.saveToken(response.token);
-      await saveUserDataToIndexedDB(response.user);
+      this.setToken(response.token);
     }
     
     return response;
@@ -180,15 +162,13 @@ class BackendApiClient {
     
     // Save token and user data from successful signin
     if (response.token) {
-      await this.saveToken(response.token);
-      await saveUserDataToIndexedDB(response.user);
+      this.setToken(response.token);
     }
     
     return response;
   }
 
   async getSession(): Promise<AuthResponse> {
-    await this.ensureTokenLoaded();
     if (!this.token) {
       throw new Error('No session token available');
     }
@@ -205,38 +185,18 @@ class BackendApiClient {
   }
 
   async signout(): Promise<{ message: string }> {
-    let response: { message: string };
-    
     try {
-      // Check if we have a token before attempting signout
-      await this.ensureTokenLoaded();
-      if (!this.token) {
-        // No token to sign out, just clear local state
-        response = { message: 'No active session to sign out' };
-      } else {
-        const signoutResponse = await this.request<{ success: boolean }>('/auth/sign-out', {
+      if (this.token) {
+        await this.request<{ success: boolean }>('/auth/sign-out', {
           method: 'POST',
           body: JSON.stringify({ all: true }),
-        });
-        
-        // Handle both successful responses and 204 No Content (empty object)
-        if (signoutResponse && signoutResponse.success) {
-          response = { message: 'Signed out successfully' };
-        } else {
-          // For 204 No Content or other cases, assume success
-          response = { message: 'Signed out successfully' };
-        }
+        }).catch(() => ({ success: false }));
       }
-    } catch (_error) {
-      // If signout fails, still clear local state
-      response = { message: 'Sign out failed' };
     } finally {
-      // Clear local auth state even if backend signout fails
-      await this.clearToken();
-      await clearUserDataFromIndexedDB();
+      this.setToken(null);
     }
-    
-    return response;
+
+    return { message: 'Signed out successfully' };
   }
 
   // Practice methods
@@ -297,9 +257,7 @@ class BackendApiClient {
   }
 
   // Token management
-  async getToken(): Promise<string | null> {
-    // Race condition: ensure token is loaded before returning
-    await this.ensureTokenLoaded();
+  getToken(): string | null {
     return this.token;
   }
 

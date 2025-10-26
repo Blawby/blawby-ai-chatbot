@@ -36,7 +36,7 @@ export const BusinessSetupModal = ({ isOpen, onClose }: BusinessSetupModalProps)
     } catch (error) {
       console.warn('Failed to remove business setup flag:', error);
     }
-    navigate('/settings/organization');
+    navigate('/app/settings/organization');
   };
 
   const setupSteps = [

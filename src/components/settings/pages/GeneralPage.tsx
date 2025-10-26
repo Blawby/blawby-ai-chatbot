@@ -4,7 +4,6 @@ import { FormLabel, SectionDivider } from '../../ui';
 import { Select } from '../../ui/input';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useSession } from '../../../contexts/AuthContext';
-import { updateUser } from '../../../lib/authClient';
 import { DEFAULT_LOCALE, detectBestLocale, setLocale, SUPPORTED_LOCALES } from '@/i18n/hooks';
 import type { Language } from '../../../types/user';
 
@@ -92,9 +91,6 @@ export const GeneralPage = ({
     });
     
     try {
-      // Update user in database
-      await updateUser({ [key]: value });
-      
       // Apply theme immediately if changed
       if (key === 'theme') {
         if (value === 'dark') {

@@ -1,7 +1,4 @@
-// TypeScript types for user data that match Better Auth schema
-// These types are derived from the additionalFields defined in worker/auth/index.ts
-
-import type { User as BetterAuthUser } from 'better-auth/types';
+import type { User } from './backend';
 
 // Subscription tier type matching database enum
 export type SubscriptionTier = 'free' | 'plus' | 'business' | 'enterprise';
@@ -9,8 +6,8 @@ export type SubscriptionTier = 'free' | 'plus' | 'business' | 'enterprise';
 // Language type for internationalization
 export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'ko' | 'zh' | 'ar' | 'hi' | 'ru' | 'tr' | 'pl' | 'nl' | 'id' | 'th' | 'vi' | 'uk';
 
-// Extended User type that includes all custom fields from Better Auth
-export interface ExtendedUser extends BetterAuthUser {
+// Extended user type that augments backend user shape with app-specific fields
+export interface ExtendedUser extends User {
   // Organization & Role
   organizationId?: string | null;
   role?: string | null;
@@ -116,8 +113,8 @@ export interface UserProfile {
   onboardingData?: OnboardingData | null;
   
   // Timestamps
-  createdAt: Date | null;
-  updatedAt: Date | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserPreferences {
@@ -538,4 +535,3 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
   
   return transformedUser;
 }
-

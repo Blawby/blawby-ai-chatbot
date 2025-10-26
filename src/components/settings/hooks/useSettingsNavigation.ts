@@ -22,37 +22,37 @@ export const useSettingsNavigation = (): UseSettingsNavigationReturn => {
   // Derive currentPath from the actual router state
   const currentPath = location.path;
 
-  const navigateToSettings = useCallback((path: string = '/settings') => {
+  const navigateToSettings = useCallback((path: string = '/app/settings') => {
     navigate(path);
   }, [navigate]);
 
   const navigateToAccount = useCallback(() => {
-    navigateToSettings('/settings/account');
+    navigateToSettings('/app/settings/account');
   }, [navigateToSettings]);
 
 
   const navigateToNotifications = useCallback(() => {
-    navigateToSettings('/settings/notifications');
+    navigateToSettings('/app/settings/notifications');
   }, [navigateToSettings]);
 
   const navigateToSecurity = useCallback(() => {
-    navigateToSettings('/settings/security');
+    navigateToSettings('/app/settings/security');
   }, [navigateToSettings]);
 
   const navigateToHelp = useCallback(() => {
-    navigateToSettings('/settings/help');
+    navigateToSettings('/app/settings/help');
   }, [navigateToSettings]);
 
   const navigateToOrganization = useCallback(() => {
-    navigateToSettings('/settings/organization');
+    navigateToSettings('/app/settings/organization');
   }, [navigateToSettings]);
 
   const navigateToLegal = useCallback(() => {
-    navigateToSettings('/settings/legal');
+    navigateToSettings('/app/settings/legal');
   }, [navigateToSettings]);
 
   const navigateToSupport = useCallback(() => {
-    navigateToSettings('/settings/support');
+    navigateToSettings('/app/settings/support');
   }, [navigateToSettings]);
 
   const goBack = useCallback(() => {
@@ -72,7 +72,7 @@ export const useSettingsNavigation = (): UseSettingsNavigationReturn => {
       navigate(parentPath);
     } else {
       // If we're at root level, navigate to home
-      navigate('/');
+      navigate('/app/messages');
     }
   }, [location.path, navigate]);
 

@@ -3,8 +3,8 @@ import { useContext } from 'preact/hooks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
 import { z } from 'zod';
-import { authClient } from '../lib/authClient';
 import { useOrganization } from './OrganizationContext';
+import { useSession as useAuthSession } from './AuthContext';
 
 // Zod schema for runtime validation of QuotaCounter
 const quotaCounterSchema = z.object({
@@ -42,7 +42,7 @@ interface QuotaApiResponse {
 }
 
 interface SessionContextValue {
-  session: ReturnType<typeof authClient.useSession>['data'];
+  session: ReturnType<typeof useAuthSession>['data'];
   isAnonymous: boolean;
   activeOrganizationId: string | null;
   activeOrganizationSlug: string | null;
@@ -55,8 +55,7 @@ interface SessionContextValue {
 const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
-  const { data: sessionData } = authClient.useSession();
-  const activeOrganization = authClient.useActiveOrganization();
+  const { data: sessionData } = useAuthSession();
   const { organizationId: organizationSlug } = useOrganization();
 
   const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
@@ -66,12 +65,8 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const abortRef = useRef<AbortController | null>(null);
   const isAnonymous = !sessionData?.user;
 
-  const activeOrganizationId: string | null =
-    (activeOrganization?.data as { organization?: { id?: string } } | undefined)?.organization?.id ??
-    (activeOrganization?.data as { id?: string } | undefined)?.id ??
-    null;
-
-  const resolvedOrgIdentifier = activeOrganizationId ?? organizationSlug ?? null;
+  const activeOrganizationId: string | null = organizationSlug ?? null;
+  const resolvedOrgIdentifier = organizationSlug ?? null;
 
   const fetchQuota = useCallback(async () => {
     if (typeof window === 'undefined') {
@@ -145,7 +140,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   }, [fetchQuota]);
 
   const value = useMemo<SessionContextValue>(() => ({
-    session: sessionData ?? null,
+    session: sessionData,
     isAnonymous,
     activeOrganizationId,
     activeOrganizationSlug: organizationSlug ?? null,

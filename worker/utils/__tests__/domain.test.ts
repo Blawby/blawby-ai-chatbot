@@ -47,8 +47,8 @@ describe('domain utilities', () => {
       expect(getConfiguredDomain(env)).toBe('ai.blawby.com');
     });
 
-    it('should fallback to BETTER_AUTH_URL when others not set', () => {
-      const env = { BETTER_AUTH_URL: 'http://localhost:8787' };
+    it('should fallback to BLAWBY_API_URL when others not set', () => {
+      const env = { BLAWBY_API_URL: 'http://localhost:8787/api' };
       expect(getConfiguredDomain(env)).toBe('localhost');
     });
 
@@ -61,7 +61,7 @@ describe('domain utilities', () => {
       const env = {
         DOMAIN: 'custom.com',
         CLOUDFLARE_PUBLIC_URL: 'https://ai.blawby.com',
-        BETTER_AUTH_URL: 'http://localhost:8787'
+        BLAWBY_API_URL: 'http://localhost:8787/api'
       };
       expect(getConfiguredDomain(env)).toBe('custom.com');
     });

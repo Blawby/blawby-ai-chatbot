@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import type { ExtendedUser } from '../../../types/user';
+import { useAuth, useSession } from '../../../contexts/AuthContext';
 
 // Type guard to validate Better Auth user has required fields
 function _isValidBetterAuthUser(user: unknown): user is ExtendedUser {
@@ -158,21 +159,8 @@ export const useUserProfile = (): UseUserProfileReturn => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const currentAvatarObjectUrl = useRef<string | null>(null);
-
-  const fetchProfile = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // No authentication required - return null profile
-      setProfile(null);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch profile';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: sessionState, isPending: sessionPending } = useSession();
+  const { refreshSession } = useAuth();
 
   const updateProfile = useCallback(async (data: UserProfileInput) => {
     try {
@@ -246,12 +234,33 @@ export const useUserProfile = (): UseUserProfileReturn => {
   }, [profile?.image]);
 
   const refetch = useCallback(async () => {
-    await fetchProfile();
-  }, [fetchProfile]);
+    try {
+      setLoading(true);
+      await refreshSession();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh profile';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshSession]);
 
   useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+    if (sessionPending) {
+      setLoading(true);
+      return;
+    }
+
+    const sessionUser = sessionState?.user as unknown;
+    if (!sessionUser || !_isValidBetterAuthUser(sessionUser)) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    setProfile(_mapBetterAuthUserToProfile(sessionUser));
+    setLoading(false);
+  }, [sessionPending, sessionState?.user]);
 
   // Cleanup object URL on component unmount
   useEffect(() => {

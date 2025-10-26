@@ -33,10 +33,6 @@ declare namespace Cloudflare {
 		LAWYER_SEARCH_API_KEY: string;
 		CLOUDFLARE_API_TOKEN: string;
 		RESEND_API_KEY: string;
-		BETTER_AUTH_SECRET: string;
-		BETTER_AUTH_URL: string;
-		GOOGLE_CLIENT_ID: string;
-		GOOGLE_CLIENT_SECRET: string;
 		CLOUDFLARE_ACCOUNT_ID: string;
 		ADOBE_CLIENT_ID: string;
 		ADOBE_CLIENT_SECRET: string;

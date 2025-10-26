@@ -22,15 +22,13 @@ export async function signOut(options?: {
         'businessSetupPending',
         'cartPreferences',
         'cartData',
+        'blawby.auth.token',
       ];
 
       for (const key of authKeys) {
         localStorage.removeItem(key);
       }
-      
-      // Token is now stored in IndexedDB, cleared by backendClient.signout()
-
-      // Clean any Better Auth specific markers we may have stored locally (for migration)
+      // Clean any legacy Better Auth markers we may have stored locally (for migration)
       const betterAuthKeys = Object.keys(localStorage).filter((key) =>
         key.startsWith('better-auth') || key.startsWith('__better-auth')
       );

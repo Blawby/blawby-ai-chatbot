@@ -54,7 +54,7 @@ export async function extractOrganizationContext(
     if (authContext) {
       // For authenticated users, we could potentially get organization from their membership
       // For now, we'll still use URL param or session as primary source
-      // This could be enhanced to get the user's active organization from better-auth
+      // TODO: Enhance to fetch active organization from the Railway backend once available
       
       // Check if user has a session with organization context
       const sessionToken = SessionService.getSessionTokenFromCookie(request);
