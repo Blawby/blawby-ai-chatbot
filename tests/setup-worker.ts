@@ -1,5 +1,7 @@
 import { beforeAll } from 'vitest';
-import { env } from '@cloudflare/vitest-pool-workers/testing';
+
+// @ts-ignore - Cloudflare vitest pool workers env
+declare const env: any;
 
 process.env.NODE_ENV = 'test';
 
@@ -80,7 +82,7 @@ beforeAll(async () => {
         organization_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         role TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(organization_id, user_id),
         FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

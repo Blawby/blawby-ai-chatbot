@@ -10,7 +10,7 @@
 VITE_BACKEND_API_URL=https://your-backend-api.com/api
 
 # Testing Environment Variables:
-BLAWBY_API_BASE_URL=https://your-backend-api.com/api
+BLAWBY_API_URL=https://your-backend-api.com/api
 
 # API Keys and Tokens (SENSITIVE)
 BLAWBY_API_TOKEN=your_blawby_api_token_here

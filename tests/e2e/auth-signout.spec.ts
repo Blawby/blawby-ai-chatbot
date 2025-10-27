@@ -2,17 +2,17 @@ import { test, expect, request as playwrightRequest } from '@playwright/test';
 import { addUserToCleanup, generateTestEmail, logCleanupSummary } from '../helpers/auth-cleanup';
 import { DEFAULT_PASSWORD } from './utils/auth-ui';
 
-// Require BLAWBY_API_BASE_URL to be explicitly set - no staging fallback
+// Require BLAWBY_API_URL to be explicitly set - no staging fallback
 const API_BASE_URL = (() => {
-  const url = process.env.BLAWBY_API_BASE_URL;
+  const url = process.env.BLAWBY_API_URL;
   if (!url) {
-    throw new Error('BLAWBY_API_BASE_URL environment variable is required. Set it to your backend API URL (e.g., https://your-api.com/api)');
+    throw new Error('BLAWBY_API_URL environment variable is required. Set it to your backend API URL (e.g., https://your-api.com/api)');
   }
   return url;
 })();
 
 test.describe('Auth Signout API Flow', () => {
-  const createdUsers: { email: string }[] = [];
+  const createdUsers: { email: string; endpoints: string[] }[] = [];
 
   test.afterEach(async () => {
     if (createdUsers.length > 0) {

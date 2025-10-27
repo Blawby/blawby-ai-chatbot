@@ -2,11 +2,11 @@ import { Page, request as playwrightRequest, BrowserContext } from '@playwright/
 
 export const DEFAULT_PASSWORD = 'TestPassword123!';
 
-// Require BLAWBY_API_BASE_URL to be explicitly set - no staging fallback
+// Require BLAWBY_API_URL to be explicitly set - no staging fallback
 const API_BASE_URL = (() => {
-  const url = process.env.BLAWBY_API_BASE_URL;
+  const url = process.env.BLAWBY_API_URL;
   if (!url) {
-    throw new Error('BLAWBY_API_BASE_URL environment variable is required. Set it to your backend API URL (e.g., https://your-api.com/api)');
+    throw new Error('BLAWBY_API_URL environment variable is required. Set it to your backend API URL (e.g., https://your-api.com/api)');
   }
   return url;
 })();
@@ -67,8 +67,12 @@ export async function createUserViaApi(
       throw new Error(`Failed to update user details: ${userDetailsResponse.status()} ${userDetailsResponse.statusText()}`);
     }
 
-    // Capture cookies from the API context
-    const cookies = await api.cookies();
+    // Extract cookies from the last response headers
+    const cookies = signinResponse.headers()['set-cookie']?.map(cookie => {
+      const [nameValue, ...rest] = cookie.split(';');
+      const [name, value] = nameValue.split('=');
+      return { name: name.trim(), value: value?.trim() || '', domain: 'localhost', path: '/' };
+    }) || [];
     
     // If browser context is provided, inject cookies directly
     if (browserContext) {

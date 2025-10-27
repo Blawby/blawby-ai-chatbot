@@ -29,11 +29,31 @@ function extractSessionToken(request: Request): string | null {
   const cookieHeader = request.headers.get('Cookie');
   if (!cookieHeader) return null;
 
-  return cookieHeader
+  const cookiePart = cookieHeader
     .split(';')
     .map(part => part.trim())
-    .find(part => part.startsWith(`${SESSION_COOKIE_NAME}=`))
-    ?.split('=')[1] ?? null;
+    .find(part => part.startsWith(`${SESSION_COOKIE_NAME}=`));
+  
+  if (!cookiePart) return null;
+
+  // Find the first '=' and take everything after it
+  const firstEqualsIndex = cookiePart.indexOf('=');
+  if (firstEqualsIndex === -1) return null;
+
+  let value = cookiePart.substring(firstEqualsIndex + 1);
+  
+  // Strip optional surrounding quotes
+  if ((value.startsWith('"') && value.endsWith('"')) || 
+      (value.startsWith("'") && value.endsWith("'"))) {
+    value = value.slice(1, -1);
+  }
+  
+  // Decode the value and return null if missing
+  try {
+    return value ? decodeURIComponent(value) : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchJson<T>(url: string, headers: HeadersInit): Promise<T> {

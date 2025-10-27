@@ -96,6 +96,34 @@ export function formatDate(date: string | Date): string {
 
 export function formatDateToYYYYMMDD(dateString: string | undefined | null): string | null {
   if (!dateString) return null;
+  
+  // Check if input is already in YYYY-MM-DD format
+  const yyyyMmDdRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const match = dateString.match(yyyyMmDdRegex);
+  
+  if (match) {
+    // Parse YYYY-MM-DD as local date to avoid timezone drift
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const day = parseInt(match[3], 10);
+    
+    // Validate date components
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return null;
+    }
+    
+    // Create local date (monthIndex = month - 1)
+    const date = new Date(year, month - 1, day);
+    
+    // Verify the date is valid (handles invalid dates like Feb 30)
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+      return null;
+    }
+    
+    return dateString; // Already in correct format
+  }
+  
+  // For other date formats, use existing logic
   const date = new Date(dateString);
   
   // Check if the date is valid

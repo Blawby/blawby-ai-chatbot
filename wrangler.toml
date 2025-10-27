@@ -37,7 +37,6 @@ database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf"  # blawby-ai-chatbot
 # Set via: wrangler secret put BLAWBY_API_URL
 # Example: wrangler secret put BLAWBY_API_URL "https://your-api.blawby.com/api"
 [vars]
-BLAWBY_API_URL = "https://staging.blawby.com"
 BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
 BETTER_AUTH_URL = "http://localhost:8787"
 DOMAIN = "localhost"
@@ -194,7 +193,6 @@ VITE_BACKEND_API_URL = "https://production-api.blawby.com/api"
 
 # Duplicate top-level vars for production environment
 # BLAWBY_API_URL is REQUIRED - must be set to production API URL
-BLAWBY_API_URL = "https://staging.blawby.com"
 BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"
 CLOUDFLARE_PUBLIC_URL = "https://blawby-ai-chatbot.paulchrisluke.workers.dev"

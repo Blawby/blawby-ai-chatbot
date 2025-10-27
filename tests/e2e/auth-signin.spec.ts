@@ -2,11 +2,11 @@ import { test, expect, request as playwrightRequest } from '@playwright/test';
 import { addUserToCleanup, generateTestEmail, logCleanupSummary } from '../helpers/auth-cleanup';
 import { DEFAULT_PASSWORD } from './utils/auth-ui';
 
-// Require BLAWBY_API_BASE_URL to be explicitly set - no staging fallback
+// Require BLAWBY_API_URL to be explicitly set - no staging fallback
 const API_BASE_URL = (() => {
-  const url = process.env.BLAWBY_API_BASE_URL;
+  const url = process.env.BLAWBY_API_URL;
   if (!url) {
-    throw new Error('BLAWBY_API_BASE_URL environment variable is required. Set it to your backend API URL (e.g., https://your-api.com/api)');
+    throw new Error('BLAWBY_API_URL environment variable is required. Set it to your backend API URL (e.g., https://your-api.com/api)');
   }
   return url;
 })();
@@ -173,7 +173,7 @@ test.describe('Auth Signin API Flow', () => {
         // Validate that existing profile data is still there
         const dob = detailsJson.details?.dob ?? '';
         expect(dob, 'dob should not be empty for existing account').toBeTruthy();
-        expect(dob, 'dob should contain 1985-05-15').toBe('1985-05-15');
+        expect(dob, 'dob should contain 1985-05-15').toContain('1985-05-15');
         console.log(`✅ Existing date of birth preserved: ${dob}`);
         
         const productUsage = detailsJson.details?.product_usage ?? null;

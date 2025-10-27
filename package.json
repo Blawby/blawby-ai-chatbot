@@ -72,6 +72,7 @@
 		"autoprefixer": "^10.4.21",
 		"concurrently": "^8.2.2",
 		"critters": "^0.0.23",
+		"dotenv": "^17.2.3",
 		"eslint": "^9.36.0",
 		"eslint-plugin-jsx-a11y": "^6.10.2",
 		"eslint-plugin-preact": "^0.1.0",

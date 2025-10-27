@@ -78,12 +78,6 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   const initRef = useRef(false);
 
   const loadUserDetails = useCallback(async () => {
-    const token = backendClient.getAuthToken();
-    if (!token) {
-      setUserDetails(null);
-      return;
-    }
-
     setDetailsLoading(true);
     setDetailsError(null);
 
@@ -92,8 +86,8 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
       setUserDetails(details);
       setAuthState((prev) => ({
         ...prev,
-        user: prev.user ? { ...prev.user, details } : prev.user,
-        error: prev.error,
+        user: prev.user ? { ...prev.user, details } : null,
+        error: null,
         isLoading: false
       }));
     } catch (error) {
@@ -140,7 +134,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
 
         // Check again after async operation
         if (abortController.signal.aborted) return;
-      } catch (error) {
+      } catch (_error) {
         // Check if component is still mounted before updating state
         if (abortController.signal.aborted) return;
 
@@ -270,9 +264,6 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const token = backendClient.getAuthToken();
-    if (!token) return;
-
     setAuthState((prev) => ({ ...prev, isLoading: true }));
     try {
       await loadUserDetails();

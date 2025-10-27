@@ -17,7 +17,13 @@ function getBackendBaseUrl(): string {
   }
   
   // In production, require the environment variable
-  if (import.meta.env.PROD) {
+  // Safely check for production environment with fallback to false
+  const isProd = typeof import.meta !== 'undefined' && 
+                 import.meta.env && 
+                 import.meta.env.PROD === true;
+  
+  // Only throw error in browser environment, not during build
+  if (isProd && typeof window !== 'undefined') {
     throw new Error('VITE_BACKEND_API_URL environment variable is required in production. Set it to your backend API URL (e.g., https://your-api.com/api)');
   }
   
