@@ -20,10 +20,16 @@ interface ToastProps {
 
 const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   const visibilityTimerRef = useRef<number | null>(null);
+  const onRemoveRef = useRef(onRemove);
+
+  // Update the ref whenever onRemove changes
+  useEffect(() => {
+    onRemoveRef.current = onRemove;
+  }, [onRemove]);
 
   const handleRemove = useCallback(() => {
-    onRemove(toast.id);
-  }, [onRemove, toast.id]);
+    onRemoveRef.current(toast.id);
+  }, [toast.id]);
 
   useEffect(() => {
     const duration = Math.max(1000, toast.duration ?? 5000); // Clamp duration to minimum 1 second
@@ -35,7 +41,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
         visibilityTimerRef.current = null;
       }
     };
-  }, [toast.id, toast.duration, handleRemove]);
+  }, [toast.id, toast.duration]);
 
   return (
     <motion.div

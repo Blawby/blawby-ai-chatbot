@@ -97,5 +97,16 @@ export function formatDate(date: string | Date): string {
 export function formatDateToYYYYMMDD(dateString: string | undefined | null): string | null {
   if (!dateString) return null;
   const date = new Date(dateString);
-  return date.toISOString().split('T')[0];
+  
+  // Check if the date is valid
+  if (isNaN(date.getTime())) {
+    return null;
+  }
+  
+  // Use local date components to avoid UTC conversion
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
 } 

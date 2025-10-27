@@ -27,8 +27,18 @@ export const ToastContent = ({
   onClose,
   className 
 }: ToastContentProps) => {
+  // Determine ARIA attributes based on toast type
+  const isUrgent = type === 'error' || type === 'warning';
+  const role = isUrgent ? 'alert' : 'status';
+  const ariaLive = isUrgent ? 'assertive' : 'polite';
+
   return (
-    <div className={cn('flex items-start', className)}>
+    <div 
+      className={cn('flex items-start', className)}
+      role={role}
+      aria-live={ariaLive}
+      aria-atomic="true"
+    >
       <ToastIcon type={type} />
       
       <div className="ml-3 flex-1">
