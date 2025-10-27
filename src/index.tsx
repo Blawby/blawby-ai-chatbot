@@ -594,12 +594,17 @@ function SettingsRoute() {
 }
 
 function Redirect() {
+	const { data: session, isPending } = useSession();
 	const { navigate } = useNavigation();
 
 	useEffect(() => {
-		// Always redirect to sign-in page for now (skip organization dependency)
-		navigate('/auth?mode=signin', true);
-	}, [navigate]);
+		if (isPending) return;
+		if (session?.user) {
+			navigate('/app/messages', true);
+		} else {
+			navigate('/auth?mode=signin', true);
+		}
+	}, [session?.user, isPending, navigate]);
 
 	return <FallbackLoader />;
 }

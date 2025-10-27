@@ -144,7 +144,9 @@ class BackendApiClient {
   }
 
   async getUserDetails(): Promise<UserDetails> {
+    console.log('🔍 backendClient.getUserDetails: Making request to /user-details/me');
     const response = await this.request<UserDetailsResponse>('/user-details/me');
+    console.log('✅ backendClient.getUserDetails: Response received:', response);
     return this.normalizeUserDetails(response.details);
   }
 

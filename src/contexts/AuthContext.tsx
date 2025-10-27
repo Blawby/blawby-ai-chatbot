@@ -58,13 +58,16 @@ const persistSession = (token: string | null, user: User | null) => {
 };
 
 const restoreStoredSession = (): { token: string | null; user: User | null } => {
-  // No longer restore from localStorage - rely on server-set httpOnly cookies
-  // Clean up any legacy keys if they exist
+  // Restore bearer token from localStorage for cross-origin authentication
   try {
-    localStorage.removeItem(STORAGE_TOKEN_KEY);
-    localStorage.removeItem(STORAGE_USER_KEY);
+    const bearerToken = localStorage.getItem('bearer_token');
+    if (bearerToken) {
+      // Set the token in backendClient so it can be used for API calls
+      backendClient.restoreAuthToken(bearerToken);
+      return { token: bearerToken, user: null }; // user will be loaded separately
+    }
   } catch (error) {
-    console.warn('Failed to clean up legacy auth session:', error);
+    console.warn('Failed to restore stored session:', error);
   }
 
   return { token: null, user: null };
@@ -78,11 +81,14 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   const initRef = useRef(false);
 
   const loadUserDetails = useCallback(async () => {
+    console.log('🔍 loadUserDetails: Starting to load user details...');
     setDetailsLoading(true);
     setDetailsError(null);
 
     try {
+      console.log('📤 loadUserDetails: Calling backendClient.getUserDetails()...');
       const details = await backendClient.getUserDetails();
+      console.log('✅ loadUserDetails: Successfully loaded user details:', details);
       setUserDetails(details);
       setAuthState((prev) => ({
         ...prev,
@@ -91,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         isLoading: false
       }));
     } catch (error) {
+      console.error('❌ loadUserDetails: Failed to load user details:', error);
       const message = error instanceof Error ? error.message : 'Failed to load user details';
       setDetailsError(message);
       setAuthState((prev) => ({
@@ -108,13 +115,13 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     if (initRef.current) return;
     initRef.current = true;
 
-    // Clean up any legacy localStorage keys
-    restoreStoredSession();
+    // Restore stored session (bearer token)
+    const { token, user } = restoreStoredSession();
 
-    // Start with loading state and fetch session from backend
+    // Start with loading state
     setAuthState({
-      user: null,
-      token: null,
+      user,
+      token,
       isLoading: true,
       error: null,
       session: null
@@ -123,14 +130,25 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     // Create AbortController for cleanup
     const abortController = new AbortController();
 
-    // Fetch session from backend using cookie-based authentication
+    // Fetch session from backend using bearer token authentication
     const fetchSessionFromBackend = async () => {
       try {
         // Check if component is still mounted before proceeding
         if (abortController.signal.aborted) return;
 
-        // Try to get user details which will validate the session
-        await loadUserDetails();
+        // If we have a token, try to get user details to validate the session
+        if (token) {
+          await loadUserDetails();
+        } else {
+          // No token available, user needs to sign in
+          setAuthState({
+            user: null,
+            token: null,
+            isLoading: false,
+            error: null,
+            session: null
+          });
+        }
 
         // Check again after async operation
         if (abortController.signal.aborted) return;
@@ -158,15 +176,24 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   }, [loadUserDetails]);
 
   const signin = useCallback(async (email: string, password: string) => {
+    console.log('🔐 signin: Starting sign-in process...');
     setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const result = await authClient.signIn.email({ email, password });
+      console.log('📤 signin: Calling backendClient.signin...');
+      const result = await backendClient.signin({ email, password });
+      console.log('✅ signin: Sign-in successful, result:', result);
+      
       const token = result.token || null;
       const user = result.user ?? null;
 
+      console.log('💾 signin: Storing token and setting auth state...');
       backendClient.restoreAuthToken(token);
-      // No longer persist to localStorage - rely on server-set httpOnly cookies
+      
+      // Store token in localStorage for persistence
+      if (token) {
+        localStorage.setItem('bearer_token', token);
+      }
 
       setAuthState({
         user,
@@ -176,10 +203,14 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         session: user ? { activeOrganizationId: null } : null
       });
 
+      console.log('📋 signin: Loading user details...');
       await loadUserDetails().catch(() => {
         // Details fetch failure already handled in helper
       });
+      
+      console.log('✅ signin: Sign-in process completed successfully');
     } catch (error) {
+      console.error('❌ signin: Sign-in failed:', error);
       const message = error instanceof Error ? error.message : 'Failed to sign in';
       setAuthState({
         user: null,
@@ -207,7 +238,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const result = await authClient.signUp.email({
+      const result = await backendClient.signup({
         email,
         password,
         name: fullName
@@ -218,8 +249,9 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
 
       if (token) {
         backendClient.restoreAuthToken(token);
+        // Store token in localStorage for persistence
+        localStorage.setItem('bearer_token', token);
       }
-      // No longer persist to localStorage - rely on server-set httpOnly cookies
 
       setAuthState({
         user,
