@@ -27,6 +27,7 @@ import WelcomeModal from './components/onboarding/WelcomeModal';
 import { BusinessWelcomeModal } from './components/onboarding/BusinessWelcomeModal';
 import { BusinessSetupModal } from './components/onboarding/BusinessSetupModal';
 import { CartPage } from './components/cart/CartPage';
+import HelloWorld from './components/HelloWorld';
 import { debounce } from './utils/debounce';
 import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
 import { useToastContext } from './contexts/ToastContext';
@@ -578,11 +579,7 @@ function RequireAuth({ children }: { children: ComponentChildren }) {
 }
 
 function MessagesRoute() {
-	return (
-		<RequireAuth>
-			<MessagesPage />
-		</RequireAuth>
-	);
+	return <HelloWorld />;
 }
 
 function SettingsRoute() {
@@ -594,17 +591,12 @@ function SettingsRoute() {
 }
 
 function Redirect() {
-	const { data: session, isPending } = useSession();
 	const { navigate } = useNavigation();
 
 	useEffect(() => {
-		if (isPending) return;
-		if (session?.user) {
-			navigate('/app/messages', true);
-		} else {
-			navigate('/auth?mode=signin', true);
-		}
-	}, [session?.user, isPending, navigate]);
+		// Always redirect to hello world immediately, don't wait for session
+		navigate('/hello', true);
+	}, [navigate]);
 
 	return <FallbackLoader />;
 }
@@ -626,6 +618,7 @@ function AppWithSEO() {
 				currentUrl={currentUrl}
 			/>
 			<Router>
+				<Route path="/hello" component={HelloWorld} />
 				<Route path="/auth" component={AuthPage} />
 				<Route path="/cart" component={CartPage} />
 				<Route path="/app/messages" component={MessagesRoute} />

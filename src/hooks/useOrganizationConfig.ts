@@ -123,11 +123,12 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
         return;
       }
 
-      // Set organizationId if available, otherwise default to blawby-ai
+      // Set organizationId if available, otherwise don't require any organization
       if (organizationIdParam) {
         setOrganizationId(organizationIdParam);
       } else {
-        setOrganizationId('blawby-ai');
+        // Don't set a default organization - let the app work without one
+        setOrganizationId('');
       }
     }
   }, []);
