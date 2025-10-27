@@ -8,56 +8,102 @@ export interface AuthenticatedUser {
   name: string;
   emailVerified: boolean;
   image?: string;
+  details?: Record<string, unknown> | null;
 }
 
 export interface AuthContext {
   user: AuthenticatedUser;
-  token: string;
+  sessionToken: string;
 }
 
 function getBackendBaseUrl(env: Env): string {
   if (env.BLAWBY_API_URL) {
     return env.BLAWBY_API_URL;
   }
-  return 'https://blawby-backend-production.up.railway.app/api';
+  return 'https://staging-api.blawby.com/api';
 }
 
-async function fetchAuthenticatedUser(token: string, env: Env): Promise<AuthenticatedUser> {
-  const response = await fetch(`${getBackendBaseUrl(env)}/auth/me`, {
+const SESSION_COOKIE_NAME = 'better-auth.session_token';
+
+function extractSessionToken(request: Request): string | null {
+  const cookieHeader = request.headers.get('Cookie');
+  if (!cookieHeader) return null;
+
+  return cookieHeader
+    .split(';')
+    .map(part => part.trim())
+    .find(part => part.startsWith(`${SESSION_COOKIE_NAME}=`))
+    ?.split('=')[1] ?? null;
+}
+
+async function fetchJson<T>(url: string, headers: HeadersInit): Promise<T> {
+  const response = await fetch(url, {
     method: 'GET',
-    headers: {
-      Authorization: token,
-      'Content-Type': 'application/json'
-    }
+    headers
   });
 
+  if (response.status === 401) {
+    throw HttpErrors.unauthorized("Authentication required");
+  }
+
   if (!response.ok) {
+    throw new HttpError(response.status, `Upstream auth request failed (${response.status})`);
+  }
+
+  return await response.json() as T;
+}
+
+async function fetchAuthenticatedUser(sessionToken: string, env: Env): Promise<AuthenticatedUser> {
+  const baseUrl = getBackendBaseUrl(env);
+  const cookieHeader = `${SESSION_COOKIE_NAME}=${sessionToken}`;
+
+  type SessionResponse = { user?: AuthenticatedUser };
+  const session = await fetchJson<SessionResponse>(`${baseUrl}/auth/get-session`, {
+    Cookie: cookieHeader,
+    Accept: 'application/json'
+  });
+
+  if (!session.user) {
     throw HttpErrors.unauthorized("Authentication required");
   }
 
-  const payload = await response.json() as { user?: AuthenticatedUser };
-  if (!payload.user) {
-    throw HttpErrors.unauthorized("Authentication required");
+  type DetailsResponse = { details?: Record<string, unknown> | null };
+  let details: Record<string, unknown> | null = null;
+
+  try {
+    const detailPayload = await fetchJson<DetailsResponse>(`${baseUrl}/user-details/me`, {
+      Cookie: cookieHeader,
+      Accept: 'application/json'
+    });
+    details = detailPayload.details ?? null;
+  } catch (error) {
+    // If details fetch fails with unauthorized, rethrow; otherwise log and continue
+    if (error instanceof HttpError && error.status === 401) {
+      throw error;
+    }
+    console.warn('Failed to fetch user details for auth context:', error);
   }
 
-  return payload.user;
+  return {
+    ...session.user,
+    details
+  };
 }
 
 export async function requireAuth(
   request: Request,
   env: Env
 ): Promise<AuthContext> {
-  const authHeader = request.headers.get('Authorization');
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const sessionToken = extractSessionToken(request);
+  if (!sessionToken) {
     throw HttpErrors.unauthorized("Authentication required");
   }
 
-  const user = await fetchAuthenticatedUser(authHeader, env);
+  const user = await fetchAuthenticatedUser(sessionToken, env);
 
   return {
     user,
-    token: authHeader.replace(/^Bearer\s+/i, '')
+    sessionToken
   };
 }
 

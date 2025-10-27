@@ -1,7 +1,8 @@
-import { createContext, useContext } from 'preact';
+import { createContext } from 'preact';
 import { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import type { User } from '../types/backend';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { User, UserDetails } from '../types/backend';
+import { authClient } from '../lib/authClient';
 import { backendClient } from '../lib/backendClient';
 
 interface AuthState {
@@ -9,12 +10,15 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   error: string | null;
+  session: { activeOrganizationId: string | null } | null;
 }
 
 interface AuthContextType {
   session: {
     data: AuthState;
     isPending: boolean;
+    error: string | null;
+    refetch: () => Promise<void>;
   };
   activeOrg: {
     data: null;
@@ -26,136 +30,269 @@ interface AuthContextType {
   refreshSession: () => Promise<void>;
 }
 
-const defaultState: AuthState = {
-  user: null,
-  token: null,
-  isLoading: true,
-  error: null
-};
+const STORAGE_TOKEN_KEY = 'blawby.auth.token';
+const STORAGE_USER_KEY = 'blawby.auth.user';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const createInitialState = (): AuthState => ({
+  user: null,
+  token: null,
+  isLoading: true,
+  error: null,
+  session: null
+});
+
+const persistSession = (token: string | null, user: User | null) => {
+  try {
+    if (token) {
+      localStorage.setItem(STORAGE_TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(STORAGE_TOKEN_KEY);
+    }
+
+    if (user) {
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_USER_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to persist auth session:', error);
+  }
+};
+
+const restoreStoredSession = (): { token: string | null; user: User | null } => {
+  let storedToken: string | null = null;
+  let storedUser: User | null = null;
+
+  try {
+    storedToken = localStorage.getItem(STORAGE_TOKEN_KEY);
+    const userRaw = localStorage.getItem(STORAGE_USER_KEY);
+    if (userRaw) {
+      storedUser = JSON.parse(userRaw) as User;
+    }
+  } catch (error) {
+    console.warn('Failed to restore stored auth session:', error);
+  }
+
+  return { token: storedToken, user: storedUser };
+};
+
 export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
-  const [authState, setAuthState] = useState<AuthState>(defaultState);
+  const [authState, setAuthState] = useState<AuthState>(createInitialState);
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const initRef = useRef(false);
 
-  const hydrateSession = useCallback(async () => {
-    const existingToken = backendClient.getToken();
-
-    if (!existingToken) {
-      setAuthState({
-        user: null,
-        token: null,
-        isLoading: false,
-        error: null
-      });
+  const loadUserDetails = useCallback(async () => {
+    const token = backendClient.getAuthToken();
+    if (!token) {
+      setUserDetails(null);
       return;
     }
 
-    setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+    setDetailsLoading(true);
+    setDetailsError(null);
 
     try {
-      const session = await backendClient.getSession();
-      setAuthState({
-        user: session.user,
-        token: session.token ?? existingToken,
-        isLoading: false,
-        error: null
-      });
+      const details = await backendClient.getUserDetails();
+      setUserDetails(details);
+      setAuthState((prev) => ({
+        ...prev,
+        user: prev.user ? { ...prev.user, details } : prev.user,
+        error: prev.error,
+        isLoading: false
+      }));
     } catch (error) {
-      console.error('Failed to hydrate session:', error);
-      backendClient.setToken(null);
-      setAuthState({
-        user: null,
-        token: null,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to load session'
-      });
+      const message = error instanceof Error ? error.message : 'Failed to load user details';
+      setDetailsError(message);
+      setAuthState((prev) => ({
+        ...prev,
+        error: message,
+        isLoading: false
+      }));
+      throw error;
+    } finally {
+      setDetailsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    hydrateSession().catch((error) => {
-      console.error('Initial session hydration failed:', error);
+    if (initRef.current) return;
+    initRef.current = true;
+
+    const { token, user } = restoreStoredSession();
+    if (token) {
+      backendClient.restoreAuthToken(token);
+    }
+
+    setAuthState({
+      user,
+      token,
+      isLoading: Boolean(token),
+      error: null,
+      session: user ? { activeOrganizationId: null } : null
     });
-  }, [hydrateSession]);
+
+    if (token) {
+      void loadUserDetails().catch(() => {
+        // errors handled inside loadUserDetails
+      });
+    } else {
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: false
+      }));
+    }
+  }, [loadUserDetails]);
 
   const signin = useCallback(async (email: string, password: string) => {
-    setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+    setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await backendClient.signin({ email, password });
-      backendClient.setToken(response.token ?? null);
+      const result = await authClient.signIn.email({ email, password });
+      const token = result.token || null;
+      const user = result.user ?? null;
+
+      backendClient.restoreAuthToken(token);
+      persistSession(token, user);
+
       setAuthState({
-        user: response.user,
-        token: response.token ?? null,
+        user,
+        token,
         isLoading: false,
-        error: null
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Sign in failed';
-      setAuthState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: message
-      }));
-      throw error;
-    }
-  }, []);
-
-  const signup = useCallback(async (email: string, password: string, firstName?: string, lastName?: string, name?: string) => {
-    setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
-
-    try {
-      const response = await backendClient.signup({
-        email,
-        password,
-        firstName,
-        lastName,
-        name
+        error: null,
+        session: user ? { activeOrganizationId: null } : null
       });
 
-      backendClient.setToken(response.token ?? null);
-      setAuthState({
-        user: response.user,
-        token: response.token ?? null,
-        isLoading: false,
-        error: null
+      await loadUserDetails().catch(() => {
+        // Details fetch failure already handled in helper
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Sign up failed';
-      setAuthState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: message
-      }));
-      throw error;
-    }
-  }, []);
-
-  const signout = useCallback(async () => {
-    try {
-      await backendClient.signout();
-    } catch (error) {
-      console.warn('Sign out request failed, clearing local session anyway:', error);
-    } finally {
-      backendClient.setToken(null);
+      const message = error instanceof Error ? error.message : 'Failed to sign in';
       setAuthState({
         user: null,
         token: null,
         isLoading: false,
-        error: null
+        error: message,
+        session: null
+      });
+      persistSession(null, null);
+      backendClient.restoreAuthToken(null);
+      throw new Error(message);
+    }
+  }, [loadUserDetails]);
+
+  const signup = useCallback(async (email: string, password: string, firstName?: string, lastName?: string, name?: string) => {
+    let fullName = name;
+    if (!fullName && firstName && lastName) {
+      fullName = `${firstName} ${lastName}`;
+    } else if (!fullName && firstName) {
+      fullName = firstName;
+    } else if (!fullName) {
+      fullName = email.split('@')[0] || 'User';
+    }
+
+    setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const result = await authClient.signUp.email({
+        email,
+        password,
+        name: fullName
+      });
+
+      const token = result.token || null;
+      const user = result.user ?? null;
+
+      if (token) {
+        backendClient.restoreAuthToken(token);
+      }
+      if (token || user) {
+        persistSession(token, user);
+      }
+
+      setAuthState({
+        user,
+        token,
+        isLoading: false,
+        error: null,
+        session: user ? { activeOrganizationId: null } : null
+      });
+
+      if (token) {
+        await loadUserDetails().catch(() => {});
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to sign up';
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: message
+      }));
+      throw new Error(message);
+    }
+  }, [loadUserDetails]);
+
+  const signout = useCallback(async () => {
+    try {
+      await authClient.signOut();
+    } catch (error) {
+      console.warn('Sign out request failed:', error);
+    } finally {
+      persistSession(null, null);
+      backendClient.restoreAuthToken(null);
+      setUserDetails(null);
+      setDetailsError(null);
+      setAuthState({
+        user: null,
+        token: null,
+        isLoading: false,
+        error: null,
+        session: null
       });
     }
   }, []);
 
   const refreshSession = useCallback(async () => {
-    await hydrateSession();
-  }, [hydrateSession]);
+    const token = backendClient.getAuthToken();
+    if (!token) return;
+
+    setAuthState((prev) => ({ ...prev, isLoading: true }));
+    try {
+      await loadUserDetails();
+    } finally {
+      setAuthState((prev) => ({ ...prev, isLoading: false }));
+    }
+  }, [loadUserDetails]);
+
+  const combinedState = useMemo<AuthState>(() => {
+    const combinedUser = authState.user
+      ? {
+          ...authState.user,
+          details: userDetails ?? authState.user.details ?? null
+        }
+      : null;
+
+    const combinedError = authState.error ?? detailsError;
+    const isPending = authState.isLoading || detailsLoading;
+
+    return {
+      user: combinedUser,
+      token: authState.token,
+      isLoading: isPending,
+      error: combinedError,
+      session: combinedUser ? authState.session ?? { activeOrganizationId: null } : null
+    };
+  }, [authState, userDetails, detailsError, detailsLoading]);
 
   const contextValue = useMemo<AuthContextType>(() => ({
     session: {
-      data: authState,
-      isPending: authState.isLoading
+      data: combinedState,
+      isPending: combinedState.isLoading,
+      error: combinedState.error,
+      refetch: refreshSession
     },
     activeOrg: {
       data: null,
@@ -165,7 +302,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     signup,
     signout,
     refreshSession
-  }), [authState, signin, signup, signout, refreshSession]);
+  }), [combinedState, refreshSession, signin, signup, signout]);
 
   return (
     <AuthContext.Provider value={contextValue}>

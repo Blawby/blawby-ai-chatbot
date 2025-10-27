@@ -54,7 +54,6 @@ export const AccountPage = ({
   const clearLocalAuthState = useCallback(() => {
     try {
       localStorage.removeItem('onboardingCompleted');
-      localStorage.removeItem('onboardingCheckDone');
     } catch (error) {
       console.warn('Failed to clear onboarding flags after account deletion:', error);
     }

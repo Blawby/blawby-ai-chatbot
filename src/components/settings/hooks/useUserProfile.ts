@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import type { ExtendedUser } from '../../../types/user';
 import { useAuth, useSession } from '../../../contexts/AuthContext';
+import { backendClient } from '../../../lib/backendClient';
+import type { UpdateUserDetailsPayload } from '../../../types/backend';
 
 // Type guard to validate Better Auth user has required fields
 function _isValidBetterAuthUser(user: unknown): user is ExtendedUser {
@@ -33,6 +35,8 @@ function _mapBetterAuthUserToProfile(authUser: ExtendedUser): UserProfile {
     ? authUser.updatedAt.toISOString() 
     : authUser.updatedAt || new Date().toISOString();
 
+  const details = authUser.details ?? {};
+
   return {
     // Required fields from Better Auth
     id: authUser.id,
@@ -45,17 +49,19 @@ function _mapBetterAuthUserToProfile(authUser: ExtendedUser): UserProfile {
     image: authUser.image || null,
     organizationId: authUser.organizationId || null,
     role: authUser.role || null,
-    phone: authUser.phone || null,
+    phone: details.phone ?? authUser.phone ?? null,
     
     // Profile Information - defaults for fields not in Better Auth
     bio: null,
-    addressStreet: null,
-    addressCity: null,
-    addressState: null,
-    addressZip: null,
-    addressCountry: null,
-    secondaryPhone: null,
+    addressStreet: details.addressLine1 ?? null,
+    addressCity: details.city ?? null,
+    addressState: details.state ?? null,
+    addressZip: details.postalCode ?? null,
+    addressCountry: details.country ?? null,
+    secondaryPhone: authUser.secondaryPhone || null,
     preferredContactMethod: null,
+    dob: details.dob ?? null,
+    productUsage: details.productUsage ?? [],
     
     // App Preferences - sensible defaults
     theme: 'system',
@@ -86,6 +92,8 @@ export interface UserProfile {
   organizationId?: string | null;
   role?: string | null;
   phone?: string | null;
+  dob?: string | null;
+  productUsage?: string[];
   // Profile Information
   bio?: string | null;
   addressStreet?: string | null;
@@ -119,6 +127,8 @@ export interface UserProfileInput {
   // Profile Information
   name?: string;
   bio?: string;
+  phone?: string;
+  dob?: string;
   addressStreet?: string;
   addressCity?: string;
   addressState?: string;
@@ -126,6 +136,7 @@ export interface UserProfileInput {
   addressCountry?: string;
   secondaryPhone?: string;
   preferredContactMethod?: string;
+  productUsage?: string[];
   // App Preferences
   theme?: string;
   accentColor?: string;
@@ -166,11 +177,46 @@ export const useUserProfile = (): UseUserProfileReturn => {
     try {
       setError(null);
 
-      // For now, just update the local state
-      // TODO: Implement proper profile updates using Better Auth's built-in endpoints
-      // TODO: Integrate PIIEncryptionService to encrypt PII fields (secondaryPhone, addressStreet, etc.)
-      // TODO: Add PII access audit logging via PIIEncryptionService.logPIIAccess()
-      setProfile(prev => prev ? { ...prev, ...data } : null);
+      const payload: UpdateUserDetailsPayload = {};
+
+      if ('phone' in data || 'secondaryPhone' in data) {
+        payload.phone = data.phone ?? data.secondaryPhone ?? null;
+      }
+
+      if ('dob' in data) {
+        payload.dob = data.dob ?? null;
+      }
+
+      if ('productUsage' in data) {
+        payload.productUsage = data.productUsage ?? [];
+      }
+
+      if ('addressStreet' in data) {
+        payload.addressLine1 = data.addressStreet ?? null;
+      }
+
+      if ('addressCity' in data) {
+        payload.city = data.addressCity ?? null;
+      }
+
+      if ('addressState' in data) {
+        payload.state = data.addressState ?? null;
+      }
+
+      if ('addressZip' in data) {
+        payload.postalCode = data.addressZip ?? null;
+      }
+
+      if ('addressCountry' in data) {
+        payload.country = data.addressCountry ?? null;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        return;
+      }
+
+      await backendClient.updateUserDetails(payload);
+      await refreshSession();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
       setError(errorMessage);

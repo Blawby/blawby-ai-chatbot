@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import { useTranslation } from '@/i18n/hooks';
 import { UserIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import OnboardingModal from './onboarding/OnboardingModal';
@@ -7,9 +7,10 @@ import { Logo } from './ui/Logo';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from './ui/form';
 import { Input, EmailInput, PasswordInput } from './ui/input';
 import { handleError, extractErrorMessage } from '../utils/errorHandler';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, useSession } from '../contexts/AuthContext';
 import { features } from '../config/features';
 import { backendClient } from '../lib/backendClient';
+import { useNavigation } from '../utils/navigation';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -19,7 +20,9 @@ interface AuthPageProps {
 
 const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPageProps) => {
   const { t } = useTranslation('auth');
-  const { signin, signup } = useAuth();
+  const { signin, signup, refreshSession } = useAuth();
+  const { data: sessionState, isPending: sessionPending } = useSession();
+  const { navigate, navigateToHome } = useNavigation();
   const [isSignUp, setIsSignUp] = useState(mode === 'signup');
   const [formData, setFormData] = useState({
     firstName: '',
@@ -32,6 +35,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingHandled, setOnboardingHandled] = useState(false);
+  const lastUserIdRef = useRef<string | null>(null);
 
   // Check URL params for mode and onboarding
   useEffect(() => {
@@ -45,12 +50,63 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     
     // Show onboarding if redirected here for OAuth users
     if (needsOnboarding) {
+      setOnboardingHandled(false);
       setShowOnboarding(true);
     }
   }, []);
 
+  useEffect(() => {
+    const currentUserId = sessionState.user?.id ?? null;
+    if (currentUserId === lastUserIdRef.current) {
+      return;
+    }
+
+    lastUserIdRef.current = currentUserId;
+
+    if (!currentUserId) {
+      setShowOnboarding(false);
+      setOnboardingHandled(false);
+      return;
+    }
+
+    setOnboardingHandled(false);
+  }, [sessionState.user?.id]);
+
+  const userDetails = sessionState.user?.details ?? null;
+
+  const needsOnboarding = useMemo(() => {
+    if (!sessionState.user) {
+      return false;
+    }
+    if (sessionState.user.onboardingCompleted) {
+      return false;
+    }
+    if (!userDetails) {
+      return true;
+    }
+    const hasDob = typeof userDetails.dob === 'string' && userDetails.dob.trim() !== '';
+    const hasUseCase = Array.isArray(userDetails.productUsage) && userDetails.productUsage.length > 0;
+    return !(hasDob && hasUseCase);
+  }, [sessionState.user, userDetails]);
+
+  useEffect(() => {
+    if (sessionPending || sessionState.isLoading || !sessionState.user) {
+      return;
+    }
+
+    if (needsOnboarding && !onboardingHandled) {
+      setShowOnboarding(true);
+      return;
+    }
+
+    if (!needsOnboarding && !showOnboarding && !onboardingHandled) {
+      setOnboardingHandled(true);
+      void handleRedirect();
+    }
+  }, [sessionPending, sessionState.isLoading, sessionState.user, needsOnboarding, onboardingHandled, showOnboarding]);
+
   // Helper function to handle redirect with proper onSuccess awaiting
-  const handleRedirect = async () => {
+  const handleRedirect = async (targetPath = '/app/messages') => {
     if (onSuccess) {
       try {
         await onSuccess();
@@ -76,10 +132,10 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     
     if (delay > 0) {
       setTimeout(() => {
-        window.location.href = '/';
+        navigate(targetPath, true);
       }, delay);
     } else {
-      window.location.href = '/';
+      navigate(targetPath, true);
     }
   };
 
@@ -104,21 +160,16 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
               formData.lastName
             );
 
+            try {
+              await signin(formData.email, formData.password);
+            } catch (signinError) {
+              console.warn('Failed to automatically sign in after signup:', signinError);
+            }
+
         setMessage(t('messages.accountCreated'));
-        
-        // Set onboarding completion flag to prevent redirect loop
-        try {
-          localStorage.setItem('onboardingCompleted', 'true');
-          localStorage.setItem('onboardingCheckDone', 'true');
-        } catch (error) {
-          console.warn('Failed to set onboarding flags:', error);
-        }
-        
-        // Skip onboarding for now (onboarding modal needs to be updated for new backend API)
-        // setShowOnboarding(true);
-        
-        // Redirect to home page after successful signup
-        await handleRedirect();
+
+        setOnboardingHandled(false);
+        setShowOnboarding(true);
       } else {
         // Use backend API for sign-in
         await signin(formData.email, formData.password);
@@ -172,12 +223,11 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
 
   const handleBackToHome = () => {
-    window.location.href = '/';
+    navigateToHome();
   };
 
   const handleOnboardingComplete = async (data: OnboardingData) => {
     try {
-      // Development-only debug log with redacted sensitive data
       if (import.meta.env.DEV) {
         const _redactedData = {
           personalInfo: {
@@ -195,65 +245,41 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         };
         console.log('📝 Onboarding completed with redacted data:', _redactedData);
       }
-      
-      // Submit onboarding data to backend
-      const response = await backendClient.submitOnboarding(data);
-      
-      if (response.success) {
-        if (import.meta.env.DEV) {
-          console.log('✅ Onboarding data saved successfully:', response.data);
+
+      const dobValue = data.personalInfo.birthday;
+      let normalizedDob: string | null = null;
+      if (dobValue) {
+        const parsedDate = new Date(dobValue);
+        if (!Number.isNaN(parsedDate.getTime())) {
+          normalizedDob = parsedDate.toISOString().split('T')[0];
         }
-        
-        // Persist onboarding completion flag before redirecting
-        localStorage.setItem('onboardingCompleted', 'true');
-        
-        // Clear the onboarding check flag since user completed onboarding
-        try {
-          localStorage.removeItem('onboardingCheckDone');
-        } catch (_error) {
-          // Handle localStorage failures gracefully
-        }
-        
-        // Close onboarding modal and redirect to main app
-        setShowOnboarding(false);
-        
-        // Redirect to main app where the welcome modal will show, waiting for onSuccess if provided
-        await handleRedirect();
-      } else {
-        throw new Error('Failed to save onboarding data');
       }
-    } catch (error) {
-      console.error('❌ Failed to submit onboarding data:', error);
-      
-      // Show error to user but still allow them to continue
-      // This ensures the onboarding flow doesn't break if the backend is unavailable
-      setError('Failed to save your onboarding preferences. You can update them later in settings.');
-      
-      // Still persist local completion flag and redirect
-      localStorage.setItem('onboardingCompleted', 'true');
-      
-      try {
-        localStorage.removeItem('onboardingCheckDone');
-      } catch (_error) {
-        // Handle localStorage failures gracefully
-      }
-      
+
+      await backendClient.updateUserDetails({
+        dob: normalizedDob,
+        productUsage: data.useCase.selectedUseCases ?? []
+      });
+
+      await refreshSession().catch((refreshError) => {
+        console.warn('Failed to refresh session after onboarding:', refreshError);
+      });
+
+      setOnboardingHandled(true);
       setShowOnboarding(false);
-      await handleRedirect();
+
+      await handleRedirect('/app/messages?welcome=1');
+    } catch (err) {
+      console.error('❌ Failed to submit onboarding data:', err);
+      setError('Failed to save your onboarding preferences. You can update them later in settings.');
+      setOnboardingHandled(true);
+      setShowOnboarding(false);
+      await handleRedirect('/app/messages');
     }
   };
 
   const handleOnboardingClose = async () => {
+    setOnboardingHandled(true);
     setShowOnboarding(false);
-    
-    // Clear the onboarding check flag since user skipped onboarding
-    try {
-      localStorage.removeItem('onboardingCheckDone');
-    } catch (_error) {
-      // Handle localStorage failures gracefully
-    }
-    
-    // Redirect to home page if onboarding is closed, waiting for onSuccess if provided
     await handleRedirect();
   };
 

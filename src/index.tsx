@@ -141,57 +141,26 @@ function MessagesPage() {
 
 	// Check if we should show welcome modal (after onboarding completion)
 	useEffect(() => {
-		// Check if user just completed onboarding
-		try {
-			const onboardingCompleted = localStorage.getItem('onboardingCompleted');
-			if (onboardingCompleted === 'true') {
-				setShowWelcomeModal(true);
-				// Don't remove the flag here - let the completion handler do it
-				// This prevents permanent loss if the modal fails to render
-			}
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to check onboarding completion status:', _error);
-			}
+		if (typeof window === 'undefined') {
+			return;
 		}
-	}, []);
 
-	// Check if OAuth user needs onboarding (one-time check after auth)
-	useEffect(() => {
-		if (session?.user && !sessionIsPending) {
-			// Only check if this is a fresh authentication (no localStorage flag set)
-			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
-			const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
-			
-			// If user hasn't completed onboarding and we haven't checked yet
-			if (!hasOnboardingFlag && !hasOnboardingCheckFlag) {
-				const userWithOnboarding = session.user as typeof session.user & { onboardingCompleted?: boolean };
-				const needsOnboarding = userWithOnboarding.onboardingCompleted === false || 
-										userWithOnboarding.onboardingCompleted === undefined;
-				
-				if (needsOnboarding) {
-					// Set flag to prevent repeated checks
-					try {
-						localStorage.setItem('onboardingCheckDone', 'true');
-					} catch (_error) {
-						// Handle localStorage failures gracefully
-					}
-					
-					// Redirect to auth page with onboarding
-					window.location.href = '/auth?mode=signin&onboarding=true';
-				} else {
-					// User has completed onboarding, set the flag
-					try {
-						localStorage.setItem('onboardingCheckDone', 'true');
-					} catch (_error) {
-						// Handle localStorage failures gracefully
-					}
-				}
-			}
+		const queryString = location.query || window.location.search;
+		if (!queryString) {
+			return;
 		}
-	}, [session?.user, sessionIsPending, session]);
+
+		const params = new URLSearchParams(queryString);
+
+		if (params.get('welcome') === '1') {
+			setShowWelcomeModal(true);
+
+			params.delete('welcome');
+			const nextQuery = params.toString();
+			const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+			window.history.replaceState({}, '', nextUrl);
+		}
+	}, [location.query]);
 
 	// Check if we should show business setup modal (after tier upgrade)
 	useEffect(() => {
@@ -362,33 +331,10 @@ function MessagesPage() {
 	// Handle welcome modal
 	const handleWelcomeComplete = () => {
 		setShowWelcomeModal(false);
-		
-		// Remove the onboarding completion flag now that the welcome modal has been shown
-		try {
-			localStorage.removeItem('onboardingCompleted');
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to remove onboarding completion flag:', _error);
-			}
-		}
 	};
 
 	const handleWelcomeClose = () => {
 		setShowWelcomeModal(false);
-		
-		// Remove the onboarding completion flag even if user closes without completing
-		// This prevents the welcome modal from showing again
-		try {
-			localStorage.removeItem('onboardingCompleted');
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to remove onboarding completion flag:', _error);
-			}
-		}
 	};
 
 	const handleBusinessWelcomeClose = () => {

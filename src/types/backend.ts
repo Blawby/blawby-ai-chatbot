@@ -21,6 +21,9 @@ export interface User {
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
+  onboardingCompleted?: boolean;
+  onboardingData?: Record<string, unknown> | null;
+  details?: UserDetails | null;
 }
 
 // Blawby Backend API doesn't use sessions, only JWT tokens
@@ -28,6 +31,42 @@ export interface AuthResponse {
   token: string;
   user: User;
 }
+
+export interface UserDetails {
+  phone?: string | null;
+  dob?: string | null;
+  productUsage?: string[] | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  stripeCustomerId?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface UserDetailsResponse {
+  details: {
+    id?: string;
+    user_id?: string;
+    stripe_customer_id?: string | null;
+    phone?: string | null;
+    dob?: string | null;
+    product_usage?: string[] | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  };
+}
+
+export interface UpdateUserDetailsPayload extends Partial<UserDetails> {}
 
 // Practice API Types
 export interface CreatePracticeData {

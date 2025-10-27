@@ -138,8 +138,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
     <div className="w-full">
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-          {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {displayLabel}{required && '*'}
         </label>
       )}
       

@@ -47,5 +47,9 @@
 	"include": [
 		"node_modules/vite/client.d.ts",
 		"**/*"
+	],
+	"exclude": [
+		"dist",
+		"node_modules"
 	]
 }

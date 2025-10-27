@@ -17,9 +17,7 @@ function getBackendBaseUrl(): string {
     return import.meta.env.VITE_BACKEND_API_URL;
   }
   
-  // Use Railway backend for both development and production
-  // Include /api prefix to match backend routing
-  return 'https://blawby-backend-production.up.railway.app/api';
+  return 'https://staging-api.blawby.com/api';
 }
 
 const BACKEND_API_CONFIG = {

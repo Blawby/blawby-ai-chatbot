@@ -232,6 +232,7 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
         <button
           onClick={handleLogoutClick}
           className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          data-testid="user-signout-button"
         >
           <ArrowRightOnRectangleIcon className="w-4 h-4" />
           {t('profile:menu.signOut')}
@@ -302,6 +303,7 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
             className="w-8 h-8 rounded-full bg-gray-600 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mx-auto"
             title={user.name}
             aria-label={`User profile for ${user.name}`}
+            data-testid="user-profile-button"
           >
             {renderAvatar()}
           </button>
@@ -318,6 +320,7 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
               onClick={handleProfileClick}
               className="flex items-center gap-3 flex-1 text-left hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg p-2 transition-colors"
               aria-label={t('profile:aria.userProfile', { name: user.name })}
+              data-testid="user-profile-button"
             >
               <div className="w-8 h-8 rounded-full bg-gray-600 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
                 {renderAvatar()}

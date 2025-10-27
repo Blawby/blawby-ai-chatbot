@@ -7,8 +7,9 @@ This application integrates with the external **Blawby Backend API** for user au
 ## API Endpoints
 
 ### Base URL
-- **Production**: `https://blawby-backend-production.up.railway.app/api`
+- **Production**: `https://staging-api.blawby.com/api` (Updated: Railway backend is down)
 - **Development**: Can be overridden with `VITE_BACKEND_API_URL` environment variable
+- **Legacy Railway**: `https://blawby-backend-production.up.railway.app/api` (Currently returning 404)
 
 ### Authentication Endpoints
 
@@ -39,6 +40,12 @@ Content-Type: application/json
 }
 ```
 
+**Headers Set:**
+- `set-auth-token`: JWT token (for backwards compatibility)
+- `set-cookie`: `better-auth.session_token=<token>; Max-Age=86400; Path=/; HttpOnly; SameSite=Lax`
+
+**Note:** The backend uses Better Auth and sets an HTTP-only session cookie in addition to returning the JWT token. The cookie enables cookie-based session management.
+
 #### Sign In
 ```http
 POST /auth/sign-in/email
@@ -65,9 +72,56 @@ Content-Type: application/json
 }
 ```
 
-#### Get Current User
+**Headers Set:**
+- `set-auth-token`: JWT token (for backwards compatibility)
+- `set-cookie`: `better-auth.session_token=<token>; Max-Age=86400; Path=/; HttpOnly; SameSite=Lax`
+
+**Note:** The backend uses Better Auth and sets an HTTP-only session cookie in addition to returning the JWT token.
+
+### Internal Endpoints (Used by Better Auth Library)
+
+> **⚠️ Note for Developers**: The following endpoint is called automatically by the Better Auth client library. You do not need to call it directly in your application code.
+
+#### Get Session (Internal - Better Auth Library)
 ```http
-GET /auth/me
+GET /auth/get-session
+Cookie: better-auth.session_token=<session_token>
+```
+
+**Response:**
+```json
+{
+  "session": {
+    "id": "session_id",
+    "userId": "user_id",
+    "token": "session_token",
+    "expiresAt": "2024-01-02T00:00:00Z",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z",
+    "ipAddress": "192.168.1.1",
+    "userAgent": "Mozilla/5.0...",
+    "activeOrganizationId": null
+  },
+  "user": {
+    "id": "user_id",
+    "email": "user@example.com",
+    "name": "User Name",
+    "emailVerified": false,
+    "image": null,
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+**Headers returned:**
+- `set-auth-jwt`: JWT token for Bearer auth (optional, for backwards compatibility)
+
+**Note:** This endpoint is used internally by the Better Auth client library to validate sessions. The frontend uses `authClient.useSession()` hook instead of calling this endpoint directly.
+
+#### Get Current User Details
+```http
+GET /user-details/me
 Authorization: Bearer <jwt_token>
 ```
 
@@ -81,6 +135,11 @@ Authorization: Bearer <jwt_token>
     "emailVerified": true,
     "createdAt": "2024-01-01T00:00:00Z",
     "updatedAt": "2024-01-01T00:00:00Z"
+  },
+  "details": {
+    "phone": "+1234567890",
+    "dob": "1990-01-15",
+    "productUsage": ["others"]
   }
 }
 ```
@@ -95,6 +154,57 @@ Authorization: Bearer <jwt_token>
 ```json
 {
   "success": true
+}
+```
+
+### User Details Management
+
+#### Get User Details
+```http
+GET /user-details/me
+Authorization: Bearer <jwt_token>
+```
+
+**Response:**
+```json
+{
+  "details": {
+    "id": "7b5dd9fe-a64d-4142-a4c1-e0aa56b20c65",
+    "user_id": "63969657-abe3-4a86-aa89-01ae437d2f68",
+    "stripe_customer_id": "cus_TItnnqvYZTGXUW",
+    "phone": "+1234567890",
+    "dob": "1990-01-15 00:00:00",
+    "product_usage": ["others"],
+    "created_at": "2025-10-26T00:39:54.764Z",
+    "updated_at": "2025-10-26T02:37:02.599Z"
+  }
+}
+```
+
+#### Update User Details
+```http
+PUT /user-details/me
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "phone": "+1234567890",
+  "dob": "1990-01-15",
+  "productUsage": ["others"]
+}
+```
+
+**Response:**
+```json
+{
+  "id": "7b5dd9fe-a64d-4142-a4c1-e0aa56b20c65",
+  "user_id": "63969657-abe3-4a86-aa89-01ae437d2f68",
+  "stripe_customer_id": "cus_TItnnqvYZTGXUW",
+  "phone": "+1234567890",
+  "dob": "1990-01-15 00:00:00",
+  "product_usage": ["others"],
+  "created_at": "2025-10-26T00:39:54.764Z",
+  "updated_at": "2025-10-26T02:37:02.599Z"
 }
 ```
 
@@ -259,13 +369,17 @@ interface Practice {
 
 ## Authentication Flow
 
-1. **User Registration/Login**: Frontend sends credentials to `/auth/sign-up/email` or `/auth/sign-in/email`
-2. **Token Storage**: JWT token is stored securely in IndexedDB
-3. **API Requests**: All subsequent requests include `Authorization: Bearer <token>` header
-4. **Token Validation**: Backend validates JWT on each request
-5. **Session Management**: Tokens expire after 24 hours, requiring re-authentication
-6. **Token Refresh**: When tokens expire, users are automatically redirected to login page
-7. **Automatic Refresh**: Frontend checks token expiry before making requests and refreshes session when needed
+1. **Client Library**: Frontend uses `createAuthClient` from Better Auth (see `src/lib/authClient.ts`) with `baseURL` pointing to `/api/auth`.
+2. **User Registration/Login**: UI calls `authClient.signUp.email` and `authClient.signIn.email` helpers. The Better Auth client manages CSRF and redirects.
+3. **Session Cookie**: Backend automatically sets `better-auth.session_token` (HttpOnly, SameSite=Lax) on successful auth. No JWT or local storage token management required.
+4. **Automatic Session Management**:
+   - `authClient.useSession()` provides reactive session data within `AuthContext` - **no manual session checking needed**
+   - `AuthContext` fetches `/user-details/me` after session hydration for enriched profile details
+   - Sessions expire after 24 hours; the Better Auth client automatically handles session validation
+   - **Important**: You don't need to call `/auth/get-session` - this is handled internally by the Better Auth library
+5. **API Requests**: SPA calls backend APIs (e.g., practices, onboarding) with `credentials: 'include'` so the Better Auth cookie is sent automatically.
+6. **Sign Out**: `authClient.signOut()` clears the session on the server and the cookie; UI utility `src/utils/auth.ts` delegates to this client.
+7. **Session State**: Components listen to `useSession()` from Better Auth for reactive session state - all session management is automatic!
 
 ## Error Handling
 
@@ -293,19 +407,18 @@ interface Practice {
 ## Integration Notes
 
 ### Frontend Implementation
-- **API Client**: `src/lib/backendClient.ts` handles all backend communication
-- **Storage**: JWT tokens stored in IndexedDB via `src/lib/indexedDBStorage.ts`
-- **Context**: `src/contexts/AuthContext.tsx` manages authentication state
-- **Types**: `src/types/backend.ts` defines TypeScript interfaces
+- **Auth Client**: `src/lib/authClient.ts` wraps Better Auth's client for the SPA.
+- **API Client**: `src/lib/backendClient.ts` handles non-auth endpoints (practices, onboarding, etc.) using cookie-based auth.
+- **Context**: `src/contexts/AuthContext.tsx` bridges Better Auth's hooks with legacy consumers and merges `/user-details/me`.
+- **Types**: `src/types/backend.ts` defines TypeScript interfaces.
 
 ### Security Considerations
-- **JWT Storage**: Tokens stored in IndexedDB (more secure than localStorage)
-- **HTTPS Only**: All API communication over HTTPS
-- **Token Expiry**: 24-hour token lifetime with automatic refresh
-- **CORS**: Backend configured for cross-origin requests from frontend
-- **CORS Configuration**: Specific allowed origins should be configured on backend
-- **Token Security**: Never log token values in console, only presence indicators
-- **Session Validation**: Backend validates JWT signature and expiry on each request
+- **Cookie Sessions**: All auth relies on the `better-auth.session_token` HttpOnly cookie.
+- **HTTPS Only**: All API communication over HTTPS.
+- **Session Expiry**: 24-hour session lifetime with automatic refresh managed by Better Auth.
+- **CORS**: Backend configured for cross-origin requests with credentials.
+- **Browser Storage**: No tokens are persisted in localStorage/IndexedDB; avoid logging cookie metadata.
+- **Session Validation**: Backend validates session cookies on every request.
 
 ### Development vs Production
 - **Default Backend**: Production backend used for both development and production
@@ -328,6 +441,94 @@ interface Practice {
 - Future versions will include version headers
 - Backward compatibility maintained for major versions
 
+## Testing with Curl Commands
+
+### Developer-Facing Endpoints (For Application Integration)
+
+#### 1. Create Account
+```bash
+curl --location --request POST 'https://staging-api.blawby.com/api/auth/sign-up/email' \
+--header 'Content-Type: application/json' \
+--data-raw '{"email": "test@example.com", "password": "testpassword123", "name": "Test User"}'
+```
+
+#### 2. Sign In (Sets Session Cookie Automatically)
+```bash
+curl --location --request POST 'https://staging-api.blawby.com/api/auth/sign-in/email' \
+--header 'Content-Type: application/json' \
+--data-raw '{"email": "test@example.com", "password": "testpassword123"}' \
+-v
+```
+
+**Expected Response Headers:**
+```
+< set-cookie: better-auth.session_token=<TOKEN>; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400
+< set-auth-token: <JWT_TOKEN>
+```
+
+**Note**: After calling these endpoints, the session cookie is automatically set and will be included in subsequent requests by the Better Auth client library.
+
+### Internal Endpoint Testing (For Debugging/Verification Only)
+
+> **⚠️ Debugging Only**: The following endpoint is used internally by the Better Auth library. In your application, use `authClient.useSession()` instead of calling this directly.
+
+#### Get Session (Internal - For Debugging)
+```bash
+curl --location --request GET 'https://staging-api.blawby.com/api/auth/get-session' \
+--header 'Cookie: better-auth.session_token=YOUR_SESSION_TOKEN_HERE'
+```
+
+**Note**: The session token is in the `set-cookie` header from signin response. This is only for debugging - your app should use the Better Auth client library instead.
+
+### Session Cookie Test Results (Verified ✅)
+
+**Test Date**: October 26, 2025  
+**Backend URL**: `https://staging-api.blawby.com/api`
+
+#### ✅ Sign In Test
+- **Status**: 200 OK
+- **Cookie Set**: `better-auth.session_token=<token>; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400`
+- **Security Attributes**: All correct (HttpOnly, SameSite=Lax, Path=/, 24-hour expiry)
+- **User Data**: Returns complete user object with ID
+
+#### ✅ Get Session Test (With Cookie)
+- **Status**: 200 OK
+- **Session Object**: Contains `id`, `userId`, `token`, `expiresAt`, `createdAt`, `ipAddress`, `userAgent`
+- **User Object**: Matches signed-in user data
+- **User ID Consistency**: Verified across both endpoints
+
+#### ✅ Get Session Test (Without Cookie)
+- **Status**: 200 OK
+- **Response**: `null` (correctly indicates no active session)
+
+#### ✅ Cookie Mechanism Verification
+- **Cookie Extraction**: Successfully extracts token from `set-cookie` header
+- **Cookie Validation**: Backend properly validates session cookies
+- **Session Persistence**: Sessions persist for 24 hours as configured
+- **Security**: All security attributes properly set
+
+#### 4. Get User Details (Token-based)
+```bash
+curl --location --request GET 'https://staging-api.blawby.com/api/user-details/me' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+#### 5. Update User Details
+```bash
+curl --location --request PUT 'https://staging-api.blawby.com/api/user-details/me' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE' \
+--data-raw '{"phone": "+1234567890", "dob": "1990-01-15", "productUsage": ["others"]}'
+```
+
+#### 6. Verify Updated Details
+```bash
+curl --location --request GET 'https://staging-api.blawby.com/api/user-details/me' \
+--header 'Authorization: Bearer YOUR_TOKEN_HERE'
+```
+
+**Note**: Replace `YOUR_TOKEN_HERE` with the token from the sign-in response (step 2). The token is returned in the `set-auth-token` header.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -343,6 +544,7 @@ interface Practice {
 
 ---
 
-**Last Updated**: January 2025  
+**Last Updated**: October 2025  
 **API Version**: v1  
-**Backend URL**: https://blawby-backend-production.up.railway.app/api
+**Backend URL**: https://staging-api.blawby.com/api  
+**Status**: ✅ Session cookies verified and working

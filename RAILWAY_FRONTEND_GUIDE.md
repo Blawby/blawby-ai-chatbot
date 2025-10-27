@@ -2,14 +2,15 @@
 
 ## Overview
 
-This guide provides comprehensive documentation for implementing authentication and practice management with the **Railway Backend API**. The Railway backend uses JWT token-based authentication (no sessions) and provides a simple, RESTful API.
+This guide provides comprehensive documentation for implementing authentication and practice management with the **Railway Backend API**. The backend is powered by Better Auth: the primary frontend integration uses cookie-based sessions managed by the Better Auth client. Some endpoints still return JWT tokens for backwards compatibility, but the Preact SPA no longer persists or reads those tokens.
 
 ## Base Configuration
 
 ### API Base URL
 
-- **Production**: `https://blawby-backend-production.up.railway.app/api`
+- **Production**: `https://staging-api.blawby.com/api` (Updated: Railway backend is down)
 - **Development**: Same as production (can be overridden with `VITE_BACKEND_API_URL`)
+- **Legacy Railway**: `https://blawby-backend-production.up.railway.app/api` (Currently returning 404)
 
 ### CORS Configuration
 
@@ -30,13 +31,31 @@ The Railway backend is configured with the following CORS settings:
 
 ## Authentication APIs (Railway Backend)
 
-Railway backend uses JWT token-based authentication with the following characteristics:
+Railway backend uses Better Auth with **automatic session management**:
 
-- **No Sessions**: Only JWT tokens are used
-- **Token Storage**: Tokens stored in IndexedDB
-- **Token Expiry**: 24 hours (handled by backend)
+- **Session Cookie**: `better-auth.session_token` (HttpOnly) is automatically set and managed
+- **Automatic Session Handling**: No manual session management required - the Better Auth client handles everything
+- **Legacy Tokens**: JWT tokens may be returned in responses for compatibility; the SPA ignores them
+- **Token Expiry**: 24 hours (handled automatically by backend)
 - **Password Requirements**: 8-128 characters
 - **Email Verification**: Disabled (for development)
+
+> **🎯 Key Point**: After calling `authClient.signIn.email()` or `authClient.signUp.email()`, session management is completely automatic. Use `authClient.useSession()` to access session state - no manual API calls needed!
+
+## Developer Guidelines
+
+### ✅ What You Should Do
+- Use `authClient.signIn.email()` to authenticate users
+- Use `authClient.signUp.email()` to register users  
+- Use `authClient.useSession()` to access session state in components
+- Use `authClient.signOut()` to sign out users
+- Include `credentials: 'include'` in fetch requests to automatically send session cookies
+
+### ❌ What You Should NOT Do
+- Don't manually call `/auth/get-session` - this is handled internally by Better Auth
+- Don't manually manage session tokens or cookies
+- Don't store session data in localStorage or sessionStorage
+- Don't manually check session validity - use `authClient.useSession()` instead
 
 ### 1. User Signup
 
@@ -159,7 +178,7 @@ const signin = async (data: { email: string; password: string }) => {
 
 ### 3. Get Current User
 
-**Endpoint**: `GET /auth/me`
+**Endpoint**: `GET /user-details/me`
 
 **Headers**:
 
@@ -326,7 +345,7 @@ Railway API returns errors in a consistent format:
 3. **Not Found Errors** (404)
    - Resource doesn't exist
    - Invalid resource ID
-   - **Note**: `/auth/me` endpoint may return 404 (Railway limitation)
+   - **Note**: `/user-details/me` endpoint is the canonical source of profile data
 
 4. **Conflict Errors** (409)
    - Duplicate resources (e.g., email already exists)
@@ -357,7 +376,7 @@ const handleApiError = (error: any) => {
 
       case 404:
         // Handle Railway API limitations
-        if (error.message.includes('/auth/me')) {
+        if (error.message.includes('/user-details/me')) {
           return 'User session endpoint not available';
         }
         return 'Resource not found';
@@ -385,7 +404,7 @@ const handleApiError = (error: any) => {
 // Auth state (Railway format)
 interface AuthState {
   user: User | null;
-  token: string | null;
+  session: Record<string, unknown> | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -413,10 +432,10 @@ import { useContext } from 'preact/hooks';
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
+  session: Record<string, unknown> | null;
   isLoading: boolean;
-  signin: (credentials: SigninData) => Promise<void>;
-  signup: (data: SignupData) => Promise<void>;
+  signin: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   signout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -464,18 +483,9 @@ export const ProtectedRoute = ({ component: Component, ...props }: ProtectedRout
 ```typescript
 class RailwayApiClient {
   private baseUrl: string;
-  private token: string | null = null;
 
   constructor(baseUrl: string = 'https://blawby-backend-production.up.railway.app/api') {
     this.baseUrl = baseUrl;
-  }
-
-  setToken(token: string) {
-    this.token = token;
-  }
-
-  clearToken() {
-    this.token = null;
   }
 
   private async request<T>(
@@ -488,13 +498,10 @@ class RailwayApiClient {
       ...options.headers,
     };
 
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
-    }
-
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -521,7 +528,7 @@ class RailwayApiClient {
   }
 
   async getCurrentUser() {
-    return this.request<{ user: User }>('/auth/me');
+    return this.request<UserDetailsResponse>('/user-details/me');
   }
 
   async signout() {
@@ -563,70 +570,9 @@ class RailwayApiClient {
 export const railwayApiClient = new RailwayApiClient();
 ```
 
-### 5. Token Management
+### 5. Session Management
 
-```typescript
-// IndexedDB storage for tokens
-export const saveToken = async (token: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('blawby_auth', 1);
-    
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['tokens'], 'readwrite');
-      const store = transaction.objectStore('tokens');
-      const putRequest = store.put({ key: 'backend_session_token', value: token });
-      
-      putRequest.onsuccess = () => resolve();
-      putRequest.onerror = () => reject(putRequest.error);
-    };
-    
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains('tokens')) {
-        db.createObjectStore('tokens', { keyPath: 'key' });
-      }
-    };
-  });
-};
-
-export const loadToken = async (): Promise<string | null> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('blawby_auth', 1);
-    
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['tokens'], 'readonly');
-      const store = transaction.objectStore('tokens');
-      const getRequest = store.get('backend_session_token');
-      
-      getRequest.onsuccess = () => {
-        resolve(getRequest.result?.value || null);
-      };
-        getRequest.onerror = () => reject(getRequest.error);
-    };
-  });
-};
-
-export const clearToken = async (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('blawby_auth', 1);
-    
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const transaction = db.transaction(['tokens'], 'readwrite');
-      const store = transaction.objectStore('tokens');
-      const deleteRequest = store.delete('backend_session_token');
-      
-      deleteRequest.onsuccess = () => resolve();
-      deleteRequest.onerror = () => reject(deleteRequest.error);
-    };
-  });
-};
-```
+Better Auth persists the authenticated session in a secure HttpOnly cookie, so no explicit token storage is needed on the SPA. When the app needs to refresh user data, call `authClient.useSession().refetch()` or invoke `authClient.getSession()`. Sign-out flows should delegate to `authClient.signOut()` which clears the cookie on the server and cascades through the Better Auth client state.
 
 ### 6. Form Validation
 
@@ -781,15 +727,15 @@ export const config = {
 
 ### Known Issues
 
-1. **`/auth/me` Endpoint**: May return 404 (not implemented)
+1. **`/user-details/me` Endpoint**: Returns both core user info and profile details
 2. **Signout Endpoint**: May return 500 errors
 3. **User Deletion**: No endpoint available for cleanup
 4. **Session Management**: No server-side session tracking
 
 ### Workarounds
 
-1. **User Data Storage**: Store user data in IndexedDB after signup/signin
-2. **Token Validation**: Use client-side token validation
+1. **Session Hydration**: Use `authClient.useSession()` plus `/user-details/me` to enrich profile data.
+2. **Session Validation**: Trigger `useSession().refetch()` when forcing a refresh after profile changes.
 3. **Cleanup**: Implement client-side cleanup for test users
 4. **Error Handling**: Gracefully handle 404/500 errors from Railway API
 
@@ -801,8 +747,8 @@ export const config = {
 - [x] Implement signin form with validation
 - [x] Create authentication context provider
 - [x] Implement protected route wrapper
-- [x] Add token persistence (IndexedDB)
-- [x] Implement automatic token refresh
+- [x] Wire Better Auth client and session hook
+- [x] Ensure `/user-details/me` enriches Better Auth session data
 - [x] Add signout functionality
 
 ### Practice Management
@@ -838,7 +784,7 @@ export const config = {
 - [ ] Implement CSRF protection
 - [ ] Add input sanitization
 - [ ] Implement rate limiting on frontend
-- [ ] Add secure token storage
+- [ ] Verify Better Auth session cookie on API requests
 - [ ] Implement proper logout cleanup
 
 ## Testing Considerations

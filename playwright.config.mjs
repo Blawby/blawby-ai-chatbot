@@ -10,16 +10,16 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
-    { 
-      command: 'npm run dev:worker:clean', 
-      url: 'http://localhost:8787', 
-      reuseExistingServer: true, 
-      timeout: 120000
+    {
+      command: 'npm run dev:worker:clean',
+      url: 'http://localhost:8787',
+      reuseExistingServer: true,
+      timeout: 120000,
     },
-    { 
-      command: 'npm run dev', 
-      url: 'http://localhost:5173', 
-      reuseExistingServer: true
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: true,
     },
   ],
 });

@@ -1,4 +1,4 @@
-import { backendClient } from '../lib/backendClient';
+import { authClient } from '../lib/authClient';
 
 /**
  * Centralized sign out utility that handles:
@@ -11,18 +11,18 @@ export async function signOut(options?: {
   onSuccess?: () => void;
 }): Promise<void> {
   try {
-    // 1. Sign out from Backend API (revokes server session)
-    await backendClient.signout();
+    // 1. Sign out using Better Auth client (revokes server session)
+    await authClient.signOut();
     
     // 2. Remove auth-related client state
     try {
       const authKeys = [
         'onboardingCompleted',
-        'onboardingCheckDone',
         'businessSetupPending',
         'cartPreferences',
         'cartData',
         'blawby.auth.token',
+        'blawby.auth.user',
       ];
 
       for (const key of authKeys) {

@@ -5,7 +5,7 @@ import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
 // TODO: User profile updates will be handled by the Blawby Backend API (not yet implemented)
 import type { OnboardingData } from '../../types/user';
-import { toOnboardingData, fromOnboardingData } from '../../types/user';
+import { toOnboardingData } from '../../types/user';
 import { useToastContext } from '../../contexts/ToastContext';
 import { useSession } from '../../contexts/AuthContext';
 
@@ -115,27 +115,6 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     };
 
     try {
-      // TODO: When backend API supports user updates, implement proper API call
-      // For now, store onboarding data locally since backend doesn't support user updates yet
-      
-      // Store onboarding data in localStorage as a temporary solution
-      try {
-        localStorage.setItem('onboardingCompleted', 'true');
-        localStorage.setItem('onboardingData', JSON.stringify(completedData));
-        
-        // Also store user preferences that might be used by the app
-        if (completedData.personalInfo?.firstName && completedData.personalInfo?.lastName) {
-          const fullName = `${completedData.personalInfo.firstName} ${completedData.personalInfo.lastName}`.trim();
-          localStorage.setItem('userDisplayName', fullName);
-        }
-      } catch (storageError) {
-        // Handle localStorage failures (private browsing, quota exceeded, etc.)
-        if (import.meta.env.DEV) {
-          console.warn('Failed to cache onboarding completion in localStorage:', storageError);
-        }
-        // Continue execution - this is just a cache, not critical
-      }
-
       // Show success notification
       showSuccess(
         t('onboarding.completed.title', 'Onboarding Complete!'),

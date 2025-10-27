@@ -2,12 +2,12 @@ import { test, expect } from '@playwright/test';
 import { generateTestEmail, cleanupTestUser } from '../helpers/auth-cleanup';
 
 test.describe('Railway Backend Auth', () => {
-  let testUsers: Array<{ email: string; token?: string }> = [];
+  let testUsers: Array<{ email: string }> = [];
 
   test.afterEach(async () => {
     // Cleanup test users
     for (const user of testUsers) {
-      await cleanupTestUser(user.email, user.token);
+      await cleanupTestUser(user.email);
     }
     testUsers = [];
   });
@@ -66,7 +66,7 @@ test.describe('Railway Backend Auth', () => {
     
     // Wait for success message or redirect
     await Promise.race([
-      page.waitForURL('/', { timeout: 15000 }),
+      page.waitForURL('**/app/messages', { timeout: 15000 }),
       page.waitForSelector('text=/Account created|Welcome/', { timeout: 15000 })
     ]);
     
@@ -101,7 +101,7 @@ test.describe('Railway Backend Auth', () => {
     
     // Wait for success message or redirect
     await Promise.race([
-      page.waitForURL('/', { timeout: 15000 }),
+      page.waitForURL('**/app/messages', { timeout: 15000 }),
       page.waitForSelector('text=/Account created|Welcome/', { timeout: 15000 })
     ]);
     
@@ -119,59 +119,6 @@ test.describe('Railway Backend Auth', () => {
     // Verify still authenticated (should not be on auth page)
     await expect(page).not.toHaveURL(/\/auth/);
   });
-
-
-  test('should store JWT token in IndexedDB after signup', async ({ page }) => {
-    const testEmail = generateTestEmail('e2e-token-storage');
-    
-    await page.goto('/auth');
-    await page.click('text=Don\'t have an account? Sign up');
-    await page.fill('input[placeholder="Enter your email"]', testEmail);
-    await page.fill('input[placeholder="Enter your first name"]', 'Token');
-    await page.fill('input[placeholder="Enter your last name"]', 'Test User');
-    await page.fill('input[placeholder="Enter your password"]', 'TestPassword123!');
-    await page.fill('input[placeholder="Confirm your password"]', 'TestPassword123!');
-    await page.click('button:has-text("Create account")');
-    
-    // Wait for success
-    await Promise.race([
-      page.waitForURL('/', { timeout: 15000 }),
-      page.waitForSelector('text=/Account created|Welcome/', { timeout: 15000 })
-    ]);
-    
-    // Track for cleanup
-    testUsers.push({ email: testEmail });
-    
-    // Navigate to home if needed
-    if (page.url().includes('/auth')) {
-      await page.goto('/');
-    }
-    
-    await page.waitForLoadState('networkidle');
-    
-    // Check IndexedDB for token
-    const tokenExists = await page.evaluate(async () => {
-      return new Promise((resolve, reject) => {
-        const request = indexedDB.open('blawby_auth', 1);
-        request.onsuccess = () => {
-          const db = request.result;
-          const transaction = db.transaction(['tokens'], 'readonly');
-          const store = transaction.objectStore('tokens');
-          const getRequest = store.get('backend_session_token');
-          
-          getRequest.onsuccess = () => {
-            const result = getRequest.result;
-            resolve(!!result?.value);
-          };
-          getRequest.onerror = () => reject(getRequest.error);
-        };
-        request.onerror = () => reject(request.error);
-      });
-    });
-    
-    expect(tokenExists).toBe(true);
-  });
-
   test('should handle Railway API error responses', async ({ page }) => {
     // Test with invalid email format
     await page.goto('/auth');

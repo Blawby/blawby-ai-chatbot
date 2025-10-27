@@ -14,6 +14,8 @@ export interface ExtendedUser extends User {
   
   // Contact Info
   phone?: string | null;
+  dob?: string | null;
+  productUsage?: string[];
   
   // Links
   selectedDomain?: string | null;
