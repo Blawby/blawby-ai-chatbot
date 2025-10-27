@@ -125,7 +125,7 @@ export async function completeOnboardingFlow(page: Page): Promise<void> {
   // Wait for the success toast to be visible and click its close button
   // Find the toast container that contains "Onboarding Complete!" and click its close button
   const toastContainer = page.locator('div').filter({ hasText: 'Onboarding Complete!' });
-  const toastCloseButton = toastContainer.locator('button').filter({ has: page.locator('svg') });
+  const toastCloseButton = toastContainer.getByRole('button', { name: /close/i });
   await toastCloseButton.waitFor({ state: 'visible', timeout: 5000 });
   await toastCloseButton.click();
 

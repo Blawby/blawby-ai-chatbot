@@ -105,10 +105,6 @@ beforeAll(async () => {
       CREATE INDEX IF NOT EXISTS idx_member_user ON members(user_id)
     `).run();
 
-    // Create index for users email
-    await env.DB.prepare(`
-      CREATE INDEX IF NOT EXISTS idx_user_email ON users(email)
-    `).run();
   } catch (error) {
     console.error('CRITICAL: Failed to initialize test database schema. Tests cannot proceed without a valid database schema.');
     console.error('Original error:', error);

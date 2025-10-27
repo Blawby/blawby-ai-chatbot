@@ -40,6 +40,9 @@ function validateEnvironment(env: Env): void {
   }
 }
 
+// Validate environment at module initialization
+let envValidated = false;
+
 // Basic request validation
 function validateRequest(request: Request): boolean {
   const _url = new URL(request.url);
@@ -69,19 +72,22 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
   const url = new URL(request.url);
   const path = url.pathname;
 
-  // Validate environment configuration early
-  try {
-    validateEnvironment(env);
-  } catch (error) {
-    console.error('Environment validation failed:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error instanceof Error ? error.message : 'Environment configuration error',
-      errorCode: 'ENVIRONMENT_ERROR'
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  // Validate environment once
+  if (!envValidated) {
+    try {
+      validateEnvironment(env);
+      envValidated = true;
+    } catch (error) {
+      console.error('Environment validation failed:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Environment configuration error',
+        errorCode: 'ENVIRONMENT_ERROR'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
   }
 
   // Basic request validation

@@ -2,7 +2,7 @@ import { createContext, ComponentChildren } from 'preact';
 import { useContext } from 'preact/hooks';
 
 import { useToast } from '../hooks/useToast';
-import ToastContainer from '../components/ToastContainer';
+import { ToastContainer } from '../components/ui/toast';
 
 interface ToastContextType {
   showSuccess: (title: string, message?: string, duration?: number) => string;

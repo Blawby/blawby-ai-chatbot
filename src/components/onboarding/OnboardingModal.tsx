@@ -8,6 +8,7 @@ import { toOnboardingData } from '../../types/user';
 import { useToastContext } from '../../contexts/ToastContext';
 import { useSession } from '../../contexts/AuthContext';
 import { backendClient } from '../../lib/backendClient';
+import { formatDateToYYYYMMDD } from '../../utils/dateTime';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -117,9 +118,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     try {
       // Save onboarding data to backend API
       await backendClient.updateUserDetails({
-        dob: completedData.personalInfo.birthday ? 
-          new Date(completedData.personalInfo.birthday).toISOString().split('T')[0] : 
-          null,
+        dob: formatDateToYYYYMMDD(completedData.personalInfo.birthday),
         productUsage: completedData.useCase.selectedUseCases ?? []
       });
 

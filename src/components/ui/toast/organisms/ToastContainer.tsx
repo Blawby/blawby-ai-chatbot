@@ -1,5 +1,4 @@
 import { FunctionComponent } from 'preact';
-// import { useState, useCallback } from 'preact/hooks'; // Unused
 import { AnimatePresence } from 'framer-motion';
 import ToastComponent, { Toast } from './Toast';
 

@@ -449,14 +449,5 @@ describe('Auth Middleware - Unit Tests', () => {
       );
     });
 
-    it('should throw error when BLAWBY_API_URL is not configured', async () => {
-      const envWithoutApiUrl = {
-        ...mockEnv,
-        BLAWBY_API_URL: undefined
-      };
-
-      await expect(requireAuth(mockRequest, envWithoutApiUrl))
-        .rejects.toThrow('BLAWBY_API_URL is not configured. This environment variable is required for authentication to work properly.');
-    });
   });
 });

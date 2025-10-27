@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'preact/hooks';
-import { Toast } from '../components/Toast';
+import { Toast } from '../components/ui/toast';
 
 export const useToast = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);

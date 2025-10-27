@@ -92,4 +92,10 @@ export function formatDate(date: string | Date): string {
     month: 'short',
     day: 'numeric'
   });
+}
+
+export function formatDateToYYYYMMDD(dateString: string | undefined | null): string | null {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return date.toISOString().split('T')[0];
 } 
