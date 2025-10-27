@@ -27,8 +27,8 @@ function getBackendBaseUrl(): string {
     throw new Error('VITE_BACKEND_API_URL environment variable is required in production. Set it to your backend API URL (e.g., https://your-api.com/api)');
   }
   
-  // Development fallback - allow localhost for convenience
-  return normalizeUrl('http://localhost:3000/api');
+  // Development fallback - use staging API
+  return normalizeUrl('https://staging-api.blawby.com/api');
 }
 
 /**
