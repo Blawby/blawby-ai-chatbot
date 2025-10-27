@@ -8,9 +8,9 @@ This guide provides comprehensive documentation for implementing authentication 
 
 ### API Base URL
 
-- **Production**: `https://staging-api.blawby.com/api` (Updated: Railway backend is down)
-- **Development**: Same as production (can be overridden with `VITE_BACKEND_API_URL`)
-- **Legacy Railway**: `https://blawby-backend-production.up.railway.app/api` (Currently returning 404)
+- **Production**: `VITE_BACKEND_API_URL` (required - set to your production API URL)
+- **Development**: `VITE_BACKEND_API_URL=http://localhost:3000/api` (optional fallback)
+- **Testing**: `BLAWBY_API_BASE_URL` (required for e2e tests)
 
 ### CORS Configuration
 
@@ -730,7 +730,7 @@ export const config = {
 1. **`/user-details/me` Endpoint**: Returns both core user info and profile details
 2. **Signout Endpoint**: May return 500 errors
 3. **User Deletion**: No endpoint available for cleanup
-4. **Session Management**: No server-side session tracking
+4. **Session Management**: Better Auth performs server-side session validation
 
 ### Workarounds
 

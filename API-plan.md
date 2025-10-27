@@ -115,11 +115,19 @@ Cookie: better-auth.session_token=<session_token>
 ```
 
 **Headers returned:**
-- `set-auth-jwt`: JWT token for Bearer auth (optional, for backwards compatibility)
+- `set-auth-token`: JWT token for Bearer auth (optional, for backwards compatibility)
 
 **Note:** This endpoint is used internally by the Better Auth client library to validate sessions. The frontend uses `authClient.useSession()` hook instead of calling this endpoint directly.
 
 #### Get Current User Details
+```http
+GET /user-details/me
+Cookie: better-auth.session_token=<session_token>
+```
+
+**Preferred authentication method**: Cookie-based session (requests should be made with credentials included and no Authorization header)
+
+**Legacy/optional**: Bearer token authentication remains accepted for backward compatibility:
 ```http
 GET /user-details/me
 Authorization: Bearer <jwt_token>
@@ -160,6 +168,14 @@ Authorization: Bearer <jwt_token>
 ### User Details Management
 
 #### Get User Details
+```http
+GET /user-details/me
+Cookie: better-auth.session_token=<session_token>
+```
+
+**Preferred authentication method**: Cookie-based session (requests should be made with credentials included and no Authorization header)
+
+**Legacy/optional**: Bearer token authentication remains accepted for backward compatibility:
 ```http
 GET /user-details/me
 Authorization: Bearer <jwt_token>
@@ -421,12 +437,12 @@ interface Practice {
 - **Session Validation**: Backend validates session cookies on every request.
 
 ### Development vs Production
-- **Default Backend**: Production backend used for both development and production
-- **Override**: Set `VITE_BACKEND_API_URL` to use local backend for development
-- **Environment Variable Override**: 
+- **Production**: Requires `VITE_BACKEND_API_URL` to be explicitly set
+- **Development**: Allows fallback to localhost for convenience
+- **Environment Variable Configuration**: 
   - Development: `VITE_BACKEND_API_URL=http://localhost:3000/api` (include /api prefix)
-  - Production: Uses default Railway backend
-  - Testing: Backend API integration tested via Playwright e2e tests
+  - Production: `VITE_BACKEND_API_URL=https://your-production-api.com/api` (required)
+  - Testing: Backend API integration tested via Playwright e2e tests with `BLAWBY_API_BASE_URL`
 
 ## Future Enhancements
 
@@ -457,16 +473,17 @@ curl --location --request POST 'https://staging-api.blawby.com/api/auth/sign-up/
 curl --location --request POST 'https://staging-api.blawby.com/api/auth/sign-in/email' \
 --header 'Content-Type: application/json' \
 --data-raw '{"email": "test@example.com", "password": "testpassword123"}' \
+-c cookies.txt -b cookies.txt \
 -v
 ```
 
 **Expected Response Headers:**
-```
+```http
 < set-cookie: better-auth.session_token=<TOKEN>; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400
 < set-auth-token: <JWT_TOKEN>
 ```
 
-**Note**: After calling these endpoints, the session cookie is automatically set and will be included in subsequent requests by the Better Auth client library.
+**Note**: After calling these endpoints, the session cookie is automatically set and will be included in subsequent requests by the Better Auth client library. Cookies are persisted using cookies.txt for subsequent requests.
 
 ### Internal Endpoint Testing (For Debugging/Verification Only)
 
@@ -475,33 +492,34 @@ curl --location --request POST 'https://staging-api.blawby.com/api/auth/sign-in/
 #### Get Session (Internal - For Debugging)
 ```bash
 curl --location --request GET 'https://staging-api.blawby.com/api/auth/get-session' \
---header 'Cookie: better-auth.session_token=YOUR_SESSION_TOKEN_HERE'
+--cookie 'better-auth.session_token=YOUR_SESSION_TOKEN_HERE' \
+-c cookies.txt -b cookies.txt
 ```
 
 **Note**: The session token is in the `set-cookie` header from signin response. This is only for debugging - your app should use the Better Auth client library instead.
 
 ### Session Cookie Test Results (Verified ✅)
 
-**Test Date**: October 26, 2025  
+**Test Date**: October 26, 2025,  
 **Backend URL**: `https://staging-api.blawby.com/api`
 
-#### ✅ Sign In Test
+#### ✅ Sign-In Test
 - **Status**: 200 OK
 - **Cookie Set**: `better-auth.session_token=<token>; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400`
 - **Security Attributes**: All correct (HttpOnly, SameSite=Lax, Path=/, 24-hour expiry)
 - **User Data**: Returns complete user object with ID
 
-#### ✅ Get Session Test (With Cookie)
+#### ✅ Get-Session Test (With Cookie)
 - **Status**: 200 OK
 - **Session Object**: Contains `id`, `userId`, `token`, `expiresAt`, `createdAt`, `ipAddress`, `userAgent`
 - **User Object**: Matches signed-in user data
 - **User ID Consistency**: Verified across both endpoints
 
-#### ✅ Get Session Test (Without Cookie)
+#### ✅ Get-Session Test (Without Cookie)
 - **Status**: 200 OK
 - **Response**: `null` (correctly indicates no active session)
 
-#### ✅ Cookie Mechanism Verification
+#### ✅ Cookie-Mechanism Verification
 - **Cookie Extraction**: Successfully extracts token from `set-cookie` header
 - **Cookie Validation**: Backend properly validates session cookies
 - **Session Persistence**: Sessions persist for 24 hours as configured

@@ -45,37 +45,29 @@ const createInitialState = (): AuthState => ({
 
 const persistSession = (token: string | null, user: User | null) => {
   try {
-    if (token) {
-      localStorage.setItem(STORAGE_TOKEN_KEY, token);
-    } else {
+    // Only remove legacy keys on sign-out/cleanup - no longer persist new data
+    if (!token) {
       localStorage.removeItem(STORAGE_TOKEN_KEY);
     }
-
-    if (user) {
-      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
-    } else {
+    if (!user) {
       localStorage.removeItem(STORAGE_USER_KEY);
     }
   } catch (error) {
-    console.warn('Failed to persist auth session:', error);
+    console.warn('Failed to clean up legacy auth session:', error);
   }
 };
 
 const restoreStoredSession = (): { token: string | null; user: User | null } => {
-  let storedToken: string | null = null;
-  let storedUser: User | null = null;
-
+  // No longer restore from localStorage - rely on server-set httpOnly cookies
+  // Clean up any legacy keys if they exist
   try {
-    storedToken = localStorage.getItem(STORAGE_TOKEN_KEY);
-    const userRaw = localStorage.getItem(STORAGE_USER_KEY);
-    if (userRaw) {
-      storedUser = JSON.parse(userRaw) as User;
-    }
+    localStorage.removeItem(STORAGE_TOKEN_KEY);
+    localStorage.removeItem(STORAGE_USER_KEY);
   } catch (error) {
-    console.warn('Failed to restore stored auth session:', error);
+    console.warn('Failed to clean up legacy auth session:', error);
   }
 
-  return { token: storedToken, user: storedUser };
+  return { token: null, user: null };
 };
 
 export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
@@ -122,29 +114,36 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     if (initRef.current) return;
     initRef.current = true;
 
-    const { token, user } = restoreStoredSession();
-    if (token) {
-      backendClient.restoreAuthToken(token);
-    }
+    // Clean up any legacy localStorage keys
+    restoreStoredSession();
 
+    // Start with loading state and fetch session from backend
     setAuthState({
-      user,
-      token,
-      isLoading: Boolean(token),
+      user: null,
+      token: null,
+      isLoading: true,
       error: null,
-      session: user ? { activeOrganizationId: null } : null
+      session: null
     });
 
-    if (token) {
-      void loadUserDetails().catch(() => {
-        // errors handled inside loadUserDetails
-      });
-    } else {
-      setAuthState((prev) => ({
-        ...prev,
-        isLoading: false
-      }));
-    }
+    // Fetch session from backend using cookie-based authentication
+    const fetchSessionFromBackend = async () => {
+      try {
+        // Try to get user details which will validate the session
+        await loadUserDetails();
+      } catch (error) {
+        // Session is invalid or user is not authenticated
+        setAuthState({
+          user: null,
+          token: null,
+          isLoading: false,
+          error: null,
+          session: null
+        });
+      }
+    };
+
+    void fetchSessionFromBackend();
   }, [loadUserDetails]);
 
   const signin = useCallback(async (email: string, password: string) => {
@@ -156,7 +155,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
       const user = result.user ?? null;
 
       backendClient.restoreAuthToken(token);
-      persistSession(token, user);
+      // No longer persist to localStorage - rely on server-set httpOnly cookies
 
       setAuthState({
         user,
@@ -178,7 +177,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         error: message,
         session: null
       });
-      persistSession(null, null);
+      persistSession(null, null); // Clean up legacy keys
       backendClient.restoreAuthToken(null);
       throw new Error(message);
     }
@@ -209,9 +208,7 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
       if (token) {
         backendClient.restoreAuthToken(token);
       }
-      if (token || user) {
-        persistSession(token, user);
-      }
+      // No longer persist to localStorage - rely on server-set httpOnly cookies
 
       setAuthState({
         user,

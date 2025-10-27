@@ -38,6 +38,8 @@ BLAWBY_API_URL = "https://staging.blawby.com"
 BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
 BETTER_AUTH_URL = "http://localhost:8787"
 DOMAIN = "localhost"
+# Frontend Backend API URL (required in production, optional in development)
+VITE_BACKEND_API_URL = "http://localhost:3000/api"
 # Stripe price configuration for all environments (test mode IDs)
 STRIPE_PRICE_ID = "price_1SHfgbDJLzJ14cfPBGuTvcG3"
 STRIPE_ANNUAL_PRICE_ID = "price_1SHfhCDJLzJ14cfPGFGQ77vQ"
@@ -150,6 +152,8 @@ AI_MODEL_FALLBACK = "@cf/openai/gpt-oss-20b"
 ENABLE_WORKERS_AI = true
 ENABLE_GATEWAY_OPENAI = false
 DOMAIN = "localhost"
+# Frontend Backend API URL for development
+VITE_BACKEND_API_URL = "http://localhost:3000/api"
 
 # Domain configuration for ai.blawby.com
 [env.production]
@@ -182,6 +186,8 @@ BETTER_AUTH_URL = "https://ai.blawby.com"
 DOMAIN = "ai.blawby.com"
 ENABLE_STRIPE_SUBSCRIPTIONS = true
 REQUIRE_EMAIL_VERIFICATION = "false"
+# Frontend Backend API URL for production (REQUIRED - must be set to actual production API)
+VITE_BACKEND_API_URL = "https://production-api.blawby.com/api"
 
 # Duplicate top-level vars for production environment
 BLAWBY_API_URL = "https://staging.blawby.com"

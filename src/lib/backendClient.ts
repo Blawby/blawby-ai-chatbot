@@ -43,7 +43,12 @@ class BackendApiClient {
 
     const headers = new Headers(options.headers ?? {});
 
-    if (!headers.has('Content-Type')) {
+    // Only set Content-Type when there's a body or method is not GET/HEAD/DELETE
+    const hasBody = options.body !== undefined;
+    const method = options.method ?? 'GET';
+    const needsContentType = hasBody || !['GET', 'HEAD', 'DELETE'].includes(method.toUpperCase());
+    
+    if (needsContentType && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }
 
@@ -52,13 +57,15 @@ class BackendApiClient {
     }
 
     if (import.meta.env.DEV) {
+      const authHeader = headers.get('Authorization');
+      const maskedAuth = authHeader ? `Bearer ${authHeader.substring(7, 15)}...` : '<none>';
       console.debug(
         '[backendClient] request',
         endpoint,
         'method:',
-        options.method ?? 'GET',
+        method,
         'auth:',
-        headers.get('Authorization') ?? '<none>'
+        maskedAuth
       );
     }
 
@@ -107,7 +114,9 @@ class BackendApiClient {
 
     if ('phone' in payload) apiPayload.phone = payload.phone ?? null;
     if ('dob' in payload) apiPayload.dob = payload.dob ?? null;
-    if ('productUsage' in payload) apiPayload.product_usage = payload.productUsage ?? [];
+    if (Object.prototype.hasOwnProperty.call(payload, 'productUsage')) {
+      apiPayload.product_usage = payload.productUsage;
+    }
     if ('addressLine1' in payload) apiPayload.address_line1 = payload.addressLine1 ?? null;
     if ('addressLine2' in payload) apiPayload.address_line2 = payload.addressLine2 ?? null;
     if ('city' in payload) apiPayload.city = payload.city ?? null;

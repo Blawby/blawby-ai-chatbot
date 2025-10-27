@@ -3,21 +3,41 @@
 
 /**
  * Get the base URL for Blawby Backend API requests
- * - Development & Production: Uses Railway production backend
- * - Supports VITE_BACKEND_API_URL override for local development if needed
+ * - Production: Requires VITE_BACKEND_API_URL to be set
+ * - Development: Allows fallback to localhost for convenience
  * 
  * Note: VITE_BACKEND_API_URL should include the /api prefix if using a local backend
  * Example: VITE_BACKEND_API_URL=http://localhost:3000/api
  */
 function getBackendBaseUrl(): string {
-  // Check for explicit backend API URL (development/override)
-  // Handle both browser and Node.js environments
+  // Check for explicit backend API URL
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_BACKEND_API_URL) {
-    // VITE_BACKEND_API_URL should include /api prefix for local development
-    return import.meta.env.VITE_BACKEND_API_URL;
+    const url = import.meta.env.VITE_BACKEND_API_URL;
+    return normalizeUrl(url);
   }
   
-  return 'https://staging-api.blawby.com/api';
+  // In production, require the environment variable
+  if (import.meta.env.PROD) {
+    throw new Error('VITE_BACKEND_API_URL environment variable is required in production. Set it to your backend API URL (e.g., https://your-api.com/api)');
+  }
+  
+  // Development fallback - allow localhost for convenience
+  return normalizeUrl('http://localhost:3000/api');
+}
+
+/**
+ * Normalize URL by trimming trailing slashes and validating protocol
+ */
+function normalizeUrl(url: string): string {
+  // Trim trailing slashes
+  const normalized = url.replace(/\/+$/, '');
+  
+  // Validate URL starts with http:// or https://
+  if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+    throw new Error(`Invalid backend URL: ${url}. URL must start with http:// or https://`);
+  }
+  
+  return normalized;
 }
 
 const BACKEND_API_CONFIG = {

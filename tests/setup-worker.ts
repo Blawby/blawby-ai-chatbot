@@ -58,6 +58,30 @@ beforeAll(async () => {
       )
     `).run();
 
+    // Create users table
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        name TEXT NOT NULL,
+        email_verified INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // Create members table
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS members (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
+        UNIQUE(organization_id, user_id)
+      )
+    `).run();
+
     // Create indexes for usage_quotas
     await env.DB.prepare(`
       CREATE INDEX IF NOT EXISTS idx_usage_quotas_period ON usage_quotas(period)
@@ -65,6 +89,15 @@ beforeAll(async () => {
     
     await env.DB.prepare(`
       CREATE INDEX IF NOT EXISTS idx_usage_quotas_org_period ON usage_quotas(organization_id, period)
+    `).run();
+
+    // Create indexes for members
+    await env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_member_org ON members(organization_id)
+    `).run();
+    
+    await env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_member_user ON members(user_id)
     `).run();
   } catch (error) {
     console.error('CRITICAL: Failed to initialize test database schema. Tests cannot proceed without a valid database schema.');
