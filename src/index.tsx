@@ -568,7 +568,7 @@ function RequireAuth({ children }: { children: ComponentChildren }) {
 	}, [isPending, session?.user, navigate]);
 
 	if (isPending) {
-		return <FallbackLoader />;
+		return null; // Global loader in AppWithSEO handles this
 	}
 
 	if (!session?.user) {
@@ -579,7 +579,11 @@ function RequireAuth({ children }: { children: ComponentChildren }) {
 }
 
 function MessagesRoute() {
-	return <HelloWorld />;
+	return (
+		<RequireAuth>
+			<MessagesPage />
+		</RequireAuth>
+	);
 }
 
 function SettingsRoute() {
@@ -592,28 +596,44 @@ function SettingsRoute() {
 
 function Redirect() {
 	const { navigate } = useNavigation();
+	const { data: session, isPending } = useSession();
 
 	useEffect(() => {
-		// Always redirect to hello world immediately, don't wait for session
-		navigate('/hello', true);
-	}, [navigate]);
+		// Wait for session to load before redirecting
+		if (isPending) {
+			return;
+		}
 
-	return <FallbackLoader />;
+		// Redirect based on authentication status
+		if (session?.user) {
+			navigate('/app/messages', true);
+		} else {
+			navigate('/auth?mode=signin', true);
+		}
+	}, [isPending, session?.user, navigate]);
+
+	return null;
 }
 
 // Component that uses organization context for SEO
 function AppWithSEO() {
 	const { organizationConfig } = useOrganization();
 	const location = useLocation();
-	
+	const { data: session, isPending } = useSession();
+
 	// Create reactive currentUrl that updates on navigation
-	const currentUrl = typeof window !== 'undefined' 
+	const currentUrl = typeof window !== 'undefined'
 		? `${window.location.origin}${location.url}`
 		: undefined;
-	
+
+	// Show loader while checking authentication on any page load/refresh
+	if (isPending) {
+		return <FallbackLoader />;
+	}
+
 	return (
 		<>
-			<SEOHead 
+			<SEOHead
 				organizationConfig={organizationConfig}
 				currentUrl={currentUrl}
 			/>
@@ -631,8 +651,9 @@ function AppWithSEO() {
 }
 
 const FallbackLoader = () => (
-	<div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-		Loading…
+	<div className="flex h-screen flex-col items-center justify-center gap-4 bg-light-bg dark:bg-dark-bg">
+		<div className="h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-accent-500 dark:border-gray-700 dark:border-t-accent-400" />
+		<p className="text-sm text-gray-600 dark:text-gray-400">Loading...</p>
 	</div>
 );
 

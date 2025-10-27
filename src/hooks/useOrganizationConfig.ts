@@ -94,12 +94,18 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
 
   // Use ref to track if we've already fetched for this organizationId
   const fetchedOrganizationIds = useRef<Set<string>>(new Set());
-  
+
   // Track current request to prevent stale responses from clobbering state
   const currentRequestRef = useRef<{
     organizationId: string;
     abortController: AbortController;
   } | null>(null);
+
+  // Use ref to capture latest onError callback without causing re-renders
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   // Parse URL parameters for configuration
   const parseUrlParams = useCallback(() => {
@@ -157,9 +163,9 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
       const response = await fetch(getOrganizationsEndpoint(), { signal: controller.signal });
 
       // Check if this request is still current before processing response
-      if (!currentRequestRef.current || 
-          currentRequestRef.current.organizationId !== currentOrganizationId ||
-          controller.signal.aborted) {
+      if (!currentRequestRef.current ||
+        currentRequestRef.current.organizationId !== currentOrganizationId ||
+        controller.signal.aborted) {
         return; // Request is stale or aborted, don't update state
       }
 
@@ -170,9 +176,9 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
           const organization = organizationsResponse.data.find((t) => t.slug === currentOrganizationId || t.id === currentOrganizationId);
 
           // Check again before processing organization data
-          if (!currentRequestRef.current || 
-              currentRequestRef.current.organizationId !== currentOrganizationId ||
-              controller.signal.aborted) {
+          if (!currentRequestRef.current ||
+            currentRequestRef.current.organizationId !== currentOrganizationId ||
+            controller.signal.aborted) {
             return; // Request is stale or aborted, don't update state
           }
 
@@ -206,7 +212,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
             };
             setOrganizationConfig(config);
             setOrganizationNotFound(false);
-            
+
             // Only add to fetched set after successful config processing
             fetchedOrganizationIds.current.add(currentOrganizationId);
           } else {
@@ -216,7 +222,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
         } catch (parseError) {
           console.error('Failed to parse organizations response:', parseError);
           setOrganizationNotFound(true);
-          onError?.('Invalid organization configuration data received');
+          onErrorRef.current?.('Invalid organization configuration data received');
         }
       } else if (response.status === 404) {
         // Only set organization not found for actual 404 responses
@@ -232,7 +238,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
       }
       console.warn('Failed to fetch organization config:', error);
       setOrganizationNotFound(true);
-      onError?.('Failed to load organization configuration');
+      onErrorRef.current?.('Failed to load organization configuration');
     } finally {
       // Clear the current request ref and reset loading state
       if (currentRequestRef.current?.organizationId === currentOrganizationId) {
@@ -241,7 +247,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
         setIsLoading(false);
       }
     }
-  }, [onError]);
+  }, []); // Removed onError from dependencies to prevent infinite loops
 
   // Retry function for organization config
   const handleRetryOrganizationConfig = useCallback(() => {

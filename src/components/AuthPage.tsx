@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'preact/hooks';
 import { useTranslation } from '@/i18n/hooks';
 import { UserIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import OnboardingModal from './onboarding/OnboardingModal';
@@ -16,10 +16,9 @@ import { useToastContext } from '../contexts/ToastContext';
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
   onSuccess?: () => void | Promise<void>;
-  redirectDelay?: number;
 }
 
-const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPageProps) => {
+const AuthPage = ({ mode = 'signin', onSuccess }: AuthPageProps) => {
   const { t } = useTranslation('auth');
   const { signin, signup, refreshSession } = useAuth();
   const { data: sessionState, isPending: sessionPending } = useSession();
@@ -91,30 +90,14 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     return !(hasDob && hasUseCase);
   }, [sessionState.user, userDetails]);
 
-  useEffect(() => {
-    if (sessionPending || sessionState.isLoading || !sessionState.user) {
-      return;
-    }
-
-    if (needsOnboarding && !onboardingHandled) {
-      setShowOnboarding(true);
-      return;
-    }
-
-    if (!needsOnboarding && !showOnboarding && !onboardingHandled) {
-      setOnboardingHandled(true);
-      void handleRedirect();
-    }
-  }, [sessionPending, sessionState.isLoading, sessionState.user, needsOnboarding, onboardingHandled, showOnboarding]);
-
   // Helper function to handle redirect with proper onSuccess awaiting
-  const handleRedirect = async (targetPath = '/app/messages') => {
+  const handleRedirect = useCallback(async (targetPath = '/app/messages') => {
     if (onSuccess) {
       try {
         await onSuccess();
-      } catch (_error) {
+      } catch (err) {
         // onSuccess callback failed - use production-safe error handling
-        handleError(error, {
+        handleError(err, {
           component: 'AuthPage',
           action: 'onSuccess-callback',
           mode
@@ -125,21 +108,50 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         // Continue with redirect even if onSuccess fails
       }
     }
-    
+
     // Reset loading state before delay so UI stops showing spinner
     setLoading(false);
-    
-    // Always respect the configured redirectDelay
-    const delay = redirectDelay;
-    
-    if (delay > 0) {
-      setTimeout(() => {
-        navigate(targetPath, true);
-      }, delay);
-    } else {
-      navigate(targetPath, true);
+
+    // Navigate directly to target path
+    // Preserve welcome parameter if present
+    const currentParams = new URLSearchParams(window.location.search);
+    const welcome = currentParams.get('welcome');
+    if (welcome) {
+      const separator = targetPath.includes('?') ? '&' : '?';
+      targetPath = `${targetPath}${separator}welcome=${welcome}`;
     }
-  };
+
+    navigate(targetPath, true);
+  }, [onSuccess, mode, navigate]);
+
+  useEffect(() => {
+    if (sessionPending || sessionState.isLoading || !sessionState.user) {
+      return;
+    }
+
+    // Check if this is the initial signup flow by looking at URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const isInitialSignupFlow = urlParams.get('mode') === 'signup' || urlParams.get('onboarding') === 'true';
+
+    // If user is already authenticated and visits auth page, redirect to main app
+    // This prevents showing onboarding modal or signin form to authenticated users
+    if (!isInitialSignupFlow || !needsOnboarding) {
+      void handleRedirect();
+      return;
+    }
+
+    // Only show onboarding if user just signed up AND needs onboarding AND is in initial signup flow
+    // This prevents onboarding modal from showing on page refresh
+    if (needsOnboarding && !onboardingHandled && isInitialSignupFlow && !showOnboarding) {
+      setShowOnboarding(true);
+      return;
+    }
+
+    if (!needsOnboarding && !showOnboarding && !onboardingHandled) {
+      setOnboardingHandled(true);
+      void handleRedirect();
+    }
+  }, [sessionPending, sessionState.isLoading, sessionState.user, needsOnboarding, onboardingHandled, showOnboarding, handleRedirect]);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -169,6 +181,12 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
             }
 
         setMessage(t('messages.accountCreated'));
+
+        // Add onboarding parameter to URL to indicate this is the initial signup flow
+        // This ensures onboarding modal appears correctly during signup
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('onboarding', 'true');
+        window.history.replaceState({}, '', currentUrl.toString());
 
         setOnboardingHandled(false);
         setShowOnboarding(true);
@@ -266,6 +284,12 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         console.warn('Failed to refresh session after onboarding:', refreshError);
       });
 
+      // Remove onboarding parameter from URL
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.delete('onboarding');
+      currentUrl.searchParams.delete('mode');
+      window.history.replaceState({}, '', currentUrl.toString());
+
       setOnboardingHandled(true);
       setShowOnboarding(false);
 
@@ -280,9 +304,15 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         6000 // Show for 6 seconds to ensure user sees it
       );
       
+      // Remove onboarding parameter from URL
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.delete('onboarding');
+      currentUrl.searchParams.delete('mode');
+      window.history.replaceState({}, '', currentUrl.toString());
+
       setOnboardingHandled(true);
       setShowOnboarding(false);
-      
+
       // Wait a moment for the toast to appear before redirecting
       await new Promise(resolve => setTimeout(resolve, 1000));
       await handleRedirect('/app/messages');
@@ -290,9 +320,15 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   };
 
   const handleOnboardingClose = async () => {
+    // Remove onboarding parameter from URL
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.delete('onboarding');
+    currentUrl.searchParams.delete('mode');
+    window.history.replaceState({}, '', currentUrl.toString());
+
     setOnboardingHandled(true);
     setShowOnboarding(false);
-    await handleRedirect();
+    await handleRedirect('/app/messages');
   };
 
 

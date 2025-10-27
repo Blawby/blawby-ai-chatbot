@@ -2,7 +2,7 @@ import { createContext } from 'preact';
 import { ComponentChildren } from 'preact';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { User, UserDetails } from '../types/backend';
-import { authClient } from '../lib/authClient';
+import { betterAuthClient } from '../lib/betterAuthClient';
 import { backendClient } from '../lib/backendClient';
 
 interface AuthState {
@@ -58,19 +58,17 @@ const persistSession = (token: string | null, user: User | null) => {
 };
 
 const restoreStoredSession = (): { token: string | null; user: User | null } => {
-  // Restore bearer token from localStorage for cross-origin authentication
-  try {
-    const bearerToken = localStorage.getItem('bearer_token');
-    if (bearerToken) {
-      // Set the token in backendClient so it can be used for API calls
-      backendClient.restoreAuthToken(bearerToken);
-      return { token: bearerToken, user: null }; // user will be loaded separately
+    // Restore bearer token from localStorage (set by BetterAuth client)
+    try {
+      const bearerToken = localStorage.getItem('bearer_token');
+      if (bearerToken) {
+        return { token: bearerToken, user: null }; // user will be loaded separately
+      }
+    } catch (error) {
+      console.warn('Failed to restore stored session:', error);
     }
-  } catch (error) {
-    console.warn('Failed to restore stored session:', error);
-  }
 
-  return { token: null, user: null };
+    return { token: null, user: null };
 };
 
 export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
@@ -136,9 +134,47 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         // Check if component is still mounted before proceeding
         if (abortController.signal.aborted) return;
 
-        // If we have a token, try to get user details to validate the session
+        // If we have a token, try to get session from BetterAuth and user details
         if (token) {
-          await loadUserDetails();
+          // Get session from BetterAuth first
+          console.log('🔍 Trying to get session from BetterAuth with token:', token.substring(0, 20) + '...');
+          const session = await betterAuthClient.getSession();
+          console.log('📦 BetterAuth session response:', session);
+          console.log('👤 session.data.user:', session.data?.user);
+          console.log('👤 session.user:', session.user);
+          
+          // BetterAuth returns {session, user} directly, not nested in data
+          const userData = session.user || session.data?.user;
+          if (userData && userData.email) {
+            // We have a valid session, set user data
+            setAuthState(prev => ({
+              ...prev,
+              user: {
+                id: userData.id,
+                email: userData.email,
+                name: userData.name || null,
+                emailVerified: userData.emailVerified || false,
+                createdAt: userData.createdAt instanceof Date ? userData.createdAt.toISOString() : userData.createdAt,
+                updatedAt: userData.updatedAt instanceof Date ? userData.updatedAt.toISOString() : userData.updatedAt,
+                onboardingCompleted: false
+              },
+              isLoading: false  // Set loading to false immediately
+            }));
+            
+            // Load additional user details in the background
+            loadUserDetails().catch(() => {
+              // If user details loading fails, user is still authenticated with basic data
+            });
+          } else {
+            // Session is invalid, clear everything
+            setAuthState({
+              user: null,
+              token: null,
+              isLoading: false,
+              error: null,
+              session: null
+            });
+          }
         } else {
           // No token available, user needs to sign in
           setAuthState({
@@ -180,27 +216,35 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      console.log('📤 signin: Calling backendClient.signin...');
-      const result = await backendClient.signin({ email, password });
+      console.log('📤 signin: Calling Better Auth client...');
+      // Use Better Auth client SDK for sign-in
+      const result = await betterAuthClient.signIn.email({
+        email,
+        password
+      });
       console.log('✅ signin: Sign-in successful, result:', result);
       
-      const token = result.token || null;
-      const user = result.user ?? null;
-
-      console.log('💾 signin: Storing token and setting auth state...');
-      backendClient.restoreAuthToken(token);
+      // Token is automatically stored by Better Auth client via onSuccess callback
+      const token = localStorage.getItem('bearer_token');
       
-      // Store token in localStorage for persistence
-      if (token) {
-        localStorage.setItem('bearer_token', token);
-      }
+      // Get user from Better Auth session
+      const session = await betterAuthClient.getSession();
+      const userData = session.data?.user;
 
       setAuthState({
-        user,
+        user: userData ? {
+          id: userData.id,
+          email: userData.email || email,
+          name: userData.name || email.split('@')[0],
+          emailVerified: userData.emailVerified || false,
+          createdAt: userData.createdAt.toISOString(),
+          updatedAt: userData.updatedAt.toISOString(),
+          onboardingCompleted: false
+        } : null,
         token,
         isLoading: false,
         error: null,
-        session: user ? { activeOrganizationId: null } : null
+        session: userData ? { activeOrganizationId: null } : null
       });
 
       console.log('📋 signin: Loading user details...');
@@ -220,7 +264,6 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
         session: null
       });
       persistSession(null, null); // Clean up legacy keys
-      backendClient.restoreAuthToken(null);
       throw new Error(message);
     }
   }, [loadUserDetails]);
@@ -238,27 +281,34 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const result = await backendClient.signup({
+      // Use Better Auth client SDK for sign-up
+      await betterAuthClient.signUp.email({
         email,
         password,
         name: fullName
       });
 
-      const token = result.token || null;
-      const user = result.user ?? null;
-
-      if (token) {
-        backendClient.restoreAuthToken(token);
-        // Store token in localStorage for persistence
-        localStorage.setItem('bearer_token', token);
-      }
+      // Token is automatically stored by Better Auth client via onSuccess callback
+      const token = localStorage.getItem('bearer_token');
+      
+      // Get user from Better Auth session
+      const session = await betterAuthClient.getSession();
+      const userData = session.data?.user;
 
       setAuthState({
-        user,
+        user: userData ? {
+          id: userData.id,
+          email: userData.email || email,
+          name: userData.name || fullName,
+          emailVerified: userData.emailVerified || false,
+          createdAt: userData.createdAt.toISOString(),
+          updatedAt: userData.updatedAt.toISOString(),
+          onboardingCompleted: false
+        } : null,
         token,
         isLoading: false,
         error: null,
-        session: user ? { activeOrganizationId: null } : null
+        session: userData ? { activeOrganizationId: null } : null
       });
 
       if (token) {
@@ -277,12 +327,13 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
 
   const signout = useCallback(async () => {
     try {
-      await authClient.signOut();
+      // Use Better Auth client for sign-out
+      await betterAuthClient.signOut();
     } catch (error) {
       console.warn('Sign out request failed:', error);
     } finally {
       persistSession(null, null);
-      backendClient.restoreAuthToken(null);
+      localStorage.removeItem('bearer_token');
       setUserDetails(null);
       setDetailsError(null);
       setAuthState({
