@@ -695,7 +695,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         invitation.organizationId,
         user.id,
         invitation.role,
-        Math.floor(Date.now() / 1000)
+        new Date().toISOString()
       ).run();
 
       await recordOrganizationEvent(env, invitation.organizationId, {
@@ -1045,7 +1045,7 @@ async function createOrganization(
           organization.id,
           userId,
           'owner',
-          Math.floor(Date.now() / 1000)
+          new Date().toISOString()
         ).run();
       } catch (memberhipError) {
         // If memberhip insertion fails, delete the orphaned organization

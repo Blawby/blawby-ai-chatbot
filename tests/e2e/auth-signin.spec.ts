@@ -22,7 +22,7 @@ test.describe('Auth Signin API Flow', () => {
   });
 
   test('existing user can sign in and fetch session data via API', async () => {
-    const api = await playwrightRequest.newContext();
+    let api = await playwrightRequest.newContext();
     const testEmail = generateTestEmail('e2e-signin');
     addUserToCleanup(createdUsers, testEmail, [
       'POST /auth/sign-up/email',
@@ -97,10 +97,10 @@ test.describe('Auth Signin API Flow', () => {
         // Clear the session to test fresh signin
         console.log(`🔄 Clearing session to test fresh signin`);
         await api.dispose();
-        const freshApi = await playwrightRequest.newContext();
+        api = await playwrightRequest.newContext();
         
         console.log(`🔐 Signing in with existing account: ${testEmail}`);
-        const signinResponse = await freshApi.post(`${API_BASE_URL}/auth/sign-in/email`, {
+        const signinResponse = await api.post(`${API_BASE_URL}/auth/sign-in/email`, {
           data: {
             email: testEmail,
             password: DEFAULT_PASSWORD
@@ -123,9 +123,6 @@ test.describe('Auth Signin API Flow', () => {
           hasBetterAuthCookie,
           'signin should issue better-auth.session_token cookie'
         ).toBeTruthy();
-        
-        // Update api reference for subsequent steps
-        Object.assign(api, freshApi);
       });
 
       await test.step('Verify session hydration via GET /auth/get-session', async () => {
@@ -176,7 +173,7 @@ test.describe('Auth Signin API Flow', () => {
         // Validate that existing profile data is still there
         const dob = detailsJson.details?.dob ?? '';
         expect(dob, 'dob should not be empty for existing account').toBeTruthy();
-        expect(dob, 'dob should contain 1985-05-15').toContain('1985-05-15');
+        expect(dob, 'dob should contain 1985-05-15').toBe('1985-05-15');
         console.log(`✅ Existing date of birth preserved: ${dob}`);
         
         const productUsage = detailsJson.details?.product_usage ?? null;

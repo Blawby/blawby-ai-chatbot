@@ -126,12 +126,24 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
       session: null
     });
 
+    // Create AbortController for cleanup
+    const abortController = new AbortController();
+
     // Fetch session from backend using cookie-based authentication
     const fetchSessionFromBackend = async () => {
       try {
+        // Check if component is still mounted before proceeding
+        if (abortController.signal.aborted) return;
+
         // Try to get user details which will validate the session
         await loadUserDetails();
+
+        // Check again after async operation
+        if (abortController.signal.aborted) return;
       } catch (error) {
+        // Check if component is still mounted before updating state
+        if (abortController.signal.aborted) return;
+
         // Session is invalid or user is not authenticated
         setAuthState({
           user: null,
@@ -144,6 +156,11 @@ export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
     };
 
     void fetchSessionFromBackend();
+
+    // Cleanup function to abort pending operations
+    return () => {
+      abortController.abort();
+    };
   }, [loadUserDetails]);
 
   const signin = useCallback(async (email: string, password: string) => {

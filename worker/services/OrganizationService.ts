@@ -260,7 +260,7 @@ export class OrganizationService {
         globalThis.crypto.randomUUID(),
         organization.id,
         userId,
-        Math.floor(Date.now() / 1000)
+        new Date().toISOString()
       ).run();
     } catch (error) {
       const deleted = await this.deleteOrganization(organization.id);

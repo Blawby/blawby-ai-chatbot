@@ -1,5 +1,13 @@
 # Blawby Backend API Integration
 
+> **⚠️ CRITICAL WARNING**: **NEVER USE STAGING URLs FOR PRODUCTION DEPLOYMENTS**
+> 
+> - Staging URLs (`staging-api.blawby.com`, `staging.blawby.com`) are for development/testing ONLY
+> - Production deployments MUST use `production-api.blawby.com`
+> - Using staging URLs in production will route live user traffic to staging environment
+> - This can cause data corruption, security issues, and service disruption
+> - Always verify production URLs before deployment
+
 ## Overview
 
 This application integrates with the external **Blawby Backend API** for user authentication and organization (practice) management. The backend API handles all user-related operations while the local Cloudflare Workers handle AI chat functionality.
@@ -7,7 +15,7 @@ This application integrates with the external **Blawby Backend API** for user au
 ## API Endpoints
 
 ### Base URL
-- **Production**: `https://staging-api.blawby.com/api` (Updated: Railway backend is down)
+- **Production**: `https://production-api.blawby.com/api` ✅ **CORRECT PRODUCTION URL**
 - **Development**: Can be overridden with `VITE_BACKEND_API_URL` environment variable
 - **Legacy Railway**: `https://blawby-backend-production.up.railway.app/api` (Currently returning 404)
 
@@ -463,14 +471,14 @@ interface Practice {
 
 #### 1. Create Account
 ```bash
-curl --location --request POST 'https://staging-api.blawby.com/api/auth/sign-up/email' \
+curl --location --request POST 'https://production-api.blawby.com/api/auth/sign-up/email' \
 --header 'Content-Type: application/json' \
 --data-raw '{"email": "test@example.com", "password": "testpassword123", "name": "Test User"}'
 ```
 
 #### 2. Sign In (Sets Session Cookie Automatically)
 ```bash
-curl --location --request POST 'https://staging-api.blawby.com/api/auth/sign-in/email' \
+curl --location --request POST 'https://production-api.blawby.com/api/auth/sign-in/email' \
 --header 'Content-Type: application/json' \
 --data-raw '{"email": "test@example.com", "password": "testpassword123"}' \
 -c cookies.txt -b cookies.txt \
@@ -491,7 +499,7 @@ curl --location --request POST 'https://staging-api.blawby.com/api/auth/sign-in/
 
 #### Get Session (Internal - For Debugging)
 ```bash
-curl --location --request GET 'https://staging-api.blawby.com/api/auth/get-session' \
+curl --location --request GET 'https://production-api.blawby.com/api/auth/get-session' \
 --cookie 'better-auth.session_token=YOUR_SESSION_TOKEN_HERE' \
 -c cookies.txt -b cookies.txt
 ```
@@ -501,7 +509,7 @@ curl --location --request GET 'https://staging-api.blawby.com/api/auth/get-sessi
 ### Session Cookie Test Results (Verified ✅)
 
 **Test Date**: October 26, 2025,  
-**Backend URL**: `https://staging-api.blawby.com/api`
+**Backend URL**: `https://production-api.blawby.com/api`
 
 #### ✅ Sign-In Test
 - **Status**: 200 OK
@@ -527,13 +535,13 @@ curl --location --request GET 'https://staging-api.blawby.com/api/auth/get-sessi
 
 #### 4. Get User Details (Token-based)
 ```bash
-curl --location --request GET 'https://staging-api.blawby.com/api/user-details/me' \
+curl --location --request GET 'https://production-api.blawby.com/api/user-details/me' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 
 #### 5. Update User Details
 ```bash
-curl --location --request PUT 'https://staging-api.blawby.com/api/user-details/me' \
+curl --location --request PUT 'https://production-api.blawby.com/api/user-details/me' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE' \
 --data-raw '{"phone": "+1234567890", "dob": "1990-01-15", "productUsage": ["others"]}'
@@ -541,7 +549,7 @@ curl --location --request PUT 'https://staging-api.blawby.com/api/user-details/m
 
 #### 6. Verify Updated Details
 ```bash
-curl --location --request GET 'https://staging-api.blawby.com/api/user-details/me' \
+curl --location --request GET 'https://production-api.blawby.com/api/user-details/me' \
 --header 'Authorization: Bearer YOUR_TOKEN_HERE'
 ```
 
@@ -564,5 +572,5 @@ curl --location --request GET 'https://staging-api.blawby.com/api/user-details/m
 
 **Last Updated**: October 2025  
 **API Version**: v1  
-**Backend URL**: https://staging-api.blawby.com/api  
+**Backend URL**: https://production-api.blawby.com/api  
 **Status**: ✅ Session cookies verified and working

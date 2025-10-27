@@ -17,10 +17,10 @@ export interface AuthContext {
 }
 
 function getBackendBaseUrl(env: Env): string {
-  if (env.BLAWBY_API_URL) {
-    return env.BLAWBY_API_URL;
+  if (!env.BLAWBY_API_URL) {
+    throw HttpErrors.internalServerError('BLAWBY_API_URL is not configured. This environment variable is required for authentication to work properly.');
   }
-  return 'https://staging-api.blawby.com/api';
+  return env.BLAWBY_API_URL;
 }
 
 const SESSION_COOKIE_NAME = 'better-auth.session_token';
@@ -113,15 +113,15 @@ export async function requireOrganizationMember(
   organizationId: string,
   minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
 ): Promise<AuthContext & { memberRole: string }> {
-  const authContext = await requireAuth(request, env);
-
-  // 1. Validate organizationId
-  if (!organizationId || typeof organizationId !== 'string' || organizationId.trim() === '') {
-    throw HttpErrors.badRequest("Invalid or missing organizationId");
-  }
-
-  // 2. Fetch user's membership for the organization using direct database query
   try {
+    const authContext = await requireAuth(request, env);
+
+    // 1. Validate organizationId
+    if (!organizationId || typeof organizationId !== 'string' || organizationId.trim() === '') {
+      throw HttpErrors.badRequest("Invalid or missing organizationId");
+    }
+
+    // 2. Fetch user's membership for the organization using direct database query
     const membershipResult = await env.DB.prepare(`
       SELECT role FROM members 
       WHERE organization_id = ? AND user_id = ?

@@ -179,8 +179,12 @@ export const useUserProfile = (): UseUserProfileReturn => {
 
       const payload: UpdateUserDetailsPayload = {};
 
-      if ('phone' in data || 'secondaryPhone' in data) {
-        payload.phone = data.phone ?? data.secondaryPhone ?? null;
+      if ('phone' in data) {
+        payload.phone = data.phone;
+      }
+      
+      if ('secondaryPhone' in data) {
+        payload.secondaryPhone = data.secondaryPhone;
       }
 
       if ('dob' in data) {

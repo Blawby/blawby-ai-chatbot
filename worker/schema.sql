@@ -472,7 +472,7 @@ CREATE TABLE IF NOT EXISTS members (
   organization_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   role TEXT NOT NULL, -- 'owner', 'admin', 'attorney', 'paralegal'
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
   UNIQUE(organization_id, user_id)
 );
 

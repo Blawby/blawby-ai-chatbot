@@ -26,6 +26,20 @@ import { withCORS, getCorsConfig } from './middleware/cors';
 import docProcessor from './consumers/doc-processor';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 
+// Environment validation
+function validateEnvironment(env: Env): void {
+  const requiredVars = [
+    'BLAWBY_API_URL',
+    'RESEND_API_KEY'
+  ];
+
+  const missingVars = requiredVars.filter(varName => !env[varName as keyof Env]);
+  
+  if (missingVars.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}. Please configure these variables in your wrangler.toml or via wrangler secret put.`);
+  }
+}
+
 // Basic request validation
 function validateRequest(request: Request): boolean {
   const _url = new URL(request.url);
@@ -54,6 +68,21 @@ function validateRequest(request: Request): boolean {
 async function handleRequestInternal(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
+
+  // Validate environment configuration early
+  try {
+    validateEnvironment(env);
+  } catch (error) {
+    console.error('Environment validation failed:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error instanceof Error ? error.message : 'Environment configuration error',
+      errorCode: 'ENVIRONMENT_ERROR'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 
   // Basic request validation
   if (!validateRequest(request)) {

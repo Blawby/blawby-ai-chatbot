@@ -72,7 +72,7 @@ test.describe('Auth Signout API Flow', () => {
 
       await test.step('Sign out via POST /auth/sign-out', async () => {
         console.log(`🚪 Signing out user: ${testEmail}`);
-        console.log(`🔑 Using auth token: ${authToken.substring(0, 10)}...`);
+        console.log(`🔑 Using auth token: Present (${authToken.length} chars)`);
         
         const signoutResponse = await api.post(`${API_BASE_URL}/auth/sign-out`, {
           headers: {
@@ -85,7 +85,7 @@ test.describe('Auth Signout API Flow', () => {
         
         const statusCode = signoutResponse.status();
         console.log(`✅ Signout response status: ${statusCode}`);
-        expect(signoutResponse.ok(), `sign-out should return 200, got ${statusCode}`).toBeTruthy();
+        expect(signoutResponse.ok(), `sign-out should return 200 or 204, got ${statusCode}`).toBeTruthy();
         
         // Check for Set-Cookie header that clears the session cookie
         const cookies = signoutResponse.headersArray().filter(header => header.name.toLowerCase() === 'set-cookie');
@@ -111,7 +111,7 @@ test.describe('Auth Signout API Flow', () => {
         
         const statusCode = sessionResponse.status();
         console.log(`✅ Session check response status: ${statusCode}`);
-        expect(sessionResponse.ok(), `get-session should return 200, got ${statusCode}`).toBeTruthy();
+        expect(sessionResponse.ok(), `get-session should return 200 or 204, got ${statusCode}`).toBeTruthy();
         
         // Only parse JSON if response is not 204 No Content
         let sessionJson = null;

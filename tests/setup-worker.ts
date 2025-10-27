@@ -6,6 +6,9 @@ process.env.NODE_ENV = 'test';
 beforeAll(async () => {
   // Initialize database schema for tests
   try {
+    // Enable foreign key constraints
+    await env.DB.prepare('PRAGMA foreign_keys = ON').run();
+    
     // Create organizations table
     await env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS organizations (
@@ -62,7 +65,7 @@ beforeAll(async () => {
     await env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         email_verified INTEGER NOT NULL DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -77,8 +80,10 @@ beforeAll(async () => {
         organization_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         role TEXT NOT NULL,
-        created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-        UNIQUE(organization_id, user_id)
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        UNIQUE(organization_id, user_id),
+        FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `).run();
 
@@ -98,6 +103,11 @@ beforeAll(async () => {
     
     await env.DB.prepare(`
       CREATE INDEX IF NOT EXISTS idx_member_user ON members(user_id)
+    `).run();
+
+    // Create index for users email
+    await env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_user_email ON users(email)
     `).run();
   } catch (error) {
     console.error('CRITICAL: Failed to initialize test database schema. Tests cannot proceed without a valid database schema.');

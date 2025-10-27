@@ -3,11 +3,11 @@ import { useTranslation } from '@/i18n/hooks';
 import Modal from '../Modal';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
-// TODO: User profile updates will be handled by the Blawby Backend API (not yet implemented)
 import type { OnboardingData } from '../../types/user';
 import { toOnboardingData } from '../../types/user';
 import { useToastContext } from '../../contexts/ToastContext';
 import { useSession } from '../../contexts/AuthContext';
+import { backendClient } from '../../lib/backendClient';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -115,6 +115,14 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     };
 
     try {
+      // Save onboarding data to backend API
+      await backendClient.updateUserDetails({
+        dob: completedData.personalInfo.birthday ? 
+          new Date(completedData.personalInfo.birthday).toISOString().split('T')[0] : 
+          null,
+        productUsage: completedData.useCase.selectedUseCases ?? []
+      });
+
       // Show success notification
       showSuccess(
         t('onboarding.completed.title', 'Onboarding Complete!'),

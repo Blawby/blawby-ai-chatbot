@@ -1,47 +1,58 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Env } from '../../../worker/types.js';
 
-// Mock the auth middleware module
-vi.mock('../../../worker/middleware/auth.js', () => ({
-  requireAuth: vi.fn(),
-  optionalAuth: vi.fn(),
-  requireOrganizationMember: vi.fn(),
-  requireOrgMember: vi.fn(),
-  requireOrgOwner: vi.fn(),
-  checkOrgAccess: vi.fn(),
-}));
+// Mock external dependencies - HttpErrors is imported and used by the actual middleware
 
-// Mock error handler
-vi.mock('../../../worker/errorHandler.js', () => ({
-  HttpErrors: {
-    unauthorized: vi.fn((message: string) => new Error(`401: ${message}`)),
-    forbidden: vi.fn((message: string) => new Error(`403: ${message}`)),
-    badRequest: vi.fn((message: string) => new Error(`400: ${message}`)),
-    internalServerError: vi.fn((message: string) => new Error(`500: ${message}`))
+// Mock validation schema
+vi.mock('../../../worker/schemas/validation.js', () => ({
+  organizationMembershipSchema: {
+    safeParse: vi.fn((data: any) => {
+      if (data && typeof data.role === 'string' && ['owner', 'admin', 'attorney', 'paralegal'].includes(data.role)) {
+        return { success: true, data };
+      }
+      return { 
+        success: false, 
+        error: { issues: [{ message: 'Invalid role' }] }
+      };
+    })
   }
 }));
 
-// Import the mocked functions
+// Mock fetch globally
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
+// Import the actual middleware functions
 import { 
   requireAuth, 
   optionalAuth, 
   requireOrganizationMember,
   requireOrgMember,
   requireOrgOwner,
-  checkOrgAccess
+  checkOrgAccess,
+  type AuthenticatedUser,
+  type AuthContext
 } from '../../../worker/middleware/auth.js';
 
 describe('Auth Middleware - Unit Tests', () => {
   let mockEnv: Env;
   let mockRequest: Request;
+  let mockDb: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
     
+    // Mock database with prepared statement chain
+    mockDb = {
+      prepare: vi.fn().mockReturnThis(),
+      bind: vi.fn().mockReturnThis(),
+      first: vi.fn()
+    };
+    
     // Mock environment
     mockEnv = {
       BLAWBY_API_URL: 'https://test-api.example.com/api',
-      DB: {} as any,
+      DB: mockDb,
       AI: {} as any,
       CHAT_SESSIONS: {} as any,
       RESEND_API_KEY: 'test-key',
@@ -57,175 +68,326 @@ describe('Auth Middleware - Unit Tests', () => {
     });
   });
 
-  describe('requireAuth', () => {
-    it('should be callable with request and env', async () => {
-      const mockAuthContext = {
-        user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          name: 'Test User',
-          emailVerified: true
-        },
-        sessionToken: 'test-session-token-123'
-      };
+  // Helper function to create mock authenticated user
+  function createMockUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
+    return {
+      id: 'user-123',
+      email: 'test@example.com',
+      name: 'Test User',
+      emailVerified: true,
+      details: null,
+      ...overrides
+    };
+  }
 
-      vi.mocked(requireAuth).mockResolvedValue(mockAuthContext);
+  // Helper function to create mock auth context
+  function createMockAuthContext(user: AuthenticatedUser, sessionToken: string = 'test-session-token-123'): AuthContext {
+    return {
+      user,
+      sessionToken
+    };
+  }
+
+  // Helper function to setup successful auth API responses
+  function setupSuccessfulAuthResponses(user: AuthenticatedUser, details: Record<string, unknown> | null = null) {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ details })
+      });
+  }
+
+  // Helper function to setup failed auth API responses
+  function setupFailedAuthResponses(status: number = 401) {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status
+    });
+  }
+
+  describe('requireAuth', () => {
+    it('should return auth context when valid session token is provided', async () => {
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
 
       const result = await requireAuth(mockRequest, mockEnv);
 
-      expect(requireAuth).toHaveBeenCalledWith(mockRequest, mockEnv);
-      expect(result).toEqual(mockAuthContext);
+      expect(result).toEqual(createMockAuthContext(mockUser));
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://test-api.example.com/api/auth/get-session',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Cookie: 'better-auth.session_token=test-session-token-123',
+            Accept: 'application/json'
+          })
+        })
+      );
     });
 
-    it('should handle authentication errors', async () => {
-      const authError = new Error('401: Authentication required');
-      vi.mocked(requireAuth).mockRejectedValue(authError);
+    it('should throw error when no session token is provided', async () => {
+      const requestWithoutToken = new Request('https://example.com/api/test');
 
-      await expect(requireAuth(mockRequest, mockEnv)).rejects.toThrow('401: Authentication required');
+      await expect(requireAuth(requestWithoutToken, mockEnv))
+        .rejects.toThrow('Authentication required');
+    });
+
+    it('should throw error when session token is invalid', async () => {
+      setupFailedAuthResponses(401);
+
+      await expect(requireAuth(mockRequest, mockEnv))
+        .rejects.toThrow('Authentication required');
+    });
+
+    it('should throw error when auth API returns no user', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: null })
+      });
+
+      await expect(requireAuth(mockRequest, mockEnv))
+        .rejects.toThrow('Authentication required');
+    });
+
+    it('should include user details when available', async () => {
+      const mockUser = createMockUser();
+      const mockDetails = { phone: '555-1234', preferences: { theme: 'dark' } };
+      setupSuccessfulAuthResponses(mockUser, mockDetails);
+
+      const result = await requireAuth(mockRequest, mockEnv);
+
+      expect(result.user.details).toEqual(mockDetails);
+    });
+
+    it('should handle user details fetch failure gracefully', async () => {
+      const mockUser = createMockUser();
+      
+      // First call succeeds (session), second call fails (details)
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ user: mockUser })
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500
+        });
+
+      const result = await requireAuth(mockRequest, mockEnv);
+
+      expect(result.user.details).toBeNull();
+    });
+
+    it('should throw error when BLAWBY_API_URL is not configured', async () => {
+      const envWithoutApiUrl = { ...mockEnv, BLAWBY_API_URL: undefined };
+
+      await expect(requireAuth(mockRequest, envWithoutApiUrl))
+        .rejects.toThrow('BLAWBY_API_URL is not configured. This environment variable is required for authentication to work properly.');
     });
   });
 
   describe('optionalAuth', () => {
     it('should return null when authentication fails', async () => {
-      vi.mocked(optionalAuth).mockResolvedValue(null);
+      setupFailedAuthResponses(401);
 
       const result = await optionalAuth(mockRequest, mockEnv);
 
-      expect(optionalAuth).toHaveBeenCalledWith(mockRequest, mockEnv);
       expect(result).toBeNull();
     });
 
     it('should return auth context when authentication succeeds', async () => {
-      const mockAuthContext = {
-        user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          name: 'Test User',
-          emailVerified: true
-        },
-        sessionToken: 'test-session-token-123'
-      };
-
-      vi.mocked(optionalAuth).mockResolvedValue(mockAuthContext);
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
 
       const result = await optionalAuth(mockRequest, mockEnv);
 
-      expect(optionalAuth).toHaveBeenCalledWith(mockRequest, mockEnv);
-      expect(result).toEqual(mockAuthContext);
+      expect(result).toEqual(createMockAuthContext(mockUser));
+    });
+
+    it('should return null when no session token is provided', async () => {
+      const requestWithoutToken = new Request('https://example.com/api/test');
+
+      const result = await optionalAuth(requestWithoutToken, mockEnv);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when auth API returns no user', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ user: null })
+      });
+
+      const result = await optionalAuth(mockRequest, mockEnv);
+
+      expect(result).toBeNull();
     });
   });
 
   describe('requireOrganizationMember', () => {
     it('should validate organizationId parameter', async () => {
-      const invalidOrgError = new Error('400: Invalid or missing organizationId');
-      vi.mocked(requireOrganizationMember).mockRejectedValue(invalidOrgError);
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
 
       await expect(requireOrganizationMember(mockRequest, mockEnv, '', 'owner'))
-        .rejects.toThrow('400: Invalid or missing organizationId');
-
-      expect(requireOrganizationMember).toHaveBeenCalledWith(mockRequest, mockEnv, '', 'owner');
+        .rejects.toThrow('Invalid or missing organizationId');
     });
 
     it('should check organization membership', async () => {
-      const membershipError = new Error('403: User is not a member of this organization');
-      vi.mocked(requireOrganizationMember).mockRejectedValue(membershipError);
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      
+      // Mock database to return no membership
+      mockDb.first.mockResolvedValue(null);
 
       await expect(requireOrganizationMember(mockRequest, mockEnv, 'org-123', 'owner'))
-        .rejects.toThrow('403: User is not a member of this organization');
+        .rejects.toThrow('User is not a member of this organization');
 
-      expect(requireOrganizationMember).toHaveBeenCalledWith(mockRequest, mockEnv, 'org-123', 'owner');
+      expect(mockDb.prepare).toHaveBeenCalledWith(`
+      SELECT role FROM members 
+      WHERE organization_id = ? AND user_id = ?
+    `);
+      expect(mockDb.bind).toHaveBeenCalledWith('org-123', 'user-123');
     });
 
     it('should enforce role requirements', async () => {
-      const roleError = new Error('403: Insufficient permissions. Required role: attorney, user role: paralegal');
-      vi.mocked(requireOrganizationMember).mockRejectedValue(roleError);
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      
+      // Mock database to return paralegal role
+      mockDb.first.mockResolvedValue({ role: 'paralegal' });
 
       await expect(requireOrganizationMember(mockRequest, mockEnv, 'org-123', 'attorney'))
-        .rejects.toThrow('403: Insufficient permissions. Required role: attorney, user role: paralegal');
-
-      expect(requireOrganizationMember).toHaveBeenCalledWith(mockRequest, mockEnv, 'org-123', 'attorney');
+        .rejects.toThrow('Insufficient permissions. Required role: attorney, user role: paralegal');
     });
 
     it('should return auth context with member role when successful', async () => {
-      const mockResult = {
-        user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          name: 'Test User',
-          emailVerified: true
-        },
-        sessionToken: 'test-session-token-123',
-        memberRole: 'admin'
-      };
-
-      vi.mocked(requireOrganizationMember).mockResolvedValue(mockResult);
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      
+      // Mock database to return admin role
+      mockDb.first.mockResolvedValue({ role: 'admin' });
 
       const result = await requireOrganizationMember(mockRequest, mockEnv, 'org-123', 'admin');
 
-      expect(requireOrganizationMember).toHaveBeenCalledWith(mockRequest, mockEnv, 'org-123', 'admin');
-      expect(result).toEqual(mockResult);
-      expect(result.memberRole).toBe('admin');
+      expect(result).toEqual({
+        ...createMockAuthContext(mockUser),
+        memberRole: 'admin'
+      });
+    });
+
+    it('should allow access when user role meets minimum requirement', async () => {
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      
+      // Mock database to return attorney role
+      mockDb.first.mockResolvedValue({ role: 'attorney' });
+
+      const result = await requireOrganizationMember(mockRequest, mockEnv, 'org-123', 'paralegal');
+
+      expect(result.memberRole).toBe('attorney');
+    });
+
+    it('should work without minimum role requirement', async () => {
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      
+      // Mock database to return any role
+      mockDb.first.mockResolvedValue({ role: 'paralegal' });
+
+      const result = await requireOrganizationMember(mockRequest, mockEnv, 'org-123');
+
+      expect(result.memberRole).toBe('paralegal');
+    });
+
+    it('should handle invalid user role from database', async () => {
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      
+      // Mock database to return invalid role
+      mockDb.first.mockResolvedValue({ role: 'invalid-role' });
+
+      await expect(requireOrganizationMember(mockRequest, mockEnv, 'org-123', 'paralegal'))
+        .rejects.toThrow('User is not a member of this organization');
+    });
+
+    it('should handle database errors gracefully', async () => {
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      
+      // Mock database to throw error
+      mockDb.first.mockRejectedValue(new Error('Database connection failed'));
+
+      await expect(requireOrganizationMember(mockRequest, mockEnv, 'org-123', 'owner'))
+        .rejects.toThrow('Failed to verify organization membership');
     });
   });
 
   describe('requireOrgMember', () => {
     it('should delegate to requireOrganizationMember', async () => {
-      const mockResult = {
-        user: { id: 'user-123' },
-        sessionToken: 'token-123',
-        memberRole: 'attorney'
-      };
-
-      vi.mocked(requireOrgMember).mockResolvedValue(mockResult);
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      mockDb.first.mockResolvedValue({ role: 'attorney' });
 
       const result = await requireOrgMember(mockRequest, mockEnv, 'org-123', 'attorney');
 
-      expect(requireOrgMember).toHaveBeenCalledWith(mockRequest, mockEnv, 'org-123', 'attorney');
-      expect(result).toEqual(mockResult);
+      expect(result).toEqual({
+        ...createMockAuthContext(mockUser),
+        memberRole: 'attorney'
+      });
     });
   });
 
   describe('requireOrgOwner', () => {
     it('should call requireOrgMember with owner role', async () => {
-      const mockResult = {
-        user: { id: 'user-123' },
-        sessionToken: 'token-123',
-        memberRole: 'owner'
-      };
-
-      vi.mocked(requireOrgOwner).mockResolvedValue(mockResult);
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      mockDb.first.mockResolvedValue({ role: 'owner' });
 
       const result = await requireOrgOwner(mockRequest, mockEnv, 'org-123');
 
-      expect(requireOrgOwner).toHaveBeenCalledWith(mockRequest, mockEnv, 'org-123');
-      expect(result).toEqual(mockResult);
-      expect(result.memberRole).toBe('owner');
+      expect(result).toEqual({
+        ...createMockAuthContext(mockUser),
+        memberRole: 'owner'
+      });
     });
   });
 
   describe('checkOrgAccess', () => {
     it('should return hasAccess: false when user is not a member', async () => {
-      vi.mocked(checkOrgAccess).mockResolvedValue({ hasAccess: false });
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      mockDb.first.mockResolvedValue(null);
 
       const result = await checkOrgAccess(mockRequest, mockEnv, 'org-123');
 
-      expect(checkOrgAccess).toHaveBeenCalledWith(mockRequest, mockEnv, 'org-123');
       expect(result).toEqual({ hasAccess: false });
     });
 
     it('should return hasAccess: true with member role when user is a member', async () => {
-      vi.mocked(checkOrgAccess).mockResolvedValue({
-        hasAccess: true,
-        memberRole: 'admin'
-      });
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
+      mockDb.first.mockResolvedValue({ role: 'admin' });
 
       const result = await checkOrgAccess(mockRequest, mockEnv, 'org-123');
 
-      expect(checkOrgAccess).toHaveBeenCalledWith(mockRequest, mockEnv, 'org-123');
       expect(result).toEqual({
         hasAccess: true,
         memberRole: 'admin'
       });
+    });
+
+    it('should return hasAccess: false when authentication fails', async () => {
+      setupFailedAuthResponses(401);
+
+      const result = await checkOrgAccess(mockRequest, mockEnv, 'org-123');
+
+      expect(result).toEqual({ hasAccess: false });
     });
   });
 
@@ -246,23 +408,17 @@ describe('Auth Middleware - Unit Tests', () => {
 
       for (const test of roleTests) {
         vi.clearAllMocks();
+        
+        const mockUser = createMockUser();
+        setupSuccessfulAuthResponses(mockUser);
+        mockDb.first.mockResolvedValue({ role: test.userRole });
 
         if (test.shouldPass) {
-          const mockResult = {
-            user: { id: 'user-123' },
-            sessionToken: 'token-123',
-            memberRole: test.userRole
-          };
-          vi.mocked(requireOrganizationMember).mockResolvedValue(mockResult);
-
           const result = await requireOrganizationMember(mockRequest, mockEnv, 'org-123', test.requiredRole as any);
           expect(result.memberRole).toBe(test.userRole);
         } else {
-          const roleError = new Error(`403: Insufficient permissions. Required role: ${test.requiredRole}, user role: ${test.userRole}`);
-          vi.mocked(requireOrganizationMember).mockRejectedValue(roleError);
-
           await expect(requireOrganizationMember(mockRequest, mockEnv, 'org-123', test.requiredRole as any))
-            .rejects.toThrow(`403: Insufficient permissions. Required role: ${test.requiredRole}, user role: ${test.userRole}`);
+            .rejects.toThrow(`Insufficient permissions. Required role: ${test.requiredRole}, user role: ${test.userRole}`);
         }
       }
     });
@@ -275,36 +431,32 @@ describe('Auth Middleware - Unit Tests', () => {
         BLAWBY_API_URL: 'https://custom-api.example.com/api'
       };
 
-      const mockAuthContext = {
-        user: { id: 'user-123' },
-        sessionToken: 'token-123'
-      };
-
-      vi.mocked(requireAuth).mockResolvedValue(mockAuthContext);
+      const mockUser = createMockUser();
+      setupSuccessfulAuthResponses(mockUser);
 
       const result = await requireAuth(mockRequest, customEnv);
 
-      expect(requireAuth).toHaveBeenCalledWith(mockRequest, customEnv);
-      expect(result).toEqual(mockAuthContext);
+      expect(result).toEqual(createMockAuthContext(mockUser));
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://custom-api.example.com/api/auth/get-session',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Cookie: 'better-auth.session_token=test-session-token-123',
+            Accept: 'application/json'
+          })
+        })
+      );
     });
 
-    it('should handle default API URL when not provided', async () => {
-      const defaultEnv = {
+    it('should throw error when BLAWBY_API_URL is not configured', async () => {
+      const envWithoutApiUrl = {
         ...mockEnv,
         BLAWBY_API_URL: undefined
       };
 
-      const mockAuthContext = {
-        user: { id: 'user-123' },
-        sessionToken: 'token-123'
-      };
-
-      vi.mocked(requireAuth).mockResolvedValue(mockAuthContext);
-
-      const result = await requireAuth(mockRequest, defaultEnv);
-
-      expect(requireAuth).toHaveBeenCalledWith(mockRequest, defaultEnv);
-      expect(result).toEqual(mockAuthContext);
+      await expect(requireAuth(mockRequest, envWithoutApiUrl))
+        .rejects.toThrow('BLAWBY_API_URL is not configured. This environment variable is required for authentication to work properly.');
     });
   });
 });

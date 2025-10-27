@@ -5,7 +5,10 @@ import type { Env } from '../../../worker/types.js';
 
 const ORG_ID = 'org-auth-integration';
 const USER_ID = 'user-auth-integration';
-const NOW = Date.now();
+const NOW = new Date().toISOString();
+
+// Capture original fetch to restore in afterEach
+const originalFetch = global.fetch;
 
 async function seedOrganization() {
   await env.DB.prepare(`
@@ -94,10 +97,15 @@ describe('Auth Middleware - Integration Tests', () => {
   });
 
   afterEach(async () => {
-    // Clean up
+    // Clean up database
     await env.DB.prepare('DELETE FROM members').run();
     await env.DB.prepare('DELETE FROM users').run();
     await env.DB.prepare('DELETE FROM organizations').run();
+    
+    // Restore original fetch to prevent test pollution
+    if (originalFetch) {
+      global.fetch = originalFetch;
+    }
   });
 
   describe('requireAuth Integration', () => {
@@ -328,30 +336,6 @@ describe('Auth Middleware - Integration Tests', () => {
   });
 
   describe('Role Hierarchy Integration', () => {
-    beforeEach(async () => {
-      // Mock successful authentication
-      const mockFetch = vi.fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            user: {
-              id: USER_ID,
-              email: 'test@auth-integration.com',
-              name: 'Auth Test User',
-              emailVerified: true
-            }
-          })
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ details: null })
-        });
-
-      global.fetch = mockFetch;
-    });
-
     it('should correctly validate all role combinations', async () => {
       const roleTests = [
         { userRole: 'paralegal', requiredRole: 'paralegal', shouldPass: true },
@@ -367,6 +351,28 @@ describe('Auth Middleware - Integration Tests', () => {
       ];
 
       for (const test of roleTests) {
+        // Mock successful authentication for each iteration
+        const mockFetch = vi.fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              user: {
+                id: USER_ID,
+                email: 'test@auth-integration.com',
+                name: 'Auth Test User',
+                emailVerified: true
+              }
+            })
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({ details: null })
+          });
+
+        global.fetch = mockFetch;
+
         // Update user role in database
         await env.DB.prepare('UPDATE members SET role = ? WHERE organization_id = ? AND user_id = ?')
           .bind(test.userRole, ORG_ID, USER_ID).run();

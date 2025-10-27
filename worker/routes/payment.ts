@@ -120,7 +120,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
           crypto.randomUUID(),
           targetOrganization.id,
           user.id,
-          Math.floor(Date.now() / 1000)
+          new Date().toISOString()
         ).run();
       }
 

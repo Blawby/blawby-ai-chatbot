@@ -1,4 +1,4 @@
-import { Page, request as playwrightRequest } from '@playwright/test';
+import { Page, request as playwrightRequest, BrowserContext } from '@playwright/test';
 
 export const DEFAULT_PASSWORD = 'TestPassword123!';
 
@@ -11,7 +11,26 @@ const API_BASE_URL = (() => {
   return url;
 })();
 
-export async function createUserViaApi(email: string, password: string = DEFAULT_PASSWORD): Promise<void> {
+/**
+ * Creates a user via API and returns session cookies for use in browser tests
+ * @param email - User email address
+ * @param password - User password (defaults to DEFAULT_PASSWORD)
+ * @param browserContext - Optional browser context to inject cookies directly into
+ * @returns Object containing the session cookies
+ * 
+ * Usage examples:
+ * 1. Get cookies for manual injection:
+ *    const { cookies } = await createUserViaApi('test@example.com');
+ *    await context.addCookies(cookies);
+ * 
+ * 2. Direct injection into browser context:
+ *    await createUserViaApi('test@example.com', 'password', context);
+ */
+export async function createUserViaApi(
+  email: string, 
+  password: string = DEFAULT_PASSWORD,
+  browserContext?: BrowserContext
+): Promise<{ cookies: any[] }> {
   const api = await playwrightRequest.newContext();
   try {
     const signupResponse = await api.post(`${API_BASE_URL}/auth/sign-up/email`, {
@@ -47,6 +66,16 @@ export async function createUserViaApi(email: string, password: string = DEFAULT
     if (!userDetailsResponse.ok()) {
       throw new Error(`Failed to update user details: ${userDetailsResponse.status()} ${userDetailsResponse.statusText()}`);
     }
+
+    // Capture cookies from the API context
+    const cookies = await api.cookies();
+    
+    // If browser context is provided, inject cookies directly
+    if (browserContext) {
+      await browserContext.addCookies(cookies);
+    }
+
+    return { cookies };
   } finally {
     await api.dispose();
   }
@@ -57,8 +86,13 @@ export async function dismissWelcomeModal(page: Page): Promise<void> {
   try {
     await button.waitFor({ state: 'visible', timeout: 5000 });
     await button.click();
-  } catch {
-    // modal not present; ignore
+  } catch (error) {
+    // Only ignore timeout errors - modal not present or took too long to appear
+    if (error.name === 'TimeoutError' || error.message?.includes('Timeout')) {
+      return; // modal not present; ignore
+    }
+    // Rethrow any other errors (network failures, click failures, etc.)
+    throw error;
   }
 }
 
@@ -67,7 +101,7 @@ export async function signInThroughUi(page: Page, email: string, password: strin
   await page.waitForLoadState('networkidle');
 
   await page.getByRole('textbox', { name: /email/i }).fill(email);
-  await page.locator('#password-field').fill(password);
+  await page.getByLabel(/password/i).fill(password);
   await page.getByRole('button', { name: /sign in/i }).click();
 
   await Promise.race([
@@ -87,7 +121,13 @@ export async function completeOnboardingFlow(page: Page): Promise<void> {
 
   await page.getByRole('button', { name: 'Next' }).click();
   await page.waitForSelector('text=Onboarding Complete!', { timeout: 10000 });
-  await page.getByRole('button').last().click();
+  
+  // Wait for the success toast to be visible and click its close button
+  // Find the toast container that contains "Onboarding Complete!" and click its close button
+  const toastContainer = page.locator('div').filter({ hasText: 'Onboarding Complete!' });
+  const toastCloseButton = toastContainer.locator('button').filter({ has: page.locator('svg') });
+  await toastCloseButton.waitFor({ state: 'visible', timeout: 5000 });
+  await toastCloseButton.click();
 
   await page.waitForURL('**/app/messages*', { timeout: 20000 });
 }
@@ -98,4 +138,13 @@ export function userProfileButton(page: Page) {
 
 export function signOutButton(page: Page) {
   return page.getByTestId('user-signout-button').first();
+}
+
+/**
+ * Helper function to inject cookies into a browser context
+ * @param browserContext - The browser context to inject cookies into
+ * @param cookies - Array of cookies to inject
+ */
+export async function injectCookiesIntoContext(browserContext: BrowserContext, cookies: any[]): Promise<void> {
+  await browserContext.addCookies(cookies);
 }

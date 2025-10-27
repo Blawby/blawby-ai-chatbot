@@ -593,23 +593,7 @@ function SettingsRoute() {
 	);
 }
 
-function AppRootRedirect() {
-	const { data: session, isPending } = useSession();
-	const { navigate } = useNavigation();
-
-	useEffect(() => {
-		if (isPending) return;
-		if (session?.user) {
-			navigate('/app/messages', true);
-		} else {
-			navigate('/auth?mode=signin', true);
-		}
-	}, [session?.user, isPending, navigate]);
-
-	return <FallbackLoader />;
-}
-
-function RootRedirect() {
+function Redirect() {
 	const { data: session, isPending } = useSession();
 	const { navigate } = useNavigation();
 
@@ -646,8 +630,8 @@ function AppWithSEO() {
 				<Route path="/cart" component={CartPage} />
 				<Route path="/app/messages" component={MessagesRoute} />
 				<Route path="/app/settings/*" component={SettingsRoute} />
-				<Route path="/app" component={AppRootRedirect} />
-				<Route default component={RootRedirect} />
+				<Route path="/app" component={Redirect} />
+				<Route default component={Redirect} />
 			</Router>
 		</>
 	);

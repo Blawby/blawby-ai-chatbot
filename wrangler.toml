@@ -32,7 +32,10 @@ database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf"  # blawby-ai-chatbot
 
 # Resend API key for email notifications (set via wrangler secret put RESEND_API_KEY)
 
-# Blawby API Configuration
+# Blawby API Configuration (REQUIRED)
+# BLAWBY_API_URL must be set to your backend API URL
+# Set via: wrangler secret put BLAWBY_API_URL
+# Example: wrangler secret put BLAWBY_API_URL "https://your-api.blawby.com/api"
 [vars]
 BLAWBY_API_URL = "https://staging.blawby.com"
 BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
@@ -190,6 +193,7 @@ REQUIRE_EMAIL_VERIFICATION = "false"
 VITE_BACKEND_API_URL = "https://production-api.blawby.com/api"
 
 # Duplicate top-level vars for production environment
+# BLAWBY_API_URL is REQUIRED - must be set to production API URL
 BLAWBY_API_URL = "https://staging.blawby.com"
 BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"

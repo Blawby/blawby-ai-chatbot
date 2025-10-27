@@ -114,9 +114,7 @@ class BackendApiClient {
 
     if ('phone' in payload) apiPayload.phone = payload.phone ?? null;
     if ('dob' in payload) apiPayload.dob = payload.dob ?? null;
-    if (Object.prototype.hasOwnProperty.call(payload, 'productUsage')) {
-      apiPayload.product_usage = payload.productUsage;
-    }
+    if ('productUsage' in payload) apiPayload.product_usage = payload.productUsage ?? null;
     if ('addressLine1' in payload) apiPayload.address_line1 = payload.addressLine1 ?? null;
     if ('addressLine2' in payload) apiPayload.address_line2 = payload.addressLine2 ?? null;
     if ('city' in payload) apiPayload.city = payload.city ?? null;

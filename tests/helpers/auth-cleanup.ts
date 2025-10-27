@@ -11,8 +11,9 @@ interface CleanupResult {
 
 export async function cleanupTestUser(email: string): Promise<CleanupResult> {
   return {
-    success: true,
-    partial: true
+    success: false,
+    partial: false,
+    error: 'Cleanup not implemented'
   };
 }
 

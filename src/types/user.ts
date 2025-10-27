@@ -115,8 +115,8 @@ export interface UserProfile {
   onboardingData?: OnboardingData | null;
   
   // Timestamps
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }
 
 export interface UserPreferences {

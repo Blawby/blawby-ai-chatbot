@@ -11,6 +11,7 @@ import { useAuth, useSession } from '../contexts/AuthContext';
 import { features } from '../config/features';
 import { backendClient } from '../lib/backendClient';
 import { useNavigation } from '../utils/navigation';
+import { useToastContext } from '../contexts/ToastContext';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -23,6 +24,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const { signin, signup, refreshSession } = useAuth();
   const { data: sessionState, isPending: sessionPending } = useSession();
   const { navigate, navigateToHome } = useNavigation();
+  const { showError } = useToastContext();
   const [isSignUp, setIsSignUp] = useState(mode === 'signup');
   const [formData, setFormData] = useState({
     firstName: '',
@@ -270,9 +272,19 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       await handleRedirect('/app/messages?welcome=1');
     } catch (err) {
       console.error('❌ Failed to submit onboarding data:', err);
-      setError('Failed to save your onboarding preferences. You can update them later in settings.');
+      
+      // Show error toast notification before redirecting
+      showError(
+        'Onboarding Failed',
+        'Failed to save your onboarding preferences. You can update them later in settings.',
+        6000 // Show for 6 seconds to ensure user sees it
+      );
+      
       setOnboardingHandled(true);
       setShowOnboarding(false);
+      
+      // Wait a moment for the toast to appear before redirecting
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await handleRedirect('/app/messages');
     }
   };

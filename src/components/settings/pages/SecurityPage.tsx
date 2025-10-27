@@ -78,7 +78,6 @@ export const SecurityPage = ({
           t('common:notifications.errorTitle'),
           'Multi-factor authentication is not available yet.'
         );
-        setSettings(settings);
       } else {
         setShowDisableMFAConfirm(true);
       }
@@ -107,14 +106,10 @@ export const SecurityPage = ({
       return;
     }
     
-    const updatedSettings = { ...settings, twoFactorEnabled: false };
-    setSettings(updatedSettings);
-    
     showError(
       t('common:notifications.errorTitle'),
       'Multi-factor authentication is not available yet.'
     );
-    setSettings(settings);
 
     setShowDisableMFAConfirm(false);
   };
