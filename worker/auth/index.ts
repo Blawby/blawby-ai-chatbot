@@ -770,7 +770,7 @@ export async function getAuth(env: Env, request?: Request) {
                   // Treat Google identities as verified unless the provider explicitly marks them false.
                   emailVerified: emailVerifiedClaim !== false,
                   // Map Google's picture field to Better Auth's image field
-                  image: typeof profile.picture === "string" ? profile.picture : null,
+                  image: profile.picture,
                 };
               },
             },
