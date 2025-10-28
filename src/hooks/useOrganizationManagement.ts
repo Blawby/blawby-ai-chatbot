@@ -125,7 +125,7 @@ interface UseOrganizationManagementReturn {
 }
 
 export function useOrganizationManagement(options: UseOrganizationManagementOptions = {}): UseOrganizationManagementReturn {
-  const { fetchInvitations: shouldFetchInvitations = false } = options;
+  const { fetchInvitations: shouldFetchInvitations = true } = options;
   const { data: session, isPending: sessionLoading } = useSession();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
@@ -397,13 +397,18 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
         slug: (result as Record<string, unknown>).slug || (result as Record<string, unknown>).id || 'unknown'
       };
       const validatedResult = organizationSchema.parse(resultWithSlug);
-      await fetchOrganizations(); // Refresh list
+      // Force refetch without relying on refetch() to avoid TDZ issues
+      organizationsFetchedRef.current = false;
+      await fetchOrganizations();
+      if (shouldFetchInvitations) {
+        await fetchInvitations();
+      }
       return validatedResult as unknown as Organization;
     } catch (error) {
       console.error('Invalid organization data:', result, error);
       throw new Error('Invalid organization response format');
     }
-  }, [apiCall, fetchOrganizations]);
+  }, [apiCall, fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   // Update organization
   const updateOrganization = useCallback(async (id: string, data: UpdateOrgData): Promise<void> => {
@@ -411,16 +416,26 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       method: 'PUT',
       body: JSON.stringify(data),
     });
-    await fetchOrganizations(); // Refresh list
-  }, [apiCall, fetchOrganizations]);
+    // Force refetch without relying on refetch() to avoid TDZ issues
+    organizationsFetchedRef.current = false;
+    await fetchOrganizations();
+    if (shouldFetchInvitations) {
+      await fetchInvitations();
+    }
+  }, [apiCall, fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   // Delete organization
   const deleteOrganization = useCallback(async (id: string): Promise<void> => {
     await apiCall(`${getOrganizationsEndpoint()}/${id}`, {
       method: 'DELETE',
     });
-    await fetchOrganizations(); // Refresh list
-  }, [apiCall, fetchOrganizations]);
+    // Force refetch without relying on refetch() to avoid TDZ issues
+    organizationsFetchedRef.current = false;
+    await fetchOrganizations();
+    if (shouldFetchInvitations) {
+      await fetchInvitations();
+    }
+  }, [apiCall, fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   // Fetch members
   const fetchMembers = useCallback(async (orgId: string): Promise<void> => {
@@ -478,9 +493,13 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     await apiCall(`${getOrganizationsEndpoint()}/${invitationId}/accept-invitation`, {
       method: 'POST',
     });
-    await fetchInvitations(); // Refresh invitations
-    await fetchOrganizations(); // Refresh organizations
-  }, [apiCall, fetchInvitations, fetchOrganizations]);
+    // Force refetch without relying on refetch() to avoid TDZ issues
+    organizationsFetchedRef.current = false;
+    await fetchOrganizations();
+    if (shouldFetchInvitations) {
+      await fetchInvitations();
+    }
+  }, [apiCall, fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   const declineInvitation = useCallback(async (invitationId: string): Promise<void> => {
     await apiCall(`${getOrganizationsEndpoint()}/${invitationId}/decline-invitation`, {
@@ -577,6 +596,9 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Refetch all data
   const refetch = useCallback(async () => {
+    // Reset the fetched flag to ensure we actually refetch
+    organizationsFetchedRef.current = false;
+    
     const promises = [fetchOrganizations()];
     
     // Only fetch invitations if explicitly requested
@@ -594,8 +616,15 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     }
   }, [session, sessionLoading, refetch]);
 
-  // Clear fetched flag when session changes
+  // Clear fetched flag and abort in-flight requests when session changes
   useEffect(() => {
+    // Abort any in-flight request from the previous session
+    if (currentRequestRef.current) {
+      currentRequestRef.current.abort();
+      currentRequestRef.current = null;
+    }
+    
+    // Reset the fetched flag
     organizationsFetchedRef.current = false;
   }, [session?.user?.id]);
 

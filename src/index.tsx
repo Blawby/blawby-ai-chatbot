@@ -63,7 +63,7 @@ function MainApp() {
 	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
 	
 	// Use organization management for subscription tier
-	const { currentOrganization } = useOrganizationManagement({ fetchInvitations: false });
+	const { currentOrganization } = useOrganizationManagement();
 	const { submitUpgrade } = usePaymentUpgrade();
 	const { showError } = useToastContext();
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();

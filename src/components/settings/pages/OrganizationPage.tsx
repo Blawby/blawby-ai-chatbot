@@ -44,7 +44,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     createToken,
     revokeToken,
     refetch 
-  } = useOrganizationManagement({ fetchInvitations: true });
+  } = useOrganizationManagement();
   
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();

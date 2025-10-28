@@ -13,7 +13,7 @@ export const CartPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { submitUpgrade, submitting } = usePaymentUpgrade();
-  const { currentOrganization } = useOrganizationManagement({ fetchInvitations: false });
+  const { currentOrganization } = useOrganizationManagement();
   const { showError } = useToastContext();
   const { i18n } = useTranslation();
 
