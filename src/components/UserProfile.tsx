@@ -21,11 +21,14 @@ interface _User extends BetterAuthUser {
 interface UserProfileProps {
   isCollapsed?: boolean;
   isMobile?: boolean;
+  currentOrganization?: {
+    id: string;
+    subscriptionTier?: string;
+  } | null;
 }
 
-const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
+const UserProfile = ({ isCollapsed = false, currentOrganization }: UserProfileProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const { currentOrganization } = useOrganizationManagement();
   const { data: session, isPending, error } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -103,6 +106,10 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
   const handleProfileClick = () => {
     if (isMobile) {
       // On mobile, directly navigate to settings (skip dropdown)
+      // Prevent double navigation if already on settings route
+      if (window.location.pathname.startsWith('/settings')) {
+        return;
+      }
       navigate('/settings');
     } else {
       // On desktop, show dropdown
@@ -112,6 +119,10 @@ const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
 
   const handleSettingsClick = () => {
     setShowDropdown(false);
+    // Prevent double navigation if already on settings route
+    if (window.location.pathname.startsWith('/settings')) {
+      return;
+    }
     navigate('/settings');
   };
 

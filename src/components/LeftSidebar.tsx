@@ -21,9 +21,13 @@ interface LeftSidebarProps {
     profileImage: string | null;
     organizationId: string;
   };
+  currentOrganization?: {
+    id: string;
+    subscriptionTier?: string;
+  } | null;
 }
 
-const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onClose, matterStatus, organizationConfig }: LeftSidebarProps) => {
+const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onClose, matterStatus, organizationConfig, currentOrganization }: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   
   // Mobile state - initialized as false to avoid SSR/client hydration mismatch
@@ -189,7 +193,7 @@ const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onClose, matterS
       </div>
 
       {/* User Profile Section */}
-      <UserProfile isCollapsed={shouldShowCollapsed} />
+      <UserProfile isCollapsed={shouldShowCollapsed} currentOrganization={currentOrganization} />
     </div>
     </div>
   );

@@ -21,15 +21,13 @@ const CameraIconModal: FunctionComponent<CameraIconModalProps> = ({
     const [isCameraIconReady, setIsCameraIconReady] = useState(false);
     const [error, setError] = useState('');
 
-    // Initialize the camera
-    useEffect(() => {
-        if (isOpen) {
-            startCameraIcon();
+    const stopCameraIcon = useCallback(() => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
         }
-        return () => {
-            stopCameraIcon();
-        };
-    }, [isOpen, startCameraIcon]);
+        setIsCameraIconReady(false);
+    }, []);
 
     const startCameraIcon = useCallback(async () => {
         try {
@@ -68,15 +66,18 @@ const CameraIconModal: FunctionComponent<CameraIconModalProps> = ({
             console.error('Error accessing camera:', err);
             setError('Could not access camera. Please check permissions and ensure your device has a camera.');
         }
-    }, []);
+    }, [stopCameraIcon]);
 
-    const stopCameraIcon = () => {
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-            streamRef.current = null;
+    // Initialize the camera
+    useEffect(() => {
+        if (isOpen) {
+            startCameraIcon();
         }
-        setIsCameraIconReady(false);
-    };
+        return () => {
+            stopCameraIcon();
+        };
+    }, [isOpen, startCameraIcon, stopCameraIcon]);
+
 
     const takePhoto = () => {
         if (!isCameraIconReady || !videoRef.current || !canvasRef.current) {

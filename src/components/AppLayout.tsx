@@ -40,6 +40,10 @@ interface AppLayoutProps {
     profileImage: string | null;
     description?: string | null;
   };
+  currentOrganization?: {
+    id: string;
+    subscriptionTier?: string;
+  } | null;
   messages: ChatMessageUI[];
   onRequestConsultation?: () => void | Promise<void>;
   onSendMessage?: (message: string) => void;
@@ -57,6 +61,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   onToggleMobileSidebar,
   isSettingsModalOpen = false,
   organizationConfig,
+  currentOrganization,
   messages: chatMessages,
   onRequestConsultation,
   onSendMessage,
@@ -220,6 +225,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                 profileImage: organizationConfig.profileImage,
                 organizationId
               }}
+              currentOrganization={currentOrganization}
             />
           </div>
           
@@ -277,6 +283,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       profileImage: organizationConfig.profileImage,
                       organizationId
                     }}
+                    currentOrganization={currentOrganization}
                   />
                 </motion.div>
               </motion.div>
