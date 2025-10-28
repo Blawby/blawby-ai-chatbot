@@ -4,6 +4,7 @@
     "settings": "Einstellungen",
     "upgrade": "Plan upgraden",
     "upgradeShort": "Upgrade",
+    "upgradeTooltip": "Ihren Plan upgraden",
     "help": "Hilfe erhalten",
     "signOut": "Abmelden",
     "signIn": "Anmelden"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "Benutzerprofil für {{name}}",
     "signInButton": "Melden Sie sich bei Ihrem Konto an"
+  },
+  "errors": {
+    "signOutFailed": "Abmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "signOutFailedTitle": "Abmeldung fehlgeschlagen"
   }
 }

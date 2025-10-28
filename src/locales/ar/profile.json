@@ -4,6 +4,7 @@
     "settings": "الإعدادات",
     "upgrade": "ترقية الخطة",
     "upgradeShort": "ترقية",
+    "upgradeTooltip": "ترقية خطتك",
     "help": "الحصول على مساعدة",
     "signOut": "تسجيل الخروج",
     "signIn": "تسجيل الدخول"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "الملف الشخصي للمستخدم {{name}}",
     "signInButton": "تسجيل الدخول إلى حسابك"
+  },
+  "errors": {
+    "signOutFailed": "فشل في تسجيل الخروج. يرجى المحاولة مرة أخرى.",
+    "signOutFailedTitle": "فشل تسجيل الخروج"
   }
 }

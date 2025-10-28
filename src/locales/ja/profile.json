@@ -4,6 +4,7 @@
     "settings": "設定",
     "upgrade": "プランをアップグレード",
     "upgradeShort": "アップグレード",
+    "upgradeTooltip": "プランをアップグレード",
     "help": "ヘルプを取得",
     "signOut": "サインアウト",
     "signIn": "サインイン"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "{{name}} のユーザープロフィール",
     "signInButton": "アカウントにサインイン"
+  },
+  "errors": {
+    "signOutFailed": "サインアウトに失敗しました。もう一度お試しください。",
+    "signOutFailedTitle": "サインアウト失敗"
   }
 }

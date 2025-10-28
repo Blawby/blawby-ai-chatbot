@@ -4,6 +4,7 @@
     "settings": "Pengaturan",
     "upgrade": "Tingkatkan paket",
     "upgradeShort": "Tingkatkan",
+    "upgradeTooltip": "Tingkatkan paket Anda",
     "help": "Dapatkan bantuan",
     "signOut": "Keluar",
     "signIn": "Masuk"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "Profil pengguna untuk {{name}}",
     "signInButton": "Masuk ke akun Anda"
+  },
+  "errors": {
+    "signOutFailed": "Gagal keluar. Silakan coba lagi.",
+    "signOutFailedTitle": "Gagal keluar"
   }
 }

@@ -4,6 +4,7 @@
     "settings": "Paramètres",
     "upgrade": "Passer à un forfait supérieur",
     "upgradeShort": "Mettre à niveau",
+    "upgradeTooltip": "Mettre à niveau votre plan",
     "help": "Obtenir de l'aide",
     "signOut": "Se déconnecter",
     "signIn": "Se connecter"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "Profil utilisateur pour {{name}}",
     "signInButton": "Se connecter à votre compte"
+  },
+  "errors": {
+    "signOutFailed": "Échec de la déconnexion. Veuillez réessayer.",
+    "signOutFailedTitle": "Échec de la déconnexion"
   }
 }

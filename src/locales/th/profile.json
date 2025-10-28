@@ -4,6 +4,7 @@
     "settings": "ตั้งค่า",
     "upgrade": "อัพเกรดแผน",
     "upgradeShort": "อัพเกรด",
+    "upgradeTooltip": "อัพเกรดแผนของคุณ",
     "help": "ขอความช่วยเหลือ",
     "signOut": "ออกจากระบบ",
     "signIn": "เข้าสู่ระบบ"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "โปรไฟล์ผู้ใช้สำหรับ {{name}}",
     "signInButton": "เข้าสู่ระบบบัญชีของคุณ"
+  },
+  "errors": {
+    "signOutFailed": "ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง",
+    "signOutFailedTitle": "ออกจากระบบไม่สำเร็จ"
   }
 }

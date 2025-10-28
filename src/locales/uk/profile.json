@@ -4,6 +4,7 @@
     "settings": "Налаштування",
     "upgrade": "Оновити план",
     "upgradeShort": "Оновити",
+    "upgradeTooltip": "Оновити ваш план",
     "help": "Отримати допомогу",
     "signOut": "Вийти",
     "signIn": "Увійти"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "Профіль користувача для {{name}}",
     "signInButton": "Увійти в обліковий запис"
+  },
+  "errors": {
+    "signOutFailed": "Не вдалося вийти. Спробуйте ще раз.",
+    "signOutFailedTitle": "Помилка виходу"
   }
 }

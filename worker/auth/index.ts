@@ -576,14 +576,14 @@ export async function getAuth(env: Env, request?: Request) {
                     : new Error('Organization cleanup failed during account deletion');
                 }
               },
-              sendDeleteAccountVerification: async ({ user, url, token }, request) => {
+              sendDeleteAccountVerification: async ({ user, url, token }) => {
                 try {
                   const emailService = new EmailService(env.RESEND_API_KEY);
                   await emailService.send({
                     from: 'noreply@blawby.com',
                     to: user.email,
                     subject: 'Confirm Account Deletion - Blawby AI',
-                    text: `You have requested to delete your account.\n\nClick here to confirm: ${url}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email and your account will remain active.`
+                    text: `You have requested to delete your account.\n\nClick here to confirm: ${url}\n\nVerification token: ${token}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email and your account will remain active.`
                   });
                   console.log(`✅ Account deletion verification email sent to ${user.email}`);
                 } catch (error) {
@@ -746,31 +746,8 @@ export async function getAuth(env: Env, request?: Request) {
               clientId: env.GOOGLE_CLIENT_ID || "",
               clientSecret: env.GOOGLE_CLIENT_SECRET || "",
               redirectURI: `${baseUrl}/api/auth/callback/google`,
-              mapProfileToUser: (profile) => {
-                const trimmedProfileName = typeof profile.name === "string" ? profile.name.trim() : "";
-                const derivedFromParts = [
-                  typeof profile.given_name === "string" ? profile.given_name.trim() : "",
-                  typeof profile.family_name === "string" ? profile.family_name.trim() : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")
-                  .trim();
-                const emailLocal =
-                  typeof profile.email === "string" && profile.email.includes("@")
-                    ? profile.email.split("@")[0] ?? ""
-                    : "";
-                const fallbackName = trimmedProfileName || derivedFromParts || emailLocal || "Google User";
-                const emailVerifiedClaim =
-                  typeof profile.email_verified === "boolean"
-                    ? profile.email_verified
-                    : true;
-
-                return {
-                  name: fallbackName,
-                  // Treat Google identities as verified unless the provider explicitly marks them false.
-                  emailVerified: emailVerifiedClaim !== false,
-                };
-              },
+              // Use databaseHooks.user.create.before to map Google OAuth verified_email to emailVerified
+              // This approach preserves Better Auth's default field mapping while adding email verification
             },
           },
           account: {
@@ -795,6 +772,17 @@ export async function getAuth(env: Env, request?: Request) {
           databaseHooks: {
             user: {
               create: {
+                before: async (user, context) => {
+                  // Map Google OAuth verified_email/email_verified to emailVerified for Google users
+                  if (context?.context?.provider === 'google') {
+                    const profile = context?.context?.profile as { verified_email?: unknown; email_verified?: unknown } | undefined;
+                    const claim = (profile?.verified_email as boolean | undefined) ?? (profile?.email_verified as boolean | undefined);
+                    if (claim !== undefined) {
+                      user.emailVerified = Boolean(claim);
+                    }
+                  }
+                  return { data: user };
+                },
                 after: async (user) => {
                   const fallbackName = user.email?.split("@")?.[0] || "New User";
                   const displayName = typeof user.name === "string" && user.name.trim().length > 0

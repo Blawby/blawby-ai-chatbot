@@ -4,6 +4,7 @@
     "settings": "Settings",
     "upgrade": "Upgrade plan",
     "upgradeShort": "Upgrade",
+    "upgradeTooltip": "Upgrade your plan",
     "help": "Get help",
     "signOut": "Sign out",
     "signIn": "Sign In"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "User profile for {{name}}",
     "signInButton": "Sign in to your account"
+  },
+  "errors": {
+    "signOutFailed": "Failed to sign out. Please try again.",
+    "signOutFailedTitle": "Sign out failed"
   }
 }

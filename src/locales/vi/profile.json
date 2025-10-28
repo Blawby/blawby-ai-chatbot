@@ -4,6 +4,7 @@
     "settings": "Cài đặt",
     "upgrade": "Nâng cấp gói",
     "upgradeShort": "Nâng cấp",
+    "upgradeTooltip": "Nâng cấp gói của bạn",
     "help": "Nhận trợ giúp",
     "signOut": "Đăng xuất",
     "signIn": "Đăng nhập"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "Hồ sơ người dùng cho {{name}}",
     "signInButton": "Đăng nhập vào tài khoản của bạn"
+  },
+  "errors": {
+    "signOutFailed": "Đăng xuất thất bại. Vui lòng thử lại.",
+    "signOutFailedTitle": "Đăng xuất thất bại"
   }
 }
