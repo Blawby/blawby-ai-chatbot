@@ -576,7 +576,7 @@ export async function getAuth(env: Env, request?: Request) {
                     : new Error('Organization cleanup failed during account deletion');
                 }
               },
-              sendDeleteAccountVerification: async ({ user, url, token }, request) => {
+              sendDeleteAccountVerification: async ({ user, url, token: _token }, _request) => {
                 try {
                   const emailService = new EmailService(env.RESEND_API_KEY);
                   await emailService.send({
