@@ -46,7 +46,7 @@ export const SidebarHeader = ({
             </button>
           )}
           {/* Hamburger menu appears on hover */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
             <CollapsibleToggle
               icon={<Bars3Icon className="w-4 h-4" />}
               onClick={() => onToggleCollapse()}

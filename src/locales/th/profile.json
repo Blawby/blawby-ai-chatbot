@@ -16,5 +16,9 @@
   "aria": {
     "userProfile": "โปรไฟล์ผู้ใช้สำหรับ {{name}}",
     "signInButton": "เข้าสู่ระบบบัญชีของคุณ"
+  },
+  "errors": {
+    "signOutFailed": "ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง",
+    "signOutFailedTitle": "ออกจากระบบไม่สำเร็จ"
   }
 }

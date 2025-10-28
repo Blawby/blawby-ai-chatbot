@@ -16,5 +16,9 @@
   "aria": {
     "userProfile": "Profil pengguna untuk {{name}}",
     "signInButton": "Masuk ke akun Anda"
+  },
+  "errors": {
+    "signOutFailed": "Gagal keluar. Silakan coba lagi.",
+    "signOutFailedTitle": "Gagal keluar"
   }
 }

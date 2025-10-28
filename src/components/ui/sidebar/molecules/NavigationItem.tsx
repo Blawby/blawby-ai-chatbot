@@ -10,6 +10,24 @@ import { StatusDot } from '../atoms/StatusDot';
 import { MatterStatus } from '../../../../types/matter';
 import type { ComponentChildren } from 'preact';
 
+/**
+ * Translates matter status to user-friendly screen reader text
+ */
+const translateMatterStatus = (status: MatterStatus | null | undefined): string => {
+  if (!status) return '';
+  
+  switch (status) {
+    case 'ready':
+      return 'status: ready';
+    case 'incomplete':
+      return 'status: incomplete';
+    case 'empty':
+      return 'status: empty';
+    default:
+      return `status: ${status}`;
+  }
+};
+
 interface NavigationItemProps {
   icon: ComponentChildren;
   label: string;
@@ -41,7 +59,7 @@ export const NavigationItem = ({
         onClick={onClick}
         className={`${baseClasses} ${collapsedClasses} ${activeClasses} ${className}`}
         aria-current={isActive ? 'page' : undefined}
-        aria-label={`${label}${matterStatus ? `, ${matterStatus}` : ''}`}
+        aria-label={`${label}${matterStatus ? `, ${translateMatterStatus(matterStatus)}` : ''}`}
         title={isCollapsed ? label : undefined}
       >
         <NavigationIcon icon={icon} size="md" />

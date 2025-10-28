@@ -16,5 +16,9 @@
   "aria": {
     "userProfile": "Hồ sơ người dùng cho {{name}}",
     "signInButton": "Đăng nhập vào tài khoản của bạn"
+  },
+  "errors": {
+    "signOutFailed": "Đăng xuất thất bại. Vui lòng thử lại.",
+    "signOutFailedTitle": "Đăng xuất thất bại"
   }
 }

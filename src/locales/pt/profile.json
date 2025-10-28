@@ -16,5 +16,9 @@
   "aria": {
     "userProfile": "Perfil de usuário de {{name}}",
     "signInButton": "Entrar na sua conta"
+  },
+  "errors": {
+    "signOutFailed": "Falha ao sair. Tente novamente.",
+    "signOutFailedTitle": "Falha ao sair"
   }
 }

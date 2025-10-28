@@ -16,5 +16,9 @@
   "aria": {
     "userProfile": "{{name}} के लिए उपयोगकर्ता प्रोफ़ाइल",
     "signInButton": "अपने खाते में साइन इन करें"
+  },
+  "errors": {
+    "signOutFailed": "साइन आउट करने में विफल। कृपया पुनः प्रयास करें।",
+    "signOutFailedTitle": "साइन आउट विफल"
   }
 }

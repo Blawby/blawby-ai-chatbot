@@ -16,5 +16,9 @@
   "aria": {
     "userProfile": "{{name}} のユーザープロフィール",
     "signInButton": "アカウントにサインイン"
+  },
+  "errors": {
+    "signOutFailed": "サインアウトに失敗しました。もう一度お試しください。",
+    "signOutFailedTitle": "サインアウト失敗"
   }
 }

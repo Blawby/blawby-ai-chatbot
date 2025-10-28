@@ -16,5 +16,9 @@
   "aria": {
     "userProfile": "[NEEDS TRANSLATION] User profile for {{name}}",
     "signInButton": "[NEEDS TRANSLATION] Sign in to your account"
+  },
+  "errors": {
+    "signOutFailed": "Не удалось выйти из системы. Попробуйте еще раз.",
+    "signOutFailedTitle": "Ошибка выхода"
   }
 }

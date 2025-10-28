@@ -16,5 +16,9 @@
   "aria": {
     "userProfile": "{{name}} 的用户资料",
     "signInButton": "登录您的账户"
+  },
+  "errors": {
+    "signOutFailed": "退出登录失败。请重试。",
+    "signOutFailedTitle": "退出登录失败"
   }
 }

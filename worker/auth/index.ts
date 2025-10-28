@@ -746,8 +746,8 @@ export async function getAuth(env: Env, request?: Request) {
               clientId: env.GOOGLE_CLIENT_ID || "",
               clientSecret: env.GOOGLE_CLIENT_SECRET || "",
               redirectURI: `${baseUrl}/api/auth/callback/google`,
-              // Remove mapProfileToUser to allow Better Auth's default Google OAuth field mapping
-              // Better Auth automatically maps: picture -> image, name -> name, email -> email, etc.
+              // Use databaseHooks.user.create.before to map Google OAuth verified_email to emailVerified
+              // This approach preserves Better Auth's default field mapping while adding email verification
             },
           },
           account: {
@@ -772,6 +772,13 @@ export async function getAuth(env: Env, request?: Request) {
           databaseHooks: {
             user: {
               create: {
+                before: async (user, context) => {
+                  // Map Google OAuth verified_email to emailVerified for Google users
+                  if (context?.provider === 'google' && context?.profile?.verified_email) {
+                    user.emailVerified = context.profile.verified_email;
+                  }
+                  return user;
+                },
                 after: async (user) => {
                   const fallbackName = user.email?.split("@")?.[0] || "New User";
                   const displayName = typeof user.name === "string" && user.name.trim().length > 0
