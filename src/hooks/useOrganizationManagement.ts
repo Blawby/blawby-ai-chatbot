@@ -333,7 +333,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       console.log('🔍 DEBUG: After abort controller check, continuing...');
 
       const orgList = Array.isArray(data) ? data : [];
-      console.log('🔍 DEBUG: Processed orgList type:', typeof orgList, 'isArray:', Array.isArray(orgList), 'length:', orgList?.length);
+      console.log('🔍 DEBUG: Processed orgList type:', typeof orgList, 'isArray:', Array.isArray(orgList), 'length:', Array.isArray(orgList) ? orgList.length : 'N/A');
       console.log('🔍 DEBUG: orgList.some(org => org?.isPersonal):', orgList.some(org => org?.isPersonal));
       
       if (orgList.some(org => org?.isPersonal)) {
@@ -343,7 +343,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       console.log('🔍 DEBUG: Found personal org type:', typeof personalOrg, 'isPersonal:', personalOrg?.isPersonal);
       console.log('🔍 DEBUG: Setting currentOrganization to type:', typeof (personalOrg || orgList[0] || null));
       
-      console.log('🔍 DEBUG: About to set state - orgList length:', orgList?.length);
+      console.log('🔍 DEBUG: About to set state - orgList length:', Array.isArray(orgList) ? orgList.length : 'N/A');
       console.log('🔍 DEBUG: About to set state - personalOrg exists:', !!personalOrg);
       console.log('🔍 DEBUG: About to set state - final currentOrg exists:', !!(personalOrg || orgList[0] || null));
       
@@ -641,7 +641,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       refetchTriggeredRef.current = true;
       refetch();
     }
-  }, [session?.user?.id, sessionLoading]);
+  }, [session?.user?.id, sessionLoading, refetch]);
 
   // Clear fetched flag and abort in-flight requests when session changes
   useEffect(() => {
