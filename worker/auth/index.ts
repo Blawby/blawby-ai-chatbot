@@ -576,14 +576,14 @@ export async function getAuth(env: Env, request?: Request) {
                     : new Error('Organization cleanup failed during account deletion');
                 }
               },
-              sendDeleteAccountVerification: async ({ user, url, token: _token }, _request) => {
+              sendDeleteAccountVerification: async ({ user, url, token }) => {
                 try {
                   const emailService = new EmailService(env.RESEND_API_KEY);
                   await emailService.send({
                     from: 'noreply@blawby.com',
                     to: user.email,
                     subject: 'Confirm Account Deletion - Blawby AI',
-                    text: `You have requested to delete your account.\n\nClick here to confirm: ${url}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email and your account will remain active.`
+                    text: `You have requested to delete your account.\n\nClick here to confirm: ${url}\n\nVerification token: ${token}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email and your account will remain active.`
                   });
                   console.log(`✅ Account deletion verification email sent to ${user.email}`);
                 } catch (error) {
