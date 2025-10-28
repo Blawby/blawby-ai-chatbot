@@ -746,33 +746,8 @@ export async function getAuth(env: Env, request?: Request) {
               clientId: env.GOOGLE_CLIENT_ID || "",
               clientSecret: env.GOOGLE_CLIENT_SECRET || "",
               redirectURI: `${baseUrl}/api/auth/callback/google`,
-              mapProfileToUser: (profile) => {
-                const trimmedProfileName = typeof profile.name === "string" ? profile.name.trim() : "";
-                const derivedFromParts = [
-                  typeof profile.given_name === "string" ? profile.given_name.trim() : "",
-                  typeof profile.family_name === "string" ? profile.family_name.trim() : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")
-                  .trim();
-                const emailLocal =
-                  typeof profile.email === "string" && profile.email.includes("@")
-                    ? profile.email.split("@")[0] ?? ""
-                    : "";
-                const fallbackName = trimmedProfileName || derivedFromParts || emailLocal || "Google User";
-                const emailVerifiedClaim =
-                  typeof profile.email_verified === "boolean"
-                    ? profile.email_verified
-                    : true;
-
-                return {
-                  name: fallbackName,
-                  // Treat Google identities as verified unless the provider explicitly marks them false.
-                  emailVerified: emailVerifiedClaim !== false,
-                  // Map Google's picture field to Better Auth's image field
-                  image: profile.picture,
-                };
-              },
+              // Remove mapProfileToUser to allow Better Auth's default Google OAuth field mapping
+              // Better Auth automatically maps: picture -> image, name -> name, email -> email, etc.
             },
           },
           account: {
