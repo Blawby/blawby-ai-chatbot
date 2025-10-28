@@ -774,8 +774,8 @@ export async function getAuth(env: Env, request?: Request) {
               create: {
                 before: async (user, context) => {
                   // Map Google OAuth verified_email to emailVerified for Google users
-                  if (context?.provider === 'google' && context?.profile?.verified_email) {
-                    user.emailVerified = context.profile.verified_email;
+                  if (context?.context?.provider === 'google' && context?.context?.profile?.verified_email) {
+                    user.emailVerified = context.context.profile.verified_email;
                   }
                   return user;
                 },
