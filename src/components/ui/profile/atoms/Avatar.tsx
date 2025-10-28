@@ -3,7 +3,7 @@
  * Pure user avatar display with image/initials fallback.
  */
 
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { sanitizeUserImageUrl } from '../../../../utils/urlValidation';
 
 interface AvatarProps {
@@ -15,6 +15,11 @@ interface AvatarProps {
 
 export const Avatar = ({ src, name, size = 'md', className = '' }: AvatarProps) => {
   const [hasImgError, setHasImgError] = useState(false);
+
+  // Reset error state when src changes so new images can be attempted
+  useEffect(() => {
+    setHasImgError(false);
+  }, [src]);
 
   const sizeClasses = {
     sm: 'w-6 h-6',
