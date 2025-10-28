@@ -4,6 +4,7 @@
     "settings": "Configurações",
     "upgrade": "Fazer upgrade do plano",
     "upgradeShort": "Upgrade",
+    "upgradeTooltip": "Fazer upgrade do seu plano",
     "help": "Obter ajuda",
     "signOut": "Sair",
     "signIn": "Entrar"

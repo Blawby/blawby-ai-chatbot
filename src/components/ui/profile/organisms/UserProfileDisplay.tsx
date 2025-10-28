@@ -10,6 +10,7 @@ import { UserIcon } from '@heroicons/react/24/outline';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';
 import { useSession } from '../../../../contexts/AuthContext';
+import { useToastContext } from '../../../../contexts/ToastContext';
 import { signOut } from '../../../../utils/auth';
 import { useNavigation } from '../../../../utils/navigation';
 import { useMobileDetection } from '../../../../hooks/useMobileDetection';
@@ -30,7 +31,9 @@ export const UserProfileDisplay = ({
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
   const { data: session, isPending, error } = useSession();
+  const { showError } = useToastContext();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
@@ -50,7 +53,7 @@ export const UserProfileDisplay = ({
 
   const loading = isPending;
 
-  // Handle dropdown close when clicking outside
+  // Handle dropdown close when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -58,12 +61,20 @@ export const UserProfileDisplay = ({
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowDropdown(false);
+      }
+    };
+
     if (showDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showDropdown]);
 
@@ -108,11 +119,25 @@ export const UserProfileDisplay = ({
 
   const handleLogoutClick = async () => {
     setShowDropdown(false);
+    setSignOutError(null); // Clear any previous errors
     
     try {
       await signOut();
     } catch (error) {
       console.error('Error signing out:', error);
+      
+      // Show user-friendly error message via toast
+      const errorMessage = error instanceof Error && error.message
+        ? error.message
+        : t('profile:errors.signOutFailed');
+      
+      showError(
+        t('profile:errors.signOutFailedTitle'),
+        errorMessage
+      );
+      
+      // Also set local error state for inline display as fallback
+      setSignOutError(errorMessage);
     }
   };
 
@@ -188,6 +213,7 @@ export const UserProfileDisplay = ({
             onSettings={handleSettingsClick}
             onHelp={handleHelpClick}
             onLogout={handleLogoutClick}
+            signOutError={signOutError}
           />
         )}
       </div>

@@ -28,7 +28,7 @@ export const UpgradeButton = ({
     <button
       onClick={onClick}
       className={`px-2 py-1 text-xs font-medium text-gray-900 dark:text-white bg-transparent border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0 ${className}`}
-      title="Upgrade your plan"
+      title={t('profile:menu.upgradeTooltip')}
     >
       {buttonText}
     </button>

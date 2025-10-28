@@ -4,6 +4,7 @@
     "settings": "Налаштування",
     "upgrade": "Оновити план",
     "upgradeShort": "Оновити",
+    "upgradeTooltip": "Оновити ваш план",
     "help": "Отримати допомогу",
     "signOut": "Вийти",
     "signIn": "Увійти"

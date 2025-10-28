@@ -4,6 +4,7 @@
     "settings": "Configuración",
     "upgrade": "Actualizar plan",
     "upgradeShort": "Actualizar",
+    "upgradeTooltip": "Actualizar tu plan",
     "help": "Obtener ayuda",
     "signOut": "Cerrar sesión",
     "signIn": "Iniciar sesión"
@@ -15,5 +16,9 @@
   "aria": {
     "userProfile": "Perfil de usuario para {{name}}",
     "signInButton": "Iniciar sesión en su cuenta"
+  },
+  "errors": {
+    "signOutFailed": "Error al cerrar sesión. Por favor, inténtelo de nuevo.",
+    "signOutFailedTitle": "Error al cerrar sesión"
   }
 }

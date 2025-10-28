@@ -4,6 +4,7 @@
     "settings": "ตั้งค่า",
     "upgrade": "อัพเกรดแผน",
     "upgradeShort": "อัพเกรด",
+    "upgradeTooltip": "อัพเกรดแผนของคุณ",
     "help": "ขอความช่วยเหลือ",
     "signOut": "ออกจากระบบ",
     "signIn": "เข้าสู่ระบบ"

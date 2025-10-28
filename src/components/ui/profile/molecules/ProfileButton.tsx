@@ -54,7 +54,7 @@ export const ProfileButton = ({
             {name}
           </p>
           <div className="-mt-0.5">
-            <TierBadge tier={tier} />
+            {tier !== 'enterprise' && <TierBadge tier={tier} />}
           </div>
         </div>
       </button>

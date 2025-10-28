@@ -4,6 +4,7 @@
     "settings": "設定",
     "upgrade": "プランをアップグレード",
     "upgradeShort": "アップグレード",
+    "upgradeTooltip": "プランをアップグレード",
     "help": "ヘルプを取得",
     "signOut": "サインアウト",
     "signIn": "サインイン"

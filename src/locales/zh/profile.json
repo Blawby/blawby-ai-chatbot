@@ -4,6 +4,7 @@
     "settings": "设置",
     "upgrade": "升级套餐",
     "upgradeShort": "升级",
+    "upgradeTooltip": "升级您的套餐",
     "help": "获取帮助",
     "signOut": "退出登录",
     "signIn": "登录"
