@@ -21,16 +21,6 @@ const CameraIconModal: FunctionComponent<CameraIconModalProps> = ({
     const [isCameraIconReady, setIsCameraIconReady] = useState(false);
     const [error, setError] = useState('');
 
-    // Initialize the camera
-    useEffect(() => {
-        if (isOpen) {
-            startCameraIcon();
-        }
-        return () => {
-            stopCameraIcon();
-        };
-    }, [isOpen, startCameraIcon]);
-
     const startCameraIcon = useCallback(async () => {
         try {
             setError('');
@@ -69,6 +59,16 @@ const CameraIconModal: FunctionComponent<CameraIconModalProps> = ({
             setError('Could not access camera. Please check permissions and ensure your device has a camera.');
         }
     }, []);
+
+    // Initialize the camera
+    useEffect(() => {
+        if (isOpen) {
+            startCameraIcon();
+        }
+        return () => {
+            stopCameraIcon();
+        };
+    }, [isOpen, startCameraIcon]);
 
     const stopCameraIcon = () => {
         if (streamRef.current) {

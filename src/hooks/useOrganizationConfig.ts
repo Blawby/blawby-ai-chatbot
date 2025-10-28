@@ -138,6 +138,9 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
       return; // Don't fetch if no organizationId or if we've already fetched for this organizationId
     }
 
+    // Mark as fetching immediately to prevent duplicate calls
+    fetchedOrganizationIds.current.add(currentOrganizationId);
+
     // Abort any existing request
     if (currentRequestRef.current) {
       currentRequestRef.current.abortController.abort();
@@ -205,23 +208,28 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
             };
             setOrganizationConfig(config);
             setOrganizationNotFound(false);
-            
-            // Only add to fetched set after successful config processing
-            fetchedOrganizationIds.current.add(currentOrganizationId);
           } else {
             // Organization not found in the list - this indicates a 404-like scenario
+            // Remove from fetched set so it can be retried
+            fetchedOrganizationIds.current.delete(currentOrganizationId);
             setOrganizationNotFound(true);
           }
         } catch (parseError) {
+          // Remove from fetched set so it can be retried
+          fetchedOrganizationIds.current.delete(currentOrganizationId);
           console.error('Failed to parse organizations response:', parseError);
           setOrganizationNotFound(true);
           onError?.('Invalid organization configuration data received');
         }
       } else if (response.status === 404) {
         // Only set organization not found for actual 404 responses
+        // Remove from fetched set so it can be retried
+        fetchedOrganizationIds.current.delete(currentOrganizationId);
         setOrganizationNotFound(true);
       } else {
         // For other HTTP errors, set organization not found as well
+        // Remove from fetched set so it can be retried
+        fetchedOrganizationIds.current.delete(currentOrganizationId);
         setOrganizationNotFound(true);
       }
     } catch (error) {
@@ -229,6 +237,8 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
         // Request was aborted, don't update state
         return;
       }
+      // Remove from fetched set so it can be retried
+      fetchedOrganizationIds.current.delete(currentOrganizationId);
       console.warn('Failed to fetch organization config:', error);
       setOrganizationNotFound(true);
       onError?.('Failed to load organization configuration');
@@ -259,6 +269,11 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
   useEffect(() => {
     parseUrlParams();
   }, [parseUrlParams]);
+
+  // Clear fetched set when organizationId changes to allow fresh fetch
+  useEffect(() => {
+    fetchedOrganizationIds.current.clear();
+  }, [organizationId]);
 
   // Fetch organization config when organizationId changes
   useEffect(() => {

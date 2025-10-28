@@ -49,7 +49,7 @@ export interface Member {
   email: string;
   name?: string;
   image?: string;
-  createdAt: string;
+  createdAt: number;
 }
 
 export interface Invitation {
@@ -60,16 +60,16 @@ export interface Invitation {
   role: Role;
   status: 'pending' | 'accepted' | 'declined';
   invitedBy: string;
-  expiresAt: string;
-  createdAt: string;
+  expiresAt: number;
+  createdAt: number;
 }
 
 export interface ApiToken {
   id: string;
   name: string;
   permissions: string[];
-  createdAt: string;
-  lastUsed?: string;
+  createdAt: number;
+  lastUsed?: number;
 }
 
 export interface CreateOrgData {
@@ -81,6 +81,10 @@ export interface CreateOrgData {
 export interface UpdateOrgData {
   name?: string;
   description?: string;
+}
+
+interface UseOrganizationManagementOptions {
+  fetchInvitations?: boolean;
 }
 
 interface UseOrganizationManagementReturn {
@@ -120,7 +124,8 @@ interface UseOrganizationManagementReturn {
   refetch: () => Promise<void>;
 }
 
-export function useOrganizationManagement(): UseOrganizationManagementReturn {
+export function useOrganizationManagement(options: UseOrganizationManagementOptions = {}): UseOrganizationManagementReturn {
+  const { fetchInvitations: shouldFetchInvitations = false } = options;
   const { data: session, isPending: sessionLoading } = useSession();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
@@ -132,6 +137,10 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   const [error, setError] = useState<string | null>(null);
   const personalOrgEnsuredRef = useRef(false);
   const personalOrgEnsurePromiseRef = useRef<Promise<void> | null>(null);
+  
+  // Track if we've already fetched organizations to prevent duplicate calls
+  const organizationsFetchedRef = useRef(false);
+  const currentRequestRef = useRef<AbortController | null>(null);
 
   // Helper function to make API calls
   const apiCall = useCallback(async (url: string, options: RequestInit = {}, timeoutMs: number = 15000) => {
@@ -261,6 +270,20 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
   // Fetch user's organizations
   const fetchOrganizations = useCallback(async () => {
     try {
+      // Check if we've already fetched organizations for this session
+      if (organizationsFetchedRef.current && session?.user) {
+        return; // Skip if already fetched
+      }
+
+      // Abort any existing request
+      if (currentRequestRef.current) {
+        currentRequestRef.current.abort();
+      }
+
+      // Create new request controller
+      const controller = new AbortController();
+      currentRequestRef.current = controller;
+
       setLoading(true);
       setError(null);
       
@@ -270,19 +293,31 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
         setOrganizations([]);
         setCurrentOrganization(null);
         setLoading(false);
+        organizationsFetchedRef.current = false;
         return;
       }
       
       // Only fetch user orgs if authenticated
       let data = await apiCall(`${getOrganizationsEndpoint()}/me`);
 
+      // Check if request was aborted
+      if (controller.signal.aborted) {
+        return;
+      }
+
       if ((!Array.isArray(data) || data.length === 0) && !personalOrgEnsuredRef.current) {
         try {
           await ensurePersonalOrganization();
+          // Always refetch after ensuring personal org to get the updated list
           data = await apiCall(`${getOrganizationsEndpoint()}/me`);
         } catch (ensureError) {
           console.error('Failed to ensure personal organization:', ensureError);
         }
+      }
+
+      // Check if request was aborted after ensure personal org
+      if (controller.signal.aborted) {
+        return;
       }
 
       const orgList = Array.isArray(data) ? data : [];
@@ -292,10 +327,14 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       const personalOrg = orgList.find(org => org?.isPersonal);
       setOrganizations(orgList);
       setCurrentOrganization(personalOrg || orgList[0] || null);
+      
+      // Mark as fetched
+      organizationsFetchedRef.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch organizations');
     } finally {
       setLoading(false);
+      currentRequestRef.current = null;
     }
   }, [apiCall, session, ensurePersonalOrganization]);
 
@@ -538,11 +577,15 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
 
   // Refetch all data
   const refetch = useCallback(async () => {
-    await Promise.all([
-      fetchOrganizations(),
-      fetchInvitations(),
-    ]);
-  }, [fetchOrganizations, fetchInvitations]);
+    const promises = [fetchOrganizations()];
+    
+    // Only fetch invitations if explicitly requested
+    if (shouldFetchInvitations) {
+      promises.push(fetchInvitations());
+    }
+    
+    await Promise.all(promises);
+  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   // Refetch when session changes
   useEffect(() => {
@@ -550,6 +593,11 @@ export function useOrganizationManagement(): UseOrganizationManagementReturn {
       refetch();
     }
   }, [session, sessionLoading, refetch]);
+
+  // Clear fetched flag when session changes
+  useEffect(() => {
+    organizationsFetchedRef.current = false;
+  }, [session?.user?.id]);
 
   return {
     organizations,

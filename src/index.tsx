@@ -63,7 +63,7 @@ function MainApp() {
 	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
 	
 	// Use organization management for subscription tier
-	const { currentOrganization } = useOrganizationManagement();
+	const { currentOrganization } = useOrganizationManagement({ fetchInvitations: false });
 	const { submitUpgrade } = usePaymentUpgrade();
 	const { showError } = useToastContext();
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
@@ -453,6 +453,7 @@ function MainApp() {
 					profileImage: organizationConfig?.profileImage ?? null,
 					description: organizationConfig?.description ?? ''
 				}}
+				currentOrganization={currentOrganization}
 				messages={messages}
 				onSendMessage={handleSendMessage}
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
@@ -542,8 +543,18 @@ function MainApp() {
 						}
 
 						if (tier === 'business') {
-							await submitUpgrade({ organizationId });
-							shouldNavigateToCart = false;
+							// Navigate to cart page for business upgrades instead of direct checkout
+							try {
+								const existing = localStorage.getItem('cartPreferences');
+								const parsed = existing ? JSON.parse(existing) : {};
+								localStorage.setItem('cartPreferences', JSON.stringify({
+									...parsed,
+									tier,
+								}));
+							} catch (_error) {
+								console.warn('Unable to store cart preferences for upgrade:', _error);
+							}
+							// Keep shouldNavigateToCart = true to go to cart page
 						} else if (tier === 'enterprise') {
 							navigate('/enterprise');
 							shouldNavigateToCart = false;
