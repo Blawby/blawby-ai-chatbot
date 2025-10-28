@@ -56,6 +56,7 @@ export const NavigationItem = ({
   return (
     <div className="relative">
       <button
+            type="button"
         onClick={onClick}
         className={`${baseClasses} ${collapsedClasses} ${activeClasses} ${className}`}
         aria-current={isActive ? 'page' : undefined}

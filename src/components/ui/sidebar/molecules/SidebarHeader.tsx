@@ -30,7 +30,7 @@ export const SidebarHeader = ({
     return (
       <div className="flex items-center justify-center border-b border-gray-200 dark:border-dark-border px-3 py-2">
         <div className="relative group w-full h-10 flex items-center justify-center">
-          {organizationConfig?.profileImage && (
+          {organizationConfig?.profileImage ? (
             <button
               onClick={() => onToggleCollapse()}
               className="w-8 h-8 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent-500"
@@ -44,15 +44,24 @@ export const SidebarHeader = ({
                 className="w-full h-full"
               />
             </button>
-          )}
-          {/* Hamburger menu appears on hover */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
+          ) : (
+            // Visible, focusable fallback when no profile image
             <CollapsibleToggle
               icon={<Bars3Icon className="w-4 h-4" />}
               onClick={() => onToggleCollapse()}
               ariaLabel="Expand sidebar"
             />
-          </div>
+          )}
+          {/* Hover-only overlay preserved for when profile image exists */}
+          {organizationConfig?.profileImage && (
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
+              <CollapsibleToggle
+                icon={<Bars3Icon className="w-4 h-4" />}
+                onClick={() => onToggleCollapse()}
+                ariaLabel="Expand sidebar"
+              />
+            </div>
+          )}
         </div>
       </div>
     );

@@ -773,11 +773,15 @@ export async function getAuth(env: Env, request?: Request) {
             user: {
               create: {
                 before: async (user, context) => {
-                  // Map Google OAuth verified_email to emailVerified for Google users
-                  if (context?.context?.provider === 'google' && context?.context?.profile?.verified_email) {
-                    user.emailVerified = context.context.profile.verified_email;
+                  // Map Google OAuth verified_email/email_verified to emailVerified for Google users
+                  if (context?.context?.provider === 'google') {
+                    const profile = context?.context?.profile as { verified_email?: unknown; email_verified?: unknown } | undefined;
+                    const claim = (profile?.verified_email as boolean | undefined) ?? (profile?.email_verified as boolean | undefined);
+                    if (claim !== undefined) {
+                      user.emailVerified = Boolean(claim);
+                    }
                   }
-                  return user;
+                  return { data: user };
                 },
                 after: async (user) => {
                   const fallbackName = user.email?.split("@")?.[0] || "New User";
