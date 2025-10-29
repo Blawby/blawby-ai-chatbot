@@ -46,6 +46,7 @@ const BusinessOnboardingModal = ({
   onCompleted
 }: BusinessOnboardingModalProps) => {
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   
   // Custom hooks for state management
   const { formData, updateField } = useOnboardingState({
@@ -56,6 +57,7 @@ const BusinessOnboardingModal = ({
 
   const handleStepContinue = async () => {
     clearErrors();
+    setSubmitError(null);
     setLoading(true);
 
     // Validate current step before proceeding
@@ -78,7 +80,7 @@ const BusinessOnboardingModal = ({
         onClose();
       } catch (err) {
         console.error('Failed to complete onboarding:', err);
-        // Show error to user instead of just logging
+        setSubmitError(err instanceof Error ? err.message : 'Failed to complete onboarding');
         setLoading(false);
         return;
       }
@@ -96,6 +98,7 @@ const BusinessOnboardingModal = ({
     }
     goBack();
     clearErrors();
+    setSubmitError(null);
   };
 
 
@@ -116,7 +119,7 @@ const BusinessOnboardingModal = ({
     <Modal isOpen={isOpen} onClose={handleClose} type="fullscreen" showCloseButton={false}>
       <OnboardingContainer
         loading={loading}
-        error={errors && errors.length > 0 ? errors[0].message : null}
+        error={submitError || (errors && errors.length > 0 ? errors[0].message : null)}
         header={
           <OnboardingHeader
             title={STEP_TITLES[currentStep]}
