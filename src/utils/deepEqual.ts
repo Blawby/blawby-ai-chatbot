@@ -131,7 +131,7 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   const tagB = Object.prototype.toString.call(b);
   
   // Check if both are typed arrays (any type) using toStringTag
-  const typedArrayPattern = /^\[object (Uint8ClampedArray|Uint8Array|Uint16Array|Uint32Array|Int8Array|Int16Array|Int32Array|Float32Array|Float64Array|BigUint64Array|BigInt64Array)\]$/;
+  const typedArrayPattern = /^\[object (Uint8ClampedArray|Uint8Array|Uint16Array|Uint32Array|Int8Array|Int16Array|Int32Array|Float16Array|Float32Array|Float64Array|BigUint64Array|BigInt64Array)\]$/;
   const isTypedArrayA = typedArrayPattern.test(tagA);
   const isTypedArrayB = typedArrayPattern.test(tagB);
   
@@ -147,7 +147,14 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     if (arrA.length !== arrB.length) return false;
     
     for (let i = 0; i < arrA.length; i++) {
-      if (arrA[i] !== arrB[i]) return false;
+      const valA = arrA[i];
+      const valB = arrB[i];
+      // Treat NaN values as equal when comparing floating typed arrays
+      if (typeof valA === 'number' && typeof valB === 'number' && Number.isNaN(valA) && Number.isNaN(valB)) {
+        continue;
+      }
+      // Use Object.is for correct BigInt handling and other comparisons
+      if (!Object.is(valA, valB)) return false;
     }
     return true;
   }
