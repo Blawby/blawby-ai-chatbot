@@ -168,7 +168,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         
         // Start the animation loop
         animationFrameRef.current = requestAnimationFrame(draw);
-    }, [isRecording, isBrowser, mediaStream]);
+    }, [isRecording]);
 
     // Fallback to fake visualization if real audio analysis fails
     const fallbackVisualization = useCallback((): number => {
@@ -263,7 +263,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         
         // Start the animation loop and return the animation frame ID
         return requestAnimationFrame(drawBars);
-    }, [isRecording, isBrowser, mediaStream]);
+    }, [isRecording]);
 
     // Set up audio context and analyzer
     useEffect(() => {

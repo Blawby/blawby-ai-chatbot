@@ -144,9 +144,13 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     if (tagA !== tagB) return false; // One is DataView, other isn't
     const dvA = a as DataView;
     const dvB = b as DataView;
-    if (dvA.byteLength !== dvB.byteLength || dvA.byteOffset !== dvB.byteOffset) return false;
-    // Compare underlying buffer using existing ArrayBuffer comparison
-    return deepEqual(dvA.buffer, dvB.buffer);
+    // Compare only the viewed range, not the entire buffer or byteOffset
+    if (dvA.byteLength !== dvB.byteLength) return false;
+    // Create Uint8Array views representing only each DataView's viewed range
+    const viewA = new Uint8Array(dvA.buffer, dvA.byteOffset, dvA.byteLength);
+    const viewB = new Uint8Array(dvB.buffer, dvB.byteOffset, dvB.byteLength);
+    // Compare bytes in the viewed ranges
+    return viewA.every((byte, index) => byte === viewB[index]);
   }
   
   // Handle regular objects

@@ -51,7 +51,7 @@ function mapDocumentIdToType(documentId: string | null): string | undefined {
     'contracts': 'business_contracts',
     'financial-statements': 'financial_statements',
     
-    // General/fallback - use the ID as-is if no mapping exists
+    // If no mapping exists, function returns undefined to let backend infer the type
   };
 
   return mapping[documentId] || undefined; // Return undefined to let backend infer
