@@ -41,6 +41,11 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     
     // Show onboarding if redirected here for OAuth users
     if (needsOnboarding) {
+      if (import.meta.env.DEV) {
+        try {
+          console.debug('[AUTH][ONBOARDING] onboarding param detected, opening modal');
+        } catch {}
+      }
       setShowOnboarding(true);
     }
   }, []);

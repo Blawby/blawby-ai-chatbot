@@ -175,17 +175,46 @@ function MainApp({
 	// Check if OAuth user needs onboarding (one-time check after auth)
 	useEffect(() => {
 		if (session?.user && !sessionIsPending) {
-			// Only check if this is a fresh authentication (no localStorage flag set)
+			if (import.meta.env.DEV) {
+				try {
+					// Lightweight visibility into onboarding decision path
+					const debugUser = session.user as Record<string, unknown>;
+					// Avoid logging PII beyond booleans/keys
+					console.debug('[ONBOARDING][CHECK] session detected', {
+						onboardingCompleted: debugUser?.onboardingCompleted,
+						hasOnboardingData: Boolean(debugUser?.onboardingData),
+						local_onboardingCompleted: localStorage.getItem('onboardingCompleted'),
+						local_onboardingCheckDone: localStorage.getItem('onboardingCheckDone')
+					});
+				} catch {}
+			}
 			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
 			const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
+			const userWithOnboarding = session.user as typeof session.user & { onboardingCompleted?: boolean };
+			const hasCompletedOnboarding = userWithOnboarding.onboardingCompleted === true;
+			
+			// Sync onboardingCompleted flag if user has completed onboarding but flag is missing
+			if (hasCompletedOnboarding && !hasOnboardingFlag) {
+				if (import.meta.env.DEV) {
+					console.debug('[ONBOARDING][SYNC] syncing onboardingCompleted flag');
+				}
+				try {
+					localStorage.setItem('onboardingCompleted', 'true');
+					localStorage.setItem('onboardingCheckDone', 'true');
+				} catch (_error) {
+					// Handle localStorage failures gracefully
+				}
+			}
 			
 			// If user hasn't completed onboarding and we haven't checked yet
 			if (!hasOnboardingFlag && !hasOnboardingCheckFlag) {
-				const userWithOnboarding = session.user as typeof session.user & { onboardingCompleted?: boolean };
 				const needsOnboarding = userWithOnboarding.onboardingCompleted === false || 
 										userWithOnboarding.onboardingCompleted === undefined;
 				
 				if (needsOnboarding) {
+					if (import.meta.env.DEV) {
+						console.debug('[ONBOARDING][REDIRECT] redirecting to /auth?mode=signin&onboarding=true');
+					}
 					// Set flag to prevent repeated checks
 					try {
 						localStorage.setItem('onboardingCheckDone', 'true');
@@ -196,8 +225,9 @@ function MainApp({
 					// Redirect to auth page with onboarding
 					window.location.href = '/auth?mode=signin&onboarding=true';
 				} else {
-					// User has completed onboarding, set the flag
+					// User has completed onboarding, sync the flags with database state
 					try {
+						localStorage.setItem('onboardingCompleted', 'true');
 						localStorage.setItem('onboardingCheckDone', 'true');
 					} catch (_error) {
 						// Handle localStorage failures gracefully
