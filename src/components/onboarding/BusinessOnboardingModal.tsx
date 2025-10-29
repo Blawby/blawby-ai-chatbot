@@ -101,7 +101,7 @@ const BusinessOnboardingModal = ({
 
   const handleClose = () => {
     try {
-      localStorage.setItem('businessSetupPending', 'snoozed');
+      localStorage.removeItem('businessSetupPending');
     } catch {
       // noop
     }

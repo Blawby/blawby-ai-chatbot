@@ -58,7 +58,7 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
           {features.map((feature, index) => (
             <div key={index} className="text-center">
               <div className={`w-12 h-12 rounded-full ${feature.color.bg} flex items-center justify-center mx-auto mb-3`}>
-                <span className={`h-6 w-6 ${feature.color.text}`}>{feature.icon}</span>
+                <div className={`h-6 w-6 ${feature.color.text}`}>{feature.icon}</div>
               </div>
               <h3 className="font-medium mb-1">{feature.title}</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">{feature.text}</p>

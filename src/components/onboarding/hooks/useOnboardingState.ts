@@ -7,6 +7,14 @@
 
 import { useState, useCallback } from 'preact/hooks';
 
+// SSR-safe ID generator using timestamp + counter
+let idCounter = 0;
+const generateServiceId = () => {
+  const timestamp = Date.now();
+  const counter = ++idCounter;
+  return `service-${timestamp}-${counter}`;
+};
+
 export interface OnboardingFormData {
   // Firm basics
   firmName: string;
@@ -51,9 +59,14 @@ const initialFormData: OnboardingFormData = {
 };
 
 export const useOnboardingState = (initialData?: Partial<OnboardingFormData>) => {
-  const [formData, setFormData] = useState<OnboardingFormData>({
-    ...initialFormData,
-    ...initialData
+  const [formData, setFormData] = useState<OnboardingFormData>(() => {
+    const merged = { ...initialFormData, ...initialData };
+    // Normalize services to ensure each has a stable ID
+    merged.services = (merged.services || []).map(service => ({
+      ...service,
+      id: service.id || generateServiceId()
+    }));
+    return merged;
   });
 
   const updateField = useCallback(<K extends keyof OnboardingFormData>(

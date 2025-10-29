@@ -94,19 +94,16 @@ export const OnboardingStepRenderer = ({
         />
       );
 
-    case 'services':
-      // Ensure all services have IDs (migration for existing data)
-      const servicesWithIds = stepData.services.map(service => 
-        service.id ? service : { ...service, id: crypto.randomUUID() }
-      );
+    case 'services': {
       return (
         <ServicesStep
           {...commonProps}
-          data={servicesWithIds}
+          data={stepData.services}
           onChange={(services) => onChange('services', services)}
           errors={errors}
         />
       );
+    }
 
     case 'review-and-launch':
       return (
