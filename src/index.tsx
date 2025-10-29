@@ -678,24 +678,26 @@ function AppWithSEO({
 				organizationConfig={organizationConfig}
 				currentUrl={currentUrl}
 			/>
-			<Router>
-				<Route path="/auth" component={AuthPage} />
-				<Route path="/cart" component={CartPage} />
-				<Route path="/settings/*" component={(props) => <MainAppWithProviders 
-					organizationId={organizationId}
-					organizationConfig={organizationConfig}
-					organizationNotFound={organizationNotFound}
-					handleRetryOrganizationConfig={handleRetryOrganizationConfig}
-					{...props}
-				/>} />
-				<Route default component={(props) => <MainAppWithProviders 
-					organizationId={organizationId}
-					organizationConfig={organizationConfig}
-					organizationNotFound={organizationNotFound}
-					handleRetryOrganizationConfig={handleRetryOrganizationConfig}
-					{...props}
-				/>} />
-			</Router>
+			<ToastProvider>
+				<Router>
+					<Route path="/auth" component={AuthPage} />
+					<Route path="/cart" component={CartPage} />
+					<Route path="/settings/*" component={(props) => <MainAppWithProviders 
+						organizationId={organizationId}
+						organizationConfig={organizationConfig}
+						organizationNotFound={organizationNotFound}
+						handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+						{...props}
+					/>} />
+					<Route default component={(props) => <MainAppWithProviders 
+						organizationId={organizationId}
+						organizationConfig={organizationConfig}
+						organizationNotFound={organizationNotFound}
+						handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+						{...props}
+					/>} />
+				</Router>
+			</ToastProvider>
 		</>
 	);
 }
@@ -708,11 +710,9 @@ function MainAppWithProviders(props: {
 	handleRetryOrganizationConfig: () => void;
 } & Record<string, any>) {
 	return (
-		<ToastProvider>
-			<SessionProvider>
-				<MainApp {...props} />
-			</SessionProvider>
-		</ToastProvider>
+		<SessionProvider>
+			<MainApp {...props} />
+		</SessionProvider>
 	);
 }
 

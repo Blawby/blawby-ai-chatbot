@@ -1095,8 +1095,12 @@ interface NotificationTarget {
 // Notification service validates against Better Auth
 class NotificationService {
   async validateNotificationTarget(userId: string, organizationId: string): Promise<boolean> {
-    const user = await this.betterAuth.getUser(userId);
-    const organizationMembership = await this.betterAuth.getOrganizationMembership(userId, organizationId);
+    const { data: user } = await auth.api.getUser({ headers: await headers() });
+    const { data: memberships } = await auth.api.listMembers({
+      headers: await headers(),
+      query: { organizationId }
+    });
+    const organizationMembership = memberships.find(m => m.userId === userId);
     
     return user && organizationMembership && user.verified;
   }
@@ -1117,13 +1121,13 @@ const NOTIFICATION_PERMISSIONS = {
 
 // Check permissions before enqueueing
 async enqueueNotification(notification: Notification) {
-  const user = await this.betterAuth.getUser(notification.userId);
-  const userRoles = await this.betterAuth.getUserRoles(notification.userId, notification.organizationId);
+  const { data: user } = await auth.api.getUser({ headers: await headers() });
+  const { data: { role } } = await auth.api.getActiveMemberRole({
+    headers: await headers()
+  });
   
   // Check if user has permission for this notification type
-  const hasPermission = userRoles.some(role => 
-    NOTIFICATION_PERMISSIONS[role]?.includes(notification.type)
-  );
+  const hasPermission = NOTIFICATION_PERMISSIONS[role]?.includes(notification.type);
   
   if (!hasPermission) {
     console.log(`User ${notification.userId} lacks permission for ${notification.type}`);
@@ -1206,7 +1210,7 @@ CREATE TABLE organization_notification_settings (
 ```typescript
 // Live notification endpoint with session-scoped organization validation
 export async function handleLiveNotifications(request: Request, env: Env) {
-  const session = await betterAuth.getSession(request);
+  const session = await auth.getSession(request);
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
@@ -1226,14 +1230,14 @@ export async function handleLiveNotifications(request: Request, env: Env) {
       SELECT active_organization_id FROM sessions 
       WHERE user_id = ? AND expires_at > ? 
       ORDER BY created_at DESC LIMIT 1
-    `).bind(userId, Math.floor(Date.now() / 1000)).first<{ active_organization_id: string | null }>();
+    `).bind(userId, Date.now()).first<{ active_organization_id: string | null }>();
     
     if (sessionData?.active_organization_id) {
       organizationId = sessionData.active_organization_id;
     } else {
       // Fallback: Get user's organizations and use personal org or first available
-      const userOrgs = await betterAuth.listUserOrganizations({
-        userId: session.user.id
+      const { data: userOrgs } = await auth.api.listOrganizations({
+        headers: await headers()
       });
       
       if (!userOrgs || userOrgs.length === 0) {
@@ -1248,7 +1252,7 @@ export async function handleLiveNotifications(request: Request, env: Env) {
       await env.DB.prepare(`
         UPDATE sessions SET active_organization_id = ?, updated_at = ? 
         WHERE user_id = ? AND expires_at > ?
-      `).bind(organizationId, Math.floor(Date.now() / 1000), userId, Math.floor(Date.now() / 1000)).run();
+      `).bind(organizationId, Date.now(), userId, Date.now()).run();
     }
     
     // Validate user has access to this organization
@@ -1303,7 +1307,7 @@ export async function handleLiveNotifications(request: Request, env: Env) {
 
 // Organization switching endpoint for SSE connections
 export async function handleOrganizationSwitch(request: Request, env: Env) {
-  const session = await betterAuth.getSession(request);
+  const session = await auth.getSession(request);
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
@@ -1330,7 +1334,7 @@ export async function handleOrganizationSwitch(request: Request, env: Env) {
     await env.DB.prepare(`
       UPDATE sessions SET active_organization_id = ?, updated_at = ? 
       WHERE user_id = ? AND expires_at > ?
-    `).bind(organizationId, Math.floor(Date.now() / 1000), userId, Math.floor(Date.now() / 1000)).run();
+    `).bind(organizationId, Date.now(), userId, Date.now()).run();
     
     return new Response(JSON.stringify({ 
       success: true, 
@@ -1353,7 +1357,7 @@ export async function handleOrganizationSwitch(request: Request, env: Env) {
 ```typescript
 // Push subscription endpoint with session-scoped organization validation
 export async function handlePushSubscription(request: Request, env: Env) {
-  const session = await betterAuth.getSession(request);
+  const session = await auth.getSession(request);
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
@@ -1381,7 +1385,7 @@ export async function handlePushSubscription(request: Request, env: Env) {
       SELECT active_organization_id FROM sessions 
       WHERE user_id = ? AND expires_at > ? 
       ORDER BY created_at DESC LIMIT 1
-    `).bind(userId, Math.floor(Date.now() / 1000)).first<{ active_organization_id: string | null }>();
+    `).bind(userId, Date.now()).first<{ active_organization_id: string | null }>();
     
     if (!sessionData?.active_organization_id) {
       return new Response('No active organization found. Please select an organization.', { status: 400 });
@@ -1400,7 +1404,7 @@ export async function handlePushSubscription(request: Request, env: Env) {
     subscription.endpoint,
     subscription.keys.p256dh,
     subscription.keys.auth,
-    Math.floor(Date.now() / 1000)
+    Date.now()
   ).run();
   
   return new Response(JSON.stringify({ 
@@ -1419,7 +1423,7 @@ export async function handlePushSubscription(request: Request, env: Env) {
 ```typescript
 // Get user's notification preferences with Better Auth context
 export async function getUserNotificationPreferences(request: Request, env: Env) {
-  const session = await betterAuth.getSession(request);
+  const session = await auth.getSession(request);
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
@@ -1427,7 +1431,10 @@ export async function getUserNotificationPreferences(request: Request, env: Env)
   const { organizationId } = await request.json();
   
   // Verify user has access to the organization using organization plugin
-  const memberships = await betterAuth.listMembers(organizationId);
+  const { data: memberships } = await auth.api.listMembers({
+    headers: await headers(),
+    query: { organizationId }
+  });
   const hasAccess = memberships.some(member => member.userId === session.user.id);
   if (!hasAccess) {
     return new Response('Forbidden', { status: 403 });
@@ -1445,7 +1452,7 @@ export async function getUserNotificationPreferences(request: Request, env: Env)
 
 // Update user's notification preferences
 export async function updateNotificationPreferences(request: Request, env: Env) {
-  const session = await betterAuth.getSession(request);
+  const session = await auth.getSession(request);
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
@@ -1453,7 +1460,10 @@ export async function updateNotificationPreferences(request: Request, env: Env) 
   const { organizationId, preferences } = await request.json();
   
   // Verify user has access to the organization using organization plugin
-  const memberships = await betterAuth.listMembers(organizationId);
+  const { data: memberships } = await auth.api.listMembers({
+    headers: await headers(),
+    query: { organizationId }
+  });
   const hasAccess = memberships.some(member => member.userId === session.user.id);
   if (!hasAccess) {
     return new Response('Forbidden', { status: 403 });
@@ -1485,7 +1495,7 @@ export async function updateNotificationPreferences(request: Request, env: Env) 
 ```typescript
 // organization admin can manage organization-wide notification settings
 export async function updateorganizationNotificationSettings(request: Request, env: Env) {
-  const session = await betterAuth.getSession(request);
+  const session = await auth.getSession(request);
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
@@ -1493,8 +1503,10 @@ export async function updateorganizationNotificationSettings(request: Request, e
   const { organizationId, settings } = await request.json();
   
   // Check if user is organization admin using organization plugin
-  const memberRole = await betterAuth.getActiveMemberRole(session.user.id, organizationId);
-  const isAdmin = memberRole === 'admin' || memberRole === 'owner';
+  const { data: { role } } = await auth.api.getActiveMemberRole({
+    headers: await headers()
+  });
+  const isAdmin = role === 'admin' || role === 'owner';
   if (!isAdmin) {
     return new Response('Forbidden - Admin role required', { status: 403 });
   }

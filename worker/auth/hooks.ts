@@ -66,6 +66,33 @@ async function waitForSessionReady(
 }
 
 /**
+ * Set the active organization for a user's session
+ */
+export async function setActiveOrganizationForSession(
+  userId: string,
+  sessionToken: string,
+  env: Env
+): Promise<void> {
+  try {
+    const organizationService = new OrganizationService(env);
+    const organizations = await organizationService.listOrganizations(userId);
+    const personalOrg = organizations.find(org => org.isPersonal);
+    
+    if (personalOrg) {
+      // Update the session with active organization
+      await env.DB.prepare(
+        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE token = ?`
+      ).bind(personalOrg.id, Math.floor(Date.now() / 1000), sessionToken).run();
+      
+      console.log(`✅ Set personal org ${personalOrg.id} as active for user ${userId}`);
+    }
+  } catch (error) {
+    console.error(`❌ Failed to set active organization for user ${userId}:`, error);
+    // Don't throw - let the session creation continue even if organization setting fails
+  }
+}
+
+/**
  * Hook to run after user signup/email verification
  */
 export async function handlePostSignup(
@@ -80,26 +107,8 @@ export async function handlePostSignup(
     // Create personal organization
     await createPersonalOrganizationOnSignup(userId, userName, env);
     
-    // Set personal org as active in the session
-    const organizationService = new OrganizationService(env);
-    const organizations = await organizationService.listOrganizations(userId);
-    const personalOrg = organizations.find(org => org.isPersonal);
-    
-    if (personalOrg) {
-      // Get the session token for this user
-      const session = await env.DB.prepare(
-        `SELECT token FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1`
-      ).bind(userId).first<{ token: string }>();
-      
-      if (session?.token) {
-        // Update the session with active organization
-        await env.DB.prepare(
-          `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE token = ?`
-        ).bind(personalOrg.id, Math.floor(Date.now() / 1000), session.token).run();
-        
-        console.log(`✅ Set personal org ${personalOrg.id} as active for user ${userId}`);
-      }
-    }
+    // Note: Active organization will be set in the session.create.after hook
+    // when the session is actually created
   } catch (error) {
     console.error(`❌ Failed to handle post-signup for user ${userId}:`, error);
     // Don't throw - let the signup continue even if organization creation fails

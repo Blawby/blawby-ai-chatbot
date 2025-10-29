@@ -140,7 +140,7 @@ export const sessions = sqliteTable("sessions", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  activeOrganizationId: text("active_organization_id").references(() => organizations.id, { onDelete: "cascade" }),
+  activeOrganizationId: text("active_organization_id").references(() => organizations.id, { onDelete: "set null" }),
 }, (table) => ({
   activeOrgIdx: index("sessions_active_org_idx").on(table.activeOrganizationId),
 }));

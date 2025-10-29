@@ -7,7 +7,7 @@ import type { Env } from "../types";
 import * as authSchema from "../db/auth.schema";
 import { EmailService } from "../services/EmailService.js";
 import { OrganizationService } from "../services/OrganizationService.js";
-import { handlePostSignup } from "./hooks.js";
+import { handlePostSignup, setActiveOrganizationForSession } from "./hooks.js";
 import { stripe as stripePlugin } from "@better-auth/stripe";
 import Stripe from "stripe";
 import {
@@ -798,6 +798,24 @@ export async function getAuth(env: Env, request?: Request) {
                       error: error instanceof Error ? error.message : String(error),
                       userId: user.id,
                     });
+                  }
+                },
+              },
+            },
+            session: {
+              create: {
+                after: async (session, context) => {
+                  // Set active organization when a session is created
+                  if (session.userId && session.token) {
+                    try {
+                      await setActiveOrganizationForSession(session.userId, session.token, env);
+                    } catch (error) {
+                      console.error("❌ Failed to set active organization for session:", {
+                        error: error instanceof Error ? error.message : String(error),
+                        userId: session.userId,
+                        sessionId: session.id,
+                      });
+                    }
                   }
                 },
               },
