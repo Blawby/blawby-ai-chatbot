@@ -29,7 +29,7 @@ export interface OnboardingFormData {
   isPublic: boolean;
   
   // Services
-  services: Array<{ title: string; description: string }>;
+  services: Array<{ id: string; title: string; description: string }>;
 }
 
 const initialFormData: OnboardingFormData = {

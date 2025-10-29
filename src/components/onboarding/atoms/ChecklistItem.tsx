@@ -30,12 +30,6 @@ export const ChecklistItem = ({
     lg: 'text-base'
   };
 
-  const iconSizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-5 h-5',
-    lg: 'w-6 h-6'
-  };
-
   const statusClasses = {
     completed: 'text-green-500',
     pending: 'text-gray-400',

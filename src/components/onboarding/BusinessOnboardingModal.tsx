@@ -65,14 +65,12 @@ const BusinessOnboardingModal = ({
       return;
     }
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Proceed immediately or await real API call here when available
 
     if (isLastStep) {
       // Final step - complete onboarding
       try {
         localStorage.removeItem('businessSetupPending');
-        localStorage.setItem('businessOnboardingCompleted', 'true');
         
         if (onCompleted) {
           await onCompleted();
@@ -80,6 +78,9 @@ const BusinessOnboardingModal = ({
         onClose();
       } catch (err) {
         console.error('Failed to complete onboarding:', err);
+        // Show error to user instead of just logging
+        setLoading(false);
+        return;
       }
     } else {
       goNext();

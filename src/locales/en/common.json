@@ -176,37 +176,37 @@
       "businessDescriptionPlaceholder": "Tell us about your business...",
       "nextButton": "Next",
       "backButton": "Back"
-    }
-  },
-  "reviewAndLaunch": {
-    "title": "Review your business profile",
-    "sections": {
-      "firmInformation": "Firm Information",
-      "address": "Address",
-      "description": "Description",
-      "services": "Services"
     },
-    "labels": {
-      "name": "Name",
-      "email": "Email",
-      "phone": "Phone",
-      "website": "Website"
-    },
-    "messages": {
-      "noServicesConfigured": "No services configured"
-    },
-    "visibility": {
-      "title": "Make workspace public",
-      "description": "When enabled, anyone can chat with your assistant and submit intake questions."
-    },
-    "launchFeatures": {
-      "title": "What happens when you launch",
-      "assistantAvailable": "Your AI assistant will be available at your intake page URL",
-      "clientsCanChat": "Clients can chat with your assistant and submit intake forms",
-      "notifications": "You'll receive notifications for new client submissions"
-    },
-    "actions": {
-      "launchAssistant": "Launch Assistant"
+    "reviewAndLaunch": {
+      "title": "Review your business profile",
+      "sections": {
+        "firmInformation": "Firm Information",
+        "address": "Address",
+        "description": "Description",
+        "services": "Services"
+      },
+      "labels": {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "website": "Website"
+      },
+      "messages": {
+        "noServicesConfigured": "No services configured"
+      },
+      "visibility": {
+        "title": "Make workspace public",
+        "description": "When enabled, anyone can chat with your assistant and submit intake questions."
+      },
+      "launchFeatures": {
+        "title": "What happens when you launch",
+        "assistantAvailable": "Your AI assistant will be available at your intake page URL",
+        "clientsCanChat": "Clients can chat with your assistant and submit intake forms",
+        "notifications": "You'll receive notifications for new client submissions"
+      },
+      "actions": {
+        "launchAssistant": "Launch Assistant"
+      }
     }
   },
   "businessWelcome": {

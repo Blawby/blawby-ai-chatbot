@@ -215,6 +215,8 @@ function MainApp({
 				setShowBusinessSetup(true);
 				// Don't remove the flag here - let the modal handlers do it
 			}
+			// Note: 'snoozed' status is handled by the modal's handleClose method
+			// and will prevent the modal from showing until user explicitly reopens it
 		} catch (_error) {
 			if (import.meta.env.DEV) {
 				console.warn('Failed to check business setup status:', _error);

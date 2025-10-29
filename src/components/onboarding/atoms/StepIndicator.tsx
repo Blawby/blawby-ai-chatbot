@@ -25,6 +25,11 @@ export const StepIndicator = ({
   size = 'md',
   className = ''
 }: StepIndicatorProps) => {
+  const totalStepsClamped = Math.max(0, totalSteps);
+  const currentIndex = totalStepsClamped > 0
+    ? Math.min(Math.max(0, (currentStep ?? 0) - 1), totalStepsClamped - 1)
+    : 0;
+
   const sizeClasses = {
     sm: 'w-2 h-2',
     md: 'w-3 h-3',
@@ -47,7 +52,7 @@ export const StepIndicator = ({
     return (
       <div className={cn('flex items-center', spacingClasses[size], className)}>
         <span className={cn('font-medium text-gray-500 dark:text-gray-400', textSizeClasses[size])}>
-          {currentStep} of {totalSteps}
+          {totalStepsClamped > 0 ? currentIndex + 1 : 0} of {totalStepsClamped}
         </span>
       </div>
     );
@@ -55,10 +60,10 @@ export const StepIndicator = ({
 
   return (
     <div className={cn('flex items-center', spacingClasses[size], className)}>
-      {Array.from({ length: totalSteps }, (_, index) => {
+      {Array.from({ length: totalStepsClamped }, (_, index) => {
         const stepNumber = index + 1;
-        const isActive = stepNumber === currentStep;
-        const isCompleted = stepNumber < currentStep;
+        const isActive = index === currentIndex;
+        const isCompleted = index < currentIndex;
         
         return (
           <div
@@ -71,6 +76,7 @@ export const StepIndicator = ({
               !isActive && !isCompleted && 'bg-gray-300 dark:bg-gray-600'
             )}
             aria-label={`Step ${stepNumber}${isActive ? ', current' : isCompleted ? ', completed' : ''}`}
+            aria-current={isActive ? 'step' : undefined}
           />
         );
       })}

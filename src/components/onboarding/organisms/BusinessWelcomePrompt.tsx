@@ -9,7 +9,7 @@ import { useNavigation } from '../../../utils/navigation';
 import Modal from '../../Modal';
 import { Button } from '../../ui/Button';
 import { UserGroupIcon, BuildingOfficeIcon, KeyIcon } from '@heroicons/react/24/outline';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '../../../i18n/hooks';
 
 interface BusinessWelcomePromptProps {
   isOpen: boolean;
@@ -47,7 +47,7 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
   ];
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose}>
       <div className="p-8">
         <h2 className="text-2xl font-bold mb-4">{t('businessWelcome.title')}</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">

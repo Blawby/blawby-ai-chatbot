@@ -79,9 +79,6 @@ export const OnboardingStepRenderer = ({
             state: stepData.state,
             postalCode: stepData.postalCode,
             country: stepData.country,
-            primaryColor: stepData.primaryColor,
-            accentColor: stepData.accentColor,
-            introMessage: stepData.introMessage,
             overview: stepData.overview
           }}
           onChange={(data) => {
@@ -91,9 +88,6 @@ export const OnboardingStepRenderer = ({
             onChange('state', data.state);
             onChange('postalCode', data.postalCode);
             onChange('country', data.country);
-            onChange('primaryColor', data.primaryColor);
-            onChange('accentColor', data.accentColor);
-            onChange('introMessage', data.introMessage);
             onChange('overview', data.overview);
           }}
           errors={errors}
@@ -101,10 +95,14 @@ export const OnboardingStepRenderer = ({
       );
 
     case 'services':
+      // Ensure all services have IDs (migration for existing data)
+      const servicesWithIds = stepData.services.map(service => 
+        service.id ? service : { ...service, id: crypto.randomUUID() }
+      );
       return (
         <ServicesStep
           {...commonProps}
-          data={stepData.services}
+          data={servicesWithIds}
           onChange={(services) => onChange('services', services)}
           errors={errors}
         />
