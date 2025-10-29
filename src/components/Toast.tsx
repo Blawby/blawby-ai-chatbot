@@ -17,7 +17,7 @@ interface ToastProps {
 }
 
 const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
-  const visibilityTimerRef = useRef<number | null>(null);
+  const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleRemove = useCallback(() => {
     onRemove(toast.id);

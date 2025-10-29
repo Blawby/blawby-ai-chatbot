@@ -203,7 +203,7 @@ export const fileAnalysisMiddleware: PipelineMiddleware = {
           // CRITICAL FIX: Perform file analysis synchronously with proper awaiting
           // This ensures the middleware blocks until analysis completes
           const analysis = await withTimeout(
-            analyzeFile(fileAnalysisEnv, fileId, analysisQuestion),
+            analyzeFile(fileAnalysisEnv as unknown as Env, fileId, analysisQuestion),
             30000
           );
           

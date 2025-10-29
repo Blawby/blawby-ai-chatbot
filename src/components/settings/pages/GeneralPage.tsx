@@ -44,13 +44,13 @@ export const GeneralPage = ({
     
     // Defensive checks with sensible fallbacks
     setSettings({
-      theme: (user.theme as 'light' | 'dark' | 'system') || 'system',
-      accentColor: (user.accentColor as 'default' | 'blue' | 'green' | 'purple' | 'red') || 'default',
-      language: getValidLanguage(user.language),
-      spokenLanguage: getValidLanguage(user.spokenLanguage)
+      theme: ((user as { theme?: string }).theme as 'light' | 'dark' | 'system') || 'system',
+      accentColor: ((user as { accentColor?: string }).accentColor as 'default' | 'blue' | 'green' | 'purple' | 'red') || 'default',
+      language: getValidLanguage((user as { language?: string }).language),
+      spokenLanguage: getValidLanguage((user as { spokenLanguage?: string }).spokenLanguage)
     });
 
-    const preferredLanguage = user.language;
+    const preferredLanguage = (user as { language?: string }).language;
     if (preferredLanguage && preferredLanguage !== 'auto-detect') {
       void setLocale(preferredLanguage);
     }

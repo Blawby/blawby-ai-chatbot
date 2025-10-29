@@ -28,16 +28,17 @@ export const NotificationsPage = ({
     const user = session.user;
     
     // Convert user data to notification settings format
+    const userWithNotifications = user as { notificationResponsesPush?: boolean; notificationTasksPush?: boolean; notificationTasksEmail?: boolean; notificationMessagingPush?: boolean };
     const notificationSettings: NotificationSettings = {
       responses: {
-        push: user.notificationResponsesPush ?? true
+        push: userWithNotifications.notificationResponsesPush ?? true
       },
       tasks: {
-        push: user.notificationTasksPush ?? true,
-        email: user.notificationTasksEmail ?? true
+        push: userWithNotifications.notificationTasksPush ?? true,
+        email: userWithNotifications.notificationTasksEmail ?? true
       },
       messaging: {
-        push: user.notificationMessagingPush ?? true
+        push: userWithNotifications.notificationMessagingPush ?? true
       }
     };
     

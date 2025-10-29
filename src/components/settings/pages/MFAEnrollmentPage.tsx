@@ -67,8 +67,13 @@ export const MFAEnrollmentPage = ({
         }, 1000);
       });
       
-      // Enable MFA using Better Auth twoFactor plugin
-      await authClient.twoFactor.enable({ code: verificationCode });
+      // Enable MFA using Better Auth twoFactor plugin (if available)
+      const twoFactorClient = (authClient as { twoFactor?: { enable: (options: { code: string }) => Promise<void> } }).twoFactor;
+      if (twoFactorClient) {
+        await twoFactorClient.enable({ code: verificationCode });
+      } else {
+        throw new Error('Two-factor authentication is not available');
+      }
       
       showSuccess(
         t('settings:security.mfa.toastEnabled.title'),

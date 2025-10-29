@@ -9,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { MatterData, MatterStatus } from '../types/matter';
 import { getDefaultDocumentSuggestions } from '../hooks/useMatterState';
-import { DocumentIconAttachment } from '../../worker/types';
+import type { DocumentIconAttachment } from '../../worker/types';
 
 interface MatterTabProps {
   matter: MatterData | null;
@@ -19,7 +19,7 @@ interface MatterTabProps {
   onPayNow?: () => void;
   onViewPDF?: () => void;
   onShareMatter?: () => void;
-  onUploadDocument?: (files: DocumentIcon[], metadata?: { documentType?: string; matterId?: string; documentId?: string }) => Promise<DocumentIconAttachment[]>;
+  onUploadDocument?: (files: File[], metadata?: { documentType?: string; matterId?: string; documentId?: string }) => Promise<DocumentIconAttachment[]>;
 }
 
 const MatterTab: FunctionComponent<MatterTabProps> = ({

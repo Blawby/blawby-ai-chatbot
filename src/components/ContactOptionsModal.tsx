@@ -11,7 +11,7 @@ import {
   CheckIcon
 } from "@heroicons/react/24/outline";
 import { useTheme } from '../hooks/useTheme';
-import type { LawyerProfile } from '../../worker/services/LawyerSearchService';
+import type { LawyerProfile } from '../../worker/schemas/lawyer';
 
 interface ContactOptionsModalProps {
   lawyer: LawyerProfile;

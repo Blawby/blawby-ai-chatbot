@@ -160,7 +160,7 @@ export async function syncStripeDataToKV(args: {
     status: normalizeSubscriptionStatus(subscription.status),
     priceId: price.id,
     seats: primaryItem?.quantity ?? 1,
-    currentPeriodEnd: subscription?.current_period_end ?? 0,
+    currentPeriodEnd: (subscription as { current_period_end?: number })?.current_period_end ?? 0,
     cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     limits,
     cachedAt: now,

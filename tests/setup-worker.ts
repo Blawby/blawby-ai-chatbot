@@ -1,13 +1,16 @@
 import { beforeAll } from 'vitest';
-import { env } from '@cloudflare/vitest-pool-workers/testing';
+import { env } from 'cloudflare:test';
+import type { D1Database } from '@cloudflare/workers-types';
 
 process.env.NODE_ENV = 'test';
 
 beforeAll(async () => {
   // Initialize database schema for tests
   try {
+    const db = (env as { DB: D1Database }).DB;
+    
     // Create organizations table
-    await env.DB.prepare(`
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS organizations (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -23,7 +26,7 @@ beforeAll(async () => {
     `).run();
 
     // Create chat_sessions table
-    await env.DB.prepare(`
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS chat_sessions (
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
@@ -42,7 +45,7 @@ beforeAll(async () => {
     `).run();
 
     // Create usage_quotas table
-    await env.DB.prepare(`
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS usage_quotas (
         organization_id TEXT NOT NULL,
         period TEXT NOT NULL CHECK (period GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]' AND CAST(SUBSTR(period, 6, 2) AS INTEGER) BETWEEN 1 AND 12),
@@ -59,11 +62,11 @@ beforeAll(async () => {
     `).run();
 
     // Create indexes for usage_quotas
-    await env.DB.prepare(`
+    await db.prepare(`
       CREATE INDEX IF NOT EXISTS idx_usage_quotas_period ON usage_quotas(period)
     `).run();
     
-    await env.DB.prepare(`
+    await db.prepare(`
       CREATE INDEX IF NOT EXISTS idx_usage_quotas_org_period ON usage_quotas(organization_id, period)
     `).run();
   } catch (error) {

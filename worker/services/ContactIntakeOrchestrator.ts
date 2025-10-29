@@ -119,9 +119,9 @@ export class ContactIntakeOrchestrator {
       context.lastUpdated = Date.now();
     }
 
-    const organizationMeta = organizationConfig?.config ?? {};
-    const organizationName = (organizationMeta.description || organizationConfig?.name || 'Legal Services') as string;
-    const brandColor = organizationMeta.brandColor || '#334e68';
+    const organizationMeta = organizationConfig?.config ?? {} as Record<string, unknown>;
+    const organizationName = ((organizationMeta.description as string) || organizationConfig?.name || 'Legal Services') as string;
+    const brandColor = (organizationMeta.brandColor as string) || '#334e68';
 
     let pdfResult: OrchestrationResult['pdf'];
 
@@ -139,7 +139,13 @@ export class ContactIntakeOrchestrator {
       }, env);
 
       if (pdfResponse.success && pdfResponse.pdfBuffer) {
-        const filename = PDFGenerationService.generateFilename(caseDraft, matter.name);
+        // Adapt ContextCaseDraft to PDFGenerationService.CaseDraft format
+        const pdfCaseDraft = {
+          ...caseDraft,
+          jurisdiction: caseDraft.jurisdiction || 'Unknown',
+          urgency: caseDraft.urgency || 'normal'
+        };
+        const filename = PDFGenerationService.generateFilename(pdfCaseDraft, matter.name);
         const generatedAt = new Date().toISOString();
         const size = pdfResponse.pdfBuffer.byteLength;
 

@@ -3,7 +3,7 @@ import { useTranslation, Trans } from '@/i18n/hooks';
 import { Button } from '../ui/Button';
 import { Logo } from '../ui/Logo';
 import { UserIcon } from '@heroicons/react/24/outline';
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '../ui/form';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, type FormData as FormDataType } from '../ui/form';
 import { Input, DatePicker } from '../ui/input';
 import { Checkbox } from '../ui/input';
 
@@ -67,7 +67,14 @@ const PersonalInfoStep = ({ data: _data, onComplete, onBack }: PersonalInfoStepP
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <Form onSubmit={handleSubmit} initialData={_data}>
+          <Form onSubmit={async (formData: FormDataType): Promise<void> => {
+            const personalInfoData: PersonalInfoData = {
+              fullName: (formData.fullName as string) || '',
+              birthday: formData.birthday as string | undefined,
+              agreedToTerms: Boolean(formData.agreedToTerms)
+            };
+            await handleSubmit(personalInfoData);
+          }} initialData={_data as unknown as FormDataType}>
             <div className="space-y-4">
               {/* Full Name */}
               <FormField name="fullName">

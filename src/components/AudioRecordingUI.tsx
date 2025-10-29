@@ -104,7 +104,9 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
             analyserRef.current = audioContextRef.current.createAnalyser();
             analyserRef.current.fftSize = 256; // Fast Fourier Transform size
             const bufferLength = analyserRef.current.frequencyBinCount;
-            dataArrayRef.current = new Uint8Array(bufferLength);
+            // Create Uint8Array with explicit ArrayBuffer to ensure correct type
+            const buffer = new ArrayBuffer(bufferLength);
+            dataArrayRef.current = new Uint8Array(buffer) as Uint8Array<ArrayBuffer>;
             
             // Connect microphone stream to analyzer
             const source = audioContextRef.current.createMediaStreamSource(mediaStream);
@@ -129,7 +131,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 animationFrameRef.current = undefined;
             }
         };
-    }, [isRecording, isBrowser, mediaStream, fallbackVisualization, visualizeAudio]);
+    }, [isRecording, isBrowser, mediaStream]); // fallbackVisualization and visualizeAudio are stable useCallback refs
 
     const visualizeAudio = useCallback(() => {
         const canvas = canvasRef.current;
@@ -154,7 +156,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
             if (!analyserRef.current || !dataArrayRef.current) return;
             
             // Get frequency data from microphone
-            analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+            analyserRef.current.getByteFrequencyData(dataArrayRef.current as Uint8Array<ArrayBuffer>);
             
             // Clear the canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -310,6 +312,57 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         // Start the animation loop and return the animation frame ID
         return requestAnimationFrame(drawBars);
     }, [isRecording]);
+
+    // Set up audio context and analyzer
+    useEffect(() => {
+        if (!isBrowser || !isRecording || !mediaStream) return;
+
+        try {
+            // Initialize Audio Context - get constructor from globalThis to avoid shadowing
+            const audioGlobals = globalThis as unknown as AudioContextGlobals;
+            const AudioContextConstructor: typeof AudioContext | undefined = 
+                audioGlobals.AudioContext || audioGlobals.webkitAudioContext;
+            
+            if (!AudioContextConstructor) {
+                console.warn('AudioContext not supported in this browser');
+                animationFrameRef.current = fallbackVisualization();
+                return;
+            }
+            
+            audioContextRef.current = new AudioContextConstructor();
+            
+            // Create analyzer node
+            analyserRef.current = audioContextRef.current.createAnalyser();
+            analyserRef.current.fftSize = 256; // Fast Fourier Transform size
+            const bufferLength = analyserRef.current.frequencyBinCount;
+            // Create Uint8Array with explicit ArrayBuffer to ensure correct type
+            const buffer = new ArrayBuffer(bufferLength);
+            dataArrayRef.current = new Uint8Array(buffer) as Uint8Array<ArrayBuffer>;
+            
+            // Connect microphone stream to analyzer
+            const source = audioContextRef.current.createMediaStreamSource(mediaStream);
+            source.connect(analyserRef.current);
+            
+            // Start visualization
+            visualizeAudio();
+        } catch (error) {
+            console.error('Error setting up audio visualization:', error);
+            // Fall back to fake visualization if Web Audio API fails
+            animationFrameRef.current = fallbackVisualization();
+        }
+        
+        return () => {
+            // Clean up audio context
+            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+                audioContextRef.current.close();
+            }
+            
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+                animationFrameRef.current = undefined;
+            }
+        };
+    }, [isRecording, isBrowser, mediaStream]); // fallbackVisualization and visualizeAudio are stable useCallback refs
 
     const formatTime = (seconds: number): string => {
         const mins = Math.floor(seconds / 60);

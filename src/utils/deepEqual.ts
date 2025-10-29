@@ -82,17 +82,34 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     return ua.every((byte, index) => byte === ub[index]);
   }
   
-  // Check if both are TypedArrays (but not ArrayBuffer)
-  const typedArrayConstructors = [
-    Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array,
-    Int32Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array
+  // Check typed arrays (excluding BigInt arrays which need special handling)
+  const numericTypedArrayConstructors = [
+    Uint8Array,
+    Uint8ClampedArray,
+    Uint16Array,
+    Uint32Array,
+    Int8Array,
+    Int16Array,
+    Int32Array,
+    Float32Array,
+    Float64Array,
   ];
   
-  for (const TypedArrayConstructor of typedArrayConstructors) {
+  for (const TypedArrayConstructor of numericTypedArrayConstructors) {
     if (a instanceof TypedArrayConstructor && b instanceof TypedArrayConstructor) {
       if (a.length !== b.length) return false;
       return Array.from(a).every((element, index) => element === b[index]);
     }
+  }
+  
+  // Handle BigInt typed arrays separately
+  if ((a instanceof BigUint64Array && b instanceof BigUint64Array) ||
+      (a instanceof BigInt64Array && b instanceof BigInt64Array)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
   }
   
   // Handle regular objects

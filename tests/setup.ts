@@ -41,7 +41,7 @@ global.URL.createObjectURL = vi.fn(() => 'mocked-url');
 global.URL.revokeObjectURL = vi.fn();
 
 // Mock FileReader
-global.FileReader = vi.fn().mockImplementation(() => ({
+const FileReaderMock = vi.fn().mockImplementation(() => ({
   readAsDataURL: vi.fn(),
   readAsText: vi.fn(),
   readAsArrayBuffer: vi.fn(),
@@ -50,7 +50,32 @@ global.FileReader = vi.fn().mockImplementation(() => ({
   onload: null,
   onerror: null,
   onloadend: null,
+  readyState: 0
 }));
+
+// Add static properties to the mock constructor using Object.defineProperty
+Object.defineProperty(FileReaderMock, 'EMPTY', {
+  value: 0,
+  writable: false,
+  enumerable: true,
+  configurable: false
+});
+
+Object.defineProperty(FileReaderMock, 'LOADING', {
+  value: 1,
+  writable: false,
+  enumerable: true,
+  configurable: false
+});
+
+Object.defineProperty(FileReaderMock, 'DONE', {
+  value: 2,
+  writable: false,
+  enumerable: true,
+  configurable: false
+});
+
+global.FileReader = FileReaderMock as unknown as typeof FileReader;
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({

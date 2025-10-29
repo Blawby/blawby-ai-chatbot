@@ -13,7 +13,7 @@ interface CopyButtonProps {
 export const CopyButton = ({ text, label, className = '', disabled = false }: CopyButtonProps) => {
   const { showSuccess, showError } = useToastContext();
   const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   useEffect(() => {
     return () => {

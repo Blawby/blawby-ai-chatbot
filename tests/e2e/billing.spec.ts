@@ -21,7 +21,11 @@ async function findAnyVisibleElement(
   // Race all checks against the sentinel
   const result = await Promise.race([...visibilityChecks, allDone]);
 
-  return result || { found: false };
+  // Type guard to ensure result matches expected return type
+  if (result && 'found' in result && result.found === true && 'selector' in result) {
+    return { found: true, selector: result.selector };
+  }
+  return { found: false };
 }
 
 test.describe('Billing Integration', () => {

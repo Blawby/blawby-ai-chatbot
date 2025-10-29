@@ -28,7 +28,7 @@ const mockGetMembers = vi.fn((orgId: string) => {
         role: 'owner' as const,
         email: 'test@example.com',
         name: 'Test User',
-        createdAt: '2023-01-01T00:00:00Z',
+        createdAt: Date.now(),
       },
     ];
   }
@@ -132,7 +132,7 @@ describe('OrganizationPage', () => {
             role: 'owner' as const,
             email: 'test@example.com',
             name: 'Test User',
-            createdAt: '2023-01-01T00:00:00Z',
+            createdAt: Date.now(),
           },
         ];
       }

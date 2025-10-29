@@ -47,5 +47,12 @@
 	"include": [
 		"node_modules/vite/client.d.ts",
 		"**/*"
+	],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"test-results",
+		"playwright-report",
+		"public/sw.js"
 	]
 }

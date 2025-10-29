@@ -1,5 +1,5 @@
 import { useEffect } from 'preact/hooks';
-import { OrganizationConfig } from '../../worker/types';
+import type { OrganizationConfig } from '../../worker/types';
 
 interface SEOHeadProps {
   organizationConfig?: OrganizationConfig;
@@ -20,7 +20,7 @@ export function SEOHead({
   useEffect(() => {
     // Update document title
     const title = pageTitle || 
-      (organizationConfig?.name ? `${organizationConfig.name} - AI Legal Assistant` : 'Blawby AI - Intelligent Legal Assistant & Chat Interface');
+      (organizationConfig?.introMessage ? `${organizationConfig.introMessage.substring(0, 50)} - AI Legal Assistant` : 'Blawby AI - Intelligent Legal Assistant & Chat Interface');
     document.title = title;
 
     // Update meta tags dynamically
@@ -51,7 +51,7 @@ export function SEOHead({
     updateMetaTag('og:url', currentUrl || window.location.href);
     updateMetaTag('og:image', pageImage || 
       (organizationConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
-    updateMetaTag('og:site_name', organizationConfig?.name || 'Blawby AI');
+    updateMetaTag('og:site_name', organizationConfig?.introMessage?.substring(0, 30) || 'Blawby AI');
 
     // Update Twitter tags
     updateMetaName('twitter:title', title);

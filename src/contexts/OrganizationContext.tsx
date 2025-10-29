@@ -1,29 +1,10 @@
 import { createContext, useContext, useMemo, useCallback, type ReactNode } from 'preact/compat';
 import { useOrganizationConfig } from '../hooks/useOrganizationConfig.js';
+import type { OrganizationConfig } from '../../worker/types';
 
 export interface OrganizationContextValue {
   organizationId: string;
-  organizationConfig: {
-    name: string;
-    profileImage: string;
-    introMessage: string | null;
-    description: string | null;
-    availableServices: string[];
-    serviceQuestions: Record<string, string[]>;
-    jurisdiction: {
-      type: string;
-      description: string;
-      supportedStates: string[];
-      supportedCountries: string[];
-    };
-    voice: {
-      enabled: boolean;
-      provider: string;
-      voiceId: string | null;
-      displayName: string | null;
-      previewUrl: string | null;
-    };
-  };
+  organizationConfig: OrganizationConfig; // Use worker type but cast UI config when needed
   organizationNotFound: boolean;
   isLoading: boolean;
   handleRetryOrganizationConfig: () => void;
@@ -58,7 +39,7 @@ export function OrganizationProvider({ children, onError }: OrganizationProvider
 
   const contextValue = useMemo(() => ({
     organizationId,
-    organizationConfig,
+    organizationConfig: organizationConfig as OrganizationConfig, // Cast UI config to worker config (name is optional)
     organizationNotFound,
     isLoading,
     handleRetryOrganizationConfig

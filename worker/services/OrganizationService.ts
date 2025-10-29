@@ -61,6 +61,7 @@ export interface OrganizationConfig {
     apiUrl?: string;
   };
   testMode?: boolean;  // Organization-level testing flag for notifications and other features
+  metadata?: Record<string, unknown>; // Additional metadata for organization configuration
 }
 
 const LEGACY_AI_PROVIDER = 'workers-ai';

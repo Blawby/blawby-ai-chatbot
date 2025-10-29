@@ -1,9 +1,10 @@
 import { createAnalysisErrorResponse } from './responseUtils.js';
+import type { Env } from '../types.js';
 
 /**
  * Analyzes files using the vision API
  */
-export async function analyzeFile(env: Record<string, unknown>, fileId: string, question?: string): Promise<Record<string, unknown>> {
+export async function analyzeFile(env: Env, fileId: string, question?: string): Promise<Record<string, unknown>> {
   console.log('=== ANALYZE FILE FUNCTION CALLED ===');
   console.log('File ID:', fileId);
   console.log('Question:', question);
@@ -20,13 +21,13 @@ export async function analyzeFile(env: Record<string, unknown>, fileId: string, 
       return createAnalysisErrorResponse(
         "File analysis is not configured. Please contact support.",
         ["Contact support to enable file analysis"]
-      );
+      ) as unknown as Record<string, unknown>;
     }
 
     // Try to get file metadata from database first
     let fileRecord = null;
     try {
-      const stmt = env.DB.prepare(`
+      const stmt = (env as Env).DB.prepare(`
         SELECT * FROM files WHERE id = ? AND is_deleted = FALSE
       `);
       fileRecord = await stmt.bind(fileId).first();
@@ -47,7 +48,7 @@ export async function analyzeFile(env: Record<string, unknown>, fileId: string, 
       console.warn('Could not determine file path for analysis:', fileId);
       return createAnalysisErrorResponse(
         "Unable to locate the uploaded file for analysis. The file may have been moved or deleted."
-      );
+      ) as unknown as Record<string, unknown>;
     }
 
     // Get file from R2
@@ -57,7 +58,7 @@ export async function analyzeFile(env: Record<string, unknown>, fileId: string, 
       console.warn('File not found in R2 storage for analysis:', filePath);
       return createAnalysisErrorResponse(
         "The uploaded file could not be retrieved from storage for analysis."
-      );
+      ) as unknown as Record<string, unknown>;
     }
 
     console.log('R2 file object:', {
@@ -93,26 +94,26 @@ export async function analyzeFile(env: Record<string, unknown>, fileId: string, 
         confidence: analysis.confidence,
         keyFactsCount: analysis.key_facts?.length || 0
       });
-      return analysis;
+      return analysis as unknown as Record<string, unknown>;
     } catch (error) {
       console.error('Analysis error:', error);
       return createAnalysisErrorResponse(
         "The file analysis failed due to a technical error. The AI service may be temporarily unavailable."
-      );
+      ) as unknown as Record<string, unknown>;
     }
 
   } catch (error) {
     console.error('File analysis error:', error);
     return createAnalysisErrorResponse(
       "An unexpected error occurred during file analysis. Please try again or contact support."
-    );
+    ) as unknown as Record<string, unknown>;
   }
 }
 
 /**
  * Finds file path in R2 storage by file ID
  */
-async function findFilePathInR2(env: Record<string, unknown>, fileId: string): Promise<string | null> {
+async function findFilePathInR2(env: Env, fileId: string): Promise<string | null> {
   console.log('No file path from database, attempting to construct from file ID');
   
   // Handle the actual file ID format with UUID

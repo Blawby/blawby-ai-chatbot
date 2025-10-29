@@ -87,10 +87,10 @@ export class LawyerSearchService {
 
       const result: LawyerSearchResponse = {
         lawyers,
-        total: data.total || lawyers.length,
-        page: data.page || 1,
-        limit: data.limit || limit,
-        hasMore: data.has_more || data.hasMore || false
+        total: (data.total as number) || lawyers.length,
+        page: (data.page as number) || 1,
+        limit: (data.limit as number) || limit,
+        hasMore: (data.has_more as boolean) || (data.hasMore as boolean) || false
       };
 
       Logger.info('[LawyerSearchService] Search completed successfully:', {
@@ -169,21 +169,21 @@ export class LawyerSearchService {
    */
   private static mapToLawyerProfile(raw: { [key: string]: unknown }): LawyerProfile {
     return {
-      id: raw.id || raw.lawyer_id,
-      name: raw.name || raw.full_name,
-      firm: raw.firm || raw.law_firm,
-      location: raw.location || `${raw.city}, ${raw.state}`,
-      practiceAreas: raw.practice_areas || raw.specialties || [],
-      rating: raw.rating || raw.avg_rating,
-      reviewCount: raw.review_count || raw.total_reviews,
-      phone: raw.phone || raw.phone_number,
-      email: raw.email || raw.email_address,
-      website: raw.website || raw.firm_website,
-      bio: raw.bio || raw.description,
-      experience: raw.experience || raw.years_experience,
-      languages: raw.languages || raw.spoken_languages,
-      consultationFee: raw.consultation_fee || raw.hourly_rate,
-      availability: raw.availability || raw.next_available
+      id: (raw.id || raw.lawyer_id) as string,
+      name: (raw.name || raw.full_name) as string,
+      firm: (raw.firm || raw.law_firm) as string | undefined,
+      location: (raw.location || `${raw.city}, ${raw.state}`) as string,
+      practiceAreas: (raw.practice_areas || raw.specialties || []) as string[],
+      rating: (raw.rating || raw.avg_rating) as number | undefined,
+      reviewCount: (raw.review_count || raw.total_reviews) as number | undefined,
+      phone: (raw.phone || raw.phone_number) as string | undefined,
+      email: (raw.email || raw.email_address) as string | undefined,
+      website: (raw.website || raw.firm_website) as string | undefined,
+      bio: (raw.bio || raw.description) as string | undefined,
+      experience: (raw.experience || raw.years_experience) as string | undefined,
+      languages: (raw.languages || raw.spoken_languages || []) as string[],
+      consultationFee: (raw.consultation_fee || raw.hourly_rate) as number | undefined,
+      availability: (raw.availability || raw.next_available) as string | undefined
     };
   }
 

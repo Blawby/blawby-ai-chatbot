@@ -301,7 +301,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
         ...organization.config,
         metadata: {
           ...(organization.config.metadata ?? {}),
-          planStatus: resolvePlanStatus(body.status, organization.config.metadata?.planStatus ?? 'awaiting_payment'),
+          planStatus: resolvePlanStatus(body.status, (organization.config.metadata?.planStatus as string) ?? 'awaiting_payment'),
           lastPaymentStatus: body.status,
           lastPaymentId: body.paymentId,
           lastPaymentAt: new Date().toISOString()
@@ -535,7 +535,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
   if (path.startsWith('/api/payment/') && path.split('/').length === 4 && request.method === 'PUT') {
     try {
       const paymentId = path.split('/')[3];
-      const body = await parseJsonBody(request);
+      const body = await parseJsonBody(request) as { status?: string; notes?: string };
       
       if (!paymentId) {
         throw HttpErrors.badRequest('Payment ID is required');
@@ -602,11 +602,20 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
       // }
 
       // Handle different webhook events
-      const eventType = body.eventType;
-      const paymentId = body.paymentId;
-      const status = body.status;
-      const amount = body.amount || 0;
-      const customerEmail = body.customerEmail || '';
+      const bodyTyped = body as {
+        eventType?: string;
+        paymentId?: string;
+        status?: string;
+        amount?: number;
+        customerEmail?: string;
+        organizationId?: string;
+        [key: string]: unknown;
+      };
+      const eventType = bodyTyped.eventType;
+      const paymentId = bodyTyped.paymentId;
+      const status = bodyTyped.status;
+      const amount = bodyTyped.amount || 0;
+      const customerEmail = bodyTyped.customerEmail || '';
 
       // Store payment history
       await env.DB.prepare(`
@@ -618,7 +627,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
           status = ?, updated_at = datetime('now')
       `).bind(
         paymentId,
-        body.organizationId || 'unknown',
+        bodyTyped.organizationId || 'unknown',
         customerEmail,
         amount,
         status,

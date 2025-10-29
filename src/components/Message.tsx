@@ -84,6 +84,13 @@ interface MessageProps {
 		}>;
 		total: number;
 	};
+	generatedPDF?: {
+		filename: string;
+		size: number;
+		generatedAt: string;
+		matterType: string;
+		storageKey?: string;
+	};
 	organizationConfig?: {
 		name: string;
 		profileImage: string | null;

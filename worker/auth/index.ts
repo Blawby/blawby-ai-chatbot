@@ -456,6 +456,7 @@ export async function getAuth(env: Env, request?: Request) {
     authInstance = betterAuth({
       ...withCloudflare(
         {
+          // @ts-expect-error - drizzle type not in WithCloudflareOptions but accepted at runtime
           drizzle: {
             db,
             schema: authSchema,
@@ -478,10 +479,10 @@ export async function getAuth(env: Env, request?: Request) {
           geolocationTracking: enableGeolocation,
         },
         {
-          // Conditional CF context based on environment and feature flags
-          ...(cfContext ? { cf: cfContext } : {}),
-          secret: env.BETTER_AUTH_SECRET,
-          baseURL: baseUrl,
+        // Conditional CF context based on environment and feature flags
+        ...(cfContext ? { cf: cfContext } : {}),
+        secret: env.BETTER_AUTH_SECRET,
+        baseURL: baseUrl,
           trustedOrigins: [
             env.BETTER_AUTH_URL,
             env.CLOUDFLARE_PUBLIC_URL,

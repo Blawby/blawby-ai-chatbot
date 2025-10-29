@@ -58,7 +58,7 @@ describe('Blawby API Integration Tests - Real API Calls', () => {
       });
       
       if (response.ok) {
-        const result = await response.json();
+        const result = await response.json() as { data?: { name?: string; slug?: string; config?: { blawbyApi?: { enabled?: boolean } } } };
         const organization = result.data; // API returns { success: true, data: organization }
         
         if (organization) {
@@ -203,15 +203,15 @@ describe('Blawby API Integration Tests - Real API Calls', () => {
       });
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = await response.json() as { message?: string; data?: { id?: string; name?: string; email?: string } };
       expect(data).toHaveProperty('message', 'Customer created successfully.');
       expect(data).toHaveProperty('data');
       expect(data.data).toHaveProperty('id');
-      expect(data.data.name).toBe(customerData.name);
-      expect(data.data.email).toBe(customerData.email);
+      expect(data.data?.name).toBe(customerData.name);
+      expect(data.data?.email).toBe(customerData.email);
 
       // Store the customer ID in test context for cleanup
-      testContext.customerIds.push(data.data.id);
+      testContext.customerIds.push(data.data?.id || '');
     });
 
     it('should reject customer creation with invalid data', async () => {
@@ -238,7 +238,7 @@ describe('Blawby API Integration Tests - Real API Calls', () => {
       });
 
       expect(response.status).toBe(422);
-      const data = await response.json();
+      const data = await response.json() as { message?: string };
       expect(data).toHaveProperty('message');
     });
   });
@@ -275,11 +275,11 @@ describe('Blawby API Integration Tests - Real API Calls', () => {
       });
 
       expect(customerResponse.status).toBe(200);
-      const customerResult = await customerResponse.json();
-      const customerIdResult = customerResult.data.id;
+      const customerResult = await customerResponse.json() as { data?: { id?: string } };
+      const customerIdResult = customerResult.data?.id;
 
       // Store customer ID for cleanup
-      testContext.customerIds.push(customerIdResult);
+      testContext.customerIds.push(customerIdResult || '');
 
       // Create invoice
       const invoiceData = {
@@ -311,9 +311,14 @@ describe('Blawby API Integration Tests - Real API Calls', () => {
       });
 
       console.log('📊 Invoice Response Status:', invoiceResponse.status);
-      console.log('📊 Invoice Response Headers:', Object.fromEntries(invoiceResponse.headers.entries()));
+      // Convert headers to plain object for logging (Headers may not be directly iterable)
+      const headersObj: Record<string, string> = {};
+      invoiceResponse.headers.forEach((value, key) => {
+        headersObj[key] = value;
+      });
+      console.log('📊 Invoice Response Headers:', headersObj);
       
-      const invoiceResult = await invoiceResponse.json();
+      const invoiceResult = await invoiceResponse.json() as { message?: string; data?: { id?: string; customer_id?: string; amount_due?: number; invoice_line_items?: Array<{ line_total?: number }> } };
       console.log('📊 Invoice Response Body:', JSON.stringify(invoiceResult, null, 2));
       
       if (invoiceResponse.status !== 200) {
@@ -335,7 +340,7 @@ describe('Blawby API Integration Tests - Real API Calls', () => {
       expect(invoiceResult).toHaveProperty('message', 'Invoice created successfully.');
       expect(invoiceResult).toHaveProperty('data');
       expect(invoiceResult.data).toHaveProperty('id');
-      expect(invoiceResult.data).toHaveProperty('customer_id', customerIdResult);
+      expect(invoiceResult.data?.customer_id).toBe(customerIdResult);
       
       // Log the actual response structure to understand the API
       console.log('✅ Invoice created successfully!');
@@ -344,8 +349,8 @@ describe('Blawby API Integration Tests - Real API Calls', () => {
       // The API returns amount_due instead of amount, and invoice_line_items instead of line_items
       expect(invoiceResult.data).toHaveProperty('amount_due', 150);
       expect(invoiceResult.data).toHaveProperty('invoice_line_items');
-      expect(invoiceResult.data.invoice_line_items).toHaveLength(1);
-      expect(invoiceResult.data.invoice_line_items[0]).toHaveProperty('line_total', 150);
+      expect(invoiceResult.data?.invoice_line_items).toHaveLength(1);
+      expect(invoiceResult.data?.invoice_line_items?.[0]).toHaveProperty('line_total', 150);
       
       console.log('✅ Invoice created successfully with correct structure!');
     });

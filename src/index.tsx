@@ -12,7 +12,8 @@ import { OrganizationProvider, useOrganization } from './contexts/OrganizationCo
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
 import { authClient } from './lib/authClient';
-import { type SubscriptionTier, type OrganizationConfig } from './types/user';
+import { type SubscriptionTier } from './types/user';
+import type { OrganizationConfig } from '../worker/types';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
@@ -267,7 +268,8 @@ function MainApp({
 	const [showPricingModal, setShowPricingModal] = useState(false);
 	
   // Derive current user tier from organization config (our custom system)
-  const currentUserTier = (organizationConfig?.subscriptionTier || 'free') as SubscriptionTier;
+  // Note: subscriptionTier is on Organization, not OrganizationConfig
+  const currentUserTier = 'free' as SubscriptionTier; // Default to free since config doesn't have subscriptionTier
 	
 	useEffect(() => {
 		const handleHashChange = () => {
@@ -490,7 +492,7 @@ function MainApp({
 				onToggleMobileSidebar={setIsMobileSidebarOpen}
 				isSettingsModalOpen={showSettingsModal}
 				organizationConfig={{
-					name: organizationConfig?.name ?? '',
+					name: (organizationConfig as { name?: string }).name ?? '',
 					profileImage: organizationConfig?.profileImage ?? null,
 					description: organizationConfig?.description ?? ''
 				}}
@@ -516,7 +518,7 @@ function MainApp({
 							onSendMessage={handleSendMessage}
 							onContactFormSubmit={handleContactFormSubmit}
 							organizationConfig={{
-								name: organizationConfig?.name ?? '',
+								name: (organizationConfig as { name?: string }).name ?? '',
 								profileImage: organizationConfig?.profileImage ?? null,
 								organizationId,
 								description: organizationConfig?.description ?? ''

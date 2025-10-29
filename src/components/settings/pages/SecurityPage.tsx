@@ -47,12 +47,13 @@ export const SecurityPage = ({
     const user = session.user;
     
     // Convert user data to security settings format
+    const userWithSecurity = user as { twoFactorEnabled?: boolean; emailNotifications?: boolean; loginAlerts?: boolean; sessionTimeout?: number; lastPasswordChange?: Date | string | number };
     const securitySettings: SecuritySettings = {
-      twoFactorEnabled: user.twoFactorEnabled ?? false,
-      emailNotifications: user.emailNotifications ?? true,
-      loginAlerts: user.loginAlerts ?? true,
-      sessionTimeout: isValidSessionTimeout(user.sessionTimeout) ? user.sessionTimeout : convertSessionTimeoutToSeconds('7 days'),
-      lastPasswordChange: user.lastPasswordChange,
+      twoFactorEnabled: userWithSecurity.twoFactorEnabled ?? false,
+      emailNotifications: userWithSecurity.emailNotifications ?? true,
+      loginAlerts: userWithSecurity.loginAlerts ?? true,
+      sessionTimeout: isValidSessionTimeout(userWithSecurity.sessionTimeout) ? userWithSecurity.sessionTimeout : convertSessionTimeoutToSeconds('7 days'),
+      lastPasswordChange: userWithSecurity.lastPasswordChange ? new Date(userWithSecurity.lastPasswordChange) : undefined,
       connectedAccounts: [] // This would need to be populated from accounts table if needed
     };
     
@@ -124,8 +125,13 @@ export const SecurityPage = ({
     setSettings(updatedSettings);
     
     try {
-      // Disable MFA using Better Auth twoFactor plugin
-      await authClient.twoFactor.disable();
+      // Disable MFA using Better Auth twoFactor plugin (if available)
+      const twoFactorClient = (authClient as { twoFactor?: { disable: () => Promise<void> } }).twoFactor;
+      if (twoFactorClient) {
+        await twoFactorClient.disable();
+      } else {
+        throw new Error('Two-factor authentication is not available');
+      }
       
       showSuccess(
         t('settings:security.mfa.disable.toastTitle'),

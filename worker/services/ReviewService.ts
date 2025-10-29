@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import { OrganizationConfig } from './AIService';
+import type { OrganizationConfig } from './OrganizationService';
 
 export interface ReviewMatter {
   id: string;
@@ -47,18 +47,18 @@ export class ReviewService {
       `).bind(organizationId).all();
 
       return matters.results?.map((matter: { [key: string]: unknown }) => ({
-        id: matter.id,
-        matterNumber: matter.matter_number,
-        service: matter.service,
-        title: matter.title || `${matter.service} Matter`,
-        description: matter.description,
-        status: this.mapStatus(matter.status),
-        createdAt: matter.created_at,
-        clientName: matter.client_name,
-        contactInfo: matter.contact_info ? JSON.parse(matter.contact_info) : undefined,
-        answers: matter.custom_fields ? JSON.parse(matter.custom_fields).answers : undefined,
-        aiSummary: matter.ai_summary,
-        lawyerNotes: matter.custom_fields ? JSON.parse(matter.custom_fields).lawyerNotes : undefined
+        id: matter.id as string,
+        matterNumber: matter.matter_number as string,
+        service: matter.service as string,
+        title: (matter.title || `${matter.service} Matter`) as string,
+        description: matter.description as string,
+        status: this.mapStatus(matter.status as string),
+        createdAt: matter.created_at as string,
+        clientName: matter.client_name as string | undefined,
+        contactInfo: matter.contact_info ? JSON.parse(matter.contact_info as string) : undefined,
+        answers: matter.custom_fields ? JSON.parse(matter.custom_fields as string).answers : undefined,
+        aiSummary: matter.ai_summary as string | undefined,
+        lawyerNotes: matter.custom_fields ? JSON.parse(matter.custom_fields as string).lawyerNotes : undefined
       })) || [];
     } catch (error) {
       console.error('Failed to get review matters:', error);

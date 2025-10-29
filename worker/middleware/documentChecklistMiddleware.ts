@@ -49,6 +49,13 @@ export const documentChecklistMiddleware: SimpleMiddleware = {
     // Generate document checklist
     const documents = generateDocumentChecklist(matterType);
     
+    // Transform documents to match expected format
+    const documentList = documents.map(doc => ({
+      required: doc.required,
+      document_type: doc.name,
+      description: doc.description
+    }));
+    
     // Update context with document checklist
     const updatedContext = ConversationContextManager.updateDocumentChecklist(context, {
       matter_type: matterType,
@@ -59,7 +66,7 @@ export const documentChecklistMiddleware: SimpleMiddleware = {
     });
 
     // Generate response
-    const response = generateDocumentResponse(matterType, documents);
+    const response = generateDocumentResponse(matterType, documentList);
 
     return {
       context: updatedContext,
@@ -261,14 +268,14 @@ function generateDocumentResponse(matterType: string, documents: { required: boo
   if (requiredDocs.length > 0) {
     response += `**Required Documents:**\n`;
     requiredDocs.forEach((doc, index) => {
-      response += `${index + 1}. **${doc.name}** - ${doc.description}\n`;
+      response += `${index + 1}. **${doc.document_type}** - ${doc.description}\n`;
     });
   }
 
   if (optionalDocs.length > 0) {
     response += `\n**Optional Documents (helpful but not required):**\n`;
     optionalDocs.forEach((doc, index) => {
-      response += `${index + 1}. **${doc.name}** - ${doc.description}\n`;
+      response += `${index + 1}. **${doc.document_type}** - ${doc.description}\n`;
     });
   }
 

@@ -28,7 +28,17 @@ export function getCloudflareLocation(request: Request): CloudflareLocationInfo 
     const latitude = headers.get('CF-IPLatitude');
     const longitude = headers.get('CF-IPLongitude');
     
-    // Debug logging to see what Cloudflare is providing
+    // Convert headers to object manually (Cloudflare Workers Headers is not iterable)
+    const headersObj: Record<string, string> = {};
+    // Headers doesn't support iteration, so we need to manually get known headers
+    const knownHeaders = ['CF-IPCountry', 'CF-IPState', 'CF-IPCity', 'CF-IPContinent', 'CF-IPLatitude', 'CF-IPLongitude'];
+    for (const key of knownHeaders) {
+      const value = headers.get(key);
+      if (value) {
+        headersObj[key] = value;
+      }
+    }
+    
     console.log('Cloudflare Headers Debug:', {
       country,
       state,
@@ -36,7 +46,7 @@ export function getCloudflareLocation(request: Request): CloudflareLocationInfo 
       continent,
       latitude,
       longitude,
-      allHeaders: Object.fromEntries(headers.entries())
+      allHeaders: headersObj
     });
     
     // If we have at least a country, consider it valid

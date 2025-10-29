@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { isRTLLocale, RTL_LOCALES } from '../i18n';
+import { isRTLLocale, RTL_LOCALES, type AnyLocale } from '../i18n';
 
 describe('RTL (Right-to-Left) Support', () => {
   beforeEach(() => {
@@ -27,7 +27,7 @@ describe('RTL (Right-to-Left) Support', () => {
       const ltrLanguages = ['en', 'es', 'fr', 'de', 'zh', 'ja', 'vi', 'pt', 'ru', 'it', 'ko', 'nl', 'pl', 'tr', 'th', 'id', 'hi', 'uk'];
       
       ltrLanguages.forEach(lang => {
-        expect(isRTLLocale(lang as string)).toBe(false);
+        expect(isRTLLocale(lang as AnyLocale)).toBe(false);
       });
     });
 
@@ -118,7 +118,7 @@ describe('RTL (Right-to-Left) Support', () => {
             const rules = sheet.cssRules || sheet.rules;
             for (let j = 0; j < rules.length; j++) {
               const rule = rules[j];
-              if (rule.selectorText && rule.selectorText.includes('[dir="rtl"]')) {
+              if ((rule as CSSStyleRule).selectorText && (rule as CSSStyleRule).selectorText.includes('[dir="rtl"]')) {
                 hasRTLRules = true;
                 break;
               }

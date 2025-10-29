@@ -37,7 +37,7 @@ async function handleGetReviewMatters(request: Request, env: Env): Promise<Respo
 
 async function handleProcessReview(request: Request, env: Env): Promise<Response> {
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { matterId?: string; action?: string; notes?: string };
     const { matterId, action, notes } = body;
 
     if (!matterId) {
@@ -49,7 +49,7 @@ async function handleProcessReview(request: Request, env: Env): Promise<Response
     }
 
     const reviewService = new ReviewService(env);
-    const success = await reviewService.processReview(matterId, action, notes);
+    const success = await reviewService.processReview(matterId, action as 'approve' | 'reject', notes);
 
     if (!success) {
       throw HttpErrors.internalServerError('Failed to process review');

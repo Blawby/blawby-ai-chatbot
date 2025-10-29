@@ -26,8 +26,10 @@ interface ActivityTimelineProps {
   refreshInterval?: number;
 }
 
-// Event type to icon mapping
-const EVENT_ICONS: Record<string, ComponentType> = {
+// Event type to icon mapping - heroicons components are ForwardRefExoticComponent with SVGProps
+type IconComponent = ComponentType<{ className?: string }> | ComponentType<Record<string, unknown>>;
+
+const EVENT_ICONS: Record<string, IconComponent> = {
   // Matter Events
   matter_created: ClockIcon,
   matter_status_changed: ChatBubbleOvalLeftEllipsisIcon,

@@ -1,5 +1,5 @@
 import type { ConversationContext, CaseDraft } from './conversationContextManager.js';
-import type { OrganizationConfig } from '../agents/legal-intake/promptTemplates.js';
+import type { OrganizationConfig } from '../services/OrganizationService.js';
 import type { PipelineMiddleware } from './pipeline.js';
 import type { Env, AgentMessage } from '../types.js';
 import { ConversationContextManager } from './conversationContextManager.js';

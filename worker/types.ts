@@ -96,6 +96,8 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   message?: string;
+  errorCode?: string; // Add errorCode property
+  details?: unknown;
 }
 
 // Chat message types
@@ -259,6 +261,9 @@ export interface RequestWithOrganizationContext extends Request {
 }
 
 // UI-specific types that extend base types
+// Re-export OrganizationConfig from OrganizationService for convenience
+export type { OrganizationConfig } from './services/OrganizationService.js';
+
 export interface FileAttachment {
   id: string;
   name: string;
@@ -267,6 +272,9 @@ export interface FileAttachment {
   url: string;
   storageKey?: string;
 }
+
+// Alias for backward compatibility
+export type DocumentIconAttachment = FileAttachment;
 
 
 

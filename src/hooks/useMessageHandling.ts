@@ -164,7 +164,7 @@ export const useMessageHandling = ({ organizationId, sessionId, onError }: UseMe
       if (response.status === 402) {
         let errorMessage = 'Monthly usage limit reached.';
         try {
-          const errorJson = await response.json();
+          const errorJson = await response.json() as { error?: string; details?: { message?: string } };
           if (errorJson?.error) {
             errorMessage = errorJson.error;
           } else if (errorJson?.details?.message) {

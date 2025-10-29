@@ -64,6 +64,28 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   const errorId = useUniqueId('url-error');
   const validationErrorId = useUniqueId('url-validation-error');
   
+  // URL validation function - defined before use
+  const isValidURL = useCallback((url: string) => {
+    if (!url) return false;
+    
+    try {
+      const urlObj = new URL(url);
+      // Normalize protocols to match URL.protocol format (e.g., "http:", "https:")
+      const normalizedProtocols = protocols.map(protocol => {
+        if (protocol.endsWith('://')) {
+          return `${protocol.slice(0, -3)}:`;
+        } else if (protocol.endsWith(':')) {
+          return protocol;
+        } else {
+          return `${protocol}:`;
+        }
+      });
+      return normalizedProtocols.includes(urlObj.protocol);
+    } catch {
+      return false;
+    }
+  }, [protocols]);
+  
   // URL validation and icon display logic
   const isURLValid = value ? isValidURL(value) : false;
   const showValidationIcon = showValidation && value.length > 0;
@@ -102,27 +124,6 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
     disabled && 'opacity-50 cursor-not-allowed',
     className
   );
-
-  const isValidURL = useCallback((url: string) => {
-    if (!url) return false;
-    
-    try {
-      const urlObj = new URL(url);
-      // Normalize protocols to match URL.protocol format (e.g., "http:", "https:")
-      const normalizedProtocols = protocols.map(protocol => {
-        if (protocol.endsWith('://')) {
-          return `${protocol.slice(0, -3)  }:`;
-        } else if (protocol.endsWith(':')) {
-          return protocol;
-        } else {
-          return `${protocol  }:`;
-        }
-      });
-      return normalizedProtocols.includes(urlObj.protocol);
-    } catch {
-      return false;
-    }
-  }, [protocols]);
 
   // Helper function to normalize URL after protocol removal
   const normalizeUrlAfterProtocol = useCallback((urlWithoutProtocol: string, defaultProtocol: { scheme: string; usesSlashes: boolean }): string | null => {

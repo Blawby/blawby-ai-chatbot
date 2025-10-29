@@ -109,7 +109,7 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
     try {
       let body: Record<string, unknown>;
       try {
-        body = await parseJsonBody(request);
+        body = await parseJsonBody(request) as Record<string, unknown>;
         if (!body || typeof body !== 'object') {
           throw new Error('Invalid JSON body');
         }
@@ -134,6 +134,12 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
         throw HttpErrors.badRequest('No case draft found. Please create a case draft first.');
       }
 
+      // Load organization config for PDF generation
+      const { OrganizationService } = await import('../services/OrganizationService.js');
+      const organizationService = new OrganizationService(env);
+      const organization = await organizationService.getOrganization(organizationId);
+      const organizationConfig = organization?.config;
+
       // Generate PDF
       const pdfResult = await PDFGenerationService.generateCaseSummaryPDF({
         caseDraft: {
@@ -142,8 +148,8 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
           urgency: context.caseDraft.urgency || 'normal'
         },
         clientName: context.contactInfo?.name,
-        organizationName: context.organizationConfig?.description || 'Legal Services',
-        organizationBrandColor: context.organizationConfig?.brandColor || '#2563eb'
+        organizationName: organizationConfig?.description || 'Legal Services',
+        organizationBrandColor: organizationConfig?.brandColor || '#2563eb'
       }, env);
 
       if (pdfResult.success && pdfResult.pdfBuffer) {
