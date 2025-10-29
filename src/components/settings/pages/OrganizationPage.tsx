@@ -112,11 +112,11 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
         description: currentOrganization.description || ''
       });
       
-      // Fetch related data
+      // Fetch related data only once when organization changes
       const fetchMembersData = async () => {
         try {
           await fetchMembers(currentOrganization.id);
-		} catch (err) {
+        } catch (err) {
           showError(err?.message || String(err) || 'Failed to fetch organization members');
         }
       };
@@ -124,7 +124,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       fetchMembersData();
       fetchTokens(currentOrganization.id);
     }
-  }, [currentOrganization, fetchMembers, fetchTokens, getMembers, showError]);
+  }, [currentOrganization?.id]); // Only depend on organization ID, not the functions
 
   const handleCreateOrganization = async () => {
     if (!createForm.name.trim()) {

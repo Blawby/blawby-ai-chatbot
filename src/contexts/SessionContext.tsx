@@ -144,6 +144,10 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     return () => abortRef.current?.abort();
   }, [fetchQuota]);
 
+  // Ensure active org is set after login
+  // Note: We rely on our custom organization management instead of Better Auth's setActive
+  // This avoids 403 FORBIDDEN errors since our custom org creation doesn't sync with Better Auth's members table
+
   const value = useMemo<SessionContextValue>(() => ({
     session: sessionData ?? null,
     isAnonymous,

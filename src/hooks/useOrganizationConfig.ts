@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { z } from 'zod';
+import { authClient } from '../lib/authClient';
 
 // API endpoints - moved inline since api.ts was removed
 const getOrganizationsEndpoint = () => '/api/organizations';
+const getUserOrganizationsEndpoint = () => '/api/organizations/me';
 
 // Zod schema for API response validation
 const OrganizationSchema = z.object({
   slug: z.string().optional(),
   id: z.string().optional(),
   name: z.string().optional(),
-  config: z.record(z.string(), z.unknown()).optional()
+  config: z.record(z.string(), z.unknown()).optional(),
+  isPersonal: z.boolean().optional()
 });
 
 const OrganizationsResponseSchema = z.object({
@@ -67,6 +70,8 @@ interface UseOrganizationConfigOptions {
 }
 
 export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions = {}) => {
+  // Using our custom organization system instead of Better Auth's organization plugin
+  
   const [organizationId, setOrganizationId] = useState<string>('');
   const [organizationNotFound, setOrganizationNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -107,6 +112,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
       const urlParams = new URLSearchParams(window.location.search);
       const organizationIdParam = urlParams.get('organizationId');
       const hostname = window.location.hostname;
+      
 
       // Domain-based organization routing
       if (hostname === 'northcarolinalegalservices.blawby.com') {
@@ -123,19 +129,53 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
         return;
       }
 
-      // Set organizationId if available, otherwise default to blawby-ai
+      // Set organizationId if available, otherwise use Better Auth active organization or fallback
       if (organizationIdParam) {
         setOrganizationId(organizationIdParam);
       } else {
-        setOrganizationId('blawby-ai');
+        // Fallback: try to get user's personal organization
+        // This will be handled by the fetch logic below
+        setOrganizationId(''); // Will trigger fetch of user's organizations
       }
     }
   }, []);
 
   // Fetch organization configuration
   const fetchOrganizationConfig = useCallback(async (currentOrganizationId: string) => {
-    if (!currentOrganizationId || fetchedOrganizationIds.current.has(currentOrganizationId)) {
-      return; // Don't fetch if no organizationId or if we've already fetched for this organizationId
+    // If no organizationId, try to get user's personal organization
+    if (!currentOrganizationId) {
+      try {
+        const response = await fetch(getUserOrganizationsEndpoint());
+        if (response.ok) {
+          const rawResponse = await response.json();
+          const organizationsResponse = OrganizationsResponseSchema.parse(rawResponse);
+          
+                 // Look for personal organization by checking isPersonal flag at root level
+                 const personalOrg = organizationsResponse.data.find(org => {
+                   return org.isPersonal === true;
+                 });
+          
+          if (personalOrg) {
+            setOrganizationId(personalOrg.id || personalOrg.slug || '');
+            return; // Will trigger another fetch with the personal org ID
+          } else {
+            // Fallback: use the first organization if no personal org found
+            const firstOrg = organizationsResponse.data[0];
+            if (firstOrg) {
+              setOrganizationId(firstOrg.id || firstOrg.slug || '');
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user organizations:', error);
+        onError?.('Failed to load organization configuration');
+      }
+      return;
+    }
+    
+    if (fetchedOrganizationIds.current.has(currentOrganizationId)) {
+      return; // Don't fetch if we've already fetched for this organizationId
     }
 
     // Mark as fetching immediately to prevent duplicate calls
@@ -156,7 +196,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
     setIsLoading(true);
 
     try {
-      const response = await fetch(getOrganizationsEndpoint(), { signal: controller.signal });
+      const response = await fetch(getUserOrganizationsEndpoint(), { signal: controller.signal });
 
       // Check if this request is still current before processing response
       if (!currentRequestRef.current || 
@@ -277,9 +317,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
 
   // Fetch organization config when organizationId changes
   useEffect(() => {
-    if (organizationId) {
-      fetchOrganizationConfig(organizationId);
-    }
+    fetchOrganizationConfig(organizationId);
   }, [organizationId, fetchOrganizationConfig]);
 
   return {

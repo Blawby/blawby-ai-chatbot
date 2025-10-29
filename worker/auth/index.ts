@@ -451,12 +451,9 @@ export async function getAuth(env: Env, request?: Request) {
     authInstance = betterAuth({
       ...withCloudflare(
         {
-          d1: {
+          drizzle: {
             db,
-            options: {
-              usePlural: true,
-              debugLogs: true,
-            },
+            schema: authSchema,
           },
           // R2 for profile images only (only if FILES_BUCKET is available)
           ...(env.FILES_BUCKET ? {

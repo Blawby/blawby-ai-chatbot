@@ -11,7 +11,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
-import { useOrganizationManagement } from './hooks/useOrganizationManagement';
+import { authClient } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
@@ -62,8 +62,7 @@ function MainApp() {
 	// Use organization context
 	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
 	
-	// Use organization management for subscription tier
-	const { currentOrganization } = useOrganizationManagement();
+  // Using our custom organization system instead of Better Auth's organization plugin
 	const { submitUpgrade } = usePaymentUpgrade();
 	const { showError } = useToastContext();
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
@@ -225,8 +224,8 @@ function MainApp() {
 	// Handle hash-based routing for pricing modal
 	const [showPricingModal, setShowPricingModal] = useState(false);
 	
-	// Derive current user tier from organization
-	const currentUserTier = (currentOrganization?.subscriptionTier || 'free') as SubscriptionTier;
+  // Derive current user tier from organization config (our custom system)
+  const currentUserTier = (organizationConfig?.subscriptionTier || 'free') as SubscriptionTier;
 	
 	useEffect(() => {
 		const handleHashChange = () => {
@@ -453,7 +452,6 @@ function MainApp() {
 					profileImage: organizationConfig?.profileImage ?? null,
 					description: organizationConfig?.description ?? ''
 				}}
-				currentOrganization={currentOrganization}
 				messages={messages}
 				onSendMessage={handleSendMessage}
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
@@ -536,7 +534,7 @@ function MainApp() {
 							return false;
 						}
 
-						const organizationId = currentOrganization?.id;
+						// Use our custom organization system
 						if (!organizationId) {
 							showError('Organization required', 'Create or select an organization before upgrading.');
 							return false;

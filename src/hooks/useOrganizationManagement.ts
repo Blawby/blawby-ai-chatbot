@@ -639,9 +639,9 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     if (!sessionLoading && session?.user?.id && !refetchTriggeredRef.current) {
       console.log('🔍 DEBUG: useEffect triggered refetch for user ID:', session.user.id);
       refetchTriggeredRef.current = true;
-      refetch();
+      fetchOrganizations();
     }
-  }, [session?.user?.id, sessionLoading, refetch]);
+  }, [session?.user?.id, sessionLoading, fetchOrganizations]);
 
   // Clear fetched flag and abort in-flight requests when session changes
   useEffect(() => {
