@@ -15,8 +15,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   const session = useSession();
-  // Only call useActiveOrganization when user is authenticated to prevent 401 errors
-  const activeOrg = session.data?.user ? useActiveOrganization() : { data: null, isPending: false, error: null };
+  // Call useActiveOrganization unconditionally - Better Auth handles authentication internally
+  const activeOrg = useActiveOrganization();
 
   return (
     <AuthContext.Provider value={{ session, activeOrg }}>

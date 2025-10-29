@@ -1168,6 +1168,7 @@ CREATE TABLE push_subscriptions (
   auth_key TEXT NOT NULL,
   user_agent TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
   UNIQUE(user_id, endpoint)
@@ -1236,9 +1237,7 @@ export async function handleLiveNotifications(request: Request, env: Env) {
       organizationId = sessionData.active_organization_id;
     } else {
       // Fallback: Get user's organizations and use personal org or first available
-      const { data: userOrgs } = await auth.api.listOrganizations({
-        headers: await headers()
-      });
+      const { data: userOrgs } = await auth.api.organization.list();
       
       if (!userOrgs || userOrgs.length === 0) {
         return new Response('No organizations found for user', { status: 403 });
@@ -1393,18 +1392,28 @@ export async function handlePushSubscription(request: Request, env: Env) {
     targetOrganizationId = sessionData.active_organization_id;
   }
   
-  // Store push subscription with organization context
+  // Check for existing subscription to preserve created_at
+  const existingSubscription = await env.DB.prepare(`
+    SELECT created_at FROM push_subscriptions 
+    WHERE user_id = ? AND endpoint = ?
+  `).bind(userId, subscription.endpoint).first<{ created_at: number }>();
+  
+  const createdAt = existingSubscription?.created_at || Date.now();
+  const updatedAt = Date.now();
+  
+  // Store push subscription with organization context, preserving original created_at
   await env.DB.prepare(`
     INSERT OR REPLACE INTO push_subscriptions (
-      user_id, organization_id, endpoint, p256dh_key, auth_key, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?)
+      user_id, organization_id, endpoint, p256dh_key, auth_key, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
   `).bind(
     userId,
     targetOrganizationId,
     subscription.endpoint,
     subscription.keys.p256dh,
     subscription.keys.auth,
-    Date.now()
+    createdAt,
+    updatedAt
   ).run();
   
   return new Response(JSON.stringify({ 

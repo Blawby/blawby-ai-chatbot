@@ -79,10 +79,14 @@ export async function setActiveOrganizationForSession(
     const personalOrg = organizations.find(org => org.isPersonal);
     
     if (personalOrg) {
-      // Update the session with active organization
-      await env.DB.prepare(
-        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE token = ?`
-      ).bind(personalOrg.id, Math.floor(Date.now() / 1000), sessionToken).run();
+      // Update the session with active organization, ensuring session belongs to the user
+      const result = await env.DB.prepare(
+        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE token = ? AND user_id = ?`
+      ).bind(personalOrg.id, Math.floor(Date.now() / 1000), sessionToken, userId).run();
+      
+      if (result.changes === 0) {
+        throw new Error(`Session ownership verification failed: session token does not belong to user ${userId}`);
+      }
       
       console.log(`✅ Set personal org ${personalOrg.id} as active for user ${userId}`);
     }
