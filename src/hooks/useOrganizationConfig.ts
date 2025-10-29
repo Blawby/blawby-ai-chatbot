@@ -25,7 +25,7 @@ const OrganizationsResponseSchema = z.object({
 });
 
 // Extended config with name for UI convenience (name comes from Organization, not config)
-interface UIOrganizationConfig extends OrganizationConfig {
+export interface UIOrganizationConfig extends OrganizationConfig {
   name?: string; // Optional - comes from Organization object
 }
 

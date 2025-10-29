@@ -617,6 +617,61 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
       const amount = bodyTyped.amount || 0;
       const customerEmail = bodyTyped.customerEmail || '';
 
+      // Validate required fields
+      const missingFields: string[] = [];
+      if (typeof eventType !== 'string' || eventType.trim() === '') {
+        missingFields.push('eventType');
+      }
+      if (typeof paymentId !== 'string' || paymentId.trim() === '') {
+        missingFields.push('paymentId');
+      }
+      if (typeof status !== 'string' || status.trim() === '') {
+        missingFields.push('status');
+      }
+
+      if (missingFields.length > 0) {
+        console.error('❌ Payment webhook validation failed - missing fields:', missingFields);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Missing required fields',
+          missingFields
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Resolve organizationId: try from webhook body, then lookup from existing payment record
+      let organizationId: string | null = null;
+      
+      if (bodyTyped.organizationId && typeof bodyTyped.organizationId === 'string' && bodyTyped.organizationId.trim() !== '') {
+        organizationId = bodyTyped.organizationId.trim();
+      } else {
+        // Try to lookup organizationId from existing payment record
+        const existingPayment = await env.DB.prepare(`
+          SELECT organization_id as organizationId
+          FROM payment_history
+          WHERE payment_id = ?
+        `).bind(paymentId).first<{ organizationId: string }>();
+        
+        if (existingPayment?.organizationId) {
+          organizationId = existingPayment.organizationId;
+        }
+      }
+
+      // Validate organizationId is present - required for payment_history table
+      if (!organizationId) {
+        console.error('❌ Payment webhook validation failed - organizationId is required and could not be resolved');
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Missing required field: organizationId must be provided in webhook body or must exist in existing payment record',
+          paymentId
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       // Store payment history
       await env.DB.prepare(`
         INSERT INTO payment_history (
@@ -627,7 +682,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
           status = ?, updated_at = datetime('now')
       `).bind(
         paymentId,
-        bodyTyped.organizationId || 'unknown',
+        organizationId,
         customerEmail,
         amount,
         status,

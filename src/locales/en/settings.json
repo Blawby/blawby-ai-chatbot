@@ -313,6 +313,10 @@
         "title": "Verification failed",
         "body": "Invalid code. Please try again."
       },
+      "configurationError": {
+        "title": "MFA not configured",
+        "body": "Multi-factor authentication is not configured on this account. Please contact support or check your account settings."
+      },
       "clipboardUnsupported": {
         "title": "Clipboard not supported",
         "body": "Your browser does not support copying to clipboard. Please manually copy the code."

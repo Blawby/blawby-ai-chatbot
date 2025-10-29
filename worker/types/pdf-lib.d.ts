@@ -18,10 +18,18 @@ declare module 'pdf-lib' {
   export enum StandardFonts {
     Helvetica = 'Helvetica',
     HelveticaBold = 'HelveticaBold',
+    HelveticaBoldOblique = 'HelveticaBoldOblique',
+    HelveticaOblique = 'HelveticaOblique',
     TimesRoman = 'TimesRoman',
     TimesRomanBold = 'TimesRomanBold',
+    TimesRomanBoldItalic = 'TimesRomanBoldItalic',
+    TimesRomanItalic = 'TimesRomanItalic',
     Courier = 'Courier',
-    CourierBold = 'CourierBold'
+    CourierBold = 'CourierBold',
+    CourierBoldOblique = 'CourierBoldOblique',
+    CourierOblique = 'CourierOblique',
+    Symbol = 'Symbol',
+    ZapfDingbats = 'ZapfDingbats'
   }
   
   export class PDFDocument {

@@ -66,24 +66,24 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
   }, [isSubmitting, hasSubmitted, onFeedbackSubmit, organizationId, sessionId]);
 
   const handleThumbsUp = useCallback(() => {
-    const newFeedback = { ...feedback, thumbsUp: true };
-    setFeedback(newFeedback);
-    submitFeedback(newFeedback);
-  }, [feedback, submitFeedback]);
+    setFeedback(prev => {
+      const newFeedback = { ...prev, thumbsUp: true };
+      submitFeedback(newFeedback);
+      return newFeedback;
+    });
+  }, [submitFeedback]);
 
   const handleThumbsDown = useCallback(() => {
-    const newFeedback = { ...feedback, thumbsUp: false };
-    setFeedback(newFeedback);
+    setFeedback(prev => ({ ...prev, thumbsUp: false }));
     setIsExpanded(true); // Expand to show comment box for negative feedback
-  }, [feedback]);
+  }, []);
 
   const handleRating = useCallback((rating: number) => {
-    const newFeedback = { ...feedback, rating };
-    setFeedback(newFeedback);
+    setFeedback(prev => ({ ...prev, rating }));
     if (rating <= 3) {
       setIsExpanded(true); // Expand for low ratings
     }
-  }, [feedback]);
+  }, []);
 
   const handleCommentChange = useCallback((e: Event) => {
     const target = e.target as HTMLTextAreaElement;

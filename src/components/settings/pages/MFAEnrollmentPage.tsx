@@ -1,12 +1,32 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useEffect } from 'preact/hooks';
 import { Button } from '../../ui/Button';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useNavigation } from '../../../utils/navigation';
-import { authClient } from '../../../lib/authClient';
+import { authClient, hasTwoFactorPlugin, type TwoFactorClient } from '../../../lib/authClient';
 import { useTranslation } from '@/i18n/hooks';
 
 export interface MFAEnrollmentPageProps {
   className?: string;
+}
+
+/**
+ * Error thrown when MFA is not configured/available on the account
+ */
+export class MFAConfigurationError extends Error {
+  constructor(message: string = 'MFA is not configured on this account') {
+    super(message);
+    this.name = 'MFAConfigurationError';
+  }
+}
+
+/**
+ * Error thrown when MFA verification fails (invalid code, etc.)
+ */
+export class MFAVerificationError extends Error {
+  constructor(message: string = 'MFA verification failed') {
+    super(message);
+    this.name = 'MFAVerificationError';
+  }
 }
 
 export const MFAEnrollmentPage = ({
@@ -16,7 +36,21 @@ export const MFAEnrollmentPage = ({
   const { navigate } = useNavigation();
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isMFAConfigured, setIsMFAConfigured] = useState<boolean | null>(null);
   const { t } = useTranslation(['settings', 'common']);
+
+  // Check for twoFactor availability during component initialization
+  useEffect(() => {
+    const checkMFAAvailability = () => {
+      if (hasTwoFactorPlugin(authClient)) {
+        setIsMFAConfigured(true);
+      } else {
+        setIsMFAConfigured(false);
+      }
+    };
+
+    checkMFAAvailability();
+  }, []);
 
   // Mock QR code data - in real app, this would come from your backend
   const manualCode = 'JBSWY3DPEHPK3PXP';
@@ -50,6 +84,11 @@ export const MFAEnrollmentPage = ({
       return;
     }
 
+    // Double-check configuration before attempting verification
+    if (!hasTwoFactorPlugin(authClient)) {
+      throw new MFAConfigurationError();
+    }
+
     setIsVerifying(true);
     try {
       // Here you would verify the code with your backend
@@ -60,31 +99,55 @@ export const MFAEnrollmentPage = ({
         setTimeout(() => {
           // Randomly reject ~30% of the time to test error flow
           if (Math.random() < 0.3) {
-            reject(new Error('Invalid verification code. Please check your authenticator app and try again.'));
+            reject(new MFAVerificationError('Invalid verification code. Please check your authenticator app and try again.'));
           } else {
             resolve(undefined);
           }
         }, 1000);
       });
       
-      // Enable MFA using Better Auth twoFactor plugin (if available)
-      const twoFactorClient = (authClient as { twoFactor?: { enable: (options: { code: string }) => Promise<void> } }).twoFactor;
-      if (twoFactorClient) {
-        await twoFactorClient.enable({ code: verificationCode });
-      } else {
-        throw new Error('Two-factor authentication is not available');
+      // Enable MFA using Better Auth twoFactor plugin
+      // Type guard ensures twoFactor is available
+      if (!hasTwoFactorPlugin(authClient)) {
+        throw new MFAConfigurationError();
       }
+
+      const twoFactorClient: TwoFactorClient = authClient.twoFactor;
+      await twoFactorClient.enable({ code: verificationCode });
       
       showSuccess(
         t('settings:security.mfa.toastEnabled.title'),
         t('settings:security.mfa.toastEnabled.body')
       );
       navigate('/settings/security');
-    } catch (_error) {
-      showError(
-        t('settings:mfa.errors.verifyFailed.title'),
-        t('settings:mfa.errors.verifyFailed.body')
-      );
+    } catch (error) {
+      // Distinguish between configuration errors and verification failures
+      if (error instanceof MFAConfigurationError) {
+        showError(
+          t('settings:mfa.errors.configurationError.title'),
+          t('settings:mfa.errors.configurationError.body')
+        );
+      } else if (error instanceof MFAVerificationError) {
+        showError(
+          t('settings:mfa.errors.verifyFailed.title'),
+          t('settings:mfa.errors.verifyFailed.body')
+        );
+      } else {
+        // Fallback for unexpected errors - check if it's a configuration issue
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('not available') || errorMessage.includes('not configured')) {
+          showError(
+            t('settings:mfa.errors.configurationError.title'),
+            t('settings:mfa.errors.configurationError.body')
+          );
+        } else {
+          // Assume it's a verification failure for other errors
+          showError(
+            t('settings:mfa.errors.verifyFailed.title'),
+            t('settings:mfa.errors.verifyFailed.body')
+          );
+        }
+      }
     } finally {
       setIsVerifying(false);
     }
@@ -133,6 +196,36 @@ export const MFAEnrollmentPage = ({
       {/* Content */}
       <div className="px-6 pb-8">
         <div className="max-w-md mx-auto text-center space-y-8">
+          {/* Configuration Error Banner */}
+          {isMFAConfigured === false && (
+            <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg
+                    className="h-5 w-5 text-red-400"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                    {t('settings:mfa.errors.configurationError.title')}
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                    <p>{t('settings:mfa.errors.configurationError.body')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Instructions */}
           <div className="space-y-2">
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -209,7 +302,7 @@ export const MFAEnrollmentPage = ({
               variant="primary"
               size="lg"
               onClick={handleVerification}
-              disabled={isVerifying || verificationCode.length !== 6}
+              disabled={isVerifying || verificationCode.length !== 6 || isMFAConfigured === false}
               className="w-full"
             >
               {isVerifying ? (

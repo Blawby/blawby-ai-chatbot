@@ -2,9 +2,37 @@ import { createAnalysisErrorResponse } from './responseUtils.js';
 import type { Env } from '../types.js';
 
 /**
+ * Type adapter for file analysis - contains only the properties needed by analyzeFile
+ */
+export type FileAnalysisEnv = Pick<
+  Env,
+  | 'FILES_BUCKET'
+  | 'DB'
+  | 'AI'
+  | 'ENABLE_ADOBE_EXTRACT'
+  | 'ADOBE_CLIENT_ID'
+  | 'ADOBE_CLIENT_SECRET'
+  | 'ADOBE_TECHNICAL_ACCOUNT_ID'
+  | 'ADOBE_TECHNICAL_ACCOUNT_EMAIL'
+  | 'ADOBE_ORGANIZATION_ID'
+  | 'ADOBE_IMS_BASE_URL'
+  | 'ADOBE_PDF_SERVICES_BASE_URL'
+  | 'ADOBE_SCOPE'
+  | 'CLOUDFLARE_ACCOUNT_ID'
+  | 'CLOUDFLARE_API_TOKEN'
+  | 'CLOUDFLARE_PUBLIC_URL'
+  | 'AI_MODEL_DEFAULT'
+  | 'AI_MAX_TEXT_LENGTH'
+  | 'AI_MAX_TABLES'
+  | 'AI_MAX_ELEMENTS'
+  | 'AI_MAX_STRUCTURED_PAYLOAD_LENGTH'
+  | 'DEBUG'
+>;
+
+/**
  * Analyzes files using the vision API
  */
-export async function analyzeFile(env: Env, fileId: string, question?: string): Promise<Record<string, unknown>> {
+export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question?: string): Promise<Record<string, unknown>> {
   console.log('=== ANALYZE FILE FUNCTION CALLED ===');
   console.log('File ID:', fileId);
   console.log('Question:', question);
@@ -27,7 +55,7 @@ export async function analyzeFile(env: Env, fileId: string, question?: string): 
     // Try to get file metadata from database first
     let fileRecord = null;
     try {
-      const stmt = (env as Env).DB.prepare(`
+      const stmt = env.DB.prepare(`
         SELECT * FROM files WHERE id = ? AND is_deleted = FALSE
       `);
       fileRecord = await stmt.bind(fileId).first();
@@ -89,7 +117,7 @@ export async function analyzeFile(env: Env, fileId: string, question?: string): 
         size: file.size
       });
       
-      const analysis = await analyzeWithCloudflareAI(file, analysisQuestion, env);
+      const analysis = await analyzeWithCloudflareAI(file, analysisQuestion, env as Env);
       console.log('Analysis completed successfully:', {
         confidence: analysis.confidence,
         keyFactsCount: analysis.key_facts?.length || 0
@@ -113,7 +141,7 @@ export async function analyzeFile(env: Env, fileId: string, question?: string): 
 /**
  * Finds file path in R2 storage by file ID
  */
-async function findFilePathInR2(env: Env, fileId: string): Promise<string | null> {
+async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<string | null> {
   console.log('No file path from database, attempting to construct from file ID');
   
   // Handle the actual file ID format with UUID

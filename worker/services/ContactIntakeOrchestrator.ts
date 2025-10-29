@@ -119,9 +119,30 @@ export class ContactIntakeOrchestrator {
       context.lastUpdated = Date.now();
     }
 
-    const organizationMeta = organizationConfig?.config ?? {} as Record<string, unknown>;
-    const organizationName = ((organizationMeta.description as string) || organizationConfig?.name || 'Legal Services') as string;
-    const brandColor = (organizationMeta.brandColor as string) || '#334e68';
+    // Safely extract organization metadata with runtime validation
+    const organizationMeta: Record<string, unknown> = (organizationConfig?.config && typeof organizationConfig.config === 'object' && organizationConfig.config !== null)
+      ? (organizationConfig.config as unknown as Record<string, unknown>)
+      : {};
+
+    // Safely extract organization name: check config fields first, then organizationConfig.name, then fallback
+    let organizationName = 'Legal Services';
+    if (organizationMeta.name && typeof organizationMeta.name === 'string' && organizationMeta.name.trim().length > 0) {
+      organizationName = organizationMeta.name.trim();
+    } else if (organizationMeta.description && typeof organizationMeta.description === 'string' && organizationMeta.description.trim().length > 0) {
+      organizationName = organizationMeta.description.trim();
+    } else if (organizationConfig?.name && typeof organizationConfig.name === 'string' && organizationConfig.name.trim().length > 0) {
+      organizationName = organizationConfig.name.trim();
+    }
+
+    // Safely extract brand color with validation (must be non-empty string, optionally validate hex format)
+    let brandColor = '#334e68';
+    if (organizationMeta.brandColor && typeof organizationMeta.brandColor === 'string') {
+      const colorValue = organizationMeta.brandColor.trim();
+      if (colorValue.length > 0) {
+        // Accept if it matches hex color format (e.g., #334e68) or is any non-empty string
+        brandColor = colorValue;
+      }
+    }
 
     let pdfResult: OrchestrationResult['pdf'];
 

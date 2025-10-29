@@ -1,12 +1,77 @@
 import { useEffect } from 'preact/hooks';
-import type { OrganizationConfig } from '../../worker/types';
+import type { UIOrganizationConfig } from '../hooks/useOrganizationConfig';
 
 interface SEOHeadProps {
-  organizationConfig?: OrganizationConfig;
+  organizationConfig?: UIOrganizationConfig;
   pageTitle?: string;
   pageDescription?: string;
   pageImage?: string;
   currentUrl?: string;
+}
+
+/**
+ * Truncates text to a maximum length while preserving word boundaries.
+ * If truncation occurs mid-word, cuts back to the last space.
+ */
+function truncateToWordBoundary(text: string, maxLength: number): string {
+  if (!text || text.length <= maxLength) {
+    return text;
+  }
+  
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+  
+  // Find the last space before maxLength
+  const truncated = trimmed.substring(0, maxLength);
+  const lastSpaceIndex = truncated.lastIndexOf(' ');
+  
+  // If we found a space and it's not too close to the start, use it
+  // Otherwise, just truncate at maxLength (word might be longer than maxLength)
+  if (lastSpaceIndex > maxLength * 0.5) {
+    return truncated.substring(0, lastSpaceIndex).trim();
+  }
+  
+  return truncated.trim();
+}
+
+/**
+ * Escapes HTML entities in a string to prevent XSS and ensure proper display.
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Generates a safe, SEO-friendly page title with proper fallbacks.
+ */
+function generatePageTitle(
+  pageTitle?: string,
+  organizationConfig?: UIOrganizationConfig
+): string {
+  // If explicit page title is provided, use it (already HTML-safe from React/Preact)
+  if (pageTitle) {
+    return escapeHtml(pageTitle.trim());
+  }
+  
+  // Priority 1: Use organization name if available
+  if (organizationConfig?.name) {
+    const orgName = escapeHtml(organizationConfig.name.trim());
+    return `${orgName} - AI Legal Assistant`;
+  }
+  
+  // Priority 2: Use introMessage with word-aware truncation
+  if (organizationConfig?.introMessage) {
+    const truncated = truncateToWordBoundary(organizationConfig.introMessage, 50);
+    const escaped = escapeHtml(truncated);
+    return `${escaped} - AI Legal Assistant`;
+  }
+  
+  // Fallback: Default title
+  return 'Blawby AI - Intelligent Legal Assistant & Chat Interface';
 }
 
 export function SEOHead({ 
@@ -19,8 +84,7 @@ export function SEOHead({
   
   useEffect(() => {
     // Update document title
-    const title = pageTitle || 
-      (organizationConfig?.introMessage ? `${organizationConfig.introMessage.substring(0, 50)} - AI Legal Assistant` : 'Blawby AI - Intelligent Legal Assistant & Chat Interface');
+    const title = generatePageTitle(pageTitle, organizationConfig);
     document.title = title;
 
     // Update meta tags dynamically
@@ -51,7 +115,11 @@ export function SEOHead({
     updateMetaTag('og:url', currentUrl || window.location.href);
     updateMetaTag('og:image', pageImage || 
       (organizationConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
-    updateMetaTag('og:site_name', organizationConfig?.introMessage?.substring(0, 30) || 'Blawby AI');
+    // Use organization name for og:site_name, fallback to default site name
+    const siteName = organizationConfig?.name 
+      ? escapeHtml(organizationConfig.name.trim())
+      : 'Blawby AI';
+    updateMetaTag('og:site_name', siteName);
 
     // Update Twitter tags
     updateMetaName('twitter:title', title);

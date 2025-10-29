@@ -16,6 +16,42 @@ const isValidSessionTimeout = (value: unknown): value is number => {
   return typeof value === 'number' && value > 0;
 };
 
+// Local interface for user with security-related fields
+interface SecurityUser {
+  twoFactorEnabled?: boolean;
+  emailNotifications?: boolean;
+  loginAlerts?: boolean;
+  sessionTimeout?: number;
+  lastPasswordChange?: Date | string | number;
+}
+
+// Runtime validation for lastPasswordChange values
+const isValidDate = (value: unknown): value is Date | string | number => {
+  if (value === null || value === undefined) {
+    return false;
+  }
+  
+  // If it's already a Date, check if it's valid
+  if (value instanceof Date) {
+    return !isNaN(value.getTime());
+  }
+  
+  // For strings and numbers, use Date.parse and isFinite
+  const timestamp = Date.parse(String(value));
+  return isFinite(timestamp);
+};
+
+// Safely convert lastPasswordChange to Date or undefined
+const safeConvertLastPasswordChange = (value: unknown): Date | undefined => {
+  if (!isValidDate(value)) {
+    return undefined;
+  }
+  
+  const date = new Date(value as Date | string | number);
+  // Double-check the resulting Date is valid
+  return isNaN(date.getTime()) ? undefined : date;
+};
+
 export interface SecurityPageProps {
   isMobile?: boolean;
   onClose?: () => void;
@@ -47,13 +83,13 @@ export const SecurityPage = ({
     const user = session.user;
     
     // Convert user data to security settings format
-    const userWithSecurity = user as { twoFactorEnabled?: boolean; emailNotifications?: boolean; loginAlerts?: boolean; sessionTimeout?: number; lastPasswordChange?: Date | string | number };
+    const userWithSecurity = user as SecurityUser;
     const securitySettings: SecuritySettings = {
       twoFactorEnabled: userWithSecurity.twoFactorEnabled ?? false,
       emailNotifications: userWithSecurity.emailNotifications ?? true,
       loginAlerts: userWithSecurity.loginAlerts ?? true,
       sessionTimeout: isValidSessionTimeout(userWithSecurity.sessionTimeout) ? userWithSecurity.sessionTimeout : convertSessionTimeoutToSeconds('7 days'),
-      lastPasswordChange: userWithSecurity.lastPasswordChange ? new Date(userWithSecurity.lastPasswordChange) : undefined,
+      lastPasswordChange: safeConvertLastPasswordChange(userWithSecurity.lastPasswordChange) ?? null,
       connectedAccounts: [] // This would need to be populated from accounts table if needed
     };
     

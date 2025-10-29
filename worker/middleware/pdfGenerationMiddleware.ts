@@ -80,7 +80,7 @@ Would you like me to help you build a case draft first?`;
           urgency: context.caseDraft.urgency || 'normal'
         },
         clientName: context.contactInfo?.name,
-        organizationName: (organizationConfig as unknown as { name?: string }).name || 'Legal Services',
+        organizationName: organizationConfig?.name || 'Legal Services',
         organizationBrandColor: organizationConfig?.brandColor || '#334e68'
       }, env);
 

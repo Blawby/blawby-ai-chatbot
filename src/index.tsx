@@ -13,7 +13,7 @@ import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
 import { authClient } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
-import type { OrganizationConfig } from '../worker/types';
+import type { UIOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
@@ -31,6 +31,7 @@ import { debounce } from './utils/debounce';
 import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
 import { useToastContext } from './contexts/ToastContext';
 import { useSessionContext } from './contexts/SessionContext';
+import { useOrganizationManagement } from './hooks/useOrganizationManagement';
 import QuotaBanner from './components/QuotaBanner';
 // useSession is now imported from AuthContext above
 import './index.css';
@@ -47,7 +48,7 @@ function MainApp({
 	...routeProps
 }: {
 	organizationId: string;
-	organizationConfig: OrganizationConfig;
+	organizationConfig: UIOrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
 } & Record<string, any>) {
@@ -77,6 +78,7 @@ function MainApp({
 	const { submitUpgrade } = usePaymentUpgrade();
 	const { showError } = useToastContext();
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
+	const { currentOrganization } = useOrganizationManagement();
 
 	const isQuotaRestricted = Boolean(
 		quota &&
@@ -269,7 +271,7 @@ function MainApp({
 	
   // Derive current user tier from organization config (our custom system)
   // Note: subscriptionTier is on Organization, not OrganizationConfig
-  const currentUserTier = 'free' as SubscriptionTier; // Default to free since config doesn't have subscriptionTier
+  const currentUserTier = (currentOrganization?.subscriptionTier ?? 'free') as SubscriptionTier;
 	
 	useEffect(() => {
 		const handleHashChange = () => {
@@ -492,7 +494,7 @@ function MainApp({
 				onToggleMobileSidebar={setIsMobileSidebarOpen}
 				isSettingsModalOpen={showSettingsModal}
 				organizationConfig={{
-					name: (organizationConfig as { name?: string }).name ?? '',
+					name: organizationConfig.name ?? '',
 					profileImage: organizationConfig?.profileImage ?? null,
 					description: organizationConfig?.description ?? ''
 				}}
@@ -518,7 +520,7 @@ function MainApp({
 							onSendMessage={handleSendMessage}
 							onContactFormSubmit={handleContactFormSubmit}
 							organizationConfig={{
-								name: (organizationConfig as { name?: string }).name ?? '',
+								name: organizationConfig.name ?? '',
 								profileImage: organizationConfig?.profileImage ?? null,
 								organizationId,
 								description: organizationConfig?.description ?? ''
@@ -692,10 +694,10 @@ function AppWithSEO({
 	organizationId, 
 	organizationConfig, 
 	organizationNotFound, 
-	handleRetryOrganizationConfig 
+	handleRetryOrganizationConfig
 }: {
 	organizationId: string;
-	organizationConfig: OrganizationConfig;
+	organizationConfig: UIOrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
 }) {
@@ -739,7 +741,7 @@ function AppWithSEO({
 // Wrapper component that provides context to MainApp
 function MainAppWithProviders(props: {
 	organizationId: string;
-	organizationConfig: OrganizationConfig;
+	organizationConfig: UIOrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
 } & Record<string, any>) {

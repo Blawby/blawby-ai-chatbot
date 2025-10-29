@@ -154,13 +154,22 @@ export async function syncStripeDataToKV(args: {
   };
 
   const now = Date.now();
+  
+  // Extract current_period_end from subscription items (Stripe moved it from top-level to items)
+  // Use the maximum current_period_end across all items, or default to 0 if none available
+  const items = subscription.items?.data;
+  const periodEnds = items
+    ?.map((item) => item.current_period_end)
+    .filter((end): end is number => typeof end === "number" && end > 0) ?? [];
+  const currentPeriodEnd = periodEnds.length > 0 ? Math.max(...periodEnds) : 0;
+
   const cachePayload: StripeSubscriptionCache = {
     subscriptionId: subscription.id,
     stripeCustomerId: extractStripeCustomerId(subscription),
     status: normalizeSubscriptionStatus(subscription.status),
     priceId: price.id,
     seats: primaryItem?.quantity ?? 1,
-    currentPeriodEnd: (subscription as { current_period_end?: number })?.current_period_end ?? 0,
+    currentPeriodEnd,
     cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     limits,
     cachedAt: now,
