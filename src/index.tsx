@@ -38,7 +38,17 @@ import { i18n, initI18n } from './i18n';
 
 
 // Main application component (non-auth pages)
-function MainApp() {
+function MainApp({ 
+	organizationId, 
+	organizationConfig, 
+	organizationNotFound, 
+	handleRetryOrganizationConfig 
+}: {
+	organizationId: string;
+	organizationConfig: any;
+	organizationNotFound: boolean;
+	handleRetryOrganizationConfig: () => void;
+}) {
 	// Core state
 	const [clearInputTrigger, setClearInputTrigger] = useState(0);
 	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
@@ -59,8 +69,7 @@ function MainApp() {
 	// Use session from Better Auth
 	const { data: session, isPending: sessionIsPending } = useSession();
 
-	// Use organization context
-	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
+	// Organization data is now passed as props
 	
   // Using our custom organization system instead of Better Auth's organization plugin
 	const { submitUpgrade } = usePaymentUpgrade();
@@ -481,7 +490,7 @@ function MainApp() {
 							}}
 							onOpenSidebar={() => setIsMobileSidebarOpen(true)}
 							sessionId={sessionId}
-							organizationId={organizationId}
+							organizationId={'blawby-ai'}
 							onFeedbackSubmit={handleFeedbackSubmit}
 							previewFiles={previewFiles}
 							uploadingFiles={uploadingFiles}
@@ -534,11 +543,8 @@ function MainApp() {
 							return false;
 						}
 
-						// Use our custom organization system
-						if (!organizationId) {
-							showError('Organization required', 'Create or select an organization before upgrading.');
-							return false;
-						}
+						// Always use blawby-ai organization for stripe upgrades
+						const stripeOrganizationId = 'blawby-ai';
 
 						if (tier === 'business') {
 							// Navigate to cart page for business upgrades instead of direct checkout
@@ -619,13 +625,17 @@ function MainApp() {
 
 // Main App component with routing
 export function App() {
+	const handleOrgError = useCallback((error: string) => {
+		console.error('Organization config error:', error);
+	}, []);
+
 	return (
 		<LocationProvider>
 			<AuthProvider>
-				<OrganizationProvider onError={(error) => console.error('Organization config error:', error)}>
+				<OrganizationProvider onError={handleOrgError}>
 					<SessionProvider>
 						<ToastProvider>
-							<AppWithSEO />
+							<AppWithOrganization />
 						</ToastProvider>
 					</SessionProvider>
 				</OrganizationProvider>
@@ -634,9 +644,30 @@ export function App() {
 	);
 }
 
+// Component that calls useOrganization and passes data to MainApp
+function AppWithOrganization() {
+	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
+	
+	return <MainApp 
+		organizationId={organizationId}
+		organizationConfig={organizationConfig}
+		organizationNotFound={organizationNotFound}
+		handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+	/>;
+}
+
 // Component that uses organization context for SEO
-function AppWithSEO() {
-	const { organizationConfig } = useOrganization();
+function AppWithSEO({ 
+	organizationId, 
+	organizationConfig, 
+	organizationNotFound, 
+	handleRetryOrganizationConfig 
+}: {
+	organizationId: string;
+	organizationConfig: any;
+	organizationNotFound: boolean;
+	handleRetryOrganizationConfig: () => void;
+}) {
 	const location = useLocation();
 	
 	// Create reactive currentUrl that updates on navigation

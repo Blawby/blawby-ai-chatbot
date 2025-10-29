@@ -85,8 +85,6 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   const [editMemberData, setEditMemberData] = useState<{ userId: string; email: string; name?: string; role: Role } | null>(null);
 
   const hasOrganization = !!currentOrganization;
-  console.log('🔍 DEBUG OrganizationPage: currentOrganization:', JSON.stringify(currentOrganization, null, 2));
-  console.log('🔍 DEBUG OrganizationPage: hasOrganization:', hasOrganization);
   const members = useMemo(() => currentOrganization ? getMembers(currentOrganization.id) : [], [currentOrganization, getMembers]);
   const _memberCount = members.length;
   const tokens = currentOrganization ? getTokens(currentOrganization.id) : [];

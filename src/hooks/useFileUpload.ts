@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
 import { FileAttachment } from '../../worker/types';
 import { uploadWithProgress, validateFile } from '../services/upload/UploadTransport';
-import { useOrganizationId } from '../contexts/OrganizationContext.js';
 
 export type FileStatus = 
   | 'uploading'      // Browser → Workers
@@ -35,12 +34,11 @@ interface UseFileUploadOptions {
 }
 
 /**
- * Hook that uses organization context instead of requiring organizationId parameter
+ * Hook that uses blawby-ai organization for all file uploads
  * This is the preferred way to use file upload in components
  */
 export const useFileUploadWithContext = ({ sessionId, onError }: Omit<UseFileUploadOptions, 'organizationId'>) => {
-  const organizationId = useOrganizationId();
-  return useFileUpload({ organizationId, sessionId, onError });
+  return useFileUpload({ organizationId: 'blawby-ai', sessionId, onError });
 };
 
 // Utility function to upload a file to backend

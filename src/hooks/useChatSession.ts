@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { useOrganizationId } from '../contexts/OrganizationContext.js';
 
 const STORAGE_PREFIX = 'blawby_session:';
 
@@ -21,12 +20,11 @@ export interface ChatSessionState {
 }
 
 /**
- * Hook that uses organization context instead of requiring organizationId parameter
+ * Hook that uses blawby-ai organization for all chat sessions
  * This is the preferred way to use chat sessions in components
  */
 export function useChatSessionWithContext(): ChatSessionState {
-  const organizationId = useOrganizationId();
-  return useChatSession(organizationId);
+  return useChatSession('blawby-ai');
 }
 
 /**
@@ -51,48 +49,39 @@ export function useChatSession(organizationId: string): ChatSessionState {
     if (!organizationId) return null;
     
     const newKey = `${STORAGE_PREFIX}${organizationId}`;
-    const migrationFlag = `${STORAGE_PREFIX}_migrated`;
+    const migrationFlag = `${STORAGE_PREFIX}_migrated_to_blawby_ai`;
     
-    // One-time migration from old teamId-based storage key
+    // One-time migration from personal org sessions to blawby-ai
     if (typeof window !== 'undefined') {
       try {
-        // Check if new key already exists - if so, no migration needed
-        const existingNewValue = window.localStorage.getItem(newKey);
-        if (existingNewValue) {
-          return newKey;
-        }
-        
         // Check if migration has already been attempted
         const migrationAttempted = window.localStorage.getItem(migrationFlag);
-        if (migrationAttempted) {
-          return newKey;
-        }
-        
-        // Try to find and migrate from old teamId-based key
-        // Use startsWith for initial scan, then tighten to exact pattern
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const key = window.localStorage.key(i);
-          if (key && key.startsWith(STORAGE_PREFIX) && key !== newKey && key !== migrationFlag) {
-            // Tighten pattern to exact old-key shape (prefix + UUID pattern)
-            const oldKeyPattern = /^blawby_session:[a-f0-9-]{36}$/;
-            if (oldKeyPattern.test(key)) {
-              const oldValue = window.localStorage.getItem(key);
-              if (oldValue) {
-                // Found an old session, migrate it to the new key
-                window.localStorage.setItem(newKey, oldValue);
-                // Remove the old key to clean up
-                window.localStorage.removeItem(key);
-                console.log(`Migrated session from ${key} to ${newKey}`);
-                break; // Short-circuit on first match
+        if (!migrationAttempted) {
+          // Look for any existing personal organization sessions and migrate them to blawby-ai
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const key = window.localStorage.key(i);
+            if (key && key.startsWith(STORAGE_PREFIX) && key !== newKey && key !== migrationFlag) {
+              // Check if this is a personal organization session (not blawby-ai)
+              const orgId = key.replace(STORAGE_PREFIX, '');
+              if (orgId !== 'blawby-ai') {
+                const oldValue = window.localStorage.getItem(key);
+                if (oldValue) {
+                  // Migrate the session to blawby-ai
+                  window.localStorage.setItem(newKey, oldValue);
+                  // Remove the old personal org session
+                  window.localStorage.removeItem(key);
+                  console.log(`Migrated chat session from ${key} to ${newKey}`);
+                  break; // Only migrate one session
+                }
               }
             }
           }
+          
+          // Set migration flag to prevent repeated migrations
+          window.localStorage.setItem(migrationFlag, 'true');
         }
-        
-        // Set migration flag after attempt (successful or not) to avoid repeated scans
-        window.localStorage.setItem(migrationFlag, 'true');
       } catch (error) {
-        console.warn('Failed to migrate session storage:', error);
+        console.warn('Failed to migrate chat session storage:', error);
         // Set flag even on error to avoid repeated failed attempts
         try {
           window.localStorage.setItem(migrationFlag, 'true');

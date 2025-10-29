@@ -173,15 +173,8 @@ export const CartPage = () => {
       }
     }
     
-    const queryOrgIdParam = location.query?.organizationId;
-    const organizationId = (Array.isArray(queryOrgIdParam) ? queryOrgIdParam[0] : queryOrgIdParam) || currentOrganization?.id;
-
-
-    if (!organizationId) {
-      console.error('❌ Cart Page - No organization ID available');
-      showError('Upgrade unavailable', 'Select or create an organization before upgrading to Business.');
-      return;
-    }
+    // Always use blawby-ai organization for stripe upgrades
+    const organizationId = 'blawby-ai';
 
     const upgradeParams = {
       organizationId,

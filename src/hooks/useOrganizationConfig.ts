@@ -129,50 +129,21 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
         return;
       }
 
-      // Set organizationId if available, otherwise use Better Auth active organization or fallback
+      // Always use blawby-ai for organization configuration (UI display)
+      // This ensures chat, profile image, intro message, etc. come from blawby-ai
       if (organizationIdParam) {
         setOrganizationId(organizationIdParam);
       } else {
-        // Fallback: try to get user's personal organization
-        // This will be handled by the fetch logic below
-        setOrganizationId(''); // Will trigger fetch of user's organizations
+        // Default to blawby-ai for organization configuration
+        setOrganizationId('blawby-ai');
       }
     }
   }, []);
 
   // Fetch organization configuration
   const fetchOrganizationConfig = useCallback(async (currentOrganizationId: string) => {
-    // If no organizationId, try to get user's personal organization
-    if (!currentOrganizationId) {
-      try {
-        const response = await fetch(getUserOrganizationsEndpoint());
-        if (response.ok) {
-          const rawResponse = await response.json();
-          const organizationsResponse = OrganizationsResponseSchema.parse(rawResponse);
-          
-                 // Look for personal organization by checking isPersonal flag at root level
-                 const personalOrg = organizationsResponse.data.find(org => {
-                   return org.isPersonal === true;
-                 });
-          
-          if (personalOrg) {
-            setOrganizationId(personalOrg.id || personalOrg.slug || '');
-            return; // Will trigger another fetch with the personal org ID
-          } else {
-            // Fallback: use the first organization if no personal org found
-            const firstOrg = organizationsResponse.data[0];
-            if (firstOrg) {
-              setOrganizationId(firstOrg.id || firstOrg.slug || '');
-              return;
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch user organizations:', error);
-        onError?.('Failed to load organization configuration');
-      }
-      return;
-    }
+    // Always fetch the specified organization configuration
+    // No need for personal organization fallback since we default to blawby-ai
     
     if (fetchedOrganizationIds.current.has(currentOrganizationId)) {
       return; // Don't fetch if we've already fetched for this organizationId
@@ -196,7 +167,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
     setIsLoading(true);
 
     try {
-      const response = await fetch(getUserOrganizationsEndpoint(), { signal: controller.signal });
+      const response = await fetch(getOrganizationsEndpoint(), { signal: controller.signal });
 
       // Check if this request is still current before processing response
       if (!currentRequestRef.current || 
@@ -310,14 +281,12 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
     parseUrlParams();
   }, [parseUrlParams]);
 
-  // Clear fetched set when organizationId changes to allow fresh fetch
-  useEffect(() => {
-    fetchedOrganizationIds.current.clear();
-  }, [organizationId]);
-
   // Fetch organization config when organizationId changes
   useEffect(() => {
-    fetchOrganizationConfig(organizationId);
+    // Only fetch if organizationId is not empty
+    if (organizationId) {
+      fetchOrganizationConfig(organizationId);
+    }
   }, [organizationId, fetchOrganizationConfig]);
 
   return {

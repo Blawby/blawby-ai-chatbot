@@ -57,7 +57,6 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData } = authClient.useSession();
   const activeOrganization = authClient.useActiveOrganization();
-  const { organizationId: organizationSlug } = useOrganization();
 
   const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
@@ -71,7 +70,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     (activeOrganization?.data as { id?: string } | undefined)?.id ??
     null;
 
-  const resolvedOrgIdentifier = activeOrganizationId ?? organizationSlug ?? null;
+  const resolvedOrgIdentifier = activeOrganizationId ?? null;
 
   const fetchQuota = useCallback(async () => {
     if (typeof window === 'undefined') {
@@ -152,12 +151,12 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     session: sessionData ?? null,
     isAnonymous,
     activeOrganizationId,
-    activeOrganizationSlug: organizationSlug ?? null,
+    activeOrganizationSlug: activeOrganizationId ?? null,
     quota,
     quotaLoading,
     quotaError,
     refreshQuota: fetchQuota,
-  }), [sessionData, isAnonymous, activeOrganizationId, organizationSlug, quota, quotaLoading, quotaError, fetchQuota]);
+  }), [sessionData, isAnonymous, activeOrganizationId, quota, quotaLoading, quotaError, fetchQuota]);
 
   return (
     <SessionContext.Provider value={value}>

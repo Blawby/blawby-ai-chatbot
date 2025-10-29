@@ -236,6 +236,11 @@ export async function getAuth(env: Env, request?: Request) {
             return true;
           }
 
+          // Allow blawby-ai organization for all users (public organization)
+          if (referenceId === 'blawby-ai') {
+            return true;
+          }
+
           try {
             const membership = await env.DB.prepare(
               `SELECT role 
