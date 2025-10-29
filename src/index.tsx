@@ -42,13 +42,14 @@ function MainApp({
 	organizationId, 
 	organizationConfig, 
 	organizationNotFound, 
-	handleRetryOrganizationConfig 
+	handleRetryOrganizationConfig,
+	...routeProps
 }: {
 	organizationId: string;
 	organizationConfig: OrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
-}) {
+} & Record<string, any>) {
 	// Core state
 	const [clearInputTrigger, setClearInputTrigger] = useState(0);
 	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
@@ -633,22 +634,18 @@ export function App() {
 		<LocationProvider>
 			<AuthProvider>
 				<OrganizationProvider onError={handleOrgError}>
-					<SessionProvider>
-						<ToastProvider>
-							<AppWithOrganization />
-						</ToastProvider>
-					</SessionProvider>
+					<AppWithOrganization />
 				</OrganizationProvider>
 			</AuthProvider>
 		</LocationProvider>
 	);
 }
 
-// Component that calls useOrganization and passes data to MainApp
+// Component that calls useOrganization and passes data to AppWithSEO
 function AppWithOrganization() {
 	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
 	
-	return <MainApp 
+	return <AppWithSEO 
 		organizationId={organizationId}
 		organizationConfig={organizationConfig}
 		organizationNotFound={organizationNotFound}
@@ -684,10 +681,38 @@ function AppWithSEO({
 			<Router>
 				<Route path="/auth" component={AuthPage} />
 				<Route path="/cart" component={CartPage} />
-				<Route path="/settings/*" component={MainApp} />
-				<Route default component={MainApp} />
+				<Route path="/settings/*" component={(props) => <MainAppWithProviders 
+					organizationId={organizationId}
+					organizationConfig={organizationConfig}
+					organizationNotFound={organizationNotFound}
+					handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+					{...props}
+				/>} />
+				<Route default component={(props) => <MainAppWithProviders 
+					organizationId={organizationId}
+					organizationConfig={organizationConfig}
+					organizationNotFound={organizationNotFound}
+					handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+					{...props}
+				/>} />
 			</Router>
 		</>
+	);
+}
+
+// Wrapper component that provides context to MainApp
+function MainAppWithProviders(props: {
+	organizationId: string;
+	organizationConfig: OrganizationConfig;
+	organizationNotFound: boolean;
+	handleRetryOrganizationConfig: () => void;
+} & Record<string, any>) {
+	return (
+		<ToastProvider>
+			<SessionProvider>
+				<MainApp {...props} />
+			</SessionProvider>
+		</ToastProvider>
 	);
 }
 
