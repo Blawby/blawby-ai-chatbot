@@ -84,13 +84,12 @@ export const MFAEnrollmentPage = ({
       return;
     }
 
-    // Double-check configuration before attempting verification
-    if (!hasTwoFactorPlugin(authClient)) {
-      throw new MFAConfigurationError();
-    }
-
     setIsVerifying(true);
     try {
+      // Double-check configuration before attempting verification
+      if (!hasTwoFactorPlugin(authClient)) {
+        throw new MFAConfigurationError();
+      }
       // Here you would verify the code with your backend
       // await authService.verifyMFACode(verificationCode);
       

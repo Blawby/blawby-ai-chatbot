@@ -27,22 +27,17 @@ function truncateToWordBoundary(text: string, maxLength: number): string {
   const truncated = trimmed.substring(0, maxLength);
   const lastSpaceIndex = truncated.lastIndexOf(' ');
   
-  // If we found a space and it's not too close to the start, use it
-  // Otherwise, just truncate at maxLength (word might be longer than maxLength)
-  if (lastSpaceIndex > maxLength * 0.5) {
+  // Minimum allowed length to avoid extremely short truncations
+  const MINIMUM_ALLOWED = 10;
+  
+  // If we found a space and it's not below the minimum threshold, use it
+  // This preserves word boundaries whenever possible
+  if (lastSpaceIndex !== -1 && lastSpaceIndex >= MINIMUM_ALLOWED) {
     return truncated.substring(0, lastSpaceIndex).trim();
   }
   
+  // Fallback: just truncate at maxLength (word might be longer than maxLength)
   return truncated.trim();
-}
-
-/**
- * Escapes HTML entities in a string to prevent XSS and ensure proper display.
- */
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 /**
@@ -52,22 +47,21 @@ function generatePageTitle(
   pageTitle?: string,
   organizationConfig?: UIOrganizationConfig
 ): string {
-  // If explicit page title is provided, use it (already HTML-safe from React/Preact)
+  // If explicit page title is provided, use it
   if (pageTitle) {
-    return escapeHtml(pageTitle.trim());
+    return `${pageTitle.trim()} - AI Legal Assistant`;
   }
   
   // Priority 1: Use organization name if available
   if (organizationConfig?.name) {
-    const orgName = escapeHtml(organizationConfig.name.trim());
+    const orgName = organizationConfig.name.trim();
     return `${orgName} - AI Legal Assistant`;
   }
   
   // Priority 2: Use introMessage with word-aware truncation
   if (organizationConfig?.introMessage) {
     const truncated = truncateToWordBoundary(organizationConfig.introMessage, 50);
-    const escaped = escapeHtml(truncated);
-    return `${escaped} - AI Legal Assistant`;
+    return `${truncated} - AI Legal Assistant`;
   }
   
   // Fallback: Default title
@@ -117,7 +111,7 @@ export function SEOHead({
       (organizationConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
     // Use organization name for og:site_name, fallback to default site name
     const siteName = organizationConfig?.name 
-      ? escapeHtml(organizationConfig.name.trim())
+      ? organizationConfig.name.trim()
       : 'Blawby AI';
     updateMetaTag('og:site_name', siteName);
 

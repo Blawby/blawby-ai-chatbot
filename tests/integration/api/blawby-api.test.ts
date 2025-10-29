@@ -284,7 +284,24 @@ describe('Blawby API Integration Tests - Real API Calls', () => {
       
       // Validate that customer ID exists and is non-empty before using it
       if (!customerResult.data?.id || customerResult.data.id.trim() === '') {
-        throw new Error(`Customer creation succeeded but customer ID is missing or empty. Response: ${JSON.stringify(customerResult)}`);
+        // Build sanitized summary to avoid exposing PII in error messages
+        const sanitizedSummary: {
+          status: number;
+          hasData: boolean;
+          dataId: string | null;
+          message?: string;
+        } = {
+          status: customerResponse.status,
+          hasData: !!customerResult.data,
+          dataId: customerResult.data?.id || null
+        };
+        
+        // Include other safe metadata fields if present (e.g., message, but not PII)
+        if ('message' in customerResult && typeof customerResult.message === 'string') {
+          sanitizedSummary.message = customerResult.message;
+        }
+        
+        throw new Error(`Customer creation succeeded but customer ID is missing or empty. Response summary: ${JSON.stringify(sanitizedSummary)}`);
       }
       
       const customerId = customerResult.data.id;

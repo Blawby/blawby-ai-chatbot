@@ -36,9 +36,18 @@ const isValidDate = (value: unknown): value is Date | string | number => {
     return !isNaN(value.getTime());
   }
   
-  // For strings and numbers, use Date.parse and isFinite
-  const timestamp = Date.parse(String(value));
-  return isFinite(timestamp);
+  // Handle numbers explicitly by checking if they produce valid dates
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Number.isFinite(new Date(value).getTime());
+  }
+  
+  // For strings, use Date.parse
+  if (typeof value === 'string') {
+    const timestamp = Date.parse(value);
+    return isFinite(timestamp);
+  }
+  
+  return false;
 };
 
 // Safely convert lastPasswordChange to Date or undefined
