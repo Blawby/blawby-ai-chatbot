@@ -33,6 +33,31 @@ export const authClient = createAuthClient({
 
 export type AuthClient = typeof authClient;
 
+/**
+ * Interface for Better Auth twoFactor plugin client methods
+ */
+export interface TwoFactorClient {
+  enable: (options: { code: string }) => Promise<void>;
+  disable: () => Promise<void>;
+}
+
+/**
+ * Type guard to check if authClient has twoFactor plugin available
+ */
+export function hasTwoFactorPlugin(
+  client: AuthClient
+): client is AuthClient & { twoFactor: TwoFactorClient } {
+  return (
+    typeof client === 'object' &&
+    client !== null &&
+    'twoFactor' in client &&
+    typeof (client as { twoFactor?: unknown }).twoFactor === 'object' &&
+    (client as { twoFactor?: { enable?: unknown; disable?: unknown } }).twoFactor !== null &&
+    typeof (client as { twoFactor?: { enable?: unknown } }).twoFactor?.enable === 'function' &&
+    typeof (client as { twoFactor?: { disable?: unknown } }).twoFactor?.disable === 'function'
+  );
+}
+
 // Export individual methods for easier use
 export const signIn = authClient.signIn;
 export const signOut = authClient.signOut;

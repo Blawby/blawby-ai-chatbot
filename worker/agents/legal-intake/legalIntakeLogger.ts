@@ -1,4 +1,4 @@
-import { Logger } from '../../utils/logger.ts';
+import { Logger } from '../../utils/logger.js';
 import type { ConversationContext } from './index.js';
 import { ConversationState } from './index.js';
 

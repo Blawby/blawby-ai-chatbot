@@ -129,7 +129,7 @@ export const useNavbarScroll = (options: UseNavbarScrollOptions = {}) => {
   const [isNavbarVisible, setIsNavbarVisible] = useState(true);
   const lastScrollTop = useRef(0);
   const latestDirection = useRef<'up' | 'down' | null>(null);
-  const debounceTimeout = useRef<number | null>(null);
+  const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleScrollEvent = useCallback((event: CustomEvent<ChatScrollDetail>) => {
     const { scrollTop, scrollDelta } = event.detail;

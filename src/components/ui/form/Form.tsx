@@ -14,8 +14,8 @@ export interface FormError {
   message: string;
 }
 
-export interface FormContextValue {
-  data: FormData;
+export interface FormContextValue<T extends FormData = FormData> {
+  data: T;
   errors: FormError[];
   isSubmitting: boolean;
   isValid: boolean;
@@ -42,10 +42,10 @@ export const useFormContext = () => {
   return context;
 };
 
-export interface FormProps {
+export interface FormProps<T extends FormData = FormData> {
   children: ComponentChildren;
-  initialData?: FormData;
-  onSubmit?: (data: FormData) => void | Promise<void>;
+  initialData?: T;
+  onSubmit?: (data: T) => void | Promise<void>;
   /**
    * Optional callback to handle form submission errors.
    * Called with the caught error when onSubmit throws an exception.
@@ -60,7 +60,7 @@ export interface FormProps {
   requiredFields?: string[];
 }
 
-export const Form = ({
+export function Form<T extends FormData = FormData>({
   children,
   initialData = {},
   onSubmit,
@@ -71,14 +71,14 @@ export const Form = ({
   validateOnChange = false,
   validateOnBlur = false,
   requiredFields
-}: FormProps) => {
-  const [data, setData] = useState<FormData>(initialData);
+}: FormProps<T>) {
+  const [data, setData] = useState<T>(initialData as T);
   const [errors, setErrors] = useState<FormError[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   
   // Store previous initialData to compare content changes
-  const prevInitialDataRef = useRef<FormData>(initialData);
+  const prevInitialDataRef = useRef<T>(initialData as T);
 
   // Rehydrate form when initialData content actually changes
   useEffect(() => {
@@ -245,7 +245,7 @@ export const Form = ({
 
   const isValid = errors.length === 0;
 
-  const contextValue: FormContextValue = {
+  const contextValue: FormContextValue<T> = {
     data,
     errors,
     isSubmitting,
@@ -274,4 +274,4 @@ export const Form = ({
       </form>
     </FormContext.Provider>
   );
-};
+}

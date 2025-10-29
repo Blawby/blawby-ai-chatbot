@@ -313,7 +313,7 @@ describe("Pricing Internationalization", () => {
     it("should handle null/undefined currency gracefully", () => {
       // Should not throw error
       expect(() => {
-        formatCurrency(100, null as unknown, "en");
+        formatCurrency(100, null as unknown as string, "en");
       }).not.toThrow();
     });
 

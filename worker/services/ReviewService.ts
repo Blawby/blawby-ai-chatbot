@@ -1,5 +1,4 @@
 import type { Env } from '../types';
-import { OrganizationConfig } from './AIService';
 
 export interface ReviewMatter {
   id: string;
@@ -46,20 +45,42 @@ export class ReviewService {
         ORDER BY m.created_at DESC
       `).bind(organizationId).all();
 
-      return matters.results?.map((matter: { [key: string]: unknown }) => ({
-        id: matter.id,
-        matterNumber: matter.matter_number,
-        service: matter.service,
-        title: matter.title || `${matter.service} Matter`,
-        description: matter.description,
-        status: this.mapStatus(matter.status),
-        createdAt: matter.created_at,
-        clientName: matter.client_name,
-        contactInfo: matter.contact_info ? JSON.parse(matter.contact_info) : undefined,
-        answers: matter.custom_fields ? JSON.parse(matter.custom_fields).answers : undefined,
-        aiSummary: matter.ai_summary,
-        lawyerNotes: matter.custom_fields ? JSON.parse(matter.custom_fields).lawyerNotes : undefined
-      })) || [];
+      return matters.results?.map((matter: { [key: string]: unknown }) => {
+        // Parse custom_fields once
+        let customFields: Record<string, unknown> | undefined;
+        if (matter.custom_fields && typeof matter.custom_fields === 'string') {
+          try {
+            customFields = JSON.parse(matter.custom_fields);
+          } catch {
+            // Ignore parse errors, customFields remains undefined
+          }
+        }
+
+        // Parse contact_info defensively
+        let contactInfo: { email?: string; phone?: string } | undefined;
+        if (matter.contact_info && typeof matter.contact_info === 'string') {
+          try {
+            contactInfo = JSON.parse(matter.contact_info);
+          } catch {
+            // Ignore parse errors, contactInfo remains undefined
+          }
+        }
+
+        return {
+          id: matter.id as string,
+          matterNumber: matter.matter_number as string,
+          service: matter.service as string,
+          title: (matter.title || `${matter.service} Matter`) as string,
+          description: matter.description as string,
+          status: this.mapStatus(matter.status as string),
+          createdAt: matter.created_at as string,
+          clientName: matter.client_name as string | undefined,
+          contactInfo,
+          answers: customFields?.answers as Record<string, string> | undefined,
+          aiSummary: matter.ai_summary as string | undefined,
+          lawyerNotes: customFields?.lawyerNotes as string | undefined
+        };
+      }) || [];
     } catch (error) {
       console.error('Failed to get review matters:', error);
       return [];

@@ -9,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { MatterData, MatterStatus } from '../types/matter';
 import { getDefaultDocumentSuggestions } from '../hooks/useMatterState';
-import { DocumentIconAttachment } from '../../worker/types';
+import type { DocumentIconAttachment } from '../../worker/types';
 
 interface MatterTabProps {
   matter: MatterData | null;
@@ -19,7 +19,46 @@ interface MatterTabProps {
   onPayNow?: () => void;
   onViewPDF?: () => void;
   onShareMatter?: () => void;
-  onUploadDocument?: (files: DocumentIcon[], metadata?: { documentType?: string; matterId?: string; documentId?: string }) => Promise<DocumentIconAttachment[]>;
+  onUploadDocument?: (files: File[], metadata?: { documentType?: string; matterId?: string }) => Promise<DocumentIconAttachment[]>;
+}
+
+/**
+ * Maps document IDs from getDefaultDocumentSuggestions to semantic documentType values
+ * expected by DocumentRequirementService
+ */
+function mapDocumentIdToType(documentId: string | null): string | undefined {
+  if (!documentId) {
+    return undefined; // Let backend infer the type
+  }
+
+  const mapping: Record<string, string> = {
+    // Family law documents
+    'marriage-cert': 'marriage_certificate',
+    'financial-records': 'financial_statements',
+    'child-info': 'birth_certificates',
+    
+    // Employment law documents
+    'employment-contract': 'employment_contract',
+    'pay-stubs': 'pay_stubs',
+    'termination-docs': 'termination_documents',
+    
+    // Tenant/landlord documents
+    'lease-agreement': 'lease_agreement',
+    'payment-receipts': 'payment_receipts',
+    'communication': 'communication_records',
+    
+    // Business documents
+    'contracts': 'business_contracts',
+    'financial-statements': 'financial_statements',
+    'correspondence': 'correspondence',
+    
+    // General/default documents
+    'relevant-docs': 'general_documents',
+    
+    // If no mapping exists, function returns undefined to let backend infer the type
+  };
+
+  return mapping[documentId] || undefined; // Return undefined to let backend infer
 }
 
 const MatterTab: FunctionComponent<MatterTabProps> = ({
@@ -42,11 +81,14 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
     if (files && files.length > 0 && onUploadDocument) {
       try {
         const fileArray = Array.from(files);
-        const metadata = {
+        const documentType = mapDocumentIdToType(pendingUploadDocId.current);
+        const metadata: { documentType?: string; matterId?: string } = {
           matterId: matter?.matterNumber,
-          documentType: pendingUploadDocId.current || 'matter-document',
-          documentId: pendingUploadDocId.current
         };
+        // Only include documentType if we have a valid mapping
+        if (documentType) {
+          metadata.documentType = documentType;
+        }
         await onUploadDocument(fileArray, metadata);
         // Reset the input and clear pending document ID
         if (fileInputRef.current) {

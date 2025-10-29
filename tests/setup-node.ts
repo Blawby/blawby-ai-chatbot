@@ -27,8 +27,12 @@ global.console = {
 };
 
 // Mock TextEncoder/TextDecoder for Node.js compatibility
-globalThis.TextEncoder ||= NodeTextEncoder;
-globalThis.TextDecoder ||= NodeTextDecoder;
+if (!globalThis.TextEncoder) {
+  globalThis.TextEncoder = NodeTextEncoder as unknown as typeof globalThis.TextEncoder;
+}
+if (!globalThis.TextDecoder) {
+  globalThis.TextDecoder = NodeTextDecoder as unknown as typeof globalThis.TextDecoder;
+}
 
 // Use real fetch for integration tests, but provide a mock for unit tests
 if (!global.fetch) {

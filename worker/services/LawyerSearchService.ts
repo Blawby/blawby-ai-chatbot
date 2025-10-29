@@ -85,12 +85,49 @@ export class LawyerSearchService {
       // Transform the response to match our interface
       const lawyers: LawyerProfile[] = (data.lawyers || []).map(this.mapToLawyerProfile.bind(this));
 
+      // Coerce total with proper runtime validation
+      let total: number;
+      if (data.total !== undefined && data.total !== null) {
+        const coercedTotal = Number(data.total);
+        total = !isNaN(coercedTotal) && coercedTotal >= 0 ? coercedTotal : lawyers.length;
+      } else {
+        total = lawyers.length;
+      }
+
+      // Coerce page with proper runtime validation (must be integer >= 1)
+      let page: number;
+      if (data.page !== undefined && data.page !== null) {
+        const coercedPage = Number(data.page);
+        page = !isNaN(coercedPage) && coercedPage >= 1 ? Math.floor(coercedPage) : 1;
+      } else {
+        page = 1;
+      }
+
+      // Coerce limit with proper runtime validation (must be integer >= 1)
+      let resultLimit: number;
+      if (data.limit !== undefined && data.limit !== null) {
+        const coercedLimit = Number(data.limit);
+        resultLimit = !isNaN(coercedLimit) && coercedLimit >= 1 ? Math.floor(coercedLimit) : limit;
+      } else {
+        resultLimit = limit;
+      }
+
+      // Coerce hasMore with explicit property checks and boolean coercion
+      let hasMore: boolean;
+      if ('has_more' in data && data.has_more !== undefined && data.has_more !== null) {
+        hasMore = Boolean(data.has_more);
+      } else if ('hasMore' in data && data.hasMore !== undefined && data.hasMore !== null) {
+        hasMore = Boolean(data.hasMore);
+      } else {
+        hasMore = false;
+      }
+
       const result: LawyerSearchResponse = {
         lawyers,
-        total: data.total || lawyers.length,
-        page: data.page || 1,
-        limit: data.limit || limit,
-        hasMore: data.has_more || data.hasMore || false
+        total,
+        page,
+        limit: resultLimit,
+        hasMore
       };
 
       Logger.info('[LawyerSearchService] Search completed successfully:', {
@@ -167,23 +204,84 @@ export class LawyerSearchService {
   /**
    * Transform raw lawyer data to LawyerProfile interface with fallback mapping
    */
-  private static mapToLawyerProfile(raw: { [key: string]: unknown }): LawyerProfile {
+  private static mapToLawyerProfile(raw: Record<string, unknown>): LawyerProfile {
+    // Helper to safely coerce to string
+    const toString = (value: unknown): string | undefined => {
+      if (value === null || value === undefined) return undefined;
+      return String(value);
+    };
+
+    // Helper to safely coerce to number
+    const toNumber = (value: unknown): number | undefined => {
+      if (value === null || value === undefined) return undefined;
+      if (typeof value === 'number' && !isNaN(value)) return value;
+      const coerced = Number(value);
+      return !isNaN(coerced) ? coerced : undefined;
+    };
+
+    // Helper to safely coerce to array of strings (for optional fields)
+    const toStringArray = (value: unknown): string[] | undefined => {
+      if (value === null || value === undefined) return undefined;
+      if (!Array.isArray(value)) return undefined;
+      return value.map(item => String(item));
+    };
+
+    // Resolve id (required)
+    const idValue = raw.id || raw.lawyer_id;
+    const id = idValue !== null && idValue !== undefined ? String(idValue) : '';
+
+    // Resolve name (required)
+    const nameValue = raw.name || raw.full_name;
+    const name = nameValue !== null && nameValue !== undefined ? String(nameValue) : '';
+
+    // Resolve location (required) - compute from city/state with fallback
+    let location: string;
+    const locationValue = raw.location;
+    if (locationValue !== null && locationValue !== undefined) {
+      location = String(locationValue);
+    } else {
+      // Build location from city/state by joining only existing parts
+      const cityValue = raw.city;
+      const stateValue = raw.state;
+      const city = cityValue !== null && cityValue !== undefined ? String(cityValue) : '';
+      const state = stateValue !== null && stateValue !== undefined ? String(stateValue) : '';
+      const fallbackLocation = [city, state].filter(Boolean).join(', ');
+      location = fallbackLocation || '';
+    }
+
+    // Resolve practiceAreas (required, defaults to empty array)
+    const practiceAreasValue = raw.practice_areas || raw.specialties;
+    const practiceAreas = Array.isArray(practiceAreasValue) ? practiceAreasValue.map(item => String(item)) : [];
+
+    // Resolve optional fields
+    const firm = toString(raw.firm || raw.law_firm);
+    const rating = toNumber(raw.rating || raw.avg_rating);
+    const reviewCount = toNumber(raw.review_count || raw.total_reviews);
+    const phone = toString(raw.phone || raw.phone_number);
+    const email = toString(raw.email || raw.email_address);
+    const website = toString(raw.website || raw.firm_website);
+    const bio = toString(raw.bio || raw.description);
+    const experience = toString(raw.experience || raw.years_experience);
+    const languages = toStringArray(raw.languages || raw.spoken_languages);
+    const consultationFee = toNumber(raw.consultation_fee || raw.hourly_rate);
+    const availability = toString(raw.availability || raw.next_available);
+
     return {
-      id: raw.id || raw.lawyer_id,
-      name: raw.name || raw.full_name,
-      firm: raw.firm || raw.law_firm,
-      location: raw.location || `${raw.city}, ${raw.state}`,
-      practiceAreas: raw.practice_areas || raw.specialties || [],
-      rating: raw.rating || raw.avg_rating,
-      reviewCount: raw.review_count || raw.total_reviews,
-      phone: raw.phone || raw.phone_number,
-      email: raw.email || raw.email_address,
-      website: raw.website || raw.firm_website,
-      bio: raw.bio || raw.description,
-      experience: raw.experience || raw.years_experience,
-      languages: raw.languages || raw.spoken_languages,
-      consultationFee: raw.consultation_fee || raw.hourly_rate,
-      availability: raw.availability || raw.next_available
+      id,
+      name,
+      firm,
+      location,
+      practiceAreas,
+      rating,
+      reviewCount,
+      phone,
+      email,
+      website,
+      bio,
+      experience,
+      languages,
+      consultationFee,
+      availability
     };
   }
 

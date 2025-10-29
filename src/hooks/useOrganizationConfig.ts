@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { z } from 'zod';
+import type { OrganizationConfig } from '../../worker/types';
 
 // API endpoints - moved inline since api.ts was removed
 const getOrganizationsEndpoint = () => '/api/organizations';
@@ -23,51 +24,10 @@ const OrganizationsResponseSchema = z.object({
   data: z.array(OrganizationSchema)
 });
 
-interface OrganizationConfig {
-  name: string;
-  profileImage: string | null;
-  introMessage: string | null;
-  description: string | null;
-  availableServices: string[];
-  serviceQuestions?: Record<string, string[]>;
-  jurisdiction?: {
-    type: 'national' | 'state';
-    description: string;
-    supportedStates: string[];
-    supportedCountries: string[];
-    primaryState?: string;
-  };
-  voice: {
-    enabled: boolean;
-    provider: 'cloudflare' | 'elevenlabs' | 'custom';
-    voiceId?: string | null;
-    displayName?: string | null;
-    previewUrl?: string | null;
-  };
+// Extended config with name for UI convenience (name comes from Organization, not config)
+export interface UIOrganizationConfig extends OrganizationConfig {
+  name?: string; // Optional - comes from Organization object
 }
-
-// Schema to validate and narrow the unknown config shape
-const OrganizationConfigSchema = z.object({
-  profileImage: z.string().nullable().optional(),
-  introMessage: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  availableServices: z.array(z.string()).optional(),
-  serviceQuestions: z.record(z.string(), z.array(z.string())).optional(),
-  jurisdiction: z.object({
-    type: z.enum(['national', 'state']).optional(),
-    description: z.string().optional(),
-    supportedStates: z.array(z.string()).optional(),
-    supportedCountries: z.array(z.string()).optional(),
-    primaryState: z.string().optional()
-  }).optional(),
-  voice: z.object({
-    enabled: z.boolean().optional(),
-    provider: z.enum(['cloudflare', 'elevenlabs', 'custom']).optional(),
-    voiceId: z.string().nullable().optional(),
-    displayName: z.string().nullable().optional(),
-    previewUrl: z.string().nullable().optional()
-  }).optional()
-});
 
 interface UseOrganizationConfigOptions {
   onError?: (error: string) => void;
@@ -79,7 +39,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
   const [organizationId, setOrganizationId] = useState<string>('');
   const [organizationNotFound, setOrganizationNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [organizationConfig, setOrganizationConfig] = useState<OrganizationConfig>({
+  const [organizationConfig, setOrganizationConfig] = useState<UIOrganizationConfig>({
     name: 'Blawby AI',
     profileImage: '/blawby-favicon-iframe.png',
     introMessage: "Hello! I'm Blawby AI, your intelligent legal assistant. I can help you with family law, business law, contract review, intellectual property, employment law, personal injury, criminal law, civil law, and general legal consultation. How can I assist you today?",
@@ -250,8 +210,8 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
 
           if (organization) {
             // Organization exists, use its config or defaults
-            const parsedConfig = organization.config ? OrganizationConfigSchema.safeParse(organization.config) : { success: true, data: {} as z.infer<typeof OrganizationConfigSchema> };
-            const cfg = parsedConfig.success ? parsedConfig.data : {} as z.infer<typeof OrganizationConfigSchema>;
+            // Parse config safely - config is Record<string, unknown> from API
+            const cfg = organization.config as Partial<OrganizationConfig> || {};
             const normalizedJurisdiction: OrganizationConfig['jurisdiction'] = {
               type: cfg.jurisdiction?.type ?? 'national',
               description: cfg.jurisdiction?.description ?? 'Available nationwide',
@@ -260,7 +220,7 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
               primaryState: cfg.jurisdiction?.primaryState
             };
 
-            const config: OrganizationConfig = {
+            const config: UIOrganizationConfig = {
               name: organization.name || 'Blawby AI',
               profileImage: cfg.profileImage ?? '/blawby-favicon-iframe.png',
               introMessage: cfg.introMessage ?? null,

@@ -1,5 +1,6 @@
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
+// pdf-lib types are loaded dynamically - see worker/types/pdf-lib.d.ts for type declarations
 import type { PDFFont, RGB } from 'pdf-lib';
 
 interface CaseDraft {
@@ -511,8 +512,8 @@ export class PDFGenerationService {
       yPosition -= 10;
       
       // Add subtitle
-      if (content.subtitle) {
-        addText(content.subtitle, font, 12, rgb(0.4, 0.4, 0.4));
+      if (content.subtitle && typeof content.subtitle === 'string') {
+        addText(content.subtitle as string, font, 12, rgb(0.4, 0.4, 0.4));
         yPosition -= 20;
       }
       
@@ -526,18 +527,19 @@ export class PDFGenerationService {
       yPosition -= 20;
       
       // Add key facts section
-      if (content.keyFacts && content.keyFacts.length > 0) {
+      if (content.keyFacts && Array.isArray(content.keyFacts) && content.keyFacts.length > 0) {
         addSectionHeader('KEY FACTS');
-        content.keyFacts.forEach((fact: string, index: number) => {
+        (content.keyFacts as string[]).forEach((fact: string, index: number) => {
           addText(`${index + 1}. ${fact}`, font, fontSize, rgb(0, 0, 0), width - 100);
         });
         yPosition -= 20;
       }
 
       // Add timeline section
-      if (content.timeline) {
+      if (content.timeline && Array.isArray(content.timeline) && content.timeline.length > 0) {
         addSectionHeader('TIMELINE');
-        addText(content.timeline, font, fontSize, rgb(0, 0, 0), width - 100);
+        const timelineText = content.timeline.map((item: { date: string; event: string }) => `${item.date}: ${item.event}`).join('\n');
+        addText(timelineText, font, fontSize, rgb(0, 0, 0), width - 100);
         yPosition -= 20;
       }
 
@@ -552,18 +554,19 @@ export class PDFGenerationService {
       }
 
       // Add documents section
-      if (content.documents && content.documents.length > 0) {
+      if (content.documents && Array.isArray(content.documents) && content.documents.length > 0) {
         addSectionHeader('AVAILABLE DOCUMENTS');
-        content.documents.forEach((doc: string, index: number) => {
-          addText(`• ${doc}`, font, fontSize, rgb(0, 0, 0), width - 100);
+        content.documents.forEach((doc: { document_type: string; description?: string }, index: number) => {
+          const docText = doc.description ? `${doc.document_type}: ${doc.description}` : doc.document_type;
+          addText(`• ${docText}`, font, fontSize, rgb(0, 0, 0), width - 100);
         });
         yPosition -= 20;
       }
 
       // Add evidence section
-      if (content.evidence && content.evidence.length > 0) {
+      if (content.evidence && Array.isArray(content.evidence) && content.evidence.length > 0) {
         addSectionHeader('EVIDENCE');
-        content.evidence.forEach((ev: string, index: number) => {
+        (content.evidence as string[]).forEach((ev: string, index: number) => {
           addText(`• ${ev}`, font, fontSize, rgb(0, 0, 0), width - 100);
         });
         yPosition -= 20;
@@ -584,7 +587,9 @@ export class PDFGenerationService {
       
       // Serialize the PDF to bytes
       const pdfBytes = await pdfDoc.save();
-      return pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength) as ArrayBuffer;
+      // Convert Uint8Array to ArrayBuffer
+      const buffer = pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength);
+      return buffer as ArrayBuffer;
       
     } catch (error) {
       Logger.error('[PDFGenerationService] PDF conversion failed:', error);
@@ -603,7 +608,7 @@ export class PDFGenerationService {
     organizationName: string;
     summary: string;
     parties: { role: string; name?: string; relationship?: string }[];
-    documents: { name: string; description?: string }[];
+    documents: { document_type: string; description?: string }[];
     timeline: { date: string; event: string }[];
     [key: string]: unknown;
   } {
@@ -617,17 +622,19 @@ export class PDFGenerationService {
     return {
       title: 'Legal Case Summary',
       subtitle: `${organizationName || 'Legal Services'} • Generated on ${currentDate}`,
+      date: currentDate,
       matterType: caseDraft.matter_type || 'General Consultation',
       jurisdiction: caseDraft.jurisdiction || 'Not specified',
       urgency: caseDraft.urgency || 'Normal',
       keyFacts: caseDraft.key_facts || [],
-      timeline: caseDraft.timeline,
+      timeline: caseDraft.timeline ? [{ date: currentDate, event: caseDraft.timeline }] : [],
       parties: caseDraft.parties || [],
-      documents: caseDraft.documents || [],
+      documents: (caseDraft.documents || []).map(doc => ({ document_type: doc, description: undefined })),
       evidence: caseDraft.evidence || [],
-      clientName: clientName,
-      organizationName: organizationName,
-      generatedDate: currentDate
+      clientName: clientName || '',
+      organizationName: organizationName || '',
+      generatedDate: currentDate,
+      summary: caseDraft.key_facts?.join(' ') || ''
     };
   }
 

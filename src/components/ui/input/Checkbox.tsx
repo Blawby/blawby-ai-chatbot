@@ -70,8 +70,8 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
     if (forwardedRef) {
       if (typeof forwardedRef === 'function') {
         forwardedRef(node);
-      } else if (forwardedRef && typeof forwardedRef === 'object') {
-        forwardedRef.current = node;
+      } else if (forwardedRef && typeof forwardedRef === 'object' && 'current' in forwardedRef) {
+        (forwardedRef as { current: HTMLInputElement | null }).current = node;
       }
     }
   };

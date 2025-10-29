@@ -100,7 +100,7 @@ export function analyzeMissingInfo(matterData: MatterData): string[] {
   
   // Check for urgency if not specified (optional property)
   // Cast matterData to Record<string, unknown> once and extract urgency
-  const matterDataRecord = matterData as Record<string, unknown>;
+  const matterDataRecord = matterData as unknown as Record<string, unknown>;
   const urgency = matterDataRecord.urgency as string | undefined;
   if (!urgency || urgency.toLowerCase() === 'unknown') {
     missingInfo.push('Matter urgency level');

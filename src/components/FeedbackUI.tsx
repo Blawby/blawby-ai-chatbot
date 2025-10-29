@@ -27,31 +27,7 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
-  const handleThumbsUp = useCallback(() => {
-    const newFeedback = { ...feedback, thumbsUp: true };
-    setFeedback(newFeedback);
-    submitFeedback(newFeedback);
-  }, [feedback, submitFeedback]);
-
-  const handleThumbsDown = useCallback(() => {
-    const newFeedback = { ...feedback, thumbsUp: false };
-    setFeedback(newFeedback);
-    setIsExpanded(true); // Expand to show comment box for negative feedback
-  }, [feedback]);
-
-  const handleRating = useCallback((rating: number) => {
-    const newFeedback = { ...feedback, rating };
-    setFeedback(newFeedback);
-    if (rating <= 3) {
-      setIsExpanded(true); // Expand for low ratings
-    }
-  }, [feedback]);
-
-  const handleCommentChange = useCallback((e: Event) => {
-    const target = e.target as HTMLTextAreaElement;
-    setFeedback(prev => ({ ...prev, comments: target.value }));
-  }, []);
-
+  // Define submitFeedback before it's used in other callbacks
   const submitFeedback = useCallback(async (feedbackData: FeedbackData) => {
     if (isSubmitting || hasSubmitted) return;
     
@@ -88,6 +64,31 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
       setIsSubmitting(false);
     }
   }, [isSubmitting, hasSubmitted, onFeedbackSubmit, organizationId, sessionId]);
+
+  const handleThumbsUp = useCallback(() => {
+    setFeedback(prev => {
+      const newFeedback = { ...prev, thumbsUp: true };
+      submitFeedback(newFeedback);
+      return newFeedback;
+    });
+  }, [submitFeedback]);
+
+  const handleThumbsDown = useCallback(() => {
+    setFeedback(prev => ({ ...prev, thumbsUp: false }));
+    setIsExpanded(true); // Expand to show comment box for negative feedback
+  }, []);
+
+  const handleRating = useCallback((rating: number) => {
+    setFeedback(prev => ({ ...prev, rating }));
+    if (rating <= 3) {
+      setIsExpanded(true); // Expand for low ratings
+    }
+  }, []);
+
+  const handleCommentChange = useCallback((e: Event) => {
+    const target = e.target as HTMLTextAreaElement;
+    setFeedback(prev => ({ ...prev, comments: target.value }));
+  }, []);
 
   const handleSubmitComment = useCallback(() => {
     submitFeedback(feedback);

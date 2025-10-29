@@ -1,5 +1,5 @@
 import { useMemo } from 'preact/hooks';
-import { Form, FormField, FormItem } from './ui/form';
+import { Form, FormField, FormItem, type FormData as FormDataType } from './ui/form';
 import { Input } from './ui/input/Input';
 import { EmailInput } from './ui/input/EmailInput';
 import { PhoneInput } from './ui/input/PhoneInput';
@@ -7,6 +7,7 @@ import { LocationInput } from './ui/input/LocationInput';
 import { Button } from './ui/Button';
 import { useTranslation } from '@/i18n/hooks';
 import { schemas } from './ui/validation/schemas';
+import type { JSX } from 'preact';
 
 // Constants for allowed field names
 export const ALLOWED_FIELDS = ['name', 'email', 'phone', 'location', 'opposingParty'] as const;
@@ -80,13 +81,13 @@ function validateContactFormProps(
       .filter((f): f is AllowedField =>
         typeof f === 'string' && 
         ALLOWED_FIELDS.includes(f as AllowedField) &&
-        validatedFields.includes(f)
+        (validatedFields as readonly string[]).includes(f)
       );
     
     if (valid.length !== required.length) {
       const invalidRequired = required.filter(field => 
         !ALLOWED_FIELDS.includes(field as AllowedField) || 
-        !validatedFields.includes(field as AllowedField)
+        !(validatedFields as readonly string[]).includes(field as AllowedField)
       );
       console.warn('[ContactForm] Some invalid required fields were filtered out:', invalidRequired);
     }
@@ -116,7 +117,7 @@ function normalizeInitialValues(values?: Partial<ContactData>): Partial<ContactD
 
 export function ContactForm({
   onSubmit,
-  fields = ALLOWED_FIELDS,
+  fields = [...ALLOWED_FIELDS], // Copy readonly array to mutable
   required = ['name', 'email', 'phone'],
   message,
   initialValues
@@ -168,11 +169,21 @@ export function ContactForm({
       
       <Form
         initialData={initialData}
-        onSubmit={onSubmit}
+        onSubmit={(formData: FormDataType) => {
+          // Convert FormData to ContactData
+          const contactData: ContactData = {
+            name: (formData.name as string) || '',
+            email: (formData.email as string) || '',
+            phone: (formData.phone as string) || '',
+            location: (formData.location as string) || '',
+            opposingParty: formData.opposingParty as string | undefined
+          };
+          return onSubmit(contactData);
+        }}
         schema={schemas.contact.contactForm}
         className="space-y-4"
         validateOnBlur={true}
-        requiredFields={validRequired}
+        requiredFields={validRequired as string[]}
       >
         {validFields.includes('name') && (
           <FormItem>

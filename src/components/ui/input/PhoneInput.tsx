@@ -66,7 +66,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   
   const [selectedCountryCode, setSelectedCountryCode] = useState(countryCode);
 

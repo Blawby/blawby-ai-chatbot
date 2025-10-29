@@ -84,7 +84,12 @@ export async function setActiveOrganizationForSession(
         `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE token = ? AND user_id = ?`
       ).bind(personalOrg.id, Math.floor(Date.now() / 1000), sessionToken, userId).run();
       
-      if (result.changes === 0) {
+      // D1Result.run() returns { success: boolean, meta: { changes: number } }
+      if (!result.success) {
+        throw new Error(`Database operation failed while updating session for user ${userId}`);
+      }
+      
+      if ((result.meta?.changes ?? 0) === 0) {
         throw new Error(`Session ownership verification failed: session token does not belong to user ${userId}`);
       }
       

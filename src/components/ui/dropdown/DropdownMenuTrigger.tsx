@@ -37,9 +37,9 @@ export const DropdownMenuTrigger = ({
     // Handle forwarded ref (function or object)
     if (forwardedRef) {
       if (typeof forwardedRef === 'function') {
-        forwardedRef(node);
-      } else if (forwardedRef && typeof forwardedRef === 'object') {
-        forwardedRef.current = node;
+        (forwardedRef as (node: HTMLElement | null) => void)(node);
+      } else if (forwardedRef && typeof forwardedRef === 'object' && 'current' in forwardedRef) {
+        (forwardedRef as { current: HTMLElement | null }).current = node;
       }
     }
   };
@@ -100,9 +100,10 @@ export const DropdownMenuTrigger = ({
     const triggerProps = {
       onClick: (event: MouseEvent) => {
         // Call the child's onClick if it exists with error handling
-        if (childProps.onClick) {
+        const onClickHandler = childProps.onClick;
+        if (onClickHandler && typeof onClickHandler === 'function') {
           try {
-            childProps.onClick(event);
+            (onClickHandler as (event: MouseEvent) => void)(event);
           } catch (error) {
             console.error('Error in child onClick callback:', error);
           }
@@ -111,9 +112,10 @@ export const DropdownMenuTrigger = ({
       },
       onKeyDown: (event: KeyboardEvent) => {
         // Call the child's onKeyDown if it exists with error handling
-        if (childProps.onKeyDown) {
+        const onKeyDownHandler = childProps.onKeyDown;
+        if (onKeyDownHandler && typeof onKeyDownHandler === 'function') {
           try {
-            childProps.onKeyDown(event);
+            (onKeyDownHandler as (event: KeyboardEvent) => void)(event);
           } catch (error) {
             console.error('Error in child onKeyDown callback:', error);
           }
@@ -126,7 +128,7 @@ export const DropdownMenuTrigger = ({
       'aria-controls': `${dropdownId}-menu`,
       id: `${dropdownId}-trigger`,
       className: cn(
-        childProps.className || '',
+        (typeof childProps.className === 'string' ? childProps.className : '') || '',
         className
       ),
       tabIndex: 0, // Ensure keyboard accessibility

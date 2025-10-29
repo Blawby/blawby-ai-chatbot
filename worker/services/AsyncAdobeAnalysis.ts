@@ -154,6 +154,6 @@ export class AsyncAdobeAnalysis {
   ): Promise<Record<string, unknown>> {
     // This is the same call that was blocking in the middleware
     // Now it runs in the background with status updates
-    return await analyzeFile(env as unknown as Record<string, unknown>, attachment.fileId, attachment.analysisQuestion);
+    return await analyzeFile(env, attachment.fileId, attachment.analysisQuestion);
   }
 }

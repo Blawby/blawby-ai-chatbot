@@ -84,6 +84,13 @@ interface MessageProps {
 		}>;
 		total: number;
 	};
+	generatedPDF?: {
+		filename: string;
+		size: number;
+		generatedAt: string;
+		matterType: string;
+		storageKey?: string;
+	};
 	organizationConfig?: {
 		name: string;
 		profileImage: string | null;
@@ -218,6 +225,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	contactForm,
 	documentChecklist,
 	lawyerSearchResults,
+	generatedPDF,
 	organizationConfig: _organizationConfig,
 	onOpenSidebar: _onOpenSidebar,
 	onContactFormSubmit,
@@ -386,6 +394,47 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							showInfo('New Search', 'Please ask the AI to search for lawyers again with different criteria.');
 						}}
 					/>
+				)}
+
+				{/* Display generated PDF */}
+				{generatedPDF && (
+					<div className="my-2">
+						<div className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+							<div className="w-8 h-8 rounded bg-gray-100 dark:bg-dark-hover flex items-center justify-center flex-shrink-0">
+								<DocumentIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+							</div>
+							<div className="flex-1 min-w-0">
+								<div className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap overflow-hidden text-ellipsis" title={generatedPDF.filename}>
+									{generatedPDF.filename.length > 25 ? `${generatedPDF.filename.substring(0, 25)}...` : generatedPDF.filename}
+								</div>
+								<div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+									<span>{formatDocumentIconSize(generatedPDF.size)}</span>
+									{generatedPDF.generatedAt && (
+										<span>• {new Date(generatedPDF.generatedAt).toLocaleDateString()}</span>
+									)}
+								</div>
+							</div>
+							{generatedPDF.storageKey && (
+								<button
+									onClick={() => {
+										// Construct download URL from storageKey
+										// If storageKey is already a full URL, use it directly; otherwise construct it
+										const downloadUrl = generatedPDF.storageKey.startsWith('http') 
+											? generatedPDF.storageKey 
+											: `/api/files/${generatedPDF.storageKey}`;
+										const link = globalThis.document.createElement('a');
+										link.href = downloadUrl;
+										link.download = generatedPDF.filename;
+										link.click();
+									}}
+									className="px-3 py-1 text-xs font-medium text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300 transition-colors"
+									aria-label={`Download ${generatedPDF.filename}`}
+								>
+									Download
+								</button>
+							)}
+						</div>
+					</div>
 				)}
 
 				

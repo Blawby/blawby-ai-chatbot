@@ -1,5 +1,5 @@
 import {
-  MessageCircle
+  ChatBubbleOvalLeftEllipsisIcon
 } from "@heroicons/react/24/outline";
 
 interface BottomNavigationProps {
@@ -17,7 +17,7 @@ const BottomNavigation = ({ activeTab, onGoToChats }: BottomNavigationProps) => 
           onClick={onGoToChats}
           className="flex items-center justify-center rounded-lg bg-accent-500 text-gray-900 dark:text-white hover:bg-accent-600 transition-colors leading-none p-0"
         >
-          <MessageCircle className="w-6 h-6 block" />
+          <ChatBubbleOvalLeftEllipsisIcon className="w-6 h-6 block" />
         </button>
       </div>
     </div>

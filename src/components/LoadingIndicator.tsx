@@ -17,6 +17,6 @@ const LoadingIndicator = memo(() => {
   );
 });
 
-LoadingIndicator.displayName = 'LoadingIndicator';
+(LoadingIndicator as { displayName?: string }).displayName = 'LoadingIndicator';
 
 export default LoadingIndicator;

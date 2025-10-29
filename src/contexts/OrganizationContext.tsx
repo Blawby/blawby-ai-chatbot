@@ -1,29 +1,9 @@
 import { createContext, useContext, useMemo, useCallback, type ReactNode } from 'preact/compat';
-import { useOrganizationConfig } from '../hooks/useOrganizationConfig.js';
+import { useOrganizationConfig, type UIOrganizationConfig } from '../hooks/useOrganizationConfig.js';
 
 export interface OrganizationContextValue {
   organizationId: string;
-  organizationConfig: {
-    name: string;
-    profileImage: string;
-    introMessage: string | null;
-    description: string | null;
-    availableServices: string[];
-    serviceQuestions: Record<string, string[]>;
-    jurisdiction: {
-      type: string;
-      description: string;
-      supportedStates: string[];
-      supportedCountries: string[];
-    };
-    voice: {
-      enabled: boolean;
-      provider: string;
-      voiceId: string | null;
-      displayName: string | null;
-      previewUrl: string | null;
-    };
-  };
+  organizationConfig: UIOrganizationConfig;
   organizationNotFound: boolean;
   isLoading: boolean;
   handleRetryOrganizationConfig: () => void;

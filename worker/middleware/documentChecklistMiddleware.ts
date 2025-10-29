@@ -52,9 +52,9 @@ export const documentChecklistMiddleware: SimpleMiddleware = {
     // Update context with document checklist
     const updatedContext = ConversationContextManager.updateDocumentChecklist(context, {
       matter_type: matterType,
-      required: documents.filter(doc => doc.required).map(doc => doc.name),
+      required: documents.filter(doc => doc.required).map(doc => doc.document_type),
       provided: [],
-      missing: documents.filter(doc => doc.required).map(doc => doc.name),
+      missing: documents.filter(doc => doc.required).map(doc => doc.document_type),
       last_updated: new Date().toISOString()
     });
 
@@ -102,20 +102,20 @@ function determineMatterType(message: string, context: ConversationContext): str
  */
 function generateDocumentChecklist(matterType: string): Array<{
   id: string;
-  name: string;
+  document_type: string;
   description: string;
   required: boolean;
 }> {
   const baseDocuments = [
     {
       id: 'identification',
-      name: 'Government ID',
+      document_type: 'Government ID',
       description: 'Driver\'s license, passport, or state ID',
       required: true
     },
     {
       id: 'contact_info',
-      name: 'Contact Information',
+      document_type: 'Contact Information',
       description: 'Current address, phone number, email',
       required: true
     }
@@ -123,32 +123,32 @@ function generateDocumentChecklist(matterType: string): Array<{
 
   const matterSpecificDocuments: Record<string, Array<{
     id: string;
-    name: string;
+    document_type: string;
     description: string;
     required: boolean;
   }>> = {
     'family law': [
       {
         id: 'marriage_certificate',
-        name: 'Marriage Certificate',
+        document_type: 'Marriage Certificate',
         description: 'Copy of marriage certificate',
         required: true
       },
       {
         id: 'children_birth_certificates',
-        name: 'Children\'s Birth Certificates',
+        document_type: 'Children\'s Birth Certificates',
         description: 'Birth certificates for all children',
         required: true
       },
       {
         id: 'financial_documents',
-        name: 'Financial Documents',
+        document_type: 'Financial Documents',
         description: 'Bank statements, tax returns, pay stubs',
         required: true
       },
       {
         id: 'property_documents',
-        name: 'Property Documents',
+        document_type: 'Property Documents',
         description: 'Deeds, mortgage statements, property appraisals',
         required: false
       }
@@ -156,31 +156,31 @@ function generateDocumentChecklist(matterType: string): Array<{
     'employment law': [
       {
         id: 'employment_contract',
-        name: 'Employment Contract',
+        document_type: 'Employment Contract',
         description: 'Original or copy of employment contract',
         required: true
       },
       {
         id: 'pay_stubs',
-        name: 'Pay Stubs',
+        document_type: 'Pay Stubs',
         description: 'Recent pay stubs showing income and deductions',
         required: true
       },
       {
         id: 'termination_letter',
-        name: 'Termination Letter',
+        document_type: 'Termination Letter',
         description: 'Copy of termination letter or notice',
         required: true
       },
       {
         id: 'performance_reviews',
-        name: 'Performance Reviews',
+        document_type: 'Performance Reviews',
         description: 'Copies of performance reviews or evaluations',
         required: false
       },
       {
         id: 'benefits_info',
-        name: 'Benefits Information',
+        document_type: 'Benefits Information',
         description: 'Information about health insurance, retirement plans, etc.',
         required: false
       }
@@ -188,31 +188,31 @@ function generateDocumentChecklist(matterType: string): Array<{
     'personal injury': [
       {
         id: 'medical_records',
-        name: 'Medical Records',
+        document_type: 'Medical Records',
         description: 'All medical records related to the injury',
         required: true
       },
       {
         id: 'police_report',
-        name: 'Police Report',
+        document_type: 'Police Report',
         description: 'Copy of police report if applicable',
         required: true
       },
       {
         id: 'insurance_info',
-        name: 'Insurance Information',
+        document_type: 'Insurance Information',
         description: 'Insurance policy information and correspondence',
         required: true
       },
       {
         id: 'witness_statements',
-        name: 'Witness Statements',
+        document_type: 'Witness Statements',
         description: 'Statements from any witnesses',
         required: false
       },
       {
         id: 'photos_evidence',
-        name: 'Photos and Evidence',
+        document_type: 'Photos and Evidence',
         description: 'Photos of injuries, accident scene, property damage',
         required: false
       }
@@ -220,25 +220,25 @@ function generateDocumentChecklist(matterType: string): Array<{
     'business law': [
       {
         id: 'business_formation_docs',
-        name: 'Business Formation Documents',
+        document_type: 'Business Formation Documents',
         description: 'Articles of incorporation, operating agreements, etc.',
         required: true
       },
       {
         id: 'contracts_agreements',
-        name: 'Contracts and Agreements',
+        document_type: 'Contracts and Agreements',
         description: 'Relevant business contracts and agreements',
         required: true
       },
       {
         id: 'financial_records',
-        name: 'Financial Records',
+        document_type: 'Financial Records',
         description: 'Business financial statements, tax returns',
         required: true
       },
       {
         id: 'correspondence',
-        name: 'Correspondence',
+        document_type: 'Correspondence',
         description: 'Relevant emails, letters, and communications',
         required: false
       }
@@ -261,14 +261,14 @@ function generateDocumentResponse(matterType: string, documents: { required: boo
   if (requiredDocs.length > 0) {
     response += `**Required Documents:**\n`;
     requiredDocs.forEach((doc, index) => {
-      response += `${index + 1}. **${doc.name}** - ${doc.description}\n`;
+      response += `${index + 1}. **${doc.document_type}** - ${doc.description}\n`;
     });
   }
 
   if (optionalDocs.length > 0) {
     response += `\n**Optional Documents (helpful but not required):**\n`;
     optionalDocs.forEach((doc, index) => {
-      response += `${index + 1}. **${doc.name}** - ${doc.description}\n`;
+      response += `${index + 1}. **${doc.document_type}** - ${doc.description}\n`;
     });
   }
 

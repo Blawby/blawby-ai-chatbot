@@ -301,7 +301,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
         ...organization.config,
         metadata: {
           ...(organization.config.metadata ?? {}),
-          planStatus: resolvePlanStatus(body.status, organization.config.metadata?.planStatus ?? 'awaiting_payment'),
+          planStatus: resolvePlanStatus(body.status, (organization.config.metadata?.planStatus as string) ?? 'awaiting_payment'),
           lastPaymentStatus: body.status,
           lastPaymentId: body.paymentId,
           lastPaymentAt: new Date().toISOString()
@@ -535,7 +535,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
   if (path.startsWith('/api/payment/') && path.split('/').length === 4 && request.method === 'PUT') {
     try {
       const paymentId = path.split('/')[3];
-      const body = await parseJsonBody(request);
+      const body = await parseJsonBody(request) as { status?: string; notes?: string };
       
       if (!paymentId) {
         throw HttpErrors.badRequest('Payment ID is required');
@@ -602,11 +602,75 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
       // }
 
       // Handle different webhook events
-      const eventType = body.eventType;
-      const paymentId = body.paymentId;
-      const status = body.status;
-      const amount = body.amount || 0;
-      const customerEmail = body.customerEmail || '';
+      const bodyTyped = body as {
+        eventType?: string;
+        paymentId?: string;
+        status?: string;
+        amount?: number;
+        customerEmail?: string;
+        organizationId?: string;
+        [key: string]: unknown;
+      };
+      const eventType = bodyTyped.eventType;
+      const paymentId = bodyTyped.paymentId;
+      const status = bodyTyped.status;
+      const amount = bodyTyped.amount || 0;
+      const customerEmail = bodyTyped.customerEmail || '';
+
+      // Validate required fields
+      const missingFields: string[] = [];
+      if (typeof eventType !== 'string' || eventType.trim() === '') {
+        missingFields.push('eventType');
+      }
+      if (typeof paymentId !== 'string' || paymentId.trim() === '') {
+        missingFields.push('paymentId');
+      }
+      if (typeof status !== 'string' || status.trim() === '') {
+        missingFields.push('status');
+      }
+
+      if (missingFields.length > 0) {
+        console.error('❌ Payment webhook validation failed - missing fields:', missingFields);
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Missing required fields',
+          missingFields
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Resolve organizationId: try from webhook body, then lookup from existing payment record
+      let organizationId: string | null = null;
+      
+      if (bodyTyped.organizationId && typeof bodyTyped.organizationId === 'string' && bodyTyped.organizationId.trim() !== '') {
+        organizationId = bodyTyped.organizationId.trim();
+      } else {
+        // Try to lookup organizationId from existing payment record
+        const existingPayment = await env.DB.prepare(`
+          SELECT organization_id as organizationId
+          FROM payment_history
+          WHERE payment_id = ?
+        `).bind(paymentId).first<{ organizationId: string }>();
+        
+        if (existingPayment?.organizationId) {
+          organizationId = existingPayment.organizationId;
+        }
+      }
+
+      // Validate organizationId is present - required for payment_history table
+      if (!organizationId) {
+        console.error('❌ Payment webhook validation failed - organizationId is required and could not be resolved');
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Missing required field: organizationId must be provided in webhook body or must exist in existing payment record',
+          paymentId
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
 
       // Store payment history
       await env.DB.prepare(`
@@ -618,7 +682,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
           status = ?, updated_at = datetime('now')
       `).bind(
         paymentId,
-        body.organizationId || 'unknown',
+        organizationId,
         customerEmail,
         amount,
         status,

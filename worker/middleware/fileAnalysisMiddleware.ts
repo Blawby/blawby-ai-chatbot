@@ -2,35 +2,8 @@ import type { ConversationContext } from './conversationContextManager.js';
 import type { OrganizationConfig } from '../services/OrganizationService.js';
 import type { PipelineMiddleware } from './pipeline.js';
 import type { Env, AgentMessage } from '../types.js';
-import { analyzeFile, getAnalysisQuestion } from '../utils/fileAnalysisUtils.js';
+import { analyzeFile, getAnalysisQuestion, type FileAnalysisEnv } from '../utils/fileAnalysisUtils.js';
 import { Logger } from '../utils/logger.js';
-
-/**
- * Type adapter for file analysis - contains only the properties needed by analyzeFile
- */
-type FileAnalysisEnv = {
-  FILES_BUCKET: Env['FILES_BUCKET'];
-  DB: Env['DB'];
-  AI: Env['AI'];
-  ENABLE_ADOBE_EXTRACT: Env['ENABLE_ADOBE_EXTRACT'];
-  ADOBE_CLIENT_ID: Env['ADOBE_CLIENT_ID'];
-  ADOBE_CLIENT_SECRET: Env['ADOBE_CLIENT_SECRET'];
-  ADOBE_TECHNICAL_ACCOUNT_ID: Env['ADOBE_TECHNICAL_ACCOUNT_ID'];
-  ADOBE_TECHNICAL_ACCOUNT_EMAIL: Env['ADOBE_TECHNICAL_ACCOUNT_EMAIL'];
-  ADOBE_ORGANIZATION_ID: Env['ADOBE_ORGANIZATION_ID'];
-  ADOBE_IMS_BASE_URL: Env['ADOBE_IMS_BASE_URL'];
-  ADOBE_PDF_SERVICES_BASE_URL: Env['ADOBE_PDF_SERVICES_BASE_URL'];
-  ADOBE_SCOPE: Env['ADOBE_SCOPE'];
-  CLOUDFLARE_ACCOUNT_ID: Env['CLOUDFLARE_ACCOUNT_ID'];
-  CLOUDFLARE_API_TOKEN: Env['CLOUDFLARE_API_TOKEN'];
-  CLOUDFLARE_PUBLIC_URL: Env['CLOUDFLARE_PUBLIC_URL'];
-  AI_MODEL_DEFAULT: Env['AI_MODEL_DEFAULT'];
-  AI_MAX_TEXT_LENGTH: Env['AI_MAX_TEXT_LENGTH'];
-  AI_MAX_TABLES: Env['AI_MAX_TABLES'];
-  AI_MAX_ELEMENTS: Env['AI_MAX_ELEMENTS'];
-  AI_MAX_STRUCTURED_PAYLOAD_LENGTH: Env['AI_MAX_STRUCTURED_PAYLOAD_LENGTH'];
-  DEBUG: Env['DEBUG'];
-};
 
 /**
  * Timeout helper to prevent operations from hanging indefinitely

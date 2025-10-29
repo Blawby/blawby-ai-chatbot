@@ -76,7 +76,11 @@ export async function extractPdfText(buf: ArrayBuffer) {
     }
   }
 
-  const result = { pages, fullText: pages.join("\n\n---\n\n") };
+  const result: { pages: string[]; fullText: string; pageCount: number } = { 
+    pages, 
+    fullText: pages.join("\n\n---\n\n"),
+    pageCount: pages.length
+  };
   console.log('Final extracted text length:', result.fullText.length);
   console.log('Final text preview:', result.fullText.substring(0, 200));
 

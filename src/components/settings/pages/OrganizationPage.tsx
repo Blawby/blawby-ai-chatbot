@@ -554,8 +554,8 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                             <div className="flex-1">
                               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{token.name}</p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Created: {formatDate(token.createdAt)}
-                                {token.lastUsed && ` • Last used: ${formatDate(token.lastUsed)}`}
+                                Created: {formatDate(new Date(token.createdAt * 1000))}
+                                {token.lastUsed && ` • Last used: ${formatDate(new Date(token.lastUsed * 1000))}`}
                               </p>
                             </div>
                             <Button
@@ -632,7 +632,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                         {inv.organizationName || inv.organizationId}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Role: {inv.role} • Expires: {formatDate(inv.expiresAt)}
+                        Role: {inv.role} • Expires: {formatDate(new Date(inv.expiresAt * 1000))}
                       </p>
                     </div>
                     <div className="flex gap-2">

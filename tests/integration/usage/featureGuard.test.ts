@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { env } from '@cloudflare/vitest-pool-workers/testing';
+import { env } from 'cloudflare:test';
+import type { D1Database, KVNamespace } from '@cloudflare/workers-types';
 import { requireFeature } from '../../../worker/middleware/featureGuard.js';
 import { UsageService } from '../../../worker/services/UsageService.js';
 import * as authModule from '../../../worker/middleware/auth.js';
@@ -13,7 +14,7 @@ const NOW = Date.now();
 
 async function seedOrganization(options: { id: string; slug: string; tier: 'free' | 'plus' | 'business' | 'enterprise'; isPersonal?: boolean }) {
   const { id, slug, tier, isPersonal = false } = options;
-  await env.DB.prepare(`
+  await (env as { DB: D1Database }).DB.prepare(`
     INSERT INTO organizations (
       id, name, slug, domain, config,
       subscription_tier, seats, is_personal,
@@ -39,8 +40,9 @@ async function seedUsage(
 ) {
   const period = UsageService.getCurrentPeriod();
   const now = Date.now();
+  const db = (env as { DB: D1Database }).DB;
 
-  await env.DB.prepare(`
+  await db.prepare(`
     INSERT OR IGNORE INTO usage_quotas (
       organization_id,
       period,
@@ -56,7 +58,7 @@ async function seedUsage(
   `).bind(organizationId, period, now).run();
 
   if (metric === 'messages') {
-    await env.DB.prepare(`
+    await db.prepare(`
       UPDATE usage_quotas
          SET messages_used = ?,
              messages_limit = ?,
@@ -65,7 +67,7 @@ async function seedUsage(
        WHERE organization_id = ? AND period = ?
     `).bind(used, limit, limit, now, organizationId, period).run();
   } else {
-    await env.DB.prepare(`
+    await db.prepare(`
       UPDATE usage_quotas
          SET files_used = ?,
              files_limit = ?,
@@ -80,19 +82,24 @@ describe('Feature Guard - quota enforcement', () => {
   beforeEach(async () => {
     optionalAuthSpy.mockResolvedValue(null);
     
+    const db = (env as { DB: D1Database }).DB;
+    const kv = (env as { USAGE_QUOTAS?: KVNamespace }).USAGE_QUOTAS;
+    
     // Clear KV namespace to prevent stale usage snapshots
-    try {
-      const kvKeys = await env.USAGE_QUOTAS.list();
-      if (kvKeys.keys.length > 0) {
-        await Promise.all(kvKeys.keys.map(key => env.USAGE_QUOTAS.delete(key.name)));
+    if (kv) {
+      try {
+        const kvKeys = await kv.list();
+        if (kvKeys.keys.length > 0) {
+          await Promise.all(kvKeys.keys.map(key => kv.delete(key.name)));
+        }
+      } catch (error) {
+        console.warn('Failed to clear USAGE_QUOTAS KV namespace:', error);
       }
-    } catch (error) {
-      console.warn('Failed to clear USAGE_QUOTAS KV namespace:', error);
     }
     
-    await env.DB.prepare('DELETE FROM chat_sessions').run();
-    await env.DB.prepare('DELETE FROM usage_quotas').run();
-    await env.DB.prepare('DELETE FROM organizations').run();
+    await db.prepare('DELETE FROM chat_sessions').run();
+    await db.prepare('DELETE FROM usage_quotas').run();
+    await db.prepare('DELETE FROM organizations').run();
 
     await seedOrganization({ id: ORG_ID, slug: 'feature-guard', tier: 'free' });
     await seedOrganization({ id: PERSONAL_ORG_ID, slug: 'personal', tier: 'business', isPersonal: true });

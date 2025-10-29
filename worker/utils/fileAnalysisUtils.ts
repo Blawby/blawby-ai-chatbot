@@ -1,9 +1,38 @@
 import { createAnalysisErrorResponse } from './responseUtils.js';
+import type { Env } from '../types.js';
+
+/**
+ * Type adapter for file analysis - contains only the properties needed by analyzeFile
+ */
+export type FileAnalysisEnv = Pick<
+  Env,
+  | 'FILES_BUCKET'
+  | 'DB'
+  | 'AI'
+  | 'ENABLE_ADOBE_EXTRACT'
+  | 'ADOBE_CLIENT_ID'
+  | 'ADOBE_CLIENT_SECRET'
+  | 'ADOBE_TECHNICAL_ACCOUNT_ID'
+  | 'ADOBE_TECHNICAL_ACCOUNT_EMAIL'
+  | 'ADOBE_ORGANIZATION_ID'
+  | 'ADOBE_IMS_BASE_URL'
+  | 'ADOBE_PDF_SERVICES_BASE_URL'
+  | 'ADOBE_SCOPE'
+  | 'CLOUDFLARE_ACCOUNT_ID'
+  | 'CLOUDFLARE_API_TOKEN'
+  | 'CLOUDFLARE_PUBLIC_URL'
+  | 'AI_MODEL_DEFAULT'
+  | 'AI_MAX_TEXT_LENGTH'
+  | 'AI_MAX_TABLES'
+  | 'AI_MAX_ELEMENTS'
+  | 'AI_MAX_STRUCTURED_PAYLOAD_LENGTH'
+  | 'DEBUG'
+>;
 
 /**
  * Analyzes files using the vision API
  */
-export async function analyzeFile(env: Record<string, unknown>, fileId: string, question?: string): Promise<Record<string, unknown>> {
+export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question?: string): Promise<Record<string, unknown>> {
   console.log('=== ANALYZE FILE FUNCTION CALLED ===');
   console.log('File ID:', fileId);
   console.log('Question:', question);
@@ -20,7 +49,7 @@ export async function analyzeFile(env: Record<string, unknown>, fileId: string, 
       return createAnalysisErrorResponse(
         "File analysis is not configured. Please contact support.",
         ["Contact support to enable file analysis"]
-      );
+      ) as unknown as Record<string, unknown>;
     }
 
     // Try to get file metadata from database first
@@ -47,7 +76,7 @@ export async function analyzeFile(env: Record<string, unknown>, fileId: string, 
       console.warn('Could not determine file path for analysis:', fileId);
       return createAnalysisErrorResponse(
         "Unable to locate the uploaded file for analysis. The file may have been moved or deleted."
-      );
+      ) as unknown as Record<string, unknown>;
     }
 
     // Get file from R2
@@ -57,7 +86,7 @@ export async function analyzeFile(env: Record<string, unknown>, fileId: string, 
       console.warn('File not found in R2 storage for analysis:', filePath);
       return createAnalysisErrorResponse(
         "The uploaded file could not be retrieved from storage for analysis."
-      );
+      ) as unknown as Record<string, unknown>;
     }
 
     console.log('R2 file object:', {
@@ -88,31 +117,31 @@ export async function analyzeFile(env: Record<string, unknown>, fileId: string, 
         size: file.size
       });
       
-      const analysis = await analyzeWithCloudflareAI(file, analysisQuestion, env);
+      const analysis = await analyzeWithCloudflareAI(file, analysisQuestion, env as Env);
       console.log('Analysis completed successfully:', {
         confidence: analysis.confidence,
         keyFactsCount: analysis.key_facts?.length || 0
       });
-      return analysis;
+      return analysis as unknown as Record<string, unknown>;
     } catch (error) {
       console.error('Analysis error:', error);
       return createAnalysisErrorResponse(
         "The file analysis failed due to a technical error. The AI service may be temporarily unavailable."
-      );
+      ) as unknown as Record<string, unknown>;
     }
 
   } catch (error) {
     console.error('File analysis error:', error);
     return createAnalysisErrorResponse(
       "An unexpected error occurred during file analysis. Please try again or contact support."
-    );
+    ) as unknown as Record<string, unknown>;
   }
 }
 
 /**
  * Finds file path in R2 storage by file ID
  */
-async function findFilePathInR2(env: Record<string, unknown>, fileId: string): Promise<string | null> {
+async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<string | null> {
   console.log('No file path from database, attempting to construct from file ID');
   
   // Handle the actual file ID format with UUID

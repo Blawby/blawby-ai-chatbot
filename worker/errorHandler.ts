@@ -31,7 +31,7 @@ export function handleError(error: unknown): Response {
   } else if (error instanceof ZodError) {
     status = 400;
     message = 'Validation error';
-    details = error.errors;
+    details = error.issues; // ZodError uses 'issues' not 'errors'
     errorCode = 'VALIDATION_ERROR';
   } else if (error instanceof SyntaxError) {
     status = 400;

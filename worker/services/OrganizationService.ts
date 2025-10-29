@@ -52,6 +52,7 @@ export interface OrganizationConfig {
   accentColor?: string;
   introMessage?: string;
   profileImage?: string;
+  name?: string;  // Optional organization name for use in PDFs and other contexts
   voice: OrganizationVoiceConfig;
   blawbyApi?: {
     enabled: boolean;
@@ -61,6 +62,7 @@ export interface OrganizationConfig {
     apiUrl?: string;
   };
   testMode?: boolean;  // Organization-level testing flag for notifications and other features
+  metadata?: Record<string, unknown>; // Additional metadata for organization configuration
 }
 
 const LEGACY_AI_PROVIDER = 'workers-ai';
@@ -302,19 +304,28 @@ export class OrganizationService {
    * Resolves environment variable placeholders in organization configuration
    * This allows storing sensitive data like API keys as environment variable references
    * Supports generic ${VAR_NAME} pattern matching
+   * 
+   * SECURITY: Excludes 'metadata' field from resolution to prevent untrusted user input
+   * from resolving environment variables. Metadata can be set by organization owners
+   * and should not be processed for environment variable substitution.
    */
-  private resolveEnvironmentVariables<T>(config: T): T {
+  private resolveEnvironmentVariables<T>(config: T, excludeKeys: Set<string> = new Set(['metadata'])): T {
     if (config === null || typeof config !== 'object') {
       return config;
     }
 
     if (Array.isArray(config)) {
-      return config.map(item => this.resolveEnvironmentVariables(item)) as unknown as T;
+      return config.map(item => this.resolveEnvironmentVariables(item, excludeKeys)) as unknown as T;
     }
 
     const resolvedEntries = Object.entries(config as Record<string, unknown>).map(([key, value]) => {
+      // Skip excluded keys (like metadata) - return as-is without processing
+      if (excludeKeys.has(key)) {
+        return [key, value];
+      }
+      
       if (value && typeof value === 'object') {
-        return [key, this.resolveEnvironmentVariables(value)];
+        return [key, this.resolveEnvironmentVariables(value, excludeKeys)];
       }
       if (typeof value === 'string') {
         return [key, this.resolveStringVariables(value)];

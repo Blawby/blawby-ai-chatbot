@@ -55,7 +55,7 @@ export class AIService {
       const organization = await organizationService.getOrganization(organizationId);
       
       if (organization) {
-        Logger.logOrganizationConfig(organization, true); // Include sanitized config in debug mode
+        Logger.logOrganizationConfig(organization as unknown as Record<string, unknown>, true); // Include sanitized config in debug mode
         this.organizationConfigCache.set(organizationId, { config: organization.config, timestamp: Date.now() });
         return organization.config;
       } else {

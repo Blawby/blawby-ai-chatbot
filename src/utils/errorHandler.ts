@@ -90,7 +90,7 @@ function sanitizeError(error: unknown, context: ErrorContext = {}, visited: Weak
           });
         } else {
           // Recursively sanitize nested objects
-          sanitizedContext[key] = sanitizeError(error, value, visited).context;
+          sanitizedContext[key] = sanitizeError(error, value as Record<string, unknown>, visited).context;
         }
       } finally {
         // Remove from visited set after processing

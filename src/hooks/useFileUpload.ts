@@ -263,6 +263,7 @@ export const useFileUpload = ({ organizationId, sessionId, onError }: UseFileUpl
   const handleMediaCapture = useCallback((blob: Blob, _type: 'audio' | 'video') => {
     const url = URL.createObjectURL(blob);
     const file: FileAttachment = {
+      id: `recording_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
       name: `Recording_${new Date().toISOString()}.webm`,
       size: blob.size,
       type: blob.type,
