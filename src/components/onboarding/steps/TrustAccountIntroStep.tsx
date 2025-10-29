@@ -2,8 +2,9 @@
  * Trust Account Intro Step Component
  */
 
-import { useTranslation } from '@/i18n/hooks';
-import { Button } from '../../ui/Button';
+import { ChecklistItem } from '../atoms/ChecklistItem';
+import { InfoCard } from '../atoms/InfoCard';
+import { OnboardingActions } from '../molecules/OnboardingActions';
 
 interface TrustAccountIntroStepProps {
   onContinue: () => void;
@@ -11,45 +12,32 @@ interface TrustAccountIntroStepProps {
 }
 
 export function TrustAccountIntroStep({ onContinue, onBack }: TrustAccountIntroStepProps) {
-  const { t } = useTranslation('onboarding');
-
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <div className="flex items-start gap-3">
-          <span className="text-green-500 text-lg">✅</span>
-          <span className="text-sm text-gray-600 dark:text-gray-300">
-            Bank-level encryption
-          </span>
-        </div>
-        <div className="flex items-start gap-3">
-          <span className="text-green-500 text-lg">✅</span>
-          <span className="text-sm text-gray-600 dark:text-gray-300">
-            IOLTA trust compliance
-          </span>
-        </div>
-        <div className="flex items-start gap-3">
-          <span className="text-green-500 text-lg">✅</span>
-          <span className="text-sm text-gray-600 dark:text-gray-300">
-            No funds touch Blawby
-          </span>
-        </div>
-        <div className="flex items-start gap-3">
-          <span className="text-amber-600 dark:text-amber-400 text-lg">⚖️</span>
-          <p className="text-sm text-amber-800 dark:text-amber-200">
-            Do not use your operating account for this step.
-          </p>
-        </div>
+        <ChecklistItem status="completed">
+          Bank-level encryption
+        </ChecklistItem>
+        <ChecklistItem status="completed">
+          IOLTA trust compliance
+        </ChecklistItem>
+        <ChecklistItem status="completed">
+          No funds touch Blawby
+        </ChecklistItem>
       </div>
 
-      <div className="flex gap-3 pt-4">
-        <Button variant="secondary" onClick={onBack} className="flex-1">
-          Back
-        </Button>
-        <Button variant="primary" onClick={onContinue} className="flex-1">
-          Continue
-        </Button>
-      </div>
+      <InfoCard
+        variant="amber"
+        icon="⚖️"
+        title="Important Notice"
+      >
+        Do not use your operating account for this step.
+      </InfoCard>
+
+      <OnboardingActions
+        onContinue={onContinue}
+        onBack={onBack}
+      />
     </div>
   );
 }

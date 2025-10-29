@@ -1,144 +1,113 @@
 /**
  * Services Step Component
- * Configure the services offered by the business
  */
 
-import { useState } from 'preact/hooks';
-import { useTranslation } from '@/i18n/hooks';
-import { Button } from '../../ui/Button';
 import { Input, Textarea } from '../../ui/input';
-import { XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Button } from '../../ui/Button';
+import { ValidationAlert } from '../atoms/ValidationAlert';
+import { OnboardingActions } from '../molecules/OnboardingActions';
 
 interface Service {
-  id: string;
   title: string;
   description: string;
 }
 
 interface ServicesStepProps {
-  data: {
-    services: Service[];
-  };
-  onChange: (data: any) => void;
+  data: Service[];
+  onChange: (services: Service[]) => void;
   onContinue: () => void;
   onBack: () => void;
+  errors?: string | null;
 }
 
-export function ServicesStep({ data, onChange, onContinue, onBack }: ServicesStepProps) {
-  const { t } = useTranslation('onboarding');
-  const [errors, setErrors] = useState<string[]>([]);
-
-  const handleAddService = () => {
-    const newService: Service = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: '',
-      description: ''
-    };
-    onChange({
-      ...data,
-      services: [...data.services, newService]
-    });
+export function ServicesStep({ data, onChange, onContinue, onBack, errors }: ServicesStepProps) {
+  const addService = () => {
+    onChange([...data, { title: '', description: '' }]);
   };
 
-  const handleRemoveService = (index: number) => {
-    const services = data.services.filter((_, i) => i !== index);
-    onChange({
-      ...data,
-      services: services
-    });
+  const updateService = (index: number, field: keyof Service, value: string) => {
+    const updated = [...data];
+    updated[index] = { ...updated[index], [field]: value };
+    onChange(updated);
   };
 
-  const handleServiceChange = (index: number, field: 'title' | 'description', value: string) => {
-    const services = [...data.services];
-    services[index] = { ...services[index], [field]: value };
-    onChange({
-      ...data,
-      services: services
-    });
-  };
-
-  const handleContinue = () => {
-    const validServices = data.services.filter(service => service.title.trim().length > 0);
-    
-    if (validServices.length === 0) {
-      setErrors(['At least one service is required']);
-      return;
-    }
-
-    setErrors([]);
-    onContinue();
+  const removeService = (index: number) => {
+    const updated = data.filter((_, i) => i !== index);
+    onChange(updated);
   };
 
   return (
     <div className="space-y-6">
-      {errors.length > 0 && (
-        <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
-          <ul className="space-y-1 text-sm text-red-700 dark:text-red-300">
-            {errors.map((error, i) => (
-              <li key={i}>• {error}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {data.services.length === 0 && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          No services added yet. Click "Add Service" to get started.
-        </div>
+      {errors && (
+        <ValidationAlert type="error">
+          {errors}
+        </ValidationAlert>
       )}
 
       <div className="space-y-4">
-        {data.services.map((service, index) => (
-          <div key={service.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-3">
-            <div className="flex justify-between items-start">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                Service {index + 1}
-              </h4>
-              <button
-                onClick={() => handleRemoveService(index)}
-                className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                type="button"
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <Input
-              label="Service title"
-              value={service.title}
-              onChange={(value) => handleServiceChange(index, 'title', value)}
-              placeholder="e.g., Family Law Consultation"
-              required
-            />
-            
-            <Textarea
-              label="Description (optional)"
-              value={service.description || ''}
-              onChange={(value) => handleServiceChange(index, 'description', value)}
-              placeholder="Brief description of this service"
-              rows={2}
-            />
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            Practice Areas & Services
+          </h3>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={addService}
+          >
+            Add Service
+          </Button>
+        </div>
+
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Add the legal services you offer. This helps the AI assistant provide more relevant guidance to potential clients.
+        </p>
+
+        {data.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <p>No services added yet. Click "Add Service" to get started.</p>
           </div>
-        ))}
+        ) : (
+          <div className="space-y-4">
+            {data.map((service, index) => (
+              <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                    Service {index + 1}
+                  </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeService(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </Button>
+                </div>
+                
+                <Input
+                  label="Service Title"
+                  value={service.title}
+                  onChange={(value) => updateService(index, 'title', value)}
+                  placeholder="e.g., Personal Injury Law"
+                />
+                
+                <Textarea
+                  label="Description (optional)"
+                  value={service.description}
+                  onChange={(value) => updateService(index, 'description', value)}
+                  placeholder="Brief description of this service..."
+                  rows={2}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      <Button
-        variant="secondary"
-        onClick={handleAddService}
-        className="w-full"
-      >
-        <PlusIcon className="w-5 h-5 mr-2" />
-        Add Service
-      </Button>
-
-      <div className="flex gap-3 pt-4">
-        <Button variant="secondary" onClick={onBack} className="flex-1">
-          Back
-        </Button>
-        <Button variant="primary" onClick={handleContinue} className="flex-1">
-          Continue
-        </Button>
-      </div>
+      <OnboardingActions
+        onContinue={onContinue}
+        onBack={onBack}
+      />
     </div>
   );
 }

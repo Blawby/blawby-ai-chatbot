@@ -2,9 +2,12 @@
  * Review and Launch Step Component
  */
 
-import { useTranslation } from '@/i18n/hooks';
-import { Button } from '../../ui/Button';
 import { Switch } from '../../ui/input';
+import { ReviewField } from '../molecules/ReviewField';
+import { IntakeUrlDisplay } from '../molecules/IntakeUrlDisplay';
+import { OnboardingActions } from '../molecules/OnboardingActions';
+import { InfoCard } from '../atoms/InfoCard';
+import { FeatureList } from '../molecules/FeatureList';
 
 interface ReviewAndLaunchStepProps {
   data: {
@@ -35,15 +38,28 @@ export function ReviewAndLaunchStep({
   onComplete, 
   onBack 
 }: ReviewAndLaunchStepProps) {
-  const { t } = useTranslation('onboarding');
-  
   const intakeUrl = `https://ai.blawby.com/${organizationSlug || 'your-firm'}`;
   const validServices = data.services.filter(service => service.title.trim().length > 0);
+
+  const launchFeatures = [
+    {
+      text: 'Your AI assistant will be available at your intake page URL',
+      variant: 'default' as const
+    },
+    {
+      text: 'Clients can chat with your assistant and submit intake forms',
+      variant: 'default' as const
+    },
+    {
+      text: 'You\'ll receive notifications for new client submissions',
+      variant: 'default' as const
+    }
+  ];
 
   return (
     <div className="space-y-6">
       {/* Review Section */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 space-y-4">
+      <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.05] p-6 space-y-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Review your business profile
         </h3>
@@ -51,11 +67,11 @@ export function ReviewAndLaunchStep({
         {/* Firm Information */}
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Firm Information</h4>
-          <div className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
-            <p><strong>Name:</strong> {data.firmName}</p>
-            <p><strong>Email:</strong> {data.contactEmail}</p>
-            <p><strong>Phone:</strong> {data.contactPhone}</p>
-            {data.website && <p><strong>Website:</strong> {data.website}</p>}
+          <div className="space-y-1">
+            <ReviewField label="Name" value={data.firmName} />
+            <ReviewField label="Email" value={data.contactEmail} />
+            <ReviewField label="Phone" value={data.contactPhone} />
+            {data.website && <ReviewField label="Website" value={data.website} />}
           </div>
         </div>
 
@@ -105,13 +121,13 @@ export function ReviewAndLaunchStep({
       </div>
 
       {/* Visibility Toggle */}
-      <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-white/10 rounded-lg">
         <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             Make workspace public
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Anyone can chat with your assistant
+            When enabled, anyone can chat with your assistant and submit intake questions.
           </p>
         </div>
         <Switch
@@ -121,23 +137,22 @@ export function ReviewAndLaunchStep({
       </div>
 
       {/* Intake URL */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 p-4">
-        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-          Your intake form will be available at:
-        </p>
-        <p className="text-sm text-blue-700 dark:text-blue-300 font-mono mt-1">
-          {intakeUrl}
-        </p>
-      </div>
+      <IntakeUrlDisplay url={intakeUrl} />
 
-      <div className="flex gap-3 pt-4">
-        <Button variant="secondary" onClick={onBack} className="flex-1">
-          Back
-        </Button>
-        <Button variant="primary" onClick={onComplete} className="flex-1">
-          Launch →
-        </Button>
-      </div>
+      {/* What happens when you launch */}
+      <InfoCard
+        variant="default"
+        title="What happens when you launch"
+      >
+        <FeatureList items={launchFeatures} size="sm" />
+      </InfoCard>
+
+      <OnboardingActions
+        onContinue={onComplete}
+        onBack={onBack}
+        continueLabel="Launch Assistant"
+        isLastStep={true}
+      />
     </div>
   );
 }

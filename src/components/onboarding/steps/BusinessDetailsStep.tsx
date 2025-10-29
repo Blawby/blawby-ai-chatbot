@@ -2,31 +2,31 @@
  * Business Details Step Component
  */
 
-import { useTranslation } from '@/i18n/hooks';
-import { Button } from '../../ui/Button';
 import { Input, Textarea } from '../../ui/input';
+import { OnboardingActions } from '../molecules/OnboardingActions';
 
-interface BusinessDetailsStepProps {
-  data: {
-    addressLine1: string;
-    addressLine2: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-    primaryColor: string;
-    accentColor: string;
-    introMessage: string;
-    overview: string;
-  };
-  onChange: (data: any) => void;
-  onContinue: () => void;
-  onBack: () => void;
+interface BusinessDetailsData {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  primaryColor: string;
+  accentColor: string;
+  introMessage: string;
+  overview: string;
 }
 
-export function BusinessDetailsStep({ data, onChange, onContinue, onBack }: BusinessDetailsStepProps) {
-  const { t } = useTranslation('onboarding');
+interface BusinessDetailsStepProps {
+  data: BusinessDetailsData;
+  onChange: (data: BusinessDetailsData) => void;
+  onContinue: () => void;
+  onBack: () => void;
+  errors?: string | null;
+}
 
+export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors }: BusinessDetailsStepProps) {
   return (
     <div className="space-y-6">
       {/* Address fields - Row 1: Address Line 1 & 2 */}
@@ -83,14 +83,10 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack }: Busi
         rows={5}
       />
 
-      <div className="flex gap-3 pt-4">
-        <Button variant="secondary" onClick={onBack} className="flex-1">
-          Back
-        </Button>
-        <Button variant="primary" onClick={onContinue} className="flex-1">
-          Continue
-        </Button>
-      </div>
+      <OnboardingActions
+        onContinue={onContinue}
+        onBack={onBack}
+      />
     </div>
   );
 }

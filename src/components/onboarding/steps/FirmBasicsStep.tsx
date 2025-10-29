@@ -2,9 +2,9 @@
  * Firm Basics Step Component
  */
 
-import { useState } from 'preact/hooks';
-import { Button } from '../../ui/Button';
 import { Input, EmailInput, PhoneInput, URLInput, FileInput } from '../../ui/input';
+import { ValidationAlert } from '../atoms/ValidationAlert';
+import { OnboardingActions } from '../molecules/OnboardingActions';
 
 interface FirmBasicsData {
   firmName: string;
@@ -18,48 +18,22 @@ interface FirmBasicsStepProps {
   onChange: (data: FirmBasicsData) => void;
   onContinue: () => void;
   onBack: () => void;
+  errors?: string | null;
 }
 
 export function FirmBasicsStep({ 
   data, 
   onChange, 
   onContinue, 
-  onBack 
+  onBack,
+  errors
 }: FirmBasicsStepProps) {
-  const [errors, setErrors] = useState<string[]>([]);
-
-  const handleContinue = () => {
-    const validationErrors: string[] = [];
-    
-    if (!data.firmName.trim()) {
-      validationErrors.push('Business name is required');
-    }
-    if (!data.contactEmail.trim()) {
-      validationErrors.push('Business email is required');
-    }
-    if (!data.contactPhone?.trim()) {
-      validationErrors.push('Business phone is required');
-    }
-    
-    if (validationErrors.length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    setErrors([]);
-    onContinue();
-  };
-
   return (
     <div className="space-y-6">
-      {errors.length > 0 && (
-        <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
-          <ul className="space-y-1 text-sm text-red-700 dark:text-red-300">
-            {errors.map((error, i) => (
-              <li key={i}>• {error}</li>
-            ))}
-          </ul>
-        </div>
+      {errors && (
+        <ValidationAlert type="error">
+          {errors}
+        </ValidationAlert>
       )}
 
       <Input
@@ -91,25 +65,19 @@ export function FirmBasicsStep({
         placeholder="https://yourbusiness.com"
       />
 
-      <div>
-        <FileInput
-          label="Upload logo (optional)"
-          description="Upload a square logo. Maximum 5 MB."
-          accept="image/*"
-          multiple={false}
-          value={[]}
-          onChange={() => {}} // Placeholder - no actual upload
-        />
-      </div>
+      <FileInput
+        label="Upload logo (optional)"
+        description="Upload a square logo. Maximum 5 MB."
+        accept="image/*"
+        multiple={false}
+        value={[]}
+        onChange={() => {}} // Placeholder - no actual upload
+      />
 
-      <div className="flex gap-3 pt-4">
-        <Button variant="secondary" onClick={onBack} className="flex-1">
-          Back
-        </Button>
-        <Button variant="primary" onClick={handleContinue} className="flex-1">
-          Continue
-        </Button>
-      </div>
+      <OnboardingActions
+        onContinue={onContinue}
+        onBack={onBack}
+      />
     </div>
   );
 }

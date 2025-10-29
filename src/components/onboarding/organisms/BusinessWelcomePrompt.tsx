@@ -1,15 +1,23 @@
-import { useNavigation } from '../../utils/navigation';
-import Modal from '../Modal';
-import { Button } from '../ui/Button';
+/**
+ * BusinessWelcomePrompt - Organism Component
+ * 
+ * Refactored from BusinessWelcomeModal.
+ * Uses atomic components for consistent styling.
+ */
+
+import { useNavigation } from '../../../utils/navigation';
+import Modal from '../../Modal';
+import { Button } from '../../ui/Button';
 import { UserGroupIcon, BuildingOfficeIcon, KeyIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
+import { FeatureList } from '../molecules/FeatureList';
 
-interface BusinessWelcomeModalProps {
+interface BusinessWelcomePromptProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const BusinessWelcomeModal = ({ isOpen, onClose }: BusinessWelcomeModalProps) => {
+export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePromptProps) => {
   const { navigate } = useNavigation();
   const { t } = useTranslation('common');
 
@@ -17,6 +25,24 @@ export const BusinessWelcomeModal = ({ isOpen, onClose }: BusinessWelcomeModalPr
     onClose();
     navigate('/settings/organization');
   };
+
+  const features = [
+    {
+      text: t('businessWelcome.features.teamManagement.description'),
+      icon: <UserGroupIcon className="w-6 h-6" />,
+      variant: 'default' as const
+    },
+    {
+      text: t('businessWelcome.features.organizationSettings.description'),
+      icon: <BuildingOfficeIcon className="w-6 h-6" />,
+      variant: 'default' as const
+    },
+    {
+      text: t('businessWelcome.features.apiAccess.description'),
+      icon: <KeyIcon className="w-6 h-6" />,
+      variant: 'default' as const
+    }
+  ];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
@@ -26,7 +52,7 @@ export const BusinessWelcomeModal = ({ isOpen, onClose }: BusinessWelcomeModalPr
           {t('businessWelcome.subtitle')}
         </p>
 
-        <div className="grid grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="text-center">
             <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-3">
               <UserGroupIcon className="h-6 w-6 text-blue-400" />
