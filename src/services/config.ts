@@ -40,7 +40,7 @@ export async function getAppConfig(): Promise<AppConfig> {
   }
 
   try {
-    const response = await fetch(`${getApiConfig().baseUrl}/config`);
+    const response = await fetch(`${getApiConfig().baseUrl}/api/config`);
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.status}`);
     }
