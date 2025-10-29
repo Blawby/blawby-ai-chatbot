@@ -56,7 +56,8 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData } = authClient.useSession();
-  const activeOrganization = authClient.useActiveOrganization();
+  // Only call useActiveOrganization when user is authenticated to prevent 401 errors
+  const activeOrganization = sessionData?.user ? authClient.useActiveOrganization() : { data: null, isPending: false, error: null };
 
   const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
