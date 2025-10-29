@@ -251,14 +251,16 @@ export class ScopedStatusService {
   async createStatus(statusData: {
     id: string;
     sessionId: string;
-    organizationId: string;
     type: 'file_processing' | 'document_analysis' | 'background_task' | 'system_notification' | 'matter_update';
     status: 'pending' | 'processing' | 'completed' | 'failed';
     message: string;
     progress?: number;
     data?: Record<string, unknown>;
   }) {
-    return StatusService.setStatus(this.env, statusData);
+    return StatusService.setStatus(this.env, {
+      ...statusData,
+      organizationId: this.organizationId
+    });
   }
 
   /**

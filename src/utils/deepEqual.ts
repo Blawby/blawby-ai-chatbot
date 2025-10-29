@@ -112,6 +112,43 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     return true;
   }
   
+  // Definitive guard for typed arrays and DataView: prevent cross-type/cross-realm fallthrough
+  // Use Object.prototype.toString to get toStringTag, which works across realms
+  const tagA = Object.prototype.toString.call(a);
+  const tagB = Object.prototype.toString.call(b);
+  
+  // Check if both are typed arrays (any type) using toStringTag
+  const typedArrayPattern = /^\[object (Uint8ClampedArray|Uint8Array|Uint16Array|Uint32Array|Int8Array|Int16Array|Int32Array|Float32Array|Float64Array|BigUint64Array|BigInt64Array)\]$/;
+  const isTypedArrayA = typedArrayPattern.test(tagA);
+  const isTypedArrayB = typedArrayPattern.test(tagB);
+  
+  if (isTypedArrayA || isTypedArrayB) {
+    // If one is a typed array and the other isn't, they're not equal
+    if (isTypedArrayA !== isTypedArrayB) return false;
+    // Both are typed arrays - require same type and compare elements
+    if (tagA !== tagB) return false; // Different types (e.g., Int8Array vs Uint8Array)
+    
+    // Same type - compare element-wise
+    const arrA = a as ArrayLike<number | bigint>;
+    const arrB = b as ArrayLike<number | bigint>;
+    if (arrA.length !== arrB.length) return false;
+    
+    for (let i = 0; i < arrA.length; i++) {
+      if (arrA[i] !== arrB[i]) return false;
+    }
+    return true;
+  }
+  
+  // Handle DataView explicitly
+  if (tagA === '[object DataView]' || tagB === '[object DataView]') {
+    if (tagA !== tagB) return false; // One is DataView, other isn't
+    const dvA = a as DataView;
+    const dvB = b as DataView;
+    if (dvA.byteLength !== dvB.byteLength || dvA.byteOffset !== dvB.byteOffset) return false;
+    // Compare underlying buffer using existing ArrayBuffer comparison
+    return deepEqual(dvA.buffer, dvB.buffer);
+  }
+  
   // Handle regular objects
   const keysA = Reflect.ownKeys(a as Record<string | symbol, unknown>);
   const keysB = Reflect.ownKeys(b as Record<string | symbol, unknown>);

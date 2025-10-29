@@ -6,6 +6,7 @@ import { UserIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, type FormData } from '../ui/form';
 import { Input, DatePicker } from '../ui/input';
 import { Checkbox } from '../ui/input';
+import { schemas } from '../ui/validation/schemas';
 
 interface PersonalInfoData extends FormData {
   fullName: string;
@@ -67,9 +68,13 @@ const PersonalInfoStep = ({ data: _data, onComplete, onBack }: PersonalInfoStepP
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <Form<PersonalInfoData> onSubmit={async (formData: PersonalInfoData): Promise<void> => {
-            await handleSubmit(formData);
-          }} initialData={_data}>
+          <Form<PersonalInfoData> 
+            onSubmit={async (formData: PersonalInfoData): Promise<void> => {
+              await handleSubmit(formData);
+            }} 
+            initialData={_data}
+            schema={schemas.onboarding.personalInfo}
+          >
             <div className="space-y-4">
               {/* Full Name */}
               <FormField name="fullName">

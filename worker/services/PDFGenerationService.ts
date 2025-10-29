@@ -556,8 +556,8 @@ export class PDFGenerationService {
       // Add documents section
       if (content.documents && Array.isArray(content.documents) && content.documents.length > 0) {
         addSectionHeader('AVAILABLE DOCUMENTS');
-        content.documents.forEach((doc: { name: string; description?: string }, index: number) => {
-          const docText = doc.description ? `${doc.name}: ${doc.description}` : doc.name;
+        content.documents.forEach((doc: { document_type: string; description?: string }, index: number) => {
+          const docText = doc.description ? `${doc.document_type}: ${doc.description}` : doc.document_type;
           addText(`• ${docText}`, font, fontSize, rgb(0, 0, 0), width - 100);
         });
         yPosition -= 20;
@@ -608,7 +608,7 @@ export class PDFGenerationService {
     organizationName: string;
     summary: string;
     parties: { role: string; name?: string; relationship?: string }[];
-    documents: { name: string; description?: string }[];
+    documents: { document_type: string; description?: string }[];
     timeline: { date: string; event: string }[];
     [key: string]: unknown;
   } {
@@ -629,7 +629,7 @@ export class PDFGenerationService {
       keyFacts: caseDraft.key_facts || [],
       timeline: caseDraft.timeline ? [{ date: currentDate, event: caseDraft.timeline }] : [],
       parties: caseDraft.parties || [],
-      documents: (caseDraft.documents || []).map(doc => ({ name: doc, description: undefined })),
+      documents: (caseDraft.documents || []).map(doc => ({ document_type: doc, description: undefined })),
       evidence: caseDraft.evidence || [],
       clientName: clientName || '',
       organizationName: organizationName || '',

@@ -148,7 +148,7 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
           urgency: context.caseDraft.urgency || 'normal'
         },
         clientName: context.contactInfo?.name,
-        organizationName: organizationConfig?.description || 'Legal Services',
+        organizationName: organizationConfig?.name || organization?.name || organizationConfig?.description || 'Legal Services',
         organizationBrandColor: organizationConfig?.brandColor || '#2563eb'
       }, env);
 

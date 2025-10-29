@@ -1,5 +1,4 @@
 import type { Env } from '../types';
-import type { OrganizationConfig } from './OrganizationService';
 
 export interface ReviewMatter {
   id: string;
