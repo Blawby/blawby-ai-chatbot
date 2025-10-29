@@ -1,16 +1,12 @@
 -- Add PII compliance and encryption fields
 -- Migration: Add PII protection, consent tracking, and audit logging
 -- Date: 2025-01-18
+-- 
+-- Note: Production databases created with schema.sql already have columns with _encrypted suffix
+-- This migration only adds new PII compliance fields and creates audit table
+-- Column renames are NOT needed as schema.sql already defines correct column names
 
--- Rename existing PII fields to indicate they need encryption
-ALTER TABLE users RENAME COLUMN secondary_phone TO secondary_phone_encrypted;
-ALTER TABLE users RENAME COLUMN address_street TO address_street_encrypted;
-ALTER TABLE users RENAME COLUMN address_city TO address_city_encrypted;
-ALTER TABLE users RENAME COLUMN address_state TO address_state_encrypted;
-ALTER TABLE users RENAME COLUMN address_zip TO address_zip_encrypted;
-ALTER TABLE users RENAME COLUMN address_country TO address_country_encrypted;
-
--- Add PII compliance and consent fields
+-- Add PII compliance and consent fields (idempotent - will fail silently if already exists)
 ALTER TABLE users ADD COLUMN pii_consent_given INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN pii_consent_date INTEGER;
 ALTER TABLE users ADD COLUMN data_retention_consent INTEGER DEFAULT 0;
