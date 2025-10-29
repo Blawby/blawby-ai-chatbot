@@ -44,6 +44,14 @@ jobs:
     - name: Install Wrangler
       run: npm install -g wrangler
 
+    - name: Apply D1 migrations (production)
+      run: |
+        echo "Applying D1 migrations to production..."
+        wrangler d1 migrations apply blawby-ai-chatbot --remote
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
     - name: Deploy backend to Cloudflare Workers
       run: |
         echo "Deploying version ${{ steps.version.outputs.version }} at ${{ steps.version.outputs.deploy_timestamp }}"

@@ -29,6 +29,7 @@ preview_id = "a0b465f329ae4bdf8817b5c13d46d8fe"  # USAGE_QUOTAS_preview
 binding = "DB"
 database_name = "blawby-ai-chatbot"
 database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf"  # blawby-ai-chatbot
+migrations_dir = "worker/migrations"
 
 # Resend API key for email notifications (set via wrangler secret put RESEND_API_KEY)
 
@@ -124,7 +125,7 @@ kv_namespaces = [
   { binding = "USAGE_QUOTAS", id = "a0b465f329ae4bdf8817b5c13d46d8fe" } # USAGE_QUOTAS_preview
 ]
 d1_databases = [
-  { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf" }
+  { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf", migrations_dir = "worker/migrations" }
 ]
 [[env.dev.queues.producers]]
 queue = "doc-events"
@@ -160,7 +161,7 @@ kv_namespaces = [
   { binding = "USAGE_QUOTAS", id = "ba98854ac295437dbc113871dcda2e72", preview_id = "a0b465f329ae4bdf8817b5c13d46d8fe" }
 ]
 d1_databases = [
-  { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf" }
+  { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf", migrations_dir = "worker/migrations" }
 ]
 # Production environment variables
 [env.production.vars]
@@ -183,17 +184,6 @@ DOMAIN = "ai.blawby.com"
 ENABLE_STRIPE_SUBSCRIPTIONS = true
 REQUIRE_EMAIL_VERIFICATION = "false"
 
-# Duplicate top-level vars for production environment
-BLAWBY_API_URL = "https://staging.blawby.com"
-BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
-LAWYER_SEARCH_API_URL = "https://search.blawby.com"
-CLOUDFLARE_PUBLIC_URL = "https://blawby-ai-chatbot.paulchrisluke.workers.dev"
-DEBUG = false
-VITE_DEBUG_OVERLAY = false
-AI_MODEL = "@cf/openai/gpt-oss-20b"
-ANALYSIS_TIMEOUT_MS = "60000"
-RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
-RATE_LIMIT_BURST_SIZE = "10"
 # Updated to use modern nested producers syntax
 [[env.production.queues.producers]]
 queue = "doc-events"
@@ -214,4 +204,3 @@ zone_name = "blawby.com"
 enabled = false
 head_sampling_rate = 1
 invocation_logs = true
-persist = true

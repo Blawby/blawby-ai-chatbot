@@ -212,10 +212,11 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
 
 
 -- ========================================
--- DEFAULT ORGANIZATIONS
+-- DEFAULT ORGANIZATION SEEDING
 -- ========================================
--- Default organizations are seeded via ./scripts/seed-organizations.sh
--- This keeps the schema file clean and allows for more flexible seeding
+-- The critical public/default organization `blawby-ai` (ID: 01K0TNGNKTM4Q0AG0XF0A8ST0Q)
+-- is seeded via D1 migration: 20250129_seed_blawby_ai_org.sql
+-- This org MUST exist across all environments for public chat/Stripe defaults.
 
 -- Payment history table for tracking all payment transactions
 CREATE TABLE IF NOT EXISTS payment_history (

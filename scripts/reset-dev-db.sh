@@ -45,4 +45,7 @@ DROP TABLE IF EXISTS pii_access_audit;
 echo "📝 Applying schema..."
 wrangler d1 execute blawby-ai-chatbot --local --file worker/schema.sql
 
+echo "🔄 Applying migrations..."
+wrangler d1 migrations apply blawby-ai-chatbot --local
+
 echo "✅ Database reset complete!"
