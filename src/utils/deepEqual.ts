@@ -93,12 +93,25 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     Int32Array,
     Float32Array,
     Float64Array,
+    Float16Array,
   ];
   
   for (const TypedArrayConstructor of numericTypedArrayConstructors) {
     if (a instanceof TypedArrayConstructor && b instanceof TypedArrayConstructor) {
       if (a.length !== b.length) return false;
-      return Array.from(a).every((element, index) => element === b[index]);
+      // Use indexed for loop to avoid Array.from allocation and handle NaN values
+      for (let i = 0; i < a.length; i++) {
+        const valA = a[i];
+        const valB = b[i];
+        // Treat NaN values as equal (like the top-level Number logic)
+        if (Number.isNaN(valA) && Number.isNaN(valB)) {
+          continue;
+        }
+        if (valA !== valB) {
+          return false;
+        }
+      }
+      return true;
     }
   }
   

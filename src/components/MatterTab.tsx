@@ -50,6 +50,10 @@ function mapDocumentIdToType(documentId: string | null): string | undefined {
     // Business documents
     'contracts': 'business_contracts',
     'financial-statements': 'financial_statements',
+    'correspondence': 'correspondence',
+    
+    // General/default documents
+    'relevant-docs': 'general_documents',
     
     // If no mapping exists, function returns undefined to let backend infer the type
   };

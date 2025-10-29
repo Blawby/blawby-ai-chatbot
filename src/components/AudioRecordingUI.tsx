@@ -106,9 +106,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
             if (!analyserRef.current || !dataArrayRef.current) return;
             
             // Get frequency data from microphone
-            // @ts-expect-error - TypeScript's Web Audio API types incorrectly track buffer types;
-            // Uint8Array works correctly at runtime regardless of underlying buffer type
-            analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+            analyserRef.current.getByteFrequencyData(dataArrayRef.current as Uint8Array<ArrayBuffer>);
             
             // Clear the canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);

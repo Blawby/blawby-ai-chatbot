@@ -135,7 +135,7 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
       }
 
       // Load organization config for PDF generation
-      const { OrganizationService } = await import('../services/OrganizationService.js');
+      const { OrganizationService } = await import('../services/OrganizationService');
       const organizationService = new OrganizationService(env);
       const organization = await organizationService.getOrganization(organizationId);
       const organizationConfig = organization?.config;
