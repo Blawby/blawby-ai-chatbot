@@ -153,8 +153,8 @@ export function deepEqual(a: unknown, b: unknown): boolean {
       if (typeof valA === 'number' && typeof valB === 'number' && Number.isNaN(valA) && Number.isNaN(valB)) {
         continue;
       }
-      // Use Object.is for correct BigInt handling and other comparisons
-      if (!Object.is(valA, valB)) return false;
+      // Use strict equality to treat -0 and +0 as equal
+      if (valA !== valB) return false;
     }
     return true;
   }
