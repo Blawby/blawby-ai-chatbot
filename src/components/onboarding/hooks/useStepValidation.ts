@@ -36,9 +36,7 @@ export const useStepValidation = () => {
         if (!formData.contactEmail.trim()) {
           validationErrors.push({ field: 'contactEmail', message: 'Business email address is required' });
         }
-        if (!formData.contactPhone.trim()) {
-          validationErrors.push({ field: 'contactPhone', message: 'Business phone number is required' });
-        }
+        // contactPhone is optional, no validation needed
         break;
 
       case 'business-details':
@@ -57,9 +55,7 @@ export const useStepValidation = () => {
         if (!formData.contactEmail.trim()) {
           validationErrors.push({ field: 'contactEmail', message: 'Business email address is required' });
         }
-        if (!formData.contactPhone.trim()) {
-          validationErrors.push({ field: 'contactPhone', message: 'Business phone number is required' });
-        }
+        // contactPhone is optional, no validation needed
         break;
 
       default:

@@ -9,8 +9,8 @@ import { OnboardingActions } from '../molecules/OnboardingActions';
 interface FirmBasicsData {
   firmName: string;
   contactEmail: string;
-  contactPhone: string;
-  website: string;
+  contactPhone?: string;
+  website?: string;
 }
 
 interface FirmBasicsStepProps {
@@ -52,10 +52,9 @@ export function FirmBasicsStep({
       />
 
       <PhoneInput
-        label="Business phone"
+        label="Business phone (optional)"
         value={data.contactPhone || ''}
         onChange={(value) => onChange({ ...data, contactPhone: value })}
-        required
       />
 
       <URLInput

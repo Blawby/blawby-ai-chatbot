@@ -40,7 +40,7 @@ export const OnboardingHeader = ({
         {description}
       </p>
       
-      {showProgress && currentStep && totalSteps && (
+      {showProgress && currentStep != null && totalSteps != null && (
         <div className="mt-4 flex justify-center">
           <StepIndicator
             currentStep={currentStep}

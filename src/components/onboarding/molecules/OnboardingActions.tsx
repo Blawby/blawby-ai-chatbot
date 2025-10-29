@@ -48,11 +48,19 @@ export const OnboardingActions = ({
         className="w-full"
         onClick={onContinue}
         disabled={loading}
+        aria-disabled={loading}
+        aria-busy={loading}
       >
         {loading ? (
-          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <div
+            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="sr-only">Loading...</span>
+          </div>
         ) : (
-          getContinueLabel()
+          getContinueLabel() || 'Continue'
         )}
       </Button>
       

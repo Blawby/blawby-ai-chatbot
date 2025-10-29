@@ -10,7 +10,6 @@ import Modal from '../../Modal';
 import { Button } from '../../ui/Button';
 import { UserGroupIcon, BuildingOfficeIcon, KeyIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
-import { FeatureList } from '../molecules/FeatureList';
 
 interface BusinessWelcomePromptProps {
   isOpen: boolean;
@@ -30,17 +29,20 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
     {
       text: t('businessWelcome.features.teamManagement.description'),
       icon: <UserGroupIcon className="w-6 h-6" />,
-      variant: 'default' as const
+      title: t('businessWelcome.features.teamManagement.title'),
+      color: { bg: 'bg-blue-500/20', text: 'text-blue-400' }
     },
     {
       text: t('businessWelcome.features.organizationSettings.description'),
       icon: <BuildingOfficeIcon className="w-6 h-6" />,
-      variant: 'default' as const
+      title: t('businessWelcome.features.organizationSettings.title'),
+      color: { bg: 'bg-green-500/20', text: 'text-green-400' }
     },
     {
       text: t('businessWelcome.features.apiAccess.description'),
       icon: <KeyIcon className="w-6 h-6" />,
-      variant: 'default' as const
+      title: t('businessWelcome.features.apiAccess.title'),
+      color: { bg: 'bg-purple-500/20', text: 'text-purple-400' }
     }
   ];
 
@@ -53,27 +55,15 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="text-center">
-            <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-3">
-              <UserGroupIcon className="h-6 w-6 text-blue-400" />
+          {features.map((feature, index) => (
+            <div key={index} className="text-center">
+              <div className={`w-12 h-12 rounded-full ${feature.color.bg} flex items-center justify-center mx-auto mb-3`}>
+                <span className={`h-6 w-6 ${feature.color.text}`}>{feature.icon}</span>
+              </div>
+              <h3 className="font-medium mb-1">{feature.title}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{feature.text}</p>
             </div>
-            <h3 className="font-medium mb-1">{t('businessWelcome.features.teamManagement.title')}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{t('businessWelcome.features.teamManagement.description')}</p>
-          </div>
-          <div className="text-center">
-            <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-3">
-              <BuildingOfficeIcon className="h-6 w-6 text-green-400" />
-            </div>
-            <h3 className="font-medium mb-1">{t('businessWelcome.features.organizationSettings.title')}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{t('businessWelcome.features.organizationSettings.description')}</p>
-          </div>
-          <div className="text-center">
-            <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-3">
-              <KeyIcon className="h-6 w-6 text-purple-400" />
-            </div>
-            <h3 className="font-medium mb-1">{t('businessWelcome.features.apiAccess.title')}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{t('businessWelcome.features.apiAccess.description')}</p>
-          </div>
+          ))}
         </div>
 
         <Button variant="primary" className="w-full" onClick={handleGoToSettings}>

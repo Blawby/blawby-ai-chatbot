@@ -8,13 +8,14 @@ import { IntakeUrlDisplay } from '../molecules/IntakeUrlDisplay';
 import { OnboardingActions } from '../molecules/OnboardingActions';
 import { InfoCard } from '../atoms/InfoCard';
 import { FeatureList } from '../molecules/FeatureList';
+import { useTranslation } from '../../../i18n/hooks';
 
 interface ReviewAndLaunchStepProps {
   data: {
     firmName: string;
     contactEmail: string;
-    contactPhone: string;
-    website: string;
+    contactPhone?: string;
+    website?: string;
     addressLine1: string;
     addressLine2: string;
     city: string;
@@ -38,20 +39,21 @@ export function ReviewAndLaunchStep({
   onComplete, 
   onBack 
 }: ReviewAndLaunchStepProps) {
+  const { t } = useTranslation('common');
   const intakeUrl = `https://ai.blawby.com/${organizationSlug || 'your-firm'}`;
   const validServices = data.services.filter(service => service.title.trim().length > 0);
 
   const launchFeatures = [
     {
-      text: 'Your AI assistant will be available at your intake page URL',
+      text: t('reviewAndLaunch.launchFeatures.assistantAvailable'),
       variant: 'default' as const
     },
     {
-      text: 'Clients can chat with your assistant and submit intake forms',
+      text: t('reviewAndLaunch.launchFeatures.clientsCanChat'),
       variant: 'default' as const
     },
     {
-      text: 'You\'ll receive notifications for new client submissions',
+      text: t('reviewAndLaunch.launchFeatures.notifications'),
       variant: 'default' as const
     }
   ];
@@ -61,24 +63,24 @@ export function ReviewAndLaunchStep({
       {/* Review Section */}
       <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.05] p-6 space-y-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Review your business profile
+          {t('reviewAndLaunch.title')}
         </h3>
 
         {/* Firm Information */}
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Firm Information</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('reviewAndLaunch.sections.firmInformation')}</h4>
           <div className="space-y-1">
-            <ReviewField label="Name" value={data.firmName} />
-            <ReviewField label="Email" value={data.contactEmail} />
-            <ReviewField label="Phone" value={data.contactPhone} />
-            {data.website && <ReviewField label="Website" value={data.website} />}
+            <ReviewField label={t('reviewAndLaunch.labels.name')} value={data.firmName} />
+            <ReviewField label={t('reviewAndLaunch.labels.email')} value={data.contactEmail} />
+            {data.contactPhone && <ReviewField label={t('reviewAndLaunch.labels.phone')} value={data.contactPhone} />}
+            {data.website && <ReviewField label={t('reviewAndLaunch.labels.website')} value={data.website} />}
           </div>
         </div>
 
         {/* Address */}
         {(data.addressLine1 || data.city) && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Address</h4>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('reviewAndLaunch.sections.address')}</h4>
             <div className="text-sm text-gray-600 dark:text-gray-400">
               {data.addressLine1 && <p>{data.addressLine1}</p>}
               {data.addressLine2 && <p>{data.addressLine2}</p>}
@@ -97,14 +99,14 @@ export function ReviewAndLaunchStep({
         {/* Business Description */}
         {data.overview && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Description</h4>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('reviewAndLaunch.sections.description')}</h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">{data.overview}</p>
           </div>
         )}
 
         {/* Services */}
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Services</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('reviewAndLaunch.sections.services')}</h4>
           {validServices.length > 0 ? (
             <ul className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
               {validServices.map((service, i) => (
@@ -115,7 +117,7 @@ export function ReviewAndLaunchStep({
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-gray-500">No services configured</p>
+            <p className="text-sm text-gray-500">{t('reviewAndLaunch.messages.noServicesConfigured')}</p>
           )}
         </div>
       </div>
@@ -124,10 +126,10 @@ export function ReviewAndLaunchStep({
       <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-white/10 rounded-lg">
         <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">
-            Make workspace public
+            {t('reviewAndLaunch.visibility.title')}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            When enabled, anyone can chat with your assistant and submit intake questions.
+            {t('reviewAndLaunch.visibility.description')}
           </p>
         </div>
         <Switch
@@ -142,7 +144,7 @@ export function ReviewAndLaunchStep({
       {/* What happens when you launch */}
       <InfoCard
         variant="default"
-        title="What happens when you launch"
+        title={t('reviewAndLaunch.launchFeatures.title')}
       >
         <FeatureList items={launchFeatures} size="sm" />
       </InfoCard>
@@ -150,7 +152,7 @@ export function ReviewAndLaunchStep({
       <OnboardingActions
         onContinue={onComplete}
         onBack={onBack}
-        continueLabel="Launch Assistant"
+        continueLabel={t('reviewAndLaunch.actions.launchAssistant')}
         isLastStep={true}
       />
     </div>

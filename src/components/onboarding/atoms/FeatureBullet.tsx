@@ -46,13 +46,15 @@ export const FeatureBullet = ({
   };
 
   const defaultIcon = variant === 'success' ? '✅' : '•';
+  const iconSize = size || 'md'; // Safe fallback to 'md' if size is missing
 
   return (
     <li className={cn('flex items-start gap-3', className)}>
       <span className={cn(
         'mt-0.5 leading-none flex-shrink-0',
         variantClasses[variant],
-        sizeClasses[size]
+        sizeClasses[size],
+        iconSizeClasses[iconSize]
       )}>
         {icon || defaultIcon}
       </span>

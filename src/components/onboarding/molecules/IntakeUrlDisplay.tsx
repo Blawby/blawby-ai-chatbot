@@ -8,7 +8,7 @@
 import { InfoCard } from '../atoms/InfoCard';
 import { Button } from '../../ui/Button';
 import { cn } from '../../../utils/cn';
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 
 interface IntakeUrlDisplayProps {
   url: string;
@@ -22,6 +22,7 @@ export const IntakeUrlDisplay = ({
   className = ''
 }: IntakeUrlDisplayProps) => {
   const [copied, setCopied] = useState(false);
+  const resetTimerRef = useRef<number | null>(null);
 
   const handleCopy = async () => {
     try {
@@ -30,11 +31,26 @@ export const IntakeUrlDisplay = ({
       onCopy?.(url);
       
       // Reset copied state after 2 seconds
-      setTimeout(() => setCopied(false), 2000);
+      if (resetTimerRef.current !== null) {
+        clearTimeout(resetTimerRef.current);
+      }
+      resetTimerRef.current = window.setTimeout(() => {
+        setCopied(false);
+        resetTimerRef.current = null;
+      }, 2000);
     } catch (error) {
       console.error('Failed to copy URL:', error);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current !== null) {
+        clearTimeout(resetTimerRef.current);
+        resetTimerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <InfoCard

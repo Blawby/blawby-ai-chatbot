@@ -62,7 +62,8 @@ export const ChecklistItem = ({
         statusClasses[status],
         sizeClasses[size]
       )}>
-        {getIcon()}
+        <span className="sr-only">{status}</span>
+        <span aria-hidden="true">{getIcon()}</span>
       </span>
       <span className={cn(
         'text-gray-600 dark:text-gray-300',

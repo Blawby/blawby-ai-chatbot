@@ -11,8 +11,8 @@ export interface OnboardingFormData {
   // Firm basics
   firmName: string;
   contactEmail: string;
-  contactPhone: string;
-  website: string;
+  contactPhone?: string;
+  website?: string;
   profileImage: string;
   
   // Business details
@@ -35,8 +35,6 @@ export interface OnboardingFormData {
 const initialFormData: OnboardingFormData = {
   firmName: '',
   contactEmail: '',
-  contactPhone: '',
-  website: '',
   profileImage: '',
   addressLine1: '',
   addressLine2: '',

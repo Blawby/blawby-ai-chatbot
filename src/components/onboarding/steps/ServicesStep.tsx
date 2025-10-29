@@ -8,6 +8,7 @@ import { ValidationAlert } from '../atoms/ValidationAlert';
 import { OnboardingActions } from '../molecules/OnboardingActions';
 
 interface Service {
+  id: string;
   title: string;
   description: string;
 }
@@ -22,17 +23,25 @@ interface ServicesStepProps {
 
 export function ServicesStep({ data, onChange, onContinue, onBack, errors }: ServicesStepProps) {
   const addService = () => {
-    onChange([...data, { title: '', description: '' }]);
+    const newService: Service = {
+      id: `service-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: '',
+      description: ''
+    };
+    onChange([...data, newService]);
   };
 
-  const updateService = (index: number, field: keyof Service, value: string) => {
-    const updated = [...data];
-    updated[index] = { ...updated[index], [field]: value };
+  const updateService = (id: string, field: keyof Omit<Service, 'id'>, value: string) => {
+    const updated = data.map(service => 
+      service.id === id 
+        ? { ...service, [field]: value }
+        : service
+    );
     onChange(updated);
   };
 
-  const removeService = (index: number) => {
-    const updated = data.filter((_, i) => i !== index);
+  const removeService = (id: string) => {
+    const updated = data.filter(service => service.id !== id);
     onChange(updated);
   };
 
@@ -69,7 +78,7 @@ export function ServicesStep({ data, onChange, onContinue, onBack, errors }: Ser
         ) : (
           <div className="space-y-4">
             {data.map((service, index) => (
-              <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+              <div key={service.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium text-gray-900 dark:text-white">
                     Service {index + 1}
@@ -77,7 +86,7 @@ export function ServicesStep({ data, onChange, onContinue, onBack, errors }: Ser
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => removeService(index)}
+                    onClick={() => removeService(service.id)}
                     className="text-red-600 hover:text-red-700"
                   >
                     Remove
@@ -87,14 +96,14 @@ export function ServicesStep({ data, onChange, onContinue, onBack, errors }: Ser
                 <Input
                   label="Service Title"
                   value={service.title}
-                  onChange={(value) => updateService(index, 'title', value)}
+                  onChange={(value) => updateService(service.id, 'title', value)}
                   placeholder="e.g., Personal Injury Law"
                 />
                 
                 <Textarea
                   label="Description (optional)"
                   value={service.description}
-                  onChange={(value) => updateService(index, 'description', value)}
+                  onChange={(value) => updateService(service.id, 'description', value)}
                   placeholder="Brief description of this service..."
                   rows={2}
                 />
