@@ -11,10 +11,10 @@ const OrganizationSchema = z.object({
   name: z.string().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
   isPersonal: z.boolean().optional(),
-  domain: z.string().optional(),
+  domain: z.string().nullable().optional(), // API can return null
   createdAt: z.number().optional(),
   updatedAt: z.number().optional(),
-  stripeCustomerId: z.string().optional(),
+  stripeCustomerId: z.string().nullable().optional(), // API can return null
   subscriptionTier: z.string().optional(),
   seats: z.number().optional()
 });
