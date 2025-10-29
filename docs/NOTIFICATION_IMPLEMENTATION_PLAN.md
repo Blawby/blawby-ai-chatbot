@@ -59,7 +59,7 @@ await env.DOC_EVENTS.send({
 
 // Consumer (doc-processor.ts)
 export default {
-  async queue(batch: MessageBatch<DocumentEvent>, env: Env) {
+  async queue(batch: MessageBatch<DocumentEvent>, env: Env, ctx: ExecutionContext) {
     for (const msg of batch.messages) {
       // Process each message
     }
@@ -111,7 +111,7 @@ await env.NOTIFICATION_QUEUE.send({
 
 // Consumer (notification-processor.ts)
 export default {
-  async queue(batch: MessageBatch<NotificationEvent>, env: Env) {
+  async queue(batch: MessageBatch<NotificationEvent>, env: Env, ctx: ExecutionContext) {
     for (const msg of batch.messages) {
       // Process email notifications
       // Handle retries, analytics, delivery tracking
@@ -161,7 +161,7 @@ await env.LIVE_NOTIFICATION_QUEUE.send({
 
 // Consumer (live-notification-processor.ts)
 export default {
-  async queue(batch: MessageBatch<LiveNotificationEvent>, env: Env) {
+  async queue(batch: MessageBatch<LiveNotificationEvent>, env: Env, ctx: ExecutionContext) {
     for (const msg of batch.messages) {
       // Deliver via SSE to active sessions
       // Store in KV for offline users
@@ -213,7 +213,7 @@ await env.PUSH_NOTIFICATION_QUEUE.send({
 
 // Consumer (push-notification-processor.ts)
 export default {
-  async queue(batch: MessageBatch<PushNotificationEvent>, env: Env) {
+  async queue(batch: MessageBatch<PushNotificationEvent>, env: Env, ctx: ExecutionContext) {
     for (const msg of batch.messages) {
       // Send via Web Push API
       // Handle delivery failures and retries
@@ -612,8 +612,9 @@ export class NotificationService {
   }
 
   async sendPushNotification(notification: PushNotification): Promise<void> {
-    // Check if push notifications are enabled
-    if (this.env.ENABLE_PUSH_NOTIFICATIONS === 'false') {
+    // Check if push notifications are enabled with robust parsing
+    const isPushEnabled = this.parseEnvBoolean(this.env.ENABLE_PUSH_NOTIFICATIONS, false);
+    if (!isPushEnabled) {
       console.log('🔔 Push notifications disabled - would send push notification:', {
         userId: notification.userId,
         title: notification.title,
@@ -1017,35 +1018,59 @@ async checkForDuplicates(key: string, windowMs: number = 300000): Promise<boolea
 - ❌ `session.user.organizationId` (not provided by getSession)
 
 **Correct Plugin API Usage:**
-- ✅ `betterAuth.listMembers(organizationId)` - Get all organization members
-- ✅ `betterAuth.getActiveMemberRole(userId, organizationId)` - Get user's role in organization
-- ✅ Retrieve organization IDs via plugin methods instead of session.user.organizationId
+- ✅ `authClient.organization.listMembers({ query: { organizationId, limit, offset, filters } })` - Get all organization members
+- ✅ `authClient.organization.getActiveMemberRole()` (client) or `auth.api.getActiveMemberRole({ headers })` (server) - Get user's role in organization
+- ✅ Retrieve organization IDs via client-side hook `authClient.useListOrganizations()` or server-side DB query
 
 **organization Access Verification Pattern:**
 ```typescript
-// Verify user has access to the organization using organization plugin
-const memberships = await betterAuth.listMembers(organizationId);
+// Server-side: Verify user has access to the organization using organization plugin
+const { data: memberships } = await auth.api.listMembers({
+  headers: await headers(),
+  query: { organizationId }
+});
 const hasAccess = memberships.some(member => member.userId === session.user.id);
 if (!hasAccess) {
   return new Response('Forbidden', { status: 403 });
 }
+
+// Client-side alternative:
+const { data: memberships } = await authClient.organization.listMembers({
+  query: { organizationId }
+});
+const hasAccess = memberships.some(member => member.userId === session.user.id);
 ```
 
 **Role Checking Pattern:**
 ```typescript
-// Check if user is organization admin using organization plugin
-const memberRole = await betterAuth.getActiveMemberRole(session.user.id, organizationId);
-const isAdmin = memberRole === 'admin' || memberRole === 'owner';
+// Server-side: Check if user is organization admin using organization plugin
+const { data: { role } } = await auth.api.getActiveMemberRole({
+  headers: await headers()
+});
+const isAdmin = role === 'admin' || role === 'owner';
 if (!isAdmin) {
   return new Response('Forbidden - Admin role required', { status: 403 });
 }
+
+// Client-side alternative:
+const { data: { role } } = await authClient.organization.getActiveMemberRole();
+const isAdmin = role === 'admin' || role === 'owner';
 ```
 
 **Getting User's Organizations:**
 ```typescript
-// Get user's organizations (replaces session.user.organizationId)
-const userOrgs = await betterAuth.listUserOrganizations(session.user.id);
-const organizationIds = userOrgs.map(org => org.organizationId);
+// Client-side: Get user's organizations using reactive hook
+const { data: organizations } = authClient.useListOrganizations();
+const organizationIds = organizations.map(org => org.id);
+
+// Server-side: Implement custom DB query to retrieve user's organizations
+const userOrgs = await env.DB.prepare(`
+  SELECT o.id, o.name 
+  FROM organizations o
+  JOIN members m ON m.organization_id = o.id
+  WHERE m.user_id = ?
+`).bind(session.user.id).all();
+const organizationIds = userOrgs.results.map(org => org.id);
 ```
 
 ### Prerequisites
@@ -1124,8 +1149,8 @@ CREATE TABLE notification_preferences (
   enabled BOOLEAN NOT NULL DEFAULT true,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES better_auth_users(id) ON DELETE CASCADE,
-  FOREIGN KEY (organization_id) REFERENCES better_auth_organizations(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
   UNIQUE(user_id, organization_id, notification_type, channel)
 );
 
@@ -1139,8 +1164,8 @@ CREATE TABLE push_subscriptions (
   auth_key TEXT NOT NULL,
   user_agent TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES better_auth_users(id) ON DELETE CASCADE,
-  FOREIGN KEY (organization_id) REFERENCES better_auth_organizations(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
   UNIQUE(user_id, endpoint)
 );
 
@@ -1156,8 +1181,8 @@ CREATE TABLE notification_logs (
   data JSON,
   read_at DATETIME NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES better_auth_users(id) ON DELETE CASCADE,
-  FOREIGN KEY (organization_id) REFERENCES better_auth_organizations(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
   INDEX(user_id, read_at),
   INDEX(user_id, created_at)
 );
@@ -1170,16 +1195,16 @@ CREATE TABLE organization_notification_settings (
   channel TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT true,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (organization_id) REFERENCES better_auth_organizations(id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
   UNIQUE(organization_id, notification_type, channel)
 );
 ```
 
 #### 4. Session-Aware Live Notifications
 
-**SSE with Better Auth Session Validation:**
+**SSE with Session-Scoped Primary Organization Strategy:**
 ```typescript
-// Live notification endpoint with Better Auth validation
+// Live notification endpoint with session-scoped organization validation
 export async function handleLiveNotifications(request: Request, env: Env) {
   const session = await betterAuth.getSession(request);
   if (!session?.user) {
@@ -1188,36 +1213,72 @@ export async function handleLiveNotifications(request: Request, env: Env) {
   
   const userId = session.user.id;
   
-  // Get user's organizations using Better Auth organization plugin
+  // STRATEGY: Session-Scoped Primary Organization
+  // 1. Read organization context from session's active_organization_id
+  // 2. Validate user's role/permissions for that organization
+  // 3. Reject ambiguous requests with clear error messages
+  // 4. One organization per SSE connection for security and simplicity
+  
   let organizationId: string;
   try {
-    const userOrgs = await betterAuth.listUserOrganizations({
-      userId: session.user.id
-    });
+    // First, check if session has an active organization set
+    const sessionData = await env.DB.prepare(`
+      SELECT active_organization_id FROM sessions 
+      WHERE user_id = ? AND expires_at > ? 
+      ORDER BY created_at DESC LIMIT 1
+    `).bind(userId, Math.floor(Date.now() / 1000)).first<{ active_organization_id: string | null }>();
     
-    if (!userOrgs || userOrgs.length === 0) {
-      return new Response('No organizations found for user', { status: 403 });
+    if (sessionData?.active_organization_id) {
+      organizationId = sessionData.active_organization_id;
+    } else {
+      // Fallback: Get user's organizations and use personal org or first available
+      const userOrgs = await betterAuth.listUserOrganizations({
+        userId: session.user.id
+      });
+      
+      if (!userOrgs || userOrgs.length === 0) {
+        return new Response('No organizations found for user', { status: 403 });
+      }
+      
+      // Prefer personal organization, otherwise use first available
+      const personalOrg = userOrgs.find(org => org.organization.isPersonal);
+      organizationId = personalOrg?.organizationId || userOrgs[0].organizationId;
+      
+      // Update session with the selected organization for future requests
+      await env.DB.prepare(`
+        UPDATE sessions SET active_organization_id = ?, updated_at = ? 
+        WHERE user_id = ? AND expires_at > ?
+      `).bind(organizationId, Math.floor(Date.now() / 1000), userId, Math.floor(Date.now() / 1000)).run();
     }
     
-    // Select primary organization (first one) or implement custom logic for multiple orgs
-    // For now, we'll use the first organization as the primary
-    organizationId = userOrgs[0].organizationId;
+    // Validate user has access to this organization
+    const membership = await env.DB.prepare(`
+      SELECT role FROM members 
+      WHERE user_id = ? AND organization_id = ?
+    `).bind(userId, organizationId).first<{ role: string }>();
     
-    // If user has multiple organizations, you might want to:
-    // 1. Check for a "primary" organization flag
-    // 2. Use organization with highest role (owner > admin > member)
-    // 3. Allow user to select organization via request parameter
-    // 4. Use organization from request context/headers
+    if (!membership) {
+      return new Response('Access denied: User not member of organization', { status: 403 });
+    }
+    
+    // Additional validation: Check if organization exists and is active
+    const organization = await env.DB.prepare(`
+      SELECT id, name FROM organizations WHERE id = ?
+    `).bind(organizationId).first<{ id: string; name: string }>();
+    
+    if (!organization) {
+      return new Response('Organization not found', { status: 404 });
+    }
     
   } catch (error) {
-    console.error('Failed to retrieve user organizations:', error);
+    console.error('Failed to retrieve organization context:', error);
     return new Response('Failed to retrieve organization context', { status: 500 });
   }
   
-  // Create SSE connection scoped to authenticated user
+  // Create SSE connection scoped to authenticated user and organization
   const stream = new ReadableStream({
     start(controller) {
-      // Subscribe to user-specific notification stream
+      // Subscribe to user-specific notification stream for the validated organization
       const subscription = notificationStream.subscribe(userId, organizationId, (notification) => {
         controller.enqueue(`data: ${JSON.stringify(notification)}\n\n`);
       });
@@ -1234,48 +1295,121 @@ export async function handleLiveNotifications(request: Request, env: Env) {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
+      'Connection': 'keep-alive',
+      'X-Organization-ID': organizationId // Include org ID in headers for debugging
     }
   });
+}
+
+// Organization switching endpoint for SSE connections
+export async function handleOrganizationSwitch(request: Request, env: Env) {
+  const session = await betterAuth.getSession(request);
+  if (!session?.user) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+  
+  const userId = session.user.id;
+  const { organizationId } = await request.json();
+  
+  if (!organizationId) {
+    return new Response('Organization ID required', { status: 400 });
+  }
+  
+  try {
+    // Validate user has access to the requested organization
+    const membership = await env.DB.prepare(`
+      SELECT role FROM members 
+      WHERE user_id = ? AND organization_id = ?
+    `).bind(userId, organizationId).first<{ role: string }>();
+    
+    if (!membership) {
+      return new Response('Access denied: User not member of organization', { status: 403 });
+    }
+    
+    // Update session with new active organization
+    await env.DB.prepare(`
+      UPDATE sessions SET active_organization_id = ?, updated_at = ? 
+      WHERE user_id = ? AND expires_at > ?
+    `).bind(organizationId, Math.floor(Date.now() / 1000), userId, Math.floor(Date.now() / 1000)).run();
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      organizationId,
+      message: 'Organization switched successfully. Reconnect SSE for new notifications.'
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    console.error('Failed to switch organization:', error);
+    return new Response('Failed to switch organization', { status: 500 });
+  }
 }
 ```
 
 #### 5. Push Subscription Management with Better Auth
 
-**Secure Push Subscription Registration:**
+**Secure Push Subscription Registration with Organization Context:**
 ```typescript
-// Push subscription endpoint with Better Auth validation
+// Push subscription endpoint with session-scoped organization validation
 export async function handlePushSubscription(request: Request, env: Env) {
   const session = await betterAuth.getSession(request);
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 });
   }
   
+  const userId = session.user.id;
   const { subscription, organizationId } = await request.json();
   
-  // Verify user has access to the organization using organization plugin
-  const memberships = await betterAuth.listMembers(organizationId);
-  const hasAccess = memberships.some(member => member.userId === session.user.id);
-  if (!hasAccess) {
-    return new Response('Forbidden', { status: 403 });
+  // Use same organization strategy as SSE: session-scoped primary organization
+  let targetOrganizationId: string;
+  
+  if (organizationId) {
+    // Validate user has access to the requested organization
+    const membership = await env.DB.prepare(`
+      SELECT role FROM members 
+      WHERE user_id = ? AND organization_id = ?
+    `).bind(userId, organizationId).first<{ role: string }>();
+    
+    if (!membership) {
+      return new Response('Access denied: User not member of organization', { status: 403 });
+    }
+    targetOrganizationId = organizationId;
+  } else {
+    // Use session's active organization
+    const sessionData = await env.DB.prepare(`
+      SELECT active_organization_id FROM sessions 
+      WHERE user_id = ? AND expires_at > ? 
+      ORDER BY created_at DESC LIMIT 1
+    `).bind(userId, Math.floor(Date.now() / 1000)).first<{ active_organization_id: string | null }>();
+    
+    if (!sessionData?.active_organization_id) {
+      return new Response('No active organization found. Please select an organization.', { status: 400 });
+    }
+    targetOrganizationId = sessionData.active_organization_id;
   }
   
-  // Store subscription with Better Auth user ID
+  // Store push subscription with organization context
   await env.DB.prepare(`
-    INSERT OR REPLACE INTO push_subscriptions 
-    (id, user_id, organization_id, endpoint, p256dh_key, auth_key, user_agent)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO push_subscriptions (
+      user_id, organization_id, endpoint, p256dh_key, auth_key, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
   `).bind(
-    crypto.randomUUID(),
-    session.user.id,        // Better Auth user ID
-    organizationId,                 // Better Auth organization ID
+    userId,
+    targetOrganizationId,
     subscription.endpoint,
     subscription.keys.p256dh,
     subscription.keys.auth,
-    request.headers.get('User-Agent')
+    Math.floor(Date.now() / 1000)
   ).run();
   
-  return new Response(JSON.stringify({ success: true }));
+  return new Response(JSON.stringify({ 
+    success: true, 
+    organizationId: targetOrganizationId,
+    message: 'Push subscription registered successfully'
+  }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
 }
 ```
 
@@ -1466,3 +1600,221 @@ export async function updateorganizationNotificationSettings(request: Request, e
 - Respect user notification preferences
 - Implement notification opt-out
 - Comply with email regulations (CAN-SPAM, GDPR)
+
+---
+
+## Multi-Organization Routing Strategy: Session-Scoped Primary Organization
+
+### 🎯 Chosen Strategy: Session-Scoped Primary Organization
+
+**Decision**: Implement a **session-scoped primary organization** approach for SSE notifications and push subscriptions.
+
+### 📋 Strategy Overview
+
+The system uses the session's `active_organization_id` field to determine which organization's notifications a user receives. This approach provides:
+
+1. **Single Organization Per Connection**: Each SSE connection is scoped to one organization
+2. **Session Persistence**: Organization context persists across requests within a session
+3. **Security**: Users can only access organizations they're members of
+4. **Simplicity**: Clear, predictable behavior without ambiguity
+
+### 🔧 Implementation Details
+
+#### 1. Organization Context Resolution
+
+```typescript
+// Priority order for organization selection:
+// 1. Session's active_organization_id (preferred)
+// 2. User's personal organization (fallback)
+// 3. First available organization (last resort)
+```
+
+#### 2. Permission Validation
+
+Every notification request validates:
+- ✅ User authentication (Better Auth session)
+- ✅ Organization membership (members table)
+- ✅ Organization existence (organizations table)
+- ✅ Session validity (not expired)
+
+#### 3. Multi-Organization Handling
+
+**For users in multiple organizations:**
+- **SSE Connections**: One organization per connection (session-scoped)
+- **Organization Switching**: Via dedicated endpoint (`POST /api/notifications/switch-org`)
+- **Push Subscriptions**: Scoped to specific organization or session's active org
+- **Security**: All requests validated against user's actual memberships
+
+### 🛡️ Security Implications
+
+#### ✅ Security Benefits
+
+1. **Principle of Least Privilege**: Users only receive notifications for organizations they belong to
+2. **Session Isolation**: Each session maintains its own organization context
+3. **Explicit Validation**: Every request validates membership before granting access
+4. **No Ambiguity**: Clear error messages for invalid access attempts
+
+#### ⚠️ Security Considerations
+
+1. **Session Hijacking**: If session is compromised, attacker gets access to that organization's notifications
+2. **Organization Switching**: Users can switch organizations within their session (by design)
+3. **Permission Changes**: If user is removed from organization, they need to reconnect SSE
+4. **Session Expiry**: Organization context is lost when session expires
+
+#### 🔒 Mitigation Strategies
+
+1. **Session Security**: 
+   - Short session expiry (7 days max)
+   - Secure session tokens
+   - IP/User-Agent validation (optional)
+
+2. **Permission Validation**:
+   - Real-time membership checks
+   - No caching of permission decisions
+   - Immediate revocation on membership changes
+
+3. **Audit Logging**:
+   - Log all organization switches
+   - Track notification access attempts
+   - Monitor for suspicious patterns
+
+### 📊 Behavior Documentation
+
+#### SSE Connection Behavior
+
+```typescript
+// Connection establishment flow:
+1. Authenticate user (Better Auth session)
+2. Resolve organization context (session → personal → first)
+3. Validate membership (members table)
+4. Create SSE stream for that organization
+5. Return connection with X-Organization-ID header
+```
+
+#### Organization Switching Behavior
+
+```typescript
+// Organization switch flow:
+1. Authenticate user
+2. Validate membership in target organization
+3. Update session's active_organization_id
+4. Return success with instruction to reconnect SSE
+5. Client must reconnect SSE to receive new org notifications
+```
+
+#### Error Handling
+
+| Scenario | HTTP Status | Response | Action Required |
+|----------|-------------|----------|-----------------|
+| No session | 401 | "Unauthorized" | User must sign in |
+| No organizations | 403 | "No organizations found" | User needs organization |
+| Invalid org access | 403 | "Access denied: User not member" | User needs membership |
+| Organization not found | 404 | "Organization not found" | Invalid organization ID |
+| No active org | 400 | "No active organization found" | User must select organization |
+
+### 🔄 Alternative Strategies Considered
+
+#### 1. Request Parameter Strategy
+```typescript
+// Rejected: Security concerns
+GET /api/notifications/stream?organizationId=xyz
+```
+**Issues**: 
+- Users could potentially access any organization ID
+- Requires extensive validation on every request
+- Complex error handling for invalid parameters
+
+#### 2. Fan-Out Strategy
+```typescript
+// Rejected: Complexity and resource usage
+// Send notifications to all user's organizations
+```
+**Issues**:
+- Resource intensive (multiple streams per user)
+- Complex client-side filtering
+- Potential for notification spam
+- Difficult to manage organization-specific preferences
+
+#### 3. Session-Scoped Primary Organization ✅
+```typescript
+// Chosen: Balanced approach
+// One organization per session, explicit switching
+```
+**Benefits**:
+- Simple and secure
+- Leverages existing session infrastructure
+- Clear user experience
+- Efficient resource usage
+
+### 🚀 Usage Examples
+
+#### Frontend Implementation
+
+```typescript
+// Connect to notifications for current organization
+const eventSource = new EventSource('/api/notifications/stream');
+
+// Switch organization and reconnect
+async function switchOrganization(orgId: string) {
+  await fetch('/api/notifications/switch-org', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ organizationId: orgId })
+  });
+  
+  // Reconnect SSE for new organization
+  eventSource.close();
+  eventSource = new EventSource('/api/notifications/stream');
+}
+```
+
+#### Backend Route Implementation
+
+```typescript
+// routes/notifications.ts
+export default {
+  async fetch(request: Request, env: Env) {
+    const url = new URL(request.url);
+    
+    switch (url.pathname) {
+      case '/api/notifications/stream':
+        return handleLiveNotifications(request, env);
+      case '/api/notifications/switch-org':
+        return handleOrganizationSwitch(request, env);
+      case '/api/notifications/push-subscribe':
+        return handlePushSubscription(request, env);
+      default:
+        return new Response('Not found', { status: 404 });
+    }
+  }
+};
+```
+
+### 📈 Performance Characteristics
+
+#### Resource Usage
+- **SSE Connections**: 1 per user (not per organization)
+- **Database Queries**: 2-3 queries per connection establishment
+- **Memory Usage**: Minimal (session-scoped context)
+- **Network**: Efficient (single stream per user)
+
+#### Scalability
+- **Horizontal**: Scales with user count, not organization count
+- **Vertical**: Minimal memory overhead per connection
+- **Database**: Efficient queries with proper indexing
+
+### 🔮 Future Enhancements
+
+#### Potential Improvements
+1. **Organization Preferences**: Per-organization notification settings
+2. **Role-Based Filtering**: Different notifications based on user role
+3. **Bulk Operations**: Efficient organization switching for admin users
+4. **Caching**: Organization context caching for performance
+5. **Webhooks**: Organization-specific webhook endpoints
+
+#### Migration Path
+The current implementation provides a solid foundation for future enhancements:
+- Session-scoped approach can be extended with additional context
+- Permission validation can be enhanced with role-based filtering
+- Organization switching can be optimized with bulk operations
+- SSE streams can be enhanced with organization-specific filtering
