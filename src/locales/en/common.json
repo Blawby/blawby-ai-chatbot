@@ -156,6 +156,57 @@
       },
       "helpCenter": "Help Center",
       "letsGo": "Okay, let's go"
+    },
+    "businessDetails": {
+      "title": "Business Details",
+      "subtitle": "Tell us about your business",
+      "addressLine1Label": "Address line 1",
+      "addressLine1Placeholder": "123 Main Street",
+      "addressLine2Label": "Address line 2 (optional)",
+      "addressLine2Placeholder": "Suite 100, Floor 2",
+      "cityLabel": "City",
+      "cityPlaceholder": "New York",
+      "stateLabel": "State/Province",
+      "statePlaceholder": "NY",
+      "postalCodeLabel": "Postal Code",
+      "postalCodePlaceholder": "10001",
+      "countryLabel": "Country",
+      "countryPlaceholder": "United States",
+      "businessDescriptionLabel": "Business description",
+      "businessDescriptionPlaceholder": "Tell us about your business...",
+      "nextButton": "Next",
+      "backButton": "Back"
+    },
+    "reviewAndLaunch": {
+      "title": "Review your business profile",
+      "sections": {
+        "firmInformation": "Firm Information",
+        "address": "Address",
+        "description": "Description",
+        "services": "Services"
+      },
+      "labels": {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "website": "Website"
+      },
+      "messages": {
+        "noServicesConfigured": "No services configured"
+      },
+      "visibility": {
+        "title": "Make workspace public",
+        "description": "When enabled, anyone can chat with your assistant and submit intake questions."
+      },
+      "launchFeatures": {
+        "title": "What happens when you launch",
+        "assistantAvailable": "Your AI assistant will be available at your intake page URL",
+        "clientsCanChat": "Clients can chat with your assistant and submit intake forms",
+        "notifications": "You'll receive notifications for new client submissions"
+      },
+      "actions": {
+        "launchAssistant": "Launch Assistant"
+      }
     }
   },
   "businessWelcome": {

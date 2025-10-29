@@ -23,8 +23,8 @@ import { SettingsLayout } from './components/settings/SettingsLayout';
 import { useNavigation } from './utils/navigation';
 import PricingModal from './components/PricingModal';
 import WelcomeModal from './components/onboarding/WelcomeModal';
-import { BusinessWelcomeModal } from './components/onboarding/BusinessWelcomeModal';
-import { BusinessSetupModal } from './components/onboarding/BusinessSetupModal';
+import { BusinessWelcomePrompt } from './components/onboarding/organisms/BusinessWelcomePrompt';
+import { BusinessSetupPrompt } from './components/onboarding/organisms/BusinessSetupPrompt';
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
 import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
@@ -215,6 +215,8 @@ function MainApp({
 				setShowBusinessSetup(true);
 				// Don't remove the flag here - let the modal handlers do it
 			}
+			// Note: 'snoozed' status is handled by the modal's handleClose method
+			// and will prevent the modal from showing until user explicitly reopens it
 		} catch (_error) {
 			if (import.meta.env.DEV) {
 				console.warn('Failed to check business setup status:', _error);
@@ -598,14 +600,14 @@ function MainApp({
 
 			{/* Business Welcome Modal */}
 			{showBusinessWelcome && (
-				<BusinessWelcomeModal
+				<BusinessWelcomePrompt
 					isOpen={showBusinessWelcome}
 					onClose={handleBusinessWelcomeClose}
 				/>
 			)}
 
 			{/* Business Setup Modal */}
-			<BusinessSetupModal
+			<BusinessSetupPrompt
 				isOpen={showBusinessSetup}
 				onClose={() => {
 					// Clear the localStorage flag so modal doesn't reappear on reload
