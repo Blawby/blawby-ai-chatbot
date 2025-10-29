@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { z } from 'zod';
-import { authClient } from '../lib/authClient';
 
 // API endpoints - moved inline since api.ts was removed
 const getOrganizationsEndpoint = () => '/api/organizations';
-const getUserOrganizationsEndpoint = () => '/api/organizations/me';
 
 // Zod schema for API response validation
 const OrganizationSchema = z.object({

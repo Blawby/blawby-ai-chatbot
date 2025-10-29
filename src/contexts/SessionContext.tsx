@@ -70,6 +70,11 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     (activeOrganization?.data as { id?: string } | undefined)?.id ??
     null;
 
+  const activeOrganizationSlug: string | null =
+    (activeOrganization?.data as { organization?: { slug?: string } } | undefined)?.organization?.slug ??
+    (activeOrganization?.data as { slug?: string } | undefined)?.slug ??
+    null;
+
   const resolvedOrgIdentifier = activeOrganizationId ?? null;
 
   const fetchQuota = useCallback(async () => {
@@ -151,12 +156,12 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     session: sessionData ?? null,
     isAnonymous,
     activeOrganizationId,
-    activeOrganizationSlug: activeOrganizationId ?? null,
+    activeOrganizationSlug,
     quota,
     quotaLoading,
     quotaError,
     refreshQuota: fetchQuota,
-  }), [sessionData, isAnonymous, activeOrganizationId, quota, quotaLoading, quotaError, fetchQuota]);
+  }), [sessionData, isAnonymous, activeOrganizationId, activeOrganizationSlug, quota, quotaLoading, quotaError, fetchQuota]);
 
   return (
     <SessionContext.Provider value={value}>

@@ -52,7 +52,7 @@ export function useChatSession(organizationId: string): ChatSessionState {
     const migrationFlag = `${STORAGE_PREFIX}_migrated_to_blawby_ai`;
     
     // One-time migration from personal org sessions to blawby-ai
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && organizationId === 'blawby-ai') {
       try {
         // Check if migration has already been attempted
         const migrationAttempted = window.localStorage.getItem(migrationFlag);

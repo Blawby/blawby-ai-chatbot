@@ -6,6 +6,15 @@ import type { User as BetterAuthUser } from 'better-auth/types';
 // Subscription tier type matching database enum
 export type SubscriptionTier = 'free' | 'plus' | 'business' | 'enterprise';
 
+// Organization configuration interface
+export interface OrganizationConfig {
+	subscriptionTier?: SubscriptionTier;
+	name?: string;
+	profileImage?: string | null;
+	description?: string;
+	introMessage?: string;
+}
+
 // Language type for internationalization
 export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'ko' | 'zh' | 'ar' | 'hi' | 'ru' | 'tr' | 'pl' | 'nl' | 'id' | 'th' | 'vi' | 'uk';
 

@@ -12,7 +12,7 @@ import { OrganizationProvider, useOrganization } from './contexts/OrganizationCo
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
 import { authClient } from './lib/authClient';
-import { type SubscriptionTier } from './types/user';
+import { type SubscriptionTier, type OrganizationConfig } from './types/user';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
@@ -45,7 +45,7 @@ function MainApp({
 	handleRetryOrganizationConfig 
 }: {
 	organizationId: string;
-	organizationConfig: any;
+	organizationConfig: OrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
 }) {
@@ -664,7 +664,7 @@ function AppWithSEO({
 	handleRetryOrganizationConfig 
 }: {
 	organizationId: string;
-	organizationConfig: any;
+	organizationConfig: OrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
 }) {

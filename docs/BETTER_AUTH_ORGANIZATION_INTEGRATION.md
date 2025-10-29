@@ -82,6 +82,9 @@ export const authSchema = {
 
 #### 1. Drizzle Adapter Integration
 **File**: `worker/auth/index.ts`
+
+**Note**: The code examples below show the actual implementation patterns used in `worker/auth/index.ts`. These differ from conceptual examples that might use `features` objects or `callbacks.before` - the real implementation uses `autoDetectIpAddress`/`geolocationTracking` flags and `databaseHooks.user.create.before` for Google OAuth email verification mapping.
+
 ```typescript
 authInstance = betterAuth({
   ...withCloudflare(
@@ -103,31 +106,31 @@ authInstance = betterAuth({
           },
         },
       } : {}),
-      // Feature flags for geolocation and IP detection
-      features: {
-        geolocation: true,
-        ipDetection: true,
-      },
+      // Feature flags for geolocation and IP detection (actual implementation)
+      autoDetectIpAddress: enableIpDetection,
+      geolocationTracking: enableGeolocation,
       plugins: [
         organization(), // ✅ Better Auth organization plugin
         lastLoginMethod({ storeInDatabase: true }),
         ...(stripeIntegration ? [stripeIntegration] : []),
       ],
-      // Handle Google OAuth email verification mapping
-      callbacks: {
-        before: [
-          async (ctx) => {
-            // Map Google OAuth verified_email/email_verified to emailVerified for Google users
-            if (ctx.type === 'user' && ctx.action === 'create' && ctx?.context?.provider === 'google') {
-              const profile = ctx?.context?.profile as { verified_email?: unknown; email_verified?: unknown } | undefined;
-              const claim = (profile?.verified_email as boolean | undefined) ?? (profile?.email_verified as boolean | undefined);
-              if (claim !== undefined) {
-                ctx.user.emailVerified = Boolean(claim);
+      // Handle Google OAuth email verification mapping (actual implementation)
+      databaseHooks: {
+        user: {
+          create: {
+            before: async (user, context) => {
+              // Map Google OAuth verified_email/email_verified to emailVerified for Google users
+              if (context?.context?.provider === 'google') {
+                const profile = context?.context?.profile as { verified_email?: unknown; email_verified?: unknown } | undefined;
+                const claim = (profile?.verified_email as boolean | undefined) ?? (profile?.email_verified as boolean | undefined);
+                if (claim !== undefined) {
+                  user.emailVerified = Boolean(claim);
+                }
               }
-            }
-            return ctx;
+              return { data: user };
+            },
           },
-        ],
+        },
       },
     }
   )
