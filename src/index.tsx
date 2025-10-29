@@ -11,8 +11,8 @@ import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
-import { useOrganizationManagement } from './hooks/useOrganizationManagement';
-import { type SubscriptionTier } from './types/user';
+import { authClient } from './lib/authClient';
+import { type SubscriptionTier, type OrganizationConfig } from './types/user';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
@@ -38,7 +38,18 @@ import { i18n, initI18n } from './i18n';
 
 
 // Main application component (non-auth pages)
-function MainApp() {
+function MainApp({ 
+	organizationId, 
+	organizationConfig, 
+	organizationNotFound, 
+	handleRetryOrganizationConfig,
+	...routeProps
+}: {
+	organizationId: string;
+	organizationConfig: OrganizationConfig;
+	organizationNotFound: boolean;
+	handleRetryOrganizationConfig: () => void;
+} & Record<string, any>) {
 	// Core state
 	const [clearInputTrigger, setClearInputTrigger] = useState(0);
 	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
@@ -59,11 +70,9 @@ function MainApp() {
 	// Use session from Better Auth
 	const { data: session, isPending: sessionIsPending } = useSession();
 
-	// Use organization context
-	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
+	// Organization data is now passed as props
 	
-	// Use organization management for subscription tier
-	const { currentOrganization } = useOrganizationManagement();
+  // Using our custom organization system instead of Better Auth's organization plugin
 	const { submitUpgrade } = usePaymentUpgrade();
 	const { showError } = useToastContext();
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
@@ -225,8 +234,8 @@ function MainApp() {
 	// Handle hash-based routing for pricing modal
 	const [showPricingModal, setShowPricingModal] = useState(false);
 	
-	// Derive current user tier from organization
-	const currentUserTier = (currentOrganization?.subscriptionTier || 'free') as SubscriptionTier;
+  // Derive current user tier from organization config (our custom system)
+  const currentUserTier = (organizationConfig?.subscriptionTier || 'free') as SubscriptionTier;
 	
 	useEffect(() => {
 		const handleHashChange = () => {
@@ -453,7 +462,6 @@ function MainApp() {
 					profileImage: organizationConfig?.profileImage ?? null,
 					description: organizationConfig?.description ?? ''
 				}}
-				currentOrganization={currentOrganization}
 				messages={messages}
 				onSendMessage={handleSendMessage}
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
@@ -483,7 +491,7 @@ function MainApp() {
 							}}
 							onOpenSidebar={() => setIsMobileSidebarOpen(true)}
 							sessionId={sessionId}
-							organizationId={organizationId}
+							organizationId={'blawby-ai'}
 							onFeedbackSubmit={handleFeedbackSubmit}
 							previewFiles={previewFiles}
 							uploadingFiles={uploadingFiles}
@@ -536,11 +544,8 @@ function MainApp() {
 							return false;
 						}
 
-						const organizationId = currentOrganization?.id;
-						if (!organizationId) {
-							showError('Organization required', 'Create or select an organization before upgrading.');
-							return false;
-						}
+						// Always use blawby-ai organization for stripe upgrades
+						const stripeOrganizationId = 'blawby-ai';
 
 						if (tier === 'business') {
 							// Navigate to cart page for business upgrades instead of direct checkout
@@ -621,24 +626,45 @@ function MainApp() {
 
 // Main App component with routing
 export function App() {
+	const handleOrgError = useCallback((error: string) => {
+		console.error('Organization config error:', error);
+	}, []);
+
 	return (
 		<LocationProvider>
 			<AuthProvider>
-				<OrganizationProvider onError={(error) => console.error('Organization config error:', error)}>
-					<SessionProvider>
-						<ToastProvider>
-							<AppWithSEO />
-						</ToastProvider>
-					</SessionProvider>
+				<OrganizationProvider onError={handleOrgError}>
+					<AppWithOrganization />
 				</OrganizationProvider>
 			</AuthProvider>
 		</LocationProvider>
 	);
 }
 
+// Component that calls useOrganization and passes data to AppWithSEO
+function AppWithOrganization() {
+	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
+	
+	return <AppWithSEO 
+		organizationId={organizationId}
+		organizationConfig={organizationConfig}
+		organizationNotFound={organizationNotFound}
+		handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+	/>;
+}
+
 // Component that uses organization context for SEO
-function AppWithSEO() {
-	const { organizationConfig } = useOrganization();
+function AppWithSEO({ 
+	organizationId, 
+	organizationConfig, 
+	organizationNotFound, 
+	handleRetryOrganizationConfig 
+}: {
+	organizationId: string;
+	organizationConfig: OrganizationConfig;
+	organizationNotFound: boolean;
+	handleRetryOrganizationConfig: () => void;
+}) {
 	const location = useLocation();
 	
 	// Create reactive currentUrl that updates on navigation
@@ -652,13 +678,41 @@ function AppWithSEO() {
 				organizationConfig={organizationConfig}
 				currentUrl={currentUrl}
 			/>
-			<Router>
-				<Route path="/auth" component={AuthPage} />
-				<Route path="/cart" component={CartPage} />
-				<Route path="/settings/*" component={MainApp} />
-				<Route default component={MainApp} />
-			</Router>
+			<ToastProvider>
+				<Router>
+					<Route path="/auth" component={AuthPage} />
+					<Route path="/cart" component={CartPage} />
+					<Route path="/settings/*" component={(props) => <MainAppWithProviders 
+						organizationId={organizationId}
+						organizationConfig={organizationConfig}
+						organizationNotFound={organizationNotFound}
+						handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+						{...props}
+					/>} />
+					<Route default component={(props) => <MainAppWithProviders 
+						organizationId={organizationId}
+						organizationConfig={organizationConfig}
+						organizationNotFound={organizationNotFound}
+						handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+						{...props}
+					/>} />
+				</Router>
+			</ToastProvider>
 		</>
+	);
+}
+
+// Wrapper component that provides context to MainApp
+function MainAppWithProviders(props: {
+	organizationId: string;
+	organizationConfig: OrganizationConfig;
+	organizationNotFound: boolean;
+	handleRetryOrganizationConfig: () => void;
+} & Record<string, any>) {
+	return (
+		<SessionProvider>
+			<MainApp {...props} />
+		</SessionProvider>
 	);
 }
 

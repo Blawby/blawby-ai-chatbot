@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'preact/compat';
+import { createContext, useContext, useMemo, useCallback, type ReactNode } from 'preact/compat';
 import { useOrganizationConfig } from '../hooks/useOrganizationConfig.js';
 
 export interface OrganizationContextValue {
@@ -41,6 +41,11 @@ export interface OrganizationProviderProps {
  * to all child components, eliminating the need for prop drilling
  */
 export function OrganizationProvider({ children, onError }: OrganizationProviderProps) {
+  const handleError = useCallback((error: string) => {
+    console.error('Organization config error:', error);
+    onError?.(error);
+  }, [onError]);
+
   const {
     organizationId,
     organizationConfig,
@@ -48,10 +53,7 @@ export function OrganizationProvider({ children, onError }: OrganizationProvider
     isLoading,
     handleRetryOrganizationConfig
   } = useOrganizationConfig({
-    onError: (error) => {
-      console.error('Organization config error:', error);
-      onError?.(error);
-    }
+    onError: handleError
   });
 
   const contextValue = useMemo(() => ({

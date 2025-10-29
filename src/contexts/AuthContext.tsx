@@ -15,6 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ComponentChildren }) => {
   const session = useSession();
+  // Call useActiveOrganization unconditionally - Better Auth handles authentication internally
   const activeOrg = useActiveOrganization();
 
   return (

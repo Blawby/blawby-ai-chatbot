@@ -288,11 +288,9 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       setLoading(true);
       setError(null);
       
-      console.log('🔍 DEBUG: fetchOrganizations starting for user:', session?.user?.email);
       
       // Check authentication status first
       if (!session?.user) {
-        console.log('🔍 DEBUG: No authenticated user, skipping');
         // User is not authenticated - skip organization fetch
         setOrganizations([]);
         setCurrentOrganization(null);
@@ -303,59 +301,31 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       
       // Only fetch user orgs if authenticated
       let data = await apiCall(`${getOrganizationsEndpoint()}/me`);
-      console.log('🔍 DEBUG: Raw API response type:', typeof data, 'isArray:', Array.isArray(data), 'length:', Array.isArray(data) ? data.length : 'N/A');
-      console.log('🔍 DEBUG: personalOrgEnsuredRef.current:', personalOrgEnsuredRef.current);
-
-      console.log('🔍 DEBUG: Request not aborted, continuing...');
-
-      console.log('🔍 DEBUG: Checking condition - Array.isArray(data):', Array.isArray(data));
-      console.log('🔍 DEBUG: Checking condition - data.length:', Array.isArray(data) ? data.length : 'N/A');
-      console.log('🔍 DEBUG: Checking condition - personalOrgEnsuredRef.current:', personalOrgEnsuredRef.current);
-      console.log('🔍 DEBUG: Checking condition - (!Array.isArray(data) || data.length === 0):', (!Array.isArray(data) || data.length === 0));
-      console.log('🔍 DEBUG: Checking condition - (!Array.isArray(data) || data.length === 0) && !personalOrgEnsuredRef.current:', (!Array.isArray(data) || data.length === 0) && !personalOrgEnsuredRef.current);
-
-      console.log('🔍 DEBUG: After condition check, continuing...');
 
       if ((!Array.isArray(data) || data.length === 0) && !personalOrgEnsuredRef.current) {
-        console.log('🔍 DEBUG: No organizations found, ensuring personal org...');
         try {
           await ensurePersonalOrganization();
           // Always refetch after ensuring personal org to get the updated list
           data = await apiCall(`${getOrganizationsEndpoint()}/me`);
-          console.log('🔍 DEBUG: After ensure personal org, API response type:', typeof data, 'isArray:', Array.isArray(data), 'length:', Array.isArray(data) ? data.length : 'N/A');
         } catch (ensureError) {
           console.error('Failed to ensure personal organization:', ensureError);
         }
       }
 
-      console.log('🔍 DEBUG: After if statement, continuing...');
-
-      console.log('🔍 DEBUG: After abort controller check, continuing...');
-
       const orgList = Array.isArray(data) ? data : [];
-      console.log('🔍 DEBUG: Processed orgList type:', typeof orgList, 'isArray:', Array.isArray(orgList), 'length:', Array.isArray(orgList) ? orgList.length : 'N/A');
-      console.log('🔍 DEBUG: orgList.some(org => org?.isPersonal):', orgList.some(org => org?.isPersonal));
       
       if (orgList.some(org => org?.isPersonal)) {
         personalOrgEnsuredRef.current = true;
       }
       const personalOrg = orgList.find(org => org?.isPersonal);
-      console.log('🔍 DEBUG: Found personal org type:', typeof personalOrg, 'isPersonal:', personalOrg?.isPersonal);
-      console.log('🔍 DEBUG: Setting currentOrganization to type:', typeof (personalOrg || orgList[0] || null));
-      
-      console.log('🔍 DEBUG: About to set state - orgList length:', Array.isArray(orgList) ? orgList.length : 'N/A');
-      console.log('🔍 DEBUG: About to set state - personalOrg exists:', !!personalOrg);
-      console.log('🔍 DEBUG: About to set state - final currentOrg exists:', !!(personalOrg || orgList[0] || null));
       
       setOrganizations(orgList);
       setCurrentOrganization(personalOrg || orgList[0] || null);
       
-      console.log('🔍 DEBUG: State set successfully');
-      
       // Mark as fetched
       organizationsFetchedRef.current = true;
     } catch (err) {
-      console.error('🔍 DEBUG: Error in fetchOrganizations:', err);
+      console.error('Error in fetchOrganizations:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch organizations');
     } finally {
       setLoading(false);
@@ -637,11 +607,10 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   // Refetch when session changes
   useEffect(() => {
     if (!sessionLoading && session?.user?.id && !refetchTriggeredRef.current) {
-      console.log('🔍 DEBUG: useEffect triggered refetch for user ID:', session.user.id);
       refetchTriggeredRef.current = true;
-      refetch();
+      fetchOrganizations();
     }
-  }, [session?.user?.id, sessionLoading, refetch]);
+  }, [session?.user?.id, sessionLoading, fetchOrganizations]);
 
   // Clear fetched flag and abort in-flight requests when session changes
   useEffect(() => {

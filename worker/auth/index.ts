@@ -7,7 +7,7 @@ import type { Env } from "../types";
 import * as authSchema from "../db/auth.schema";
 import { EmailService } from "../services/EmailService.js";
 import { OrganizationService } from "../services/OrganizationService.js";
-import { handlePostSignup } from "./hooks.js";
+import { handlePostSignup, setActiveOrganizationForSession } from "./hooks.js";
 import { stripe as stripePlugin } from "@better-auth/stripe";
 import Stripe from "stripe";
 import {
@@ -236,6 +236,11 @@ export async function getAuth(env: Env, request?: Request) {
             return true;
           }
 
+          // Allow blawby-ai organization for all users (public organization)
+          if (referenceId === 'blawby-ai') {
+            return true;
+          }
+
           try {
             const membership = await env.DB.prepare(
               `SELECT role 
@@ -451,12 +456,9 @@ export async function getAuth(env: Env, request?: Request) {
     authInstance = betterAuth({
       ...withCloudflare(
         {
-          d1: {
+          drizzle: {
             db,
-            options: {
-              usePlural: true,
-              debugLogs: true,
-            },
+            schema: authSchema,
           },
           // R2 for profile images only (only if FILES_BUCKET is available)
           ...(env.FILES_BUCKET ? {
@@ -796,6 +798,24 @@ export async function getAuth(env: Env, request?: Request) {
                       error: error instanceof Error ? error.message : String(error),
                       userId: user.id,
                     });
+                  }
+                },
+              },
+            },
+            session: {
+              create: {
+                after: async (session, context) => {
+                  // Set active organization when a session is created
+                  if (session.userId && session.token) {
+                    try {
+                      await setActiveOrganizationForSession(session.userId, session.token, env);
+                    } catch (error) {
+                      console.error("❌ Failed to set active organization for session:", {
+                        error: error instanceof Error ? error.message : String(error),
+                        userId: session.userId,
+                        sessionId: session.id,
+                      });
+                    }
                   }
                 },
               },

@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { ChatMessageUI, FileAttachment } from '../../worker/types';
 import { ContactData } from '../components/ContactForm';
-import { useOrganizationId } from '../contexts/OrganizationContext.js';
 
 // Tool name to user-friendly message mapping
 const TOOL_LOADING_MESSAGES: Record<string, string> = {
@@ -59,12 +58,11 @@ interface UseMessageHandlingOptions {
 }
 
 /**
- * Hook that uses organization context instead of requiring organizationId parameter
+ * Hook that uses blawby-ai organization for all message handling
  * This is the preferred way to use message handling in components
  */
 export const useMessageHandlingWithContext = ({ sessionId, onError }: Omit<UseMessageHandlingOptions, 'organizationId'>) => {
-  const organizationId = useOrganizationId();
-  return useMessageHandling({ organizationId, sessionId, onError });
+  return useMessageHandling({ organizationId: 'blawby-ai', sessionId, onError });
 };
 
 /**

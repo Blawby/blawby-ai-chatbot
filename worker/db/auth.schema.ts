@@ -140,7 +140,10 @@ export const sessions = sqliteTable("sessions", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-});
+  activeOrganizationId: text("active_organization_id").references(() => organizations.id, { onDelete: "set null" }),
+}, (table) => ({
+  activeOrgIdx: index("sessions_active_org_idx").on(table.activeOrganizationId),
+}));
 
 export const accounts = sqliteTable("accounts", {
   id: text("id").primaryKey(),
@@ -200,6 +203,24 @@ export const members = sqliteTable("members", {
   memberUserIdx: index("member_user_idx").on(table.userId),
 }));
 
+export const invitations = sqliteTable("invitations", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  role: text("role").notNull(),
+  status: text("status").default("pending"),
+  invitedBy: text("invited_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+}, (table) => ({
+  invitationEmailIdx: index("invitation_email_idx").on(table.email),
+  invitationOrgIdx: index("invitation_org_idx").on(table.organizationId),
+}));
+
 export const subscriptions = sqliteTable("subscriptions", {
   id: text("id").primaryKey(),
   plan: text("plan").notNull(),
@@ -219,3 +240,15 @@ export const subscriptions = sqliteTable("subscriptions", {
   // Foreign key constraints are now defined in Drizzle schema to match SQL schema
   // stripeSubscriptionIdUnique: unique("stripe_subscription_id_unique").on(table.stripeSubscriptionId), // Now handled by .unique() on column
 }));
+
+// Export the complete auth schema for Better Auth
+export const authSchema = {
+  users,
+  sessions,
+  accounts,
+  verifications,
+  organizations,
+  members,
+  invitations,
+  subscriptions,
+};

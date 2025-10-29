@@ -85,8 +85,6 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   const [editMemberData, setEditMemberData] = useState<{ userId: string; email: string; name?: string; role: Role } | null>(null);
 
   const hasOrganization = !!currentOrganization;
-  console.log('🔍 DEBUG OrganizationPage: currentOrganization:', JSON.stringify(currentOrganization, null, 2));
-  console.log('🔍 DEBUG OrganizationPage: hasOrganization:', hasOrganization);
   const members = useMemo(() => currentOrganization ? getMembers(currentOrganization.id) : [], [currentOrganization, getMembers]);
   const _memberCount = members.length;
   const tokens = currentOrganization ? getTokens(currentOrganization.id) : [];
@@ -112,11 +110,11 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
         description: currentOrganization.description || ''
       });
       
-      // Fetch related data
+      // Fetch related data only once when organization changes
       const fetchMembersData = async () => {
         try {
           await fetchMembers(currentOrganization.id);
-		} catch (err) {
+        } catch (err) {
           showError(err?.message || String(err) || 'Failed to fetch organization members');
         }
       };
@@ -124,7 +122,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       fetchMembersData();
       fetchTokens(currentOrganization.id);
     }
-  }, [currentOrganization, fetchMembers, fetchTokens, getMembers, showError]);
+  }, [currentOrganization?.id]); // Only depend on organization ID, not the functions
 
   const handleCreateOrganization = async () => {
     if (!createForm.name.trim()) {

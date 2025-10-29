@@ -531,7 +531,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   updated_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
   ip_address TEXT,
   user_agent TEXT,
-  user_id TEXT NOT NULL
+  user_id TEXT NOT NULL,
+  active_organization_id TEXT,
+  -- Foreign key constraint for active_organization_id
+  FOREIGN KEY (active_organization_id) REFERENCES organizations(id) ON DELETE SET NULL
 );
 
 -- Accounts table for OAuth providers (SECURE)

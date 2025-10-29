@@ -57,7 +57,6 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData } = authClient.useSession();
   const activeOrganization = authClient.useActiveOrganization();
-  const { organizationId: organizationSlug } = useOrganization();
 
   const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
@@ -71,7 +70,12 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     (activeOrganization?.data as { id?: string } | undefined)?.id ??
     null;
 
-  const resolvedOrgIdentifier = activeOrganizationId ?? organizationSlug ?? null;
+  const activeOrganizationSlug: string | null =
+    (activeOrganization?.data as { organization?: { slug?: string } } | undefined)?.organization?.slug ??
+    (activeOrganization?.data as { slug?: string } | undefined)?.slug ??
+    null;
+
+  const resolvedOrgIdentifier = activeOrganizationId ?? null;
 
   const fetchQuota = useCallback(async () => {
     if (typeof window === 'undefined') {
@@ -144,16 +148,20 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     return () => abortRef.current?.abort();
   }, [fetchQuota]);
 
+  // Ensure active org is set after login
+  // Note: We rely on our custom organization management instead of Better Auth's setActive
+  // This avoids 403 FORBIDDEN errors since our custom org creation doesn't sync with Better Auth's members table
+
   const value = useMemo<SessionContextValue>(() => ({
     session: sessionData ?? null,
     isAnonymous,
     activeOrganizationId,
-    activeOrganizationSlug: organizationSlug ?? null,
+    activeOrganizationSlug,
     quota,
     quotaLoading,
     quotaError,
     refreshQuota: fetchQuota,
-  }), [sessionData, isAnonymous, activeOrganizationId, organizationSlug, quota, quotaLoading, quotaError, fetchQuota]);
+  }), [sessionData, isAnonymous, activeOrganizationId, activeOrganizationSlug, quota, quotaLoading, quotaError, fetchQuota]);
 
   return (
     <SessionContext.Provider value={value}>
