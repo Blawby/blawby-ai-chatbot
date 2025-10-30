@@ -40,6 +40,10 @@ export const AccountPage = ({
   const { syncSubscription, openBillingPortal } = usePaymentUpgrade();
   const { currentOrganization, loading: orgLoading, refetch } = useOrganizationManagement();
   const { data: session, isPending } = useSession();
+  const redirectToBusinessOnboarding = useCallback((organizationId: string) => {
+    const params = new URLSearchParams({ organizationId, sync: '1' });
+    navigate(`/business-onboarding?${params.toString()}`);
+  }, [navigate]);
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -152,7 +156,7 @@ export const AccountPage = ({
       if (wasUpgraded) {
         const organizationId = currentOrganization?.id;
         if (organizationId) {
-          navigate(`/business-onboarding?organizationId=${organizationId}&sync=1`);
+          redirectToBusinessOnboarding(organizationId);
         }
       }
 
@@ -160,7 +164,7 @@ export const AccountPage = ({
       shouldCheckUpgradeRef.current = false;
       previousTierRef.current = null;
     }
-  }, [currentOrganization?.subscriptionTier, navigate]);
+  }, [currentOrganization?.subscriptionTier, currentOrganization?.id, redirectToBusinessOnboarding]);
 
   // Handle post-checkout sync
   useEffect(() => {
@@ -203,7 +207,7 @@ export const AccountPage = ({
 
             if (wasUpgraded) {
               // Redirect to business onboarding flow
-              navigate(`/business-onboarding?organizationId=${organizationId}&sync=1`);
+              redirectToBusinessOnboarding(organizationId);
               return;
             }
           } else {
@@ -238,7 +242,7 @@ export const AccountPage = ({
     };
 
     handlePostCheckoutSync();
-  }, [location.query, currentOrganization?.id, currentOrganization?.subscriptionTier, syncSubscription, showError, loadAccountData, navigate, refetch]);
+  }, [location.query, currentOrganization?.id, currentOrganization?.subscriptionTier, syncSubscription, showError, loadAccountData, redirectToBusinessOnboarding, refetch]);
 
   // Cleanup verification timeout and sync ref on unmount
   useEffect(() => {

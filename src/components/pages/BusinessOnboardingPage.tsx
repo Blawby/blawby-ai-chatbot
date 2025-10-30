@@ -64,10 +64,18 @@ export const BusinessOnboardingPage = () => {
       
       setSyncing(true);
       try {
+        // Dev/test-only header to force paid tier during E2E flows
+        const devForcePaid = (import.meta.env.MODE !== 'production') && (typeof window !== 'undefined') && (
+          new URLSearchParams(window.location.search).get('forcePaid') === '1' ||
+          (typeof localStorage !== 'undefined' && localStorage.getItem('forcePaid') === '1')
+        );
         const response = await fetch('/api/subscription/sync', {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(devForcePaid ? { 'x-test-force-paid': '1' } : {})
+          },
           body: JSON.stringify({ organizationId: targetOrganizationId })
         });
 

@@ -110,6 +110,35 @@ function parseJsonField<T = unknown>(value: unknown): T | null {
   }
 }
 
+/**
+ * Produce a truncated and redacted preview of a potentially sensitive body string.
+ * - Masks common sensitive patterns (emails, JWTs, long tokens, credit card-like numbers, SSNs)
+ * - Truncates to a maximum length to avoid logging entire payloads
+ */
+function createSafeBodyPreview(raw: string, maxPreviewChars: number = 200): string {
+  let masked = raw;
+
+  // Email addresses
+  masked = masked.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]');
+
+  // JWT-like tokens (three base64url parts separated by dots)
+  masked = masked.replace(/\b[\w-]+\.[\w-]+\.[\w-]+\b/g, '[REDACTED_JWT]');
+
+  // Long API keys/tokens (20+ contiguous base64url/hex-like chars)
+  masked = masked.replace(/\b[a-zA-Z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
+
+  // Credit card-like numbers (13-19 digits, allowing spaces or dashes)
+  masked = masked.replace(/\b(?:\d[ -]*?){13,19}\b/g, '[REDACTED_CARD]');
+
+  // US SSN-like patterns
+  masked = masked.replace(/\b\d{3}-?\d{2}-?\d{4}\b/g, '[REDACTED_SSN]');
+
+  if (masked.length > maxPreviewChars) {
+    return masked.slice(0, maxPreviewChars) + '…';
+  }
+  return masked;
+}
+
 async function recordOrganizationEvent(
   env: Env,
   organizationId: string,
@@ -212,9 +241,12 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           rawBody = undefined;
         }
         const errorMessage = error instanceof Error ? error.message : String(error);
+        const bodyLength = typeof rawBody === 'string' ? rawBody.length : undefined;
+        const bodyPreview = typeof rawBody === 'string' ? createSafeBodyPreview(rawBody) : undefined;
         console.error('Failed to parse JSON body in POST /api/organizations/active', {
           error: errorMessage,
-          rawBody
+          bodyLength,
+          bodyPreview
         });
       }
 

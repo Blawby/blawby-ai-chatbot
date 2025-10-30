@@ -15,6 +15,14 @@ async function ensureAuthenticated(page: import('@playwright/test').Page) {
 
   const email = `e2e-${Date.now()}@example.com`;
   const password = 'TestPassword123!';
+  // Ensure flags are set before any navigation to avoid race conditions
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('onboardingCompleted', 'true');
+      localStorage.setItem('onboardingCheckDone', 'true');
+      localStorage.setItem('forcePaid', '1');
+    } catch {}
+  });
   await page.goto('/auth');
   await page.click("text=Don't have an account? Sign up");
   await page.fill('input[placeholder="Enter your email"]', email);
@@ -50,13 +58,6 @@ test.describe('Post-checkout Business Onboarding', () => {
 
     // Navigate to home and neutralize onboarding guard
     await page.goto('/');
-    await page.evaluate(() => {
-      try {
-        localStorage.setItem('onboardingCompleted', 'true');
-        localStorage.setItem('onboardingCheckDone', 'true');
-      } catch {}
-    });
-    await page.goto('/');
 
     // Dismiss any welcome/intro overlay that can intercept clicks
     const okLetsGo = page.getByRole('button', { name: /Okay, let's go/i });
@@ -79,7 +80,7 @@ test.describe('Post-checkout Business Onboarding', () => {
 
     // Simulate redirect back to onboarding with sync
     const syncOk = page.waitForResponse((res) => res.url().includes('/api/subscription/sync') && res.request().method() === 'POST' && res.status() === 200);
-    await page.goto('/business-onboarding?sync=1');
+    await page.goto('/business-onboarding?sync=1&forcePaid=1');
     await syncOk;
     // Assert we are on onboarding route (modal may be gated by tier)
     await expect(page).toHaveURL(/\/business-onboarding/);

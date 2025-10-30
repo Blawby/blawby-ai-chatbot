@@ -308,7 +308,7 @@ export async function getAuth(env: Env, request?: Request) {
             planName?: string | null;
           }) => {
             const { stripeSubscription, referenceId, planName } = args;
-            try {
+          try {
               const seats = stripeSubscription?.items?.data?.[0]?.quantity ?? 1;
               const subPeriods = stripeSubscription as unknown as { current_period_start?: number; current_period_end?: number };
               const periodStart = subPeriods.current_period_start ?? Math.floor(Date.now() / 1000);
@@ -319,6 +319,9 @@ export async function getAuth(env: Env, request?: Request) {
               const planLower = (planName ?? 'business').toLowerCase();
 
               if (stripeSubscription?.id) {
+              // Begin a transaction to ensure atomicity between subscription upsert and org update
+              await env.DB.prepare('BEGIN TRANSACTION').run();
+              try {
                 const upsert = await env.DB.prepare(
                   `INSERT INTO subscriptions (
                      id, plan, reference_id, stripe_subscription_id, stripe_customer_id, status, period_start, period_end, seats, created_at, updated_at
@@ -360,11 +363,19 @@ export async function getAuth(env: Env, request?: Request) {
                   }
                 }
 
+                await env.DB.prepare('COMMIT').run();
                 return upsert;
+              } catch (txError) {
+                try { await env.DB.prepare('ROLLBACK').run(); } catch (rollbackError) {
+                  console.error('❌ Failed to rollback subscription upsert transaction:', rollbackError);
+                }
+                throw txError;
               }
-            } catch (error) {
-              console.error('❌ Failed to persist subscription (upsert):', error);
-            }
+              }
+          } catch (error) {
+            console.error('❌ Failed to persist subscription (upsert):', error);
+            throw error;
+          }
           };
 
           stripeIntegration = stripePlugin({

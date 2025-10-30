@@ -103,6 +103,12 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
                 : (stripeSub?.customer && typeof (stripeSub.customer as { id?: unknown }).id === 'string'
                     ? (stripeSub.customer as { id: string }).id
                     : null);
+            if (!customerId) {
+              console.warn('Stripe subscription missing customer id; proceeding with NULL stripe_customer_id', {
+                stripeSubscriptionId,
+                organizationId,
+              });
+            }
             const primaryItem = stripeSub?.items?.data?.[0];
             const priceObj = primaryItem?.price;
             const priceId: string | null = typeof priceObj === 'string' ? priceObj : priceObj?.id ?? null;
@@ -148,7 +154,7 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
               plan,
               organizationId,
               stripeSubscriptionId,
-              customerId,
+              customerId ?? null,
               status,
               periodStart,
               periodEnd,
