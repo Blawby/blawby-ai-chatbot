@@ -1094,14 +1094,7 @@ export class OrganizationService {
   }
 
   async markBusinessOnboardingComplete(organizationId: string): Promise<boolean> {
-    // First, verify the organization exists to distinguish not found vs no-op
-    const exists = await this.env.DB.prepare(
-      `SELECT id FROM organizations WHERE id = ? LIMIT 1`
-    ).bind(organizationId).first<{ id: string }>();
-    if (!exists) {
-      throw new Error(`Organization not found: ${organizationId}`);
-    }
-
+    // Perform the update first to avoid TOCTOU between existence check and update
     const result = await this.env.DB.prepare(
       `UPDATE organizations 
          SET business_onboarding_completed_at = strftime('%s','now'),
@@ -1113,6 +1106,13 @@ export class OrganizationService {
     if (changes > 0) {
       this.clearCache(organizationId);
       return true;
+    }
+    // No rows updated. Check if organization exists to distinguish not found vs already completed
+    const exists = await this.env.DB.prepare(
+      `SELECT id FROM organizations WHERE id = ? LIMIT 1`
+    ).bind(organizationId).first<{ id: string }>();
+    if (!exists) {
+      throw new Error(`Organization not found: ${organizationId}`);
     }
     // Organization exists but no update occurred - likely already completed
     return false;
