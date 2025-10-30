@@ -3,18 +3,35 @@ import { organizationClient } from "better-auth/client/plugins";
 import { cloudflareClient } from "better-auth-cloudflare/client";
 import { stripeClient } from "@better-auth/stripe/client";
 
-// Safe baseURL computation for SSR/build-time compatibility
+// Safe baseURL computation that prefers the current origin in local dev
 const getBaseURL = () => {
+  // In the browser, always use current origin for localhost to keep auth and APIs on the same host
+  if (typeof window !== "undefined") {
+    const origin = window.location.origin;
+    try {
+      const { hostname } = new URL(origin);
+      const normalizedHostname =
+        hostname.startsWith("[") && hostname.endsWith("]")
+          ? hostname.slice(1, -1)
+          : hostname;
+      const localHostnames = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
+      const isLocal = localHostnames.has(normalizedHostname);
+      if (isLocal) return origin;
+    } catch {
+      // Treat invalid URLs as non-local
+    }
+  }
+
+  // Otherwise allow explicit override (e.g., production, preview)
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  
-  // Guard against undefined window in SSR/build-time
+
+  // Fallback to current origin if available
   if (typeof window !== "undefined") {
     return window.location.origin;
   }
-  
-  // Safe fallback for SSR/build-time
+
   return "";
 };
 

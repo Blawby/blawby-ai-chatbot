@@ -110,6 +110,36 @@ function parseJsonField<T = unknown>(value: unknown): T | null {
   }
 }
 
+/**
+ * Produce a truncated and redacted preview of a potentially sensitive body string.
+ * - Masks common sensitive patterns (emails, JWTs, long tokens, credit card-like numbers, SSNs)
+ * - Truncates to a maximum length to avoid logging entire payloads
+ */
+function createSafeBodyPreview(raw: string, maxPreviewChars: number = 200): string {
+  let masked = raw;
+
+  // Email addresses
+  masked = masked.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]');
+
+  // JWT-like tokens (three base64url parts separated by dots). Enforce minimum segment lengths
+  // to avoid false positives like "1.2.3" or "foo.bar.baz".
+  masked = masked.replace(/\b[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{8,}\b/g, '[REDACTED_JWT]');
+
+  // Long API keys/tokens (20+ contiguous base64url/hex-like chars)
+  masked = masked.replace(/\b[a-zA-Z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
+
+  // Credit card-like numbers (13-19 digits, allowing spaces or dashes)
+  masked = masked.replace(/\b(?=(?:\D*\d){13,19}\b)\d(?:[ -]?\d){12,18}\b/g, '[REDACTED_CARD]');
+
+  // US SSN-like patterns
+  masked = masked.replace(/\b\d{3}-?\d{2}-?\d{4}\b/g, '[REDACTED_SSN]');
+
+  if (masked.length > maxPreviewChars) {
+    return masked.slice(0, maxPreviewChars) + '…';
+  }
+  return masked;
+}
+
 async function recordOrganizationEvent(
   env: Env,
   organizationId: string,
@@ -195,6 +225,68 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       return createSuccessResponse({
         organization: organization ? sanitizeOrganizationResponse(organization) : null,
       });
+    }
+
+    // Explicitly set active organization for current session (used before checkout)
+    if ((path === '/active' || path === '/active/') && request.method === 'POST') {
+      const authContext = await requireAuth(request, env);
+      let body: unknown = {};
+      const requestClone = request.clone();
+      try {
+        body = await request.json();
+      } catch (error) {
+        let rawBody: string | undefined;
+        try {
+          rawBody = await requestClone.text();
+        } catch (_readError) {
+          rawBody = undefined;
+        }
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const bodyLength = typeof rawBody === 'string' ? rawBody.length : undefined;
+        const bodyPreview = typeof rawBody === 'string' ? createSafeBodyPreview(rawBody) : undefined;
+        throw HttpErrors.badRequest(
+          `Invalid JSON body: ${errorMessage}`,
+          {
+            endpoint: 'POST /api/organizations/active',
+            bodyLength,
+            bodyPreview
+          }
+        );
+      }
+
+      if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+        throw HttpErrors.badRequest('request body must be a JSON object', {
+          endpoint: 'POST /api/organizations/active'
+        });
+      }
+
+      const organizationId = (body as { organizationId?: string }).organizationId;
+      if (!organizationId) {
+        throw HttpErrors.badRequest('organizationId is required');
+      }
+
+      // Validate membership (any member can set their active org)
+      await requireOrgMember(request, env, organizationId);
+
+      // Confirm session row exists before updating
+      const existingSession = await env.DB.prepare(
+        `SELECT id FROM sessions WHERE id = ? LIMIT 1`
+      ).bind(authContext.session.id).first<{ id: string }>();
+
+      if (!existingSession) {
+        throw HttpErrors.notFound('Session not found for active organization update');
+      }
+
+      // Update active organization on this session id (no token needed)
+      const update = await env.DB.prepare(
+        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
+      ).bind(organizationId, Math.floor(Date.now() / 1000), authContext.session.id).run();
+
+      if (!update.success) {
+        throw HttpErrors.internalServerError('Failed to update active organization for session');
+      }
+
+      return createSuccessResponse({ activeOrganizationId: organizationId });
     }
 
     if (pathSegments.length === 2 && pathSegments[1] === 'member') {

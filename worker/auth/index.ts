@@ -301,6 +301,107 @@ export async function getAuth(env: Env, request?: Request) {
 
         try {
 
+          // Shared helper to persist subscription and sync organization tier consistently
+          const upsertSubscriptionAndSyncOrg = async (args: {
+            stripeSubscription: Stripe.Subscription;
+            referenceId?: string | null;
+            planName?: string | null;
+          }) => {
+            const { stripeSubscription, referenceId, planName } = args;
+          try {
+              const seats = stripeSubscription?.items?.data?.[0]?.quantity ?? 1;
+              const subPeriods = stripeSubscription as unknown as { current_period_start?: number; current_period_end?: number };
+              const periodStart = subPeriods.current_period_start ?? Math.floor(Date.now() / 1000);
+              const periodEnd = subPeriods.current_period_end ?? null;
+              const stripeCustomerId = typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id ?? null;
+              const rawStatus = stripeSubscription?.status;
+              const status = rawStatus ?? 'incomplete';
+              if (rawStatus == null) {
+                console.warn('⚠️ Stripe subscription status missing; defaulting to conservative status', {
+                  subscriptionId: stripeSubscription?.id,
+                });
+              }
+              const refId = referenceId ?? null;
+              const planLower = (planName ?? 'business').toLowerCase();
+
+              // Validate required subscription identifier to avoid silent no-ops
+              if (!stripeSubscription?.id) {
+                const errorContext = {
+                  plan: planLower,
+                  refId,
+                  stripeCustomerId,
+                };
+                throw new Error(`Missing stripeSubscription.id; cannot persist subscription: ${JSON.stringify(errorContext)}`);
+              }
+ 
+              // Use a SAVEPOINT to safely support nested transaction contexts
+              const savepointName = `sp_upsert_subscription_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+              await env.DB.prepare(`SAVEPOINT ${savepointName}`).run();
+              try {
+                const upsert = await env.DB.prepare(
+                  `INSERT INTO subscriptions (
+                     id, plan, reference_id, stripe_subscription_id, stripe_customer_id, status, period_start, period_end, seats, created_at, updated_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), strftime('%s','now'))
+                   ON CONFLICT(stripe_subscription_id) DO UPDATE SET
+                     status=excluded.status,
+                     plan=excluded.plan,
+                     seats=excluded.seats,
+                     period_start=excluded.period_start,
+                     period_end=excluded.period_end,
+                     reference_id=COALESCE(reference_id, excluded.reference_id),
+                     stripe_customer_id=excluded.stripe_customer_id,
+                     updated_at=strftime('%s','now')`
+                ).bind(
+                  stripeSubscription.id,
+                  planLower,
+                  refId,
+                  stripeSubscription.id,
+                  stripeCustomerId,
+                  status,
+                  periodStart,
+                  periodEnd,
+                  seats
+                ).run();
+                console.log('✅ Subscription persisted (upsert):', { success: upsert.success, changes: upsert.meta?.changes });
+
+                if (refId) {
+                  if (status === 'active') {
+                    const normalizedTier = planLower && typeof planLower === 'string' && planLower.length > 0
+                      ? planLower.replace(/-annual$/, '')
+                      : 'free';
+                    const orgUpdate = await env.DB.prepare(
+                      `UPDATE organizations SET subscription_tier = ?, seats = ?, stripe_customer_id = COALESCE(stripe_customer_id, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                    ).bind(normalizedTier, seats, stripeCustomerId, refId).run();
+                    console.log('✅ Organization tier updated (active):', { success: orgUpdate.success, changes: orgUpdate.meta?.changes, organizationId: refId });
+                  } else {
+                    const orgDowngrade = await env.DB.prepare(
+                      `UPDATE organizations SET subscription_tier = 'free', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                    ).bind(refId).run();
+                    console.log('✅ Organization downgraded (non-active):', { success: orgDowngrade.success, changes: orgDowngrade.meta?.changes, organizationId: refId });
+                  }
+                }
+
+                await env.DB.prepare(`RELEASE SAVEPOINT ${savepointName}`).run();
+                return upsert;
+              } catch (txError) {
+                try {
+                  await env.DB.prepare(`ROLLBACK TO SAVEPOINT ${savepointName}`).run();
+                } catch (rollbackError) {
+                  console.error('❌ Failed to rollback to savepoint for subscription upsert:', rollbackError);
+                }
+                try {
+                  await env.DB.prepare(`RELEASE SAVEPOINT ${savepointName}`).run();
+                } catch (releaseError) {
+                  console.error('❌ Failed to release savepoint after rollback for subscription upsert:', releaseError);
+                }
+                throw txError;
+              }
+          } catch (error) {
+            console.error('❌ Failed to persist subscription (upsert):', error);
+            throw error;
+          }
+          };
+
           stripeIntegration = stripePlugin({
             stripeClient,
             stripeWebhookSecret,
@@ -329,6 +430,19 @@ export async function getAuth(env: Env, request?: Request) {
                 }] : []),
               ],
               onSubscriptionComplete: async ({ stripeSubscription, subscription, plan }) => {
+                console.log('🔔 onSubscriptionComplete', {
+                  referenceId: subscription.referenceId,
+                  subscriptionPlan: subscription.plan,
+                  planName: plan?.name,
+                  stripeSubscriptionId: stripeSubscription?.id,
+                  customer: typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id,
+                  status: stripeSubscription?.status,
+                });
+                await upsertSubscriptionAndSyncOrg({
+                  stripeSubscription,
+                  referenceId: subscription.referenceId,
+                  planName: plan?.name ?? subscription.plan ?? 'business',
+                });
                 await syncSubscriptionState({
                   stripeSubscription,
                   referenceId: subscription.referenceId,
@@ -337,6 +451,19 @@ export async function getAuth(env: Env, request?: Request) {
               },
               onSubscriptionUpdate: async ({ event, subscription }) => {
                 const stripeSubscription = event.data.object as Stripe.Subscription;
+                console.log('🔔 onSubscriptionUpdate', {
+                  referenceId: subscription.referenceId,
+                  subscriptionPlan: subscription.plan,
+                  stripeSubscriptionId: stripeSubscription?.id,
+                  customer: typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id,
+                  status: stripeSubscription?.status,
+                  eventType: event.type,
+                });
+                await upsertSubscriptionAndSyncOrg({
+                  stripeSubscription,
+                  referenceId: subscription.referenceId,
+                  planName: subscription.plan ?? 'business',
+                });
                 await syncSubscriptionState({
                   stripeSubscription,
                   referenceId: subscription.referenceId,
@@ -344,6 +471,13 @@ export async function getAuth(env: Env, request?: Request) {
                 });
               },
               onSubscriptionCancel: async ({ stripeSubscription, subscription }) => {
+                console.log('🔔 onSubscriptionCancel', {
+                  referenceId: subscription.referenceId,
+                  subscriptionPlan: subscription.plan,
+                  stripeSubscriptionId: stripeSubscription?.id,
+                  customer: typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id,
+                  status: stripeSubscription?.status,
+                });
                 await syncSubscriptionState({
                   stripeSubscription,
                   referenceId: subscription.referenceId,
@@ -351,6 +485,10 @@ export async function getAuth(env: Env, request?: Request) {
                 });
               },
               onSubscriptionDeleted: async ({ subscription }) => {
+                console.log('🔔 onSubscriptionDeleted', {
+                  referenceId: subscription.referenceId,
+                  subscriptionPlan: subscription.plan,
+                });
                 if (subscription.referenceId) {
                   await clearStripeSubscriptionCache(env, subscription.referenceId);
                 }
@@ -359,14 +497,60 @@ export async function getAuth(env: Env, request?: Request) {
                 // Extract seats and annual from the subscription object since they're not passed directly
                 const seats = params.subscription?.seats || 1;
                 const annual = params.plan?.name === 'business-annual';
-                
-                console.log('Checkout session params:', {
+                const referenceId = params.subscription?.referenceId;
+
+                console.log('🧾 Checkout session params:', {
                   seats,
                   annual,
                   planName: params.plan?.name,
+                  referenceId,
                   subscriptionSeats: params.subscription?.seats
                 });
-                
+
+                // Pre-flight: block checkout if organization already has an active paid subscription
+                if (referenceId) {
+                  try {
+                    const org = await env.DB.prepare(
+                      `SELECT subscription_tier, stripe_customer_id FROM organizations WHERE id = ? LIMIT 1`
+                    ).bind(referenceId).first<{ subscription_tier: string | null; stripe_customer_id: string | null }>();
+
+                    if (org && (org.subscription_tier === 'business' || org.subscription_tier === 'enterprise')) {
+                      console.warn('⚠️ Blocked upgrade attempt for paid org by tier', { organizationId: referenceId, currentTier: org.subscription_tier });
+                      throw new Error(JSON.stringify({
+                        code: 'SUBSCRIPTION_ALREADY_ACTIVE',
+                        message: 'This organization already has an active subscription. Please manage your billing instead.'
+                      }));
+                    }
+
+                    const activeSub = await env.DB.prepare(
+                      `SELECT status, stripe_subscription_id FROM subscriptions WHERE reference_id = ? AND status IN ('active','trialing') LIMIT 1`
+                    ).bind(referenceId).first<{ status: string; stripe_subscription_id: string }>();
+
+                    if (activeSub) {
+                      console.warn('⚠️ Blocked upgrade attempt with active subscription', { organizationId: referenceId, subscriptionId: activeSub.stripe_subscription_id, status: activeSub.status });
+                      throw new Error(JSON.stringify({
+                        code: 'SUBSCRIPTION_ALREADY_ACTIVE',
+                        message: 'This organization already has an active subscription.'
+                      }));
+                    }
+
+                    console.log('✅ Pre-flight check passed for org', referenceId);
+                  } catch (preflightErr) {
+                    // Bubble up structured JSON errors by safely attempting to parse the message
+                    if (preflightErr instanceof Error && typeof preflightErr.message === 'string') {
+                      try {
+                        const parsed = JSON.parse(preflightErr.message);
+                        if (parsed && typeof parsed === 'object') {
+                          throw preflightErr;
+                        }
+                      } catch (_) {
+                        // not structured JSON; fall through to log
+                      }
+                    }
+                    console.error('❌ Pre-flight check DB error (proceeding to Stripe):', preflightErr);
+                  }
+                }
+
                 return {
                   params: {
                     allow_promotion_codes: true,
@@ -805,10 +989,29 @@ export async function getAuth(env: Env, request?: Request) {
             },
             session: {
               create: {
-                after: async (session, context) => {
+                after: async (session, _context) => {
                   // Set active organization when a session is created
                   if (session.userId && session.token) {
                     try {
+                      // Ensure a personal organization exists for the user (idempotent)
+                      try {
+                        const organizationService = new OrganizationService(env);
+                        const existing = await organizationService.listOrganizations(session.userId);
+                        const hasPersonal = Array.isArray(existing) && existing.some(org => org.isPersonal);
+                        if (!hasPersonal) {
+                          // Fetch user name for a friendly org name
+                          const row = await env.DB
+                            .prepare('SELECT name, email FROM users WHERE id = ?')
+                            .bind(session.userId)
+                            .first<{ name: string | null; email: string | null }>();
+                          const fallbackName = (row?.name && row.name.trim()) || (row?.email?.split('@')[0] ?? 'New User');
+                          await organizationService.ensurePersonalOrganization(session.userId, fallbackName);
+                          console.log('✅ Ensured personal organization on session.create for user', session.userId);
+                        }
+                      } catch (ensureError) {
+                        console.error('❌ Failed to ensure personal organization on session.create:', ensureError);
+                      }
+
                       await setActiveOrganizationForSession(session.userId, session.token, env);
                     } catch (error) {
                       console.error("❌ Failed to set active organization for session:", {

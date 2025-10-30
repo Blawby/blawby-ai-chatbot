@@ -293,6 +293,30 @@ export class OrganizationService {
     if (personalMembership?.id) {
       const existing = await this.getOrganization(personalMembership.id);
       if (existing) {
+        // Ensure membership row exists with owner role (idempotent)
+        try {
+          const membership = await this.env.DB.prepare(
+            `SELECT role FROM members WHERE organization_id = ? AND user_id = ?`
+          ).bind(existing.id, userId).first<{ role: string }>();
+          if (!membership) {
+            await this.env.DB.prepare(
+              `INSERT INTO members (id, organization_id, user_id, role, created_at)
+               VALUES (?, ?, ?, 'owner', ?)
+               ON CONFLICT(organization_id, user_id) DO NOTHING`
+            ).bind(
+              globalThis.crypto.randomUUID(),
+              existing.id,
+              userId,
+              Math.floor(Date.now() / 1000)
+            ).run();
+          }
+        } catch (e) {
+          console.error('❌ Failed to ensure owner membership for personal org:', {
+            organizationId: existing.id,
+            userId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
         return existing;
       }
     }
@@ -1067,6 +1091,105 @@ export class OrganizationService {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
     return `${timestamp.toString(36)}${random}`;
+  }
+
+  async markBusinessOnboardingComplete(organizationId: string): Promise<boolean> {
+    // Perform the update first to avoid TOCTOU between existence check and update
+    const result = await this.env.DB.prepare(
+      `UPDATE organizations 
+         SET business_onboarding_completed_at = strftime('%s','now'),
+             business_onboarding_skipped = 0,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(organizationId).run();
+    const changes = (result as unknown as { meta?: { changes?: number } ; changes?: number })?.meta?.changes ?? (result as unknown as { changes?: number })?.changes ?? 0;
+    if (changes > 0) {
+      this.clearCache(organizationId);
+      return true;
+    }
+    // No rows updated. Check if organization exists to distinguish not found vs already completed
+    const exists = await this.env.DB.prepare(
+      `SELECT id FROM organizations WHERE id = ? LIMIT 1`
+    ).bind(organizationId).first<{ id: string }>();
+    if (!exists) {
+      throw new Error(`Organization not found: ${organizationId}`);
+    }
+    // Organization exists but no update occurred - likely already completed
+    return false;
+  }
+
+  async markBusinessOnboardingSkipped(organizationId: string): Promise<boolean> {
+    const result = await this.env.DB.prepare(
+      `UPDATE organizations 
+         SET business_onboarding_skipped = 1,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(organizationId).run();
+    const changes = (result as unknown as { meta?: { changes?: number } ; changes?: number })?.meta?.changes ?? (result as unknown as { changes?: number })?.changes ?? 0;
+    if (changes > 0) {
+      this.clearCache(organizationId);
+      return true;
+    }
+    return false;
+  }
+
+  async saveBusinessOnboardingProgress(organizationId: string, data: Record<string, unknown>): Promise<void> {
+    const result = await this.env.DB.prepare(
+      `UPDATE organizations 
+         SET business_onboarding_data = ?,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(JSON.stringify(data), organizationId).run();
+    const changes = (result as unknown as { meta?: { changes?: number } ; changes?: number })?.meta?.changes ?? (result as unknown as { changes?: number })?.changes ?? 0;
+    if (changes === 0) {
+      throw new Error(`No organization updated when saving onboarding progress (organizationId=${organizationId})`);
+    }
+    this.clearCache(organizationId);
+  }
+
+  async getBusinessOnboardingStatus(organizationId: string): Promise<{
+    completed: boolean;
+    skipped: boolean;
+    completedAt: number | null;
+    data: Record<string, unknown> | null;
+  }> {
+    const row = await this.env.DB.prepare(
+      `SELECT business_onboarding_completed_at as completedAt,
+              business_onboarding_skipped as skipped,
+              business_onboarding_data as data
+         FROM organizations
+        WHERE id = ?
+        LIMIT 1`
+    ).bind(organizationId).first<{ completedAt: number | null; skipped: number | null; data: string | null }>();
+
+    return {
+      completed: Boolean(row?.completedAt),
+      skipped: Boolean(row?.skipped),
+      completedAt: row?.completedAt ?? null,
+      data: (() => {
+        if (!row?.data) {
+          return null;
+        }
+        try {
+          return JSON.parse(row.data) as Record<string, unknown>;
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          // Prefer environment logger if available; fall back to console
+          try {
+            (this.env as unknown as { logger?: { error?: (...args: unknown[]) => void } })
+              ?.logger?.error?.('Failed to parse business_onboarding_data JSON', {
+                organizationId,
+                error: errMsg,
+              });
+          } catch { /* no-op */ }
+          console.error('Failed to parse business_onboarding_data JSON', {
+            organizationId,
+            error: errMsg,
+          });
+          return null;
+        }
+      })(),
+    };
   }
 
   clearCache(organizationId?: string): void {

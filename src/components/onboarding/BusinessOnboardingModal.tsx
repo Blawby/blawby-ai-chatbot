@@ -32,7 +32,7 @@ interface BusinessOnboardingModalProps {
   isOpen: boolean;
   organizationId: string;
   organizationName?: string;
-  fallbackContactEmail?: string;
+  fallbackContactEmail?: string | undefined;
   onClose: () => void;
   onCompleted?: () => Promise<void> | void;
 }
@@ -72,8 +72,6 @@ const BusinessOnboardingModal = ({
     if (isLastStep) {
       // Final step - complete onboarding
       try {
-        localStorage.removeItem('businessSetupPending');
-        
         if (onCompleted) {
           await onCompleted();
         }
@@ -103,11 +101,6 @@ const BusinessOnboardingModal = ({
 
 
   const handleClose = () => {
-    try {
-      localStorage.removeItem('businessSetupPending');
-    } catch {
-      // noop
-    }
     onClose();
   };
 

@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useState, useEffect, useCallback, useLayoutEffect } from 'preact/hooks';
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import ChatContainer from './components/ChatContainer';
@@ -11,7 +11,6 @@ import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
-import { authClient } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
 import type { UIOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
@@ -25,10 +24,9 @@ import { useNavigation } from './utils/navigation';
 import PricingModal from './components/PricingModal';
 import WelcomeModal from './components/onboarding/WelcomeModal';
 import { BusinessWelcomePrompt } from './components/onboarding/organisms/BusinessWelcomePrompt';
-import { BusinessSetupPrompt } from './components/onboarding/organisms/BusinessSetupPrompt';
+import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPage';
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
-import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
 import { useToastContext } from './contexts/ToastContext';
 import { useSessionContext } from './contexts/SessionContext';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
@@ -44,14 +42,13 @@ function MainApp({
 	organizationId, 
 	organizationConfig, 
 	organizationNotFound, 
-	handleRetryOrganizationConfig,
-	...routeProps
+	handleRetryOrganizationConfig
 }: {
 	organizationId: string;
 	organizationConfig: UIOrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
-} & Record<string, any>) {
+}) {
 	// Core state
 	const [clearInputTrigger, setClearInputTrigger] = useState(0);
 	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
@@ -60,7 +57,7 @@ function MainApp({
 	const [showSettingsModal, setShowSettingsModal] = useState(false);
 	const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 	const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
-	const [showBusinessSetup, setShowBusinessSetup] = useState(false);
+	// Removed legacy business setup modal flow (replaced by /business-onboarding route)
 	
 	// Mobile state - initialized as false to avoid SSR/client hydration mismatch
 	const [isMobile, setIsMobile] = useState(false);
@@ -75,8 +72,12 @@ function MainApp({
 	// Organization data is now passed as props
 	
   // Using our custom organization system instead of Better Auth's organization plugin
-	const { submitUpgrade } = usePaymentUpgrade();
+	// Removed unused submitUpgrade
 	const { showError } = useToastContext();
+	const showErrorRef = useRef(showError);
+	useEffect(() => {
+		showErrorRef.current = showError;
+	}, [showError]);
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
 	const { currentOrganization } = useOrganizationManagement();
 
@@ -175,7 +176,38 @@ function MainApp({
 		}
 	}, []);
 
-	// Check if OAuth user needs onboarding (one-time check after auth)
+    // Check if OAuth user needs onboarding (one-time check after auth)
+    useEffect(() => {
+        // Ensure personal organization once per session if user is present
+        (async () => {
+            try {
+                if (session?.user && typeof window !== 'undefined') {
+                    const key = `ensuredPersonalOrg_v1_${session.user.id}`;
+                    if (!sessionStorage.getItem(key)) {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 10000);
+                        const resp = await fetch('/api/organizations/me/ensure-personal', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            signal: controller.signal,
+                        });
+                        clearTimeout(timeoutId);
+                        if (!resp.ok) {
+                            console.warn('Failed to ensure personal organization (non-OK response)', { status: resp.status });
+                            showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
+                            return;
+                        }
+                        sessionStorage.setItem(key, '1');
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to ensure personal organization (client fallback):', e);
+                showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
+            }
+        })();
+    }, [session?.user, sessionIsPending]);
+
 	useEffect(() => {
 		if (session?.user && !sessionIsPending) {
 			if (import.meta.env.DEV) {
@@ -189,7 +221,9 @@ function MainApp({
 						local_onboardingCompleted: localStorage.getItem('onboardingCompleted'),
 						local_onboardingCheckDone: localStorage.getItem('onboardingCheckDone')
 					});
-				} catch {}
+                } catch (e) {
+                    console.warn('[ONBOARDING][CHECK] session debug failed:', e);
+                }
 			}
 			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
 			const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
@@ -204,9 +238,10 @@ function MainApp({
 				try {
 					localStorage.setItem('onboardingCompleted', 'true');
 					localStorage.setItem('onboardingCheckDone', 'true');
-				} catch (_error) {
-					// Handle localStorage failures gracefully
-				}
+                } catch (_error) {
+                    // Handle localStorage failures gracefully
+                    console.warn('[ONBOARDING][SYNC] localStorage set failed:', _error);
+                }
 			}
 			
 			// If user hasn't completed onboarding and we haven't checked yet
@@ -221,9 +256,10 @@ function MainApp({
 					// Set flag to prevent repeated checks
 					try {
 						localStorage.setItem('onboardingCheckDone', 'true');
-					} catch (_error) {
-						// Handle localStorage failures gracefully
-					}
+                    } catch (_error) {
+                        // Handle localStorage failures gracefully
+                        console.warn('[ONBOARDING][FLAGS] localStorage set failed:', _error);
+                    }
 					
 					// Redirect to auth page with onboarding
 					window.location.href = '/auth?mode=signin&onboarding=true';
@@ -238,24 +274,9 @@ function MainApp({
 				}
 			}
 		}
-	}, [session?.user, sessionIsPending, session]);
+	}, [session?.user, sessionIsPending, session, showError]);
 
-	// Check if we should show business setup modal (after tier upgrade)
-	useEffect(() => {
-		try {
-			const businessSetupPending = localStorage.getItem('businessSetupPending');
-			if (businessSetupPending === 'true') {
-				setShowBusinessSetup(true);
-				// Don't remove the flag here - let the modal handlers do it
-			}
-			// Note: 'snoozed' status is handled by the modal's handleClose method
-			// and will prevent the modal from showing until user explicitly reopens it
-		} catch (_error) {
-			if (import.meta.env.DEV) {
-				console.warn('Failed to check business setup status:', _error);
-			}
-		}
-	}, []);
+
 
 	// Check if we should show business welcome modal (after upgrade)
 	useEffect(() => {
@@ -581,7 +602,7 @@ function MainApp({
 						}
 
 						// Always use blawby-ai organization for stripe upgrades
-						const stripeOrganizationId = 'blawby-ai';
+                        // Use 'blawby-ai' organization for Stripe upgrades (no local variable needed)
 
 						if (tier === 'business') {
 							// Navigate to cart page for business upgrades instead of direct checkout
@@ -640,21 +661,7 @@ function MainApp({
 				/>
 			)}
 
-			{/* Business Setup Modal */}
-			<BusinessSetupPrompt
-				isOpen={showBusinessSetup}
-				onClose={() => {
-					// Clear the localStorage flag so modal doesn't reappear on reload
-					try {
-						localStorage.removeItem('businessSetupPending');
-					} catch (_error) {
-						if (import.meta.env.DEV) {
-							console.warn('Failed to remove business setup flag:', _error);
-						}
-					}
-					setShowBusinessSetup(false);
-				}}
-			/>
+
 		</>
 	);
 }
@@ -718,6 +725,7 @@ function AppWithSEO({
 				<Router>
 					<Route path="/auth" component={AuthPage} />
 					<Route path="/cart" component={CartPage} />
+					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
 					<Route path="/settings/*" component={(props) => <MainAppWithProviders 
 						organizationId={organizationId}
 						organizationConfig={organizationConfig}
@@ -744,7 +752,7 @@ function MainAppWithProviders(props: {
 	organizationConfig: UIOrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
-} & Record<string, any>) {
+} & Record<string, unknown>) {
 	return (
 		<SessionProvider>
 			<MainApp {...props} />

@@ -12,6 +12,7 @@ import {
   handleAnalyze,
   handleReview,
   handleSubscription,
+  handleOnboarding,
   handlePayment,
   handlePDF,
   handleDebug,
@@ -94,6 +95,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleReview(request, env);
     } else if (path.startsWith('/api/subscription')) {
       response = await handleSubscription(request, env);
+    } else if (path.startsWith('/api/onboarding')) {
+      response = await handleOnboarding(request, env);
     } else if (path.startsWith('/api/payment')) {
       response = await handlePayment(request, env);
     } else if (path.startsWith('/api/pdf')) {
