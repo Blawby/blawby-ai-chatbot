@@ -11,7 +11,6 @@ import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
-// import { authClient } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
 import type { UIOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
@@ -28,7 +27,6 @@ import { BusinessWelcomePrompt } from './components/onboarding/organisms/Busines
 import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPage';
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
-// import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
 import { useToastContext } from './contexts/ToastContext';
 import { useSessionContext } from './contexts/SessionContext';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';

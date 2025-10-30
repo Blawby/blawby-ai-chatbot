@@ -235,8 +235,11 @@ export const usePaymentUpgrade = () => {
           headers: { 'Accept': 'application/json' },
         });
         if (orgRes.ok) {
-          const org = await orgRes.json().catch(() => ({} as Record<string, unknown>));
-          const orgData = org as Record<string, unknown>;
+          const json = await orgRes.json().catch(() => ({} as Record<string, unknown>));
+          const result = json as { success?: boolean; data?: Record<string, unknown> };
+          const orgData = (result && typeof result === 'object' && result.data && typeof result.data === 'object')
+            ? (result.data as Record<string, unknown>)
+            : {} as Record<string, unknown>;
           const rawTier = (orgData?.subscriptionTier ?? orgData?.subscription_tier) as unknown;
           const tier = typeof rawTier === 'string' ? rawTier : '';
           const isPaidTier = tier.length > 0 && tier !== 'free' && tier !== 'trial';

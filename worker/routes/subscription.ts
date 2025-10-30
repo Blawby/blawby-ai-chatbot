@@ -86,17 +86,25 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
             }
             const seats = seatsRaw;
             const items = stripeSub?.items?.data ?? [];
-            const periodStarts = items
+            const topLevelStarts = typeof (stripeSub as { current_period_start?: unknown })?.current_period_start === 'number' && (stripeSub as { current_period_start?: number }).current_period_start! > 0
+              ? [(stripeSub as { current_period_start?: number }).current_period_start!]
+              : [] as number[];
+            const topLevelEnds = typeof (stripeSub as { current_period_end?: unknown })?.current_period_end === 'number' && (stripeSub as { current_period_end?: number }).current_period_end! > 0
+              ? [(stripeSub as { current_period_end?: number }).current_period_end!]
+              : [] as number[];
+            const itemStarts = items
               .map((item) => item.current_period_start)
               .filter((start): start is number => typeof start === 'number' && start > 0);
-            const periodEnds = items
+            const itemEnds = items
               .map((item) => item.current_period_end)
               .filter((end): end is number => typeof end === 'number' && end > 0);
-            if (periodStarts.length === 0) {
+            const allStarts = [...topLevelStarts, ...itemStarts];
+            const allEnds = [...topLevelEnds, ...itemEnds];
+            if (allStarts.length === 0) {
               throw HttpErrors.badRequest('Missing current period start from Stripe subscription');
             }
-            const periodStart = Math.min(...periodStarts);
-            const periodEnd = periodEnds.length > 0 ? Math.max(...periodEnds) : null;
+            const periodStart = Math.min(...allStarts);
+            const periodEnd = allEnds.length > 0 ? Math.max(...allEnds) : null;
             const status = stripeSub?.status;
             if (!status) {
               throw HttpErrors.badRequest('Missing subscription status from Stripe response');
