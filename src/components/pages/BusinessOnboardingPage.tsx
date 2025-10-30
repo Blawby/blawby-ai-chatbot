@@ -128,7 +128,7 @@ export const BusinessOnboardingPage = () => {
     };
 
     syncSubscription();
-	 }, [shouldSync, targetOrganizationId, syncing, refetch, showSuccess, showError]);
+	 }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError, syncing]);
 
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {
@@ -220,10 +220,25 @@ export const BusinessOnboardingPage = () => {
 
   if (!targetOrganizationId) {
     if (error || loadTimedOut) {
+      const displayMessage = error
+        ? (() => {
+            if (typeof error === 'string') return error;
+            if (error && typeof (error as { message?: unknown }).message === 'string') {
+              const msg = (error as { message?: unknown }).message as string | undefined;
+              return msg || 'An unexpected error occurred.';
+            }
+            try {
+              const str = JSON.stringify(error);
+              return str && str !== '{}' ? str : 'An unexpected error occurred.';
+            } catch {
+              return 'An unexpected error occurred.';
+            }
+          })()
+        : 'Request timed out while loading organizations.';
       return (
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <p className="text-red-600 mb-3">{error || 'Request timed out while loading organizations.'}</p>
+            <p className="text-red-600 mb-3">{displayMessage}</p>
             <button
               onClick={() => { setLoadTimedOut(false); void refetch(); }}
               className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"

@@ -237,12 +237,12 @@ export const usePaymentUpgrade = () => {
         if (orgRes.ok) {
           const org = await orgRes.json().catch(() => ({} as Record<string, unknown>));
           const orgData = org as Record<string, unknown>;
-          const tier = (orgData as Record<string, unknown>)?.subscriptionTier || (orgData as Record<string, unknown>)?.subscription_tier;
-          const isPaidTier = Boolean(tier) && tier !== 'free' && tier !== 'trial';
+          const rawTier = (orgData?.subscriptionTier ?? orgData?.subscription_tier) as unknown;
+          const tier = typeof rawTier === 'string' ? rawTier : '';
+          const isPaidTier = tier.length > 0 && tier !== 'free' && tier !== 'trial';
           if (isPaidTier) {
-            // User is already on a paid plan, redirect to billing management
-            await openBillingPortal({ organizationId, returnUrl: resolvedReturnUrl });
-            return;
+            // User is already on a paid plan, redirect via centralized handler
+            await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
           }
         }
       } catch (preflight) {

@@ -1,4 +1,5 @@
 import type { Env } from "../types";
+import { HttpError } from "../types";
 import { parseJsonBody } from "../utils";
 import { HttpErrors, handleError, createSuccessResponse, createHttpError } from "../errorHandler";
 import { requireAuth, requireOrgOwner } from "../middleware/auth.js";
@@ -187,8 +188,15 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
               stack: e instanceof Error ? e.stack : undefined,
               context: { stripeSubscriptionId, organizationId }
             });
-            // Re-throw as a 502 to avoid misleading downstream "No active Stripe subscription" responses
-            throw createHttpError(502, `Stripe sync failed: ${e instanceof Error ? e.message : String(e)}`);
+            // Preserve original HTTP error statuses; map config errors to 500; unknown to 502
+            if (e instanceof HttpError) {
+              throw e;
+            }
+            const message = e instanceof Error ? e.message : String(e);
+            if (message.includes('Stripe not configured')) {
+              throw createHttpError(500, message);
+            }
+            throw createHttpError(502, `Stripe sync failed: ${message}`);
           }
         }
       } else {
