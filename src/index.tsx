@@ -176,38 +176,37 @@ function MainApp({
 		}
 	}, []);
 
-	// Check if OAuth user needs onboarding (one-time check after auth)
-	useEffect(() => {
-		// Ensure personal organization once per session if user is present
-		(async () => {
-			try {
-				if (session?.user && typeof window !== 'undefined') {
-					const key = `ensuredPersonalOrg_v1_${session.user.id}`;
-					if (!sessionStorage.getItem(key)) {
-						const controller = new AbortController();
-						const timeoutId = setTimeout(() => controller.abort(), 10000);
-						const resp = await fetch('/api/organizations/me/ensure-personal', {
-							method: 'POST',
-							credentials: 'include',
-							headers: { 'Content-Type': 'application/json' },
-							signal: controller.signal,
-						});
-						clearTimeout(timeoutId);
-						if (!resp.ok) {
-						console.warn('Failed to ensure personal organization (non-OK response)', { status: resp.status });
-						showErrorRef.current('Setup incomplete', 'We could not ensure your personal organization.');
-							return;
-						}
-						sessionStorage.setItem(key, '1');
-					}
-				}
-			} catch (e) {
-				console.warn('Failed to ensure personal organization (client fallback):', e);
-				showErrorRef.current('Setup incomplete', 'We could not ensure your personal organization.');
-			}
-		})();
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [session?.user?.id]);
+    // Check if OAuth user needs onboarding (one-time check after auth)
+    useEffect(() => {
+        // Ensure personal organization once per session if user is present
+        (async () => {
+            try {
+                if (session?.user && typeof window !== 'undefined') {
+                    const key = `ensuredPersonalOrg_v1_${session.user.id}`;
+                    if (!sessionStorage.getItem(key)) {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 10000);
+                        const resp = await fetch('/api/organizations/me/ensure-personal', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            signal: controller.signal,
+                        });
+                        clearTimeout(timeoutId);
+                        if (!resp.ok) {
+                            console.warn('Failed to ensure personal organization (non-OK response)', { status: resp.status });
+                            showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
+                            return;
+                        }
+                        sessionStorage.setItem(key, '1');
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to ensure personal organization (client fallback):', e);
+                showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
+            }
+        })();
+    }, [session?.user, sessionIsPending]);
 
 	useEffect(() => {
 		if (session?.user && !sessionIsPending) {
