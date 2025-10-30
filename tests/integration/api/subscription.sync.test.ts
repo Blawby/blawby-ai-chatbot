@@ -6,6 +6,9 @@ import * as authModule from '../../../worker/middleware/auth.js';
 import * as stripeSyncModule from '../../../worker/services/StripeSync.js';
 import { handleSubscription } from '../../../worker/routes/subscription.js';
 
+// Helper type for the mocked refresh result to avoid `any`
+type RefreshResult = Awaited<ReturnType<typeof stripeSyncModule.refreshStripeSubscriptionById>>;
+
 // Mock Stripe SDK used by StripeSync/getOrCreateStripeClient path
 vi.mock('stripe', () => {
   class MockStripe {
@@ -21,7 +24,7 @@ vi.mock('stripe', () => {
               quantity: 1,
               current_period_start: Math.floor(Date.now() / 1000) - 1000,
               current_period_end: Math.floor(Date.now() / 1000) + 2592000,
-              price: { id: (env as any).STRIPE_PRICE_ID || 'price_monthly_test' },
+              price: { id: (process.env.STRIPE_PRICE_ID || ((env as unknown) as { STRIPE_PRICE_ID?: string }).STRIPE_PRICE_ID || 'price_monthly_test') },
             },
           ],
         },
@@ -42,8 +45,21 @@ const requireOrgOwnerSpy = vi.spyOn(authModule, 'requireOrgOwner');
 
 describe('Subscription sync route (worker integration)', () => {
   beforeEach(async () => {
-    requireAuthSpy.mockResolvedValue(undefined as unknown as Response);
-    requireOrgOwnerSpy.mockResolvedValue(undefined as unknown as Response);
+    const fakeAuth: authModule.AuthContext = {
+      user: {
+        id: 'user_test_1',
+        email: 'user@test.local',
+        name: 'Test User',
+        emailVerified: true,
+        image: undefined,
+      },
+      session: {
+        id: 'sess_test_1',
+        expiresAt: new Date(Date.now() + 3600_000),
+      },
+    };
+    requireAuthSpy.mockResolvedValue(fakeAuth);
+    requireOrgOwnerSpy.mockResolvedValue({ ...fakeAuth, memberRole: 'owner' });
 
     const db = (env as { DB: D1Database }).DB;
 
@@ -107,8 +123,8 @@ describe('Subscription sync route (worker integration)', () => {
 
     // Enable Stripe subscriptions in env
     (env as unknown as WorkerEnv).ENABLE_STRIPE_SUBSCRIPTIONS = true as unknown as WorkerEnv['ENABLE_STRIPE_SUBSCRIPTIONS'];
-    (env as any).STRIPE_SECRET_KEY = 'sk_test_dummy';
-    (env as any).STRIPE_PRICE_ID = (env as any).STRIPE_PRICE_ID || 'price_monthly_test';
+    ((env as unknown) as { STRIPE_SECRET_KEY: string }).STRIPE_SECRET_KEY = 'sk_test_dummy';
+    ((env as unknown) as { STRIPE_PRICE_ID?: string }).STRIPE_PRICE_ID = ((env as unknown) as { STRIPE_PRICE_ID?: string }).STRIPE_PRICE_ID || 'price_monthly_test';
 
     // Short-circuit network Stripe fetch in refreshStripeSubscriptionById and simulate org update
     vi.spyOn(stripeSyncModule, 'refreshStripeSubscriptionById').mockImplementation(async ({ env: e, organizationId }) => {
@@ -116,18 +132,19 @@ describe('Subscription sync route (worker integration)', () => {
       await db.prepare(
         `UPDATE organizations SET subscription_tier='business', seats=1, updated_at=? WHERE id=?`
       ).bind(Math.floor(Date.now()/1000), organizationId).run();
-      return {
+      const result = {
         subscriptionId: 'sub_test_123',
         stripeCustomerId: 'cus_test_123',
         status: 'active',
-        priceId: (e as any).STRIPE_PRICE_ID || 'price_monthly_test',
+        priceId: ((e as unknown) as { STRIPE_PRICE_ID?: string }).STRIPE_PRICE_ID || 'price_monthly_test',
         seats: 1,
         currentPeriodEnd: Math.floor(Date.now()/1000) + 2592000,
         cancelAtPeriodEnd: false,
         limits: { aiQueries: 1000, documentAnalysis: true, customBranding: true },
         cachedAt: Date.now(),
         expiresAt: Date.now() + 3600_000,
-      } as any;
+      } as unknown as RefreshResult;
+      return result;
     });
   });
 
@@ -141,8 +158,11 @@ describe('Subscription sync route (worker integration)', () => {
     const response = await handleSubscription(request, env as unknown as WorkerEnv);
     expect(response.status).toBe(200);
 
-    const payload = await response.json() as { success?: boolean; data?: unknown };
-    expect(payload?.success ?? true).toBe(true);
+    const payload = await response.json() as { success?: boolean; data?: unknown } | undefined | null;
+    expect(payload).toBeDefined();
+    expect(payload).not.toBeNull();
+    expect(Object.prototype.hasOwnProperty.call(payload as object, 'success')).toBe(true);
+    expect((payload as { success?: boolean }).success).toBe(true);
 
     const db = (env as { DB: D1Database }).DB;
     const row = await db.prepare('SELECT subscription_tier as tier, seats FROM organizations WHERE id = ?')

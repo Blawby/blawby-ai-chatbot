@@ -209,6 +209,15 @@ export const usePaymentUpgrade = () => {
     [showError]
   );
 
+  const handleAlreadySubscribed = useCallback(
+    async (organizationId: string, returnUrl: string) => {
+      setError(null);
+      // Redirect directly to billing portal to manage current subscription
+      await openBillingPortal({ organizationId, returnUrl });
+    },
+    [openBillingPortal]
+  );
+
   const submitUpgrade = useCallback(
     async ({ organizationId, seats = 1, annual = false, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
       setSubmitting(true);
@@ -218,7 +227,8 @@ export const usePaymentUpgrade = () => {
       const resolvedCancelUrl = cancelUrl ?? buildCancelUrl(organizationId);
       const resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
 
-      // Frontend pre-flight: if org already on paid tier, open billing portal instead of posting upgrade
+      // Frontend pre-flight: if org already on a paid tier, send user to billing portal
+      // Note: backend remains the source of truth for final decision to prevent race conditions
       try {
         const orgRes = await fetch(`/api/organizations/${encodeURIComponent(organizationId)}`, {
           credentials: 'include',
@@ -226,9 +236,11 @@ export const usePaymentUpgrade = () => {
         });
         if (orgRes.ok) {
           const org = await orgRes.json().catch(() => ({} as Record<string, unknown>));
-          const tier = (org as Record<string, unknown>)?.subscriptionTier || (org as Record<string, unknown>)?.subscription_tier;
-          if (tier === 'business' || tier === 'enterprise') {
-            showSuccess('Already Subscribed', 'Opening billing portal...');
+          const orgData = org as Record<string, unknown>;
+          const tier = (orgData as Record<string, unknown>)?.subscriptionTier || (orgData as Record<string, unknown>)?.subscription_tier;
+          const isPaidTier = Boolean(tier) && tier !== 'free' && tier !== 'trial';
+          if (isPaidTier) {
+            // User is already on a paid plan, redirect to billing management
             await openBillingPortal({ organizationId, returnUrl: resolvedReturnUrl });
             return;
           }
@@ -275,9 +287,7 @@ export const usePaymentUpgrade = () => {
           // Handle Better Auth raw code: YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN
           const rawCode = extractProperty<string>(result, 'code');
           if (rawCode && rawCode.toUpperCase() === 'YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN') {
-            // Soft-success: go straight to onboarding
-            setError(null);
-            window.location.href = resolvedSuccessUrl;
+            await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
             return;
           }
 
@@ -327,9 +337,7 @@ export const usePaymentUpgrade = () => {
 
         // Handle specific error codes with robust logic
         if (errorCode === SubscriptionErrorCode.SUBSCRIPTION_ALREADY_ACTIVE) {
-          // Already subscribed: open billing portal instead
-          setError(null);
-          await openBillingPortal({ organizationId, returnUrl: resolvedReturnUrl });
+          await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
           return;
         }
 
@@ -353,8 +361,7 @@ export const usePaymentUpgrade = () => {
         // Fallback to original string matching for backward compatibility
         const normalizedMessage = message.toLowerCase();
         if (normalizedMessage.includes("already subscribed to this plan")) {
-          setError(null);
-          window.location.href = resolvedSuccessUrl;
+          await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
           return;
         }
 
@@ -373,7 +380,7 @@ export const usePaymentUpgrade = () => {
         setSubmitting(false);
       }
     },
-    [buildCancelUrl, buildSuccessUrl, openBillingPortal, showError, showSuccess]
+    [buildCancelUrl, buildSuccessUrl, handleAlreadySubscribed, showError]
   );
 
   const syncSubscription = useCallback(

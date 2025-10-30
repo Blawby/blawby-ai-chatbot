@@ -76,7 +76,11 @@ export const CartPage = () => {
     if (!currentOrganization?.id) return;
     try {
       await openBillingPortal({ organizationId: currentOrganization.id });
-    } catch (_error) {
+    } catch (error) {
+      console.error('[CART][BILLING_PORTAL] Failed to open billing portal', {
+        organizationId: currentOrganization?.id,
+        error
+      });
       showError('Error', 'Could not open billing portal');
     }
   }, [currentOrganization?.id, openBillingPortal, showError]);
@@ -185,6 +189,11 @@ export const CartPage = () => {
   const annualTotal = annualSeatPricePerYear * quantity;
   const discount = isAnnual ? subtotal - annualTotal : 0;
   const total = isAnnual ? annualTotal : subtotal;
+
+  // Early return: if already on a paid tier, show billing/manage UI only (before any loading UI)
+  if (isPaidTier) {
+    return paidState;
+  }
 
   const handleContinue = async () => {
     try {
@@ -341,7 +350,6 @@ export const CartPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="false">
-      {paidState}
       {/* Header */}
       <header className="py-4">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">

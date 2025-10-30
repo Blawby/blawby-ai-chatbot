@@ -176,7 +176,7 @@ function MainApp({
 
 	// Check if OAuth user needs onboarding (one-time check after auth)
 	useEffect(() => {
-		// Frontend fallback: ensure personal org once per session if user is present
+		// Ensure personal organization once per session if user is present
 		(async () => {
 			try {
 				if (session?.user && typeof window !== 'undefined') {
@@ -187,7 +187,6 @@ function MainApp({
 							credentials: 'include',
 							headers: { 'Content-Type': 'application/json' },
 						});
-						// Validate HTTP status; network errors are already caught by try/catch
 						if (!resp.ok) {
 							console.warn('Failed to ensure personal organization (non-OK response)', { status: resp.status });
 							showError('Setup incomplete', 'We could not ensure your personal organization.');
@@ -201,6 +200,9 @@ function MainApp({
 				showError('Setup incomplete', 'We could not ensure your personal organization.');
 			}
 		})();
+	}, [session?.user, showError]);
+
+	useEffect(() => {
 		if (session?.user && !sessionIsPending) {
 			if (import.meta.env.DEV) {
 				try {

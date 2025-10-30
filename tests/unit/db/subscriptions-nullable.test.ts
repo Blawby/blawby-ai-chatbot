@@ -27,7 +27,8 @@ describe('DB schema - subscriptions.stripe_customer_id allows NULL', () => {
         period_end INTEGER,
         seats INTEGER,
         created_at INTEGER DEFAULT (strftime('%s','now')),
-        updated_at INTEGER DEFAULT (strftime('%s','now'))
+        updated_at INTEGER DEFAULT (strftime('%s','now')),
+        FOREIGN KEY(reference_id) REFERENCES organizations(id) ON DELETE RESTRICT
       )
     `).run();
 
@@ -36,16 +37,20 @@ describe('DB schema - subscriptions.stripe_customer_id allows NULL', () => {
       'org_test_nullable', 'Test Org', 'test-org-nullable', 'free'
     ).run();
 
+    // Generate unique IDs to avoid PK/UNIQUE constraint violations on repeated runs
+    const subId = (globalThis.crypto?.randomUUID?.() ?? `sub_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+    const stripeSubscriptionId = (globalThis.crypto?.randomUUID?.() ?? `stripe_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+
     // Perform insert with NULL stripe_customer_id explicitly
     const res = await db.prepare(`
       INSERT INTO subscriptions (
         id, plan, reference_id, stripe_subscription_id, stripe_customer_id, status, period_start, period_end, seats, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), strftime('%s','now'))
     `).bind(
-      'sub_test_123',
+      subId,
       'business',
       'org_test_nullable',
-      'sub_123',
+      stripeSubscriptionId,
       null, // stripe_customer_id should accept NULL
       'active',
       1700000000,
@@ -55,7 +60,7 @@ describe('DB schema - subscriptions.stripe_customer_id allows NULL', () => {
 
     expect(res.success).toBe(true);
 
-    const row = await db.prepare(`SELECT stripe_customer_id FROM subscriptions WHERE id = ?`).bind('sub_test_123').first<{ stripe_customer_id: string | null }>();
+    const row = await db.prepare(`SELECT stripe_customer_id FROM subscriptions WHERE id = ?`).bind(subId).first<{ stripe_customer_id: string | null }>();
     expect(row).toBeTruthy();
     expect(row?.stripe_customer_id).toBeNull();
   });

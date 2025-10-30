@@ -301,7 +301,8 @@ export class OrganizationService {
           if (!membership) {
             await this.env.DB.prepare(
               `INSERT INTO members (id, organization_id, user_id, role, created_at)
-               VALUES (?, ?, ?, 'owner', ?)`
+               VALUES (?, ?, ?, 'owner', ?)
+               ON CONFLICT(organization_id, user_id) DO NOTHING`
             ).bind(
               globalThis.crypto.randomUUID(),
               existing.id,
@@ -1093,33 +1094,46 @@ export class OrganizationService {
   }
 
   async markBusinessOnboardingComplete(organizationId: string): Promise<void> {
-    await this.env.DB.prepare(
+    const result = await this.env.DB.prepare(
       `UPDATE organizations 
          SET business_onboarding_completed_at = strftime('%s','now'),
              business_onboarding_skipped = 0,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
     ).bind(organizationId).run();
+    const changes = (result as unknown as { meta?: { changes?: number } ; changes?: number })?.meta?.changes ?? (result as unknown as { changes?: number })?.changes ?? 0;
+    if (changes === 0) {
+      throw new Error(`No organization updated when marking onboarding complete (organizationId=${organizationId})`);
+    }
     this.clearCache(organizationId);
   }
 
-  async markBusinessOnboardingSkipped(organizationId: string): Promise<void> {
-    await this.env.DB.prepare(
+  async markBusinessOnboardingSkipped(organizationId: string): Promise<boolean> {
+    const result = await this.env.DB.prepare(
       `UPDATE organizations 
          SET business_onboarding_skipped = 1,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
     ).bind(organizationId).run();
-    this.clearCache(organizationId);
+    const changes = (result as unknown as { meta?: { changes?: number } ; changes?: number })?.meta?.changes ?? (result as unknown as { changes?: number })?.changes ?? 0;
+    if (changes > 0) {
+      this.clearCache(organizationId);
+      return true;
+    }
+    return false;
   }
 
   async saveBusinessOnboardingProgress(organizationId: string, data: Record<string, unknown>): Promise<void> {
-    await this.env.DB.prepare(
+    const result = await this.env.DB.prepare(
       `UPDATE organizations 
          SET business_onboarding_data = ?,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
     ).bind(JSON.stringify(data), organizationId).run();
+    const changes = (result as unknown as { meta?: { changes?: number } ; changes?: number })?.meta?.changes ?? (result as unknown as { changes?: number })?.changes ?? 0;
+    if (changes === 0) {
+      throw new Error(`No organization updated when saving onboarding progress (organizationId=${organizationId})`);
+    }
     this.clearCache(organizationId);
   }
 

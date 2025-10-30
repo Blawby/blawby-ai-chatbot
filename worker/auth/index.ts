@@ -314,13 +314,30 @@ export async function getAuth(env: Env, request?: Request) {
               const periodStart = subPeriods.current_period_start ?? Math.floor(Date.now() / 1000);
               const periodEnd = subPeriods.current_period_end ?? null;
               const stripeCustomerId = typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id ?? null;
-              const status = stripeSubscription?.status ?? 'active';
+              const rawStatus = stripeSubscription?.status;
+              const status = rawStatus ?? 'incomplete';
+              if (rawStatus == null) {
+                console.warn('⚠️ Stripe subscription status missing; defaulting to conservative status', {
+                  subscriptionId: stripeSubscription?.id,
+                });
+              }
               const refId = referenceId ?? null;
               const planLower = (planName ?? 'business').toLowerCase();
 
+              // Validate required subscription identifier to avoid silent no-ops
+              if (!stripeSubscription?.id) {
+                const errorContext = {
+                  plan: planLower,
+                  refId,
+                  stripeCustomerId,
+                };
+                throw new Error(`Missing stripeSubscription.id; cannot persist subscription: ${JSON.stringify(errorContext)}`);
+              }
+
               if (stripeSubscription?.id) {
-              // Begin a transaction to ensure atomicity between subscription upsert and org update
-              await env.DB.prepare('BEGIN TRANSACTION').run();
+              // Use a SAVEPOINT to safely support nested transaction contexts
+              const savepointName = `sp_upsert_subscription_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+              await env.DB.prepare(`SAVEPOINT ${savepointName}`).run();
               try {
                 const upsert = await env.DB.prepare(
                   `INSERT INTO subscriptions (
@@ -363,11 +380,18 @@ export async function getAuth(env: Env, request?: Request) {
                   }
                 }
 
-                await env.DB.prepare('COMMIT').run();
+                await env.DB.prepare(`RELEASE SAVEPOINT ${savepointName}`).run();
                 return upsert;
               } catch (txError) {
-                try { await env.DB.prepare('ROLLBACK').run(); } catch (rollbackError) {
-                  console.error('❌ Failed to rollback subscription upsert transaction:', rollbackError);
+                try {
+                  await env.DB.prepare(`ROLLBACK TO SAVEPOINT ${savepointName}`).run();
+                } catch (rollbackError) {
+                  console.error('❌ Failed to rollback to savepoint for subscription upsert:', rollbackError);
+                }
+                try {
+                  await env.DB.prepare(`RELEASE SAVEPOINT ${savepointName}`).run();
+                } catch (releaseError) {
+                  console.error('❌ Failed to release savepoint after rollback for subscription upsert:', releaseError);
                 }
                 throw txError;
               }
@@ -965,7 +989,7 @@ export async function getAuth(env: Env, request?: Request) {
             },
             session: {
               create: {
-                after: async (session, context) => {
+                after: async (session, _context) => {
                   // Set active organization when a session is created
                   if (session.userId && session.token) {
                     try {

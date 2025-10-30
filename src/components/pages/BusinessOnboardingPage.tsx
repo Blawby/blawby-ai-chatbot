@@ -9,11 +9,12 @@ import { useToastContext } from '../../contexts/ToastContext';
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { currentOrganization, organizations, refetch } = useOrganizationManagement();
+  const { currentOrganization, organizations, refetch, loading, error } = useOrganizationManagement();
   const { showSuccess, showError } = useToastContext();
   const [isOpen] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [ready, setReady] = useState(false);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
 
   // Extract query params
   const sessionId = location.query?.session_id;
@@ -49,6 +50,26 @@ export const BusinessOnboardingPage = () => {
     }
   }, [targetOrganizationId]);
   const shouldSync = (Array.isArray(location.query?.sync) ? location.query?.sync[0] : location.query?.sync) === '1';
+
+  // Local timeout to avoid indefinite spinner when organizations loading takes too long
+  useEffect(() => {
+    let timeoutId: number | undefined;
+    if (loading) {
+      timeoutId = window.setTimeout(() => setLoadTimedOut(true), 15000);
+    } else {
+      setLoadTimedOut(false);
+    }
+    return () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [loading]);
+
+  // Clear timeout flag once we have a target organization
+  useEffect(() => {
+    if (targetOrganizationId) {
+      setLoadTimedOut(false);
+    }
+  }, [targetOrganizationId]);
 
   // Sync subscription data on mount if needed
   useEffect(() => {
@@ -107,19 +128,18 @@ export const BusinessOnboardingPage = () => {
     };
 
     syncSubscription();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldSync, targetOrganizationId]);
+	 }, [shouldSync, targetOrganizationId, syncing, refetch, showSuccess, showError]);
 
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {
-    if (!ready || !currentOrganization) return;
-    const tier = currentOrganization.subscriptionTier;
+    if (!ready || !targetOrganization) return;
+    const tier = targetOrganization.subscriptionTier;
     if (tier !== 'business' && tier !== 'enterprise') {
       console.warn('❌ Onboarding access denied: invalid tier', { tier });
       showError('Not Available', 'Business onboarding is only available for paid plans.');
       navigate('/');
     }
-  }, [ready, currentOrganization, showError, navigate]);
+  }, [ready, targetOrganization, showError, navigate]);
 
   // Guard: Redirect if onboarding already completed
   useEffect(() => {
@@ -163,7 +183,6 @@ export const BusinessOnboardingPage = () => {
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
       showError('Error', 'Could not save onboarding status');
-      navigate('/');
     }
   }, [targetOrganizationId, showSuccess, showError, navigate]);
 
@@ -200,7 +219,46 @@ export const BusinessOnboardingPage = () => {
   }
 
   if (!targetOrganizationId) {
-    return <div className="flex items-center justify-center min-h-screen"><p className="text-gray-600">Loading...</p></div>;
+    if (error || loadTimedOut) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <p className="text-red-600 mb-3">{error || 'Request timed out while loading organizations.'}</p>
+            <button
+              onClick={() => { setLoadTimedOut(false); void refetch(); }}
+              className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (!loading && (!organizations || organizations.length === 0)) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <p className="text-gray-700 mb-2">No organizations found for your account.</p>
+            <button
+              onClick={() => navigate('/')}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+            >
+              Go Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading your organizations...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

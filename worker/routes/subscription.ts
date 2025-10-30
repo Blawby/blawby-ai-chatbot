@@ -1,6 +1,6 @@
 import type { Env } from "../types";
 import { parseJsonBody } from "../utils";
-import { HttpErrors, handleError, createSuccessResponse } from "../errorHandler";
+import { HttpErrors, handleError, createSuccessResponse, createHttpError } from "../errorHandler";
 import { requireAuth, requireOrgOwner } from "../middleware/auth.js";
 import {
   clearStripeSubscriptionCache,
@@ -73,7 +73,10 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
             if (!env.STRIPE_SECRET_KEY) {
               throw new Error('Stripe not configured');
             }
-            const stripe = new (await import('stripe')).default(env.STRIPE_SECRET_KEY, { apiVersion: null });
+            const stripe = new (await import('stripe')).default(
+              env.STRIPE_SECRET_KEY,
+              { apiVersion: '2025-09-30.clover' as unknown as import('stripe').Stripe.StripeConfig['apiVersion'] }
+            );
             const stripeResp = await stripe.subscriptions.retrieve(stripeSubscriptionId, { expand: ['items.data.price'] });
             const stripeSub = stripeResp as unknown as import('stripe').Stripe.Subscription;
             const seatsRaw = stripeSub?.items?.data?.[0]?.quantity;
@@ -170,13 +173,22 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
 
             // Optionally update org tier if active
             if (status === 'active') {
-              const tier = plan ?? 'free';
+              if (!plan) {
+                throw createHttpError(500, 'Invariant violation: missing plan for active subscription update');
+              }
               await env.DB.prepare(
                 `UPDATE organizations SET subscription_tier=?, seats=?, stripe_customer_id=COALESCE(stripe_customer_id, ?), updated_at=CURRENT_TIMESTAMP WHERE id=?`
-              ).bind(tier, seats, customerId, organizationId).run();
+              ).bind(plan, seats, customerId, organizationId).run();
             }
           } catch (e) {
-            console.error('❌ Failed Stripe fallback upsert in sync:', e);
+            // Preserve original error details in logs for observability
+            console.error('❌ Failed Stripe fallback upsert in sync', {
+              error: e instanceof Error ? e.message : String(e),
+              stack: e instanceof Error ? e.stack : undefined,
+              context: { stripeSubscriptionId, organizationId }
+            });
+            // Re-throw as a 502 to avoid misleading downstream "No active Stripe subscription" responses
+            throw createHttpError(502, `Stripe sync failed: ${e instanceof Error ? e.message : String(e)}`);
           }
         }
       } else {
