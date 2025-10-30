@@ -367,10 +367,12 @@ export async function getAuth(env: Env, request?: Request) {
 
                 if (refId) {
                   if (status === 'active') {
-                    const tier = planLower && typeof planLower === 'string' && planLower.length > 0 ? planLower : 'free';
+                    const normalizedTier = planLower && typeof planLower === 'string' && planLower.length > 0
+                      ? planLower.replace(/-annual$/, '')
+                      : 'free';
                     const orgUpdate = await env.DB.prepare(
                       `UPDATE organizations SET subscription_tier = ?, seats = ?, stripe_customer_id = COALESCE(stripe_customer_id, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-                    ).bind(tier, seats, stripeCustomerId, refId).run();
+                    ).bind(normalizedTier, seats, stripeCustomerId, refId).run();
                     console.log('✅ Organization tier updated (active):', { success: orgUpdate.success, changes: orgUpdate.meta?.changes, organizationId: refId });
                   } else {
                     const orgDowngrade = await env.DB.prepare(

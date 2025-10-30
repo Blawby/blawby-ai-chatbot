@@ -243,6 +243,7 @@ export const usePaymentUpgrade = () => {
           if (isPaidTier) {
             // User is already on a paid plan, redirect via centralized handler
             await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
+            return;
           }
         }
       } catch (preflight) {

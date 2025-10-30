@@ -177,9 +177,10 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
               if (!plan) {
                 throw createHttpError(500, 'Invariant violation: missing plan for active subscription update');
               }
+              const normalizedTier = typeof plan === 'string' ? plan.replace(/-annual$/, '') : plan;
               await env.DB.prepare(
                 `UPDATE organizations SET subscription_tier=?, seats=?, stripe_customer_id=COALESCE(stripe_customer_id, ?), updated_at=CURRENT_TIMESTAMP WHERE id=?`
-              ).bind(plan, seats, customerId, organizationId).run();
+              ).bind(normalizedTier, seats, customerId, organizationId).run();
             }
           } catch (e) {
             // Preserve original error details in logs for observability

@@ -230,7 +230,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     // Explicitly set active organization for current session (used before checkout)
     if ((path === '/active' || path === '/active/') && request.method === 'POST') {
       const authContext = await requireAuth(request, env);
-      let body: { organizationId?: string } = {};
+      let body: unknown = {};
       const requestClone = request.clone();
       try {
         body = await request.json();
@@ -254,13 +254,28 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         );
       }
 
-      const organizationId = body.organizationId;
+      if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+        throw HttpErrors.badRequest('request body must be a JSON object', {
+          endpoint: 'POST /api/organizations/active'
+        });
+      }
+
+      const organizationId = (body as { organizationId?: string }).organizationId;
       if (!organizationId) {
         throw HttpErrors.badRequest('organizationId is required');
       }
 
       // Validate membership (any member can set their active org)
       await requireOrgMember(request, env, organizationId);
+
+      // Confirm session row exists before updating
+      const existingSession = await env.DB.prepare(
+        `SELECT id FROM sessions WHERE id = ? LIMIT 1`
+      ).bind(authContext.session.id).first<{ id: string }>();
+
+      if (!existingSession) {
+        throw HttpErrors.notFound('Session not found for active organization update');
+      }
 
       // Update active organization on this session id (no token needed)
       const update = await env.DB.prepare(

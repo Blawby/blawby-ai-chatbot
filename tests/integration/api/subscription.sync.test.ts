@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { env } from 'cloudflare:test';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Env as WorkerEnv } from '../../../worker/types';
@@ -146,6 +146,12 @@ describe('Subscription sync route (worker integration)', () => {
       } as unknown as RefreshResult;
       return result;
     });
+  });
+
+  afterEach(() => {
+    // Ensure spies and mocks do not leak across tests
+    vi.restoreAllMocks();
+    vi.resetAllMocks();
   });
 
   it('updates organization tier to paid after successful sync', async () => {

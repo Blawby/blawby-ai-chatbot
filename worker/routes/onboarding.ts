@@ -87,7 +87,7 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
       const orgId = (organizationId as string).trim();
       const dataObject = data as Record<string, unknown>;
       const dataString = JSON.stringify(dataObject);
-      const byteSize = Buffer.byteLength(dataString, 'utf8');
+      const byteSize = new TextEncoder().encode(dataString).length;
       if (byteSize > 50000) {
         throw HttpErrors.payloadTooLarge('data exceeds maximum size of 50KB');
       }

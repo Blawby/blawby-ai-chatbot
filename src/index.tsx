@@ -25,7 +25,7 @@ import { useNavigation } from './utils/navigation';
 import PricingModal from './components/PricingModal';
 import WelcomeModal from './components/onboarding/WelcomeModal';
 import { BusinessWelcomePrompt } from './components/onboarding/organisms/BusinessWelcomePrompt';
-import BusinessOnboardingPage from './components/pages/BusinessOnboardingPage';
+import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPage';
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
 // import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
