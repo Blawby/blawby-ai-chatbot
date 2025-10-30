@@ -136,8 +136,8 @@ export const usePaymentUpgrade = () => {
   const { showError, showSuccess } = useToastContext();
 
   const buildSuccessUrl = useCallback((organizationId: string) => {
-    if (typeof window === 'undefined') return '/settings/account';
-    const url = new URL(`${window.location.origin}/settings/account`);
+    if (typeof window === 'undefined') return '/business-onboarding';
+    const url = new URL(`${window.location.origin}/business-onboarding`);
     url.searchParams.set('organizationId', organizationId);
     url.searchParams.set('sync', '1');
     return url.toString();
@@ -218,6 +218,28 @@ export const usePaymentUpgrade = () => {
       const resolvedCancelUrl = cancelUrl ?? buildCancelUrl(organizationId);
       const resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
 
+      // Frontend pre-flight: if org already on paid tier, open billing portal instead of posting upgrade
+      try {
+        const orgRes = await fetch(`/api/organizations/${encodeURIComponent(organizationId)}`, {
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' },
+        });
+        if (orgRes.ok) {
+          const org = await orgRes.json().catch(() => ({} as Record<string, unknown>));
+          const tier = (org as Record<string, unknown>)?.subscriptionTier || (org as Record<string, unknown>)?.subscription_tier;
+          if (tier === 'business' || tier === 'enterprise') {
+            showSuccess('Already Subscribed', 'Opening billing portal...');
+            await openBillingPortal({ organizationId, returnUrl: resolvedReturnUrl });
+            return;
+          }
+        }
+      } catch (preflight) {
+        // Fail open to backend guard
+        if (import.meta.env.DEV) {
+          console.warn('Upgrade pre-flight check failed; proceeding to backend:', preflight);
+        }
+      }
+
       try {
         const requestBody: Record<string, unknown> = {
           plan: 'business',
@@ -232,6 +254,7 @@ export const usePaymentUpgrade = () => {
         }
         
 
+        console.debug('[UPGRADE] POST', getSubscriptionUpgradeEndpoint(), 'body:', requestBody);
         const response = await fetch(getSubscriptionUpgradeEndpoint(), {
           method: 'POST',
           credentials: 'include',
@@ -240,15 +263,26 @@ export const usePaymentUpgrade = () => {
         });
 
         const result = await response.json().catch(() => ({}));
+        console.debug('[UPGRADE] Response status:', response.status, 'body:', result);
         const checkoutUrl = extractUrl(result);
 
         if (!response.ok || !checkoutUrl) {
+          // Handle Better Auth raw code: YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN
+          const rawCode = extractProperty<string>(result, 'code');
+          if (rawCode && rawCode.toUpperCase() === 'YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN') {
+            // Soft-success: go straight to onboarding
+            setError(null);
+            window.location.href = resolvedSuccessUrl;
+            return;
+          }
+
           if (import.meta.env.DEV) {
             // Only log in development, and sanitize sensitive data
             const sanitizedResult = {
               error: extractProperty<string>(result, 'error'),
               success: extractProperty<boolean>(result, 'success'),
               errorCode: extractProperty<string>(result, 'errorCode'),
+              code: extractProperty<string>(result, 'code'),
               // Exclude sensitive fields like organizationId, subscription details, etc.
             };
             console.error('❌ Subscription upgrade failed with response:', sanitizedResult);
@@ -288,23 +322,9 @@ export const usePaymentUpgrade = () => {
 
         // Handle specific error codes with robust logic
         if (errorCode === SubscriptionErrorCode.SUBSCRIPTION_ALREADY_ACTIVE) {
-          // Treat already-subscribed as a soft success: send the user to the billing portal so they can manage seats.
+          // Already subscribed: open billing portal instead
           setError(null);
-          showSuccess(
-            'Subscription Active',
-            'Your organization already has an active Business subscription. Redirecting to the Stripe billing portal so you can manage it.'
-          );
-          
-          // Open billing portal and handle any errors gracefully
-          try {
-            await openBillingPortal({ organizationId, returnUrl: resolvedReturnUrl });
-          } catch (_billingError) {
-            // If billing portal fails, show a different message to avoid confusion
-            showError(
-              'Billing Portal Unavailable',
-              'Your subscription is active, but we couldn\'t open the billing portal. Please try again or contact support.'
-            );
-          }
+          await openBillingPortal({ organizationId, returnUrl: resolvedReturnUrl });
           return;
         }
 
@@ -329,18 +349,7 @@ export const usePaymentUpgrade = () => {
         const normalizedMessage = message.toLowerCase();
         if (normalizedMessage.includes("already subscribed to this plan")) {
           setError(null);
-          showSuccess(
-            'Subscription Active',
-            'Your organization already has an active Business subscription. Redirecting to the Stripe billing portal so you can manage it.'
-          );
-          try {
-            await openBillingPortal({ organizationId, returnUrl: resolvedReturnUrl });
-          } catch (_billingError) {
-            showError(
-              'Billing Portal Unavailable',
-              'Your subscription is active, but we couldn\'t open the billing portal. Please try again or contact support.'
-            );
-          }
+          window.location.href = resolvedSuccessUrl;
           return;
         }
 

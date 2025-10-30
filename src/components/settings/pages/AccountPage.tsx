@@ -37,7 +37,7 @@ export const AccountPage = ({
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const location = useLocation();
-  const { syncSubscription } = usePaymentUpgrade();
+  const { syncSubscription, openBillingPortal } = usePaymentUpgrade();
   const { currentOrganization, loading: orgLoading, refetch } = useOrganizationManagement();
   const { data: session, isPending } = useSession();
   const [links, setLinks] = useState<UserLinks | null>(null);
@@ -205,13 +205,9 @@ export const AccountPage = ({
                                (newTier === 'business' || newTier === 'enterprise');
 
             if (wasUpgraded) {
-              // Set flag for business setup modal and redirect to root
-              try {
-                localStorage.setItem('businessSetupPending', 'true');
-                navigate('/');
-              } catch (storageError) {
-                console.warn('Failed to set business setup flag:', storageError);
-              }
+              // Redirect to business onboarding flow
+              navigate(`/business-onboarding?organizationId=${organizationId}&sync=1`);
+              return;
             }
           } else {
             // If no tier info in response, refetch to get latest organization data
@@ -284,6 +280,17 @@ export const AccountPage = ({
     }
     window.location.hash = '#pricing';
   };
+
+  const handleManageBilling = useCallback(async () => {
+    const orgId = currentOrganization?.id;
+    if (!orgId) return;
+    try {
+      await openBillingPortal({ organizationId: orgId });
+    } catch (error) {
+      console.error('Failed to open billing portal:', error);
+      showError('Billing Portal Error', 'Could not open billing portal');
+    }
+  }, [currentOrganization?.id, openBillingPortal, showError]);
 
   const handleDeleteAccount = () => {
     setShowDeleteConfirm(true);
@@ -627,7 +634,15 @@ export const AccountPage = ({
               )}
             </div>
             <div className="ml-4">
-              {currentTier !== 'enterprise' && (
+              {(currentTier === 'business' || currentTier === 'enterprise') ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleManageBilling}
+                >
+                  Manage Billing
+                </Button>
+              ) : (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -635,12 +650,6 @@ export const AccountPage = ({
                 >
                   {upgradeButtonText}
                 </Button>
-              )}
-              
-              {currentTier === 'enterprise' && (
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  You&apos;re on the Enterprise plan - our highest tier
-                </div>
               )}
             </div>
           </div>

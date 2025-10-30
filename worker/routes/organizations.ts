@@ -197,6 +197,34 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       });
     }
 
+    // Explicitly set active organization for current session (used before checkout)
+    if ((path === '/active' || path === '/active/') && request.method === 'POST') {
+      const authContext = await requireAuth(request, env);
+      let body: { organizationId?: string } = {};
+      try {
+        body = await request.json();
+      } catch {}
+
+      const organizationId = body.organizationId;
+      if (!organizationId) {
+        throw HttpErrors.badRequest('organizationId is required');
+      }
+
+      // Validate membership (any member can set their active org)
+      await requireOrgMember(request, env, organizationId);
+
+      // Update active organization on this session id (no token needed)
+      const update = await env.DB.prepare(
+        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
+      ).bind(organizationId, Math.floor(Date.now() / 1000), authContext.session.id).run();
+
+      if (!update.success) {
+        throw HttpErrors.internalServerError('Failed to update active organization for session');
+      }
+
+      return createSuccessResponse({ activeOrganizationId: organizationId });
+    }
+
     if (pathSegments.length === 2 && pathSegments[1] === 'member') {
       const organizationIdentifier = pathSegments[0];
       const organization = await organizationService.getOrganization(organizationIdentifier);

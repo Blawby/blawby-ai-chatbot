@@ -293,6 +293,29 @@ export class OrganizationService {
     if (personalMembership?.id) {
       const existing = await this.getOrganization(personalMembership.id);
       if (existing) {
+        // Ensure membership row exists with owner role (idempotent)
+        try {
+          const membership = await this.env.DB.prepare(
+            `SELECT role FROM members WHERE organization_id = ? AND user_id = ?`
+          ).bind(existing.id, userId).first<{ role: string }>();
+          if (!membership) {
+            await this.env.DB.prepare(
+              `INSERT INTO members (id, organization_id, user_id, role, created_at)
+               VALUES (?, ?, ?, 'owner', ?)`
+            ).bind(
+              globalThis.crypto.randomUUID(),
+              existing.id,
+              userId,
+              Math.floor(Date.now() / 1000)
+            ).run();
+          }
+        } catch (e) {
+          console.error('❌ Failed to ensure owner membership for personal org:', {
+            organizationId: existing.id,
+            userId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
         return existing;
       }
     }
@@ -1067,6 +1090,60 @@ export class OrganizationService {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
     return `${timestamp.toString(36)}${random}`;
+  }
+
+  async markBusinessOnboardingComplete(organizationId: string): Promise<void> {
+    await this.env.DB.prepare(
+      `UPDATE organizations 
+         SET business_onboarding_completed_at = strftime('%s','now'),
+             business_onboarding_skipped = 0,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(organizationId).run();
+    this.clearCache(organizationId);
+  }
+
+  async markBusinessOnboardingSkipped(organizationId: string): Promise<void> {
+    await this.env.DB.prepare(
+      `UPDATE organizations 
+         SET business_onboarding_skipped = 1,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(organizationId).run();
+    this.clearCache(organizationId);
+  }
+
+  async saveBusinessOnboardingProgress(organizationId: string, data: Record<string, unknown>): Promise<void> {
+    await this.env.DB.prepare(
+      `UPDATE organizations 
+         SET business_onboarding_data = ?,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(JSON.stringify(data), organizationId).run();
+    this.clearCache(organizationId);
+  }
+
+  async getBusinessOnboardingStatus(organizationId: string): Promise<{
+    completed: boolean;
+    skipped: boolean;
+    completedAt: number | null;
+    data: Record<string, unknown> | null;
+  }> {
+    const row = await this.env.DB.prepare(
+      `SELECT business_onboarding_completed_at as completedAt,
+              business_onboarding_skipped as skipped,
+              business_onboarding_data as data
+         FROM organizations
+        WHERE id = ?
+        LIMIT 1`
+    ).bind(organizationId).first<{ completedAt: number | null; skipped: number | null; data: string | null }>();
+
+    return {
+      completed: Boolean(row?.completedAt),
+      skipped: Boolean(row?.skipped),
+      completedAt: row?.completedAt ?? null,
+      data: row?.data ? (JSON.parse(row.data) as Record<string, unknown>) : null,
+    };
   }
 
   clearCache(organizationId?: string): void {

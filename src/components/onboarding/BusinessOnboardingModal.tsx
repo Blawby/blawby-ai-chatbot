@@ -72,8 +72,6 @@ const BusinessOnboardingModal = ({
     if (isLastStep) {
       // Final step - complete onboarding
       try {
-        localStorage.removeItem('businessSetupPending');
-        
         if (onCompleted) {
           await onCompleted();
         }
@@ -103,11 +101,6 @@ const BusinessOnboardingModal = ({
 
 
   const handleClose = () => {
-    try {
-      localStorage.removeItem('businessSetupPending');
-    } catch {
-      // noop
-    }
     onClose();
   };
 

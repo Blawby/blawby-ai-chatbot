@@ -12,8 +12,8 @@ import { PricingSummary } from '../ui/cards/PricingSummary';
 export const CartPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { submitUpgrade, submitting } = usePaymentUpgrade();
-  const { currentOrganization } = useOrganizationManagement();
+  const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
+  const { currentOrganization, refetch } = useOrganizationManagement();
   const { showError } = useToastContext();
   const { i18n } = useTranslation();
 
@@ -48,13 +48,63 @@ export const CartPage = () => {
     loadPriceIds();
   }, [loadPriceIds]);
 
-  // Redirect business/enterprise users away from cart
+  // Dev/test-only override to force paid UI in deterministic E2E runs
+  const devForcePaid = (import.meta.env.MODE !== 'production') && (typeof window !== 'undefined') && (
+    new URLSearchParams(window.location.search).get('forcePaid') === '1' ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('forcePaid') === '1')
+  );
+  const isPaidTier = devForcePaid || currentOrganization?.subscriptionTier === 'business' || currentOrganization?.subscriptionTier === 'enterprise';
+
   useEffect(() => {
-    if (currentOrganization?.subscriptionTier === 'business' || 
-        currentOrganization?.subscriptionTier === 'enterprise') {
-      navigate('/enterprise');
+    if (import.meta.env.DEV) {
+      try {
+        console.debug('[CART][DEBUG]', {
+          path: typeof window !== 'undefined' ? window.location.pathname : 'n/a',
+          search: typeof window !== 'undefined' ? window.location.search : 'n/a',
+          devForcePaid,
+          tier: currentOrganization?.subscriptionTier,
+          orgId: currentOrganization?.id,
+        });
+      } catch {}
     }
-  }, [currentOrganization?.subscriptionTier, navigate]);
+  }, [devForcePaid, currentOrganization?.subscriptionTier, currentOrganization?.id]);
+
+  // If org is already on paid tier, show Manage Billing immediately (even before pricing loads)
+  if (isPaidTier) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-testid-paid="cart-paid-state" data-testid="cart-paid-state">
+        <header className="py-4">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">
+            <img src="/blawby-favicon-iframe.png" alt="Blawby" className="h-8 w-8" />
+          </div>
+        </header>
+        <main className="max-w-3xl mx-auto px-4 md:px-6 lg:px-8 py-12">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <svg className="w-12 h-12 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-2">You're Already on {currentOrganization?.subscriptionTier === 'business' ? 'Business' : 'Enterprise'} Plan</h2>
+            <p className="text-gray-300 mb-6">Your organization "{currentOrganization?.name}" is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">Manage Billing</button>
+              <button onClick={() => navigate('/')} className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium">Go to Dashboard</button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const handleManageBilling = useCallback(async () => {
+    if (!currentOrganization?.id) return;
+    try {
+      await openBillingPortal({ organizationId: currentOrganization.id });
+    } catch (error) {
+      showError('Error', 'Could not open billing portal');
+    }
+  }, [currentOrganization?.id, openBillingPortal, showError]);
 
   useEffect(() => {
 
@@ -136,6 +186,9 @@ export const CartPage = () => {
   const total = isAnnual ? annualTotal : subtotal;
 
   const handleContinue = async () => {
+    try {
+      console.debug('[CART][UPGRADE] Begin handleContinue');
+    } catch {}
 
     // Store cart data for Stripe Elements integration
     const cartData = {
@@ -173,8 +226,50 @@ export const CartPage = () => {
       }
     }
     
-    // Always use blawby-ai organization for stripe upgrades
-    const organizationId = 'blawby-ai';
+    // Ensure personal organization exists server-side to avoid race conditions
+    let organizationId = currentOrganization?.id;
+    if (!organizationId) {
+      try {
+        console.debug('[CART][UPGRADE] Ensuring personal organization via /api/organizations/me/ensure-personal');
+        await fetch('/api/organizations/me/ensure-personal', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        // Fetch orgs directly to avoid state race
+        const orgsRes = await fetch('/api/organizations/me', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' },
+        });
+        const orgs = await orgsRes.json().catch(() => [] as Array<Record<string, unknown>>);
+        if (Array.isArray(orgs) && orgs.length > 0) {
+          const personal = orgs.find((o: any) => o?.isPersonal) as { id?: string } | undefined;
+          organizationId = (personal?.id || (orgs[0] as any)?.id) ?? null;
+        }
+        console.debug('[CART][UPGRADE] Ensured/loaded orgs. Resolved organizationId:', organizationId);
+      } catch (e) {
+        console.error('[CART][UPGRADE] Failed to ensure/fetch organizations before checkout:', e);
+      }
+    }
+
+    if (!organizationId) {
+      showError('Setup Required', 'We are preparing your workspace. Please try again in a moment.');
+      return;
+    }
+
+    // Align session active organization with the resolved organization before checkout
+    try {
+      await fetch('/api/organizations/active', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId })
+      });
+      console.debug('[CART][UPGRADE] Active organization set for session:', organizationId);
+    } catch (e) {
+      console.warn('[CART][UPGRADE] Failed to set active organization (continuing anyway):', e);
+    }
 
     const upgradeParams = {
       organizationId,
@@ -184,8 +279,20 @@ export const CartPage = () => {
       returnUrl: typeof window !== 'undefined' ? window.location.href : undefined,
     };
 
+    try {
+      console.debug('[CART][UPGRADE] Calling submitUpgrade with params:', {
+        organizationId,
+        seats: quantity,
+        annual: isAnnual
+      });
+    } catch {}
+
 
     await submitUpgrade(upgradeParams);
+
+    try {
+      console.debug('[CART][UPGRADE] submitUpgrade call completed');
+    } catch {}
   };
 
   if (loadError) {
@@ -215,8 +322,10 @@ export const CartPage = () => {
     );
   }
 
+  
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="false">
       {/* Header */}
       <header className="py-4">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">

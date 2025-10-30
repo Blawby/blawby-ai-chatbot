@@ -25,7 +25,7 @@ import { useNavigation } from './utils/navigation';
 import PricingModal from './components/PricingModal';
 import WelcomeModal from './components/onboarding/WelcomeModal';
 import { BusinessWelcomePrompt } from './components/onboarding/organisms/BusinessWelcomePrompt';
-import { BusinessSetupPrompt } from './components/onboarding/organisms/BusinessSetupPrompt';
+import BusinessOnboardingPage from './components/pages/BusinessOnboardingPage';
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
 import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
@@ -60,7 +60,7 @@ function MainApp({
 	const [showSettingsModal, setShowSettingsModal] = useState(false);
 	const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 	const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
-	const [showBusinessSetup, setShowBusinessSetup] = useState(false);
+	// Removed legacy business setup modal flow (replaced by /business-onboarding route)
 	
 	// Mobile state - initialized as false to avoid SSR/client hydration mismatch
 	const [isMobile, setIsMobile] = useState(false);
@@ -177,6 +177,24 @@ function MainApp({
 
 	// Check if OAuth user needs onboarding (one-time check after auth)
 	useEffect(() => {
+		// Frontend fallback: ensure personal org once per session if user is present
+		(async () => {
+			try {
+				if (session?.user && typeof window !== 'undefined') {
+					const key = 'ensuredPersonalOrg_v1';
+					if (!sessionStorage.getItem(key)) {
+						await fetch('/api/organizations/me/ensure-personal', {
+							method: 'POST',
+							credentials: 'include',
+							headers: { 'Content-Type': 'application/json' },
+						});
+						sessionStorage.setItem(key, '1');
+					}
+				}
+			} catch (e) {
+				console.warn('Failed to ensure personal organization (client fallback):', e);
+			}
+		})();
 		if (session?.user && !sessionIsPending) {
 			if (import.meta.env.DEV) {
 				try {
@@ -240,22 +258,7 @@ function MainApp({
 		}
 	}, [session?.user, sessionIsPending, session]);
 
-	// Check if we should show business setup modal (after tier upgrade)
-	useEffect(() => {
-		try {
-			const businessSetupPending = localStorage.getItem('businessSetupPending');
-			if (businessSetupPending === 'true') {
-				setShowBusinessSetup(true);
-				// Don't remove the flag here - let the modal handlers do it
-			}
-			// Note: 'snoozed' status is handled by the modal's handleClose method
-			// and will prevent the modal from showing until user explicitly reopens it
-		} catch (_error) {
-			if (import.meta.env.DEV) {
-				console.warn('Failed to check business setup status:', _error);
-			}
-		}
-	}, []);
+
 
 	// Check if we should show business welcome modal (after upgrade)
 	useEffect(() => {
@@ -640,21 +643,7 @@ function MainApp({
 				/>
 			)}
 
-			{/* Business Setup Modal */}
-			<BusinessSetupPrompt
-				isOpen={showBusinessSetup}
-				onClose={() => {
-					// Clear the localStorage flag so modal doesn't reappear on reload
-					try {
-						localStorage.removeItem('businessSetupPending');
-					} catch (_error) {
-						if (import.meta.env.DEV) {
-							console.warn('Failed to remove business setup flag:', _error);
-						}
-					}
-					setShowBusinessSetup(false);
-				}}
-			/>
+
 		</>
 	);
 }
@@ -718,6 +707,7 @@ function AppWithSEO({
 				<Router>
 					<Route path="/auth" component={AuthPage} />
 					<Route path="/cart" component={CartPage} />
+					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
 					<Route path="/settings/*" component={(props) => <MainAppWithProviders 
 						organizationId={organizationId}
 						organizationConfig={organizationConfig}

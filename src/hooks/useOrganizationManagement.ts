@@ -201,22 +201,27 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       }
 
       const data = await safeJsonParse(response);
-      
-      // Runtime guard: verify data is a non-null object
-      if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+
+      // Support both wrapped ({ success, data }) and raw array/object payloads
+      if (Array.isArray(data)) {
+        // Raw array response (e.g., organizations list)
+        return data as unknown;
+      }
+
+      if (typeof data === 'object' && data !== null) {
         const successResponse = data as ApiSuccessResponse;
-        // Check if success property exists and is boolean
+        // If success is explicitly false, treat as error
         if (typeof successResponse.success === 'boolean' && !successResponse.success) {
           const errorMessage = typeof successResponse.error === 'string' ? successResponse.error : 'API call failed';
           throw new Error(errorMessage);
         }
-        
-        // Return data property if it exists
-        return successResponse.data;
-      } else {
-        // If parsed data is not an object, include raw value for debugging
-        throw new Error(`Invalid response format: ${JSON.stringify(data)}`);
+
+        // If it has a data field, return it; otherwise return the object itself
+        return (successResponse.data !== undefined ? successResponse.data : data) as unknown;
       }
+
+      // Any other shape is invalid
+      throw new Error(`Invalid response format: ${JSON.stringify(data)}`);
     } catch (error) {
       // Clear timeout in case of error
       clearTimeout(timeoutId);
@@ -302,15 +307,8 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       // Only fetch user orgs if authenticated
       let data = await apiCall(`${getOrganizationsEndpoint()}/me`);
 
-      if ((!Array.isArray(data) || data.length === 0) && !personalOrgEnsuredRef.current) {
-        try {
-          await ensurePersonalOrganization();
-          // Always refetch after ensuring personal org to get the updated list
-          data = await apiCall(`${getOrganizationsEndpoint()}/me`);
-        } catch (ensureError) {
-          console.error('Failed to ensure personal organization:', ensureError);
-        }
-      }
+      // Disable auto-creation of personal organizations to avoid duplicates
+      // We rely on a single system to provision the personal org (e.g., Better Auth or a dedicated backend flow)
 
       const orgList = Array.isArray(data) ? data : [];
       

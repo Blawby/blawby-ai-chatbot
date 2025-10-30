@@ -8,6 +8,8 @@ import { Select } from './ui/input/Select';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { getBusinessPrices } from '../utils/stripe-products';
 import type { SubscriptionTier } from '../types/user';
+import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
+import { usePaymentUpgrade } from '../hooks/usePaymentUpgrade';
 
 interface PricingModalProps {
   isOpen: boolean;
@@ -24,6 +26,8 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 }) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { navigate } = useNavigation();
+  const { currentOrganization } = useOrganizationManagement();
+  const { openBillingPortal } = usePaymentUpgrade();
   const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
   const [selectedCountry, setSelectedCountry] = useState('us');
 
@@ -150,6 +154,16 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
     }
   };
 
+  const handleManageBilling = async () => {
+    try {
+      const orgId = currentOrganization?.id;
+      if (!orgId) return;
+      await openBillingPortal({ organizationId: orgId });
+    } catch (error) {
+      console.error('Failed to open billing portal:', error);
+    }
+  };
+
   // Country options via Intl.DisplayNames (locale-aware)
   const regionCodes = ['US','VN','GB','DE','FR','ES','JP','CN'] as const;
   const locale = i18n.language || 'en';
@@ -243,15 +257,26 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 
                 {/* Action Button */}
                 <div className="mb-6">
-                  <Button
-                    onClick={() => handleUpgrade(plan.id)}
-                    disabled={plan.isCurrent}
-                    variant={plan.isCurrent ? 'secondary' : 'primary'}
-                    size="lg"
-                    className="w-full"
-                  >
-                    {plan.buttonText}
-                  </Button>
+                  {plan.isCurrent && (plan.id === 'business' || plan.id === 'enterprise') ? (
+                    <Button
+                      onClick={handleManageBilling}
+                      variant="secondary"
+                      size="lg"
+                      className="w-full"
+                    >
+                      {t('modal.manageBilling', { defaultValue: 'Manage Billing' })}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleUpgrade(plan.id)}
+                      disabled={plan.isCurrent}
+                      variant={plan.isCurrent ? 'secondary' : 'primary'}
+                      size="lg"
+                      className="w-full"
+                    >
+                      {plan.buttonText}
+                    </Button>
+                  )}
                 </div>
 
                 {/* Features List */}

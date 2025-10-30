@@ -329,6 +329,60 @@ export async function getAuth(env: Env, request?: Request) {
                 }] : []),
               ],
               onSubscriptionComplete: async ({ stripeSubscription, subscription, plan }) => {
+                console.log('🔔 onSubscriptionComplete', {
+                  referenceId: subscription.referenceId,
+                  subscriptionPlan: subscription.plan,
+                  planName: plan?.name,
+                  stripeSubscriptionId: stripeSubscription?.id,
+                  customer: typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id,
+                  status: stripeSubscription?.status,
+                });
+                // Explicitly persist subscription row to D1 (idempotent upsert by stripe_subscription_id)
+                try {
+                  const seats = stripeSubscription?.items?.data?.[0]?.quantity ?? 1;
+                  const periodStart = stripeSubscription?.current_period_start ?? Math.floor(Date.now() / 1000);
+                  const periodEnd = stripeSubscription?.current_period_end ?? null;
+                  const stripeCustomerId = typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id ?? null;
+                  const status = stripeSubscription?.status ?? 'active';
+                  const refId = subscription.referenceId;
+
+                  if (refId && stripeSubscription?.id) {
+                    const upsert = await env.DB.prepare(
+                      `INSERT INTO subscriptions (
+                         id, plan, reference_id, stripe_subscription_id, stripe_customer_id, status, period_start, period_end, seats, created_at, updated_at
+                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), strftime('%s','now'))
+                       ON CONFLICT(stripe_subscription_id) DO UPDATE SET
+                         status=excluded.status,
+                         plan=excluded.plan,
+                         seats=excluded.seats,
+                         period_start=excluded.period_start,
+                         period_end=excluded.period_end,
+                         reference_id=excluded.reference_id,
+                         stripe_customer_id=excluded.stripe_customer_id,
+                         updated_at=strftime('%s','now')`
+                    ).bind(
+                      `sub_${stripeSubscription.id}`,
+                      (plan?.name ?? subscription.plan ?? 'business').toLowerCase(),
+                      refId,
+                      stripeSubscription.id,
+                      stripeCustomerId,
+                      status,
+                      periodStart,
+                      periodEnd,
+                      seats
+                    ).run();
+                    console.log('✅ Subscription persisted (complete):', { success: upsert.success, changes: upsert.meta?.changes });
+
+                    if (status === 'active') {
+                      const orgUpdate = await env.DB.prepare(
+                        `UPDATE organizations SET subscription_tier = 'business', seats = ?, stripe_customer_id = COALESCE(stripe_customer_id, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                      ).bind(seats, stripeCustomerId, refId).run();
+                      console.log('✅ Organization tier updated (complete):', { success: orgUpdate.success, changes: orgUpdate.meta?.changes, organizationId: refId });
+                    }
+                  }
+                } catch (persistErr) {
+                  console.error('❌ Failed to persist subscription on complete:', persistErr);
+                }
                 await syncSubscriptionState({
                   stripeSubscription,
                   referenceId: subscription.referenceId,
@@ -337,6 +391,46 @@ export async function getAuth(env: Env, request?: Request) {
               },
               onSubscriptionUpdate: async ({ event, subscription }) => {
                 const stripeSubscription = event.data.object as Stripe.Subscription;
+                console.log('🔔 onSubscriptionUpdate', {
+                  referenceId: subscription.referenceId,
+                  subscriptionPlan: subscription.plan,
+                  stripeSubscriptionId: stripeSubscription?.id,
+                  customer: typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id,
+                  status: stripeSubscription?.status,
+                  eventType: event.type,
+                });
+                // Update local subscription record
+                try {
+                  const seats = stripeSubscription?.items?.data?.[0]?.quantity ?? 1;
+                  const periodStart = stripeSubscription?.current_period_start ?? Math.floor(Date.now() / 1000);
+                  const periodEnd = stripeSubscription?.current_period_end ?? null;
+                  const status = stripeSubscription?.status ?? 'active';
+                  const refId = subscription.referenceId;
+
+                  if (stripeSubscription?.id) {
+                    const update = await env.DB.prepare(
+                      `UPDATE subscriptions SET status=?, plan=?, seats=?, period_start=?, period_end=?, updated_at=strftime('%s','now'), reference_id=COALESCE(reference_id, ?) WHERE stripe_subscription_id=?`
+                    ).bind(
+                      status,
+                      (subscription.plan ?? 'business').toLowerCase(),
+                      seats,
+                      periodStart,
+                      periodEnd,
+                      refId ?? null,
+                      stripeSubscription.id
+                    ).run();
+                    console.log('✅ Subscription updated (update):', { success: update.success, changes: update.meta?.changes });
+
+                    if (refId && status !== 'active') {
+                      const orgDowngrade = await env.DB.prepare(
+                        `UPDATE organizations SET subscription_tier = 'free', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                      ).bind(refId).run();
+                      console.log('✅ Organization downgraded (update):', { success: orgDowngrade.success, changes: orgDowngrade.meta?.changes, organizationId: refId });
+                    }
+                  }
+                } catch (persistErr) {
+                  console.error('❌ Failed to persist subscription on update:', persistErr);
+                }
                 await syncSubscriptionState({
                   stripeSubscription,
                   referenceId: subscription.referenceId,
@@ -344,6 +438,13 @@ export async function getAuth(env: Env, request?: Request) {
                 });
               },
               onSubscriptionCancel: async ({ stripeSubscription, subscription }) => {
+                console.log('🔔 onSubscriptionCancel', {
+                  referenceId: subscription.referenceId,
+                  subscriptionPlan: subscription.plan,
+                  stripeSubscriptionId: stripeSubscription?.id,
+                  customer: typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id,
+                  status: stripeSubscription?.status,
+                });
                 await syncSubscriptionState({
                   stripeSubscription,
                   referenceId: subscription.referenceId,
@@ -351,6 +452,10 @@ export async function getAuth(env: Env, request?: Request) {
                 });
               },
               onSubscriptionDeleted: async ({ subscription }) => {
+                console.log('🔔 onSubscriptionDeleted', {
+                  referenceId: subscription.referenceId,
+                  subscriptionPlan: subscription.plan,
+                });
                 if (subscription.referenceId) {
                   await clearStripeSubscriptionCache(env, subscription.referenceId);
                 }
@@ -359,14 +464,53 @@ export async function getAuth(env: Env, request?: Request) {
                 // Extract seats and annual from the subscription object since they're not passed directly
                 const seats = params.subscription?.seats || 1;
                 const annual = params.plan?.name === 'business-annual';
-                
-                console.log('Checkout session params:', {
+                const referenceId = params.subscription?.referenceId;
+
+                console.log('🧾 Checkout session params:', {
                   seats,
                   annual,
                   planName: params.plan?.name,
+                  referenceId,
                   subscriptionSeats: params.subscription?.seats
                 });
-                
+
+                // Pre-flight: block checkout if organization already has an active paid subscription
+                if (referenceId) {
+                  try {
+                    const org = await env.DB.prepare(
+                      `SELECT subscription_tier, stripe_customer_id FROM organizations WHERE id = ? LIMIT 1`
+                    ).bind(referenceId).first<{ subscription_tier: string | null; stripe_customer_id: string | null }>();
+
+                    if (org && (org.subscription_tier === 'business' || org.subscription_tier === 'enterprise')) {
+                      console.warn('⚠️ Blocked upgrade attempt for paid org by tier', { organizationId: referenceId, currentTier: org.subscription_tier });
+                      throw new Error(JSON.stringify({
+                        code: 'SUBSCRIPTION_ALREADY_ACTIVE',
+                        message: 'This organization already has an active subscription. Please manage your billing instead.'
+                      }));
+                    }
+
+                    const activeSub = await env.DB.prepare(
+                      `SELECT status, stripe_subscription_id FROM subscriptions WHERE reference_id = ? AND status IN ('active','trialing') LIMIT 1`
+                    ).bind(referenceId).first<{ status: string; stripe_subscription_id: string }>();
+
+                    if (activeSub) {
+                      console.warn('⚠️ Blocked upgrade attempt with active subscription', { organizationId: referenceId, subscriptionId: activeSub.stripe_subscription_id, status: activeSub.status });
+                      throw new Error(JSON.stringify({
+                        code: 'SUBSCRIPTION_ALREADY_ACTIVE',
+                        message: 'This organization already has an active subscription.'
+                      }));
+                    }
+
+                    console.log('✅ Pre-flight check passed for org', referenceId);
+                  } catch (preflightErr) {
+                    // Bubble up structured JSON errors; log and fail open for other DB errors
+                    if (preflightErr instanceof Error && typeof preflightErr.message === 'string' && preflightErr.message.startsWith('{')) {
+                      throw preflightErr;
+                    }
+                    console.error('❌ Pre-flight check DB error (proceeding to Stripe):', preflightErr);
+                  }
+                }
+
                 return {
                   params: {
                     allow_promotion_codes: true,
@@ -809,6 +953,25 @@ export async function getAuth(env: Env, request?: Request) {
                   // Set active organization when a session is created
                   if (session.userId && session.token) {
                     try {
+                      // Ensure a personal organization exists for the user (idempotent)
+                      try {
+                        const organizationService = new (await import('../services/OrganizationService.js')).OrganizationService(env);
+                        const existing = await organizationService.listOrganizations(session.userId);
+                        const hasPersonal = Array.isArray(existing) && existing.some(org => org.isPersonal);
+                        if (!hasPersonal) {
+                          // Fetch user name for a friendly org name
+                          const row = await env.DB
+                            .prepare('SELECT name, email FROM users WHERE id = ?')
+                            .bind(session.userId)
+                            .first<{ name: string | null; email: string | null }>();
+                          const fallbackName = (row?.name && row.name.trim()) || (row?.email?.split('@')[0] ?? 'New User');
+                          await organizationService.ensurePersonalOrganization(session.userId, fallbackName);
+                          console.log('✅ Ensured personal organization on session.create for user', session.userId);
+                        }
+                      } catch (ensureError) {
+                        console.error('❌ Failed to ensure personal organization on session.create:', ensureError);
+                      }
+
                       await setActiveOrganizationForSession(session.userId, session.token, env);
                     } catch (error) {
                       console.error("❌ Failed to set active organization for session:", {

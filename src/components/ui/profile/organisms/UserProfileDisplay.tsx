@@ -194,7 +194,7 @@ export const UserProfileDisplay = ({
   }
 
   return (
-    <div className={`p-2 border-t border-gray-200 dark:border-dark-border w-full overflow-hidden`}>
+    <div className={`p-2 border-t border-gray-200 dark:border-dark-border w-full overflow-visible`}>
       <div className="relative w-full max-w-full" ref={dropdownRef}>
         <ProfileButton
           name={user.name}
