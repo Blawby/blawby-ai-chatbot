@@ -76,22 +76,28 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
       if (typeof organizationId !== 'string' || organizationId.trim().length === 0) {
         errors.push('organizationId must be a non-empty string');
       }
-      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-        errors.push('data must be a plain non-array object');
-      } else if (Object.keys(data as Record<string, unknown>).length === 0) {
-        errors.push('data must contain at least one property');
-      }
       if (errors.length > 0) {
         throw HttpErrors.badRequest(`Invalid request: ${errors.join('; ')}`);
       }
       const orgId = (organizationId as string).trim();
+      await requireOrgOwner(request, env, orgId);
+
+      // Proceed with full data validation after ownership check
+      const dataErrors: string[] = [];
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        dataErrors.push('data must be a plain non-array object');
+      } else if (Object.keys(data as Record<string, unknown>).length === 0) {
+        dataErrors.push('data must contain at least one property');
+      }
+      if (dataErrors.length > 0) {
+        throw HttpErrors.badRequest(`Invalid request: ${dataErrors.join('; ')}`);
+      }
       const dataObject = data as Record<string, unknown>;
       const dataString = JSON.stringify(dataObject);
       const byteSize = new TextEncoder().encode(dataString).length;
       if (byteSize > 50000) {
         throw HttpErrors.payloadTooLarge('data exceeds maximum size of 50KB');
       }
-      await requireOrgOwner(request, env, orgId);
       const orgService = new OrganizationService(env);
       await orgService.saveBusinessOnboardingProgress(orgId, dataObject);
       return createSuccessResponse({ success: true });
@@ -100,12 +106,13 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
     if (path === '/api/onboarding/status' && request.method === 'GET') {
       await requireAuth(request, env);
       const organizationId = url.searchParams.get('organizationId');
-      if (!organizationId) {
+      const organizationIdTrimmed = typeof organizationId === 'string' ? organizationId.trim() : '';
+      if (!organizationIdTrimmed) {
         throw HttpErrors.badRequest('organizationId is required');
       }
-      await requireOrgOwner(request, env, organizationId);
+      await requireOrgOwner(request, env, organizationIdTrimmed);
       const orgService = new OrganizationService(env);
-      const status = await orgService.getBusinessOnboardingStatus(organizationId);
+      const status = await orgService.getBusinessOnboardingStatus(organizationIdTrimmed);
       return createSuccessResponse(status);
     }
 

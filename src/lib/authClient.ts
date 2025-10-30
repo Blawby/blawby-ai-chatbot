@@ -10,7 +10,12 @@ const getBaseURL = () => {
     const origin = window.location.origin;
     try {
       const { hostname } = new URL(origin);
-      const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+      const normalizedHostname =
+        hostname.startsWith("[") && hostname.endsWith("]")
+          ? hostname.slice(1, -1)
+          : hostname;
+      const localHostnames = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
+      const isLocal = localHostnames.has(normalizedHostname);
       if (isLocal) return origin;
     } catch {
       // Treat invalid URLs as non-local

@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useState, useEffect, useCallback, useLayoutEffect } from 'preact/hooks';
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import ChatContainer from './components/ChatContainer';
@@ -74,6 +74,10 @@ function MainApp({
   // Using our custom organization system instead of Better Auth's organization plugin
 	// Removed unused submitUpgrade
 	const { showError } = useToastContext();
+	const showErrorRef = useRef(showError);
+	useEffect(() => {
+		showErrorRef.current = showError;
+	}, [showError]);
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
 	const { currentOrganization } = useOrganizationManagement();
 
@@ -178,16 +182,20 @@ function MainApp({
 		(async () => {
 			try {
 				if (session?.user && typeof window !== 'undefined') {
-					const key = 'ensuredPersonalOrg_v1';
+					const key = `ensuredPersonalOrg_v1_${session.user.id}`;
 					if (!sessionStorage.getItem(key)) {
+						const controller = new AbortController();
+						const timeoutId = setTimeout(() => controller.abort(), 10000);
 						const resp = await fetch('/api/organizations/me/ensure-personal', {
 							method: 'POST',
 							credentials: 'include',
 							headers: { 'Content-Type': 'application/json' },
+							signal: controller.signal,
 						});
+						clearTimeout(timeoutId);
 						if (!resp.ok) {
-							console.warn('Failed to ensure personal organization (non-OK response)', { status: resp.status });
-							showError('Setup incomplete', 'We could not ensure your personal organization.');
+						console.warn('Failed to ensure personal organization (non-OK response)', { status: resp.status });
+						showErrorRef.current('Setup incomplete', 'We could not ensure your personal organization.');
 							return;
 						}
 						sessionStorage.setItem(key, '1');
@@ -195,10 +203,11 @@ function MainApp({
 				}
 			} catch (e) {
 				console.warn('Failed to ensure personal organization (client fallback):', e);
-				showError('Setup incomplete', 'We could not ensure your personal organization.');
+				showErrorRef.current('Setup incomplete', 'We could not ensure your personal organization.');
 			}
 		})();
-	}, [session?.user, showError]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [session?.user?.id]);
 
 	useEffect(() => {
 		if (session?.user && !sessionIsPending) {

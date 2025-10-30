@@ -143,7 +143,7 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             referenceId: organizationId,
-            returnUrl: returnUrl \u223c '/settings/account',
+            returnUrl: returnUrl ?? '/settings/account',
           }),
         });
 ```
@@ -206,7 +206,7 @@ export const getSubscriptionSyncEndpoint = () => {
     expect(row).toBeTruthy();
     expect(row?.tier).toMatch(/business|business-annual|enterprise/);
     expect(typeof row?.seats).toBe('number');
-    expect((row?.seats \u223c 0) >= 1).toBe(true);
+    expect((row?.seats ?? 0) >= 1).toBe(true);
 ```
 
 ### Gaps relative to “change/cancel”

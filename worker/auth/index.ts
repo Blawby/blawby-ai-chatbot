@@ -333,8 +333,7 @@ export async function getAuth(env: Env, request?: Request) {
                 };
                 throw new Error(`Missing stripeSubscription.id; cannot persist subscription: ${JSON.stringify(errorContext)}`);
               }
-
-              if (stripeSubscription?.id) {
+ 
               // Use a SAVEPOINT to safely support nested transaction contexts
               const savepointName = `sp_upsert_subscription_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
               await env.DB.prepare(`SAVEPOINT ${savepointName}`).run();
@@ -396,7 +395,6 @@ export async function getAuth(env: Env, request?: Request) {
                   console.error('❌ Failed to release savepoint after rollback for subscription upsert:', releaseError);
                 }
                 throw txError;
-              }
               }
           } catch (error) {
             console.error('❌ Failed to persist subscription (upsert):', error);
@@ -997,7 +995,7 @@ export async function getAuth(env: Env, request?: Request) {
                     try {
                       // Ensure a personal organization exists for the user (idempotent)
                       try {
-                        const organizationService = new (await import('../services/OrganizationService.js')).OrganizationService(env);
+                        const organizationService = new OrganizationService(env);
                         const existing = await organizationService.listOrganizations(session.userId);
                         const hasPersonal = Array.isArray(existing) && existing.some(org => org.isPersonal);
                         if (!hasPersonal) {

@@ -213,7 +213,12 @@ export const usePaymentUpgrade = () => {
     async (organizationId: string, returnUrl: string) => {
       setError(null);
       // Redirect directly to billing portal to manage current subscription
-      await openBillingPortal({ organizationId, returnUrl });
+      try {
+        await openBillingPortal({ organizationId, returnUrl });
+      } finally {
+        // Ensure submitting state is cleared even on early redirect
+        setSubmitting(false);
+      }
     },
     [openBillingPortal]
   );

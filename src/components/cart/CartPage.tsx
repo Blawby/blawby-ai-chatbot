@@ -55,6 +55,15 @@ export const CartPage = () => {
   );
   const isPaidTier = devForcePaid || currentOrganization?.subscriptionTier === 'business' || currentOrganization?.subscriptionTier === 'enterprise';
 
+  // Derive a safe, explicit label for the current paid plan
+  const subscriptionTier = currentOrganization?.subscriptionTier;
+  const planLabel =
+    subscriptionTier === 'business'
+      ? 'Business'
+      : subscriptionTier === 'enterprise'
+        ? 'Enterprise'
+        : (devForcePaid ? 'Paid Plan (dev)' : 'Paid Plan');
+
   useEffect(() => {
     if (import.meta.env.DEV) {
       try {
@@ -100,7 +109,7 @@ export const CartPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {currentOrganization?.subscriptionTier === 'business' ? 'Business' : 'Enterprise'} Plan</h2>
+            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {planLabel} Plan</h2>
             <p className="text-gray-300 mb-6">Your organization &quot;{currentOrganization?.name}&quot; is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">Manage Billing</button>

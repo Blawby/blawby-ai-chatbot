@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import BusinessOnboardingModal from '../onboarding/BusinessOnboardingModal';
 import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
-import { useMemo } from 'preact/hooks';
 import { useNavigation } from '../../utils/navigation';
 import { useToastContext } from '../../contexts/ToastContext';
 
@@ -128,7 +127,7 @@ export const BusinessOnboardingPage = () => {
     };
 
     syncSubscription();
-	 }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError, syncing]);
+	 }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError]);
 
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {

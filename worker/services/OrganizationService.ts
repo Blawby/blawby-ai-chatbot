@@ -1093,7 +1093,15 @@ export class OrganizationService {
     return `${timestamp.toString(36)}${random}`;
   }
 
-  async markBusinessOnboardingComplete(organizationId: string): Promise<void> {
+  async markBusinessOnboardingComplete(organizationId: string): Promise<boolean> {
+    // First, verify the organization exists to distinguish not found vs no-op
+    const exists = await this.env.DB.prepare(
+      `SELECT id FROM organizations WHERE id = ? LIMIT 1`
+    ).bind(organizationId).first<{ id: string }>();
+    if (!exists) {
+      throw new Error(`Organization not found: ${organizationId}`);
+    }
+
     const result = await this.env.DB.prepare(
       `UPDATE organizations 
          SET business_onboarding_completed_at = strftime('%s','now'),
@@ -1102,10 +1110,12 @@ export class OrganizationService {
        WHERE id = ?`
     ).bind(organizationId).run();
     const changes = (result as unknown as { meta?: { changes?: number } ; changes?: number })?.meta?.changes ?? (result as unknown as { changes?: number })?.changes ?? 0;
-    if (changes === 0) {
-      throw new Error(`No organization updated when marking onboarding complete (organizationId=${organizationId})`);
+    if (changes > 0) {
+      this.clearCache(organizationId);
+      return true;
     }
-    this.clearCache(organizationId);
+    // Organization exists but no update occurred - likely already completed
+    return false;
   }
 
   async markBusinessOnboardingSkipped(organizationId: string): Promise<boolean> {
