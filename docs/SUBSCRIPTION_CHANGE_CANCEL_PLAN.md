@@ -229,6 +229,101 @@ export const getSubscriptionSyncEndpoint = () => {
   - Keep webhook as source of truth; continue calling `refreshStripeSubscriptionById` via the existing sync route when UI returns.
   - No new endpoints are required to satisfy 1a/2b with the current architecture.
 
+## Frontend display of subscription plan and seats
+
+### Goals
+- Display the current organization subscription plan and seats in Settings > Account.
+- Show a read-only plan badge on the user profile with a "Manage billing" link.
+- Reflect real-time changes after users return from Stripe (via existing sync endpoint).
+
+### Data sources
+- Primary: `organizations.subscription_tier` and `organizations.seats` in DB, which are updated by webhooks and the sync route.
+- Optional cache: KV-backed subscription cache populated by Stripe sync helpers.
+
+Code paths updating organization tier and seats:
+```368:383:worker/auth/index.ts
+                  if (status === 'active') {
+                    const normalizedTier = planLower && typeof planLower === 'string' && planLower.length > 0
+                      ? planLower.replace(/-annual$/, '')
+                      : 'free';
+                    const orgUpdate = await env.DB.prepare(
+                      `UPDATE organizations SET subscription_tier = ?, seats = ?, stripe_customer_id = COALESCE(stripe_customer_id, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                    ).bind(normalizedTier, seats, stripeCustomerId, refId).run();
+                    console.log('✅ Organization tier updated (active):', { success: orgUpdate.success, changes: orgUpdate.meta?.changes, organizationId: refId });
+                  } else {
+                    const orgDowngrade = await env.DB.prepare(
+                      `UPDATE organizations SET subscription_tier = 'free', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                    ).bind(refId).run();
+                    console.log('✅ Organization downgraded (non-active):', { success: orgDowngrade.success, changes: orgDowngrade.meta?.changes, organizationId: refId });
+                  }
+```
+
+```75:86:worker/services/StripeSync.ts
+  const normalizedTier =
+    status === "active" || status === "trialing"
+      ? (plan ?? "business")
+      : "free";
+
+  await env.DB.prepare(
+    `UPDATE organizations 
+       SET stripe_customer_id = ?, 
+           subscription_tier = ?, 
+           seats = ?, 
+           updated_at = ?
+     WHERE id = ?`
+  )
+    .bind(
+      stripeCustomerId,
+      normalizedTier,
+      normalizedSeats,
+      Math.floor(Date.now() / 1000),
+      organizationId
+    )
+    .run();
+```
+
+### UI locations and behavior
+- Settings > Account
+  - Show: Plan badge (e.g., Free, Plus, Business, Enterprise) and seat count.
+  - Actions: "Manage billing" (opens Billing Portal), "Sync subscription" (calls sync endpoint, then refreshes view).
+- User Profile
+  - Show: Read-only plan badge and seats.
+  - Action: "Manage billing" (same portal action), only for users with permission.
+
+### State handling
+- Loading: skeleton for plan/seats while fetching organization; portal-return may trigger auto-sync.
+- Success: display normalized tier and numeric seats; map unknown/missing to Free and seats = 1.
+- Error: map errors to existing codes in `SubscriptionErrorCode` and show a retry.
+- Sync in-flight: show non-blocking "Syncing…" status; disable portal button while a sync is running.
+
+### Internationalization and accessibility
+- i18n: Translate plan names, seats label, loading and error messages using existing i18n setup (`src/i18n`).
+- a11y: Use ARIA `status` for sync feedback; ensure buttons have accessible names and focus order.
+
+### Permissions
+- Show "Manage billing" only if user has organization owner/admin role.
+- If unauthorized, show plan and seats read-only without actions.
+
+### Performance
+- Prefer using the already-loaded organization context when available to avoid redundant fetches.
+- If syncing, debounce UI refresh to avoid flicker.
+
+### Edge cases
+- No active subscription (tier=free): display Free and seats=1.
+- Trialing: treat as active; display plan without "Trial" suffix unless productizing trial labels.
+- Desynchronized state immediately post-portal: encourage user-triggered sync; auto-sync if `sync=1` param present.
+
+### Acceptance criteria
+- Settings shows current plan and seats sourced from organization data.
+- Profile shows plan badge and seats; link to Billing Portal if allowed.
+- Returning from Stripe with `sync=1` triggers a sync and updates UI within 2s.
+- Errors are surfaced with retry and logged to console for diagnostics.
+
+### Test additions
+- Unit: render settings/profile with organization context → verify plan/seats render and i18n.
+- Integration: simulate portal-return, call sync endpoint, assert DB update leads to updated display.
+- Permission: ensure non-owners do not see the portal button.
+
 ### Error handling alignment
 
 - Frontend maps server errors to UI via standardized codes:
