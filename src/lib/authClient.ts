@@ -8,8 +8,13 @@ const getBaseURL = () => {
   // In the browser, always use current origin for localhost to keep auth and APIs on the same host
   if (typeof window !== "undefined") {
     const origin = window.location.origin;
-    const isLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
-    if (isLocal) return origin;
+    try {
+      const { hostname } = new URL(origin);
+      const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
+      if (isLocal) return origin;
+    } catch {
+      // Treat invalid URLs as non-local
+    }
   }
 
   // Otherwise allow explicit override (e.g., production, preview)

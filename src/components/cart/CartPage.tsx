@@ -13,7 +13,7 @@ export const CartPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
-  const { currentOrganization, refetch } = useOrganizationManagement();
+  const { currentOrganization } = useOrganizationManagement();
   const { showError } = useToastContext();
   const { i18n } = useTranslation();
 
@@ -65,14 +65,25 @@ export const CartPage = () => {
           tier: currentOrganization?.subscriptionTier,
           orgId: currentOrganization?.id,
         });
-      } catch {}
+      } catch (e) {
+        // no-op: debug logging failed
+        console.warn('[CART][DEBUG] log failed:', e);
+      }
     }
   }, [devForcePaid, currentOrganization?.subscriptionTier, currentOrganization?.id]);
 
+  const handleManageBilling = useCallback(async () => {
+    if (!currentOrganization?.id) return;
+    try {
+      await openBillingPortal({ organizationId: currentOrganization.id });
+    } catch (_error) {
+      showError('Error', 'Could not open billing portal');
+    }
+  }, [currentOrganization?.id, openBillingPortal, showError]);
+
   // If org is already on paid tier, show Manage Billing immediately (even before pricing loads)
-  if (isPaidTier) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-testid-paid="cart-paid-state" data-testid="cart-paid-state">
+  const paidState = isPaidTier ? (
+      <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-paid-state="cart-paid-state">
         <header className="py-4">
           <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">
             <img src="/blawby-favicon-iframe.png" alt="Blawby" className="h-8 w-8" />
@@ -85,8 +96,8 @@ export const CartPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2">You're Already on {currentOrganization?.subscriptionTier === 'business' ? 'Business' : 'Enterprise'} Plan</h2>
-            <p className="text-gray-300 mb-6">Your organization "{currentOrganization?.name}" is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
+            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {currentOrganization?.subscriptionTier === 'business' ? 'Business' : 'Enterprise'} Plan</h2>
+            <p className="text-gray-300 mb-6">Your organization &quot;{currentOrganization?.name}&quot; is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">Manage Billing</button>
               <button onClick={() => navigate('/')} className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium">Go to Dashboard</button>
@@ -94,17 +105,7 @@ export const CartPage = () => {
           </div>
         </main>
       </div>
-    );
-  }
-
-  const handleManageBilling = useCallback(async () => {
-    if (!currentOrganization?.id) return;
-    try {
-      await openBillingPortal({ organizationId: currentOrganization.id });
-    } catch (error) {
-      showError('Error', 'Could not open billing portal');
-    }
-  }, [currentOrganization?.id, openBillingPortal, showError]);
+    ) : null;
 
   useEffect(() => {
 
@@ -188,7 +189,9 @@ export const CartPage = () => {
   const handleContinue = async () => {
     try {
       console.debug('[CART][UPGRADE] Begin handleContinue');
-    } catch {}
+    } catch (e) {
+      console.warn('[CART][UPGRADE] debug start failed:', e);
+    }
 
     // Store cart data for Stripe Elements integration
     const cartData = {
@@ -242,10 +245,18 @@ export const CartPage = () => {
           credentials: 'include',
           headers: { 'Accept': 'application/json' },
         });
-        const orgs = await orgsRes.json().catch(() => [] as Array<Record<string, unknown>>);
-        if (Array.isArray(orgs) && orgs.length > 0) {
-          const personal = orgs.find((o: any) => o?.isPersonal) as { id?: string } | undefined;
-          organizationId = (personal?.id || (orgs[0] as any)?.id) ?? null;
+        type Org = { id?: string; isPersonal?: boolean };
+        let orgs: Org[] = [];
+        try {
+          const data = await orgsRes.json();
+          orgs = Array.isArray(data) ? (data as Org[]) : [];
+        } catch (parseError) {
+          console.error('[CART][UPGRADE] Failed to parse organizations response:', parseError);
+          orgs = [];
+        }
+        if (orgs.length > 0) {
+          const personal = orgs.find(o => o.isPersonal);
+          organizationId = personal?.id ?? orgs[0]?.id ?? null;
         }
         console.debug('[CART][UPGRADE] Ensured/loaded orgs. Resolved organizationId:', organizationId);
       } catch (e) {
@@ -285,14 +296,18 @@ export const CartPage = () => {
         seats: quantity,
         annual: isAnnual
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[CART][UPGRADE] debug params failed:', e);
+    }
 
 
     await submitUpgrade(upgradeParams);
 
     try {
       console.debug('[CART][UPGRADE] submitUpgrade call completed');
-    } catch {}
+    } catch (e) {
+      console.warn('[CART][UPGRADE] debug complete failed:', e);
+    }
   };
 
   if (loadError) {
@@ -326,6 +341,7 @@ export const CartPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="false">
+      {paidState}
       {/* Header */}
       <header className="py-4">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">

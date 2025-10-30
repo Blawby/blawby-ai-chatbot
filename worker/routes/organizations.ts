@@ -201,9 +201,22 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     if ((path === '/active' || path === '/active/') && request.method === 'POST') {
       const authContext = await requireAuth(request, env);
       let body: { organizationId?: string } = {};
+      const requestClone = request.clone();
       try {
         body = await request.json();
-      } catch {}
+      } catch (error) {
+        let rawBody: string | undefined;
+        try {
+          rawBody = await requestClone.text();
+        } catch (_readError) {
+          rawBody = undefined;
+        }
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('Failed to parse JSON body in POST /api/organizations/active', {
+          error: errorMessage,
+          rawBody
+        });
+      }
 
       const organizationId = body.organizationId;
       if (!organizationId) {

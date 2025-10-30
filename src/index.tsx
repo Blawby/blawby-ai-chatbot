@@ -11,7 +11,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
-import { authClient } from './lib/authClient';
+// import { authClient } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
 import type { UIOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
@@ -28,7 +28,7 @@ import { BusinessWelcomePrompt } from './components/onboarding/organisms/Busines
 import BusinessOnboardingPage from './components/pages/BusinessOnboardingPage';
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
-import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
+// import { usePaymentUpgrade } from './hooks/usePaymentUpgrade';
 import { useToastContext } from './contexts/ToastContext';
 import { useSessionContext } from './contexts/SessionContext';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
@@ -44,14 +44,13 @@ function MainApp({
 	organizationId, 
 	organizationConfig, 
 	organizationNotFound, 
-	handleRetryOrganizationConfig,
-	...routeProps
+	handleRetryOrganizationConfig
 }: {
 	organizationId: string;
 	organizationConfig: UIOrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
-} & Record<string, any>) {
+}) {
 	// Core state
 	const [clearInputTrigger, setClearInputTrigger] = useState(0);
 	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
@@ -75,7 +74,7 @@ function MainApp({
 	// Organization data is now passed as props
 	
   // Using our custom organization system instead of Better Auth's organization plugin
-	const { submitUpgrade } = usePaymentUpgrade();
+	// Removed unused submitUpgrade
 	const { showError } = useToastContext();
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
 	const { currentOrganization } = useOrganizationManagement();
@@ -183,16 +182,23 @@ function MainApp({
 				if (session?.user && typeof window !== 'undefined') {
 					const key = 'ensuredPersonalOrg_v1';
 					if (!sessionStorage.getItem(key)) {
-						await fetch('/api/organizations/me/ensure-personal', {
+						const resp = await fetch('/api/organizations/me/ensure-personal', {
 							method: 'POST',
 							credentials: 'include',
 							headers: { 'Content-Type': 'application/json' },
 						});
+						// Validate HTTP status; network errors are already caught by try/catch
+						if (!resp.ok) {
+							console.warn('Failed to ensure personal organization (non-OK response)', { status: resp.status });
+							showError('Setup incomplete', 'We could not ensure your personal organization.');
+							return;
+						}
 						sessionStorage.setItem(key, '1');
 					}
 				}
 			} catch (e) {
 				console.warn('Failed to ensure personal organization (client fallback):', e);
+				showError('Setup incomplete', 'We could not ensure your personal organization.');
 			}
 		})();
 		if (session?.user && !sessionIsPending) {
@@ -207,7 +213,9 @@ function MainApp({
 						local_onboardingCompleted: localStorage.getItem('onboardingCompleted'),
 						local_onboardingCheckDone: localStorage.getItem('onboardingCheckDone')
 					});
-				} catch {}
+                } catch (e) {
+                    console.warn('[ONBOARDING][CHECK] session debug failed:', e);
+                }
 			}
 			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
 			const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
@@ -222,9 +230,10 @@ function MainApp({
 				try {
 					localStorage.setItem('onboardingCompleted', 'true');
 					localStorage.setItem('onboardingCheckDone', 'true');
-				} catch (_error) {
-					// Handle localStorage failures gracefully
-				}
+                } catch (_error) {
+                    // Handle localStorage failures gracefully
+                    console.warn('[ONBOARDING][SYNC] localStorage set failed:', _error);
+                }
 			}
 			
 			// If user hasn't completed onboarding and we haven't checked yet
@@ -239,9 +248,10 @@ function MainApp({
 					// Set flag to prevent repeated checks
 					try {
 						localStorage.setItem('onboardingCheckDone', 'true');
-					} catch (_error) {
-						// Handle localStorage failures gracefully
-					}
+                    } catch (_error) {
+                        // Handle localStorage failures gracefully
+                        console.warn('[ONBOARDING][FLAGS] localStorage set failed:', _error);
+                    }
 					
 					// Redirect to auth page with onboarding
 					window.location.href = '/auth?mode=signin&onboarding=true';
@@ -256,7 +266,7 @@ function MainApp({
 				}
 			}
 		}
-	}, [session?.user, sessionIsPending, session]);
+	}, [session?.user, sessionIsPending, session, showError]);
 
 
 
@@ -584,7 +594,7 @@ function MainApp({
 						}
 
 						// Always use blawby-ai organization for stripe upgrades
-						const stripeOrganizationId = 'blawby-ai';
+                        // Use 'blawby-ai' organization for Stripe upgrades (no local variable needed)
 
 						if (tier === 'business') {
 							// Navigate to cart page for business upgrades instead of direct checkout
@@ -734,7 +744,7 @@ function MainAppWithProviders(props: {
 	organizationConfig: UIOrganizationConfig;
 	organizationNotFound: boolean;
 	handleRetryOrganizationConfig: () => void;
-} & Record<string, any>) {
+} & Record<string, unknown>) {
 	return (
 		<SessionProvider>
 			<MainApp {...props} />

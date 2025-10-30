@@ -32,7 +32,7 @@ interface BusinessOnboardingModalProps {
   isOpen: boolean;
   organizationId: string;
   organizationName?: string;
-  fallbackContactEmail?: string;
+  fallbackContactEmail?: string | undefined;
   onClose: () => void;
   onCompleted?: () => Promise<void> | void;
 }

@@ -53,7 +53,13 @@ export const BusinessOnboardingPage = () => {
   // Sync subscription data on mount if needed
   useEffect(() => {
     const syncSubscription = async () => {
-      if (!shouldSync || !targetOrganizationId || syncing) return;
+      // If no sync is needed, mark as ready so downstream guards can run
+      if (!shouldSync) {
+        setReady(true);
+        return;
+      }
+
+      if (!targetOrganizationId || syncing) return;
       console.debug('[ONBOARDING][SYNC] Starting subscription sync for org:', targetOrganizationId);
       
       setSyncing(true);
@@ -114,7 +120,7 @@ export const BusinessOnboardingPage = () => {
       try {
         const response = await fetch(`/api/onboarding/status?organizationId=${targetOrganizationId}`, { credentials: 'include' });
         if (response.ok) {
-          const status = await response.json();
+          const status = await response.json() as { completed?: boolean } | null;
           if (status?.completed) {
             console.log('✅ Onboarding already completed, redirecting');
             showSuccess('Setup Complete', 'Your business profile is already configured.');
@@ -178,7 +184,7 @@ export const BusinessOnboardingPage = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
           <p className="text-gray-600">Activating your subscription...</p>
         </div>
       </div>
@@ -194,7 +200,7 @@ export const BusinessOnboardingPage = () => {
       isOpen={isOpen}
       organizationId={targetOrganizationId}
       organizationName={targetOrganization?.name}
-      fallbackContactEmail={(targetOrganization as any)?.config?.ownerEmail}
+      fallbackContactEmail={targetOrganization?.config?.ownerEmail}
       onClose={handleClose}
       onCompleted={handleComplete}
     />

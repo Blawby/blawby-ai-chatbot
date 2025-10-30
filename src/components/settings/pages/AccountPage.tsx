@@ -150,12 +150,9 @@ export const AccountPage = ({
                          (newTier === 'business' || newTier === 'enterprise');
 
       if (wasUpgraded) {
-        // Set flag for business setup modal and redirect to root
-        try {
-          localStorage.setItem('businessSetupPending', 'true');
-          navigate('/');
-        } catch (storageError) {
-          console.warn('Failed to set business setup flag:', storageError);
+        const organizationId = currentOrganization?.id;
+        if (organizationId) {
+          navigate(`/business-onboarding?organizationId=${organizationId}&sync=1`);
         }
       }
 

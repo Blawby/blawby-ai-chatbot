@@ -301,6 +301,72 @@ export async function getAuth(env: Env, request?: Request) {
 
         try {
 
+          // Shared helper to persist subscription and sync organization tier consistently
+          const upsertSubscriptionAndSyncOrg = async (args: {
+            stripeSubscription: Stripe.Subscription;
+            referenceId?: string | null;
+            planName?: string | null;
+          }) => {
+            const { stripeSubscription, referenceId, planName } = args;
+            try {
+              const seats = stripeSubscription?.items?.data?.[0]?.quantity ?? 1;
+              const subPeriods = stripeSubscription as unknown as { current_period_start?: number; current_period_end?: number };
+              const periodStart = subPeriods.current_period_start ?? Math.floor(Date.now() / 1000);
+              const periodEnd = subPeriods.current_period_end ?? null;
+              const stripeCustomerId = typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id ?? null;
+              const status = stripeSubscription?.status ?? 'active';
+              const refId = referenceId ?? null;
+              const planLower = (planName ?? 'business').toLowerCase();
+
+              if (stripeSubscription?.id) {
+                const upsert = await env.DB.prepare(
+                  `INSERT INTO subscriptions (
+                     id, plan, reference_id, stripe_subscription_id, stripe_customer_id, status, period_start, period_end, seats, created_at, updated_at
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), strftime('%s','now'))
+                   ON CONFLICT(stripe_subscription_id) DO UPDATE SET
+                     status=excluded.status,
+                     plan=excluded.plan,
+                     seats=excluded.seats,
+                     period_start=excluded.period_start,
+                     period_end=excluded.period_end,
+                     reference_id=COALESCE(reference_id, excluded.reference_id),
+                     stripe_customer_id=excluded.stripe_customer_id,
+                     updated_at=strftime('%s','now')`
+                ).bind(
+                  stripeSubscription.id,
+                  planLower,
+                  refId,
+                  stripeSubscription.id,
+                  stripeCustomerId,
+                  status,
+                  periodStart,
+                  periodEnd,
+                  seats
+                ).run();
+                console.log('✅ Subscription persisted (upsert):', { success: upsert.success, changes: upsert.meta?.changes });
+
+                if (refId) {
+                  if (status === 'active') {
+                    const tier = planLower && typeof planLower === 'string' && planLower.length > 0 ? planLower : 'free';
+                    const orgUpdate = await env.DB.prepare(
+                      `UPDATE organizations SET subscription_tier = ?, seats = ?, stripe_customer_id = COALESCE(stripe_customer_id, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                    ).bind(tier, seats, stripeCustomerId, refId).run();
+                    console.log('✅ Organization tier updated (active):', { success: orgUpdate.success, changes: orgUpdate.meta?.changes, organizationId: refId });
+                  } else {
+                    const orgDowngrade = await env.DB.prepare(
+                      `UPDATE organizations SET subscription_tier = 'free', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                    ).bind(refId).run();
+                    console.log('✅ Organization downgraded (non-active):', { success: orgDowngrade.success, changes: orgDowngrade.meta?.changes, organizationId: refId });
+                  }
+                }
+
+                return upsert;
+              }
+            } catch (error) {
+              console.error('❌ Failed to persist subscription (upsert):', error);
+            }
+          };
+
           stripeIntegration = stripePlugin({
             stripeClient,
             stripeWebhookSecret,
@@ -337,52 +403,11 @@ export async function getAuth(env: Env, request?: Request) {
                   customer: typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id,
                   status: stripeSubscription?.status,
                 });
-                // Explicitly persist subscription row to D1 (idempotent upsert by stripe_subscription_id)
-                try {
-                  const seats = stripeSubscription?.items?.data?.[0]?.quantity ?? 1;
-                  const periodStart = stripeSubscription?.current_period_start ?? Math.floor(Date.now() / 1000);
-                  const periodEnd = stripeSubscription?.current_period_end ?? null;
-                  const stripeCustomerId = typeof stripeSubscription?.customer === 'string' ? stripeSubscription.customer : stripeSubscription?.customer?.id ?? null;
-                  const status = stripeSubscription?.status ?? 'active';
-                  const refId = subscription.referenceId;
-
-                  if (refId && stripeSubscription?.id) {
-                    const upsert = await env.DB.prepare(
-                      `INSERT INTO subscriptions (
-                         id, plan, reference_id, stripe_subscription_id, stripe_customer_id, status, period_start, period_end, seats, created_at, updated_at
-                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), strftime('%s','now'))
-                       ON CONFLICT(stripe_subscription_id) DO UPDATE SET
-                         status=excluded.status,
-                         plan=excluded.plan,
-                         seats=excluded.seats,
-                         period_start=excluded.period_start,
-                         period_end=excluded.period_end,
-                         reference_id=excluded.reference_id,
-                         stripe_customer_id=excluded.stripe_customer_id,
-                         updated_at=strftime('%s','now')`
-                    ).bind(
-                      `sub_${stripeSubscription.id}`,
-                      (plan?.name ?? subscription.plan ?? 'business').toLowerCase(),
-                      refId,
-                      stripeSubscription.id,
-                      stripeCustomerId,
-                      status,
-                      periodStart,
-                      periodEnd,
-                      seats
-                    ).run();
-                    console.log('✅ Subscription persisted (complete):', { success: upsert.success, changes: upsert.meta?.changes });
-
-                    if (status === 'active') {
-                      const orgUpdate = await env.DB.prepare(
-                        `UPDATE organizations SET subscription_tier = 'business', seats = ?, stripe_customer_id = COALESCE(stripe_customer_id, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-                      ).bind(seats, stripeCustomerId, refId).run();
-                      console.log('✅ Organization tier updated (complete):', { success: orgUpdate.success, changes: orgUpdate.meta?.changes, organizationId: refId });
-                    }
-                  }
-                } catch (persistErr) {
-                  console.error('❌ Failed to persist subscription on complete:', persistErr);
-                }
+                await upsertSubscriptionAndSyncOrg({
+                  stripeSubscription,
+                  referenceId: subscription.referenceId,
+                  planName: plan?.name ?? subscription.plan ?? 'business',
+                });
                 await syncSubscriptionState({
                   stripeSubscription,
                   referenceId: subscription.referenceId,
@@ -399,38 +424,11 @@ export async function getAuth(env: Env, request?: Request) {
                   status: stripeSubscription?.status,
                   eventType: event.type,
                 });
-                // Update local subscription record
-                try {
-                  const seats = stripeSubscription?.items?.data?.[0]?.quantity ?? 1;
-                  const periodStart = stripeSubscription?.current_period_start ?? Math.floor(Date.now() / 1000);
-                  const periodEnd = stripeSubscription?.current_period_end ?? null;
-                  const status = stripeSubscription?.status ?? 'active';
-                  const refId = subscription.referenceId;
-
-                  if (stripeSubscription?.id) {
-                    const update = await env.DB.prepare(
-                      `UPDATE subscriptions SET status=?, plan=?, seats=?, period_start=?, period_end=?, updated_at=strftime('%s','now'), reference_id=COALESCE(reference_id, ?) WHERE stripe_subscription_id=?`
-                    ).bind(
-                      status,
-                      (subscription.plan ?? 'business').toLowerCase(),
-                      seats,
-                      periodStart,
-                      periodEnd,
-                      refId ?? null,
-                      stripeSubscription.id
-                    ).run();
-                    console.log('✅ Subscription updated (update):', { success: update.success, changes: update.meta?.changes });
-
-                    if (refId && status !== 'active') {
-                      const orgDowngrade = await env.DB.prepare(
-                        `UPDATE organizations SET subscription_tier = 'free', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-                      ).bind(refId).run();
-                      console.log('✅ Organization downgraded (update):', { success: orgDowngrade.success, changes: orgDowngrade.meta?.changes, organizationId: refId });
-                    }
-                  }
-                } catch (persistErr) {
-                  console.error('❌ Failed to persist subscription on update:', persistErr);
-                }
+                await upsertSubscriptionAndSyncOrg({
+                  stripeSubscription,
+                  referenceId: subscription.referenceId,
+                  planName: subscription.plan ?? 'business',
+                });
                 await syncSubscriptionState({
                   stripeSubscription,
                   referenceId: subscription.referenceId,
@@ -503,9 +501,16 @@ export async function getAuth(env: Env, request?: Request) {
 
                     console.log('✅ Pre-flight check passed for org', referenceId);
                   } catch (preflightErr) {
-                    // Bubble up structured JSON errors; log and fail open for other DB errors
-                    if (preflightErr instanceof Error && typeof preflightErr.message === 'string' && preflightErr.message.startsWith('{')) {
-                      throw preflightErr;
+                    // Bubble up structured JSON errors by safely attempting to parse the message
+                    if (preflightErr instanceof Error && typeof preflightErr.message === 'string') {
+                      try {
+                        const parsed = JSON.parse(preflightErr.message);
+                        if (parsed && typeof parsed === 'object') {
+                          throw preflightErr;
+                        }
+                      } catch (_) {
+                        // not structured JSON; fall through to log
+                      }
                     }
                     console.error('❌ Pre-flight check DB error (proceeding to Stripe):', preflightErr);
                   }

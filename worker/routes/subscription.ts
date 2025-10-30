@@ -74,16 +74,67 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
               throw new Error('Stripe not configured');
             }
             const stripe = new (await import('stripe')).default(env.STRIPE_SECRET_KEY, { apiVersion: null });
-            const stripeSub = await stripe.subscriptions.retrieve(stripeSubscriptionId, { expand: ['items.data.price'] });
-            const seats = stripeSub?.items?.data?.[0]?.quantity ?? 1;
-            const periodStart = stripeSub?.current_period_start ?? Math.floor(Date.now() / 1000);
-            const periodEnd = stripeSub?.current_period_end ?? null;
-            const status = stripeSub?.status ?? 'active';
-            const customerId = typeof stripeSub?.customer === 'string' ? stripeSub.customer : (stripeSub?.customer as any)?.id ?? null;
+            const stripeResp = await stripe.subscriptions.retrieve(stripeSubscriptionId, { expand: ['items.data.price'] });
+            const stripeSub = stripeResp as unknown as import('stripe').Stripe.Subscription;
+            const seatsRaw = stripeSub?.items?.data?.[0]?.quantity;
+            if (typeof seatsRaw !== 'number' || !Number.isFinite(seatsRaw) || seatsRaw <= 0) {
+              throw HttpErrors.badRequest('Invalid subscription seats returned by Stripe');
+            }
+            const seats = seatsRaw;
+            const items = stripeSub?.items?.data ?? [];
+            const periodStarts = items
+              .map((item) => item.current_period_start)
+              .filter((start): start is number => typeof start === 'number' && start > 0);
+            const periodEnds = items
+              .map((item) => item.current_period_end)
+              .filter((end): end is number => typeof end === 'number' && end > 0);
+            if (periodStarts.length === 0) {
+              throw HttpErrors.badRequest('Missing current period start from Stripe subscription');
+            }
+            const periodStart = Math.min(...periodStarts);
+            const periodEnd = periodEnds.length > 0 ? Math.max(...periodEnds) : null;
+            const status = stripeSub?.status;
+            if (!status) {
+              throw HttpErrors.badRequest('Missing subscription status from Stripe response');
+            }
+            const customerId =
+              typeof stripeSub?.customer === 'string'
+                ? stripeSub.customer
+                : (stripeSub?.customer && typeof (stripeSub.customer as { id?: unknown }).id === 'string'
+                    ? (stripeSub.customer as { id: string }).id
+                    : null);
+            const primaryItem = stripeSub?.items?.data?.[0];
+            const priceObj = primaryItem?.price;
+            const priceId: string | null = typeof priceObj === 'string' ? priceObj : priceObj?.id ?? null;
+            const pricePlanMeta: string | null = typeof priceObj !== 'string' ? (priceObj?.metadata as { plan?: string } | undefined)?.plan ?? null : null;
+
+            // Map Stripe price/product to internal plan
+            const monthlyPriceId = env.STRIPE_PRICE_ID;
+            const annualPriceId = env.STRIPE_ANNUAL_PRICE_ID;
+            let plan: string | null = null;
+
+            if (priceId && monthlyPriceId && priceId === monthlyPriceId) {
+              plan = 'business';
+            } else if (priceId && annualPriceId && priceId === annualPriceId) {
+              plan = 'business-annual';
+            } else if (pricePlanMeta && typeof pricePlanMeta === 'string') {
+              // Optional: allow explicit plan from price metadata if configured
+              plan = pricePlanMeta;
+            }
+
+            if (!plan) {
+              console.error('Unknown Stripe price/product for subscription sync', {
+                stripeSubscriptionId,
+                priceId,
+                hasMonthlyEnv: !!monthlyPriceId,
+                hasAnnualEnv: !!annualPriceId,
+              });
+              throw HttpErrors.badRequest('Subscription price does not match expected Stripe price IDs');
+            }
 
             const upsert = await env.DB.prepare(
               `INSERT INTO subscriptions (id, plan, reference_id, stripe_subscription_id, stripe_customer_id, status, period_start, period_end, seats, created_at, updated_at)
-               VALUES (?, 'business', ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), strftime('%s','now'))
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), strftime('%s','now'))
                ON CONFLICT(stripe_subscription_id) DO UPDATE SET
                  status=excluded.status,
                  seats=excluded.seats,
@@ -94,6 +145,7 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
                  updated_at=strftime('%s','now')`
             ).bind(
               `sub_${stripeSubscriptionId}`,
+              plan,
               organizationId,
               stripeSubscriptionId,
               customerId,
@@ -105,16 +157,17 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
             console.log('✅ Upserted subscription from Stripe in sync:', { success: upsert.success, changes: upsert.meta?.changes });
             subscriptionRecord = {
               id: `sub_${stripeSubscriptionId}`,
-              plan: 'business',
+              plan,
               referenceId: organizationId,
               stripeSubscriptionId,
             };
 
             // Optionally update org tier if active
             if (status === 'active') {
+              const tier = plan ?? 'free';
               await env.DB.prepare(
-                `UPDATE organizations SET subscription_tier='business', seats=?, stripe_customer_id=COALESCE(stripe_customer_id, ?), updated_at=CURRENT_TIMESTAMP WHERE id=?`
-              ).bind(seats, customerId, organizationId).run();
+                `UPDATE organizations SET subscription_tier=?, seats=?, stripe_customer_id=COALESCE(stripe_customer_id, ?), updated_at=CURRENT_TIMESTAMP WHERE id=?`
+              ).bind(tier, seats, customerId, organizationId).run();
             }
           } catch (e) {
             console.error('❌ Failed Stripe fallback upsert in sync:', e);

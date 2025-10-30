@@ -253,8 +253,9 @@ export const usePaymentUpgrade = () => {
           requestBody.seats = seats;
         }
         
-
-        console.debug('[UPGRADE] POST', getSubscriptionUpgradeEndpoint(), 'body:', requestBody);
+        if (import.meta.env.DEV) {
+          console.debug('[UPGRADE] POST', getSubscriptionUpgradeEndpoint(), 'body:', requestBody);
+        }
         const response = await fetch(getSubscriptionUpgradeEndpoint(), {
           method: 'POST',
           credentials: 'include',
@@ -263,7 +264,11 @@ export const usePaymentUpgrade = () => {
         });
 
         const result = await response.json().catch(() => ({}));
-        console.debug('[UPGRADE] Response status:', response.status, 'body:', result);
+        // Always log status; only log body in development to avoid leaking sensitive data in production
+        console.debug('[UPGRADE] Response status:', response.status);
+        if (import.meta.env.DEV) {
+          console.debug('[UPGRADE] Response body:', result);
+        }
         const checkoutUrl = extractUrl(result);
 
         if (!response.ok || !checkoutUrl) {

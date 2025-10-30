@@ -1142,7 +1142,29 @@ export class OrganizationService {
       completed: Boolean(row?.completedAt),
       skipped: Boolean(row?.skipped),
       completedAt: row?.completedAt ?? null,
-      data: row?.data ? (JSON.parse(row.data) as Record<string, unknown>) : null,
+      data: (() => {
+        if (!row?.data) {
+          return null;
+        }
+        try {
+          return JSON.parse(row.data) as Record<string, unknown>;
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          // Prefer environment logger if available; fall back to console
+          try {
+            (this.env as unknown as { logger?: { error?: (...args: unknown[]) => void } })
+              ?.logger?.error?.('Failed to parse business_onboarding_data JSON', {
+                organizationId,
+                error: errMsg,
+              });
+          } catch { /* no-op */ }
+          console.error('Failed to parse business_onboarding_data JSON', {
+            organizationId,
+            error: errMsg,
+          });
+          return null;
+        }
+      })(),
     };
   }
 

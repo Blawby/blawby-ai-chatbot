@@ -5,8 +5,8 @@ async function ensureAuthenticated(page: import('@playwright/test').Page) {
     try {
       const res = await fetch('/api/auth/get-session', { credentials: 'include' });
       if (!res.ok) return false;
-      const data = await res.json();
-      return Boolean(data?.session);
+      const data = (await res.json()) as { session?: unknown };
+      return Boolean((data && 'session' in data) ? (data as { session?: unknown }).session : undefined);
     } catch {
       return false;
     }
@@ -48,25 +48,15 @@ test.describe('Post-checkout Business Onboarding', () => {
       console.log('[response]', res.status(), res.url());
     });
 
-    // Navigate to home and neutralize onboarding guard if it tries to redirect
+    // Navigate to home and neutralize onboarding guard
     await page.goto('/');
-    if (page.url().includes('/auth?mode=signin&onboarding=true')) {
-      await page.evaluate(() => {
-        try {
-          localStorage.setItem('onboardingCompleted', 'true');
-          localStorage.setItem('onboardingCheckDone', 'true');
-        } catch {}
-      });
-      await page.goto('/');
-    } else {
-      await page.evaluate(() => {
-        try {
-          localStorage.setItem('onboardingCompleted', 'true');
-          localStorage.setItem('onboardingCheckDone', 'true');
-        } catch {}
-      });
-      await page.goto('/');
-    }
+    await page.evaluate(() => {
+      try {
+        localStorage.setItem('onboardingCompleted', 'true');
+        localStorage.setItem('onboardingCheckDone', 'true');
+      } catch {}
+    });
+    await page.goto('/');
 
     // Dismiss any welcome/intro overlay that can intercept clicks
     const okLetsGo = page.getByRole('button', { name: /Okay, let's go/i });

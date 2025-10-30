@@ -9,6 +9,7 @@ interface Organization {
   id?: string;
   name?: string;
   config?: {
+    ownerEmail?: string;
     requiresPayment?: boolean;
     consultationFee?: number;
     paymentLink?: string;

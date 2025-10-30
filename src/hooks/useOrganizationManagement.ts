@@ -35,6 +35,7 @@ export interface Organization {
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   config?: {
+    ownerEmail?: string;
     metadata?: {
       subscriptionPlan?: string;
       planStatus?: string;
