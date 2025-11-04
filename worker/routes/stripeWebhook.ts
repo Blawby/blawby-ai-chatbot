@@ -28,12 +28,44 @@ async function checkIfEventProcessed(env: Env, eventId: string): Promise<boolean
   }
 }
 
-async function markEventAsProcessed(env: Env, eventId: string, ttlSeconds: number = 48 * 60 * 60): Promise<void> {
+// Persist processed event id with a 3-day TTL to match Stripe's retry window (72 hours)
+async function markEventAsProcessed(env: Env, eventId: string, ttlSeconds: number = 72 * 60 * 60): Promise<void> {
   try {
     const key = `stripe:webhook:event:${eventId}`;
     await env.USAGE_QUOTAS.put(key, "1", { expirationTtl: ttlSeconds });
   } catch (err) {
     console.warn("⚠️ Failed to mark Stripe event as processed", { eventId, err });
+  }
+}
+
+// Lightweight lock to avoid concurrent processing of the same Stripe event id
+async function acquireEventLock(env: Env, eventId: string, ttlSeconds: number = 60): Promise<boolean> {
+  const key = `stripe:webhook:event:${eventId}:lock`;
+  try {
+    const now = Date.now();
+    const existing = await env.USAGE_QUOTAS.get(key);
+    if (existing) {
+      const ts = Number(existing);
+      if (!Number.isNaN(ts) && now - ts < ttlSeconds * 1000) {
+        return false; // lock active
+      }
+    }
+    await env.USAGE_QUOTAS.put(key, String(now), { expirationTtl: ttlSeconds });
+    return true;
+  } catch (err) {
+    console.warn("⚠️ Failed to acquire event lock", { eventId, err });
+    // Fail-open to avoid blocking processing entirely
+    return true;
+  }
+}
+
+async function releaseEventLock(env: Env, eventId: string): Promise<void> {
+  const key = `stripe:webhook:event:${eventId}:lock`;
+  try {
+    await env.USAGE_QUOTAS.delete(key);
+  } catch (err) {
+    // Non-fatal: lock will expire by TTL
+    console.warn("⚠️ Failed to release event lock (will expire)", { eventId, err });
   }
 }
 
@@ -115,6 +147,13 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
     return createSuccessResponse({ handled: false, eventType: event.type });
   }
 
+  // Acquire a short-lived lock to avoid concurrent processing of the same event id
+  const acquired = await acquireEventLock(env, event.id, 90);
+  if (!acquired) {
+    // Another worker likely processing; surface a handled response to keep Stripe happy
+    return createSuccessResponse({ handled: true, locked: true });
+  }
+
   const subscription = getSubscriptionFromEvent(event);
   if (!subscription) {
     console.warn("⚠️ Stripe webhook missing subscription object", { eventType: event.type });
@@ -152,6 +191,9 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
       error: error instanceof Error ? error.message : String(error),
     });
     throw HttpErrors.internalServerError("Failed to process Stripe webhook event");
+  } finally {
+    // Best-effort release; if this fails, TTL will naturally expire the lock
+    await releaseEventLock(env, event.id);
   }
 
   return createSuccessResponse({ handled: true });

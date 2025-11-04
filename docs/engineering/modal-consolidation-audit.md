@@ -1214,9 +1214,9 @@ useEffect(() => {
 +    const userId = session?.user?.id;
 +    
 +    // Feature-detect BroadcastChannel; safely degrade on unsupported browsers
-+    if ('BroadcastChannel' in window) {
++    if ('BroadcastChannel' in window && userId) {
 +      try {
-+        broadcastChannelRef.current = new BroadcastChannel('welcome');
++        broadcastChannelRef.current = new BroadcastChannel(`welcome-${userId}`);
 +      } catch (err) {
 +        console.warn('[WelcomeModal] BroadcastChannel init failed; degrading to sessionStorage only:', err);
 +        broadcastChannelRef.current = null;
@@ -1684,13 +1684,17 @@ useEffect(() => {
 + * Mirrors sessionStorage flag when any tab marks welcomed.
 + */
 +function BroadcastChannelListener() {
++	const { data: session } = useSession();
++	const userId = session?.user?.id;
++
 +	useEffect(() => {
 +		if (typeof window === 'undefined') return;
++		if (!userId) return;
 +		
-+		const channel = new BroadcastChannel('welcome');
++		const channel = new BroadcastChannel(`welcome-${userId}`);
 +		
 +		const handleMessage = (event: MessageEvent) => {
-+			if (event.data.type === 'welcomed' && event.data.userId) {
++			if (event.data.type === 'welcomed' && event.data.userId === userId) {
 +				// Mirror sessionStorage flag from other tab
 +				const sessionKey = `welcomeModalShown_v1_${event.data.userId}`;
 +				try {
@@ -1707,7 +1711,7 @@ useEffect(() => {
 +			channel.removeEventListener('message', handleMessage);
 +			channel.close();
 +		};
-+	}, []);
++	}, [userId]);
 +	
 +	return null;
 +}

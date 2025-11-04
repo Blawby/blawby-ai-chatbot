@@ -121,9 +121,9 @@ test.describe('Better Auth Integration', () => {
       expect([0, 401]).toContain(sessionBeforeSignin.status);
     }
 
-    await returningPage.fill('input[placeholder="Enter your email"]', testEmail);
-    await returningPage.fill('input[placeholder="Enter your password"]', testPassword);
-    await returningPage.click('button[type="submit"]');
+    await returningPage.fill('[data-testid="signin-email-input"]', testEmail);
+    await returningPage.fill('[data-testid="signin-password-input"]', testPassword);
+    await returningPage.click('[data-testid="signin-submit-button"]');
 
     await Promise.race([
       returningPage.waitForURL('/', { timeout: 15000 }),
@@ -151,7 +151,7 @@ test.describe('Better Auth Integration', () => {
       throw new Error(`Failed to fetch organizations after sign-in: ${orgsResult.error ?? orgsResult.status}`);
     }
 
-    const personalOrg = orgsResult.data.data?.find((org: { kind?: string; isPersonal?: boolean }) => org?.kind === 'personal' || org?.isPersonal === true);
+    const personalOrg = orgsResult.data.data?.find((org: { kind?: string }) => org?.kind === 'personal');
     expect(personalOrg).toBeDefined();
     expect(personalOrg?.kind).toBe('personal');
 
