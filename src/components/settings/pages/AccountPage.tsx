@@ -14,7 +14,6 @@ import { updateUser } from '../../../lib/authClient';
 import { signOut } from '../../../utils/auth';
 import { TIER_FEATURES } from '../../../utils/stripe-products';
 import { useTranslation } from '@/i18n/hooks';
-import { useLocation } from 'preact-iso';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
 import {
@@ -44,7 +43,6 @@ export const AccountPage = ({
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
-  const location = useLocation();
   const { syncSubscription, openBillingPortal, cancelSubscription, submitting } = usePaymentUpgrade();
   const { currentOrganization, loading: orgLoading, refetch, getMembers, fetchMembers } = useOrganizationManagement();
   const { data: session, isPending } = useSession();
@@ -93,6 +91,14 @@ export const AccountPage = ({
   const fetchedOrgIdsRef = useRef<Set<string>>(new Set());
   // Ref to track if we're currently fetching members
   const isFetchingMembersRef = useRef(false);
+  // Refresh token to trigger re-fetch of members (increment to refresh)
+  const [membersRefreshToken, setMembersRefreshToken] = useState(0);
+
+  // Function to clear cached orgId so it can be re-fetched
+  const _clearFetchedOrgId = useCallback((orgId: string) => {
+    fetchedOrgIdsRef.current.delete(orgId);
+    setMembersRefreshToken(prev => prev + 1);
+  }, []);
 
   // Load account data from Better Auth session
   const loadAccountData = useCallback(async () => {
@@ -129,9 +135,10 @@ export const AccountPage = ({
         securityAlerts: userWithExtendedProps.securityAlerts ?? true
       };
       
-      const orgKindForTier = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
       const orgTier = currentOrganization?.subscriptionTier;
-      const displayTier = orgTier || (orgKindForTier === 'business' ? 'business' : 'free');
+      // Always default to 'free' when subscriptionTier is unset to prevent showing
+      // paid-tier features to unsubscribed organizations, regardless of organization kind
+      const displayTier = orgTier || 'free';
       
       setLinks(linksData);
       setEmailSettings(emailData);
@@ -191,19 +198,23 @@ export const AccountPage = ({
     // Mark as fetching and fetch members
     isFetchingMembersRef.current = true;
     fetchMembers(orgId)
+      .then(() => {
+        // Only mark as fetched on successful fetch
+        fetchedOrgIdsRef.current.add(orgId);
+      })
       .catch((error) => {
         console.error('Failed to fetch members for owner check:', error);
+        // Don't mark as fetched on error - allows retry
       })
       .finally(() => {
-        // Mark as fetched and clear fetching flag
-        fetchedOrgIdsRef.current.add(orgId);
+        // Always clear fetching flag regardless of success/failure
         isFetchingMembersRef.current = false;
       });
-  }, [currentOrganization?.id, fetchMembers]);
+  }, [currentOrganization?.id, fetchMembers, membersRefreshToken]);
 
   // Auto-sync on return from Stripe portal or checkout
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(window.location.search);
     if (params.get('sync') === '1' && currentOrganization?.id) {
       syncSubscription(currentOrganization.id)
         .then(() => {
@@ -221,7 +232,7 @@ export const AccountPage = ({
           window.history.replaceState({}, '', newUrl.toString());
         });
     }
-  }, [location.search, currentOrganization?.id, syncSubscription, refetch, showSuccess]);
+  }, [currentOrganization?.id, syncSubscription, refetch, showSuccess]);
 
 
   // Cleanup verification timeout on unmount
@@ -238,7 +249,6 @@ export const AccountPage = ({
   // No need for custom event listeners - Better Auth handles reactivity automatically
 
   // Simple computed values for demo - only compute when currentTier is available
-  const upgradeButtonText = 'Upgrade Plan';
   const currentPlanFeatures = currentTier && (currentTier === 'free' || currentTier === 'business')
     ? TIER_FEATURES[currentTier]
     : TIER_FEATURES['business'];
@@ -253,24 +263,6 @@ export const AccountPage = ({
     ? links.selectedDomain
     : DOMAIN_SELECT_VALUE;
 
-  const handleUpgrade = () => {
-    if (currentTier === 'enterprise') {
-      // No action - they're already at max tier
-      return;
-    }
-    window.location.hash = '#pricing';
-  };
-
-  const handleManageBilling = useCallback(async () => {
-    const orgId = currentOrganization?.id;
-    if (!orgId) return;
-    try {
-      await openBillingPortal({ organizationId: orgId });
-    } catch (error) {
-      console.error('Failed to open billing portal:', error);
-      showError('Billing Portal Error', 'Could not open billing portal');
-    }
-  }, [currentOrganization?.id, openBillingPortal, showError]);
 
   const handleCancelSubscription = useCallback(async () => {
     const orgId = currentOrganization?.id;

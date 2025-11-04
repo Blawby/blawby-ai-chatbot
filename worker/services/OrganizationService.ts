@@ -870,6 +870,7 @@ export class OrganizationService {
     
     // Prefer `kind` if provided; otherwise maintain existing.
     const resolvedKind: OrganizationKind = (mutableUpdates.kind ?? existingOrganization.kind);
+    const isPersonal = resolvedKind === 'personal';
 
     const updatedOrganization: Organization = {
       ...existingOrganization,
@@ -886,7 +887,7 @@ export class OrganizationService {
 
     await this.env.DB.prepare(`
       UPDATE organizations 
-      SET slug = ?, name = ?, domain = ?, config = ?, stripe_customer_id = ?, subscription_tier = ?, seats = ?, updated_at = ?
+      SET slug = ?, name = ?, domain = ?, config = ?, stripe_customer_id = ?, subscription_tier = ?, seats = ?, is_personal = ?, updated_at = ?
       WHERE id = ?
     `).bind(
       updatedOrganization.slug,
@@ -896,6 +897,7 @@ export class OrganizationService {
       updatedOrganization.stripeCustomerId ?? null,
       updatedOrganization.subscriptionTier ?? 'free',
       updatedOrganization.seats ?? 1,
+      isPersonal ? 1 : 0,
       updatedOrganization.updatedAt,
       organizationId
     ).run();

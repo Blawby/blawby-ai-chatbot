@@ -283,8 +283,8 @@ export const usePaymentUpgrade = () => {
             : {} as Record<string, unknown>;
           const rawIsPersonal = typeof orgData?.isPersonal === 'boolean'
             ? orgData.isPersonal
-            : typeof (orgData as Record<string, unknown>)?.is_personal === 'number'
-              ? (orgData as Record<string, unknown>).is_personal === 1
+            : typeof orgData?.is_personal === 'number'
+              ? orgData.is_personal === 1
               : undefined;
           const kind = resolveOrganizationKind(
             typeof orgData?.kind === 'string' ? orgData.kind : undefined,
@@ -293,8 +293,8 @@ export const usePaymentUpgrade = () => {
           const status = normalizeSubscriptionStatus(
             typeof orgData?.subscriptionStatus === 'string'
               ? orgData.subscriptionStatus
-              : typeof (orgData as Record<string, unknown>)?.subscription_status === 'string'
-                ? (orgData as Record<string, unknown>).subscription_status as string
+              : typeof orgData?.subscription_status === 'string'
+                ? orgData.subscription_status as string
                 : undefined,
             kind
           );

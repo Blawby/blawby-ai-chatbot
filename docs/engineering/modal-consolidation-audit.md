@@ -408,6 +408,8 @@ localStorage.removeItem('onboardingCompleted');
 
 ## 4) Minimal-Change Fix (Server-truth + session debounce)
 
+⚠️ **Note:** This section shows an initial implementation that was superseded by the enhanced implementation in section 7. The enhanced version includes BroadcastChannel support, better error handling, and proper effect separation. See section 7 for the recommended implementation.
+
 ### Solution Overview
 
 Use server-side truth (`welcomed_at` timestamp or boolean flag) + `sessionStorage` debounce to prevent multiple shows in same tab/session.
@@ -422,7 +424,7 @@ import { useSession } from '../../contexts/AuthContext';
 
 interface UseWelcomeModalResult {
   shouldShow: boolean;
-  markAsShown: () => Promise<void>;
+  markAsShown: () => Promise<void>; // Note: Enhanced version (section 7) changed to synchronous (void)
 }
 
 /**
@@ -495,12 +497,13 @@ export function useWelcomeModal(): UseWelcomeModalResult {
     setShouldShow(false);
 
     // Fire-and-forget API call to mark server as welcomed
+    // Note: NO request body - server derives userId from session only
     try {
       await fetch('/api/users/welcome', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        // NO body - server derives userId from session
       });
     } catch (error) {
       // Fire-and-forget: don't block UI, just log
@@ -1204,16 +1207,18 @@ useEffect(() => {
 +  const hasMarkedRef = useRef(false);
 +  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
 +
-+  // Initialize BroadcastChannel once (client-side only)
++  // 1. Initialize BroadcastChannel once (client-side only, user-id safe)
 +  useEffect(() => {
 +    if (typeof window === 'undefined') return;
++    
++    const userId = session?.user?.id;
 +    
 +    broadcastChannelRef.current = new BroadcastChannel('welcome');
 +    const channel = broadcastChannelRef.current;
 +    
 +    // Listen for cross-tab welcome events
 +    const handleMessage = (event: MessageEvent) => {
-+      if (event.data.type === 'welcomed' && event.data.userId === session?.user?.id) {
++      if (event.data.type === 'welcomed' && event.data.userId === userId) {
 +        // Mirror sessionStorage flag from other tab
 +        const sessionKey = `welcomeModalShown_v1_${event.data.userId}`;
 +        try {
@@ -1233,7 +1238,17 @@ useEffect(() => {
 +    };
 +  }, [session?.user?.id]);
 +
-+  // Check if modal should show
++  // 2. Reset hasMarkedRef when userId changes or unmounts
++  useEffect(() => {
++    const userId = session?.user?.id;
++    
++    return () => {
++      // Reset on unmount or userId change to allow retries for new user
++      hasMarkedRef.current = false;
++    };
++  }, [session?.user?.id]);
++
++  // 3. Compute shouldShow from session and sessionStorage (read-only, no side effects)
 +  useEffect(() => {
 +    // Early return: SSR safety
 +    if (typeof window === 'undefined') {
@@ -1253,7 +1268,7 @@ useEffect(() => {
 +      setShouldShow(false);
 +      return;
 +    }
-
++
 +    // Check sessionStorage first (debounce for same tab)
 +    const sessionKey = `welcomeModalShown_v1_${userId}`;
 +    const alreadyShownThisSession = sessionStorage.getItem(sessionKey);
@@ -1261,7 +1276,7 @@ useEffect(() => {
 +      setShouldShow(false);
 +      return;
 +    }
-
++
 +    // Check server truth
 +    // User should see welcome modal if:
 +    // 1. They completed onboarding (onboardingCompleted === true)
@@ -1270,45 +1285,69 @@ useEffect(() => {
 +      onboardingCompleted?: boolean;
 +      welcomedAt?: boolean | string | null;
 +    };
-
++
 +    const hasCompletedOnboarding = user.onboardingCompleted === true;
 +    const hasBeenWelcomed = Boolean(user.welcomedAt);
-
++
++    // Only compute shouldShow, no side effects
 +    if (hasCompletedOnboarding && !hasBeenWelcomed) {
-+      // On first computed show, write sessionStorage, broadcast, and POST API
-+      // Guard StrictMode with hasMarkedRef to prevent double-invocation
-+      if (!hasMarkedRef.current) {
-+        hasMarkedRef.current = true;
-+        try {
-+          sessionStorage.setItem(sessionKey, '1');
-+          
-+          // Broadcast to other tabs on same device
-+          if (broadcastChannelRef.current) {
-+            broadcastChannelRef.current.postMessage({
-+              type: 'welcomed',
-+              userId,
-+            });
-+          }
-+          
-+          // Fire-and-forget API call with NO request body (server derives userId from session)
-+          fetch('/api/users/welcome', {
-+            method: 'POST',
-+            credentials: 'include',
-+            headers: { 'Content-Type': 'application/json' },
-+            // NO body - server derives userId from session
-+          }).catch((error) => {
-+            // Fire-and-forget: don't block UI, just log
-+            console.warn('[WelcomeModal] Failed to mark as welcomed on server:', error);
-+          });
-+        } catch (error) {
-+          console.warn('[WelcomeModal] Failed to set sessionStorage or broadcast:', error);
-+        }
-+      }
 +      setShouldShow(true);
 +    } else {
 +      setShouldShow(false);
 +    }
 +  }, [session?.user, sessionIsPending]);
++
++  // 4. Side effects: sessionStorage write + broadcast + POST when shouldShow becomes true
++  useEffect(() => {
++    // Only trigger when shouldShow transitions to true and userId exists
++    if (!shouldShow) return;
++    
++    // Early return: SSR safety
++    if (typeof window === 'undefined') return;
++    
++    // Early return: session pending or no user
++    if (sessionIsPending || !session?.user) return;
++
++    const userId = session.user.id;
++    if (!userId) return;
++
++    // Guard against double-invocation (StrictMode)
++    if (hasMarkedRef.current) return;
++
++    const sessionKey = `welcomeModalShown_v1_${userId}`;
++    
++    // Write sessionStorage first (with try/catch), only set hasMarkedRef after success
++    try {
++      sessionStorage.setItem(sessionKey, '1');
++      
++      // Only set hasMarkedRef after successful sessionStorage write
++      // This allows retries if sessionStorage fails
++      hasMarkedRef.current = true;
++      
++      // Broadcast to other tabs on same device
++      if (broadcastChannelRef.current) {
++        broadcastChannelRef.current.postMessage({
++          type: 'welcomed',
++          userId,
++        });
++      }
++      
++      // Fire-and-forget API call with NO request body (server derives userId from session)
++      fetch('/api/users/welcome', {
++        method: 'POST',
++        credentials: 'include',
++        headers: { 'Content-Type': 'application/json' },
++        // NO body - server derives userId from session
++      }).catch((error) => {
++        // Fire-and-forget: don't block UI, just log
++        console.warn('[WelcomeModal] Failed to mark as welcomed on server:', error);
++      });
++    } catch (error) {
++      // If sessionStorage write fails, don't set hasMarkedRef
++      // This allows the effect to retry on next render
++      console.warn('[WelcomeModal] Failed to set sessionStorage or broadcast:', error);
++    }
++  }, [shouldShow, session?.user?.id, sessionIsPending]);
 
 +  const markAsShown = useCallback(() => {
 +    // This is called when modal is explicitly closed/completed
@@ -1356,27 +1395,9 @@ useEffect(() => {
 +	// Use welcome modal hook (server-truth + sessionStorage + BroadcastChannel)
 +	const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal();
 +
-+	// Sync hook state to local state
-+	useEffect(() => {
-+		setShowWelcomeModal(shouldShowWelcome);
-+	}, [shouldShowWelcome]);
-+
-+	// Mark as shown when isOpen flips true for the first time (immediately, don't await)
-+	const hasMarkedOnOpenRef = useRef(false);
-+	useEffect(() => {
-+		if (showWelcomeModal && typeof window !== 'undefined' && !hasMarkedOnOpenRef.current) {
-+			hasMarkedOnOpenRef.current = true;
-+			// Call immediately when modal opens (don't await - markAsShown is synchronous, no Promise)
-+			markWelcomeAsShown();
-+		}
-+		// Reset ref when modal closes
-+		if (!showWelcomeModal) {
-+			hasMarkedOnOpenRef.current = false;
-+		}
-+	}, [showWelcomeModal, markWelcomeAsShown]);
 ```
 
-**Note**: `useRef` is already imported in `src/index.tsx` (line 2), so no additional import needed.
+**Note:** The enhanced implementation uses `shouldShowWelcome` directly instead of syncing to `showWelcomeModal` state to avoid circular dependencies. The marking logic (sessionStorage write, broadcast, POST) is handled in the hook's side-effect when `shouldShow` transitions to true, so we don't need to call `markWelcomeAsShown` in a separate effect. This eliminates the circular state dependency.
 
 **Replace lines 435-464** (old handlers):
 ```diff
@@ -1393,13 +1414,19 @@ useEffect(() => {
 -				 
 -				console.warn('Failed to remove onboarding completion flag:', _error);
 -			}
-+	// Handle welcome modal (marking already happened on open via useEffect)
++	// Handle welcome modal
++	// Note: markWelcomeAsShown is synchronous (void return), no Promise to await
++	// The hook already handles marking when shouldShow transitions to true
++	// We only call markWelcomeAsShown if user explicitly closes without completing
 +	const handleWelcomeComplete = () => {
-+		setShowWelcomeModal(false);
++		// Modal completion handled by hook's side-effect (sessionStorage + broadcast + POST)
++		// No additional action needed
 +	};
 +
 +	const handleWelcomeClose = () => {
-+		setShowWelcomeModal(false);
++		// If user closes without completing, mark as shown anyway
++		// This ensures they don't see it again if they close it
++		markWelcomeAsShown();
 +	};
 ```
 
@@ -1409,11 +1436,18 @@ useEffect(() => {
 -			<WelcomeModal
 +			{typeof window !== 'undefined' && (
 +				<WelcomeModal
- 				isOpen={showWelcomeModal}
- 				onClose={handleWelcomeClose}
- 				onComplete={handleWelcomeComplete}
- 			/>
++				isOpen={shouldShowWelcome}
+				onClose={handleWelcomeClose}
+				onComplete={handleWelcomeComplete}
+			/>
 +			)}
+```
+
+**Remove showWelcomeModal state (if no longer used elsewhere):**
+```diff
+-	const [showWelcomeModal, setShowWelcomeModal] = useState(false);
++	// Removed: showWelcomeModal state - use shouldShowWelcome from hook directly
++	// This eliminates circular state dependency
 ```
 
 **Remove localStorage writes from sync logic (lines 234-245):**
@@ -1450,6 +1484,7 @@ useEffect(() => {
 
 #### `worker/routes/users.ts` (New File)
 
+**Recommended: D1-only approach (simpler, avoids race conditions, no KV namespace pollution):**
 ```diff
 +import type { Env } from '../types';
 +import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
@@ -1461,10 +1496,16 @@ useEffect(() => {
 + * 
 + * Hardened implementation:
 + * - Derive userId from session only (ignore request body completely)
-+ * - Use KV with get/set pattern OR D1 guarded UPDATE for idempotency
++ * - Use D1 guarded UPDATE for idempotency (no race conditions)
 + * - Sets welcomed_at timestamp in user record
 + * - Returns { welcomedAt } in JSON response (no userId in response)
 + * - CORS handled by global middleware (withCORS + getCorsConfig)
++ * 
++ * Note: This D1-only approach is recommended over KV because:
++ * - Avoids race conditions (D1 UPDATE with WHERE clause is atomic)
++ * - No namespace pollution (welcomed state belongs in user record, not chat sessions KV)
++ * - Simpler error handling (single source of truth)
++ * - Consistent: both read and write use D1
 + */
 +export async function handleUsers(request: Request, env: Env): Promise<Response> {
 +  const url = new URL(request.url);
@@ -1476,41 +1517,8 @@ useEffect(() => {
 +      const authContext = await requireAuth(request, env);
 +      const userId = authContext.user.id;
 +
-+      // Check if already welcomed using KV for fast idempotency check
-+      const kvKey = `welcomed:${userId}`;
-+      const existingWelcome = await env.CHAT_SESSIONS.get(kvKey);
-+      
-+      if (existingWelcome) {
-+        // Already welcomed, return existing timestamp
-+        const welcomedAt = existingWelcome;
-+        return createSuccessResponse({ welcomedAt });
-+      }
-+
-+      // Mark as welcomed in KV first (idempotent with { nx: true } equivalent via get/set)
-+      const now = new Date().toISOString();
-+      await env.CHAT_SESSIONS.put(kvKey, now);
-+
-+      // Update user record with welcomed_at timestamp (idempotent - safe to run multiple times)
-+      const db = env.DB;
-+      await db.prepare(`
-+        UPDATE users 
-+        SET welcomed_at = ? 
-+        WHERE id = ? AND (welcomed_at IS NULL OR welcomed_at = '')
-+      `).bind(now, userId).run();
-+
-+      return createSuccessResponse({ welcomedAt: now });
-+    }
-
-+    throw HttpErrors.notFound('Endpoint not found');
-+  } catch (error) {
-+    return handleError(error);
-+  }
-+}
-```
-
-**Alternative D1-only approach (if KV is not preferred):**
-```diff
 +      // Use D1 for idempotency - check if already welcomed
++      const db = env.DB;
 +      const existing = await db.prepare(`
 +        SELECT welcomed_at FROM users WHERE id = ?
 +      `).bind(userId).first<{ welcomed_at: string | null }>();
@@ -1521,12 +1529,104 @@ useEffect(() => {
 +      }
 +
 +      // Update user record (idempotent - WHERE clause ensures only updates if NULL)
++      // This is atomic and race-condition safe
 +      const now = new Date().toISOString();
-+      await db.prepare(`
++      const result = await db.prepare(`
 +        UPDATE users 
 +        SET welcomed_at = ? 
 +        WHERE id = ? AND (welcomed_at IS NULL OR welcomed_at = '')
 +      `).bind(now, userId).run();
++
++      // If no rows were updated, another request already set it (race condition handled)
++      if (result.meta.changes === 0) {
++        // Re-fetch to get the timestamp set by the other request
++        const updated = await db.prepare(`
++          SELECT welcomed_at FROM users WHERE id = ?
++        `).bind(userId).first<{ welcomed_at: string | null }>();
++        
++        if (updated?.welcomed_at) {
++          return createSuccessResponse({ welcomedAt: updated.welcomed_at });
++        }
++      }
++
++      return createSuccessResponse({ welcomedAt: now });
++    }
++
++    throw HttpErrors.notFound('Endpoint not found');
++  } catch (error) {
++    return handleError(error);
++  }
++}
+```
+
+**Alternative KV approach (if performance is critical and KV caching is needed):**
+
+⚠️ **Warning:** This approach has race condition risks and requires proper KV namespace setup. Use D1-only approach above unless you have a specific performance requirement.
+
+```diff
++      // Authenticate and derive userId from session only
++      const authContext = await requireAuth(request, env);
++      const userId = authContext.user.id;
++
++      // Use proper KV namespace (not CHAT_SESSIONS) - e.g., env.USER_METADATA
++      // If USER_METADATA doesn't exist, add it to wrangler.toml:
++      // [[kv_namespaces]]
++      // binding = "USER_METADATA"
++      // id = "your-kv-namespace-id"
++      const kvKey = `welcomed:${userId}`;
++      
++      // Race condition handling: Try atomic put with conditional check
++      // Note: Cloudflare KV doesn't support atomic put-if-not-exists natively
++      // We must accept the race condition risk or use D1 for true atomicity
++      const existingWelcome = await env.USER_METADATA.get(kvKey);
++      
++      if (existingWelcome) {
++        // Already welcomed, return existing timestamp
++        // But also ensure D1 is in sync (eventual consistency check)
++        const db = env.DB;
++        const dbRecord = await db.prepare(`
++          SELECT welcomed_at FROM users WHERE id = ?
++        `).bind(userId).first<{ welcomed_at: string | null }>();
++        
++        // If D1 is missing the value, sync it (eventual consistency fix)
++        if (!dbRecord?.welcomed_at) {
++          await db.prepare(`
++            UPDATE users SET welcomed_at = ? WHERE id = ? AND (welcomed_at IS NULL OR welcomed_at = '')
++          `).bind(existingWelcome, userId).run();
++        }
++        
++        return createSuccessResponse({ welcomedAt: existingWelcome });
++      }
++
++      // Mark as welcomed in KV first
++      const now = new Date().toISOString();
++      
++      // ⚠️ Race condition: If two requests arrive simultaneously, both may pass the check above
++      // and both will write to KV. The D1 UPDATE with WHERE clause will handle this atomically.
++      await env.USER_METADATA.put(kvKey, now, { expirationTtl: 31536000 }); // 1 year TTL
++
++      // Update user record with welcomed_at timestamp (idempotent - safe to run multiple times)
++      // This is the source of truth - if KV write failed, D1 still succeeds
++      const db = env.DB;
++      const result = await db.prepare(`
++        UPDATE users 
++        SET welcomed_at = ? 
++        WHERE id = ? AND (welcomed_at IS NULL OR welcomed_at = '')
++      `).bind(now, userId).run();
++
++      // If D1 update failed (shouldn't happen, but handle gracefully)
++      if (result.meta.changes === 0) {
++        // Another request already set it - fetch from D1 and sync KV
++        const updated = await db.prepare(`
++          SELECT welcomed_at FROM users WHERE id = ?
++        `).bind(userId).first<{ welcomed_at: string | null }>();
++        
++        if (updated?.welcomed_at) {
++          // Sync KV to match D1 (eventual consistency)
++          await env.USER_METADATA.put(kvKey, updated.welcomed_at, { expirationTtl: 31536000 });
++          return createSuccessResponse({ welcomedAt: updated.welcomed_at });
++        }
++      }
 +
 +      return createSuccessResponse({ welcomedAt: now });
 ```

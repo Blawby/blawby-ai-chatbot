@@ -59,6 +59,52 @@ Stripe Webhooks
 - **Railway → Worker**: API key authentication
 - **Frontend → Railway**: User session token in headers
 
+### Security Practices
+
+#### API Key Authentication (Railway → Worker)
+- **Generation**: Generate a cryptographically secure random API key (minimum 32 characters, use secure random generator)
+- **Storage**: Store API key in environment variables or secret manager:
+  - **Worker**: Store in Cloudflare Workers secrets (`wrangler secret put INTERNAL_API_KEY`)
+  - **Railway**: Store in Railway environment variables or secret manager
+  - **Never** commit API keys to version control or include in code
+- **Rotation Policy**: 
+  - Rotate API keys at least quarterly or immediately upon suspected compromise
+  - Implement key versioning to support zero-downtime rotation
+  - Maintain a grace period where both old and new keys are accepted during rotation
+- **Protection**:
+  - Transmit API keys only over HTTPS/TLS
+  - Include API key in request headers: `X-API-Key: <api-key>` or `Authorization: Bearer <api-key>`
+  - Validate API key on all Worker internal endpoints before processing requests
+  - Reject requests with invalid or missing API keys with 401 Unauthorized
+  - Log API key validation failures (without logging the key value) for monitoring
+
+#### Session Token Authentication (Frontend → Railway)
+- **Format**: Session tokens are JWT tokens issued by Better Auth, containing user ID, session ID, and expiration timestamp
+- **Validation**: Railway validates session tokens by:
+  1. Calling Worker endpoint `POST /api/internal/verify-user-context` with the token
+  2. Worker validates token signature and expiration using Better Auth session store
+  3. Worker returns user context if valid, or error if invalid/expired
+- **Expiration**: Session tokens expire based on Better Auth configuration (typically 7-30 days)
+- **Refresh**: Frontend automatically refreshes tokens via Better Auth's session management when tokens approach expiration
+- **Storage**: 
+  - Frontend stores tokens in memory or secure HTTP-only cookies (managed by Better Auth)
+  - Railway receives tokens in request headers: `Authorization: Bearer <session-token>`
+  - Never store tokens in localStorage or expose in URLs
+
+#### Endpoint Authentication Requirements
+- **Worker Internal Endpoints** (require API key):
+  - `POST /api/internal/verify-user-context`
+  - `GET /api/internal/organization/{id}`
+  - `POST /api/internal/update-organization`
+  - `POST /api/internal/create-connect-account`
+- **Railway User Endpoints** (require session token):
+  - `POST /api/connect/onboard`
+  - `GET /api/connect/status/{orgId}`
+  - `POST /api/connect/transfer`
+  - `GET /api/connect/balance/{orgId}`
+- **Railway Webhook Endpoint** (requires Stripe webhook signature, not user authentication):
+  - `POST /api/connect/webhook`
+
 ## Data Access Pattern
 
 ### Worker Proxy Endpoints
@@ -73,6 +119,11 @@ Railway calls Worker via internal API endpoints:
 2. **Railway Processing**: Handles Connect webhook logic
 3. **Worker Update**: Railway calls Worker to update D1
 4. **Data Sync**: D1 stays in sync with Stripe events
+
+#### Webhook Security
+- **Signature Verification**: Railway must verify Stripe webhook signatures using the Stripe webhook secret before processing any webhook events
+- **Request Rejection**: Reject all webhook requests with invalid or missing signatures with an appropriate HTTP error response (e.g., 401 Unauthorized)
+- **Validation Logging**: Log all webhook signature validation failures for monitoring and alerting, ensuring minimal sensitive data is included in logs (e.g., log event type, timestamp, and validation status, but avoid logging full request bodies or secrets)
 
 ## API Endpoints
 

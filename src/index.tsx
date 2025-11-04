@@ -295,13 +295,25 @@ function MainApp({
   // Derive current user tier from organization config (our custom system)
   // Note: subscriptionTier is on Organization, not OrganizationConfig
   const resolvedKindForTier = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
-  const currentUserTier = (
-    (currentOrganization?.subscriptionTier && currentOrganization.subscriptionTier !== '')
-      ? currentOrganization.subscriptionTier
-      : resolvedKindForTier === 'business'
-        ? 'business'
-        : 'free'
-  ) as SubscriptionTier;
+  
+  // Whitelist of valid SubscriptionTier values
+  const VALID_SUBSCRIPTION_TIERS: SubscriptionTier[] = ['free', 'plus', 'business', 'enterprise'];
+  
+  // Normalize and validate subscriptionTier
+  const normalizedTier = currentOrganization?.subscriptionTier
+    ? currentOrganization.subscriptionTier.trim().toLowerCase()
+    : null;
+  
+  // Find matching tier from whitelist (case-insensitive) to avoid unsafe casts
+  const validatedTier = normalizedTier
+    ? VALID_SUBSCRIPTION_TIERS.find(tier => tier.toLowerCase() === normalizedTier)
+    : null;
+  
+  const currentUserTier: SubscriptionTier = validatedTier
+    ? validatedTier
+    : resolvedKindForTier === 'business'
+      ? 'business'
+      : 'free';
 	
 	useEffect(() => {
 		const handleHashChange = () => {

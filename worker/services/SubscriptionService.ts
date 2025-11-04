@@ -3,21 +3,34 @@ import type { Env, StripeSubscriptionCache } from "../types.js";
 
 const DEFAULT_STRIPE_API_VERSION: Stripe.StripeConfig["apiVersion"] = null;
 
-let cachedStripeClient: Stripe | null = null;
+// Cache Stripe clients by apiVersion to support multiple API versions
+const stripeClientCache = new Map<string | null, Stripe>();
+
+/**
+ * Generates a cache key from the apiVersion parameter.
+ * Uses null as the key for the default API version to maintain backward compatibility.
+ */
+function getCacheKey(apiVersion: Stripe.StripeConfig["apiVersion"]): string | null {
+  return apiVersion ?? null;
+}
 
 export function getOrCreateStripeClient(env: Env, apiVersion = DEFAULT_STRIPE_API_VERSION): Stripe {
   if (!env.STRIPE_SECRET_KEY) {
     throw new Error("STRIPE_SECRET_KEY is required to initialize the Stripe client");
   }
 
-  if (!cachedStripeClient) {
-    cachedStripeClient = new Stripe(env.STRIPE_SECRET_KEY, {
+  const cacheKey = getCacheKey(apiVersion);
+  let client = stripeClientCache.get(cacheKey);
+
+  if (!client) {
+    client = new Stripe(env.STRIPE_SECRET_KEY, {
       apiVersion,
       httpClient: Stripe.createFetchHttpClient(),
     });
+    stripeClientCache.set(cacheKey, client);
   }
 
-  return cachedStripeClient;
+  return client;
 }
 
 function normalizeSubscriptionStatus(
@@ -91,7 +104,7 @@ async function persistOrganizationSubscriptionState(args: {
   const normalizedSeats = typeof seats === "number" && seats > 0 ? seats : 1;
 
   const normalizedTier =
-    status === "active" || status === "trialing"
+    status === "active" || status === "trialing" || status === "paused"
       ? (plan ?? "business")
       : "free";
 
@@ -441,6 +454,7 @@ export async function refreshStripeSubscriptionById(args: {
       plan,
     });
   } catch (error) {
+    const errorObj = error && typeof error === "object" ? error as Record<string, unknown> : null;
     console.error("Failed to retrieve Stripe subscription", {
       operation: "refreshStripeSubscriptionById",
       subscriptionId,
@@ -448,9 +462,9 @@ export async function refreshStripeSubscriptionById(args: {
       error: {
         type: error instanceof Error ? error.constructor.name : typeof error,
         message: error instanceof Error ? error.message : String(error),
-        ...(error && typeof error === "object" && "status" in error && { status: (error as any).status }),
-        ...(error && typeof error === "object" && "code" in error && { code: (error as any).code }),
-        ...(error && typeof error === "object" && "type" in error && { stripeType: (error as any).type }),
+        ...(errorObj && "status" in errorObj && typeof errorObj.status !== "undefined" && { status: errorObj.status }),
+        ...(errorObj && "code" in errorObj && typeof errorObj.code !== "undefined" && { code: errorObj.code }),
+        ...(errorObj && "type" in errorObj && typeof errorObj.type !== "undefined" && { stripeType: errorObj.type }),
       },
     });
 
