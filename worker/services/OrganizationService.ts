@@ -522,7 +522,7 @@ export class OrganizationService {
 
   private normalizeSubscriptionStatus(status: unknown): SubscriptionLifecycleStatus {
     if (typeof status !== 'string' || status.trim().length === 0) {
-      return 'none';
+      return 'incomplete';
     }
 
     const normalized = status.trim().toLowerCase();
@@ -537,7 +537,7 @@ export class OrganizationService {
       case 'unpaid':
         return normalized;
       default:
-        return 'none';
+        return 'incomplete';
     }
   }
 

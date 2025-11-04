@@ -33,7 +33,12 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
   try {
     if (path === '/api/onboarding/complete' && request.method === 'POST') {
       await requireAuth(request, env);
-      const parsed = await parseJsonBody(request) as unknown;
+      let parsed: unknown;
+      try {
+        parsed = await parseJsonBody(request) as unknown;
+      } catch (_err) {
+        throw HttpErrors.badRequest('Invalid JSON body');
+      }
       const organizationId = validateAndExtractOrgId(parsed, 'body');
       await requireOrgOwner(request, env, organizationId);
       const orgService = new OrganizationService(env);
@@ -43,7 +48,12 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
 
     if (path === '/api/onboarding/skip' && request.method === 'POST') {
       await requireAuth(request, env);
-      const parsed = await parseJsonBody(request) as unknown;
+      let parsed: unknown;
+      try {
+        parsed = await parseJsonBody(request) as unknown;
+      } catch (_err) {
+        throw HttpErrors.badRequest('Invalid JSON body');
+      }
       const orgId = validateAndExtractOrgId(parsed, 'body');
       await requireOrgOwner(request, env, orgId);
       const orgService = new OrganizationService(env);
@@ -56,7 +66,12 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
 
     if (path === '/api/onboarding/save' && request.method === 'POST') {
       await requireAuth(request, env);
-      const parsed = await parseJsonBody(request) as unknown;
+      let parsed: unknown;
+      try {
+        parsed = await parseJsonBody(request) as unknown;
+      } catch (_err) {
+        throw HttpErrors.badRequest('Invalid JSON body');
+      }
       const orgId = validateAndExtractOrgId(parsed, 'body');
       const data = (
         parsed && typeof parsed === 'object' && !Array.isArray(parsed)

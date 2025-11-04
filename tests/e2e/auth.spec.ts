@@ -89,7 +89,7 @@ test.describe('Better Auth Integration', () => {
     const personalOrg = orgsData?.data?.[0];
     expect(personalOrg).toBeDefined();
     expect(personalOrg?.kind).toBe('personal');
-    expect(personalOrg?.subscriptionStatus).toBe('none');
+    expect(personalOrg?.subscriptionStatus).toBe('incomplete');
   });
 
   test('should sign in with existing account', async ({ page, browser }) => {

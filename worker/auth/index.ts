@@ -339,16 +339,21 @@ export async function getAuth(env: Env, request?: Request) {
             }
 
             const seats = stripeSubscription?.items?.data?.[0]?.quantity ?? 1;
-            // Extract period from subscription items (Stripe moved these to items level)
-            const items = stripeSubscription?.items?.data ?? [];
-            const periodStarts = items
-              .map((item) => item.current_period_start)
-              .filter((start): start is number => typeof start === 'number' && start > 0);
-            const periodEnds = items
-              .map((item) => item.current_period_end)
-              .filter((end): end is number => typeof end === 'number' && end > 0);
-            const periodStart = periodStarts.length > 0 ? Math.min(...periodStarts) : Math.floor(Date.now() / 1000);
-            const periodEnd = periodEnds.length > 0 ? Math.max(...periodEnds) : null;
+            // Derive period bounds from top-level subscription fields
+            const subPeriod = stripeSubscription as unknown as {
+              current_period_start?: number;
+              current_period_end?: number;
+            };
+            const topLevelStart =
+              typeof subPeriod.current_period_start === 'number' && subPeriod.current_period_start > 0
+                ? subPeriod.current_period_start
+                : Math.floor(Date.now() / 1000);
+            const topLevelEnd =
+              typeof subPeriod.current_period_end === 'number' && subPeriod.current_period_end > 0
+                ? subPeriod.current_period_end
+                : null;
+            const periodStart = topLevelStart;
+            const periodEnd = topLevelEnd;
             const stripeCustomerId = typeof stripeSubscription?.customer === 'string' 
               ? stripeSubscription.customer 
               : stripeSubscription?.customer?.id ?? null;

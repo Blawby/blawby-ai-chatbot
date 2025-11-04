@@ -252,7 +252,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         if (personalOrg) {
           await env.DB.prepare(
             `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
-          ).bind(personalOrg.id, new Date().toISOString(), authContext.session.id, authContext.user.id).run();
+          ).bind(personalOrg.id, Math.floor(Date.now()/1000), authContext.session.id, authContext.user.id).run();
           console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id}`);
         }
       }
@@ -309,7 +309,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         if (personalOrg) {
           await env.DB.prepare(
             `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
-          ).bind(personalOrg.id, new Date().toISOString(), authContext.session.id, authContext.user.id).run();
+          ).bind(personalOrg.id, Math.floor(Date.now()/1000), authContext.session.id, authContext.user.id).run();
           activeOrgId = personalOrg.id;
           console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id} (via /active endpoint)`);
         }
@@ -396,7 +396,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       // Update active organization on this session id (no token needed)
       const update = await env.DB.prepare(
         `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
-      ).bind(organizationId, new Date().toISOString(), authContext.session.id).run();
+      ).bind(organizationId, Math.floor(Date.now()/1000), authContext.session.id).run();
 
       if (!update.success) {
         throw HttpErrors.internalServerError('Failed to update active organization for session');
