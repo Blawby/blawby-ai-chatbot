@@ -31,6 +31,7 @@ export interface InputProps {
   'aria-invalid'?: boolean;
   'aria-required'?: boolean;
   'aria-disabled'?: boolean;
+  'data-testid'?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(({

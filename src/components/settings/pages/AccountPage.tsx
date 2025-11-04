@@ -17,7 +17,14 @@ import { useTranslation } from '@/i18n/hooks';
 import { useLocation } from 'preact-iso';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
-import { displayPlan, normalizeSeats } from '../../../utils/subscription';
+import {
+  describeSubscriptionPlan,
+  normalizeSeats,
+  hasManagedSubscription,
+  hasActiveSubscriptionStatus,
+  resolveOrganizationKind,
+  normalizeSubscriptionStatus,
+} from '../../../utils/subscription';
 import type { UserLinks, EmailSettings, SubscriptionTier } from '../../../types/user';
 
 
@@ -53,6 +60,22 @@ export const AccountPage = ({
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+  const resolvedOrgKind = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
+  const resolvedSubscriptionStatus = normalizeSubscriptionStatus(currentOrganization?.subscriptionStatus, resolvedOrgKind);
+  const managedSubscription = hasManagedSubscription(
+    currentOrganization?.kind,
+    currentOrganization?.subscriptionStatus,
+    currentOrganization?.isPersonal ?? null
+  );
+  const activeSubscription = hasActiveSubscriptionStatus(resolvedSubscriptionStatus);
+  const planLabel = describeSubscriptionPlan(
+    currentOrganization?.kind,
+    currentOrganization?.subscriptionStatus,
+    currentOrganization?.subscriptionTier,
+    currentOrganization?.isPersonal ?? null
+  );
+  const canManageBilling = managedSubscription && Boolean(currentOrganization?.stripeCustomerId);
+
   const clearLocalAuthState = useCallback(() => {
     try {
       localStorage.removeItem('onboardingCompleted');
@@ -66,6 +89,10 @@ export const AccountPage = ({
   const verificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref to track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
+  // Ref to track which organization IDs we've already fetched members for
+  const fetchedOrgIdsRef = useRef<Set<string>>(new Set());
+  // Ref to track if we're currently fetching members
+  const isFetchingMembersRef = useRef(false);
 
   // Load account data from Better Auth session
   const loadAccountData = useCallback(async () => {
@@ -102,9 +129,9 @@ export const AccountPage = ({
         securityAlerts: userWithExtendedProps.securityAlerts ?? true
       };
       
-      // Use real organization subscription tier directly (no mapping needed)
+      const orgKindForTier = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
       const orgTier = currentOrganization?.subscriptionTier;
-      const displayTier = orgTier || 'free';
+      const displayTier = orgTier || (orgKindForTier === 'business' ? 'business' : 'free');
       
       setLinks(linksData);
       setEmailSettings(emailData);
@@ -153,12 +180,26 @@ export const AccountPage = ({
 
   // Fetch members when organization is available (needed for owner check)
   useEffect(() => {
-    if (currentOrganization?.id && members.length === 0) {
-      fetchMembers(currentOrganization.id).catch((error) => {
-        console.error('Failed to fetch members for owner check:', error);
-      });
+    const orgId = currentOrganization?.id;
+    if (!orgId) return;
+    
+    // Skip if already fetching or already fetched this org
+    if (isFetchingMembersRef.current || fetchedOrgIdsRef.current.has(orgId)) {
+      return;
     }
-  }, [currentOrganization?.id, members.length, fetchMembers]);
+    
+    // Mark as fetching and fetch members
+    isFetchingMembersRef.current = true;
+    fetchMembers(orgId)
+      .catch((error) => {
+        console.error('Failed to fetch members for owner check:', error);
+      })
+      .finally(() => {
+        // Mark as fetched and clear fetching flag
+        fetchedOrgIdsRef.current.add(orgId);
+        isFetchingMembersRef.current = false;
+      });
+  }, [currentOrganization?.id, fetchMembers]);
 
   // Auto-sync on return from Stripe portal or checkout
   useEffect(() => {
@@ -603,25 +644,25 @@ export const AccountPage = ({
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  Subscription Plan
+                  {t('settings:account.plan.sectionTitle')}
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {displayPlan(currentOrganization?.subscriptionTier)} • {normalizeSeats(currentOrganization?.seats)} seats
+                  {planLabel} • {normalizeSeats(currentOrganization?.seats)} {t('settings:account.plan.seatsLabel')}
                 </p>
               </div>
-              {isOwner && (
+              {isOwner && currentOrganization && (
                 <div className="flex gap-2 ml-4">
-                  {currentOrganization?.stripeCustomerId ? (
+                  {canManageBilling ? (
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => openBillingPortal({ 
-                        organizationId: currentOrganization!.id, 
+                        organizationId: currentOrganization.id, 
                         returnUrl: `${window.location.origin}/settings/account?sync=1` 
                       })}
                       disabled={submitting}
                     >
-                      Manage billing
+                      {t('settings:account.plan.manageBilling')}
                     </Button>
                   ) : (
                     <Button
@@ -629,10 +670,10 @@ export const AccountPage = ({
                       size="sm"
                       onClick={() => navigate('/#pricing')}
                     >
-                      Upgrade to manage billing
+                      {t('settings:account.plan.upgradeToManageBilling')}
                     </Button>
                   )}
-                  {displayPlan(currentOrganization?.subscriptionTier) !== 'Free' && (
+                  {managedSubscription && activeSubscription && (
                     <Button
                       variant="secondary"
                       size="sm"
@@ -640,7 +681,7 @@ export const AccountPage = ({
                       disabled={submitting}
                       className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                     >
-                      Cancel subscription
+                      {t('settings:account.plan.cancelSubscription')}
                     </Button>
                   )}
                 </div>
@@ -789,13 +830,13 @@ export const AccountPage = ({
       <Modal
         isOpen={showCancelConfirm}
         onClose={() => setShowCancelConfirm(false)}
-        title="Are you sure you want to cancel?"
+        title={t('settings:account.plan.cancel.modalTitle')}
         showCloseButton={true}
         type="modal"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Your subscription will be cancelled immediately and you'll lose access to premium features. This action cannot be undone.
+            {t('settings:account.plan.cancel.description')}
           </p>
           <div className="flex justify-end gap-3 pt-4">
             <Button
@@ -803,7 +844,7 @@ export const AccountPage = ({
               onClick={() => setShowCancelConfirm(false)}
               disabled={submitting}
             >
-              Go back
+              {t('settings:account.plan.cancel.goBack')}
             </Button>
             <Button
               variant="ghost"
@@ -811,7 +852,7 @@ export const AccountPage = ({
               disabled={submitting}
               className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
             >
-              {submitting ? 'Cancelling…' : 'Cancel subscription'}
+              {submitting ? t('settings:account.plan.cancel.cancelling') : t('settings:account.plan.cancel.cancelButton')}
             </Button>
           </div>
         </div>

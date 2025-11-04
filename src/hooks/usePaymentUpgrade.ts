@@ -6,6 +6,7 @@ import {
   getSubscriptionCancelEndpoint,
 } from '../config/api';
 import { useToastContext } from '../contexts/ToastContext';
+import { hasManagedSubscription, resolveOrganizationKind, normalizeSubscriptionStatus } from '../utils/subscription';
 
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
@@ -191,9 +192,9 @@ export const usePaymentUpgrade = () => {
           
           // Map Better Auth error codes to our error codes
           let mappedErrorCode: SubscriptionErrorCode | null = null;
-          if (errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
+          if (typeof errorCode === 'string' && errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
             mappedErrorCode = SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND;
-          } else if (errorCode && typeof errorCode === 'string') {
+          } else if (typeof errorCode === 'string') {
             // Try to map to existing error codes
             const upperCode = errorCode.toUpperCase();
             if (Object.values(SubscriptionErrorCode).includes(upperCode as SubscriptionErrorCode)) {
@@ -280,10 +281,25 @@ export const usePaymentUpgrade = () => {
           const orgData = (result && typeof result === 'object' && result.data && typeof result.data === 'object')
             ? (result.data as Record<string, unknown>)
             : {} as Record<string, unknown>;
-          const rawTier = (orgData?.subscriptionTier ?? orgData?.subscription_tier) as unknown;
-          const tier = typeof rawTier === 'string' ? rawTier : '';
-          const isPaidTier = tier.length > 0 && tier !== 'free' && tier !== 'trial';
-          if (isPaidTier) {
+          const rawIsPersonal = typeof orgData?.isPersonal === 'boolean'
+            ? orgData.isPersonal
+            : typeof (orgData as Record<string, unknown>)?.is_personal === 'number'
+              ? (orgData as Record<string, unknown>).is_personal === 1
+              : undefined;
+          const kind = resolveOrganizationKind(
+            typeof orgData?.kind === 'string' ? orgData.kind : undefined,
+            rawIsPersonal
+          );
+          const status = normalizeSubscriptionStatus(
+            typeof orgData?.subscriptionStatus === 'string'
+              ? orgData.subscriptionStatus
+              : typeof (orgData as Record<string, unknown>)?.subscription_status === 'string'
+                ? (orgData as Record<string, unknown>).subscription_status as string
+                : undefined,
+            kind
+          );
+
+          if (hasManagedSubscription(kind, status, rawIsPersonal)) {
             // User is already on a paid plan, redirect via centralized handler
             await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
             return;

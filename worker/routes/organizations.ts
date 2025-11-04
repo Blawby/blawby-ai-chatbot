@@ -103,7 +103,6 @@ async function requireActiveBusinessOrganization(
 function sanitizeOrganizationResponse(organization: Organization): Organization {
   return {
     ...organization,
-    isPersonal: Boolean(organization.isPersonal),
     config: {
       ...(organization.config ?? {}),
       voice: organization.config?.voice ?? {
@@ -246,11 +245,11 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       if (sessionRow && needsUpdate) {
         // Session doesn't have active_organization_id set, find and set it
         const organizations = await organizationService.listOrganizations(authContext.user.id);
-        const personalOrg = organizations.find(org => org.isPersonal);
+        const personalOrg = organizations.find(org => org.kind === 'personal');
         if (personalOrg) {
           await env.DB.prepare(
-            `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
-          ).bind(personalOrg.id, Math.floor(Date.now() / 1000), authContext.session.id).run();
+            `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
+          ).bind(personalOrg.id, new Date(), authContext.session.id, authContext.user.id).run();
           console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id}`);
         }
       }
@@ -300,11 +299,11 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       // If not set, find and set it (same logic as /me endpoint)
       if (needsUpdate) {
         const organizations = await organizationService.listOrganizations(authContext.user.id);
-        const personalOrg = organizations.find(org => org.isPersonal);
+        const personalOrg = organizations.find(org => org.kind === 'personal');
         if (personalOrg) {
           await env.DB.prepare(
-            `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
-          ).bind(personalOrg.id, Math.floor(Date.now() / 1000), authContext.session.id).run();
+            `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
+          ).bind(personalOrg.id, new Date(), authContext.session.id, authContext.user.id).run();
           activeOrgId = personalOrg.id;
           console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id} (via /active endpoint)`);
         }

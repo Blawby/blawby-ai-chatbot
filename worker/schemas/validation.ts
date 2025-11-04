@@ -262,7 +262,7 @@ export const organizationSchema = z.object({
       planStatus: z.string().optional()
     }).optional()
   }).optional(),
-  isPersonal: z.boolean().nullable().optional()
+  kind: z.enum(['personal', 'business']).optional()
 });
 
 // API Response schemas

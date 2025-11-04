@@ -11,6 +11,7 @@ import {
   organizationApiTokenSchema,
   createTokenResponseSchema
 } from '../../worker/schemas/validation';
+import { resolveOrganizationKind as resolveOrgKind, normalizeSubscriptionStatus as normalizeOrgStatus } from '../utils/subscription';
 
 // API Response interfaces
 interface ApiErrorResponse {
@@ -34,7 +35,7 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
-  subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid';
+  subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
   config?: {
     ownerEmail?: string;
     metadata?: {
@@ -42,8 +43,8 @@ export interface Organization {
       planStatus?: string;
     };
   };
-  isPersonal?: boolean | null;
   kind?: 'personal' | 'business';
+  isPersonal?: boolean | null;
 }
 
 export interface Member {
@@ -125,6 +126,53 @@ interface UseOrganizationManagementReturn {
   fetchWorkspaceData: (orgId: string, resource: string) => Promise<void>;
   
   refetch: () => Promise<void>;
+}
+
+function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization {
+  const id = typeof raw.id === 'string' ? raw.id : String(raw.id ?? '');
+  const slug = typeof raw.slug === 'string' ? raw.slug : id;
+  const name = typeof raw.name === 'string' ? raw.name : 'Organization';
+
+  const rawIsPersonal = typeof raw.isPersonal === 'boolean'
+    ? raw.isPersonal
+    : typeof raw.is_personal === 'number'
+      ? raw.is_personal === 1
+      : undefined;
+
+  const rawStatus = typeof raw.subscriptionStatus === 'string'
+    ? raw.subscriptionStatus
+    : typeof raw.subscription_status === 'string'
+      ? raw.subscription_status
+      : undefined;
+
+  const resolvedKind = resolveOrgKind(typeof raw.kind === 'string' ? raw.kind : undefined, rawIsPersonal);
+  const normalizedStatus = normalizeOrgStatus(rawStatus, resolvedKind);
+
+  const subscriptionTier = typeof raw.subscriptionTier === 'string'
+    ? raw.subscriptionTier
+    : typeof raw.subscription_tier === 'string'
+      ? raw.subscription_tier
+      : null;
+
+  const seats = typeof raw.seats === 'number'
+    ? raw.seats
+    : typeof raw.seats === 'string' && raw.seats.trim().length > 0
+      ? Number.parseInt(raw.seats, 10) || null
+      : null;
+
+  return {
+    id,
+    slug,
+    name,
+    description: typeof raw.description === 'string' ? raw.description : undefined,
+    stripeCustomerId: (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null) as string | null,
+    subscriptionTier,
+    seats,
+    subscriptionStatus: normalizedStatus,
+    config: typeof raw.config === 'object' && raw.config !== null ? raw.config as Organization['config'] : undefined,
+    kind: resolvedKind,
+    isPersonal: rawIsPersonal ?? (resolvedKind === 'personal'),
+  };
 }
 
 export function useOrganizationManagement(options: UseOrganizationManagementOptions = {}): UseOrganizationManagementReturn {
@@ -310,18 +358,18 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       // Only fetch user orgs if authenticated
       let data = await apiCall(`${getOrganizationsEndpoint()}/me`);
 
-      // Disable auto-creation of personal organizations to avoid duplicates
-      // We rely on a single system to provision the personal org (e.g., Better Auth or a dedicated backend flow)
+      const rawOrgList = Array.isArray(data) ? data : [];
+      const normalizedList = rawOrgList
+        .map((org) => normalizeOrganizationRecord(org as Record<string, unknown>))
+        .filter((org) => org.id.length > 0);
 
-      const orgList = Array.isArray(data) ? data : [];
-      
-      if (orgList.some(org => org?.isPersonal)) {
+      if (normalizedList.some(org => org.kind === 'personal')) {
         personalOrgEnsuredRef.current = true;
       }
-      const personalOrg = orgList.find(org => org?.isPersonal);
-      
-      setOrganizations(orgList);
-      setCurrentOrganization(personalOrg || orgList[0] || null);
+      const personalOrg = normalizedList.find(org => org.kind === 'personal');
+
+      setOrganizations(normalizedList);
+      setCurrentOrganization(personalOrg || normalizedList[0] || null);
       
       // Mark as fetched
       organizationsFetchedRef.current = true;
@@ -402,7 +450,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       if (shouldFetchInvitations) {
         await fetchInvitations();
       }
-      return validatedResult as unknown as Organization;
+      return normalizeOrganizationRecord(validatedResult as unknown as Record<string, unknown>);
     } catch (error) {
       console.error('Invalid organization data:', result, error);
       throw new Error('Invalid organization response format');

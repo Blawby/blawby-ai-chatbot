@@ -67,20 +67,26 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
 ```
 
 - Stripe sync helpers that cache and align organization metadata:
-```204:221:worker/services/StripeSync.ts
-  const cache = await syncStripeDataToKV({
+```204:244:worker/services/SubscriptionService.ts
+  const cache = await upsertSubscriptionRecord({
     env,
     organizationId,
-    subscription: stripeSubscription,
-    overwriteExisting,
-    cacheDurationMs,
+    subscriptionId: stripeSubscription.id,
+    stripeCustomerId: extractStripeCustomerId(stripeSubscription),
+    plan: plan ?? price.nickname ?? price.id ?? "business",
+    status: normalizedStatus,
+    seats,
+    periodStart,
+    periodEnd,
+    cancelAtPeriodEnd: Boolean(stripeSubscription.cancel_at_period_end),
+    priceId: price.id,
   });
 
-  await updateOrganizationSubscriptionMetadata({
+  await persistOrganizationSubscriptionState({
     env,
     organizationId,
-    stripeCustomerId: extractStripeCustomerId(stripeSubscription),
-    plan,
+    stripeCustomerId: cache.stripeCustomerId,
+    plan: cache.priceId,
     seats: cache.seats,
     status: cache.status,
   });
@@ -88,7 +94,7 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
   return cache;
 ```
 
-```75:86:worker/services/StripeSync.ts
+```75:86:worker/services/SubscriptionService.ts
   const normalizedTier =
     status === "active" || status === "trialing"
       ? (plan ?? "business")
@@ -113,7 +119,7 @@ export async function handleSubscription(request: Request, env: Env): Promise<Re
 ```
 
 - Customer-wide immediate cancel helper exists (used when deleting a customer):
-```331:349:worker/services/StripeSync.ts
+```331:349:worker/services/SubscriptionService.ts
     // Cancel all active/pending subscriptions for the customer
     const subscriptionList = client.subscriptions.list({
       customer: stripeCustomerId,
@@ -265,7 +271,7 @@ Code paths updating organization tier and seats:
                   }
 ```
 
-```75:86:worker/services/StripeSync.ts
+```75:86:worker/services/SubscriptionService.ts
   const normalizedTier =
     status === "active" || status === "trialing"
       ? (plan ?? "business")
@@ -595,25 +601,9 @@ const isAuthorized = membership.role === "owner";
 
 **Note:** This affects all subscription operations (upgrade, billing portal, etc.). If we need admins to access other subscription features, Better Auth may support separate authorization hooks for billing portal - verify in Better Auth docs.
 
-**2. KV cache invalidation on cancel (`worker/services/StripeSync.ts`):**
+**2. Cancellation downgrade (`worker/services/SubscriptionService.ts`):** handled by `clearStripeSubscriptionCache`, which now stamps the subscription row as canceled and downgrades the organization directly—no KV clearing loop.
 
-```typescript
-// In updateOrganizationSubscriptionMetadata or syncStripeDataToKV:
-if (status !== 'active' && status !== 'trialing') {
-  await clearStripeSubscriptionCache(env, organizationId);
-}
-```
-
-**3. Multiple subscriptions handling (`worker/services/StripeSync.ts`):**
-
-If multiple active subscriptions exist for a customer, pick deterministically:
-
-```typescript
-// When listing subscriptions, if multiple active:
-// Sort by current_period_start descending, pick first
-subscriptions.sort((a, b) => (b.current_period_start || 0) - (a.current_period_start || 0));
-const primarySubscription = subscriptions[0];
-```
+**3. Multiple subscriptions handling (`worker/services/SubscriptionService.ts`):** If we reintroduce customer-based reconciliation, pick the latest subscription deterministically (e.g., sort by `current_period_start`).
 
 **4. Sync endpoint role check:** Already enforced via `requireOrgOwner` in `worker/routes/subscription.ts:46`.
 
@@ -643,5 +633,6 @@ const primarySubscription = subscriptions[0];
 - Aligns with onboarding flow (post-checkout route and sync triggers) without introducing redundant server endpoints.
 - Follows existing patterns in `AccountPage.tsx` and `OrganizationPage.tsx` for consistency.
 - Implements all quick wins: shared utils, URL hygiene, defensive defaults, toasts/ARIA.
+# Subscription Change & Cancel Plan
 
-
+> **Note:** The current Stripe architecture is documented in `docs/stripe-architecture.md`. This file remains as historical background on the original change plan.

@@ -2,10 +2,10 @@ import { test, expect, type Page } from '@playwright/test';
 
 test.describe('Better Auth Integration', () => {
 
-  async function fetchJsonViaPage(page: Page, url: string, init?: RequestInit) {
+  async function fetchJsonViaPage(page: Page, url: string, init?: any): Promise<{ status: number; data?: any; error?: string }> {
     // Use relative URLs so they go through Vite proxy (which forwards to worker)
     // The page context (localhost:5173) will proxy /api/* to localhost:8787
-    return page.evaluate(async ({ url, init }) => {
+    return page.evaluate(async ({ url, init }: any) => {
       try {
         const response = await fetch(url, {
           credentials: 'include',
@@ -56,24 +56,24 @@ test.describe('Better Auth Integration', () => {
     await page.goto('/auth');
     
     // Click sign up toggle button
-    await page.click('text=Don\'t have an account? Sign up');
+    await page.click('[data-testid="auth-toggle-signup"]');
     
     // Fill signup form
     const testEmail = `test-${Date.now()}@example.com`;
-    await page.fill('input[placeholder="Enter your email"]', testEmail);
-    await page.fill('input[placeholder="Enter your full name"]', 'Test User');
-    await page.fill('input[placeholder="Enter your password"]', 'TestPassword123!');
-    await page.fill('input[placeholder="Confirm your password"]', 'TestPassword123!');
+    await page.fill('[data-testid="signup-name-input"]', 'Test User');
+    await page.fill('[data-testid="signup-email-input"]', testEmail);
+    await page.fill('[data-testid="signup-password-input"]', 'TestPassword123!');
+    await page.fill('[data-testid="signup-confirm-password-input"]', 'TestPassword123!');
     
     // Submit form
-    await page.click('button:has-text("Create account")');
+    await page.click('[data-testid="signup-submit-button"]');
     
     // Verify account created
     await expect(page.locator('text=/Account created|Welcome/')).toBeVisible({ timeout: 10000 });
     
     // Verify personal organization was created via /api/organizations/me
     // This works regardless of storage backend and mirrors how the UI reads state
-    const orgsData = await page.evaluate(async () => {
+    const orgsData: any = await page.evaluate(async () => {
       const res = await fetch('/api/organizations/me', { credentials: 'include' });
       if (!res.ok) return null;
       return await res.json();
@@ -90,7 +90,6 @@ test.describe('Better Auth Integration', () => {
     expect(personalOrg).toBeDefined();
     expect(personalOrg?.kind).toBe('personal');
     expect(personalOrg?.subscriptionStatus).toBe('none');
-    expect(personalOrg?.isPersonal).toBe(true);
   });
 
   test('should sign in with existing account', async ({ page, browser }) => {
@@ -152,7 +151,7 @@ test.describe('Better Auth Integration', () => {
       throw new Error(`Failed to fetch organizations after sign-in: ${orgsResult.error ?? orgsResult.status}`);
     }
 
-    const personalOrg = orgsResult.data.data?.find((org: { isPersonal: boolean }) => org.isPersonal);
+    const personalOrg = orgsResult.data.data?.find((org: { kind?: string }) => org.kind === 'personal');
     expect(personalOrg).toBeDefined();
     expect(personalOrg?.kind).toBe('personal');
 
@@ -227,7 +226,7 @@ test.describe('Better Auth Integration', () => {
     }
     
     // Verify session still exists via API
-    const sessionData = await page.evaluate(async () => {
+    const sessionData: any = await page.evaluate(async () => {
       const res = await fetch('/api/auth/get-session', { credentials: 'include' });
       if (!res.ok) return null;
       return await res.json();

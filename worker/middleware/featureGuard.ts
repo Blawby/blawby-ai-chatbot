@@ -23,7 +23,6 @@ export interface FeatureGuardContext {
   sessionId?: string;
   userId?: string;
   tier: "free" | "plus" | "business" | "enterprise";
-  isPersonal: boolean;
   kind: OrganizationUsageMetadata["kind"];
   subscriptionStatus: OrganizationUsageMetadata["subscriptionStatus"];
   isAnonymous: boolean;
@@ -50,7 +49,7 @@ export async function requireFeature(
 
   const organization = await UsageService.getOrganizationMetadata(env, options.organizationId);
 
-  if (config.requireNonPersonal && organization.isPersonal) {
+  if (config.requireNonPersonal && organization.kind === 'personal') {
     throw HttpErrors.forbidden("This feature is unavailable for personal organizations");
   }
 
@@ -83,7 +82,6 @@ export async function requireFeature(
     sessionId: options.sessionId,
     userId: authContext?.user.id,
     tier: organization.tier,
-    isPersonal: organization.isPersonal,
     kind: organization.kind,
     subscriptionStatus: organization.subscriptionStatus,
     isAnonymous,

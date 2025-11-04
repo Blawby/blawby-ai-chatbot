@@ -7,8 +7,9 @@ export interface TestUser {
 }
 
 /**
- * Creates a test user via the signup API endpoint
+ * Creates a test user via the UI signup flow (navigates to /auth and fills/submits the signup form)
  * Returns the user credentials and saves the storage state
+ * Note: This function uses the UI form, not direct API calls
  */
 export async function createTestUser(
   page: Page,
@@ -37,16 +38,16 @@ export async function createTestUser(
   await page.goto('/auth');
 
   // Click sign up toggle
-  await page.click('text=Don\'t have an account? Sign up');
+  await page.click('[data-testid="auth-toggle-signup"]');
 
   // Fill signup form
-  await page.fill('input[placeholder="Enter your email"]', user.email);
-  await page.fill('input[placeholder="Enter your full name"]', user.name);
-  await page.fill('input[placeholder="Enter your password"]', user.password);
-  await page.fill('input[placeholder="Confirm your password"]', user.password);
+  await page.fill('[data-testid="signup-name-input"]', user.name);
+  await page.fill('[data-testid="signup-email-input"]', user.email);
+  await page.fill('[data-testid="signup-password-input"]', user.password);
+  await page.fill('[data-testid="signup-confirm-password-input"]', user.password);
 
   // Submit form
-  await page.click('button:has-text("Create account")');
+  await page.click('[data-testid="signup-submit-button"]');
 
   // Wait for success message or redirect
   await Promise.race([
@@ -72,10 +73,32 @@ export async function createTestUser(
 }
 
 /**
+ * Ensures the page is authenticated by creating a test user if not already authenticated
+ */
+export async function ensureAuthenticated(page: Page): Promise<void> {
+  // Check if already authenticated by checking session
+  const sessionCheck: any = await page.evaluate(async () => {
+    try {
+      const res = await fetch('/api/auth/get-session', { credentials: 'include' });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      return data?.session ?? null;
+    } catch {
+      return null;
+    }
+  });
+
+  // If not authenticated, create a test user
+  if (!sessionCheck) {
+    await createTestUser(page);
+  }
+}
+
+/**
  * Verifies that a user has a personal organization
  */
 export async function verifyPersonalOrg(page: Page): Promise<void> {
-  const orgsData = await page.evaluate(async () => {
+  const orgsData: any = await page.evaluate(async () => {
     const res = await fetch('/api/organizations/me', { credentials: 'include' });
     if (!res.ok) return null;
     return await res.json();
@@ -86,7 +109,7 @@ export async function verifyPersonalOrg(page: Page): Promise<void> {
   expect(Array.isArray(orgsData?.data)).toBe(true);
   expect(orgsData?.data?.length).toBeGreaterThan(0);
 
-  const personalOrg = orgsData?.data?.find((org: { isPersonal: boolean }) => org.isPersonal);
+  const personalOrg = orgsData?.data?.find((org: { kind?: string }) => org.kind === 'personal');
   expect(personalOrg).toBeDefined();
   expect(personalOrg?.kind).toBe('personal');
   expect(personalOrg?.subscriptionStatus).toBe('none');

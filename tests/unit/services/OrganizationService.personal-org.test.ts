@@ -73,7 +73,6 @@ describe('OrganizationService - Personal Organization', () => {
       const org = await organizationService.createPersonalOrganizationForUser(userId, userName);
 
       expect(org).toBeDefined();
-      expect(org.isPersonal).toBe(true);
       expect(org.kind).toBe('personal');
       expect(org.subscriptionStatus).toBe('none');
       expect(org.subscriptionTier).toBe('free');
@@ -154,20 +153,6 @@ describe('OrganizationService - Personal Organization', () => {
       // Mock existing personal org query
       mockFirst.mockResolvedValueOnce({ id: 'existing-org-id' });
       
-      // Mock getOrganization call
-      const existingOrg = {
-        id: 'existing-org-id',
-        name: 'Existing User\'s Organization',
-        isPersonal: true,
-        kind: 'personal' as const,
-        subscriptionStatus: 'none' as const,
-        subscriptionTier: 'free' as const,
-        seats: 1,
-        config: {},
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-      
       // Mock the getOrganization query (SELECT from organizations)
       mockFirst.mockResolvedValueOnce({
         id: 'existing-org-id',
@@ -186,7 +171,6 @@ describe('OrganizationService - Personal Organization', () => {
 
       expect(org).toBeDefined();
       expect(org.id).toBe('existing-org-id');
-      expect(org.isPersonal).toBe(true);
       expect(org.kind).toBe('personal');
       expect(org.subscriptionStatus).toBe('none');
     });
@@ -207,7 +191,6 @@ describe('OrganizationService - Personal Organization', () => {
       const org = await organizationService.ensurePersonalOrganization(userId, userName);
 
       expect(org).toBeDefined();
-      expect(org.isPersonal).toBe(true);
       expect(org.kind).toBe('personal');
       expect(org.subscriptionStatus).toBe('none');
     });
@@ -286,7 +269,6 @@ describe('OrganizationService - Personal Organization', () => {
       const org = await organizationService.getOrganization(orgId);
 
       expect(org).toBeDefined();
-      expect(org?.isPersonal).toBe(false);
       expect(org?.kind).toBe('business');
     });
   });

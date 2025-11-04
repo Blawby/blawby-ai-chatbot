@@ -8,6 +8,11 @@ import { useNavigation } from '../../utils/navigation';
 import { useTranslation } from '../../i18n/hooks';
 import { QuantitySelector } from './QuantitySelector';
 import { PricingSummary } from '../ui/cards/PricingSummary';
+import {
+  describeSubscriptionPlan,
+  hasManagedSubscription,
+  resolveOrganizationKind,
+} from '../../utils/subscription';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -53,16 +58,21 @@ export const CartPage = () => {
     new URLSearchParams(window.location.search).get('forcePaid') === '1' ||
     (typeof localStorage !== 'undefined' && localStorage.getItem('forcePaid') === '1')
   );
-  const isPaidTier = devForcePaid || currentOrganization?.subscriptionTier === 'business' || currentOrganization?.subscriptionTier === 'enterprise';
+  const resolvedKind = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
+  const managedSubscription = hasManagedSubscription(
+    currentOrganization?.kind,
+    currentOrganization?.subscriptionStatus,
+    currentOrganization?.isPersonal ?? null
+  );
+  const isPaidTier = devForcePaid || managedSubscription;
 
-  // Derive a safe, explicit label for the current paid plan
-  const subscriptionTier = currentOrganization?.subscriptionTier;
-  const planLabel =
-    subscriptionTier === 'business'
-      ? 'Business'
-      : subscriptionTier === 'enterprise'
-        ? 'Enterprise'
-        : (devForcePaid ? 'Paid Plan (dev)' : 'Paid Plan');
+  const planLabel = describeSubscriptionPlan(
+    currentOrganization?.kind,
+    currentOrganization?.subscriptionStatus,
+    currentOrganization?.subscriptionTier,
+    currentOrganization?.isPersonal ?? null
+  );
+  const displayPlanLabel = devForcePaid ? 'Paid Plan (dev)' : planLabel;
 
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -72,6 +82,7 @@ export const CartPage = () => {
           search: typeof window !== 'undefined' ? window.location.search : 'n/a',
           devForcePaid,
           tier: currentOrganization?.subscriptionTier,
+          status: currentOrganization?.subscriptionStatus,
           orgId: currentOrganization?.id,
         });
       } catch (e) {
@@ -109,7 +120,7 @@ export const CartPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {planLabel} Plan</h2>
+            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {displayPlanLabel} Plan</h2>
             <p className="text-gray-300 mb-6">Your organization &quot;{currentOrganization?.name}&quot; is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">Manage Billing</button>
@@ -263,7 +274,7 @@ export const CartPage = () => {
           credentials: 'include',
           headers: { 'Accept': 'application/json' },
         });
-        type Org = { id?: string; isPersonal?: boolean };
+        type Org = { id?: string; kind?: 'personal' | 'business' };
         let orgs: Org[] = [];
         try {
           const data = await orgsRes.json();
@@ -273,7 +284,7 @@ export const CartPage = () => {
           orgs = [];
         }
         if (orgs.length > 0) {
-          const personal = orgs.find(o => o.isPersonal);
+          const personal = orgs.find(o => o.kind === 'personal');
           organizationId = personal?.id ?? orgs[0]?.id ?? null;
         }
         console.debug('[CART][UPGRADE] Ensured/loaded orgs. Resolved organizationId:', organizationId);

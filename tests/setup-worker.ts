@@ -16,7 +16,7 @@ beforeAll(async () => {
     let secretFromFile: string | null = null;
     try {
       const devVarsContent = readFileSync(devVarsPath, 'utf-8');
-      const secretMatch = devVarsContent.match(/^BETTER_AUTH_SECRET=(.+)$/m);
+      const secretMatch = devVarsContent.match(/^BETTER_AUTH_SECRET=\s*(.+?)\s*$/m);
       if (secretMatch && secretMatch[1].trim()) {
         secretFromFile = secretMatch[1].trim();
       }

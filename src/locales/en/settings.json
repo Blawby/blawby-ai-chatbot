@@ -54,7 +54,12 @@
     "loadingError": "Failed to load account data",
     "retry": "Retry",
     "plan": {
+      "sectionTitle": "Subscription Plan",
       "currentPlanLabel": "Current Plan: {{tier}}",
+      "seatsLabel": "seats",
+      "manageBilling": "Manage billing",
+      "upgradeToManageBilling": "Upgrade to manage billing",
+      "cancelSubscription": "Cancel subscription",
       "tiers": {
         "free": "Free",
         "plus": "Plus",
@@ -73,6 +78,13 @@
       },
       "upgradeButton": "Upgrade to {{plan}}",
       "currentButton": "Current plan",
+      "cancel": {
+        "modalTitle": "Are you sure you want to cancel?",
+        "description": "Your subscription will be cancelled immediately and you'll lose access to premium features. This action cannot be undone.",
+        "goBack": "Go back",
+        "cancelButton": "Cancel subscription",
+        "cancelling": "Cancelling…"
+      },
       "toasts": {
         "upgrade": {
           "title": "Upgrade",

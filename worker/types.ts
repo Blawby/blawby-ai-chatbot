@@ -140,7 +140,8 @@ export type SubscriptionLifecycleStatus =
   | 'canceled'
   | 'incomplete'
   | 'incomplete_expired'
-  | 'unpaid';
+  | 'unpaid'
+  | 'paused';
 
 // Organization types (Better Auth compatible)
 export interface Organization {
@@ -176,7 +177,6 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
-  isPersonal: boolean;
   kind: OrganizationKind;
   subscriptionStatus: SubscriptionLifecycleStatus;
   createdAt: number;
@@ -188,7 +188,7 @@ export interface StripeSubscriptionCache {
   subscriptionId: string;
   // Maps to Organization.stripeCustomerId for cross-reference
   stripeCustomerId?: string | null;
-  status: 'active' | 'trialing' | 'canceled' | 'past_due' | 'incomplete' | 'incomplete_expired' | 'unpaid';
+  status: 'active' | 'trialing' | 'canceled' | 'past_due' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
   priceId: string;
   // Optional to match Organization interface - defaults to 1 if not specified
   seats?: number | null;

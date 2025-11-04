@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { createTestUser, verifyPersonalOrg } from './helpers/createTestUser.js';
+import { createTestUser, verifyPersonalOrg, ensureAuthenticated } from './helpers/createTestUser.js';
 
 test.describe('Business Onboarding', () => {
-  test('should upgrade organization to business tier via subscription sync', async ({ page }) => {
+  test('should keep organization on personal tier when subscription sync is attempted without Stripe', async ({ page }) => {
     // Create authenticated test user
     const user = await createTestUser(page);
     
@@ -10,7 +10,7 @@ test.describe('Business Onboarding', () => {
     await verifyPersonalOrg(page);
     
     // Get organization ID from /api/organizations/me
-    const orgsData = await page.evaluate(async () => {
+    const orgsData: any = await page.evaluate(async () => {
       try {
         const res = await fetch('/api/organizations/me', { credentials: 'include' });
         if (!res.ok) {
@@ -29,17 +29,14 @@ test.describe('Business Onboarding', () => {
     
     expect(orgsData).toBeDefined();
     expect(orgsData?.success).toBe(true);
-    const personalOrg = orgsData?.data?.find((org: { isPersonal: boolean }) => org.isPersonal);
+    const personalOrg = orgsData?.data?.find((org: { kind?: string }) => org.kind === 'personal');
     expect(personalOrg).toBeDefined();
     const organizationId = personalOrg?.id;
     expect(organizationId).toBeDefined();
     
-    // Mock subscription upgrade by calling /api/subscription/sync with fixture payload
-    // This simulates what happens after Stripe checkout without hitting Stripe
+    // Attempt subscription sync without Stripe mocking
+    // This verifies that sync does not upgrade the organization without proper Stripe setup
     const syncResponse = await page.evaluate(async (orgId: string) => {
-      // First, we need to create a mock subscription in the database
-      // Since we can't directly insert, we'll use the sync endpoint
-      // which will check for existing subscriptions
       const res = await fetch('/api/subscription/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,15 +50,12 @@ test.describe('Business Onboarding', () => {
       };
     }, organizationId);
     
-    // If sync endpoint requires Stripe, we'll need to mock it differently
-    // For now, verify the org is still personal (sync won't work without Stripe)
-    // In a real implementation, you'd inject a mock subscription via test setup
-    
-    // Instead, let's verify the UI reflects the current tier
+    // Verify sync does not upgrade without Stripe/mocks
+    // The organization should remain on personal tier with no subscription
     await page.goto('/');
     
-    // Verify organization still shows as personal
-    const orgsDataAfter = await page.evaluate(async () => {
+    // Verify organization remains on personal tier
+    const orgsDataAfter: any = await page.evaluate(async () => {
       try {
         const res = await fetch('/api/organizations/me', { credentials: 'include' });
         if (!res.ok) {
@@ -78,7 +72,7 @@ test.describe('Business Onboarding', () => {
       throw new Error(`Failed to fetch organizations after sync: ${orgsDataAfter.error}`);
     }
     
-    const personalOrgAfter = orgsDataAfter?.data?.find((org: { isPersonal: boolean }) => org.isPersonal);
+    const personalOrgAfter = orgsDataAfter?.data?.find((org: { kind?: string }) => org.kind === 'personal');
     expect(personalOrgAfter?.kind).toBe('personal');
     expect(personalOrgAfter?.subscriptionStatus).toBe('none');
   });
@@ -88,7 +82,7 @@ test.describe('Business Onboarding', () => {
     await ensureAuthenticated(page);
     
     // Verify personal organization was created with correct metadata
-    const orgsData = await page.evaluate(async () => {
+    const orgsData: any = await page.evaluate(async () => {
       const res = await fetch('/api/organizations/me', { credentials: 'include' });
       if (!res.ok) return null;
       return await res.json();

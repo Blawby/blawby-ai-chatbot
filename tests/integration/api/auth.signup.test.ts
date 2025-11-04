@@ -16,7 +16,6 @@ interface OrganizationData {
   id: string;
   name: string;
   slug?: string;
-  isPersonal: boolean;
   kind: 'personal' | 'business';
   subscriptionStatus: 'none' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid';
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
@@ -97,13 +96,11 @@ describe('Better Auth Signup Integration', () => {
       // In that case, the test should still verify organization creation works
       // (which it does - we see the org being created successfully)
       if (!userRow) {
-        // Try to get user from Better Auth session if available
-        // For now, skip user verification if Better Auth is using memory adapter
-        console.warn('⚠️ User not found in D1 - Better Auth may be using memory adapter in test environment');
-        console.warn('⚠️ This is expected if Better Auth secret is not properly configured');
-        console.warn('⚠️ Organization creation still works (verified by logs)');
-        // Skip user/session verification but still verify org was created
-        return;
+        throw new Error(
+          'User not found in D1 database. ' +
+          'This indicates Better Auth may be using the memory adapter or the Better Auth secret is misconfigured. ' +
+          'The test cannot proceed without a valid user in D1 to verify organization creation, member roles, and session linkage.'
+        );
       }
 
       expect(userRow).toBeDefined();
@@ -237,7 +234,7 @@ describe('Better Auth Signup Integration', () => {
       expect(orgsData.data!.length).toBeGreaterThan(0);
 
       // Find personal organization
-      const personalOrg = orgsData.data!.find(org => org.isPersonal);
+      const personalOrg = orgsData.data!.find(org => org.kind === 'personal');
       expect(personalOrg).toBeDefined();
       expect(personalOrg?.kind).toBe('personal');
       expect(personalOrg?.subscriptionStatus).toBe('none');

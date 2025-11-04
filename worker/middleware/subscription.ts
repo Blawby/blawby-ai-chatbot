@@ -3,7 +3,7 @@ import { HttpErrors } from "../errorHandler.js";
 import {
   getStripeSubscriptionCache,
   refreshStripeSubscriptionById,
-} from "../services/StripeSync.js";
+} from "../services/SubscriptionService.js";
 
 export interface SubscriptionGuardOptions {
   organizationId: string;

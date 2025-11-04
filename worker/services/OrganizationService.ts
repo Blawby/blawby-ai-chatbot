@@ -36,7 +36,6 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number;
-  isPersonal: boolean;
   kind: OrganizationKind;
   subscriptionStatus: SubscriptionLifecycleStatus;
   createdAt: number;
@@ -264,7 +263,7 @@ export class OrganizationService {
       stripeCustomerId: null,
       subscriptionTier: 'free',
       seats: 1,
-      isPersonal: true,
+      kind: 'personal',
     });
 
     try {
@@ -604,7 +603,6 @@ export class OrganizationService {
             const numSeats = Number(rawSeats ?? 1);
             return isNaN(numSeats) ? 1 : numSeats;
           })(),
-          isPersonal: Boolean((orgRow as Record<string, unknown>).is_personal),
           kind: this.deriveKind((orgRow as Record<string, unknown>).is_personal),
           subscriptionStatus: this.normalizeSubscriptionStatus(
             (orgRow as Record<string, unknown>).subscription_status
@@ -676,7 +674,6 @@ export class OrganizationService {
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
-            isPersonal: Boolean(row.is_personal),
             kind: this.deriveKind(row.is_personal),
             subscriptionStatus: this.normalizeSubscriptionStatus(row.subscription_status),
             createdAt: new Date(row.created_at as string).getTime(),
@@ -790,8 +787,8 @@ export class OrganizationService {
   }
 
   async createOrganization(
-    organizationData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'isPersonal' | 'kind' | 'subscriptionStatus'> & {
-      isPersonal?: boolean;
+    organizationData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'kind' | 'subscriptionStatus'> & {
+      kind?: OrganizationKind;
       subscriptionStatus?: SubscriptionLifecycleStatus;
     }
   ): Promise<Organization> {
@@ -803,15 +800,15 @@ export class OrganizationService {
     
     const defaultSeats = Number(organizationData.seats ?? 1) || 1;
 
-    const isPersonal = Boolean(organizationData.isPersonal);
+    const resolvedKind: OrganizationKind = organizationData.kind ?? 'business';
+    const isPersonal = resolvedKind === 'personal';
 
     const organization: Organization = {
       ...organizationData,
       stripeCustomerId: organizationData.stripeCustomerId ?? null,
       subscriptionTier: organizationData.subscriptionTier ?? 'free',
       seats: defaultSeats,
-      isPersonal,
-      kind: this.deriveKind(isPersonal),
+      kind: resolvedKind,
       subscriptionStatus: this.normalizeSubscriptionStatus(organizationData.subscriptionStatus),
       config: normalizedConfig,
       id,
@@ -834,7 +831,7 @@ export class OrganizationService {
         organization.stripeCustomerId ?? null,
         organization.subscriptionTier ?? 'free',
         organization.seats ?? 1,
-        organization.isPersonal ? 1 : 0,
+        isPersonal ? 1 : 0,
         organization.createdAt,
         organization.updatedAt
       ).run();
@@ -863,7 +860,7 @@ export class OrganizationService {
     }
 
     // Extract only mutable fields from updates, excluding immutable fields
-    const { id: _ignoreId, createdAt: _ignoreCreatedAt, isPersonal: _ignoreIsPersonal, ...mutableUpdates } = updates;
+    const { id: _ignoreId, createdAt: _ignoreCreatedAt, /* isPersonal: _ignoreIsPersonal */ ...mutableUpdates } = updates;
 
     // Validate and normalize the organization configuration if it's being updated
     let normalizedConfig = existingOrganization.config;
@@ -871,18 +868,20 @@ export class OrganizationService {
       normalizedConfig = this.validateAndNormalizeConfig(mutableUpdates.config, true, organizationId);
     }
     
+    // Prefer `kind` if provided; otherwise maintain existing.
+    const resolvedKind: OrganizationKind = (mutableUpdates.kind ?? existingOrganization.kind);
+
     const updatedOrganization: Organization = {
       ...existingOrganization,
       ...mutableUpdates,
       config: normalizedConfig,
-      isPersonal: existingOrganization.isPersonal,
+      kind: resolvedKind,
       updatedAt: new Date().getTime()
     };
 
     updatedOrganization.stripeCustomerId = updatedOrganization.stripeCustomerId ?? null;
     updatedOrganization.subscriptionTier = updatedOrganization.subscriptionTier ?? existingOrganization.subscriptionTier ?? 'free';
     updatedOrganization.seats = Number(updatedOrganization.seats ?? existingOrganization.seats ?? 1) || 1;
-    updatedOrganization.kind = this.deriveKind(updatedOrganization.isPersonal);
     updatedOrganization.subscriptionStatus = this.normalizeSubscriptionStatus(updatedOrganization.subscriptionStatus ?? existingOrganization.subscriptionStatus);
 
     await this.env.DB.prepare(`

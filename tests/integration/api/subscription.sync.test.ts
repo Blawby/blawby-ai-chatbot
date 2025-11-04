@@ -3,11 +3,11 @@ import { env } from 'cloudflare:test';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Env as WorkerEnv } from '../../../worker/types';
 import * as authModule from '../../../worker/middleware/auth.js';
-import * as stripeSyncModule from '../../../worker/services/StripeSync.js';
+import * as subscriptionServiceModule from '../../../worker/services/SubscriptionService.js';
 import { handleSubscription } from '../../../worker/routes/subscription.js';
 
 // Helper type for the mocked refresh result to avoid `any`
-type RefreshResult = Awaited<ReturnType<typeof stripeSyncModule.refreshStripeSubscriptionById>>;
+type RefreshResult = Awaited<ReturnType<typeof subscriptionServiceModule.refreshStripeSubscriptionById>>;
 
 // Mock Stripe SDK used by StripeSync/getOrCreateStripeClient path
 vi.mock('stripe', () => {
@@ -127,7 +127,7 @@ describe('Subscription sync route (worker integration)', () => {
     ((env as unknown) as { STRIPE_PRICE_ID?: string }).STRIPE_PRICE_ID = ((env as unknown) as { STRIPE_PRICE_ID?: string }).STRIPE_PRICE_ID || 'price_monthly_test';
 
     // Short-circuit network Stripe fetch in refreshStripeSubscriptionById and simulate org update
-    vi.spyOn(stripeSyncModule, 'refreshStripeSubscriptionById').mockImplementation(async ({ env: e, organizationId }) => {
+    vi.spyOn(subscriptionServiceModule, 'refreshStripeSubscriptionById').mockImplementation(async ({ env: e, organizationId }) => {
       const db = (e as { DB: D1Database }).DB;
       await db.prepare(
         `UPDATE organizations SET subscription_tier='business', seats=1, updated_at=? WHERE id=?`
@@ -181,5 +181,3 @@ describe('Subscription sync route (worker integration)', () => {
     expect((row?.seats ?? 0) >= 1).toBe(true);
   });
 });
-
-

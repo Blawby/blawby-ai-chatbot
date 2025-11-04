@@ -18,3 +18,4 @@ export { handleOnboarding } from './onboarding';
 export { handlePDF } from './pdf';
 export { handleDebug } from './debug';
 export { handleUsage } from './usage';
+export { handleStripeWebhookWithErrorHandling as handleStripeWebhook } from './stripeWebhook';

@@ -11,7 +11,6 @@ const OrganizationSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
-  isPersonal: z.boolean().optional(),
   domain: z.string().nullable().optional(), // API can return null
   createdAt: z.number().optional(),
   updatedAt: z.number().optional(),

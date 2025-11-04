@@ -1,5 +1,4 @@
 import { FullConfig } from '@playwright/test';
-import { execSync } from 'child_process';
 
 async function globalSetup(config: FullConfig) {
   console.log('🔧 Running Playwright global setup...');

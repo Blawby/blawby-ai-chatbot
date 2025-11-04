@@ -57,7 +57,6 @@ export interface OrganizationUsageMetadata {
   id: string;
   slug: string | null;
   tier: TierName;
-  isPersonal: boolean;
   kind: OrganizationKind;
   subscriptionStatus: SubscriptionLifecycleStatus;
 }
@@ -473,8 +472,7 @@ export class UsageService {
         id: organizationId,
         slug: null,
         tier: DEFAULT_TIER,
-        isPersonal: false,
-        kind: 'personal',
+        kind: 'business',
         subscriptionStatus: 'none',
       };
     }
@@ -485,7 +483,6 @@ export class UsageService {
       id: String(row.id),
       slug: row.slug ? String(row.slug) : null,
       tier: (tier && TIER_LIMITS[tier] ? tier : DEFAULT_TIER),
-      isPersonal: Boolean(row.is_personal),
       kind: Boolean(row.is_personal) ? 'personal' as OrganizationKind : 'business',
       subscriptionStatus: normalizeSubscriptionStatus(row.subscription_status),
     };

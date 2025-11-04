@@ -24,6 +24,7 @@ export interface PasswordInputProps {
   errorKey?: string;
   namespace?: string;
   id?: string;
+  'data-testid'?: string;
 }
 
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
@@ -46,7 +47,8 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
   namespace: _namespace = 'common',
-  id
+  id,
+  'data-testid': dataTestId
 }, ref) => {
   const [showPassword, setShowPassword] = useState(false);
   
@@ -159,6 +161,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           aria-invalid={Boolean(displayError)}
           aria-describedby={ariaDescribedBy}
           className={inputClasses}
+          data-testid={dataTestId}
         />
         
         <button

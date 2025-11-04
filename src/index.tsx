@@ -12,6 +12,7 @@ import { OrganizationProvider, useOrganization } from './contexts/OrganizationCo
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
 import { type SubscriptionTier } from './types/user';
+import { resolveOrganizationKind } from './utils/subscription';
 import type { UIOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
@@ -293,7 +294,14 @@ function MainApp({
 	
   // Derive current user tier from organization config (our custom system)
   // Note: subscriptionTier is on Organization, not OrganizationConfig
-  const currentUserTier = (currentOrganization?.subscriptionTier ?? 'free') as SubscriptionTier;
+  const resolvedKindForTier = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
+  const currentUserTier = (
+    (currentOrganization?.subscriptionTier && currentOrganization.subscriptionTier !== '')
+      ? currentOrganization.subscriptionTier
+      : resolvedKindForTier === 'business'
+        ? 'business'
+        : 'free'
+  ) as SubscriptionTier;
 	
 	useEffect(() => {
 		const handleHashChange = () => {

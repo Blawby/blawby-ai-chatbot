@@ -91,7 +91,7 @@ export async function setActiveOrganizationForSession(
       console.log(`⚠️ No organizationId provided, querying for personal org...`);
       const organizationService = new OrganizationService(env);
       const organizations = await organizationService.listOrganizations(userId);
-      const personalOrg = organizations.find(org => org.isPersonal);
+      const personalOrg = organizations.find(org => org.kind === 'personal');
       targetOrgId = personalOrg?.id ?? null;
       console.log(`🔍 Found personal org: ${targetOrgId ?? 'null'}`);
     }
@@ -101,13 +101,13 @@ export async function setActiveOrganizationForSession(
       // In session.create.after hook, the session is already committed to DB
       // Just update by session ID - we trust Better Auth that this session belongs to the user
       const result = await env.DB.prepare(
-        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
-      ).bind(targetOrgId, Math.floor(Date.now() / 1000), sessionId).run();
+        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
+      ).bind(targetOrgId, new Date(), sessionId, userId).run();
       
       // D1Result.run() returns { success: boolean, meta: { changes: number } }
       if (!result.success) {
         console.error(`Database operation failed while updating session ${sessionId} for user ${userId}`);
-        return;
+        throw new Error(`Failed to update session ${sessionId} for user ${userId}`);
       }
       
       if ((result.meta?.changes ?? 0) === 0) {

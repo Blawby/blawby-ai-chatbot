@@ -14,7 +14,7 @@ import {
   applyStripeSubscriptionUpdate,
   clearStripeSubscriptionCache,
   cancelSubscriptionsAndDeleteCustomer,
-} from "../services/StripeSync.js";
+} from "../services/SubscriptionService.js";
 
 // Organization plugin will use default roles for now
 
@@ -740,13 +740,16 @@ export async function getAuth(env: Env, request?: Request) {
                       otherOwnerCount: number;
                     }>();
 
-                  const organizations = ownedOrganizations.results ?? [];
+                  const organizations = (ownedOrganizations.results ?? []).map(org => ({
+                    ...org,
+                    kind: Boolean(org.isPersonal) ? 'personal' as const : 'business' as const
+                  }));
                   if (!organizations.length) {
                     return;
                   }
 
                   const soleOwnerNonPersonal = organizations.filter(
-                    (org) => !org.isPersonal && (org.otherOwnerCount ?? 0) === 0
+                    (org) => org.kind !== 'personal' && (org.otherOwnerCount ?? 0) === 0
                   );
 
                   if (soleOwnerNonPersonal.length > 0) {
@@ -758,7 +761,7 @@ export async function getAuth(env: Env, request?: Request) {
                     );
                   }
 
-                  const personalOrgs = organizations.filter((org) => Boolean(org.isPersonal));
+                  const personalOrgs = organizations.filter((org) => org.kind === 'personal');
                   if (!personalOrgs.length) {
                     return;
                   }
@@ -1024,7 +1027,7 @@ export async function getAuth(env: Env, request?: Request) {
                       try {
                         const organizationService = new OrganizationService(env);
                         const existing = await organizationService.listOrganizations(session.userId);
-                        const hasPersonal = Array.isArray(existing) && existing.some(org => org.isPersonal);
+                        const hasPersonal = Array.isArray(existing) && existing.some(org => org.kind === 'personal');
                         if (!hasPersonal) {
                           // Fetch user name for a friendly org name
                           const row = await env.DB
@@ -1037,10 +1040,10 @@ export async function getAuth(env: Env, request?: Request) {
                           console.log('✅ Ensured personal organization on session.create for user', session.userId, { organizationId: personalOrgId });
                         } else {
                           // Find the existing personal org ID
-                          const personalOrg = existing.find(org => org.isPersonal);
+                          const personalOrg = existing.find(org => org.kind === 'personal');
                           personalOrgId = personalOrg?.id;
                           if (!personalOrgId) {
-                            console.warn(`⚠️ Personal org not found in existing orgs for user ${session.userId}, existing orgs:`, existing.map(o => ({ id: o.id, isPersonal: o.isPersonal })));
+                            console.warn(`⚠️ Personal org not found in existing orgs for user ${session.userId}, existing orgs:`, existing.map(o => ({ id: o.id, kind: o.kind })));
                           }
                         }
                       } catch (ensureError) {

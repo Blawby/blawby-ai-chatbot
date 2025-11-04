@@ -21,6 +21,7 @@ export interface EmailInputProps {
   placeholderKey?: string;
   errorKey?: string;
   namespace?: string;
+  'data-testid'?: string;
 }
 
 export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
@@ -40,7 +41,8 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   descriptionKey: _descriptionKey,
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
-  namespace: _namespace = 'common'
+  namespace: _namespace = 'common',
+  'data-testid': dataTestId
 }, ref) => {
   // Generate stable unique IDs for accessibility
   const inputId = useUniqueId('email-input');
@@ -138,6 +140,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
           aria-required={required}
           aria-describedby={ariaDescribedBy}
           className={inputClasses}
+          data-testid={dataTestId}
         />
         
         {showValidationIcon && (
