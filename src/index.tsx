@@ -208,12 +208,13 @@ function MainApp({
         })();
     }, [session?.user, sessionIsPending]);
 
-	useEffect(() => {
-		if (session?.user && !sessionIsPending) {
+    useEffect(() => {
+        const user = session?.user;
+        if (user && !sessionIsPending) {
 			if (import.meta.env.DEV) {
 				try {
 					// Lightweight visibility into onboarding decision path
-					const debugUser = session.user as Record<string, unknown>;
+                    const debugUser = user as Record<string, unknown>;
 					// Avoid logging PII beyond booleans/keys
 					console.debug('[ONBOARDING][CHECK] session detected', {
 						onboardingCompleted: debugUser?.onboardingCompleted,
@@ -227,7 +228,7 @@ function MainApp({
 			}
 			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
 			const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
-			const userWithOnboarding = session.user as typeof session.user & { onboardingCompleted?: boolean };
+            const userWithOnboarding = user as typeof user & { onboardingCompleted?: boolean };
 			const hasCompletedOnboarding = userWithOnboarding.onboardingCompleted === true;
 			
 			// Sync onboardingCompleted flag if user has completed onboarding but flag is missing
@@ -274,7 +275,7 @@ function MainApp({
 				}
 			}
 		}
-	}, [session?.user, sessionIsPending, session, showError]);
+    }, [session?.user, sessionIsPending]);
 
 
 

@@ -29,7 +29,8 @@ import type { ScheduledEvent } from '@cloudflare/workers-types';
 
 // Basic request validation
 function validateRequest(request: Request): boolean {
-  const _url = new URL(request.url);
+  const url = new URL(request.url);
+  const path = url.pathname;
   
   // Check for reasonable request size (10MB limit)
   const contentLength = request.headers.get('content-length');
@@ -38,7 +39,8 @@ function validateRequest(request: Request): boolean {
   }
   
   // Check for valid content type on POST requests
-  if (request.method === 'POST') {
+  // Skip this check for Better Auth endpoints - they handle their own validation
+  if (request.method === 'POST' && !path.startsWith('/api/auth/')) {
     const contentType = request.headers.get('content-type');
     if (!contentType) {
       return false;

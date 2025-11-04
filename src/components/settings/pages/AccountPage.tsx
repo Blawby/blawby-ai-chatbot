@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '../../ui/Button';
 import { Select, FormLabel } from '../../ui';
 import { FormItem } from '../../ui/form';
@@ -17,6 +17,7 @@ import { useTranslation } from '@/i18n/hooks';
 import { useLocation } from 'preact-iso';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
+import { displayPlan, normalizeSeats } from '../../../utils/subscription';
 import type { UserLinks, EmailSettings, SubscriptionTier } from '../../../types/user';
 
 
@@ -37,13 +38,9 @@ export const AccountPage = ({
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const location = useLocation();
-  const { syncSubscription, openBillingPortal } = usePaymentUpgrade();
-  const { currentOrganization, loading: orgLoading, refetch } = useOrganizationManagement();
+  const { syncSubscription, openBillingPortal, cancelSubscription, submitting } = usePaymentUpgrade();
+  const { currentOrganization, loading: orgLoading, refetch, getMembers, fetchMembers } = useOrganizationManagement();
   const { data: session, isPending } = useSession();
-  const redirectToBusinessOnboarding = useCallback((organizationId: string) => {
-    const params = new URLSearchParams({ organizationId, sync: '1' });
-    navigate(`/business-onboarding?${params.toString()}`);
-  }, [navigate]);
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +51,7 @@ export const AccountPage = ({
   const [domainError, setDomainError] = useState<string | null>(null);
   const [deleteVerificationSent, setDeleteVerificationSent] = useState(false);
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const clearLocalAuthState = useCallback(() => {
     try {
@@ -68,12 +66,6 @@ export const AccountPage = ({
   const verificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref to track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
-  // Ref to prevent concurrent sync operations
-  const isSyncInFlightRef = useRef(false);
-  // Ref to store previous tier for upgrade detection after refetch
-  const previousTierRef = useRef<string | null>(null);
-  // Ref to track if we need to check for upgrades after organization update
-  const shouldCheckUpgradeRef = useRef(false);
 
   // Load account data from Better Auth session
   const loadAccountData = useCallback(async () => {
@@ -144,114 +136,60 @@ export const AccountPage = ({
   const requiresPassword = passwordRequiredOverride ?? loginMethodRequiresPassword;
   const isOAuthUser = !requiresPassword;
 
-  // Check for tier upgrades after organization data is updated
+  // Check if current user is organization owner
+  const currentUserEmail = session?.user?.email || '';
+  const members = useMemo(() => {
+    if (!currentOrganization) return [];
+    return getMembers(currentOrganization.id);
+  }, [currentOrganization, getMembers]);
+  
+  const currentMember = useMemo(() => {
+    if (!currentOrganization || !currentUserEmail) return null;
+    return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) || 
+           members.find(m => m.userId === session?.user?.id);
+  }, [currentOrganization, currentUserEmail, members, session?.user?.id]);
+  
+  const isOwner = currentMember?.role === 'owner';
+
+  // Fetch members when organization is available (needed for owner check)
   useEffect(() => {
-    if (shouldCheckUpgradeRef.current && currentOrganization?.subscriptionTier) {
-      const previousTier = previousTierRef.current;
-      const newTier = currentOrganization.subscriptionTier;
-      
-      const wasUpgraded = (previousTier === 'free' || !previousTier) && 
-                         (newTier === 'business' || newTier === 'enterprise');
-
-      if (wasUpgraded) {
-        const organizationId = currentOrganization?.id;
-        if (organizationId) {
-          redirectToBusinessOnboarding(organizationId);
-        }
-      }
-
-      // Reset the flag
-      shouldCheckUpgradeRef.current = false;
-      previousTierRef.current = null;
+    if (currentOrganization?.id && members.length === 0) {
+      fetchMembers(currentOrganization.id).catch((error) => {
+        console.error('Failed to fetch members for owner check:', error);
+      });
     }
-  }, [currentOrganization?.subscriptionTier, currentOrganization?.id, redirectToBusinessOnboarding]);
+  }, [currentOrganization?.id, members.length, fetchMembers]);
 
-  // Handle post-checkout sync
+  // Auto-sync on return from Stripe portal or checkout
   useEffect(() => {
-    const handlePostCheckoutSync = async () => {
-      const rawSyncFlag = location.query?.sync;
-      const rawOrgId = location.query?.organizationId;
+    const params = new URLSearchParams(location.search);
+    if (params.get('sync') === '1' && currentOrganization?.id) {
+      syncSubscription(currentOrganization.id)
+        .then(() => {
+          refetch();
+          showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
+        })
+        .catch((error) => {
+          console.error('Auto-sync failed:', error);
+          // Error already handled by syncSubscription hook
+        })
+        .finally(() => {
+          // Remove sync param to prevent re-trigger (URL hygiene)
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('sync');
+          window.history.replaceState({}, '', newUrl.toString());
+        });
+    }
+  }, [location.search, currentOrganization?.id, syncSubscription, refetch, showSuccess]);
 
-      const shouldSync = Array.isArray(rawSyncFlag)
-        ? rawSyncFlag[0] === '1'
-        : rawSyncFlag === '1';
 
-      const organizationId = Array.isArray(rawOrgId)
-        ? rawOrgId[0]
-        : rawOrgId || currentOrganization?.id;
-
-      if (shouldSync && organizationId && !isSyncInFlightRef.current) {
-        isSyncInFlightRef.current = true;
-        
-        try {
-          // Store previous tier before sync
-          const previousTier = currentOrganization?.subscriptionTier;
-          
-          const subscription = await syncSubscription(organizationId);
-
-          // Check if tier was upgraded to business/enterprise
-          let newTier = currentOrganization?.subscriptionTier;
-          
-          // Prefer the sync response if it returns plan/tier info
-          const subscriptionWithPlan = subscription as { plan?: string } | undefined;
-          if (subscriptionWithPlan?.plan) {
-            const planValue = subscriptionWithPlan.plan;
-            // Type guard to ensure plan is a valid SubscriptionTier
-            if (['free', 'plus', 'business', 'enterprise'].includes(planValue)) {
-              newTier = planValue as SubscriptionTier;
-            }
-            
-            // Handle upgrade check immediately if we have tier info from sync response
-            const wasUpgraded = (previousTier === 'free' || !previousTier) && 
-                               (newTier === 'business' || newTier === 'enterprise');
-
-            if (wasUpgraded) {
-              // Redirect to business onboarding flow
-              redirectToBusinessOnboarding(organizationId);
-              return;
-            }
-          } else {
-            // If no tier info in response, refetch to get latest organization data
-            // Store previous tier and set flag for upgrade check in the effect
-            previousTierRef.current = previousTier;
-            shouldCheckUpgradeRef.current = true;
-            await refetch();
-          }
-
-          // Load account data after upgrade handling
-          if (isMountedRef.current) {
-            await loadAccountData();
-          }
-
-          // Clean up URL params after successful sync and data load
-          if (typeof window !== 'undefined') {
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.delete('sync');
-            newUrl.searchParams.delete('organizationId');
-            window.history.replaceState({}, '', newUrl.toString());
-          }
-        } catch (error) {
-          console.error('❌ Post-checkout sync failed:', error);
-          if (isMountedRef.current) {
-            showError('Sync Failed', 'Failed to refresh subscription status after checkout. Please refresh the page.');
-          }
-        } finally {
-          isSyncInFlightRef.current = false;
-        }
-      }
-    };
-
-    handlePostCheckoutSync();
-  }, [location.query, currentOrganization?.id, currentOrganization?.subscriptionTier, syncSubscription, showError, loadAccountData, redirectToBusinessOnboarding, refetch]);
-
-  // Cleanup verification timeout and sync ref on unmount
+  // Cleanup verification timeout on unmount
   useEffect(() => {
     return () => {
       if (verificationTimeoutRef.current !== null) {
         clearTimeout(verificationTimeoutRef.current);
       }
       isMountedRef.current = false;
-      isSyncInFlightRef.current = false;
     };
   }, []);
 
@@ -292,6 +230,22 @@ export const AccountPage = ({
       showError('Billing Portal Error', 'Could not open billing portal');
     }
   }, [currentOrganization?.id, openBillingPortal, showError]);
+
+  const handleCancelSubscription = useCallback(async () => {
+    const orgId = currentOrganization?.id;
+    if (!orgId) return;
+    
+    try {
+      const success = await cancelSubscription(orgId);
+      if (success) {
+        setShowCancelConfirm(false);
+        await refetch();
+      }
+    } catch (error) {
+      console.error('Failed to cancel subscription:', error);
+      // Error already handled by cancelSubscription hook
+    }
+  }, [currentOrganization?.id, cancelSubscription, refetch]);
 
   const handleDeleteAccount = () => {
     setShowDeleteConfirm(true);
@@ -575,7 +529,20 @@ export const AccountPage = ({
   // Features are now loaded dynamically from the pricing service
 
   // Show loading state while session or organization is loading
-  if (isPending || orgLoading) {
+  // Add timeout protection - if loading for more than 10 seconds, show error with retry
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  useEffect(() => {
+    if (isPending || orgLoading) {
+      const timeout = setTimeout(() => {
+        setLoadingTimeout(true);
+      }, 10000); // 10 second timeout
+      return () => clearTimeout(timeout);
+    } else {
+      setLoadingTimeout(false);
+    }
+  }, [isPending, orgLoading]);
+
+  if ((isPending || orgLoading) && !loadingTimeout) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -583,7 +550,11 @@ export const AccountPage = ({
     );
   }
 
-  if (error) {
+  if (loadingTimeout || error) {
+    const errorMessage = loadingTimeout 
+      ? 'Loading timed out. Please check your connection and try again.'
+      : error || 'An error occurred while loading your account information.';
+    
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="text-center">
@@ -592,12 +563,20 @@ export const AccountPage = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
             <p className="text-sm font-medium">{t('settings:account.loadingError')}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{error}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{errorMessage}</p>
           </div>
           <Button
             variant="primary"
             size="sm"
-            onClick={loadAccountData}
+            onClick={() => {
+              setLoadingTimeout(false);
+              setError(null);
+              refetch().then(() => {
+                if (session?.user && currentOrganization !== undefined) {
+                  loadAccountData();
+                }
+              });
+            }}
           >
             {t('settings:account.retry')}
           </Button>
@@ -619,38 +598,52 @@ export const AccountPage = ({
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6">
         <div className="space-y-0">
-          {/* Current Plan Section */}
-          <div className="flex items-center justify-between py-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {currentTier 
-                  ? t('settings:account.plan.currentPlanLabel', { tier: t(`settings:account.plan.tiers.${currentTier}`) })
-                  : t('settings:account.plan.currentPlanLabel', { tier: '' })
-                }
-              </h3>
-              {currentTier && (
+          {/* Subscription Plan Section */}
+          <div className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  Subscription Plan
+                </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {t(`settings:account.plan.descriptions.${currentTier}`)}
+                  {displayPlan(currentOrganization?.subscriptionTier)} • {normalizeSeats(currentOrganization?.seats)} seats
                 </p>
-              )}
-            </div>
-            <div className="ml-4">
-              {(currentTier === 'business' || currentTier === 'enterprise') ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleManageBilling}
-                >
-                  Manage Billing
-                </Button>
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleUpgrade}
-                >
-                  {upgradeButtonText}
-                </Button>
+              </div>
+              {isOwner && (
+                <div className="flex gap-2 ml-4">
+                  {currentOrganization?.stripeCustomerId ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => openBillingPortal({ 
+                        organizationId: currentOrganization!.id, 
+                        returnUrl: `${window.location.origin}/settings/account?sync=1` 
+                      })}
+                      disabled={submitting}
+                    >
+                      Manage billing
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => navigate('/#pricing')}
+                    >
+                      Upgrade to manage billing
+                    </Button>
+                  )}
+                  {displayPlan(currentOrganization?.subscriptionTier) !== 'Free' && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowCancelConfirm(true)}
+                      disabled={submitting}
+                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      Cancel subscription
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -791,6 +784,38 @@ export const AccountPage = ({
           </div>
         </div>
       </div>
+
+      {/* Cancel Subscription Confirmation Dialog */}
+      <Modal
+        isOpen={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        title="Are you sure you want to cancel?"
+        showCloseButton={true}
+        type="modal"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Your subscription will be cancelled immediately and you'll lose access to premium features. This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setShowCancelConfirm(false)}
+              disabled={submitting}
+            >
+              Go back
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleCancelSubscription}
+              disabled={submitting}
+              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+            >
+              {submitting ? 'Cancelling…' : 'Cancel subscription'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Delete Account Confirmation Dialog */}
       <ConfirmationDialog

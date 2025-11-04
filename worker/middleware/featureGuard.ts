@@ -24,6 +24,8 @@ export interface FeatureGuardContext {
   userId?: string;
   tier: "free" | "plus" | "business" | "enterprise";
   isPersonal: boolean;
+  kind: OrganizationUsageMetadata["kind"];
+  subscriptionStatus: OrganizationUsageMetadata["subscriptionStatus"];
   isAnonymous: boolean;
   organization: OrganizationUsageMetadata;
 }
@@ -82,6 +84,8 @@ export async function requireFeature(
     userId: authContext?.user.id,
     tier: organization.tier,
     isPersonal: organization.isPersonal,
+    kind: organization.kind,
+    subscriptionStatus: organization.subscriptionStatus,
     isAnonymous,
     organization,
   };

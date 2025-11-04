@@ -222,9 +222,9 @@ export const stripeSubscriptionCacheSchema = z.object({
 export const organizationMemberSchema = z.object({
   userId: z.string().min(1),
   role: organizationRoleSchema,
-  email: z.string().email(),
-  name: z.string().optional(),
-  image: z.string().optional(),
+  email: z.string().email().nullable().optional(),
+  name: z.string().nullable().optional(),
+  image: z.string().nullable().optional(),
   createdAt: timestampSchema
 });
 

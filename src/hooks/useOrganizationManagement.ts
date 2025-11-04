@@ -34,6 +34,7 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
+  subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid';
   config?: {
     ownerEmail?: string;
     metadata?: {
@@ -42,6 +43,7 @@ export interface Organization {
     };
   };
   isPersonal?: boolean | null;
+  kind?: 'personal' | 'business';
 }
 
 export interface Member {
@@ -326,6 +328,9 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     } catch (err) {
       console.error('Error in fetchOrganizations:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch organizations');
+      // Set currentOrganization to null (not undefined) so components know loading is done
+      setCurrentOrganization(null);
+      setOrganizations([]);
     } finally {
       setLoading(false);
       currentRequestRef.current = null;

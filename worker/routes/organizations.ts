@@ -5,7 +5,7 @@ import { requireAuth, requireOrgOwner, requireOrgMember } from '../middleware/au
 import { handleError, HttpErrors } from '../errorHandler.js';
 import type { Organization } from '../services/OrganizationService.js';
 import { organizationCreateSchema, organizationUpdateSchema } from '../schemas/validation.js';
-import { requireFeature } from '../middleware/featureGuard.js';
+import { requireFeature, type FeatureName } from '../middleware/featureGuard.js';
 
 /**
  * Helper function to create standardized error responses
@@ -69,6 +69,35 @@ function createSuccessResponse(data: unknown): Response {
       headers: { 'Content-Type': 'application/json' } 
     }
   );
+}
+
+const ACTIVE_BUSINESS_STATUSES = new Set(['active', 'trialing']);
+
+async function requireActiveBusinessOrganization(
+  request: Request,
+  env: Env,
+  organizationId: string,
+  feature: FeatureName
+) {
+  const context = await requireFeature(
+    request,
+    env,
+    {
+      feature,
+      allowAnonymous: false,
+      requireNonPersonal: true,
+      minTier: ['business', 'enterprise'],
+    },
+    { organizationId }
+  );
+
+  if (!ACTIVE_BUSINESS_STATUSES.has(context.subscriptionStatus)) {
+    throw HttpErrors.paymentRequired('An active subscription is required for this action', {
+      subscriptionStatus: context.subscriptionStatus,
+    });
+  }
+
+  return context;
 }
 
 function sanitizeOrganizationResponse(organization: Organization): Organization {
@@ -202,6 +231,30 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     // Authenticated user organizations route
     if ((path === '/me' || path === '/me/') && request.method === 'GET') {
       const authContext = await requireAuth(request, env);
+      
+      // Ensure active_organization_id is set for this session if it's not already set
+      // This handles cases where the session was created before the hook ran, or
+      // where Better Auth reused an existing session on sign-in
+      const sessionRow = await env.DB.prepare(
+        `SELECT active_organization_id FROM sessions WHERE id = ? LIMIT 1`
+      ).bind(authContext.session.id).first<{ active_organization_id: string | null }>();
+      
+      // Check if active_organization_id is null or empty (handles both NULL and string "null")
+      const activeOrgId = sessionRow?.active_organization_id;
+      const needsUpdate = !activeOrgId || activeOrgId === 'null' || activeOrgId.trim() === '';
+      
+      if (sessionRow && needsUpdate) {
+        // Session doesn't have active_organization_id set, find and set it
+        const organizations = await organizationService.listOrganizations(authContext.user.id);
+        const personalOrg = organizations.find(org => org.isPersonal);
+        if (personalOrg) {
+          await env.DB.prepare(
+            `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
+          ).bind(personalOrg.id, Math.floor(Date.now() / 1000), authContext.session.id).run();
+          console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id}`);
+        }
+      }
+      
       const organizations = await organizationService.listOrganizations(authContext.user.id);
 
       return new Response(
@@ -224,6 +277,58 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
 
       return createSuccessResponse({
         organization: organization ? sanitizeOrganizationResponse(organization) : null,
+      });
+    }
+
+    // GET current active organization for session
+    if ((path === '/active' || path === '/active/') && request.method === 'GET') {
+      const authContext = await requireAuth(request, env);
+      
+      // Query the session's active_organization_id from the database
+      const sessionRow = await env.DB.prepare(
+        `SELECT active_organization_id FROM sessions WHERE id = ? LIMIT 1`
+      ).bind(authContext.session.id).first<{ active_organization_id: string | null }>();
+      
+      if (!sessionRow) {
+        throw HttpErrors.notFound('Session not found');
+      }
+      
+      // Check if active_organization_id is null or the string "null" (handles both cases)
+      let activeOrgId = sessionRow.active_organization_id;
+      const needsUpdate = !activeOrgId || activeOrgId === 'null' || activeOrgId.trim() === '';
+      
+      // If not set, find and set it (same logic as /me endpoint)
+      if (needsUpdate) {
+        const organizations = await organizationService.listOrganizations(authContext.user.id);
+        const personalOrg = organizations.find(org => org.isPersonal);
+        if (personalOrg) {
+          await env.DB.prepare(
+            `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
+          ).bind(personalOrg.id, Math.floor(Date.now() / 1000), authContext.session.id).run();
+          activeOrgId = personalOrg.id;
+          console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id} (via /active endpoint)`);
+        }
+      }
+      
+      if (!activeOrgId || activeOrgId === 'null' || activeOrgId.trim() === '') {
+        return createSuccessResponse({ activeOrganizationId: null });
+      }
+      
+      // Verify the organization exists and user has access
+      const organization = await organizationService.getOrganization(activeOrgId);
+      if (!organization) {
+        return createSuccessResponse({ activeOrganizationId: null });
+      }
+      
+      // Verify user is a member
+      const membership = await organizationService.getOrganizationMembership(authContext.user.id, activeOrgId);
+      if (!membership) {
+        return createSuccessResponse({ activeOrganizationId: null });
+      }
+      
+      return createSuccessResponse({
+        activeOrganizationId: activeOrgId,
+        organization: sanitizeOrganizationResponse(organization)
       });
     }
 
@@ -611,17 +716,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
             case 'GET':
               return await listOrganizationTokens(organizationService, organizationId);
             case 'POST':
-              await requireFeature(
-                request,
-                env,
-                {
-                  feature: 'api',
-                  allowAnonymous: false,
-                  minTier: ['business', 'enterprise'],
-                  requireNonPersonal: true,
-                },
-                { organizationId }
-              );
+              await requireActiveBusinessOrganization(request, env, organizationId, 'api');
               return await createOrganizationToken(organizationService, organizationId, request);
           }
         } else if (pathParts.length === 3) {
@@ -629,6 +724,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           const tokenId = pathParts[2];
           switch (request.method) {
             case 'DELETE':
+              await requireActiveBusinessOrganization(request, env, organizationId, 'api');
               return await revokeOrganizationToken(organizationService, organizationId, tokenId);
           }
         }
@@ -682,6 +778,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       }
 
       await requireOrgOwner(request, env, organization.id);
+      await requireActiveBusinessOrganization(request, env, organization.id, 'team');
 
       const invitationId = crypto.randomUUID();
       const expiresAt = body.expiresAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -912,6 +1009,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           }
           
           await requireOrgOwner(request, env, targetOrganization.id);
+          await requireActiveBusinessOrganization(request, env, targetOrganization.id, 'team');
           return await updateOrganization(organizationService, targetOrganization.id, request);
         }
         break;
@@ -937,6 +1035,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           }
           
           await requireOrgOwner(request, env, targetOrganization.id);
+          await requireActiveBusinessOrganization(request, env, targetOrganization.id, 'team');
           return await deleteOrganization(organizationService, targetOrganization.id);
         }
         console.log('DELETE path does not start with /');

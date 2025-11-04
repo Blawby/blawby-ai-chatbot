@@ -17,6 +17,9 @@ import { useToastContext } from '../../../contexts/ToastContext';
 import { formatDate } from '../../../utils/dateTime';
 import { useNavigation } from '../../../utils/navigation';
 import { useSession } from '../../../contexts/AuthContext';
+import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
+import { normalizeSeats } from '../../../utils/subscription';
+import { useLocation } from 'preact-iso';
 
 interface OrganizationPageProps {
   className?: string;
@@ -48,6 +51,8 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
+  const location = useLocation();
+  const { openBillingPortal, syncSubscription, submitting } = usePaymentUpgrade();
   
   // Get current user email from session
   const currentUserEmail = session?.user?.email || '';
@@ -92,8 +97,9 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   // Better approach - get role directly from current org context
   const currentMember = useMemo(() => {
     if (!currentOrganization || !currentUserEmail) return null;
-    return members.find(m => m.email.toLowerCase() === currentUserEmail.toLowerCase());
-  }, [currentOrganization, currentUserEmail, members]);
+    return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) || 
+           members.find(m => m.userId === session?.user?.id);
+  }, [currentOrganization, currentUserEmail, members, session?.user?.id]);
 
   const currentUserRole = currentMember?.role || 'paralegal';
   const isOwner = currentUserRole === 'owner';
@@ -123,6 +129,28 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       fetchTokens(currentOrganization.id);
     }
   }, [currentOrganization?.id]); // Only depend on organization ID, not the functions
+
+  // Auto-sync on return from portal
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('sync') === '1' && currentOrganization?.id) {
+      syncSubscription(currentOrganization.id)
+        .then(() => {
+          refetch();
+          showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
+        })
+        .catch((error) => {
+          console.error('Auto-sync failed:', error);
+          // Error already handled by syncSubscription hook
+        })
+        .finally(() => {
+          // Remove sync param to prevent re-trigger (URL hygiene)
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('sync');
+          window.history.replaceState({}, '', newUrl.toString());
+        });
+    }
+  }, [location.search, currentOrganization?.id, syncSubscription, refetch, showSuccess]);
 
   const handleCreateOrganization = async () => {
     if (!createForm.name.trim()) {
@@ -400,7 +428,12 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
               {/* Team Members Section */}
               <div className="py-3">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Team Members</h3>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Team Members</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Seats used: {members.length} / {normalizeSeats(currentOrganization?.seats)}
+                    </p>
+                  </div>
                   {isAdmin && (
                     <Button 
                       size="sm" 
@@ -411,6 +444,28 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                     </Button>
                   )}
                 </div>
+                
+                {members.length > normalizeSeats(currentOrganization?.seats) && (
+                  <div role="status" aria-live="polite" className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                      You're using {members.length} seats but your plan includes {normalizeSeats(currentOrganization?.seats)}. The billing owner can increase seats in Stripe.
+                      {isOwner && currentOrganization?.stripeCustomerId && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => openBillingPortal({ 
+                            organizationId: currentOrganization.id, 
+                            returnUrl: `${window.location.origin}/settings/organization?sync=1` 
+                          })}
+                          disabled={submitting}
+                          className="ml-2"
+                        >
+                          Manage billing
+                        </Button>
+                      )}
+                    </p>
+                  </div>
+                )}
                 
                 {members.length === 0 && loading ? (
                   <p className="text-xs text-gray-500 dark:text-gray-400">Loading members...</p>

@@ -17,7 +17,9 @@ const OrganizationSchema = z.object({
   updatedAt: z.number().optional(),
   stripeCustomerId: z.string().nullable().optional(), // API can return null
   subscriptionTier: z.string().optional(),
-  seats: z.number().optional()
+  seats: z.number().optional(),
+  kind: z.enum(['personal', 'business']).optional(),
+  subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid']).optional()
 });
 
 const OrganizationsResponseSchema = z.object({

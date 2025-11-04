@@ -93,6 +93,11 @@ async function updateOrganizationSubscriptionMetadata(args: {
       organizationId
     )
     .run();
+
+  // Clear KV cache when status transitions to non-active to prevent stale plan badges
+  if (status !== 'active' && status !== 'trialing') {
+    await clearStripeSubscriptionCache(env, organizationId);
+  }
 }
 
 export async function getStripeSubscriptionCache(
@@ -304,6 +309,49 @@ export async function refreshStripeSubscriptionById(args: {
     // Rethrow with a clearer message while preserving the original error
     throw new Error(
       `Failed to retrieve Stripe subscription ${subscriptionId} for organization ${organizationId}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error }
+    );
+  }
+}
+
+export async function cancelOrganizationSubscription(args: {
+  env: Env;
+  organizationId: string;
+}): Promise<void> {
+  const { env, organizationId } = args;
+  const stripeEnabled =
+    env.ENABLE_STRIPE_SUBSCRIPTIONS === true || env.ENABLE_STRIPE_SUBSCRIPTIONS === 'true';
+
+  if (!stripeEnabled || !env.STRIPE_SECRET_KEY) {
+    throw new Error('Stripe integration disabled or credentials missing');
+  }
+
+  // Get the subscription for this organization
+  const subscriptionRecord = await env.DB.prepare(
+    `SELECT stripe_subscription_id, stripe_customer_id
+     FROM subscriptions
+     WHERE reference_id = ? AND status IN ('active', 'trialing')
+     LIMIT 1`
+  )
+    .bind(organizationId)
+    .first<{ stripe_subscription_id: string | null; stripe_customer_id: string | null }>();
+
+  if (!subscriptionRecord?.stripe_subscription_id) {
+    throw new Error('No active subscription found for organization');
+  }
+
+  const client = getOrCreateStripeClient(env);
+
+  try {
+    // Cancel the subscription immediately
+    await client.subscriptions.cancel(subscriptionRecord.stripe_subscription_id, {
+      idempotencyKey: `cancel-sub-${subscriptionRecord.stripe_subscription_id}-${Date.now()}`
+    });
+  } catch (error) {
+    throw new Error(
+      `Failed to cancel subscription: ${
         error instanceof Error ? error.message : String(error)
       }`,
       { cause: error }
