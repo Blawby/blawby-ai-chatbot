@@ -128,12 +128,23 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       fetchMembersData();
       fetchTokens(currentOrganization.id);
     }
-  }, [currentOrganization?.id]); // Only depend on organization ID, not the functions
+  }, [currentOrganization, fetchMembers, fetchTokens, showError]);
 
   // Auto-sync on return from portal
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('sync') === '1' && currentOrganization?.id) {
+    const syncParam = (() => {
+      const q = (location as unknown as { query?: Record<string, unknown> } | undefined)?.query;
+      if (q && typeof q === 'object' && 'sync' in q) {
+        const v = (q as Record<string, unknown>)['sync'] as unknown;
+        const val = Array.isArray(v) ? v[0] : (v as string | undefined);
+        return val;
+      }
+      if (typeof window !== 'undefined') {
+        return new URLSearchParams(window.location.search).get('sync') ?? undefined;
+      }
+      return undefined;
+    })();
+    if (String(syncParam) === '1' && currentOrganization?.id) {
       syncSubscription(currentOrganization.id)
         .then(() => {
           refetch();
@@ -150,7 +161,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
           window.history.replaceState({}, '', newUrl.toString());
         });
     }
-  }, [location.search, currentOrganization?.id, syncSubscription, refetch, showSuccess]);
+  }, [location, currentOrganization?.id, syncSubscription, refetch, showSuccess]);
 
   const handleCreateOrganization = async () => {
     if (!createForm.name.trim()) {
@@ -448,17 +459,17 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                 {members.length > normalizeSeats(currentOrganization?.seats) && (
                   <div role="status" aria-live="polite" className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      You're using {members.length} seats but your plan includes {normalizeSeats(currentOrganization?.seats)}. The billing owner can increase seats in Stripe.
+                      You&apos;re using {members.length} seats but your plan includes {normalizeSeats(currentOrganization?.seats)}. The billing owner can increase seats in Stripe.
                       {isOwner && currentOrganization?.stripeCustomerId && (
                         <Button
-                          variant="link"
+                          variant="ghost"
                           size="sm"
                           onClick={() => openBillingPortal({ 
                             organizationId: currentOrganization.id, 
                             returnUrl: `${window.location.origin}/settings/organization?sync=1` 
                           })}
                           disabled={submitting}
-                          className="ml-2"
+                          className="ml-2 underline text-blue-600 hover:text-blue-700"
                         >
                           Manage billing
                         </Button>

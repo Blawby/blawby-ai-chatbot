@@ -372,16 +372,15 @@ export async function applyStripeSubscriptionUpdate(args: {
   const normalizedStatus = normalizeSubscriptionStatus(stripeSubscription.status);
   const seats = primaryItem?.quantity ?? 1;
 
-  const items = stripeSubscription.items?.data ?? [];
-  const periodStarts = items
-    .map((item) => item.current_period_start)
-    .filter((start): start is number => typeof start === "number" && start > 0);
-  const periodEnds = items
-    .map((item) => item.current_period_end)
-    .filter((end): end is number => typeof end === "number" && end > 0);
-
-  const periodStart = periodStarts.length > 0 ? Math.min(...periodStarts) : null;
-  const periodEnd = periodEnds.length > 0 ? Math.max(...periodEnds) : null;
+  // Use top-level subscription period bounds, not item-level (items.* don't have these fields)
+  const periodStart =
+    typeof (stripeSubscription as any).current_period_start === 'number' && (stripeSubscription as any).current_period_start > 0
+      ? (stripeSubscription as any).current_period_start
+      : null;
+  const periodEnd =
+    typeof (stripeSubscription as any).current_period_end === 'number' && (stripeSubscription as any).current_period_end > 0
+      ? (stripeSubscription as any).current_period_end
+      : null;
 
   const cache = await upsertSubscriptionRecord({
     env,

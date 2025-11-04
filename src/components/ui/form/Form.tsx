@@ -62,7 +62,7 @@ export interface FormProps<T extends FormData = FormData> {
 
 export function Form<T extends FormData = FormData>({
   children,
-  initialData = {},
+  initialData,
   onSubmit,
   onSubmitError,
   schema,
@@ -72,22 +72,22 @@ export function Form<T extends FormData = FormData>({
   validateOnBlur = false,
   requiredFields
 }: FormProps<T>) {
-  const [data, setData] = useState<T>(initialData as T);
+  const [data, setData] = useState<T>((initialData ?? ({} as T)) as T);
   const [errors, setErrors] = useState<FormError[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   
   // Store previous initialData to compare content changes
-  const prevInitialDataRef = useRef<T>(initialData as T);
+  const prevInitialDataRef = useRef<T>((initialData ?? ({} as T)) as T);
 
   // Rehydrate form when initialData content actually changes
   useEffect(() => {
     // Only reset if the content has actually changed (deep equality check)
-    if (!deepEqual(prevInitialDataRef.current, initialData)) {
-      setData(initialData);
+    if (!deepEqual(prevInitialDataRef.current, (initialData ?? ({} as T)) as T)) {
+      setData((initialData ?? ({} as T)) as T);
       setErrors([]); // Clear any stale validation errors
       setSubmissionError(null); // Clear any stale submission errors
-      prevInitialDataRef.current = initialData;
+      prevInitialDataRef.current = (initialData ?? ({} as T)) as T;
     }
   }, [initialData]);
 
@@ -202,11 +202,11 @@ export function Form<T extends FormData = FormData>({
   }, []);
 
   const reset = useCallback(() => {
-    setData(initialData);
+    setData((initialData ?? ({} as T)) as T);
     setErrors([]);
     setIsSubmitting(false);
     setSubmissionError(null);
-    prevInitialDataRef.current = initialData;
+    prevInitialDataRef.current = (initialData ?? ({} as T)) as T;
   }, [initialData]);
 
   const onFieldBlur = useCallback((field: string) => {

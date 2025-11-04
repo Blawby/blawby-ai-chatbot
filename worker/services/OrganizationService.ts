@@ -24,7 +24,8 @@ export type SubscriptionLifecycleStatus =
   | 'canceled'
   | 'incomplete'
   | 'incomplete_expired'
-  | 'unpaid';
+  | 'unpaid'
+  | 'paused';
 
 export interface Organization {
   id: string;
@@ -528,6 +529,7 @@ export class OrganizationService {
     switch (normalized) {
       case 'active':
       case 'trialing':
+      case 'paused':
       case 'past_due':
       case 'canceled':
       case 'incomplete':

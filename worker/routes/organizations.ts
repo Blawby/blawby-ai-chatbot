@@ -320,8 +320,10 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       }
       
       // Verify user is a member
-      const membership = await organizationService.getOrganizationMembership(authContext.user.id, activeOrgId);
-      if (!membership) {
+      const membershipRow = await env.DB.prepare(
+        `SELECT role FROM members WHERE organization_id = ? AND user_id = ? LIMIT 1`
+      ).bind(activeOrgId, authContext.user.id).first<{ role: string }>();
+      if (!membershipRow) {
         return createSuccessResponse({ activeOrganizationId: null });
       }
       
@@ -1034,7 +1036,6 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           }
           
           await requireOrgOwner(request, env, targetOrganization.id);
-          await requireActiveBusinessOrganization(request, env, targetOrganization.id, 'team');
           return await deleteOrganization(organizationService, targetOrganization.id);
         }
         console.log('DELETE path does not start with /');
@@ -1204,7 +1205,6 @@ async function createOrganization(
       stripeCustomerId: body.stripeCustomerId,
       subscriptionTier: body.subscriptionTier,
       seats: body.seats,
-      isPersonal: false,
     });
 
     if (userId) {

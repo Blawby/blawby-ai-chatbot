@@ -113,7 +113,7 @@ describe('Better Auth Signup Integration', () => {
           o.id,
           o.name,
           o.slug,
-          o.is_personal,
+          o.kind,
           o.subscription_tier,
           o.seats,
           (
@@ -125,21 +125,21 @@ describe('Better Auth Signup Integration', () => {
           ) AS subscription_status
         FROM organizations o
         INNER JOIN members m ON o.id = m.organization_id
-        WHERE m.user_id = ? AND o.is_personal = 1
+        WHERE m.user_id = ? AND o.kind = 'personal'
         ORDER BY o.created_at ASC
         LIMIT 1
       `).bind(userId).first<{
         id: string;
         name: string;
         slug: string | null;
-        is_personal: number;
+        kind: string;
         subscription_tier: string | null;
         seats: number;
         subscription_status: string | null;
       }>();
 
       expect(orgRow).toBeDefined();
-      expect(orgRow?.is_personal).toBe(1);
+      expect(orgRow?.kind).toBe('personal');
       expect(orgRow?.subscription_tier).toBe('free');
       expect(orgRow?.subscription_status).toBeNull(); // Maps to 'none'
 
@@ -267,7 +267,7 @@ describe('Better Auth Signup Integration', () => {
       // Get cookies and sign in
       const cookies = signupResponse.headers.get('set-cookie') || '';
       const signinResponse = await handleRequest(
-        new Request('http://localhost/api/auth/sign-in', {
+        new Request('http://localhost/api/auth/sign-in/email', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -334,7 +334,7 @@ describe('Better Auth Signup Integration', () => {
           'SELECT id FROM sessions WHERE user_id = ? AND id = ?'
         ).bind(userRow.id, sessionToken).first<{ id: string }>();
 
-        expect(sessionRow).toBeNull();
+        expect(sessionRow).toBeUndefined();
       }
 
       // Verify /api/auth/get-session returns null

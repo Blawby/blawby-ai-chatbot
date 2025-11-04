@@ -154,6 +154,11 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
       ? raw.subscription_tier
       : null;
 
+  const allowedTiers = new Set(['free', 'plus', 'business', 'enterprise']);
+  const normalizedTier = (typeof subscriptionTier === 'string' && allowedTiers.has(subscriptionTier))
+    ? (subscriptionTier as Organization['subscriptionTier'])
+    : null;
+
   const seats = typeof raw.seats === 'number'
     ? raw.seats
     : typeof raw.seats === 'string' && raw.seats.trim().length > 0
@@ -166,7 +171,7 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     name,
     description: typeof raw.description === 'string' ? raw.description : undefined,
     stripeCustomerId: (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null) as string | null,
-    subscriptionTier,
+    subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
     config: typeof raw.config === 'object' && raw.config !== null ? raw.config as Organization['config'] : undefined,
@@ -499,7 +504,15 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       // Validate with Zod schema
       try {
         const validatedData = membersResponseSchema.parse(data);
-        setMembers(prev => ({ ...prev, [orgId]: validatedData.members || [] }));
+        const normalizedMembers: Member[] = (validatedData.members || []).map(m => ({
+          userId: m.userId,
+          role: m.role,
+          email: m.email ?? '',
+          name: m.name ?? undefined,
+          image: m.image ?? undefined,
+          createdAt: m.createdAt,
+        }));
+        setMembers(prev => ({ ...prev, [orgId]: normalizedMembers }));
       } catch (error) {
         console.error('Invalid members data:', data, error);
         setMembers(prev => ({ ...prev, [orgId]: [] }));

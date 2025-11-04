@@ -108,7 +108,7 @@ export async function handlePayment(request: Request, env: Env): Promise<Respons
           name: organizationName.trim(),
           slug: slug?.trim(),
           config: baseConfig,
-          isPersonal: false,
+          kind: 'business',
         });
 
         // Ensure the upgrading user is the owner.

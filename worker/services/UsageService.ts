@@ -1,4 +1,5 @@
 import type { Env, OrganizationKind, SubscriptionLifecycleStatus } from "../types.js";
+import { normalizeSubscriptionStatus } from "../utils/subscription";
 import { TIER_LIMITS, PUBLIC_ORGANIZATION_LIMITS, type TierName } from "../config/tiers.js";
 
 type UsageMetric = "messages" | "files";
@@ -33,25 +34,7 @@ export interface QuotaInfo {
 const DEFAULT_TIER: TierName = "free";
 const PUBLIC_ORG_SLUG = "blawby-ai";
 
-const VALID_SUBSCRIPTION_STATUSES = new Set<SubscriptionLifecycleStatus>([
-  "active",
-  "trialing",
-  "past_due",
-  "canceled",
-  "incomplete",
-  "incomplete_expired",
-  "unpaid",
-]);
-
-function normalizeSubscriptionStatus(status: unknown): SubscriptionLifecycleStatus {
-  if (typeof status !== "string") {
-    return "none";
-  }
-  const normalized = status.trim().toLowerCase();
-  return (VALID_SUBSCRIPTION_STATUSES.has(normalized as SubscriptionLifecycleStatus)
-    ? (normalized as SubscriptionLifecycleStatus)
-    : "none");
-}
+// Subscription status normalization is centralized in ../utils/subscription
 
 export interface OrganizationUsageMetadata {
   id: string;

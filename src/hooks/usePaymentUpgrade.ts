@@ -381,41 +381,18 @@ export const usePaymentUpgrade = () => {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upgrade failed';
         
-        // Try to parse structured error response
-        let errorCode: SubscriptionErrorCode | null = null;
-        let errorMessage = message;
-        
+        // Try to parse structured error response and bubble it up
         try {
           const parsedError = JSON.parse(message);
-          if (parsedError.errorCode && Object.values(SubscriptionErrorCode).includes(parsedError.errorCode)) {
-            errorCode = parsedError.errorCode as SubscriptionErrorCode;
-            errorMessage = parsedError.message || message;
+          if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
+            const code = (parsedError as { errorCode?: string }).errorCode;
+            if (code && Object.values(SubscriptionErrorCode).includes(code as SubscriptionErrorCode)) {
+              // Bubble structured errors so upstream (Better Auth/UI) can surface proper status (e.g., 402)
+              throw err;
+            }
           }
         } catch {
-          // Not a structured error, fall back to string matching for backward compatibility
-        }
-
-        // Handle specific error codes with robust logic
-        if (errorCode === SubscriptionErrorCode.SUBSCRIPTION_ALREADY_ACTIVE) {
-          await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
-          return;
-        }
-
-        if (errorCode === SubscriptionErrorCode.EMAIL_VERIFICATION_REQUIRED) {
-          setError(errorMessage);
-          showError(
-            'Verify Email',
-            'Please verify your email address before upgrading. Check your inbox for the verification link.'
-          );
-          return;
-        }
-
-        // Handle other specific error codes
-        if (errorCode) {
-          setError(errorMessage);
-          const title = getErrorTitle(errorCode);
-          showError(title, errorMessage);
-          return;
+          // Not a structured error, fall through to legacy handling
         }
 
         // Fallback to original string matching for backward compatibility

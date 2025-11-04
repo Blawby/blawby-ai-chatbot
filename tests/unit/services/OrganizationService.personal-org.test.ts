@@ -20,14 +20,14 @@ const mockEnv: Env = {
   PARALEGAL_TASKS: {} as any,
 } as Env;
 
-// Mock crypto.randomUUID
+// Mock crypto.randomUUID (cast to satisfy template literal return type expectations)
 const mockRandomUUID = vi.fn(() => 'test-uuid-123');
 if (globalThis.crypto && globalThis.crypto.randomUUID) {
-  vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(mockRandomUUID);
+  vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(mockRandomUUID as unknown as () => `${string}-${string}-${string}-${string}-${string}`);
 } else {
   // If crypto doesn't exist, create it
   (globalThis as any).crypto = {
-    randomUUID: mockRandomUUID
+    randomUUID: mockRandomUUID as unknown as () => `${string}-${string}-${string}-${string}-${string}`
   };
 }
 
@@ -243,8 +243,7 @@ describe('OrganizationService - Personal Organization', () => {
 
       const org = await organizationService.createPersonalOrganizationForUser(userId, userName);
 
-      expect(org.isPersonal).toBe(true);
-      expect(org.kind).toBe('personal');
+      expect(org?.kind).toBe('personal');
     });
 
     it('should derive kind as "business" when isPersonal is false', async () => {

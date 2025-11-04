@@ -6,8 +6,6 @@ import {
   clearStripeSubscriptionCache,
   refreshStripeSubscriptionById,
   cancelOrganizationSubscription,
-  getOrCreateStripeClient,
-  applyStripeSubscriptionUpdate,
 } from "../services/SubscriptionService.js";
 
 interface SyncSubscriptionRequest {

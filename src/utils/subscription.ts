@@ -66,7 +66,7 @@ export function normalizeSubscriptionStatus(
   fallbackKind: SubscriptionKind = 'personal'
 ): SubscriptionLifecycleStatus {
   if (typeof status !== 'string' || status.trim().length === 0) {
-    return fallbackKind === 'business' ? 'active' : 'none';
+    return 'none';
   }
 
   const lowered = status.toLowerCase();
@@ -74,7 +74,7 @@ export function normalizeSubscriptionStatus(
     return lowered as SubscriptionLifecycleStatus;
   }
 
-  return fallbackKind === 'business' ? 'active' : 'none';
+  return 'none';
 }
 
 export function isBusinessOrganization(kind?: string | null, isPersonal?: boolean | null): boolean {

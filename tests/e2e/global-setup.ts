@@ -13,6 +13,15 @@ async function globalSetup(config: FullConfig) {
       if (response.ok) {
         console.log('✅ Worker is running and healthy');
         break;
+      } else {
+        if (i === maxRetries - 1) {
+          throw new Error(
+            `Worker health check failed after ${maxRetries} attempts. ` +
+            `Make sure wrangler is running: npm run dev:worker:clean`
+          );
+        }
+        console.log(`⏳ Waiting for worker... (attempt ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     } catch (error) {
       if (i === maxRetries - 1) {

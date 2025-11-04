@@ -11,7 +11,6 @@ import { PricingSummary } from '../ui/cards/PricingSummary';
 import {
   describeSubscriptionPlan,
   hasManagedSubscription,
-  resolveOrganizationKind,
 } from '../../utils/subscription';
 
 export const CartPage = () => {
@@ -58,7 +57,6 @@ export const CartPage = () => {
     new URLSearchParams(window.location.search).get('forcePaid') === '1' ||
     (typeof localStorage !== 'undefined' && localStorage.getItem('forcePaid') === '1')
   );
-  const resolvedKind = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
   const managedSubscription = hasManagedSubscription(
     currentOrganization?.kind,
     currentOrganization?.subscriptionStatus,
