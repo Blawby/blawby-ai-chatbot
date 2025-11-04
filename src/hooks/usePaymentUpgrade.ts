@@ -381,18 +381,19 @@ export const usePaymentUpgrade = () => {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upgrade failed';
         
-        // Try to parse structured error response and bubble it up
-        try {
-          const parsedError = JSON.parse(message);
-          if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
-            const code = (parsedError as { errorCode?: string }).errorCode;
-            if (code && Object.values(SubscriptionErrorCode).includes(code as SubscriptionErrorCode)) {
-              // Bubble structured errors so upstream (Better Auth/UI) can surface proper status (e.g., 402)
-              throw err;
+        // Try to parse structured error response; if detected, rethrow to bubble up
+        {
+          try {
+            const parsedError = JSON.parse(message);
+            if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
+              const code = (parsedError as { errorCode?: string }).errorCode;
+              if (code && Object.values(SubscriptionErrorCode).includes(code as SubscriptionErrorCode)) {
+                throw err; // bubble structured errors
+              }
             }
+          } catch {
+            // JSON.parse failed or not structured; continue with legacy handling below
           }
-        } catch {
-          // Not a structured error, fall through to legacy handling
         }
 
         // Fallback to original string matching for backward compatibility

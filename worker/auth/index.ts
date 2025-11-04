@@ -147,6 +147,15 @@ let authInstance: ReturnType<typeof betterAuth> | null = null;
  * This forces Better Auth to reinitialize with a new env configuration
  */
 export function resetAuthInstance(): void {
+  const envName = (typeof process !== 'undefined' && process.env && typeof process.env.NODE_ENV === 'string')
+    ? process.env.NODE_ENV
+    : undefined;
+  if (envName === 'production') {
+    // Guard: never reset the auth singleton in production
+    // eslint-disable-next-line no-console
+    console.warn('resetAuthInstance skipped in production environment');
+    return;
+  }
   authInstance = null;
 }
 
@@ -471,6 +480,7 @@ export async function getAuth(env: Env, request?: Request) {
                   });
                 } catch (error) {
                   console.error('❌ Error in onSubscriptionComplete:', error);
+                  throw error instanceof Error ? error : new Error(String(error));
                 }
               },
               onSubscriptionUpdate: async ({ event, subscription }) => {
@@ -484,6 +494,7 @@ export async function getAuth(env: Env, request?: Request) {
                   });
                 } catch (error) {
                   console.error('❌ Error in onSubscriptionUpdate:', error);
+                  throw error instanceof Error ? error : new Error(String(error));
                 }
               },
               onSubscriptionCancel: async ({ stripeSubscription, subscription }) => {
@@ -496,6 +507,7 @@ export async function getAuth(env: Env, request?: Request) {
                   });
                 } catch (error) {
                   console.error('❌ Error in onSubscriptionCancel:', error);
+                  throw error instanceof Error ? error : new Error(String(error));
                 }
               },
               onSubscriptionDeleted: async ({ subscription }) => {
@@ -505,6 +517,7 @@ export async function getAuth(env: Env, request?: Request) {
                   }
                 } catch (error) {
                   console.error('❌ Error in onSubscriptionDeleted:', error);
+                  throw error instanceof Error ? error : new Error(String(error));
                 }
               },
               getCheckoutSessionParams: async (params) => {
@@ -575,7 +588,18 @@ export async function getAuth(env: Env, request?: Request) {
                   };
                 } catch (error) {
                   console.error('❌ Error in getCheckoutSessionParams:', error);
-                  // Return default params even on error to prevent checkout from failing
+                  // If this is a structured preflight error, bubble it up so the caller can surface a 402
+                  if (error instanceof Error && typeof error.message === 'string') {
+                    try {
+                      const parsed = JSON.parse(error.message);
+                      if (parsed && typeof parsed === 'object' && (parsed.code || parsed.errorCode)) {
+                        throw error;
+                      }
+                    } catch {
+                      // Not structured JSON; continue to return default params
+                    }
+                  }
+                  // Return default params for unexpected errors to prevent checkout from failing
                   return {
                     params: {
                       allow_promotion_codes: true,

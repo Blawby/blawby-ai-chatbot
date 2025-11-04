@@ -466,7 +466,7 @@ export class UsageService {
       id: String(row.id),
       slug: row.slug ? String(row.slug) : null,
       tier: (tier && TIER_LIMITS[tier] ? tier : DEFAULT_TIER),
-      kind: Boolean(row.is_personal) ? 'personal' as OrganizationKind : 'business',
+      kind: row.is_personal ? 'personal' as OrganizationKind : 'business',
       subscriptionStatus: normalizeSubscriptionStatus(row.subscription_status),
     };
   }

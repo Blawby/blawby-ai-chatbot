@@ -72,24 +72,6 @@ export const CartPage = () => {
   );
   const displayPlanLabel = devForcePaid ? 'Paid Plan (dev)' : planLabel;
 
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      try {
-        console.debug('[CART][DEBUG]', {
-          path: typeof window !== 'undefined' ? window.location.pathname : 'n/a',
-          search: typeof window !== 'undefined' ? window.location.search : 'n/a',
-          devForcePaid,
-          tier: currentOrganization?.subscriptionTier,
-          status: currentOrganization?.subscriptionStatus,
-          orgId: currentOrganization?.id,
-        });
-      } catch (e) {
-        // no-op: debug logging failed
-        console.warn('[CART][DEBUG] log failed:', e);
-      }
-    }
-  }, [devForcePaid, currentOrganization?.subscriptionTier, currentOrganization?.id]);
-
   const handleManageBilling = useCallback(async () => {
     if (!currentOrganization?.id) return;
     try {
@@ -103,7 +85,7 @@ export const CartPage = () => {
     }
   }, [currentOrganization?.id, openBillingPortal, showError]);
 
-  // If org is already on paid tier, show Manage Billing immediately (even before pricing loads)
+  // If org is already on paid tier, define paid UI state and return early (before any pricing load/error logic)
   const paidState = isPaidTier ? (
       <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-paid-state="cart-paid-state">
         <header className="py-4">
@@ -128,6 +110,32 @@ export const CartPage = () => {
         </main>
       </div>
     ) : null;
+
+  if (isPaidTier) {
+    return paidState;
+  }
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      try {
+        console.debug('[CART][DEBUG]', {
+          path: typeof window !== 'undefined' ? window.location.pathname : 'n/a',
+          search: typeof window !== 'undefined' ? window.location.search : 'n/a',
+          devForcePaid,
+          tier: currentOrganization?.subscriptionTier,
+          status: currentOrganization?.subscriptionStatus,
+          orgId: currentOrganization?.id,
+        });
+      } catch (e) {
+        // no-op: debug logging failed
+        console.warn('[CART][DEBUG] log failed:', e);
+      }
+    }
+  }, [devForcePaid, currentOrganization?.subscriptionTier, currentOrganization?.subscriptionStatus, currentOrganization?.id]);
+
+  // (handleManageBilling moved above)
+
+  // (paidState definition moved above for early return)
 
   useEffect(() => {
 
@@ -208,10 +216,7 @@ export const CartPage = () => {
   const discount = isAnnual ? subtotal - annualTotal : 0;
   const total = isAnnual ? annualTotal : subtotal;
 
-  // Early return: if already on a paid tier, show billing/manage UI only (before any loading UI)
-  if (isPaidTier) {
-    return paidState;
-  }
+  // (early return moved above before pricing load/error checks)
 
   const handleContinue = async () => {
     try {

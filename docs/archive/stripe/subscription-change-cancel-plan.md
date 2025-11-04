@@ -239,7 +239,11 @@ export const getSubscriptionSyncEndpoint = () => {
   - Keep webhook as source of truth; continue calling `refreshStripeSubscriptionById` via the existing sync route when UI returns.
   - **Owner enforcement:** Ensure `/api/auth/subscription/billing-portal` endpoint enforces owner role (mirrors sync route's `requireOrgOwner`).
   - **KV cache invalidation:** Clear cache on non-active status transitions (`status` ∉ {`active`, `trialing`}) to prevent stale plan badges after cancel.
-  - **Multiple subscriptions:** If >1 active sub exists, choose deterministic winner (e.g., newest by `current_period_start`) in sync helpers.
+  - **Multiple subscriptions:** If >1 active subscription exists, resolve deterministically via authoritative mappings and metadata rather than timestamps:
+    - Persist `subscription_id ↔ resource_id` (and `resource_type`) mappings in your app DB at creation time (e.g., when starting checkout/portal flows).
+    - Attach deterministic metadata to Stripe subscriptions (e.g., `reference_id`, `resource_type`) so webhook events include identifiers.
+    - On webhook/sync, look up the incoming `subscription_id` against your DB mapping to identify the owning resource, instead of comparing `current_period_start`.
+    - See Stripe guidance: [Subscription management best practices](https://stripe.com/docs/billing/subscriptions/best-practices).
   - No new endpoints are required to satisfy 1a/2b with the current architecture.
 
 ## Frontend display of subscription plan and seats
@@ -483,8 +487,13 @@ useEffect(() => {
     syncSubscription(currentOrganization.id)
       .then(() => {
         refetch();
-        // Show success toast
+        // Show success toast only on success
         showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
+      })
+      .catch((err) => {
+        // Log and surface errors; do not swallow silently
+        console.error('Auto-sync failed:', err);
+        showError('Subscription sync failed', err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
         setSubmitting(false);
@@ -603,7 +612,11 @@ const isAuthorized = membership.role === "owner";
 
 **2. Cancellation downgrade (`worker/services/SubscriptionService.ts`):** handled by `clearStripeSubscriptionCache`, which now stamps the subscription row as canceled and downgrades the organization directly—no KV clearing loop.
 
-**3. Multiple subscriptions handling (`worker/services/SubscriptionService.ts`):** If we reintroduce customer-based reconciliation, pick the latest subscription deterministically (e.g., sort by `current_period_start`).
+**3. Multiple subscriptions handling (`worker/services/SubscriptionService.ts`):** If customer-based reconciliation is needed, avoid timestamp heuristics. Instead:
+  - Use DB-stored `subscription_id ↔ reference_id` mappings created at subscription setup.
+  - Include identifying metadata on Stripe subscriptions (e.g., `reference_id`, `resource_type`).
+  - During webhook/sync, resolve the owning resource by querying your DB with the `subscription_id` from the event payload.
+  - Reference: [Stripe subscription best practices](https://stripe.com/docs/billing/subscriptions/best-practices).
 
 **4. Sync endpoint role check:** Already enforced via `requireOrgOwner` in `worker/routes/subscription.ts:46`.
 
@@ -624,7 +637,9 @@ const isAuthorized = membership.role === "owner";
 - ✅ `displayPlan()` and `normalizeSeats()` utilities shared across components.
 - ✅ Buttons disable during sync (`submitting` state), ARIA status for accessibility.
 - ✅ No first-party plan/seat update endpoints added.
-- ✅ Owner enforcement on both `/api/subscription/sync` and `/api/auth/subscription/billing-portal`.
+- ✅ Owner enforcement status is explicit:
+  - `/api/subscription/sync` already enforces owners via `requireOrgOwner` (see notes near line 608).
+  - `/api/auth/subscription/billing-portal` requires hardening to owners-only (see guidance near line 240).
 
 ### Why this matches the branch
 

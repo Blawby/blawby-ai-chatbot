@@ -1213,7 +1213,18 @@ useEffect(() => {
 +    
 +    const userId = session?.user?.id;
 +    
-+    broadcastChannelRef.current = new BroadcastChannel('welcome');
++    // Feature-detect BroadcastChannel; safely degrade on unsupported browsers
++    if ('BroadcastChannel' in window) {
++      try {
++        broadcastChannelRef.current = new BroadcastChannel('welcome');
++      } catch (err) {
++        console.warn('[WelcomeModal] BroadcastChannel init failed; degrading to sessionStorage only:', err);
++        broadcastChannelRef.current = null;
++      }
++    } else {
++      console.info('[WelcomeModal] BroadcastChannel unsupported; using sessionStorage-only suppression');
++      broadcastChannelRef.current = null;
++    }
 +    const channel = broadcastChannelRef.current;
 +    
 +    // Listen for cross-tab welcome events
@@ -1230,11 +1241,12 @@ useEffect(() => {
 +      }
 +    };
 +    
-+    channel.addEventListener('message', handleMessage);
++    channel?.addEventListener('message', handleMessage);
 +    
 +    return () => {
-+      channel.removeEventListener('message', handleMessage);
-+      channel.close();
++      channel?.removeEventListener('message', handleMessage);
++      try { channel?.close(); } catch { /* ignore */ }
++      broadcastChannelRef.current = null;
 +    };
 +  }, [session?.user?.id]);
 +
@@ -1324,12 +1336,15 @@ useEffect(() => {
 +      // This allows retries if sessionStorage fails
 +      hasMarkedRef.current = true;
 +      
-+      // Broadcast to other tabs on same device
-+      if (broadcastChannelRef.current) {
-+        broadcastChannelRef.current.postMessage({
++      // Broadcast to other tabs on same device (if supported)
++      try {
++        broadcastChannelRef.current?.postMessage({
 +          type: 'welcomed',
 +          userId,
 +        });
++      } catch (err) {
++        // Non-fatal; continue with sessionStorage-only path
++        console.warn('[WelcomeModal] BroadcastChannel postMessage failed:', err);
 +      }
 +      
 +      // Fire-and-forget API call with NO request body (server derives userId from session)

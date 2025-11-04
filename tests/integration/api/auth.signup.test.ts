@@ -29,6 +29,16 @@ interface SessionData {
   } | null;
 }
 
+async function waitForUserInDb(db: D1Database, email: string, timeoutMs = 10000, intervalMs = 200): Promise<{ id: string }> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const row = await db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first<{ id: string }>();
+    if (row?.id) return row;
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+  }
+  throw new Error(`Timed out waiting for user row for ${email}`);
+}
+
 describe('Better Auth Signup Integration', () => {
   let testEmail: string;
   let testPassword: string;
@@ -80,12 +90,11 @@ describe('Better Auth Signup Integration', () => {
       }
       expect(signupResponse.ok).toBe(true);
       
-      // Wait for async hooks to complete (Better Auth hooks can take time)
-      // Need longer wait for D1 writes to be visible and session to be committed
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait for async hooks to complete by polling for user row in D1
+      const db = (env as { DB: D1Database }).DB;
+      await waitForUserInDb(db, testEmail, 10000, 200);
 
       // Query D1 to verify organization was created
-      const db = (env as { DB: D1Database }).DB;
       
       // Find the user ID - Better Auth may use memory adapter in tests, so check both D1 and try to get from response
       let userRow = await db.prepare(
@@ -183,8 +192,9 @@ describe('Better Auth Signup Integration', () => {
 
       expect(signupResponse.ok).toBe(true);
       
-      // Wait for hooks to complete (Better Auth hooks can take time)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait for user creation to be visible before sign-in by polling D1
+      const db = (env as { DB: D1Database }).DB;
+      await waitForUserInDb(db, testEmail, 10000, 200);
 
       // Get cookies from signup response
       const cookies = signupResponse.headers.get('set-cookie') || '';

@@ -102,7 +102,7 @@ export async function setActiveOrganizationForSession(
       // Just update by session ID - we trust Better Auth that this session belongs to the user
       const result = await env.DB.prepare(
         `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
-      ).bind(targetOrgId, new Date(), sessionId, userId).run();
+      ).bind(targetOrgId, new Date().toISOString(), sessionId, userId).run();
       
       // D1Result.run() returns { success: boolean, meta: { changes: number } }
       if (!result.success) {

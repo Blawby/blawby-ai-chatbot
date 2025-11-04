@@ -40,8 +40,7 @@ function validateRequest(request: Request): boolean {
   }
   
   // Check for valid content type on POST requests
-  // Skip this check for Better Auth endpoints - they handle their own validation
-  if (request.method === 'POST' && !path.startsWith('/api/auth/')) {
+  if (request.method === 'POST') {
     const contentType = request.headers.get('content-type');
     if (!contentType) {
       return false;

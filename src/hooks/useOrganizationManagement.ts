@@ -170,11 +170,20 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     slug,
     name,
     description: typeof raw.description === 'string' ? raw.description : undefined,
-    stripeCustomerId: (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null) as string | null,
+    stripeCustomerId: (() => {
+      const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
+      return typeof val === 'string' && val.trim().length > 0 ? val : null;
+    })(),
     subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
-    config: typeof raw.config === 'object' && raw.config !== null ? raw.config as Organization['config'] : undefined,
+    config: (() => {
+      const cfg = (raw as Record<string, unknown>).config as unknown;
+      if (cfg && typeof cfg === 'object' && !Array.isArray(cfg)) {
+        return cfg as Organization['config'];
+      }
+      return undefined;
+    })(),
     kind: resolvedKind,
     isPersonal: rawIsPersonal ?? (resolvedKind === 'personal'),
   };
@@ -365,7 +374,8 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
       const rawOrgList = Array.isArray(data) ? data : [];
       const normalizedList = rawOrgList
-        .map((org) => normalizeOrganizationRecord(org as Record<string, unknown>))
+        .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item))
+        .map((org) => normalizeOrganizationRecord(org))
         .filter((org) => org.id.length > 0);
 
       if (normalizedList.some(org => org.kind === 'personal')) {

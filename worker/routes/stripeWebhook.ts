@@ -17,6 +17,26 @@ const HANDLED_EVENT_TYPES = new Set<string>([
   "customer.subscription.trial_will_end",
 ]);
 
+async function checkIfEventProcessed(env: Env, eventId: string): Promise<boolean> {
+  try {
+    const key = `stripe:webhook:event:${eventId}`;
+    const found = await env.USAGE_QUOTAS.get(key);
+    return Boolean(found);
+  } catch (err) {
+    console.warn("⚠️ Failed to check idempotency for Stripe event", { eventId, err });
+    return false;
+  }
+}
+
+async function markEventAsProcessed(env: Env, eventId: string, ttlSeconds: number = 48 * 60 * 60): Promise<void> {
+  try {
+    const key = `stripe:webhook:event:${eventId}`;
+    await env.USAGE_QUOTAS.put(key, "1", { expirationTtl: ttlSeconds });
+  } catch (err) {
+    console.warn("⚠️ Failed to mark Stripe event as processed", { eventId, err });
+  }
+}
+
 function getSubscriptionFromEvent(event: Stripe.Event): Stripe.Subscription | null {
   const data = event.data?.object;
   if (!data) {
@@ -86,6 +106,11 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
     throw HttpErrors.badRequest("Invalid Stripe webhook signature");
   }
 
+  // Idempotency: bail early if we've already processed this event id recently
+  if (await checkIfEventProcessed(env, event.id)) {
+    return createSuccessResponse({ handled: true, cached: true });
+  }
+
   if (!HANDLED_EVENT_TYPES.has(event.type)) {
     return createSuccessResponse({ handled: false, eventType: event.type });
   }
@@ -117,6 +142,8 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
         stripeClient: client,
       });
     }
+    // Only mark as processed after successful handling
+    await markEventAsProcessed(env, event.id);
   } catch (error) {
     console.error("❌ Failed to process Stripe webhook", {
       eventType: event.type,

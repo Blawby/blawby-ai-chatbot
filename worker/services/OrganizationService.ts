@@ -517,7 +517,7 @@ export class OrganizationService {
   }
 
   private deriveKind(isPersonalValue: unknown): OrganizationKind {
-    return Boolean(isPersonalValue) ? 'personal' : 'business';
+    return isPersonalValue ? 'personal' : 'business';
   }
 
   private normalizeSubscriptionStatus(status: unknown): SubscriptionLifecycleStatus {
@@ -724,7 +724,6 @@ export class OrganizationService {
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
-            isPersonal: Boolean(row.is_personal),
             kind: this.deriveKind(row.is_personal),
             subscriptionStatus: this.normalizeSubscriptionStatus(row.subscription_status),
             createdAt: new Date(row.created_at as string).getTime(),

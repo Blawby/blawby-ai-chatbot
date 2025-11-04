@@ -373,13 +373,15 @@ export async function applyStripeSubscriptionUpdate(args: {
   const seats = primaryItem?.quantity ?? 1;
 
   // Use top-level subscription period bounds, not item-level (items.* don't have these fields)
+  type PeriodBounds = { current_period_start?: number | null; current_period_end?: number | null };
+  const subWithBounds = stripeSubscription as Stripe.Subscription & PeriodBounds;
   const periodStart =
-    typeof (stripeSubscription as any).current_period_start === 'number' && (stripeSubscription as any).current_period_start > 0
-      ? (stripeSubscription as any).current_period_start
+    typeof subWithBounds.current_period_start === 'number' && subWithBounds.current_period_start > 0
+      ? subWithBounds.current_period_start
       : null;
   const periodEnd =
-    typeof (stripeSubscription as any).current_period_end === 'number' && (stripeSubscription as any).current_period_end > 0
-      ? (stripeSubscription as any).current_period_end
+    typeof subWithBounds.current_period_end === 'number' && subWithBounds.current_period_end > 0
+      ? subWithBounds.current_period_end
       : null;
 
   const cache = await upsertSubscriptionRecord({

@@ -8,7 +8,7 @@ export interface TestUser {
 
 /**
  * Creates a test user via the UI signup flow (navigates to /auth and fills/submits the signup form)
- * Returns the user credentials and saves the storage state
+ * Returns the user credentials; leaves authentication in the current page context
  * Note: This function uses the UI form, not direct API calls
  */
 export async function createTestUser(

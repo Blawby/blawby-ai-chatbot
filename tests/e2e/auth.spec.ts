@@ -97,12 +97,12 @@ test.describe('Better Auth Integration', () => {
     const testPassword = 'TestPassword123!';
 
     await page.goto('/auth');
-    await page.click("text=Don't have an account? Sign up");
-    await page.fill('input[placeholder="Enter your email"]', testEmail);
-    await page.fill('input[placeholder="Enter your full name"]', 'Test User');
-    await page.fill('input[placeholder="Enter your password"]', testPassword);
-    await page.fill('input[placeholder="Confirm your password"]', testPassword);
-    await page.click('button:has-text("Create account")');
+    await page.click('[data-testid="auth-toggle-signup"]');
+    await page.fill('[data-testid="signup-email-input"]', testEmail);
+    await page.fill('[data-testid="signup-name-input"]', 'Test User');
+    await page.fill('[data-testid="signup-password-input"]', testPassword);
+    await page.fill('[data-testid="signup-confirm-password-input"]', testPassword);
+    await page.click('[data-testid="signup-submit-button"]');
 
     await Promise.race([
       page.waitForURL('/', { timeout: 15000 }),
@@ -151,7 +151,7 @@ test.describe('Better Auth Integration', () => {
       throw new Error(`Failed to fetch organizations after sign-in: ${orgsResult.error ?? orgsResult.status}`);
     }
 
-    const personalOrg = orgsResult.data.data?.find((org: { kind?: string }) => org.kind === 'personal');
+    const personalOrg = orgsResult.data.data?.find((org: { kind?: string; isPersonal?: boolean }) => org?.kind === 'personal' || org?.isPersonal === true);
     expect(personalOrg).toBeDefined();
     expect(personalOrg?.kind).toBe('personal');
 
@@ -162,9 +162,9 @@ test.describe('Better Auth Integration', () => {
       },
       body: JSON.stringify({}),
     });
-    // Better Auth sign-out can return 200 (success) or 0 (proxy error before worker responds)
-    // Accept 400 as well (may indicate already signed out or invalid request)
-    expect([0, 200, 400]).toContain(signOutResult.status);
+    // Better Auth sign-out should normally return 200; 400 may indicate idempotent sign-out (already signed out)
+    // Do NOT accept 0 (proxy/network) silently.
+    expect([200, 400]).toContain(signOutResult.status);
 
     const sessionAfterSignOut = await waitForSessionState(
       returningPage,

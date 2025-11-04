@@ -105,6 +105,11 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   const isOwner = currentUserRole === 'owner';
   const isAdmin = (currentUserRole === 'admin' || isOwner) ?? false;
 
+  // SSR-safe origin for return URLs
+  const origin = (typeof window !== 'undefined' && window.location)
+    ? window.location.origin
+    : '';
+
 
   // Current user email is now derived from session - no need for useEffect
 
@@ -466,7 +471,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                           size="sm"
                           onClick={() => openBillingPortal({ 
                             organizationId: currentOrganization.id, 
-                            returnUrl: `${window.location.origin}/settings/organization?sync=1` 
+                            returnUrl: origin ? `${origin}/settings/organization?sync=1` : '/settings/organization?sync=1' 
                           })}
                           disabled={submitting}
                           className="ml-2 underline text-blue-600 hover:text-blue-700"

@@ -240,7 +240,10 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       
       // Check if active_organization_id is null or empty (handles both NULL and string "null")
       const activeOrgId = sessionRow?.active_organization_id;
-      const needsUpdate = !activeOrgId || activeOrgId === 'null' || activeOrgId.trim() === '';
+      const needsUpdate =
+        activeOrgId == null ||
+        activeOrgId === 'null' ||
+        (typeof activeOrgId === 'string' && activeOrgId.trim() === '');
       
       if (sessionRow && needsUpdate) {
         // Session doesn't have active_organization_id set, find and set it
@@ -249,7 +252,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         if (personalOrg) {
           await env.DB.prepare(
             `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
-          ).bind(personalOrg.id, new Date(), authContext.session.id, authContext.user.id).run();
+          ).bind(personalOrg.id, new Date().toISOString(), authContext.session.id, authContext.user.id).run();
           console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id}`);
         }
       }
@@ -294,7 +297,10 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       
       // Check if active_organization_id is null or the string "null" (handles both cases)
       let activeOrgId = sessionRow.active_organization_id;
-      const needsUpdate = !activeOrgId || activeOrgId === 'null' || activeOrgId.trim() === '';
+      const needsUpdate =
+        activeOrgId == null ||
+        activeOrgId === 'null' ||
+        (typeof activeOrgId === 'string' && activeOrgId.trim() === '');
       
       // If not set, find and set it (same logic as /me endpoint)
       if (needsUpdate) {
@@ -303,13 +309,17 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         if (personalOrg) {
           await env.DB.prepare(
             `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
-          ).bind(personalOrg.id, new Date(), authContext.session.id, authContext.user.id).run();
+          ).bind(personalOrg.id, new Date().toISOString(), authContext.session.id, authContext.user.id).run();
           activeOrgId = personalOrg.id;
           console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id} (via /active endpoint)`);
         }
       }
       
-      if (!activeOrgId || activeOrgId === 'null' || activeOrgId.trim() === '') {
+      if (
+        activeOrgId == null ||
+        activeOrgId === 'null' ||
+        (typeof activeOrgId === 'string' && activeOrgId.trim() === '')
+      ) {
         return createSuccessResponse({ activeOrganizationId: null });
       }
       
@@ -386,7 +396,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       // Update active organization on this session id (no token needed)
       const update = await env.DB.prepare(
         `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
-      ).bind(organizationId, Math.floor(Date.now() / 1000), authContext.session.id).run();
+      ).bind(organizationId, new Date().toISOString(), authContext.session.id).run();
 
       if (!update.success) {
         throw HttpErrors.internalServerError('Failed to update active organization for session');

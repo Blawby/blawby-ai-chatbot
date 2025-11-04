@@ -24,7 +24,7 @@ vi.mock('stripe', () => {
               quantity: 1,
               current_period_start: Math.floor(Date.now() / 1000) - 1000,
               current_period_end: Math.floor(Date.now() / 1000) + 2592000,
-              price: { id: (process.env.STRIPE_PRICE_ID || ((env as unknown) as { STRIPE_PRICE_ID?: string }).STRIPE_PRICE_ID || 'price_monthly_test') },
+              price: { id: (process.env.STRIPE_PRICE_ID || 'price_monthly_test') },
             },
           ],
         },
