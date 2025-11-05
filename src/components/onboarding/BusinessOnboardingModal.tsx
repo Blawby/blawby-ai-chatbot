@@ -6,9 +6,9 @@ import { OnboardingHeader } from './molecules/OnboardingHeader';
 import { useOnboardingState } from './hooks/useOnboardingState';
 import { useStepValidation } from './hooks/useStepValidation';
 import { useStepNavigation } from './hooks/useStepNavigation';
-import { useAutoSave } from './hooks/useAutoSave';
 import { useToastContext } from '../../contexts/ToastContext';
-import type { OnboardingStep, OnboardingFormData } from './hooks';
+import type { OnboardingFormData } from './hooks/useOnboardingState';
+import type { OnboardingStep } from './hooks/useStepValidation';
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
   welcome: 'Welcome to Blawby',
@@ -66,8 +66,8 @@ const BusinessOnboardingModal = ({
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to save onboarding progress');
+        const errorData = await response.json().catch(() => ({} as Record<string, unknown>));
+        throw new Error((errorData as { message?: string }).message || 'Failed to save onboarding progress');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save onboarding progress';
@@ -77,24 +77,11 @@ const BusinessOnboardingModal = ({
     }
   }, [organizationId, showError]);
 
-  // Initialize auto-save hook
-  const { save: saveProgress, isSaving, saveError } = useAutoSave({
-    organizationId,
-    onSave: saveOnboardingData,
-    debounceMs: 500
-  });
-
-  // Setup auto-save callback for field changes
-  const handleSave = useCallback((data: OnboardingFormData) => {
-    saveProgress(data);
-  }, [saveProgress]);
-
-  // Custom hooks for state management with auto-save callback
+  // Custom hook for state management (no auto-save)
   const { formData, updateField, setFormData } = useOnboardingState(
     {
       contactEmail: fallbackContactEmail || ''
-    },
-    handleSave
+    }
   );
 
   // Load saved data on mount
@@ -117,12 +104,12 @@ const BusinessOnboardingModal = ({
           if (status?.data && !status.completed) {
             // Merge saved data with initial form data
             const savedData = status.data as Partial<OnboardingFormData>;
-            setFormData(prev => ({
-              ...prev,
+            setFormData({
+              ...formData,
               ...savedData,
               // Preserve contactEmail from fallback if not in saved data
-              contactEmail: savedData.contactEmail || prev.contactEmail || fallbackContactEmail || ''
-            }));
+              contactEmail: savedData.contactEmail || formData.contactEmail || fallbackContactEmail || ''
+            });
           }
         }
       } catch (error) {
@@ -137,15 +124,18 @@ const BusinessOnboardingModal = ({
   }, [isOpen, organizationId, fallbackContactEmail, setFormData]);
 
   // Setup step change callback
-  const handleStepChange = useCallback((step: OnboardingStep, prevStep: OnboardingStep) => {
-    // Save current form data before step change
-    saveProgress(formData);
-  }, [formData, saveProgress]);
+  const handleStepChange = useCallback((_step: OnboardingStep, _prevStep: OnboardingStep) => {
+    // No-op: explicit saves are handled in continue/back handlers to avoid redundant/conflicting saves
+    return;
+  }, []);
 
   const { currentStep, goNext, goBack, progress, isFirstStep, isLastStep } = useStepNavigation(handleStepChange);
   const { validateStep, clearErrors, errors } = useStepValidation();
 
   const handleStepContinue = async () => {
+    if (isLoadingData) {
+      return; // Block interactions until saved data load finishes
+    }
     clearErrors();
     setSubmitError(null);
     setLoading(true);
@@ -157,12 +147,14 @@ const BusinessOnboardingModal = ({
       return;
     }
 
-    // Save current step data before navigation
+    // Save current step data before navigation (explicit save)
     try {
-      await saveProgress(formData);
+      await saveOnboardingData(formData);
     } catch (error) {
-      // Non-blocking - log error but continue navigation
       console.warn('[ONBOARDING][CONTINUE] Failed to save before navigation:', error);
+      setSubmitError('Failed to save onboarding progress');
+      setLoading(false);
+      return;
     }
 
     if (isLastStep) {
@@ -186,17 +178,21 @@ const BusinessOnboardingModal = ({
   };
 
   const handleBack = async () => {
+    if (isLoadingData) {
+      return; // Block interactions until saved data load finishes
+    }
     if (isFirstStep) {
       onClose();
       return;
     }
     
-    // Save current step data before navigation
+    // Save current step data before navigation (explicit save)
     try {
-      await saveProgress(formData);
+      await saveOnboardingData(formData);
     } catch (error) {
-      // Non-blocking - log error but continue navigation
       console.warn('[ONBOARDING][BACK] Failed to save before navigation:', error);
+      setSubmitError('Failed to save onboarding progress');
+      return;
     }
     
     goBack();
@@ -217,7 +213,7 @@ const BusinessOnboardingModal = ({
     <Modal isOpen={isOpen} onClose={handleClose} type="fullscreen" showCloseButton={false}>
       <OnboardingContainer
         loading={loading || isLoadingData}
-        error={submitError || (errors && errors.length > 0 ? errors[0].message : null) || (saveError || null)}
+        error={submitError}
         header={
           <OnboardingHeader
             title={STEP_TITLES[currentStep]}
@@ -236,11 +232,9 @@ const BusinessOnboardingModal = ({
           onBack={handleBack}
           errors={errors && errors.length > 0 ? errors[0].message : null}
           organizationSlug={organizationName?.toLowerCase().replace(/\s+/g, '-')}
+          disabled={isLoadingData}
         />
             
-            <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
-              {isSaving ? 'Saving progress...' : 'Progress is saved automatically.'}
-            </div>
       </OnboardingContainer>
     </Modal>
   );

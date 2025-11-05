@@ -43,6 +43,13 @@ export const IntakeUrlDisplay = ({
     }
   };
 
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      void handleCopy();
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (resetTimerRef.current !== null) {
@@ -61,9 +68,16 @@ export const IntakeUrlDisplay = ({
       className={className}
     >
       <div className="space-y-3">
-        <p className="font-mono text-sm break-all">
+        <div
+          className="font-mono text-sm break-all select-text bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-md px-3 py-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+          role="button"
+          tabIndex={0}
+          aria-label="Copy intake page URL"
+          onClick={handleCopy}
+          onKeyDown={handleKeyDown}
+        >
           {url}
-        </p>
+        </div>
         
         <Button
           variant="secondary"

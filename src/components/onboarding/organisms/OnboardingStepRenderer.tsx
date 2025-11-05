@@ -22,6 +22,7 @@ interface OnboardingStepRendererProps {
   onBack: () => void;
   errors?: string | null;
   organizationSlug?: string;
+  disabled?: boolean;
 }
 
 export const OnboardingStepRenderer = ({
@@ -31,7 +32,8 @@ export const OnboardingStepRenderer = ({
   onContinue,
   onBack,
   errors,
-  organizationSlug
+  organizationSlug,
+  disabled = false,
 }: OnboardingStepRendererProps) => {
   const commonProps = {
     onContinue,
@@ -46,6 +48,7 @@ export const OnboardingStepRenderer = ({
       return (
         <FirmBasicsStep
           {...commonProps}
+          disabled={disabled}
           data={{
             firmName: stepData.firmName,
             contactEmail: stepData.contactEmail,
@@ -72,6 +75,7 @@ export const OnboardingStepRenderer = ({
       return (
         <BusinessDetailsStep
           {...commonProps}
+          disabled={disabled}
           data={{
             addressLine1: stepData.addressLine1,
             addressLine2: stepData.addressLine2,

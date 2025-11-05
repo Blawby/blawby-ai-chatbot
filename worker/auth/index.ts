@@ -586,12 +586,29 @@ export async function getAuth(env: Env, request?: Request) {
                     }
                   }
 
+                  const checkoutParams: Stripe.Checkout.SessionCreateParams = {
+                    allow_promotion_codes: true,
+                    tax_id_collection: { enabled: true },
+                    locale: 'en', // Explicitly set locale to prevent language module loading issues
+                  };
+
+                  if (referenceId) {
+                    checkoutParams.subscription_data = {
+                      ...(checkoutParams.subscription_data ?? {}),
+                      metadata: {
+                        ...(checkoutParams.subscription_data?.metadata ?? {}),
+                        organizationId: referenceId,
+                      },
+                    };
+                    checkoutParams.metadata = {
+                      ...(checkoutParams.metadata ?? {}),
+                      organizationId: referenceId,
+                    };
+                    checkoutParams.client_reference_id = referenceId;
+                  }
+
                   return {
-                    params: {
-                      allow_promotion_codes: true,
-                      tax_id_collection: { enabled: true },
-                      locale: 'en', // Explicitly set locale to prevent language module loading issues
-                    },
+                    params: checkoutParams,
                   };
                 } catch (error) {
                   console.error('❌ Error in getCheckoutSessionParams:', error);

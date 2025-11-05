@@ -27,18 +27,24 @@ export const useStepNavigation = (
   const totalSteps = STEP_ORDER.length;
 
   const goNext = useCallback(() => {
-    const nextStepIndex = Math.min(currentStepIndex + 1, totalSteps - 1);
+    const nextStepIndex = Math.min(currentStepIndex + 1, STEP_ORDER.length - 1);
     const nextStep = STEP_ORDER[nextStepIndex];
     
     // Call onStepChange callback before updating step
     if (onStepChange && nextStep !== currentStep) {
-      void Promise.resolve(onStepChange(nextStep, currentStep)).catch(() => {
-        // Silently handle errors here - they're handled by the auto-save hook
-      });
+      (async () => {
+        try {
+          await Promise.resolve(onStepChange(nextStep, currentStep));
+          setCurrentStepIndex(nextStepIndex);
+        } catch (error) {
+          console.error('Error in goNext onStepChange:', error);
+          // Prevent advancing on error - state update is skipped
+        }
+      })();
+    } else {
+      setCurrentStepIndex(nextStepIndex);
     }
-    
-    setCurrentStepIndex(nextStepIndex);
-  }, [currentStepIndex, totalSteps, currentStep, onStepChange]);
+  }, [currentStepIndex, currentStep, onStepChange]);
 
   const goBack = useCallback(() => {
     const prevStepIndex = Math.max(currentStepIndex - 1, 0);
@@ -46,12 +52,18 @@ export const useStepNavigation = (
     
     // Call onStepChange callback before updating step
     if (onStepChange && prevStep !== currentStep) {
-      void Promise.resolve(onStepChange(prevStep, currentStep)).catch(() => {
-        // Silently handle errors here - they're handled by the auto-save hook
-      });
+      (async () => {
+        try {
+          await Promise.resolve(onStepChange(prevStep, currentStep));
+          setCurrentStepIndex(prevStepIndex);
+        } catch (error) {
+          console.error('Error in goBack onStepChange:', error);
+          // Prevent going back on error - state update is skipped
+        }
+      })();
+    } else {
+      setCurrentStepIndex(prevStepIndex);
     }
-    
-    setCurrentStepIndex(prevStepIndex);
   }, [currentStepIndex, currentStep, onStepChange]);
 
   const goToStep = useCallback((step: OnboardingStep) => {
@@ -59,12 +71,36 @@ export const useStepNavigation = (
     if (stepIndex !== -1 && stepIndex !== currentStepIndex) {
       // Call onStepChange callback before updating step
       if (onStepChange) {
-        void Promise.resolve(onStepChange(step, currentStep)).catch(() => {
-          // Silently handle errors here - they're handled by the auto-save hook
-        });
+        (async () => {
+          try {
+            // Capture initial state for callback
+            const initialIndex = currentStepIndex;
+            const initialStep = STEP_ORDER[initialIndex];
+            const targetIndex = STEP_ORDER.indexOf(step);
+            
+            // Validate transition is still valid before awaiting callback
+            if (targetIndex !== -1 && targetIndex !== initialIndex) {
+              await Promise.resolve(onStepChange(step, initialStep));
+              
+              // Re-check validity after async operation completes using state updater
+              setCurrentStepIndex((latestIndex) => {
+                const latestTargetIndex = STEP_ORDER.indexOf(step);
+                // Only update if transition is still valid
+                if (latestTargetIndex !== -1 && latestTargetIndex !== latestIndex) {
+                  return latestTargetIndex;
+                }
+                // Return current state if transition is no longer valid
+                return latestIndex;
+              });
+            }
+          } catch (error) {
+            console.error('Error in goToStep onStepChange:', error);
+            // Prevent transition on error - state update is skipped
+          }
+        })();
+      } else {
+        setCurrentStepIndex(stepIndex);
       }
-      
-      setCurrentStepIndex(stepIndex);
     }
   }, [currentStepIndex, currentStep, onStepChange]);
 

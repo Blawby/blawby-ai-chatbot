@@ -72,40 +72,25 @@ export const useOnboardingState = (
     return merged;
   });
 
-  const updateField = useCallback(<K extends keyof OnboardingFormData>(
-    field: K,
-    value: OnboardingFormData[K]
-  ) => {
-    setFormData(prev => {
-      const newState = {
-        ...prev,
-        [field]: value
-      };
-      // Trigger save callback if provided
-      if (onSave) {
-        void Promise.resolve(onSave(newState)).catch(() => {
-          // Silently handle save errors here - they're handled by the auto-save hook
-        });
-      }
-      return newState;
-    });
-  }, [onSave]);
+  const updateField = useCallback(<K extends keyof OnboardingFormData>(field: K, value: OnboardingFormData[K]) => {
+    const next = { ...formData, [field]: value } as OnboardingFormData;
+    setFormData(next);
+    if (onSave) {
+      void Promise.resolve(onSave(next)).catch(() => {
+        // Silently handle save errors here - they're handled by the auto-save hook
+      });
+    }
+  }, [onSave, formData]);
 
   const updateFields = useCallback((updates: Partial<OnboardingFormData>) => {
-    setFormData(prev => {
-      const newState = {
-        ...prev,
-        ...updates
-      };
-      // Trigger save callback if provided
-      if (onSave) {
-        void Promise.resolve(onSave(newState)).catch(() => {
-          // Silently handle save errors here - they're handled by the auto-save hook
-        });
-      }
-      return newState;
-    });
-  }, [onSave]);
+    const next = { ...formData, ...updates } as OnboardingFormData;
+    setFormData(next);
+    if (onSave) {
+      void Promise.resolve(onSave(next)).catch(() => {
+        // Silently handle save errors here - they're handled by the auto-save hook
+      });
+    }
+  }, [onSave, formData]);
 
   const resetForm = useCallback(() => {
     setFormData(initialFormData);

@@ -9,7 +9,7 @@
 
 | Step | Component | Notes |
 |------|-----------|-------|
-| 1 | Better Auth Stripe plugin | Creates Checkout sessions & billing portal links. Emits hooks we use only as fire-and-forget—not as the source of truth. |
+| 1 | Better Auth Stripe plugin | Creates Checkout sessions & billing portal links. `usePaymentUpgrade` injects `organizationId` into `subscription_data.metadata`, session metadata, and `client_reference_id` before launching Checkout, ensuring webhooks can resolve the org. Emits hooks we use only as fire-and-forget—not as the source of truth. |
 | 2 | Stripe Webhook (`POST /api/stripe/webhook`) | Verifies signature, resolves the organization (metadata → subscription id → customer id), and delegates to `SubscriptionService`. Handles `created`, `updated`, `deleted`, `paused`, `resumed`, `trial_will_end`. |
 | 3 | `SubscriptionService` | Upserts into `subscriptions`, updates the organization row (tier, seats, `is_personal → false` for paid plans), and produces a normalized snapshot. No KV usage. |
 | 4 | Entitlement checks | Frontend hooks & worker middleware read from D1 (`organizations`, `subscriptions`) to detect business vs personal capabilities. |
@@ -27,7 +27,7 @@
 | `seats`, `period_start`, `period_end`, `cancel_at_period_end` | Used for entitlements and renewal UI. |
 
 ### `organizations` table
-- `subscription_tier` becomes a display hint (free/business/enterprise).
+- `subscription_tier` becomes a display hint (free/business/enterprise). Note: Enterprise is future/disabled; only Free and Business tiers are currently live in the UI.
 - `kind` in the code is derived: `business` whenever `subscriptionStatus` indicates an active/pending paid plan.
 - `is_personal` is enforced: webhook transitions flip it to `0` for paid plans so entitlement guards lock/unlock features.
 

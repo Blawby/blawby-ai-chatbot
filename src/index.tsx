@@ -479,6 +479,7 @@ function MainApp({
 					profileImage: organizationConfig?.profileImage ?? null,
 					description: organizationConfig?.description ?? ''
 				}}
+				currentOrganization={currentOrganization}
 				messages={messages}
 				onSendMessage={handleSendMessage}
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {

@@ -130,7 +130,7 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
   let event: Stripe.Event;
   const payload = await request.text();
   try {
-    event = Stripe.webhooks.constructEvent(payload, signature, env.STRIPE_WEBHOOK_SECRET);
+    event = await Stripe.webhooks.constructEventAsync(payload, signature, env.STRIPE_WEBHOOK_SECRET);
   } catch (error) {
     console.error("❌ Invalid Stripe webhook signature", {
       error: error instanceof Error ? error.message : String(error),

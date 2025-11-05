@@ -32,7 +32,7 @@ export const OnboardingContainer = ({
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="bg-white dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-white/10 py-8 px-5 sm:px-10 shadow-lg sm:rounded-xl">
           {error && (
             <ValidationAlert type="error" className="mb-6">
               {error}

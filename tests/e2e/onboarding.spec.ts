@@ -371,7 +371,7 @@ test.describe('Business Onboarding', () => {
     // Wait for firm basics form to appear
     await expect(page.getByLabel(/business name/i)).toBeVisible({ timeout: 5000 });
     
-    // Intercept save API calls
+    // Intercept save API calls BEFORE any actions that trigger them
     const saveRequests: any[] = [];
     await page.route('**/api/onboarding/save', async (route) => {
       const request = route.request();
@@ -392,9 +392,13 @@ test.describe('Business Onboarding', () => {
     await page.waitForTimeout(1000);
     
     // Verify save API was called
-    expect(saveRequests.length).toBeGreaterThan(0);
+    if (saveRequests.length === 0) {
+      throw new Error('No /api/onboarding/save requests captured after filling firm name');
+    }
     const lastSaveRequest = saveRequests[saveRequests.length - 1];
-    expect(lastSaveRequest.data.firmName).toBe('Test Law Firm');
+    expect(lastSaveRequest).toBeDefined();
+    expect(lastSaveRequest?.data).toBeDefined();
+    expect(lastSaveRequest?.data?.firmName).toBe('Test Law Firm');
     
     // Fill email field - should trigger another save
     const emailInput = page.getByLabel(/business email/i);
@@ -405,8 +409,10 @@ test.describe('Business Onboarding', () => {
     // Verify save API was called again with updated data
     expect(saveRequests.length).toBeGreaterThan(1);
     const finalSaveRequest = saveRequests[saveRequests.length - 1];
-    expect(finalSaveRequest.data.firmName).toBe('Test Law Firm');
-    expect(finalSaveRequest.data.contactEmail).toBe('test@lawfirm.com');
+    expect(finalSaveRequest).toBeDefined();
+    expect(finalSaveRequest?.data).toBeDefined();
+    expect(finalSaveRequest?.data?.firmName).toBe('Test Law Firm');
+    expect(finalSaveRequest?.data?.contactEmail).toBe('test@lawfirm.com');
   });
 
   test('should auto-save onboarding data on step navigation', async ({ page }) => {
@@ -436,11 +442,7 @@ test.describe('Business Onboarding', () => {
     
     await expect(page.getByLabel(/business name/i)).toBeVisible({ timeout: 5000 });
     
-    // Fill form fields
-    await page.getByLabel(/business name/i).fill('Test Law Firm');
-    await page.getByLabel(/business email/i).fill('test@lawfirm.com');
-    
-    // Intercept save API calls
+    // Intercept save API calls BEFORE filling (so we capture auto-save triggered by navigation)
     const saveRequests: any[] = [];
     await page.route('**/api/onboarding/save', async (route) => {
       const request = route.request();
@@ -453,6 +455,10 @@ test.describe('Business Onboarding', () => {
       });
     });
     
+    // Fill form fields
+    await page.getByLabel(/business name/i).fill('Test Law Firm');
+    await page.getByLabel(/business email/i).fill('test@lawfirm.com');
+    
     // Navigate to next step - should trigger save
     await page.getByRole('button', { name: /(continue|get started)/i }).click();
     
@@ -460,10 +466,14 @@ test.describe('Business Onboarding', () => {
     await page.waitForTimeout(1000);
     
     // Verify save API was called before step change
-    expect(saveRequests.length).toBeGreaterThan(0);
+    if (saveRequests.length === 0) {
+      throw new Error('No /api/onboarding/save requests captured during step navigation');
+    }
     const saveRequest = saveRequests[saveRequests.length - 1];
-    expect(saveRequest.data.firmName).toBe('Test Law Firm');
-    expect(saveRequest.data.contactEmail).toBe('test@lawfirm.com');
+    expect(saveRequest).toBeDefined();
+    expect(saveRequest?.data).toBeDefined();
+    expect(saveRequest?.data?.firmName).toBe('Test Law Firm');
+    expect(saveRequest?.data?.contactEmail).toBe('test@lawfirm.com');
   });
 
   test('should load saved onboarding data on modal mount', async ({ page }) => {
@@ -481,6 +491,9 @@ test.describe('Business Onboarding', () => {
         org.kind === 'personal' || org.isPersonal === true
     );
     const organizationId = personalOrg?.id;
+    if (!organizationId || String(organizationId).trim().length === 0) {
+      throw new Error('organizationId missing when mocking onboarding status; cannot proceed with /business-onboarding navigation');
+    }
     
     // Mock the organization as business tier
     await page.route('**/api/organizations/me', async (route) => {
@@ -568,6 +581,9 @@ test.describe('Business Onboarding', () => {
     // Get organization ID from URL
     const url = new URL(page.url());
     const organizationId = url.searchParams.get('organizationId') || '';
+    if (!organizationId || organizationId.trim().length === 0) {
+      throw new Error('organizationId missing from URL for persistence test; refusing to construct routes with empty id');
+    }
     
     // Click Continue to get to firm-basics step
     await page.getByRole('button', { name: /(continue|get started)/i }).click();
@@ -653,6 +669,9 @@ test.describe('Business Onboarding', () => {
     // Get organization ID from URL
     const url = new URL(page.url());
     const organizationId = url.searchParams.get('organizationId') || '';
+    if (!organizationId || organizationId.trim().length === 0) {
+      throw new Error('organizationId missing from URL before completing onboarding; refusing to POST /api/onboarding/complete with empty id');
+    }
 
     // Step 1: Welcome -> Firm Basics
     await page.getByRole('button', { name: /(continue|get started)/i }).click();

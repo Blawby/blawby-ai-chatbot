@@ -37,10 +37,10 @@ describe('Stripe webhook route', () => {
     const subscription = {
       id: 'sub_123',
       customer: 'cus_123',
-      metadata: {},
+      metadata: { organizationId: 'org_meta' },
     } as unknown as Stripe.Subscription;
 
-    vi.spyOn(Stripe.webhooks, 'constructEvent').mockReturnValue({
+    vi.spyOn(Stripe.webhooks, 'constructEventAsync').mockResolvedValue({
       type: 'customer.subscription.updated',
       data: { object: subscription },
     } as Stripe.Event);
@@ -64,7 +64,7 @@ describe('Stripe webhook route', () => {
     const response = await handleStripeWebhook(request, env as unknown as WorkerEnv);
     expect(response.status).toBe(200);
     expect(resolveSpy).toHaveBeenCalledWith(expect.anything(), {
-      organizationIdFromMetadata: null,
+      organizationIdFromMetadata: 'org_meta',
       subscriptionId: 'sub_123',
       customerId: 'cus_123',
     });
@@ -80,7 +80,7 @@ describe('Stripe webhook route', () => {
       metadata: {},
     } as unknown as Stripe.Subscription;
 
-    vi.spyOn(Stripe.webhooks, 'constructEvent').mockReturnValue({
+    vi.spyOn(Stripe.webhooks, 'constructEventAsync').mockResolvedValue({
       type: 'customer.subscription.paused',
       data: { object: subscription },
     } as Stripe.Event);
@@ -120,7 +120,7 @@ describe('Stripe webhook route', () => {
       metadata: {},
     } as unknown as Stripe.Subscription;
 
-    vi.spyOn(Stripe.webhooks, 'constructEvent').mockReturnValue({
+    vi.spyOn(Stripe.webhooks, 'constructEventAsync').mockResolvedValue({
       type: 'customer.subscription.resumed',
       data: { object: subscription },
     } as Stripe.Event);
@@ -160,7 +160,7 @@ describe('Stripe webhook route', () => {
       metadata: {},
     } as unknown as Stripe.Subscription;
 
-    vi.spyOn(Stripe.webhooks, 'constructEvent').mockReturnValue({
+    vi.spyOn(Stripe.webhooks, 'constructEventAsync').mockResolvedValue({
       type: 'customer.subscription.trial_will_end',
       data: { object: subscription },
     } as Stripe.Event);
@@ -200,7 +200,7 @@ describe('Stripe webhook route', () => {
       metadata: {},
     } as unknown as Stripe.Subscription;
 
-    vi.spyOn(Stripe.webhooks, 'constructEvent').mockReturnValue({
+    vi.spyOn(Stripe.webhooks, 'constructEventAsync').mockResolvedValue({
       type: 'customer.subscription.deleted',
       data: { object: subscription },
     } as Stripe.Event);
@@ -225,7 +225,7 @@ describe('Stripe webhook route', () => {
   });
 
   it('ignores unsupported event types', async () => {
-    vi.spyOn(Stripe.webhooks, 'constructEvent').mockReturnValue({
+    vi.spyOn(Stripe.webhooks, 'constructEventAsync').mockResolvedValue({
       type: 'charge.succeeded',
       data: { object: {} },
     } as Stripe.Event);

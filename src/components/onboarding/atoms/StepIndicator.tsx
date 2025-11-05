@@ -30,10 +30,11 @@ export const StepIndicator = ({
     ? Math.min(Math.max(0, (currentStep ?? 0) - 1), totalStepsClamped - 1)
     : 0;
 
+  // Pill segment dimensions (width x height) per size
   const sizeClasses = {
-    sm: 'w-2 h-2',
-    md: 'w-3 h-3',
-    lg: 'w-4 h-4'
+    sm: 'h-1.5 w-6',
+    md: 'h-2 w-8',
+    lg: 'h-2.5 w-10'
   };
 
   const textSizeClasses = {
@@ -59,7 +60,7 @@ export const StepIndicator = ({
   }
 
   return (
-    <div className={cn('flex items-center', spacingClasses[size], className)}>
+    <div className={cn('flex items-center', spacingClasses[size], className)} role="list" aria-label="Progress">
       {Array.from({ length: totalStepsClamped }, (_, index) => {
         const stepNumber = index + 1;
         const isActive = index === currentIndex;
@@ -72,11 +73,12 @@ export const StepIndicator = ({
               'rounded-full transition-colors',
               sizeClasses[size],
               isActive && 'bg-accent-500',
-              isCompleted && 'bg-green-500',
-              !isActive && !isCompleted && 'bg-gray-300 dark:bg-gray-600'
+              isCompleted && 'bg-accent-400',
+              !isActive && !isCompleted && 'bg-gray-300/60 dark:bg-white/10'
             )}
             aria-label={`Step ${stepNumber}${isActive ? ', current' : isCompleted ? ', completed' : ''}`}
             aria-current={isActive ? 'step' : undefined}
+            role="listitem"
           />
         );
       })}

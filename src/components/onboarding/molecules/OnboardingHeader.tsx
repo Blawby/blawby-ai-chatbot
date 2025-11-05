@@ -31,25 +31,24 @@ export const OnboardingHeader = ({
       <div className="flex justify-center mb-6">
         <Logo size="lg" />
       </div>
-      
-      <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
-        {title}
-      </h2>
-      
-      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-        {description}
-      </p>
-      
       {showProgress && currentStep != null && totalSteps != null && (
-        <div className="mt-4 flex justify-center">
+        <div className="mt-2 flex justify-center">
           <StepIndicator
             currentStep={currentStep}
             totalSteps={totalSteps}
             variant="dots"
-            size="md"
+            size="lg"
           />
         </div>
       )}
+
+      <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
+        {title}
+      </h2>
+
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        {description}
+      </p>
     </div>
   );
 };

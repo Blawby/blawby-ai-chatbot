@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import { OrganizationNotFound } from './OrganizationNotFound';
 import LeftSidebar from './LeftSidebar';
+import BusinessOnboardingModal from './onboarding/BusinessOnboardingModal';
 import MobileTopNav from './MobileTopNav';
 import MediaSidebar from './MediaSidebar';
 import PrivacySupportSidebar from './PrivacySupportSidebar';
@@ -70,6 +71,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 }) => {
   // Matter state management
   const { matter, status: matterStatus } = useMatterState(chatMessages);
+  // Temp: local state to open the onboarding modal via sidebar test button
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   
   // Mobile state - initialized as false to avoid SSR/client hydration mismatch
   const [isMobile, setIsMobile] = useState(false);
@@ -219,6 +222,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               currentRoute={currentTab}
               onGoToChats={handleGoToChats}
               onGoToMatter={handleGoToMatter}
+              onOpenOnboarding={() => setIsOnboardingOpen(true)}
               matterStatus={matterStatus}
               organizationConfig={{
                 name: organizationConfig.name,
@@ -274,6 +278,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                     }}
                     onGoToMatter={() => {
                       handleGoToMatter();
+                      onToggleMobileSidebar(false);
+                    }}
+                    onOpenOnboarding={() => {
+                      setIsOnboardingOpen(true);
                       onToggleMobileSidebar(false);
                     }}
                     onClose={() => onToggleMobileSidebar(false)}
@@ -362,6 +370,14 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       {import.meta.env.VITE_DEBUG_OVERLAY === 'true' && (
         <DebugOverlay isVisible={true} />
       )}
+
+      {/* Temporary: Onboarding modal trigger via sidebar test button */}
+      <BusinessOnboardingModal
+        isOpen={isOnboardingOpen}
+        organizationId={organizationId}
+        organizationName={organizationConfig.name || undefined}
+        onClose={() => setIsOnboardingOpen(false)}
+      />
     </div>
   );
 };

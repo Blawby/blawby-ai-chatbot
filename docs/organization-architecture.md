@@ -9,9 +9,9 @@
 
 | Stage | Component | Notes |
 |-------|-----------|-------|
-| Signup | `worker/auth/hooks.ts` | Ensures a personal org exists and sets the session’s `active_organization_id`. Failures are logged but non-blocking. |
+| Signup | `worker/auth/hooks.ts` | Ensures a personal org exists and sets the session's `active_organization_id`. Failures are logged but non-blocking. |
 | Session creation | `worker/auth/index.ts` | Re-checks personal org existence, guarantees an owner membership, and stores `active_organization_id`. |
-| Upgrade | Stripe webhook (`/api/stripe/webhook`) | Moves the org to business, updates seats, flips `is_personal` to `0`, and persists subscription metadata in D1. |
+| Upgrade | Checkout flow → Stripe webhook (`/api/stripe/webhook`) | `usePaymentUpgrade` seeds the organization ID via `subscription_data.metadata` before launching Checkout, ensuring webhooks can resolve the org without guessing. The webhook then moves the org to business, updates seats, flips `is_personal` to `0`, and persists subscription metadata in D1. |
 | Entitlements | Feature guards (`worker/middleware/featureGuard.ts`) | Checks `tier`, `isPersonal`, and `subscriptionStatus` before allowing access to APIs (tokens, invitations, etc.). |
 | Onboarding | `BusinessOnboardingPage` | Accessible only for business orgs with subscription status `active`, `trialing`, or `paused`. |
 
@@ -21,7 +21,7 @@
 Field | Description
 ------|-----------
 `is_personal` | `1` for personal orgs. Set to `0` after a paid upgrade via the webhook.
-`subscription_tier` | Used for display (`free`, `business`, `enterprise`), derived from subscription status.
+`subscription_tier` | Used for display (`free`, `business`, `enterprise`), derived from subscription status. Note: Enterprise is future/disabled; only Free and Business tiers are currently live in the UI.
 `kind` | In code we derive `business` vs `personal`; fallbacks for legacy rows use `is_personal`.
 `stripe_customer_id` | Set after upgrade; allows Stripe → org resolution.
 `config` | Stores workspace settings, notifications, etc.
