@@ -30,17 +30,23 @@ export const commonSchemas = {
     return !isNaN(date.getTime());
   }, 'Please enter a valid date'),
   
-  // Birthday validation (not in future)
-  birthday: z.string().refine((val) => {
-    const date = new Date(val);
-    const today = new Date();
-    
-    // Create UTC midnight timestamps for comparison
-    const birthdayUTC = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-    const todayUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-    
-    return !isNaN(birthdayUTC) && birthdayUTC <= todayUTC;
-  }, 'Birthday cannot be in the future'),
+  // Birthday validation (required and not in future)
+  birthday: z.string()
+    .min(1, 'Birthday is required')
+    .refine((val) => {
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    }, 'Please enter a valid birthday')
+    .refine((val) => {
+      const date = new Date(val);
+      const today = new Date();
+
+      // Create UTC midnight timestamps for comparison
+      const birthdayUTC = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+      const todayUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+
+      return birthdayUTC <= todayUTC;
+    }, 'Birthday cannot be in the future'),
   
   // Number validation
   number: z.number().min(0, 'Number must be non-negative'),
@@ -79,7 +85,7 @@ export const authSchemas = {
 export const onboardingSchemas = {
   personalInfo: z.object({
     fullName: z.string().min(2, 'Full name must be at least 2 characters'),
-    birthday: commonSchemas.birthday.optional(),
+    birthday: commonSchemas.birthday,
     agreedToTerms: commonSchemas.termsAgreement,
   }),
   

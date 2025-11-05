@@ -25,7 +25,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     personalInfo: {
       fullName: '',
-      birthday: undefined,
+      birthday: '',
       agreedToTerms: false
     },
     useCase: {
@@ -47,7 +47,15 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
       
       if (existingOnboardingData) {
         // If we have existing onboarding data, merge it into state
-        setOnboardingData(prev => ({ ...prev, ...existingOnboardingData }));
+        setOnboardingData(prev => ({
+          ...prev,
+          ...existingOnboardingData,
+          personalInfo: {
+            ...prev.personalInfo,
+            ...existingOnboardingData.personalInfo,
+            birthday: existingOnboardingData.personalInfo?.birthday ?? ''
+          }
+        }));
       } else if (session.user.name) {
         // Otherwise, pre-fill with user's name if available
         setOnboardingData(prev => ({
@@ -79,21 +87,6 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
       setCurrentStep('useCase');
     } else if (step === 'useCase') {
       // After use case step, complete onboarding and redirect to main app
-      await handleComplete(mergedData);
-    }
-  };
-
-  const handleSkip = async (step: OnboardingStep) => {
-    // Compute merged snapshot locally to avoid stale state
-    const mergedData = {
-      ...onboardingData,
-      skippedSteps: [...onboardingData.skippedSteps, step]
-    };
-    
-    setOnboardingData(mergedData);
-
-    if (step === 'useCase') {
-      // Skip use case step and complete onboarding
       await handleComplete(mergedData);
     }
   };
@@ -159,7 +152,6 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
           <UseCaseStep
             data={onboardingData.useCase}
             onComplete={async (data) => await handleStepComplete('useCase', { useCase: data })}
-            onSkip={async () => await handleSkip('useCase')}
           />
         );
       default:
