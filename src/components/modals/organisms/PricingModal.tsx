@@ -44,7 +44,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   ];
 
   const upgradeTiers: Record<SubscriptionTier, SubscriptionTier[]> = {
-    free: ['free', 'business'],
+    free: ['free', 'plus', 'business'],
     plus: ['plus', 'business'],
     business: ['business', 'enterprise'],
     enterprise: ['enterprise'],

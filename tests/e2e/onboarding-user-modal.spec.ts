@@ -20,10 +20,16 @@ async function uiSignUp(page: import('@playwright/test').Page) {
   await Promise.race([
     page.waitForURL('/', { timeout: 25000 }),
     page.waitForSelector('text=/Account created|Welcome|signed in/i', { timeout: 25000 })
-  ]).catch(() => {});
+  ]).catch((err) => {
+    console.error('Promise.race for auth settle failed', { url: page.url(), error: err instanceof Error ? err.message : String(err) });
+    throw err;
+  });
 
   // Ensure network is idle as a stabilization step (avoid brittle session polling here)
-  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch((err) => {
+    console.error('waitForLoadState(networkidle) failed', { url: page.url(), error: err instanceof Error ? err.message : String(err) });
+    throw err;
+  });
 
   return { email, password, name };
 }
@@ -59,7 +65,7 @@ async function completeOnboarding(page: import('@playwright/test').Page) {
   await nextBtn.click();
 
   // After complete, expect redirect to home
-  await page.waitForURL('**/', { timeout: 15000 });
+  await page.waitForURL('/', { timeout: 15000 });
 }
 
 // Test suite

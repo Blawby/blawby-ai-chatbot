@@ -39,11 +39,9 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       setIsSignUp(urlMode === 'signup');
     }
 
-    // Only open onboarding if server truth says it's not completed
-    const hasCompleted = Boolean((authClient as unknown as { useSession?: unknown }) && (/* runtime check via session hook state not available here */ false));
-    // We'll rely on a safer check: if session is available in context later, the modal will remain open only if needed
+    // Only open onboarding when explicitly requested via URL param
     if (needsOnboarding) {
-      setShowOnboarding((prev) => prev || true);
+      setShowOnboarding(true);
       // Strip the param to avoid re-triggering on rebuilds
       try {
         const url = new URL(window.location.href);

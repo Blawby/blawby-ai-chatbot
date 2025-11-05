@@ -21,7 +21,7 @@ const ModalCloseButton: FunctionComponent<ModalCloseButtonProps> = ({ onClick, a
       type="button"
     >
       <svg className="w-5 h-5 text-gray-500" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
   );
