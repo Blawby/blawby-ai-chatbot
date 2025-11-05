@@ -93,16 +93,35 @@ export const useOnboardingState = (
   }, [onSave, formData]);
 
   const resetForm = useCallback(() => {
-    setFormData(initialFormData);
-  }, []);
+    const nextState = { ...initialFormData } as OnboardingFormData;
+    setFormData(nextState);
+    if (onSave) {
+      void Promise.resolve(onSave(nextState)).catch(() => {
+        // Silently handle save errors
+      });
+    }
+  }, [onSave]);
 
   const setFormDataDirect = useCallback((data: OnboardingFormData | ((prev: OnboardingFormData) => OnboardingFormData)) => {
     if (typeof data === 'function') {
-      setFormData((prev) => (data as (p: OnboardingFormData) => OnboardingFormData)(prev));
+      setFormData((prev) => {
+        const next = (data as (p: OnboardingFormData) => OnboardingFormData)(prev);
+        if (onSave) {
+          void Promise.resolve(onSave(next)).catch(() => {
+            // Silently handle save errors
+          });
+        }
+        return next;
+      });
     } else {
       setFormData(data);
+      if (onSave) {
+        void Promise.resolve(onSave(data)).catch(() => {
+          // Silently handle save errors
+        });
+      }
     }
-  }, []);
+  }, [onSave]);
 
   return {
     formData,

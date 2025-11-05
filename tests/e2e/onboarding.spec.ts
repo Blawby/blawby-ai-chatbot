@@ -691,10 +691,10 @@ test.describe('Business Onboarding', () => {
     await expect(page.getByLabel(/description|business description/i)).toBeVisible({ timeout: 5000 });
     await page.getByLabel(/description|business description/i).fill('We provide comprehensive legal services.');
 
-    // Save should be auto-triggered; wait briefly for debounce + network
-    await page.waitForTimeout(1000);
+    // Save should be auto-triggered; wait for save response instead of fixed timeout
+    await page.waitForResponse((res) => res.url().includes('/api/onboarding/save') && res.request().method() === 'POST' && res.status() === 200);
 
-    // Mark onboarding complete via API (ensures completion + mapping)
+    // Mark onboarding complete via API (ensures completion + mapping proceeds after save)
     const completeRes = await page.evaluate(async (orgId: string) => {
       const res = await fetch('/api/onboarding/complete', {
         method: 'POST',

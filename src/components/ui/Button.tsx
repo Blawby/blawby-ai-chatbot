@@ -62,9 +62,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   
   const variantClasses: Record<ButtonVariant, string> = {
     primary: 'bg-accent-500 text-gray-900 hover:bg-accent-600 active:bg-accent-700 focus:ring-accent-500 border-accent-500 shadow-sm hover:shadow',
-    secondary: 'bg-transparent text-gray-900 dark:text-white border-gray-300 dark:border-white/15 hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-gray-200 dark:focus:ring-white/20',
-    ghost: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5 focus:ring-gray-200 dark:focus:ring-white/20',
-    icon: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5 focus:ring-gray-200 dark:focus:ring-white/20',
+    secondary: 'bg-transparent text-gray-900 dark:text-white border-gray-300 dark:border-white/15 hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
+    ghost: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
+    icon: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
   };
   
   const sizeClasses = {

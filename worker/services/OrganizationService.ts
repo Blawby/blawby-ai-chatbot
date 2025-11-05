@@ -1225,11 +1225,11 @@ export class OrganizationService {
   async markBusinessOnboardingComplete(organizationId: string): Promise<boolean> {
     // Load current config and saved onboarding data to map fields on completion
     const row = await this.env.DB.prepare(
-      `SELECT config, business_onboarding_data as data, name
+      `SELECT config, business_onboarding_data as data, name, is_personal
          FROM organizations
         WHERE id = ?
         LIMIT 1`
-    ).bind(organizationId).first<{ config: string | null; data: string | null; name: string }>();
+    ).bind(organizationId).first<{ config: string | null; data: string | null; name: string; is_personal: number | null }>();
 
     if (!row) {
       throw new Error(`Organization not found: ${organizationId}`);
@@ -1251,11 +1251,24 @@ export class OrganizationService {
       }
     } catch { /* ignore corrupt onboarding data */ }
 
-    // Extract mapped fields
-    const firmNameRaw = onboardingData?.['firmName'];
-    const overviewRaw = onboardingData?.['overview'];
-    const firmName = typeof firmNameRaw === 'string' ? firmNameRaw.trim() : '';
-    const overview = typeof overviewRaw === 'string' ? overviewRaw.trim() : '';
+    // Guard: ensure organization is of kind 'business' before completing onboarding
+    const isBusinessKind = !(row.is_personal === 1 || row.is_personal === true as unknown as number);
+    if (!isBusinessKind) {
+      throw new Error('Cannot complete business onboarding for a personal organization');
+    }
+
+    // Validation helpers
+    const sanitize = (value: unknown, maxLen: number): string => {
+      if (typeof value !== 'string') return '';
+      // Remove control characters except common whitespace, then trim
+      const cleaned = value.replace(/[\u0000-\u001F\u007F]/g, '').trim();
+      if (cleaned.length === 0) return '';
+      return cleaned.length > maxLen ? cleaned.slice(0, maxLen) : cleaned;
+    };
+
+    // Extract and validate mapped fields
+    const firmName = sanitize(onboardingData?.['firmName'], 255);
+    const overview = sanitize(onboardingData?.['overview'], 2000);
 
     // Prepare updated values, preserving existing ones when onboarding fields are missing
     const nextName = firmName || row.name;

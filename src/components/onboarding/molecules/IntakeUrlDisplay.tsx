@@ -9,6 +9,7 @@ import { InfoCard } from '../atoms/InfoCard';
 import { Button } from '../../ui/Button';
 import { cn } from '../../../utils/cn';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import type { JSX } from 'preact';
 
 interface IntakeUrlDisplayProps {
   url: string;
@@ -43,7 +44,7 @@ export const IntakeUrlDisplay = ({
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent) => {
+  const handleKeyDown = (e: JSX.TargetedKeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       void handleCopy();

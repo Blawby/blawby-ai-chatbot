@@ -93,11 +93,13 @@ export const useStepNavigation = (
   }, [currentStepIndex, currentStep, onStepChange]);
 
   const goToStep = useCallback((step: OnboardingStep) => {
+    if (navigationInProgress.current) return;
     const stepIndex = STEP_ORDER.indexOf(step);
     if (stepIndex !== -1 && stepIndex !== currentStepIndex) {
       // Call onStepChange callback before updating step
       if (onStepChange) {
         (async () => {
+          navigationInProgress.current = true;
           try {
             // Capture initial state for callback
             const initialIndex = currentStepIndex;
@@ -124,6 +126,8 @@ export const useStepNavigation = (
           } catch (error) {
             console.error('Error in goToStep onStepChange:', error);
             // Prevent transition on error - state update is skipped
+          } finally {
+            navigationInProgress.current = false;
           }
         })();
       } else {
