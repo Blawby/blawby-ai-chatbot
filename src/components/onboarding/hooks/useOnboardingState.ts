@@ -97,14 +97,22 @@ export const useOnboardingState = (
   }, [onSave]);
 
   const resetForm = useCallback(() => {
-    const nextState = { ...initialFormData } as OnboardingFormData;
+    // Rebuild from the latest caller-provided initialData merged with defaults
+    const merged = { ...initialFormData, ...initialData } as OnboardingFormData;
+    // Normalize services to ensure each has a stable ID
+    merged.services = (merged.services || []).map(service => ({
+      ...service,
+      id: service.id || generateServiceId()
+    }));
+
+    const nextState = merged;
     setFormData(nextState);
     if (onSave) {
       void Promise.resolve(onSave(nextState)).catch(() => {
         // Silently handle save errors
       });
     }
-  }, [onSave]);
+  }, [onSave, initialData]);
 
   const setFormDataDirect = useCallback((data: OnboardingFormData | ((prev: OnboardingFormData) => OnboardingFormData)) => {
     if (typeof data === 'function') {
