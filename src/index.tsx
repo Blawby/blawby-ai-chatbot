@@ -22,8 +22,8 @@ import type { ChatMessageUI, FileAttachment } from '../worker/types';
 // Settings components
 import { SettingsLayout } from './components/settings/SettingsLayout';
 import { useNavigation } from './utils/navigation';
-import PricingModal from './components/PricingModal';
-import WelcomeModal from './components/onboarding/WelcomeModal';
+import { PricingModal, WelcomeModal } from './components/modals/organisms';
+import { useWelcomeModal } from './components/modals/hooks/useWelcomeModal';
 import { BusinessWelcomePrompt } from './components/onboarding/organisms/BusinessWelcomePrompt';
 import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPage';
 import { CartPage } from './components/cart/CartPage';
@@ -158,24 +158,11 @@ function MainApp({
 		setShowSettingsModal(isSettingsRoute);
 	}, [location.path]);
 
-	// Check if we should show welcome modal (after onboarding completion)
-	useEffect(() => {
-		// Check if user just completed onboarding
-		try {
-			const onboardingCompleted = localStorage.getItem('onboardingCompleted');
-			if (onboardingCompleted === 'true') {
-				setShowWelcomeModal(true);
-				// Don't remove the flag here - let the completion handler do it
-				// This prevents permanent loss if the modal fails to render
-			}
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to check onboarding completion status:', _error);
-			}
-		}
-	}, []);
+    // Welcome modal state via server-truth + session debounce
+    const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal();
+    useEffect(() => {
+        setShowWelcomeModal(shouldShowWelcome);
+    }, [shouldShowWelcome]);
 
     // Check if OAuth user needs onboarding (one-time check after auth)
     useEffect(() => {
@@ -228,24 +215,11 @@ function MainApp({
                 }
 			}
 			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
-			const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
+            const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
             const userWithOnboarding = user as typeof user & { onboardingCompleted?: boolean };
 			const hasCompletedOnboarding = userWithOnboarding.onboardingCompleted === true;
 			
-			// Sync onboardingCompleted flag if user has completed onboarding but flag is missing
-			if (hasCompletedOnboarding && !hasOnboardingFlag) {
-				if (import.meta.env.DEV) {
-					console.debug('[ONBOARDING][SYNC] syncing onboardingCompleted flag');
-				}
-				try {
-					localStorage.setItem('onboardingCompleted', 'true');
-					localStorage.setItem('onboardingCheckDone', 'true');
-                } catch (_error) {
-                    // Handle localStorage failures gracefully
-                    console.warn('[ONBOARDING][SYNC] localStorage set failed:', _error);
-                }
-			}
-			
+			// Legacy localStorage sync removed; welcome modal now uses server truth
 			// If user hasn't completed onboarding and we haven't checked yet
 			if (!hasOnboardingFlag && !hasOnboardingCheckFlag) {
 				const needsOnboarding = userWithOnboarding.onboardingCompleted === false || 
@@ -266,16 +240,10 @@ function MainApp({
 					// Redirect to auth page with onboarding
 					window.location.href = '/auth?mode=signin&onboarding=true';
 				} else {
-					// User has completed onboarding, sync the flags with database state
-					try {
-						localStorage.setItem('onboardingCompleted', 'true');
-						localStorage.setItem('onboardingCheckDone', 'true');
-					} catch (_error) {
-						// Handle localStorage failures gracefully
-					}
-				}
-			}
-		}
+					// Legacy localStorage sync removed; welcome modal now uses server truth
+                }
+            }
+        }
     }, [session?.user, sessionIsPending]);
 
 
@@ -451,37 +419,16 @@ function MainApp({
 		// Could show a toast notification here
 	}, []);
 
-	// Handle welcome modal
-	const handleWelcomeComplete = () => {
-		setShowWelcomeModal(false);
-		
-		// Remove the onboarding completion flag now that the welcome modal has been shown
-		try {
-			localStorage.removeItem('onboardingCompleted');
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to remove onboarding completion flag:', _error);
-			}
-		}
-	};
+    // Handle welcome modal using server-truth hook
+    const handleWelcomeComplete = async () => {
+        await markWelcomeAsShown();
+        setShowWelcomeModal(false);
+    };
 
-	const handleWelcomeClose = () => {
-		setShowWelcomeModal(false);
-		
-		// Remove the onboarding completion flag even if user closes without completing
-		// This prevents the welcome modal from showing again
-		try {
-			localStorage.removeItem('onboardingCompleted');
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to remove onboarding completion flag:', _error);
-			}
-		}
-	};
+    const handleWelcomeClose = async () => {
+        await markWelcomeAsShown();
+        setShowWelcomeModal(false);
+    };
 
 	const handleBusinessWelcomeClose = () => {
 		setShowBusinessWelcome(false);

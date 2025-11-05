@@ -2,7 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
 import { PlusIcon, PhotoIcon, CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from './ui/Button';
-import CameraModal from './CameraModal';
+import { CameraModal } from './modals/organisms';
 import { THEME } from '../utils/constants';
 
 interface FileMenuProps {

@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import { useTranslation, Trans } from '@/i18n/hooks';
-import Modal from '../Modal';
-import { Button } from '../ui/Button';
+import Modal from '../../Modal';
+import { Button } from '../../ui/Button';
+import { ModalBody, ModalHeader, ModalFooter } from '../atoms';
 import { 
   ChatBubbleLeftRightIcon, 
   ShieldCheckIcon, 
@@ -15,39 +16,39 @@ interface WelcomeModalProps {
 }
 
 const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['onboarding']);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleComplete = async () => {
-    setIsSubmitting(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    onComplete();
-    setIsSubmitting(false);
-  };
 
   const tips = [
     {
-      id: 'askAway',
+      id: 'chatTips',
       icon: ChatBubbleLeftRightIcon,
-      iconColor: 'text-green-500',
-      bgColor: 'bg-green-100 dark:bg-green-900/20'
+      iconColor: 'text-blue-500',
+      bgColor: 'bg-blue-50 dark:bg-blue-900/30',
     },
     {
       id: 'privacy',
       icon: ShieldCheckIcon,
-      iconColor: 'text-purple-500',
-      bgColor: 'bg-purple-100 dark:bg-purple-900/20'
+      iconColor: 'text-green-500',
+      bgColor: 'bg-green-50 dark:bg-green-900/30',
     },
     {
-      id: 'accuracy',
+      id: 'safety',
       icon: ExclamationTriangleIcon,
-      iconColor: 'text-orange-500',
-      bgColor: 'bg-orange-100 dark:bg-orange-900/20'
-    }
+      iconColor: 'text-yellow-500',
+      bgColor: 'bg-yellow-50 dark:bg-yellow-900/30',
+    },
   ];
+
+  const handleComplete = async () => {
+    setIsSubmitting(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      onComplete();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Modal
@@ -56,16 +57,11 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
       type="modal"
       showCloseButton={false}
     >
-      <div className="p-6 max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-left mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            {t('onboarding.welcome.title')}
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {t('onboarding.welcome.subtitle')}
-          </p>
-        </div>
+      <ModalBody>
+        <ModalHeader
+          title={t('onboarding.welcome.title')}
+          subtitle={t('onboarding.welcome.subtitle')}
+        />
 
         {/* Tips */}
         <div className="grid grid-cols-3 gap-6 mb-8">
@@ -77,23 +73,14 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
                 <div className={`w-12 h-12 rounded-full ${tip.bgColor} flex items-center justify-center mb-4`}>
                   <Icon className={`h-6 w-6 ${tip.iconColor}`} />
                 </div>
-                <h3 className="text-base font-medium text-gray-900 dark:text-white mb-2">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   {t(`onboarding.welcome.tips.${tip.id}.title`)}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  {tip.id === 'privacy' ? (
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {tip.id === 'chatTips' ? (
                     <Trans
                       i18nKey={`onboarding.welcome.tips.${tip.id}.description`}
-                      components={{
-                        helpCenterLink: (
-                          <a 
-                            href="/help" 
-                            className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline"
-                          >
-                            {t('onboarding.welcome.helpCenter')}
-                          </a>
-                        )
-                      }}
+                      components={{1: <span className="font-medium" />}}
                     />
                   ) : (
                     t(`onboarding.welcome.tips.${tip.id}.description`)
@@ -104,8 +91,7 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
           })}
         </div>
 
-        {/* Action Button */}
-        <div className="flex justify-end">
+        <ModalFooter>
           <Button
             onClick={handleComplete}
             disabled={isSubmitting}
@@ -118,8 +104,8 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
               t('onboarding.welcome.letsGo')
             )}
           </Button>
-        </div>
-      </div>
+        </ModalFooter>
+      </ModalBody>
     </Modal>
   );
 };

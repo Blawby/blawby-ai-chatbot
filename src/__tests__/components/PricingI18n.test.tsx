@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "../utils/test-utils";
 import PricingComparison from "../../components/PricingComparison";
-import PricingModal from "../../components/PricingModal";
+import { PricingModal } from "../../components/modals/organisms";
 import { i18n, changeLanguage } from "@/i18n/hooks";
 import { formatCurrency } from "../../utils/currencyFormatter";
 

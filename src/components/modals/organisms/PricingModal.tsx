@@ -1,0 +1,203 @@
+import { FunctionComponent } from 'preact';
+import { useState, useEffect } from 'preact/hooks';
+import { useTranslation, i18n } from '@/i18n/hooks';
+import { useNavigation } from '../../../utils/navigation';
+import Modal from '../../Modal';
+import { Button } from '../../ui/Button';
+import { Select } from '../../ui/input/Select';
+import { UserGroupIcon } from '@heroicons/react/24/outline';
+import { BadgeRecommended, ModalCloseButton } from '../atoms';
+import { PricingTabs } from '../molecules';
+import { getBusinessPrices } from '../../../utils/stripe-products';
+import type { SubscriptionTier } from '../../../types/user';
+import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
+import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
+import { useToastContext } from '../../../contexts/ToastContext';
+
+interface PricingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentTier?: SubscriptionTier;
+  onUpgrade?: (tier: SubscriptionTier) => Promise<boolean | void> | boolean | void;
+}
+
+const PricingModal: FunctionComponent<PricingModalProps> = ({
+  isOpen,
+  onClose,
+  currentTier = 'free',
+  onUpgrade
+}) => {
+  const { t } = useTranslation(['pricing', 'common']);
+  const { navigate } = useNavigation();
+  const { currentOrganization } = useOrganizationManagement();
+  const { openBillingPortal } = usePaymentUpgrade();
+  const { showError } = useToastContext();
+  const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
+  const [selectedCountry, setSelectedCountry] = useState('us');
+  const [isBillingLoading, setIsBillingLoading] = useState(false);
+
+  useEffect(() => { setSelectedCountry('us'); }, []);
+
+  const handleCountryChange = (country: string) => {
+    setSelectedCountry(country);
+  };
+
+  const userLocale = i18n.language;
+  const prices = getBusinessPrices(userLocale);
+  const allPlans = [
+    { id: 'free' as SubscriptionTier, name: t('plans.free.name'), price: t('plans.free.price'), description: t('plans.free.description'), features: [], buttonText: t('plans.free.buttonText'), isRecommended: currentTier === 'free' },
+    { id: 'business' as SubscriptionTier, name: t('plans.business.name'), price: prices.monthly, description: t('plans.business.description'), features: [], buttonText: t('plans.business.buttonText'), isRecommended: currentTier === 'free' || currentTier === 'plus' },
+    { id: 'enterprise' as SubscriptionTier, name: t('plans.enterprise.name'), price: t('plans.enterprise.price'), description: t('plans.enterprise.description'), features: [], buttonText: t('plans.enterprise.buttonText'), isRecommended: currentTier === 'business' },
+  ];
+
+  const upgradeTiers: Record<SubscriptionTier, SubscriptionTier[]> = {
+    free: ['free', 'business'],
+    plus: ['plus', 'business'],
+    business: ['business', 'enterprise'],
+    enterprise: ['enterprise'],
+  };
+
+  type SimplePlan = { id: SubscriptionTier; name: string; price: string; description: string; features: Array<{ icon?: unknown; text?: string }>; buttonText: string; isRecommended: boolean; isCurrent?: boolean };
+
+  const mainPlans: SimplePlan[] = (() => {
+    const availableTiers = (upgradeTiers[currentTier] || []) as SubscriptionTier[];
+    if (selectedTab === 'personal') {
+      return allPlans.filter(p => availableTiers.includes(p.id) && p.id !== 'business').map(p => ({ ...p, isCurrent: p.id === currentTier, buttonText: (p.id === currentTier) ? t('modal.currentPlan') : p.buttonText, isRecommended: p.id === currentTier }));
+    } else {
+      return allPlans.filter(p => availableTiers.includes(p.id)).map(p => ({ ...p, isCurrent: p.id === currentTier, buttonText: (p.id === currentTier) ? t('modal.currentPlan') : p.buttonText, isRecommended: p.id !== currentTier && p.id === 'business' && (currentTier === 'free' || currentTier === 'plus') }));
+    }
+  })();
+
+  const shouldShowTabs = !(currentTier === 'business' || currentTier === 'enterprise' || currentTier === 'plus');
+
+  const handleUpgrade = async (tier: SubscriptionTier) => {
+    let shouldNavigateToCart = true;
+    try {
+      if (onUpgrade) {
+        const result = await onUpgrade(tier);
+        if (result === false) {
+          shouldNavigateToCart = false;
+        }
+      }
+      if (shouldNavigateToCart) {
+        navigate(`/cart?tier=${tier}`);
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error during upgrade process:', error);
+      navigate(`/cart?tier=${tier}`);
+      onClose();
+    }
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      const orgId = currentOrganization?.id;
+      if (!orgId) {
+        console.error('No organization selected');
+        showError('No organization selected', 'Please select an organization to manage billing.');
+        return;
+      }
+      setIsBillingLoading(true);
+      await openBillingPortal({ organizationId: orgId });
+      onClose();
+    } catch (error) {
+      console.error('Failed to open billing portal:', error);
+      const message = error instanceof Error ? error.message : 'Please try again later.';
+      showError('Unable to open billing portal', message);
+    } finally {
+      setIsBillingLoading(false);
+    }
+  };
+
+  const regionCodes = ['US','VN','GB','DE','FR','ES','JP','CN'] as const;
+  const locale = i18n.language || 'en';
+  const displayNames = new Intl.DisplayNames([locale], { type: 'region' });
+  const countryOptions = regionCodes.map(code => ({ value: code.toLowerCase(), label: displayNames.of(code) || code }));
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} type="fullscreen" showCloseButton={false}>
+      <div className="h-full bg-dark-bg text-white overflow-y-auto">
+        <div className="relative p-6 border-b border-dark-border">
+          <ModalCloseButton onClick={onClose} ariaLabel={t('common:close')} className="absolute top-4 right-4" />
+          <div className="flex flex-col items-center space-y-6">
+            <h1 data-testid="pricing-modal-title" className="text-2xl font-semibold text-white">{t('modal.title')}</h1>
+            {shouldShowTabs && (
+              <PricingTabs
+                selected={selectedTab}
+                onSelect={(tab) => setSelectedTab(tab)}
+                personalLabel={t('tabs.personal')}
+                businessLabel={t('tabs.business')}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full mx-auto">
+            {mainPlans.map((plan) => (
+              <div key={plan.id} className={`relative rounded-xl p-6 transition-all duration-200 flex flex-col h-full ${plan.isRecommended ? 'bg-dark-card-bg border-2 border-accent-500' : 'bg-dark-card-bg border border-dark-border'}`}>
+                {plan.isRecommended && (
+                  <div className="absolute -top-3 left-6">
+                    <BadgeRecommended>{t('modal.recommended').toUpperCase()}</BadgeRecommended>
+                  </div>
+                )}
+                <div className="mb-6">
+                  <h3 className="text-2xl font-bold mb-2 text-white">{plan.name}</h3>
+                  <div className="text-3xl font-bold mb-2 text-white">{plan.price}</div>
+                  <p className="text-gray-300">{plan.description}</p>
+                </div>
+                <div className="mb-6">
+                  {plan.isCurrent && (plan.id === 'business' || plan.id === 'enterprise') ? (
+                    <Button onClick={handleManageBilling} variant="secondary" size="lg" className="w-full" disabled={isBillingLoading}>
+                      {isBillingLoading ? t('modal.openingBilling', { defaultValue: 'Opening…' }) : t('modal.manageBilling', { defaultValue: 'Manage Billing' })}
+                    </Button>
+                  ) : (
+                    <Button onClick={() => handleUpgrade(plan.id)} disabled={plan.isCurrent} variant={plan.isCurrent ? 'secondary' : 'primary'} size="lg" className="w-full">
+                      {plan.buttonText}
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-3 flex-1" />
+                {plan.id === 'free' && (
+                  <div className="mt-6 pt-4 border-t border-dark-border">
+                    <p className="text-xs text-gray-400">
+                      {t('plans.free.footer.existingPlan')}{' '}
+                      <button className="underline hover:text-white">{t('plans.free.footer.billingHelp')}</button>
+                    </p>
+                  </div>
+                )}
+                {plan.id === 'business' && (
+                  <div className="mt-6 pt-4 border-t border-dark-border">
+                    <p className="text-xs text-gray-400 mb-1">{t('plans.business.footer.billing')}</p>
+                    <p className="text-xs text-gray-400">
+                      {t('plans.business.footer.unlimited')}{' '}
+                      <button className="underline hover:text-white">{t('plans.business.footer.learnMore')}</button>
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-dark-border px-6 py-2 mt-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <UserGroupIcon className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-400">{t('footer.enterprise.question')}</span>
+                <button className="text-sm text-white underline hover:text-gray-300 transition-colors" onClick={() => { window.open('/enterprise', '_blank', 'noopener,noreferrer'); }}>
+                  {t('footer.enterprise.link')}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">{t('footer.country.label')}</span>
+                <Select value={selectedCountry} options={countryOptions} onChange={handleCountryChange} direction="up" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+export default PricingModal;

@@ -113,18 +113,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
         onboardingData: fromOnboardingData(completedData)
       } as Parameters<typeof updateUser>[0]);
 
-      // Cache the completion status in localStorage for quick access
-      // This is just a cache, not the source of truth
-      try {
-        localStorage.setItem('onboardingCompleted', 'true');
-      } catch (storageError) {
-        // Handle localStorage failures (private browsing, quota exceeded, etc.)
-        if (import.meta.env.DEV) {
-           
-          console.warn('Failed to cache onboarding completion in localStorage:', storageError);
-        }
-        // Continue execution - this is just a cache, not critical
-      }
+      // Legacy localStorage cache removed - server truth is used instead
 
       // Show success notification
       showSuccess(

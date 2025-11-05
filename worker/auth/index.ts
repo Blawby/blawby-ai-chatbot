@@ -118,6 +118,8 @@ export const auth = betterAuth({
           // Onboarding
           onboardingCompleted: { type: "boolean", required: false, defaultValue: false },
           onboardingData: { type: "string", required: false }, // JSON string
+          // Welcome modal tracking
+          welcomedAt: { type: "string", required: false },
         }
       },
       emailAndPassword: {

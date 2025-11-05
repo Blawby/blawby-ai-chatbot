@@ -224,8 +224,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       // Onboarding completed with redacted data
     }
     
-    // Persist onboarding completion flag before redirecting
-    localStorage.setItem('onboardingCompleted', 'true');
+    // Legacy onboardingCompleted localStorage write removed - server truth is used instead
     
     // Clear the onboarding check flag since user completed onboarding
     try {
