@@ -16,12 +16,12 @@ interface WelcomeModalProps {
 }
 
 const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
-  const { t } = useTranslation(['onboarding']);
+  const { t } = useTranslation('common');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const tips = [
     {
-      id: 'chatTips',
+      id: 'askAway',
       icon: ChatBubbleLeftRightIcon,
       iconColor: 'text-blue-500',
       bgColor: 'bg-blue-50 dark:bg-blue-900/30',
@@ -33,7 +33,7 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
       bgColor: 'bg-green-50 dark:bg-green-900/30',
     },
     {
-      id: 'safety',
+      id: 'accuracy',
       icon: ExclamationTriangleIcon,
       iconColor: 'text-yellow-500',
       bgColor: 'bg-yellow-50 dark:bg-yellow-900/30',
@@ -64,7 +64,7 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
         />
 
         {/* Tips */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
           {tips.map((tip) => {
             const Icon = tip.icon;
             
@@ -77,10 +77,19 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
                   {t(`onboarding.welcome.tips.${tip.id}.title`)}
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {tip.id === 'chatTips' ? (
+                  {tip.id === 'privacy' ? (
                     <Trans
                       i18nKey={`onboarding.welcome.tips.${tip.id}.description`}
-                      components={{1: <span className="font-medium" />}}
+                      components={{
+                        helpCenterLink: (
+                          <a 
+                            href="/help" 
+                            className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline"
+                          >
+                            {t('onboarding.welcome.helpCenter')}
+                          </a>
+                        )
+                      }}
                     />
                   ) : (
                     t(`onboarding.welcome.tips.${tip.id}.description`)

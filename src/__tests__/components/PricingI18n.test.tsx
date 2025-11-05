@@ -218,6 +218,30 @@ describe("Pricing Internationalization", () => {
         expect(onClose).toHaveBeenCalled();
       }
     });
+
+    it("should render the plus plan (kept in sync with upgradeTiers)", () => {
+      const onClose = vi.fn();
+      render(<PricingModal isOpen={true} onClose={onClose} />);
+      // useTranslation mock returns namespace-prefixed keys
+      expect(screen.getByText(/pricing\.plans\.plus\.name/)).toBeTruthy();
+    });
+
+    it("should have functional footer buttons with handlers", () => {
+      const onClose = vi.fn();
+      render(<PricingModal isOpen={true} onClose={onClose} />);
+
+      // Billing help button under free plan
+      const billingHelpBtn = screen.getByRole('button', { name: /pricing\.plans\.free\.footer\.billingHelp/ });
+      billingHelpBtn.click();
+
+      // Learn more button under business plan
+      const learnMoreBtn = screen.getByRole('button', { name: /pricing\.plans\.business\.footer\.learnMore/ });
+      learnMoreBtn.click();
+
+      // No assertion on navigation side-effects here; just ensure buttons are present and clickable
+      expect(billingHelpBtn).toBeTruthy();
+      expect(learnMoreBtn).toBeTruthy();
+    });
   });
 
   describe("Translation Completeness", () => {

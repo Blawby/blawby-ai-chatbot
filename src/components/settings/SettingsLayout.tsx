@@ -76,18 +76,19 @@ export const SettingsLayout = ({
       document.documentElement.style.overflow = '';
       document.body.classList.remove('modal-open');
     };
-  }, [showSettings, handleClose]);
+  }, [showSettings]);
 
   return (
-    <AnimatePresence>
+    <AnimatePresence initial mode="wait">
       {showSettings && (
         <>
           {/* Backdrop */}
           <motion.div
+            key="settings-backdrop"
             className={`fixed inset-0 backdrop-blur-sm ${
               isMobile 
-                ? 'bg-black bg-opacity-50' // Darker backdrop for mobile
-                : 'bg-black bg-opacity-20' // Lighter backdrop for desktop
+                ? 'bg-black/50' // Darker backdrop for mobile
+                : 'bg-black/30' // Slightly darker backdrop for desktop to mask flicker
             }`}
             style={{ zIndex: THEME.zIndex.settings }}
             initial={{ opacity: 0 }}
@@ -98,14 +99,15 @@ export const SettingsLayout = ({
           />
           {/* Settings Panel */}
           <motion.div
+            key="settings-panel"
             ref={dropdownRef}
             className={`fixed bg-white dark:bg-dark-bg overflow-hidden rounded-lg shadow-2xl ${
               isMobile 
                 ? 'inset-x-0 bottom-0 top-0' // Full screen on mobile
                 : 'top-8 left-8 right-8 bottom-8 max-w-4xl mx-auto' // Centered modal on desktop
             } ${className}`}
-            style={{ zIndex: THEME.zIndex.settingsContent }}
-            initial={{ y: "100%" }}
+            style={{ zIndex: THEME.zIndex.settingsContent, willChange: 'transform' }}
+            initial={{ y: '100vh' }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ 

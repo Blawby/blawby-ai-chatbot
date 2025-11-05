@@ -22,9 +22,15 @@ export async function handleUsers(request: Request, env: Env): Promise<Response>
 
       const nowIso = new Date().toISOString();
       try {
-        await env.DB.prepare(
+        const result = await env.DB.prepare(
           `UPDATE users SET welcomed_at = ? WHERE id = ?`
         ).bind(nowIso, user.id).run();
+        // Drizzle-D1 run() returns an object; rows affected is vendor-specific: use 'changes' if available
+        const affected = (result as unknown as { changes?: number; rowsAffected?: number }).changes ?? (result as unknown as { rowsAffected?: number }).rowsAffected ?? 0;
+        if (!affected || affected === 0) {
+          console.error('Failed to update welcomed_at: no matching user', { userId: user.id });
+          throw HttpErrors.internalServerError('Failed to mark user as welcomed: no matching user');
+        }
       } catch (dbErr) {
         console.error('Failed to update welcomed_at for user', { userId: user.id, error: dbErr });
         throw HttpErrors.internalServerError('Failed to mark user as welcomed');

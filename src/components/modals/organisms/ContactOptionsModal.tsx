@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import Modal from '../../Modal';
 import { Button } from '../../ui/Button';
 import { useTheme } from '../../../hooks/useTheme';
@@ -22,19 +22,49 @@ const ContactOptionsModal: FunctionComponent<ContactOptionsModalProps> = ({
 }) => {
   const { isDark } = useTheme();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const copyTimeoutRef = useRef<number | null>(null);
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = window.setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
       console.error('Failed to copy to clipboard:', err);
     }
   };
 
-  const handlePhone = () => { window.open(`tel:${lawyer.phone}`, '_self'); onClose(); };
-  const handleEmail = () => { window.open(`mailto:${lawyer.email}`, '_self'); onClose(); };
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handlePhone = () => {
+    const raw = (lawyer?.phone || '').trim();
+    if (!raw) {
+      // optionally surface a toast here
+      return;
+    }
+    const telUrl = `tel:${encodeURIComponent(raw)}`;
+    window.location.href = telUrl;
+    onClose();
+  };
+  const handleEmail = () => {
+    const raw = (lawyer?.email || '').trim();
+    if (!raw) {
+      // optionally surface a toast here
+      return;
+    }
+    const mailtoUrl = `mailto:${encodeURIComponent(raw)}`;
+    window.location.href = mailtoUrl;
+    onClose();
+  };
   const handleWebsite = () => {
     if (!lawyer.website) { onClose(); return; }
     try {

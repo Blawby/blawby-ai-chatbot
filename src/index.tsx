@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import ChatContainer from './components/ChatContainer';
@@ -55,7 +55,10 @@ function MainApp({
 	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
 	const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 	const [isRecording, setIsRecording] = useState(false);
-	const [showSettingsModal, setShowSettingsModal] = useState(false);
+	const location = useLocation();
+	const { navigate } = useNavigation();
+	const isSettingsRouteNow = location.path.startsWith('/settings');
+	const [showSettingsModal, setShowSettingsModal] = useState(() => isSettingsRouteNow);
 	const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 	const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
 	// Removed legacy business setup modal flow (replaced by /business-onboarding route)
@@ -63,10 +66,6 @@ function MainApp({
 	// Mobile state - initialized as false to avoid SSR/client hydration mismatch
 	const [isMobile, setIsMobile] = useState(false);
 	
-	// Get current location to detect settings routes
-	const location = useLocation();
-	const { navigate } = useNavigation();
-
 	// Use session from Better Auth
 	const { data: session, isPending: sessionIsPending } = useSession();
 
@@ -153,9 +152,11 @@ function MainApp({
 	}, [sessionError]);
 
 	// Handle settings modal based on URL
+	const prevIsSettingsRef = useRef<boolean>(isSettingsRouteNow);
 	useEffect(() => {
 		const isSettingsRoute = location.path.startsWith('/settings');
 		setShowSettingsModal(isSettingsRoute);
+		prevIsSettingsRef.current = isSettingsRoute;
 	}, [location.path]);
 
     // Welcome modal state via server-truth + session debounce
@@ -540,18 +541,7 @@ function MainApp({
 				</div>
 			</AppLayout>
 
-			{/* Settings Modal */}
-			{showSettingsModal && (
-				<SettingsLayout
-					isMobile={isMobile}
-					onClose={() => {
-						setShowSettingsModal(false);
-						setIsMobileSidebarOpen(false); // Close mobile sidebar when settings close
-						navigate('/');
-					}}
-					className="h-full"
-				/>
-			)}
+			{/* Settings Modal moved to AppWithSEO to persist across settings sub-routes */}
 
 			{/* Pricing Modal */}
 			<PricingModal
@@ -664,7 +654,6 @@ function AppWithOrganization() {
 	/>;
 }
 
-// Component that uses organization context for SEO
 function AppWithSEO({ 
 	organizationId, 
 	organizationConfig, 
@@ -677,12 +666,46 @@ function AppWithSEO({
 	handleRetryOrganizationConfig: () => void;
 }) {
 	const location = useLocation();
+	const { navigate } = useNavigation();
 	
 	// Create reactive currentUrl that updates on navigation
 	const currentUrl = typeof window !== 'undefined' 
 		? `${window.location.origin}${location.url}`
 		: undefined;
-	
+
+	// Hoisted settings modal controls
+	const isSettingsOpen = location.path.startsWith('/settings');
+	// Responsive mobile state for the hoisted settings layout
+	const [isMobileHoisted, setIsMobileHoisted] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window === 'undefined') return;
+		const checkIsMobile = () => window.innerWidth < 1024;
+		setIsMobileHoisted(checkIsMobile());
+		const debouncedResizeHandler = debounce(() => {
+			setIsMobileHoisted(checkIsMobile());
+		}, 100);
+		window.addEventListener('resize', debouncedResizeHandler);
+		return () => {
+			window.removeEventListener('resize', debouncedResizeHandler);
+			debouncedResizeHandler.cancel();
+		};
+	}, []);
+
+	// Stable component to avoid remounting the MainApp subtree for settings
+	const SettingsRoute = useMemo(() => {
+		return function SettingsRouteInner(props: Record<string, unknown>) {
+			return (
+				<MainAppWithProviders 
+					organizationId={organizationId}
+					organizationConfig={organizationConfig}
+					organizationNotFound={organizationNotFound}
+					handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+					{...props}
+				/>
+			);
+		};
+	}, [organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig]);
+
 	return (
 		<>
 			<SEOHead 
@@ -694,13 +717,7 @@ function AppWithSEO({
 					<Route path="/auth" component={AuthPage} />
 					<Route path="/cart" component={CartPage} />
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
-					<Route path="/settings/*" component={(props) => <MainAppWithProviders 
-						organizationId={organizationId}
-						organizationConfig={organizationConfig}
-						organizationNotFound={organizationNotFound}
-						handleRetryOrganizationConfig={handleRetryOrganizationConfig}
-						{...props}
-					/>} />
+					<Route path="/settings/*" component={SettingsRoute} />
 					<Route default component={(props) => <MainAppWithProviders 
 						organizationId={organizationId}
 						organizationConfig={organizationConfig}
@@ -709,6 +726,18 @@ function AppWithSEO({
 						{...props}
 					/>} />
 				</Router>
+
+				{/* Hoisted Settings Modal - single instance persists across sub-routes */}
+				{isSettingsOpen && (
+					<SettingsLayout
+						key="settings-modal-hoisted"
+						isMobile={isMobileHoisted}
+						onClose={() => {
+							navigate('/');
+						}}
+						className="h-full"
+					/>
+				)}
 			</ToastProvider>
 		</>
 	);

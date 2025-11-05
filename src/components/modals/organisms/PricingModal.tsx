@@ -4,7 +4,6 @@ import { useTranslation, i18n } from '@/i18n/hooks';
 import { useNavigation } from '../../../utils/navigation';
 import Modal from '../../Modal';
 import { Button } from '../../ui/Button';
-import { Select } from '../../ui/input/Select';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { BadgeRecommended, ModalCloseButton } from '../atoms';
 import { PricingTabs } from '../molecules';
@@ -33,19 +32,13 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   const { openBillingPortal } = usePaymentUpgrade();
   const { showError } = useToastContext();
   const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
-  const [selectedCountry, setSelectedCountry] = useState('us');
   const [isBillingLoading, setIsBillingLoading] = useState(false);
-
-  useEffect(() => { setSelectedCountry('us'); }, []);
-
-  const handleCountryChange = (country: string) => {
-    setSelectedCountry(country);
-  };
 
   const userLocale = i18n.language;
   const prices = getBusinessPrices(userLocale);
   const allPlans = [
     { id: 'free' as SubscriptionTier, name: t('plans.free.name'), price: t('plans.free.price'), description: t('plans.free.description'), features: [], buttonText: t('plans.free.buttonText'), isRecommended: currentTier === 'free' },
+    { id: 'plus' as SubscriptionTier, name: t('plans.plus.name'), price: t('plans.plus.price'), description: t('plans.plus.description'), features: [], buttonText: t('plans.plus.buttonText'), isRecommended: currentTier === 'free' },
     { id: 'business' as SubscriptionTier, name: t('plans.business.name'), price: prices.monthly, description: t('plans.business.description'), features: [], buttonText: t('plans.business.buttonText'), isRecommended: currentTier === 'free' || currentTier === 'plus' },
     { id: 'enterprise' as SubscriptionTier, name: t('plans.enterprise.name'), price: t('plans.enterprise.price'), description: t('plans.enterprise.description'), features: [], buttonText: t('plans.enterprise.buttonText'), isRecommended: currentTier === 'business' },
   ];
@@ -110,10 +103,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
     }
   };
 
-  const regionCodes = ['US','VN','GB','DE','FR','ES','JP','CN'] as const;
-  const locale = i18n.language || 'en';
-  const displayNames = new Intl.DisplayNames([locale], { type: 'region' });
-  const countryOptions = regionCodes.map(code => ({ value: code.toLowerCase(), label: displayNames.of(code) || code }));
+  // NOTE: Country selector removed until region-specific pricing is implemented.
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} type="fullscreen" showCloseButton={false}>
@@ -163,7 +153,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                   <div className="mt-6 pt-4 border-t border-dark-border">
                     <p className="text-xs text-gray-400">
                       {t('plans.free.footer.existingPlan')}{' '}
-                      <button className="underline hover:text-white">{t('plans.free.footer.billingHelp')}</button>
+                      <button onClick={() => navigate('/help/billing')} className="underline hover:text-white">{t('plans.free.footer.billingHelp')}</button>
                     </p>
                   </div>
                 )}
@@ -172,7 +162,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                     <p className="text-xs text-gray-400 mb-1">{t('plans.business.footer.billing')}</p>
                     <p className="text-xs text-gray-400">
                       {t('plans.business.footer.unlimited')}{' '}
-                      <button className="underline hover:text-white">{t('plans.business.footer.learnMore')}</button>
+                      <button onClick={() => navigate('/business/features')} className="underline hover:text-white">{t('plans.business.footer.learnMore')}</button>
                     </p>
                   </div>
                 )}
@@ -180,17 +170,13 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
             ))}
           </div>
           <div className="border-t border-dark-border px-6 py-2 mt-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <UserGroupIcon className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-400">{t('footer.enterprise.question')}</span>
                 <button className="text-sm text-white underline hover:text-gray-300 transition-colors" onClick={() => { window.open('/enterprise', '_blank', 'noopener,noreferrer'); }}>
                   {t('footer.enterprise.link')}
                 </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">{t('footer.country.label')}</span>
-                <Select value={selectedCountry} options={countryOptions} onChange={handleCountryChange} direction="up" />
               </div>
             </div>
           </div>

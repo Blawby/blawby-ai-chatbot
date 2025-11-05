@@ -46,6 +46,7 @@ const ContactOptionsSection: FunctionComponent<ContactOptionsSectionProps> = ({
                 size="sm"
                 onClick={() => onCopy('phone')}
                 className="p-1"
+                aria-label="Copy phone number"
               >
                 {copiedField === 'phone' ? (
                   <CheckIcon className="w-4 h-4 text-green-500" />
@@ -77,6 +78,7 @@ const ContactOptionsSection: FunctionComponent<ContactOptionsSectionProps> = ({
                 size="sm"
                 onClick={() => onCopy('email')}
                 className="p-1"
+                aria-label="Copy email address"
               >
                 {copiedField === 'email' ? (
                   <CheckIcon className="w-4 h-4 text-green-500" />
@@ -99,7 +101,13 @@ const ContactOptionsSection: FunctionComponent<ContactOptionsSectionProps> = ({
               <GlobeAltIcon className="w-5 h-5 text-purple-500 mr-3" />
               <div>
                 <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Website</p>
-                <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'} truncate max-w-48`}>{lawyer.website}</p>
+                <p
+                  className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'} truncate max-w-48`}
+                  title={lawyer.website || ''}
+                  aria-label={lawyer.website || ''}
+                >
+                  {lawyer.website}
+                </p>
               </div>
             </div>
             <div className="flex space-x-2">
@@ -108,6 +116,7 @@ const ContactOptionsSection: FunctionComponent<ContactOptionsSectionProps> = ({
                 size="sm"
                 onClick={() => onCopy('website')}
                 className="p-1"
+                aria-label="Copy website URL"
               >
                 {copiedField === 'website' ? (
                   <CheckIcon className="w-4 h-4 text-green-500" />

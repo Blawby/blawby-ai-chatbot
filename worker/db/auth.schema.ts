@@ -69,7 +69,7 @@ export const users = sqliteTable("users", {
   onboardingCompleted: integer("onboarding_completed", { mode: "boolean" }).default(false),
   onboardingData: text("onboarding_data"), // JSON string
   // Welcome modal tracking
-  welcomedAt: text("welcomed_at"), // ISO timestamp when user was shown welcome modal
+  welcomedAt: integer("welcomed_at", { mode: "timestamp" }), // Timestamp when user was shown welcome modal
   
   // Better Auth lastLoginMethod plugin
   lastLoginMethod: text("last_login_method"), // "google", "email", "credential", etc.

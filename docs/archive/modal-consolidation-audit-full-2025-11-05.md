@@ -382,365 +382,17 @@ localStorage.removeItem('onboardingCompleted');
 - Multiple components set/clear the same flag without coordination
 - No server-side truth for welcome modal state
 
-## 4) Minimal-Change Fix (Server-truth + session debounce)
+## 4) Minimal-Change Fix (DEPRECATED)
 
-⚠️ **Note:** This section shows an initial implementation that was superseded by the enhanced implementation in section 7. The enhanced version includes BroadcastChannel support, better error handling, and proper effect separation. See section 7 for the recommended implementation.
+⚠️ **DEPRECATED:** This section describes an initial implementation that was **superseded by section 7** ("Focused Fix Pass - Enhanced Implementation"). 
 
-### Solution Overview
+**Please use section 7 for the current, recommended implementation**, which includes:
+- BroadcastChannel support for cross-tab suppression
+- Enhanced error handling and SSR safety
+- Proper effect separation and StrictMode guards
+- Hardened API endpoint with idempotent D1 updates
 
-Use server-side truth (`welcomed_at` timestamp or boolean flag) + `sessionStorage` debounce to prevent multiple shows in same tab/session.
-
-### New Files to Create
-
-#### `src/components/modals/hooks/useWelcomeModal.ts`
-
-```typescript
-import { useState, useEffect, useCallback } from 'preact/hooks';
-import { useSession } from '../../contexts/AuthContext';
-
-interface UseWelcomeModalResult {
-  shouldShow: boolean;
-  markAsShown: () => Promise<void>; // Note: Enhanced version (section 7) changed to synchronous (void)
-}
-
-/**
- * Hook to manage welcome modal state using server truth + sessionStorage debounce.
- * 
- * Logic:
- * 1. Read server truth from session (user.welcomedAt or user.onboardingCompleted)
- * 2. Check sessionStorage to prevent multiple shows in same tab
- * 3. Mark as shown immediately in sessionStorage when modal opens
- * 4. Fire-and-forget API call to mark server as welcomed
- */
-export function useWelcomeModal(): UseWelcomeModalResult {
-  const { data: session, isPending: sessionIsPending } = useSession();
-  const [shouldShow, setShouldShow] = useState(false);
-
-  // Check if modal should show
-  useEffect(() => {
-    if (sessionIsPending || !session?.user) {
-      setShouldShow(false);
-      return;
-    }
-
-    const userId = session.user.id;
-    if (!userId) {
-      setShouldShow(false);
-      return;
-    }
-
-    // Check sessionStorage first (debounce for same tab)
-    const sessionKey = `welcomeModalShown_v1_${userId}`;
-    const alreadyShownThisSession = sessionStorage.getItem(sessionKey);
-    if (alreadyShownThisSession) {
-      setShouldShow(false);
-      return;
-    }
-
-    // Check server truth
-    // User should see welcome modal if:
-    // 1. They completed onboarding (onboardingCompleted === true)
-    // 2. They haven't been welcomed yet (welcomedAt is missing or false)
-    const user = session.user as typeof session.user & {
-      onboardingCompleted?: boolean;
-      welcomedAt?: boolean | string | null;
-    };
-
-    const hasCompletedOnboarding = user.onboardingCompleted === true;
-    const hasBeenWelcomed = Boolean(user.welcomedAt);
-
-    if (hasCompletedOnboarding && !hasBeenWelcomed) {
-      setShouldShow(true);
-    } else {
-      setShouldShow(false);
-    }
-  }, [session?.user, sessionIsPending]);
-
-  const markAsShown = useCallback(async () => {
-    if (!session?.user?.id) return;
-
-    const userId = session.user.id;
-
-    // Mark in sessionStorage immediately (prevents re-show in same tab)
-    const sessionKey = `welcomeModalShown_v1_${userId}`;
-    try {
-      sessionStorage.setItem(sessionKey, '1');
-    } catch (error) {
-      console.warn('[WelcomeModal] Failed to set sessionStorage:', error);
-    }
-
-    // Update local state
-    setShouldShow(false);
-
-    // Fire-and-forget API call to mark server as welcomed
-    // Note: NO request body - server derives userId from session only
-    try {
-      await fetch('/api/users/welcome', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        // NO body - server derives userId from session
-      });
-    } catch (error) {
-      // Fire-and-forget: don't block UI, just log
-      console.warn('[WelcomeModal] Failed to mark as welcomed on server:', error);
-    }
-  }, [session?.user?.id]);
-
-  return { shouldShow, markAsShown };
-}
-```
-
-#### `worker/routes/users.ts` (new file)
-
-```typescript
-import type { Env } from '../types';
-import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
-import { requireAuth } from '../middleware/auth.js';
-import { parseJsonBody } from '../utils';
-
-/**
- * POST /api/users/welcome
- * Idempotent endpoint to mark user as welcomed.
- * Sets welcomedAt timestamp in user record.
- */
-export async function handleUsers(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-  const path = url.pathname;
-
-  try {
-    if (path === '/api/users/welcome' && request.method === 'POST') {
-      await requireAuth(request, env);
-      
-      const body = await parseJsonBody(request) as { userId?: string };
-      if (!body?.userId || typeof body.userId !== 'string') {
-        throw HttpErrors.badRequest('userId is required');
-      }
-
-      // Get authenticated user from session
-      const session = await env.BETTER_AUTH.getSession({
-        headers: request.headers,
-      });
-
-      if (!session?.user) {
-        throw HttpErrors.unauthorized('Authentication required');
-      }
-
-      // Ensure user can only mark themselves as welcomed
-      if (session.user.id !== body.userId) {
-        throw HttpErrors.forbidden('Cannot mark another user as welcomed');
-      }
-
-      // Update user record with welcomedAt timestamp
-      const db = env.DB;
-      const now = new Date().toISOString();
-      
-      await db.prepare(`
-        UPDATE users 
-        SET welcomed_at = ? 
-        WHERE id = ?
-      `).bind(now, body.userId).run();
-
-      return createSuccessResponse({ success: true, welcomedAt: now });
-    }
-
-    throw HttpErrors.notFound('Endpoint not found');
-  } catch (error) {
-    return handleError(error);
-  }
-}
-```
-
-**Note**: Add `welcomed_at` column to users table if it doesn't exist:
-```sql
-ALTER TABLE users ADD COLUMN welcomed_at TEXT;
-```
-
-### Changes to Existing Files
-
-#### `src/index.tsx` - Remove flag management, use hook
-
-**Remove lines 161-177** (old useEffect that reads localStorage):
-```diff
--	// Check if we should show welcome modal (after onboarding completion)
--	useEffect(() => {
--		// Check if user just completed onboarding
--		try {
--			const onboardingCompleted = localStorage.getItem('onboardingCompleted');
--			if (onboardingCompleted === 'true') {
--				setShowWelcomeModal(true);
--				// Don't remove the flag here - let the completion handler do it
--				// This prevents permanent loss if the modal fails to render
--			}
--		} catch (_error) {
--			// Handle localStorage access failures (private browsing, etc.)
--			if (import.meta.env.DEV) {
--				 
--				console.warn('Failed to check onboarding completion status:', _error);
--			}
--		}
--	}, []);
-```
-
-**Add import at top (after line 25)**:
-```diff
- import WelcomeModal from './components/onboarding/WelcomeModal';
-+import { useWelcomeModal } from './components/modals/hooks/useWelcomeModal';
-```
-
-**Replace lines 435-464** (old handlers):
-```diff
--	// Handle welcome modal
--	const handleWelcomeComplete = () => {
--		setShowWelcomeModal(false);
--		
--		// Remove the onboarding completion flag now that the welcome modal has been shown
--		try {
--			localStorage.removeItem('onboardingCompleted');
--		} catch (_error) {
--			// Handle localStorage access failures (private browsing, etc.)
--			if (import.meta.env.DEV) {
--				 
--				console.warn('Failed to remove onboarding completion flag:', _error);
--			}
--		}
--	};
--
--	const handleWelcomeClose = () => {
--		setShowWelcomeModal(false);
--		
--		// Remove the onboarding completion flag even if user closes without completing
--		// This prevents the welcome modal from showing again
--		try {
--			localStorage.removeItem('onboardingCompleted');
--		} catch (_error) {
--			// Handle localStorage access failures (private browsing, etc.)
--			if (import.meta.env.DEV) {
--				 
--				console.warn('Failed to remove onboarding completion flag:', _error);
--			}
--		}
--	};
-+	// Use welcome modal hook (server-truth + session debounce)
-+	const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal();
-+
-+	// Sync hook state to local state
-+	useEffect(() => {
-+		setShowWelcomeModal(shouldShowWelcome);
-+	}, [shouldShowWelcome]);
-
-+	// Handle welcome modal
-+	const handleWelcomeComplete = async () => {
-+		await markWelcomeAsShown();
-+		setShowWelcomeModal(false);
-+	};
-+
-+	const handleWelcomeClose = async () => {
-+		await markWelcomeAsShown();
-+		setShowWelcomeModal(false);
-+	};
-```
-
-**Update WelcomeModal render (lines 651-655)**:
-```diff
- 			{/* Welcome Modal */}
- 			<WelcomeModal
- 				isOpen={showWelcomeModal}
- 				onClose={handleWelcomeClose}
- 				onComplete={handleWelcomeComplete}
- 			/>
-```
-
-**Remove localStorage writes from sync logic (lines 234-245)**:
-```diff
- 			// Sync onboardingCompleted flag if user has completed onboarding but flag is missing
- 			if (hasCompletedOnboarding && !hasOnboardingFlag) {
- 				if (import.meta.env.DEV) {
- 					console.debug('[ONBOARDING][SYNC] syncing onboardingCompleted flag');
- 				}
--				try {
--					localStorage.setItem('onboardingCompleted', 'true');
--					localStorage.setItem('onboardingCheckDone', 'true');
--				} catch (_error) {
--					// Handle localStorage failures gracefully
--					console.warn('[ONBOARDING][SYNC] localStorage set failed:', _error);
--				}
-+				// Note: localStorage sync removed - welcome modal now uses server truth
- 			}
-```
-
-**Remove localStorage writes from else branch (lines 268-274)**:
-```diff
- 				} else {
- 					// User has completed onboarding, sync the flags with database state
--					try {
--						localStorage.setItem('onboardingCompleted', 'true');
--						localStorage.setItem('onboardingCheckDone', 'true');
--					} catch (_error) {
--						// Handle localStorage failures gracefully
--					}
-+					// Note: localStorage sync removed - welcome modal now uses server truth
- 				}
-```
-
-#### `src/components/onboarding/OnboardingModal.tsx` - Remove localStorage write
-
-**Remove lines 116-127** (localStorage cache):
-```diff
--			// Cache the completion status in localStorage for quick access
--			// This is just a cache, not the source of truth
--			try {
--				localStorage.setItem('onboardingCompleted', 'true');
--			} catch (storageError) {
--				// Handle localStorage failures (private browsing, quota exceeded, etc.)
--				if (import.meta.env.DEV) {
--					
--					console.warn('Failed to cache onboarding completion in localStorage:', storageError);
--				}
--				// Continue execution - this is just a cache, not critical
--			}
-```
-
-#### `src/components/AuthPage.tsx` - Remove localStorage write
-
-**Remove line 228**:
-```diff
--		localStorage.setItem('onboardingCompleted', 'true');
-```
-
-#### `worker/index.ts` - Add users route handler
-
-**Add import (after other route imports)**:
-```typescript
-import { handleUsers } from './routes/users';
-```
-
-**Add route handler (after `/api/onboarding` check, around line 100)**:
-```diff
-    } else if (path.startsWith('/api/onboarding')) {
-      response = await handleOnboarding(request, env);
-+    } else if (path.startsWith('/api/users')) {
-+      response = await handleUsers(request, env);
-    } else if (path.startsWith('/api/payment')) {
-```
-
-#### Database Migration
-
-**Create `worker/migrations/YYYYMMDD_add_welcomed_at.sql`**:
-```sql
--- Add welcomed_at column to users table
-ALTER TABLE users ADD COLUMN welcomed_at TEXT;
-```
-
-**Update `worker/db/auth.schema.ts`** (add to users table definition):
-```typescript
-// Welcome
-welcomedAt: text("welcomed_at"), // ISO timestamp when user was shown welcome modal
-```
-
-**Update Better Auth session to include `welcomedAt`** (if needed in session bootstrap):
-- Check `worker/auth/*.ts` files for session building logic
-- Add `welcomedAt` to user object returned in session
+The deprecated implementation is preserved in **Appendix A** at the end of this document for historical reference only.
 
 ## 5) Atomic Restructure Plan (safe incremental)
 
@@ -1875,4 +1527,366 @@ This audit provides:
 7. **Focused fix pass with enhanced implementation** (SSR safety, BroadcastChannel, hardened API)
 
 The fix addresses the root cause: WelcomeModal checks localStorage on every mount, but flag is cleared asynchronously. The new approach uses server truth (`welcomed_at`) + sessionStorage debounce + BroadcastChannel for cross-tab suppression + idempotent API endpoint.
+
+---
+
+## Appendix A: Deprecated Minimal-Change Fix
+
+⚠️ **DEPRECATED:** This appendix preserves the initial implementation described in section 4 for historical reference only. **Do not use this implementation.** See section 7 ("Focused Fix Pass - Enhanced Implementation") for the current, recommended approach.
+
+### Solution Overview
+
+Use server-side truth (`welcomed_at` timestamp or boolean flag) + `sessionStorage` debounce to prevent multiple shows in same tab/session.
+
+### New Files to Create
+
+#### `src/components/modals/hooks/useWelcomeModal.ts`
+
+```typescript
+import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useSession } from '../../contexts/AuthContext';
+
+interface UseWelcomeModalResult {
+  shouldShow: boolean;
+  markAsShown: () => Promise<void>; // Note: Enhanced version (section 7) changed to synchronous (void)
+}
+
+/**
+ * Hook to manage welcome modal state using server truth + sessionStorage debounce.
+ * 
+ * Logic:
+ * 1. Read server truth from session (user.welcomedAt or user.onboardingCompleted)
+ * 2. Check sessionStorage to prevent multiple shows in same tab
+ * 3. Mark as shown immediately in sessionStorage when modal opens
+ * 4. Fire-and-forget API call to mark server as welcomed
+ */
+export function useWelcomeModal(): UseWelcomeModalResult {
+  const { data: session, isPending: sessionIsPending } = useSession();
+  const [shouldShow, setShouldShow] = useState(false);
+
+  // Check if modal should show
+  useEffect(() => {
+    if (sessionIsPending || !session?.user) {
+      setShouldShow(false);
+      return;
+    }
+
+    const userId = session.user.id;
+    if (!userId) {
+      setShouldShow(false);
+      return;
+    }
+
+    // Check sessionStorage first (debounce for same tab)
+    const sessionKey = `welcomeModalShown_v1_${userId}`;
+    const alreadyShownThisSession = sessionStorage.getItem(sessionKey);
+    if (alreadyShownThisSession) {
+      setShouldShow(false);
+      return;
+    }
+
+    // Check server truth
+    // User should see welcome modal if:
+    // 1. They completed onboarding (onboardingCompleted === true)
+    // 2. They haven't been welcomed yet (welcomedAt is missing or false)
+    const user = session.user as typeof session.user & {
+      onboardingCompleted?: boolean;
+      welcomedAt?: boolean | string | null;
+    };
+
+    const hasCompletedOnboarding = user.onboardingCompleted === true;
+    const hasBeenWelcomed = Boolean(user.welcomedAt);
+
+    if (hasCompletedOnboarding && !hasBeenWelcomed) {
+      setShouldShow(true);
+    } else {
+      setShouldShow(false);
+    }
+  }, [session?.user, sessionIsPending]);
+
+  const markAsShown = useCallback(async () => {
+    if (!session?.user?.id) return;
+
+    const userId = session.user.id;
+
+    // Mark in sessionStorage immediately (prevents re-show in same tab)
+    const sessionKey = `welcomeModalShown_v1_${userId}`;
+    try {
+      sessionStorage.setItem(sessionKey, '1');
+    } catch (error) {
+      console.warn('[WelcomeModal] Failed to set sessionStorage:', error);
+    }
+
+    // Update local state
+    setShouldShow(false);
+
+    // Fire-and-forget API call to mark server as welcomed
+    // Note: NO request body - server derives userId from session only
+    try {
+      await fetch('/api/users/welcome', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        // NO body - server derives userId from session
+      });
+    } catch (error) {
+      // Fire-and-forget: don't block UI, just log
+      console.warn('[WelcomeModal] Failed to mark as welcomed on server:', error);
+    }
+  }, [session?.user?.id]);
+
+  return { shouldShow, markAsShown };
+}
+```
+
+#### `worker/routes/users.ts` (new file)
+
+```typescript
+import type { Env } from '../types';
+import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
+import { requireAuth } from '../middleware/auth.js';
+import { parseJsonBody } from '../utils';
+
+/**
+ * POST /api/users/welcome
+ * Idempotent endpoint to mark user as welcomed.
+ * Sets welcomedAt timestamp in user record.
+ */
+export async function handleUsers(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  try {
+    if (path === '/api/users/welcome' && request.method === 'POST') {
+      await requireAuth(request, env);
+      
+      const body = await parseJsonBody(request) as { userId?: string };
+      if (!body?.userId || typeof body.userId !== 'string') {
+        throw HttpErrors.badRequest('userId is required');
+      }
+
+      // Get authenticated user from session
+      const session = await env.BETTER_AUTH.getSession({
+        headers: request.headers,
+      });
+
+      if (!session?.user) {
+        throw HttpErrors.unauthorized('Authentication required');
+      }
+
+      // Ensure user can only mark themselves as welcomed
+      if (session.user.id !== body.userId) {
+        throw HttpErrors.forbidden('Cannot mark another user as welcomed');
+      }
+
+      // Update user record with welcomedAt timestamp
+      const db = env.DB;
+      const now = new Date().toISOString();
+      
+      await db.prepare(`
+        UPDATE users 
+        SET welcomed_at = ? 
+        WHERE id = ?
+      `).bind(now, body.userId).run();
+
+      return createSuccessResponse({ success: true, welcomedAt: now });
+    }
+
+    throw HttpErrors.notFound('Endpoint not found');
+  } catch (error) {
+    return handleError(error);
+  }
+}
+```
+
+**Note**: Add `welcomed_at` column to users table if it doesn't exist:
+```sql
+ALTER TABLE users ADD COLUMN welcomed_at TEXT;
+```
+
+### Changes to Existing Files
+
+#### `src/index.tsx` - Remove flag management, use hook
+
+**Remove lines 161-177** (old useEffect that reads localStorage):
+```diff
+-	// Check if we should show welcome modal (after onboarding completion)
+-	useEffect(() => {
+-		// Check if user just completed onboarding
+-		try {
+-			const onboardingCompleted = localStorage.getItem('onboardingCompleted');
+-			if (onboardingCompleted === 'true') {
+-				setShowWelcomeModal(true);
+-				// Don't remove the flag here - let the completion handler do it
+-				// This prevents permanent loss if the modal fails to render
+-			}
+-		} catch (_error) {
+-			// Handle localStorage access failures (private browsing, etc.)
+-			if (import.meta.env.DEV) {
+-				 
+-				console.warn('Failed to check onboarding completion status:', _error);
+-			}
+-		}
+-	}, []);
+```
+
+**Add import at top (after line 25)**:
+```diff
+ import WelcomeModal from './components/onboarding/WelcomeModal';
++import { useWelcomeModal } from './components/modals/hooks/useWelcomeModal';
+```
+
+**Replace lines 435-464** (old handlers):
+```diff
+-	// Handle welcome modal
+-	const handleWelcomeComplete = () => {
+-		setShowWelcomeModal(false);
+-		
+-		// Remove the onboarding completion flag now that the welcome modal has been shown
+-		try {
+-			localStorage.removeItem('onboardingCompleted');
+-		} catch (_error) {
+-			// Handle localStorage access failures (private browsing, etc.)
+-			if (import.meta.env.DEV) {
+-				 
+-				console.warn('Failed to remove onboarding completion flag:', _error);
+-			}
+-		}
+-	};
+-
+-	const handleWelcomeClose = () => {
+-		setShowWelcomeModal(false);
+-		
+-		// Remove the onboarding completion flag even if user closes without completing
+-		// This prevents the welcome modal from showing again
+-		try {
+-			localStorage.removeItem('onboardingCompleted');
+-		} catch (_error) {
+-			// Handle localStorage access failures (private browsing, etc.)
+-			if (import.meta.env.DEV) {
+-				 
+-				console.warn('Failed to remove onboarding completion flag:', _error);
+-			}
+-		}
+-	};
++	// Use welcome modal hook (server-truth + session debounce)
++	const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal();
++
++	// Sync hook state to local state
++	useEffect(() => {
++		setShowWelcomeModal(shouldShowWelcome);
++	}, [shouldShowWelcome]);
++
++	// Handle welcome modal
++	const handleWelcomeComplete = async () => {
++		await markWelcomeAsShown();
++		setShowWelcomeModal(false);
++	};
++
++	const handleWelcomeClose = async () => {
++		await markWelcomeAsShown();
++		setShowWelcomeModal(false);
++	};
+```
+
+**Update WelcomeModal render (lines 651-655)**:
+```diff
+ 			{/* Welcome Modal */}
+ 			<WelcomeModal
+ 				isOpen={showWelcomeModal}
+ 				onClose={handleWelcomeClose}
+ 				onComplete={handleWelcomeComplete}
+ 			/>
+```
+
+**Remove localStorage writes from sync logic (lines 234-245)**:
+```diff
+ 			// Sync onboardingCompleted flag if user has completed onboarding but flag is missing
+ 			if (hasCompletedOnboarding && !hasOnboardingFlag) {
+ 				if (import.meta.env.DEV) {
+ 					console.debug('[ONBOARDING][SYNC] syncing onboardingCompleted flag');
+ 				}
+-				try {
+-					localStorage.setItem('onboardingCompleted', 'true');
+-					localStorage.setItem('onboardingCheckDone', 'true');
+-				} catch (_error) {
+-					// Handle localStorage failures gracefully
+-					console.warn('[ONBOARDING][SYNC] localStorage set failed:', _error);
+-				}
++				// Note: localStorage sync removed - welcome modal now uses server truth
+ 			}
+```
+
+**Remove localStorage writes from else branch (lines 268-274)**:
+```diff
+ 				} else {
+ 					// User has completed onboarding, sync the flags with database state
+-					try {
+-						localStorage.setItem('onboardingCompleted', 'true');
+-						localStorage.setItem('onboardingCheckDone', 'true');
+-					} catch (_error) {
+-						// Handle localStorage failures gracefully
+-					}
++					// Note: localStorage sync removed - welcome modal now uses server truth
+ 				}
+```
+
+#### `src/components/onboarding/OnboardingModal.tsx` - Remove localStorage write
+
+**Remove lines 116-127** (localStorage cache):
+```diff
+-			// Cache the completion status in localStorage for quick access
+-			// This is just a cache, not the source of truth
+-			try {
+-				localStorage.setItem('onboardingCompleted', 'true');
+-			} catch (storageError) {
+-				// Handle localStorage failures (private browsing, quota exceeded, etc.)
+-				if (import.meta.env.DEV) {
+-					
+-					console.warn('Failed to cache onboarding completion in localStorage:', storageError);
+-				}
+-				// Continue execution - this is just a cache, not critical
+-			}
+```
+
+#### `src/components/AuthPage.tsx` - Remove localStorage write
+
+**Remove line 228**:
+```diff
+-		localStorage.setItem('onboardingCompleted', 'true');
+```
+
+#### `worker/index.ts` - Add users route handler
+
+**Add import (after other route imports)**:
+```typescript
+import { handleUsers } from './routes/users';
+```
+
+**Add route handler (after `/api/onboarding` check, around line 100)**:
+```diff
+    } else if (path.startsWith('/api/onboarding')) {
+      response = await handleOnboarding(request, env);
++    } else if (path.startsWith('/api/users')) {
++      response = await handleUsers(request, env);
+    } else if (path.startsWith('/api/payment')) {
+```
+
+#### Database Migration
+
+**Create `worker/migrations/YYYYMMDD_add_welcomed_at.sql`**:
+```sql
+-- Add welcomed_at column to users table
+ALTER TABLE users ADD COLUMN welcomed_at TEXT;
+```
+
+**Update `worker/db/auth.schema.ts`** (add to users table definition):
+```typescript
+// Welcome
+welcomedAt: text("welcomed_at"), // ISO timestamp when user was shown welcome modal
+```
+
+**Update Better Auth session to include `welcomedAt`** (if needed in session bootstrap):
+- Check `worker/auth/*.ts` files for session building logic
+- Add `welcomedAt` to user object returned in session
 

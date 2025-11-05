@@ -21,6 +21,13 @@ const CameraModal: FunctionComponent<CameraModalProps> = ({
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [error, setError] = useState('');
 
+  const onVideoLoaded = useCallback(() => {
+    setIsCameraReady(true);
+  }, []);
+  const onVideoError = useCallback(() => {
+    setError('Error loading video stream.');
+  }, []);
+
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -44,19 +51,27 @@ const CameraModal: FunctionComponent<CameraModalProps> = ({
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => setIsCameraReady(true);
-        videoRef.current.onerror = () => setError('Error loading video stream.');
+        videoRef.current.addEventListener('loadedmetadata', onVideoLoaded);
+        videoRef.current.addEventListener('error', onVideoError);
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
       setError('Could not access camera. Please check permissions and ensure your device has a camera.');
     }
-  }, [stopCamera]);
+  }, [stopCamera, onVideoLoaded, onVideoError]);
 
   useEffect(() => {
     if (isOpen) startCamera();
-    return () => { stopCamera(); };
-  }, [isOpen, startCamera, stopCamera]);
+    return () => {
+      // Remove listeners before stopping camera
+      const video = videoRef.current;
+      if (video) {
+        video.removeEventListener('loadedmetadata', onVideoLoaded);
+        video.removeEventListener('error', onVideoError);
+      }
+      stopCamera();
+    };
+  }, [isOpen, startCamera, stopCamera, onVideoLoaded, onVideoError]);
 
   const takePhoto = () => {
     if (!isCameraReady || !videoRef.current || !canvasRef.current) {
@@ -84,6 +99,8 @@ const CameraModal: FunctionComponent<CameraModalProps> = ({
         if (blob) {
           const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
           onCapture(file);
+          // Stop camera after capture completes to avoid race with cleanup
+          stopCamera();
           onClose();
         } else {
           console.error('Failed to create blob from canvas');

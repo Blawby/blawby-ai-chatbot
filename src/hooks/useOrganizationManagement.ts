@@ -36,6 +36,7 @@ export interface Organization {
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+  subscriptionPeriodEnd?: number | null;
   config?: {
     ownerEmail?: string;
     metadata?: {
