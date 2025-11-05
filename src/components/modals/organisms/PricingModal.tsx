@@ -138,7 +138,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                   <p className="text-gray-300">{plan.description}</p>
                 </div>
                 <div className="mb-6">
-                  {plan.isCurrent && (plan.id === 'business' || plan.id === 'enterprise') ? (
+                  {plan.isCurrent && (plan.id === 'business' || plan.id === 'enterprise' || plan.id === 'plus') ? (
                     <Button onClick={handleManageBilling} variant="secondary" size="lg" className="w-full" disabled={isBillingLoading}>
                       {isBillingLoading ? t('modal.openingBilling', { defaultValue: 'Opening…' }) : t('modal.manageBilling', { defaultValue: 'Manage Billing' })}
                     </Button>
