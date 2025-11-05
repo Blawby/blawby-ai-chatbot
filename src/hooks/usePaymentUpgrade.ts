@@ -160,17 +160,16 @@ export const usePaymentUpgrade = () => {
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
         const message =
-          (result && typeof result === 'object' && 'error' in result && typeof result.error === 'string')
-            ? result.error
+          (result && typeof result === 'object' && 'error' in result && typeof (result as any).error === 'string')
+            ? (result as any).error as string
             : 'Unable to set active organization for subscription.';
         console.warn('[UPGRADE] Failed to set active organization:', message);
-        return false;
+        throw new Error(message);
       }
-      return true;
     } catch (activeErr) {
       const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active organization.';
       console.warn('[UPGRADE] Active organization setup error:', message);
-      return false;
+      throw new Error(message);
     }
   }, []);
 

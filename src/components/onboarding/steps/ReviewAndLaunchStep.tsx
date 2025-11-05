@@ -69,7 +69,9 @@ export function ReviewAndLaunchStep({
         <SummaryTable
           rows={[
             { label: t('onboarding:reviewAndLaunch.labels.name'), value: data.firmName || '-' },
-            { label: t('onboarding:reviewAndLaunch.sections.services'), value: `${validServices.length} ${t('onboarding:reviewAndLaunch.messages.noServicesConfigured') && validServices.length === 0 ? '' : 'configured'}` },
+            { label: t('onboarding:reviewAndLaunch.sections.services'), value: (validServices.length === 0)
+              ? t('onboarding:reviewAndLaunch.messages.noServicesConfigured')
+              : `${validServices.length} configured` },
             { label: t('onboarding:reviewAndLaunch.visibility.title'), value: data.isPublic ? t('onboarding:reviewAndLaunch.visibility.public') || 'Public' : t('onboarding:reviewAndLaunch.visibility.private') || 'Private' },
           ]}
         />

@@ -102,14 +102,14 @@ const BusinessOnboardingModal = ({
           } | null;
           
           if (status?.data && !status.completed) {
-            // Merge saved data with initial form data
+            // Merge saved data with initial form data using functional updater to avoid stale closure
             const savedData = status.data as Partial<OnboardingFormData>;
-            setFormData({
-              ...formData,
+            setFormData((prev) => ({
+              ...prev,
               ...savedData,
               // Preserve contactEmail from fallback if not in saved data
-              contactEmail: savedData.contactEmail || formData.contactEmail || fallbackContactEmail || ''
-            });
+              contactEmail: savedData.contactEmail || prev.contactEmail || fallbackContactEmail || ''
+            }));
           }
         }
       } catch (error) {

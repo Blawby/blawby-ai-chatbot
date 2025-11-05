@@ -53,7 +53,7 @@ describeFn('Stripe Webhook Integration', () => {
     eventType: string,
     subscriptionData: any
   ): { body: string; signature: string } {
-    const event: Stripe.Event = {
+    const event = {
       id: `evt_test_${Date.now()}`,
       object: 'event',
       api_version: '2024-12-18.acacia',
@@ -68,8 +68,8 @@ describeFn('Stripe Webhook Integration', () => {
         id: null,
         idempotency_key: null,
       },
-      type: eventType as Stripe.Event.Type,
-    };
+      type: eventType as any,
+    } as any;
 
     const payload = JSON.stringify(event);
 
@@ -141,24 +141,21 @@ describeFn('Stripe Webhook Integration', () => {
   });
 
   test('should handle unsupported event types gracefully', async () => {
-    const subscription = {
-      id: 'sub_test_unsupported',
+    const charge = {
+      id: `ch_test_${Date.now()}`,
+      object: 'charge',
+      amount: 2000,
+      currency: 'usd',
       customer: 'cus_test',
+      paid: true,
+      status: 'succeeded',
       metadata: {},
-      object: 'subscription',
-      status: 'active',
-      items: { data: [] },
-    };
-
-    // Skip if using fallback secret (can't generate valid signatures)
-    if (webhookSecret === 'whsec_test_secret_for_e2e') {
-      test.skip();
-      return;
-    }
+      payment_method_details: {},
+    } as any;
 
     const { body, signature } = createSignedWebhookEvent(
       'charge.succeeded',
-      subscription
+      charge
     );
 
     const response = await sendWebhookRequest(body, signature);

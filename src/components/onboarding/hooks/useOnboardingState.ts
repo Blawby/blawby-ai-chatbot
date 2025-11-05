@@ -96,8 +96,12 @@ export const useOnboardingState = (
     setFormData(initialFormData);
   }, []);
 
-  const setFormDataDirect = useCallback((data: OnboardingFormData) => {
-    setFormData(data);
+  const setFormDataDirect = useCallback((data: OnboardingFormData | ((prev: OnboardingFormData) => OnboardingFormData)) => {
+    if (typeof data === 'function') {
+      setFormData((prev) => (data as (p: OnboardingFormData) => OnboardingFormData)(prev));
+    } else {
+      setFormData(data);
+    }
   }, []);
 
   return {

@@ -6,6 +6,15 @@ const DEFAULT_STRIPE_API_VERSION: Stripe.StripeConfig["apiVersion"] = null;
 // Cache Stripe clients by apiVersion to support multiple API versions
 const stripeClientCache = new Map<string | null, Stripe>();
 
+// Managed statuses used to determine when an organization is considered on a managed (non-free) tier
+const MANAGED_STATUSES: ReadonlySet<StripeSubscriptionCache["status"]> = new Set<StripeSubscriptionCache["status"]>([
+  "active",
+  "trialing",
+  "paused",
+  "past_due",
+  "unpaid",
+]);
+
 /**
  * Generates a cache key from the apiVersion parameter.
  * Uses null as the key for the default API version to maintain backward compatibility.
@@ -103,17 +112,9 @@ async function persistOrganizationSubscriptionState(args: {
   const { env, organizationId, stripeCustomerId, tier, seats, status } = args;
   const normalizedSeats = typeof seats === "number" && seats > 0 ? seats : 1;
 
-  const managedStatuses = new Set<StripeSubscriptionCache["status"]>([
-    "active",
-    "trialing",
-    "paused",
-    "past_due",
-    "unpaid",
-  ]);
-
   const allowedTier = tier === "business" ? "business" : "free";
 
-  const markBusiness = managedStatuses.has(status) && allowedTier === "business";
+  const markBusiness = MANAGED_STATUSES.has(status) && allowedTier === "business";
 
   await env.DB.prepare(
     `UPDATE organizations 
@@ -351,15 +352,7 @@ function resolveSubscriptionTier(args: {
 }): "free" | "business" {
   const { env, priceId, planName, status } = args;
 
-  const managedStatuses = new Set<StripeSubscriptionCache["status"]>([
-    "active",
-    "trialing",
-    "paused",
-    "past_due",
-    "unpaid",
-  ]);
-
-  if (!managedStatuses.has(status)) {
+  if (!MANAGED_STATUSES.has(status)) {
     return "free";
   }
 

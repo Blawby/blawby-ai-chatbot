@@ -5,7 +5,7 @@
  * Provides step progression and validation.
  */
 
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { OnboardingStep } from './useStepValidation';
 
 const STEP_ORDER: OnboardingStep[] = [
@@ -22,47 +22,65 @@ export const useStepNavigation = (
   onStepChange?: (step: OnboardingStep, prevStep: OnboardingStep) => void | Promise<void>
 ) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const isMounted = useRef(true);
+  const navigationInProgress = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const currentStep = STEP_ORDER[currentStepIndex];
   const totalSteps = STEP_ORDER.length;
 
   const goNext = useCallback(() => {
-    const nextStepIndex = Math.min(currentStepIndex + 1, STEP_ORDER.length - 1);
-    const nextStep = STEP_ORDER[nextStepIndex];
-    
-    // Call onStepChange callback before updating step
+    if (navigationInProgress.current) return;
+    const tentativeNextIndex = Math.min(currentStepIndex + 1, STEP_ORDER.length - 1);
+    const nextStep = STEP_ORDER[tentativeNextIndex];
+
     if (onStepChange && nextStep !== currentStep) {
       (async () => {
+        navigationInProgress.current = true;
         try {
           await Promise.resolve(onStepChange(nextStep, currentStep));
-          setCurrentStepIndex(nextStepIndex);
+          if (isMounted.current) {
+            setCurrentStepIndex((prev) => Math.min(prev + 1, STEP_ORDER.length - 1));
+          }
         } catch (error) {
           console.error('Error in goNext onStepChange:', error);
           // Prevent advancing on error - state update is skipped
+        } finally {
+          navigationInProgress.current = false;
         }
       })();
     } else {
-      setCurrentStepIndex(nextStepIndex);
+      setCurrentStepIndex((prev) => Math.min(prev + 1, STEP_ORDER.length - 1));
     }
   }, [currentStepIndex, currentStep, onStepChange]);
 
   const goBack = useCallback(() => {
-    const prevStepIndex = Math.max(currentStepIndex - 1, 0);
-    const prevStep = STEP_ORDER[prevStepIndex];
-    
-    // Call onStepChange callback before updating step
+    if (navigationInProgress.current) return;
+    const tentativePrevIndex = Math.max(currentStepIndex - 1, 0);
+    const prevStep = STEP_ORDER[tentativePrevIndex];
+
     if (onStepChange && prevStep !== currentStep) {
       (async () => {
+        navigationInProgress.current = true;
         try {
           await Promise.resolve(onStepChange(prevStep, currentStep));
-          setCurrentStepIndex(prevStepIndex);
+          if (isMounted.current) {
+            setCurrentStepIndex((prev) => Math.max(prev - 1, 0));
+          }
         } catch (error) {
           console.error('Error in goBack onStepChange:', error);
           // Prevent going back on error - state update is skipped
+        } finally {
+          navigationInProgress.current = false;
         }
       })();
     } else {
-      setCurrentStepIndex(prevStepIndex);
+      setCurrentStepIndex((prev) => Math.max(prev - 1, 0));
     }
   }, [currentStepIndex, currentStep, onStepChange]);
 
@@ -83,15 +101,17 @@ export const useStepNavigation = (
               await Promise.resolve(onStepChange(step, initialStep));
               
               // Re-check validity after async operation completes using state updater
-              setCurrentStepIndex((latestIndex) => {
-                const latestTargetIndex = STEP_ORDER.indexOf(step);
-                // Only update if transition is still valid
-                if (latestTargetIndex !== -1 && latestTargetIndex !== latestIndex) {
-                  return latestTargetIndex;
-                }
-                // Return current state if transition is no longer valid
-                return latestIndex;
-              });
+              if (isMounted.current) {
+                setCurrentStepIndex((latestIndex) => {
+                  const latestTargetIndex = STEP_ORDER.indexOf(step);
+                  // Only update if transition is still valid
+                  if (latestTargetIndex !== -1 && latestTargetIndex !== latestIndex) {
+                    return latestTargetIndex;
+                  }
+                  // Return current state if transition is no longer valid
+                  return latestIndex;
+                });
+              }
             }
           } catch (error) {
             console.error('Error in goToStep onStepChange:', error);
