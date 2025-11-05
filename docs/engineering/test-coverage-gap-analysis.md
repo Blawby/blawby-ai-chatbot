@@ -150,10 +150,31 @@
 
 ✅ **DO NOT DELETE ANY TESTS YET** - Missing E2E coverage for critical functionality
 
+## TODO Items
+
+### ✅ Completed
+- [x] E2E test for feature guard (quota enforcement) - `tests/e2e/feature-guard.spec.ts`
+
+### 🔄 In Progress
+- [ ] **Stripe Webhook Tests** - User will handle
+  - Convert to real API test (HTTP to wrangler dev) OR fix Miniflare issues
+  - Test webhook signature validation
+  - Test subscription events (updated, paused, resumed, deleted, trial ending)
+
+- [ ] **Subscription Sync Tests** - User will handle
+  - Enhance `tests/e2e/onboarding.spec.ts` to test successful sync
+  - Add test for tier/seats update after sync
+  - Add database verification
+
+- [ ] **Organization Context Tests** - User will handle
+  - Add E2E test for session creation with org context
+  - Test organization context in session retrieval
+  - Test default org fallback
+
 **Next Steps:**
-1. Add E2E tests for quota enforcement
-2. Enhance subscription sync E2E test
-3. Add organization context E2E tests
-4. Evaluate webhook testing strategy
+1. ✅ Add E2E tests for quota enforcement - **DONE**
+2. Enhance subscription sync E2E test - **TODO**
+3. Add organization context E2E tests - **TODO**
+4. Evaluate webhook testing strategy - **TODO**
 5. Only then consider deleting broken Miniflare tests
 

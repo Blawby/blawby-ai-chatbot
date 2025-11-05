@@ -6,7 +6,6 @@ import {
   getSubscriptionCancelEndpoint,
 } from '../config/api';
 import { useToastContext } from '../contexts/ToastContext';
-import { hasManagedSubscription, resolveOrganizationKind, normalizeSubscriptionStatus } from '../utils/subscription';
 
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
@@ -267,50 +266,6 @@ export const usePaymentUpgrade = () => {
       const resolvedSuccessUrl = successUrl ?? buildSuccessUrl(organizationId);
       const resolvedCancelUrl = cancelUrl ?? buildCancelUrl(organizationId);
       const resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
-
-      // Frontend pre-flight: if org already on a paid tier, send user to billing portal
-      // Note: backend remains the source of truth for final decision to prevent race conditions
-      try {
-        const orgRes = await fetch(`/api/organizations/${encodeURIComponent(organizationId)}`, {
-          credentials: 'include',
-          headers: { 'Accept': 'application/json' },
-        });
-        if (orgRes.ok) {
-          const json = await orgRes.json().catch(() => ({} as Record<string, unknown>));
-          const result = json as { success?: boolean; data?: Record<string, unknown> };
-          const orgData = (result && typeof result === 'object' && result.data && typeof result.data === 'object')
-            ? (result.data as Record<string, unknown>)
-            : {} as Record<string, unknown>;
-          const rawIsPersonal = typeof orgData?.isPersonal === 'boolean'
-            ? orgData.isPersonal
-            : typeof orgData?.is_personal === 'number'
-              ? orgData.is_personal === 1
-              : undefined;
-          const kind = resolveOrganizationKind(
-            typeof orgData?.kind === 'string' ? orgData.kind : undefined,
-            rawIsPersonal
-          );
-          const status = normalizeSubscriptionStatus(
-            typeof orgData?.subscriptionStatus === 'string'
-              ? orgData.subscriptionStatus
-              : typeof orgData?.subscription_status === 'string'
-                ? orgData.subscription_status as string
-                : undefined,
-            kind
-          );
-
-          if (hasManagedSubscription(kind, status, rawIsPersonal)) {
-            // User is already on a paid plan, redirect via centralized handler
-            await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
-            return;
-          }
-        }
-      } catch (preflight) {
-        // Fail open to backend guard
-        if (import.meta.env.DEV) {
-          console.warn('Upgrade pre-flight check failed; proceeding to backend:', preflight);
-        }
-      }
 
       try {
         const requestBody: Record<string, unknown> = {
