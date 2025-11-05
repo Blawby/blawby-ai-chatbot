@@ -527,6 +527,8 @@ export class OrganizationService {
 
     const normalized = status.trim().toLowerCase();
     switch (normalized) {
+      case 'none':
+        return 'none';
       case 'active':
       case 'trialing':
       case 'paused':

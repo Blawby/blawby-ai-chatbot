@@ -1085,8 +1085,8 @@ export async function getAuth(env: Env, request?: Request) {
                         console.warn(`⚠️ personalOrgId is undefined when calling setActiveOrganizationForSession for user ${session.userId}, session ${session.id}`);
                       } else {
                         console.log(`🔧 Calling setActiveOrganizationForSession with personalOrgId: ${personalOrgId} for user ${session.userId}, session ${session.id}`);
+                        await setActiveOrganizationForSession(session.userId, session.id, env, personalOrgId);
                       }
-                      await setActiveOrganizationForSession(session.userId, session.id, env, personalOrgId);
                     } catch (error) {
                       console.error("❌ Failed to set active organization for session:", {
                         error: error instanceof Error ? error.message : String(error),
