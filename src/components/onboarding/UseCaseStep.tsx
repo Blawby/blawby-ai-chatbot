@@ -21,7 +21,6 @@ interface UseCaseData {
 interface UseCaseStepProps {
   data: UseCaseData;
   onComplete: (data: UseCaseData) => void;
-  onSkip: () => void;
 }
 
 const useCaseOptions = [
@@ -52,7 +51,7 @@ const useCaseOptions = [
   }
 ];
 
-const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
+const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
   const { t } = useTranslation('common');
   const [selectedUseCase, setSelectedUseCase] = useState<UseCaseData['primaryUseCase']>(data.primaryUseCase);
   const [additionalInfo, setAdditionalInfo] = useState(data.additionalInfo || '');
@@ -80,9 +79,9 @@ const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
+      <div className="mx-auto w-full max-w-2xl">
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
@@ -94,15 +93,19 @@ const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="bg-white dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="mt-8 mx-auto w-full max-w-2xl">
+        <div className="bg-white dark:bg-dark-card-bg py-8 px-6 shadow sm:rounded-lg sm:px-10">
           <Form onSubmit={handleSubmit} className="space-y-6">
             {/* Use Case Options */}
-            <div role="radiogroup" aria-labelledby="use-case-title" className="space-y-3">
+            <div
+              role="radiogroup"
+              aria-labelledby="use-case-title"
+              className="grid gap-3 sm:grid-cols-2"
+            >
               {useCaseOptions.map((option) => {
                 const Icon = option.icon;
                 const isSelected = selectedUseCase === option.id;
-                
+
                 return (
                   <button
                     key={option.id}
@@ -183,14 +186,6 @@ const UseCaseStep = ({ data, onComplete, onSkip }: UseCaseStepProps) => {
                   t('onboarding.step2.next')
                 )}
               </Button>
-              
-              <button
-                type="button"
-                onClick={onSkip}
-                className="w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-              >
-                {t('onboarding.step2.skip')}
-              </button>
             </div>
           </Form>
         </div>
