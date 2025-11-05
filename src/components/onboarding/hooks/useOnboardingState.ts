@@ -58,7 +58,10 @@ const initialFormData: OnboardingFormData = {
   services: []
 };
 
-export const useOnboardingState = (initialData?: Partial<OnboardingFormData>) => {
+export const useOnboardingState = (
+  initialData?: Partial<OnboardingFormData>,
+  onSave?: (data: OnboardingFormData) => void | Promise<void>
+) => {
   const [formData, setFormData] = useState<OnboardingFormData>(() => {
     const merged = { ...initialFormData, ...initialData };
     // Normalize services to ensure each has a stable ID
@@ -73,18 +76,36 @@ export const useOnboardingState = (initialData?: Partial<OnboardingFormData>) =>
     field: K,
     value: OnboardingFormData[K]
   ) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  }, []);
+    setFormData(prev => {
+      const newState = {
+        ...prev,
+        [field]: value
+      };
+      // Trigger save callback if provided
+      if (onSave) {
+        void Promise.resolve(onSave(newState)).catch(() => {
+          // Silently handle save errors here - they're handled by the auto-save hook
+        });
+      }
+      return newState;
+    });
+  }, [onSave]);
 
   const updateFields = useCallback((updates: Partial<OnboardingFormData>) => {
-    setFormData(prev => ({
-      ...prev,
-      ...updates
-    }));
-  }, []);
+    setFormData(prev => {
+      const newState = {
+        ...prev,
+        ...updates
+      };
+      // Trigger save callback if provided
+      if (onSave) {
+        void Promise.resolve(onSave(newState)).catch(() => {
+          // Silently handle save errors here - they're handled by the auto-save hook
+        });
+      }
+      return newState;
+    });
+  }, [onSave]);
 
   const resetForm = useCallback(() => {
     setFormData(initialFormData);

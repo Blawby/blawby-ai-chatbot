@@ -18,26 +18,55 @@ const STEP_ORDER: OnboardingStep[] = [
   'review-and-launch'
 ];
 
-export const useStepNavigation = () => {
+export const useStepNavigation = (
+  onStepChange?: (step: OnboardingStep, prevStep: OnboardingStep) => void | Promise<void>
+) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const currentStep = STEP_ORDER[currentStepIndex];
   const totalSteps = STEP_ORDER.length;
 
   const goNext = useCallback(() => {
-    setCurrentStepIndex(prev => Math.min(prev + 1, totalSteps - 1));
-  }, [totalSteps]);
+    const nextStepIndex = Math.min(currentStepIndex + 1, totalSteps - 1);
+    const nextStep = STEP_ORDER[nextStepIndex];
+    
+    // Call onStepChange callback before updating step
+    if (onStepChange && nextStep !== currentStep) {
+      void Promise.resolve(onStepChange(nextStep, currentStep)).catch(() => {
+        // Silently handle errors here - they're handled by the auto-save hook
+      });
+    }
+    
+    setCurrentStepIndex(nextStepIndex);
+  }, [currentStepIndex, totalSteps, currentStep, onStepChange]);
 
   const goBack = useCallback(() => {
-    setCurrentStepIndex(prev => Math.max(prev - 1, 0));
-  }, []);
+    const prevStepIndex = Math.max(currentStepIndex - 1, 0);
+    const prevStep = STEP_ORDER[prevStepIndex];
+    
+    // Call onStepChange callback before updating step
+    if (onStepChange && prevStep !== currentStep) {
+      void Promise.resolve(onStepChange(prevStep, currentStep)).catch(() => {
+        // Silently handle errors here - they're handled by the auto-save hook
+      });
+    }
+    
+    setCurrentStepIndex(prevStepIndex);
+  }, [currentStepIndex, currentStep, onStepChange]);
 
   const goToStep = useCallback((step: OnboardingStep) => {
     const stepIndex = STEP_ORDER.indexOf(step);
-    if (stepIndex !== -1) {
+    if (stepIndex !== -1 && stepIndex !== currentStepIndex) {
+      // Call onStepChange callback before updating step
+      if (onStepChange) {
+        void Promise.resolve(onStepChange(step, currentStep)).catch(() => {
+          // Silently handle errors here - they're handled by the auto-save hook
+        });
+      }
+      
       setCurrentStepIndex(stepIndex);
     }
-  }, []);
+  }, [currentStepIndex, currentStep, onStepChange]);
 
   const canGoNext = currentStepIndex < totalSteps - 1;
   const canGoBack = currentStepIndex > 0;

@@ -180,11 +180,25 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     return undefined;
   })();
 
+  // Parse config once for reuse (may contain profile fields)
+  const cfg = (() => {
+    const c = (raw as Record<string, unknown>).config as unknown;
+    if (c && typeof c === 'object' && !Array.isArray(c)) {
+      return c as Organization['config'] & { description?: string };
+    }
+    return undefined as Organization['config'] & { description?: string } | undefined;
+  })();
+
   return {
     id,
     slug,
     name,
-    description: typeof raw.description === 'string' ? raw.description : undefined,
+    // Prefer top-level description; fall back to config.description if present
+    description: typeof raw.description === 'string' && raw.description.trim().length > 0
+      ? raw.description
+      : (cfg && typeof (cfg as Record<string, unknown>).description === 'string'
+          ? (cfg as unknown as { description: string }).description
+          : undefined),
     stripeCustomerId: (() => {
       const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
       return typeof val === 'string' && val.trim().length > 0 ? val : null;
@@ -193,13 +207,7 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     seats,
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
-    config: (() => {
-      const cfg = (raw as Record<string, unknown>).config as unknown;
-      if (cfg && typeof cfg === 'object' && !Array.isArray(cfg)) {
-        return cfg as Organization['config'];
-      }
-      return undefined;
-    })(),
+    config: cfg,
     kind: resolvedKind,
     isPersonal: rawIsPersonal ?? (resolvedKind === 'personal'),
   };

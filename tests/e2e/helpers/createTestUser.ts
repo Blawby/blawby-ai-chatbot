@@ -58,10 +58,13 @@ export async function createTestUser(
   // Wait for network to settle (like auth.spec.ts does)
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   
+  // Give the auth system a brief moment to finalize session cookies before polling
+  await page.waitForTimeout(1200);
+  
   // Verify session is established
   {
     let authenticated = false;
-    const attempts = 10;
+    const attempts = 30;
     for (let i = 0; i < attempts; i++) {
       const sessionCheck: any = await page.evaluate(async () => {
         try {
@@ -74,7 +77,7 @@ export async function createTestUser(
         }
       });
       if (sessionCheck) { authenticated = true; break; }
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
     }
     if (!authenticated) {
       // Throw to fail fast if session wasn't established

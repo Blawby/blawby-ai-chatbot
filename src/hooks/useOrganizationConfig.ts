@@ -18,7 +18,7 @@ const OrganizationSchema = z.object({
   subscriptionTier: z.string().optional(),
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
-  subscriptionStatus: z.enum(['trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
+  subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
 });
 
 const OrganizationsResponseSchema = z.object({
