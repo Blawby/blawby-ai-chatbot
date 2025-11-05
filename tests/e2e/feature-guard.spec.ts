@@ -1,26 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createTestUser } from './helpers/createTestUser.js';
+import { fetchJsonViaPage as fetchJsonViaPageHelper, postStreamViaPage, uploadFileViaPage } from './helpers/http.js';
 
 test.describe('Feature Guard - Quota Enforcement', () => {
   
-  async function fetchJsonViaPage(page: Page, url: string, init?: any): Promise<{ status: number; data?: any; error?: string }> {
-    return page.evaluate(async ({ url, init }: any) => {
-      try {
-        const response = await fetch(url, {
-          credentials: 'include',
-          ...init,
-        });
-        if (!response.ok) {
-          const text = await response.text();
-          return { status: response.status, error: `HTTP ${response.status}: ${text}` };
-        }
-        const data = await response.json();
-        return { status: response.status, data };
-      } catch (err) {
-        return { status: 0, error: err instanceof Error ? err.message : String(err) };
-      }
-    }, { url, init });
-  }
+  const fetchJsonViaPage = fetchJsonViaPageHelper;
 
   async function getPersonalOrganization(page: Page) {
     // Ensure the personal organization exists (idempotent on server)
@@ -76,9 +60,9 @@ test.describe('Feature Guard - Quota Enforcement', () => {
       }),
     });
     
-    // Should return 402 (tier restriction) or 403 (personal org restriction)
-    // Both are valid - 403 if personal org restriction is checked first, 402 if tier is checked first
-    expect([402, 403]).toContain(tokensResponse.status);
+    // Personal org restriction is evaluated first by the feature guard
+    // Expect 403 Forbidden deterministically for personal orgs
+    expect(tokensResponse.status).toBe(403);
     // Error response might be in data.error, data.message, or error field
     const errorText = tokensResponse.data?.error || tokensResponse.data?.message || tokensResponse.error || '';
     expect(errorText).toMatch(/business|plan|upgrade|payment|personal/i);
@@ -105,9 +89,9 @@ test.describe('Feature Guard - Quota Enforcement', () => {
       }),
     });
     
-    // Should return 403 Forbidden (for personal org restriction) or 402 (for tier restriction)
-    // Both are valid - 403 if personal org restriction is checked first, 402 if tier is checked first
-    expect([402, 403]).toContain(invitationsResponse.status);
+    // Personal org restriction is evaluated first by the feature guard
+    // Expect 403 Forbidden deterministically for personal orgs
+    expect(invitationsResponse.status).toBe(403);
     // Error response might not have success field
     if (invitationsResponse.data && 'success' in invitationsResponse.data) {
       expect(invitationsResponse.data.success).toBe(false);
@@ -134,35 +118,11 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     const orgIdToUse = activeResp.data?.data?.activeOrganizationId ?? personalOrg.id;
 
     // Try to send a message - if quota is exceeded, should get 402
-    // Note: Streaming endpoint returns stream, not JSON, so we need to check status directly
-    const chatResponse = await page.evaluate(async ({ orgId, sessionId }) => {
-      try {
-        const response = await fetch('/api/agent/stream', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            organizationId: orgId,
-            sessionId: sessionId,
-            messages: [
-              { role: 'user', content: 'Test message for quota' }
-            ]
-          }),
-        });
-        
-        // For streaming responses, we can only check status
-        // If 402, try to read error text
-        if (response.status === 402) {
-          const text = await response.text();
-          return { status: response.status, error: text };
-        }
-        return { status: response.status };
-      } catch (err) {
-        return { status: 0, error: err instanceof Error ? err.message : String(err) };
-      }
-    }, { orgId: orgIdToUse, sessionId: 'test-quota-session' });
+    const chatResponse = await postStreamViaPage(page, '/api/agent/stream', {
+      organizationId: orgIdToUse,
+      sessionId: 'test-quota-session',
+      messages: [{ role: 'user', content: 'Test message for quota' }]
+    });
     
     // Should either succeed (if quota not exceeded) or return 402 (if quota exceeded)
     // We can't control quota in E2E, so we just verify the endpoint works
@@ -185,53 +145,24 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     const activeResp = await fetchJsonViaPage(page, '/api/organizations/active');
     const orgIdToUse = activeResp.data?.data?.activeOrganizationId ?? personalOrg.id;
 
-    // Create a test file
+    // Create a test file and try to upload
     const testFileContent = 'Test file content for quota testing';
-    const formData = new FormData();
-    formData.append('file', new Blob([testFileContent], { type: 'text/plain' }), 'test.txt');
-    formData.append('organizationId', personalOrg.id);
-    formData.append('sessionId', 'test-file-quota-session');
-    
-    // Try to upload file
-    const uploadResponse = await page.evaluate(async ({ orgId, sessionId, fileContent }) => {
-      const formData = new FormData();
-      formData.append('file', new Blob([fileContent], { type: 'text/plain' }), 'test.txt');
-      formData.append('organizationId', orgId);
-      formData.append('sessionId', sessionId);
-      
-      try {
-        const response = await fetch('/api/files/upload', {
-          method: 'POST',
-          credentials: 'include',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          const text = await response.text();
-          return { status: response.status, error: text };
-        }
-        const data = await response.json();
-        return { status: response.status, data };
-      } catch (err) {
-        return { status: 0, error: err instanceof Error ? err.message : String(err) };
-      }
-    }, { 
-      orgId: orgIdToUse, 
+    const uploadResponse = await uploadFileViaPage(page, '/api/files/upload', {
+      orgId: orgIdToUse,
       sessionId: 'test-file-quota-session',
-      fileContent: testFileContent 
+      fileName: 'test.txt',
+      fileType: 'text/plain',
+      content: testFileContent
     });
     
-    // File upload requires business tier and non-personal org
-    // For personal org with free tier, should return 402 (tier restriction) or 403 (personal org restriction)
-    // If quota is exceeded, should return 402
-    // If upload succeeds, should return 200/201
-    expect([200, 201, 402, 403]).toContain(uploadResponse.status);
+    // Personal org restriction is evaluated first by the feature guard
+    // Expect 403 Forbidden deterministically for personal orgs
+    expect(uploadResponse.status).toBe(403);
     
-    // If 402 or 403, verify error message
-    if (uploadResponse.status === 402 || uploadResponse.status === 403) {
-      const u: any = uploadResponse as any;
-      const errorText = u.error || u.data?.error || u.data?.message || '';
-      expect(errorText).toMatch(/quota|limit|payment|business|personal|upgrade/i);
+    // If 403, verify error message
+    if (uploadResponse.status === 403) {
+      const errorText = uploadResponse.error || uploadResponse.data?.error || uploadResponse.data?.message || '';
+      expect(errorText).toMatch(/business|personal|upgrade|plan|payment/i);
     }
   });
 
@@ -247,40 +178,17 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     const orgIdToUse = activeResp.data?.data?.activeOrganizationId ?? personalOrg.id;
 
     // Send a chat message - should succeed if quota allows
-    // Note: Streaming endpoint returns stream, not JSON
-    const chatResponse = await page.evaluate(async ({ orgId, sessionId }) => {
-      try {
-        const response = await fetch('/api/agent/stream', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            organizationId: orgId,
-            sessionId: sessionId,
-            messages: [
-              { role: 'user', content: 'Hello, this should work if quota allows' }
-            ]
-          }),
-        });
-        
-        // For streaming responses, we can only check status
-        if (response.status === 402) {
-          const text = await response.text();
-          return { status: response.status, error: text };
-        }
-        return { status: response.status };
-      } catch (err) {
-        return { status: 0, error: err instanceof Error ? err.message : String(err) };
-      }
-    }, { orgId: orgIdToUse, sessionId: 'test-below-quota-session' });
+    const chatResponse = await postStreamViaPage(page, '/api/agent/stream', {
+      organizationId: orgIdToUse,
+      sessionId: 'test-below-quota-session',
+      messages: [{ role: 'user', content: 'Hello, this should work if quota allows' }]
+    });
     
     // Should succeed (200) or return 402 if quota is exceeded
     expect([200, 402]).toContain(chatResponse.status);
   });
 
-  test('should return 402 with proper error details when quota exceeded', async ({ page }) => {
+  test('should return 403 for business features when using a personal org', async ({ page }) => {
     // Create authenticated test user
     const user = await createTestUser(page);
     
@@ -300,8 +208,8 @@ test.describe('Feature Guard - Quota Enforcement', () => {
       }),
     });
     
-    // Verify 402 or 403 error structure (both are valid)
-    expect([402, 403]).toContain(response.status);
+    // Personal org restriction is evaluated first by the feature guard
+    expect(response.status).toBe(403);
     
     // Check if error response has expected structure
     if (response.data && 'success' in response.data) {
@@ -313,7 +221,7 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     expect(errorText).toBeTruthy();
   });
 
-  test('should return 403 for personal org restrictions', async ({ page }) => {
+  test('should return 403 for personal org restrictions (invitations)', async ({ page }) => {
     // Create authenticated test user
     const user = await createTestUser(page);
     
@@ -335,10 +243,8 @@ test.describe('Feature Guard - Quota Enforcement', () => {
       }),
     });
     
-    // Should return 402 (tier restriction) or 403 (personal org restriction) or 405 (method not allowed)
-    // 402/403 are valid responses for feature guard restrictions
-    // 405 means endpoint exists but method not allowed (also acceptable)
-    expect([402, 403, 405]).toContain(response.status);
+    // Expect 403 for personal org restriction deterministically
+    expect(response.status).toBe(403);
     if (response.status !== 405 && response.data && 'success' in response.data) {
       expect(response.data.success).toBe(false);
     }
@@ -347,36 +253,30 @@ test.describe('Feature Guard - Quota Enforcement', () => {
   test('should allow chat for free tier users (within quota)', async ({ page }) => {
     // Create authenticated test user
     const user = await createTestUser(page);
-    
+
     // Get personal organization
     const personalOrg = await getPersonalOrganization(page);
     expect(personalOrg.kind).toBe('personal');
     // Subscription tier might be 'free' or undefined for new users
     expect(personalOrg.subscriptionTier === 'free' || personalOrg.subscriptionTier === undefined || personalOrg.subscriptionTier === null).toBe(true);
-    
-    // Navigate to home page
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    
-    // Wait for chat interface
-    const messageInput = page.locator('[data-testid="message-input"]');
-    await expect(messageInput).toBeVisible({ timeout: 10000 });
-    
-    // Send a message - should work for free tier (within quota)
-    await messageInput.fill('Test message for free tier user');
-    await page.click('button[type="submit"]');
-    
-    // Wait for response - should not get 402 error
-    // If we get a response or error, verify it's not a quota error
-    await page.waitForTimeout(2000);
-    
-    // Check if message appears (success) or if error is shown
-    const errorMessage = page.locator('text=/quota|limit|payment/i');
-    const messageExists = await page.locator('text=Test message for free tier user').count() > 0;
-    
-    // Either message should appear (success) or no quota error should be shown
-    // We can't guarantee quota isn't exceeded, but we verify the flow works
-    expect(messageExists || (await errorMessage.count()) === 0).toBe(true);
+
+    // Ensure active organization is set for session (prefer using active if available)
+    const activeResp = await fetchJsonViaPage(page, '/api/organizations/active');
+    const orgIdToUse = activeResp.data?.data?.activeOrganizationId ?? personalOrg.id;
+
+    // Send a chat message via API - for free tier within quota this should succeed (200)
+    const chatResponse = await postStreamViaPage(page, '/api/agent/stream', {
+      organizationId: orgIdToUse,
+      sessionId: 'test-free-tier-success',
+      messages: [{ role: 'user', content: 'Hello from free tier test' }]
+    });
+
+    // Should succeed with 200, or if quota exceeded, return 402 with an error message
+    if (chatResponse.status === 402) {
+      expect(chatResponse.error || '').toMatch(/quota|limit|payment/i);
+    } else {
+      expect(chatResponse.status).toBe(200);
+    }
   });
 });
 

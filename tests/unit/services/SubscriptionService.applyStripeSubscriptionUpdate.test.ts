@@ -89,6 +89,8 @@ describe('SubscriptionService.applyStripeSubscriptionUpdate', () => {
     expect(organizationUpdate?.args[1]).toBe('price_monthly'); // subscription_tier / plan identifier
     expect(organizationUpdate?.args[2]).toBe(3); // seats
     expect(organizationUpdate?.args[3]).toBe(1); // mark business (is_personal -> 0)
+    expect(typeof organizationUpdate?.args[4]).toBe('number'); // updated_at timestamp (seconds)
+    expect((organizationUpdate?.args[4] as number)).toBeGreaterThan(0);
     expect(organizationUpdate?.args[5]).toBe('org_123'); // organization id
   });
 });

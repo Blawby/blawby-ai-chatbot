@@ -15,14 +15,17 @@ export const PriceDisplay: FunctionComponent<PriceDisplayProps> = ({
 }) => {
   return (
     <div className={className}>
-      <div className="text-xs md:text-sm text-white mb-1">
-        {price}
+      <p className="text-xs md:text-sm text-white mb-1" aria-label={`Current price: ${price}`}>
+        <span>{price}</span>
         {originalPrice && (
-          <span className="text-xs md:text-sm text-gray-400 line-through ml-1">
+          <del className="text-xs md:text-sm text-gray-400 ml-1" aria-label={`Original price: ${originalPrice}`}>
             {originalPrice}
-          </span>
+          </del>
         )}
-      </div>
+        {originalPrice && (
+          <span className="sr-only" aria-live="polite">Discounted from {originalPrice}</span>
+        )}
+      </p>
       <div className="text-xs md:text-sm text-gray-400 mb-3">{period}</div>
     </div>
   );

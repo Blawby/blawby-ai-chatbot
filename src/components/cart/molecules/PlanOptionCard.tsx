@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import type { Ref } from 'preact';
 import { DiscountBadge, RadioIndicator, PriceDisplay } from '../atoms';
 
 interface PlanOptionCardProps {
@@ -13,6 +14,7 @@ interface PlanOptionCardProps {
   onClick: () => void;
   ariaLabel: string;
   tabIndex: number;
+  buttonRef?: Ref<HTMLButtonElement>;
 }
 
 export const PlanOptionCard: FunctionComponent<PlanOptionCardProps> = ({
@@ -26,10 +28,12 @@ export const PlanOptionCard: FunctionComponent<PlanOptionCardProps> = ({
   discountText,
   onClick,
   ariaLabel,
-  tabIndex
+  tabIndex,
+  buttonRef
 }) => {
   return (
     <button
+      ref={buttonRef}
       onClick={onClick}
       role="radio"
       aria-checked={isSelected}

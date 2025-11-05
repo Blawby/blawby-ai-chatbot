@@ -183,6 +183,12 @@ export const CartPage = () => {
   const annualSeatPricePerYear = PRICES.annual.unit_amount / 100;
   const annualSeatPricePerMonth = annualSeatPricePerYear / 12;
 
+  // Compute discount percent for annual vs monthly effective monthly price
+  const annualDiscountPercent = Math.max(
+    0,
+    Math.round(((monthlySeatPrice - annualSeatPricePerMonth) / monthlySeatPrice) * 100)
+  );
+
   const subtotal = isAnnual
     ? monthlySeatPrice * quantity * 12 // baseline yearly cost at monthly rate
     : monthlySeatPrice * quantity;
@@ -374,10 +380,10 @@ export const CartPage = () => {
                     label: 'Annual',
                     price: currencyFormatter.format(annualSeatPricePerMonth),
                     originalPrice: currencyFormatter.format(monthlySeatPrice),
-                    period: 'per user/month',
+                    period: 'per user / month',
                     features: ['Billed annually', 'Minimum 1 user', 'Add and reassign users'],
                     showDiscount: true,
-                    discountText: 'Save 12%',
+                    discountText: `Save ${annualDiscountPercent}%`,
                     ariaLabel: `Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`
                   },
                   {

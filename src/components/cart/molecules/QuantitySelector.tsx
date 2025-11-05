@@ -1,5 +1,5 @@
 import { useCallback } from 'preact/compat';
-import { useId } from 'preact/hooks';
+import { useEffect, useId, useState } from 'preact/hooks';
 import { PlusIcon, MinusIcon } from '@heroicons/react/24/outline';
 
 interface Props {
@@ -12,7 +12,13 @@ interface Props {
 
 export const QuantitySelector = ({ quantity, onChange, min = 1, helperText, label = 'Users' }: Props) => {
   const inputId = useId();
-  
+  const [inputValue, setInputValue] = useState<string>(String(quantity));
+
+  // Sync external quantity to local string state
+  useEffect(() => {
+    setInputValue(String(quantity));
+  }, [quantity]);
+
   const handleIncrement = useCallback(() => {
     onChange(quantity + 1);
   }, [quantity, onChange]);
@@ -23,9 +29,31 @@ export const QuantitySelector = ({ quantity, onChange, min = 1, helperText, labe
 
   const handleInputChange = useCallback((e: Event) => {
     const target = e.target as HTMLInputElement;
-    const value = parseInt(target.value) || min;
-    onChange(Math.max(min, value));
-  }, [min, onChange]);
+    setInputValue(target.value);
+  }, []);
+
+  const commitValue = useCallback(() => {
+    const parsed = parseInt(inputValue, 10);
+    const next = Number.isFinite(parsed) && parsed > 0 ? parsed : min;
+    const normalized = Math.max(min, next);
+    if (normalized !== quantity) {
+      onChange(normalized);
+    } else {
+      // Ensure display snaps to normalized value
+      setInputValue(String(normalized));
+    }
+  }, [inputValue, min, onChange, quantity]);
+
+  const handleBlur = useCallback(() => {
+    commitValue();
+  }, [commitValue]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitValue();
+    }
+  }, [commitValue]);
 
   const canDecrement = quantity > min;
 
@@ -39,8 +67,10 @@ export const QuantitySelector = ({ quantity, onChange, min = 1, helperText, labe
         <input
           id={inputId}
           type="number"
-          value={quantity}
+          value={inputValue}
           onChange={handleInputChange}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown as any}
           min={min}
           className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg bg-dark-input-bg text-white
             focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500

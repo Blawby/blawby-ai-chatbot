@@ -61,7 +61,8 @@ export async function createTestUser(
   // Verify session is established
   {
     let authenticated = false;
-    for (let i = 0; i < 10; i++) {
+    const attempts = 10;
+    for (let i = 0; i < attempts; i++) {
       const sessionCheck: any = await page.evaluate(async () => {
         try {
           const res = await fetch('/api/auth/get-session', { credentials: 'include' });
@@ -74,6 +75,10 @@ export async function createTestUser(
       });
       if (sessionCheck) { authenticated = true; break; }
       await page.waitForTimeout(300);
+    }
+    if (!authenticated) {
+      // Throw to fail fast if session wasn't established
+      throw new Error(`Authentication not established after ${attempts} attempts`);
     }
   }
   
