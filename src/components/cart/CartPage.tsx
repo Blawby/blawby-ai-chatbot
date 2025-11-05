@@ -6,12 +6,14 @@ import { useToastContext } from '../../contexts/ToastContext';
 import { useLocation } from 'preact-iso';
 import { useNavigation } from '../../utils/navigation';
 import { useTranslation } from '../../i18n/hooks';
-import { QuantitySelector } from './QuantitySelector';
+import { QuantitySelector } from './molecules';
+import { PlanSelectionGroup } from './organisms';
 import { PricingSummary } from '../ui/cards/PricingSummary';
 import {
   describeSubscriptionPlan,
   hasManagedSubscription,
 } from '../../utils/subscription';
+import { isForcePaidEnabled } from '../../utils/devFlags';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -53,10 +55,7 @@ export const CartPage = () => {
   }, [loadPriceIds]);
 
   // Dev/test-only override to force paid UI in deterministic E2E runs
-  const devForcePaid = (import.meta.env.MODE !== 'production') && (typeof window !== 'undefined') && (
-    new URLSearchParams(window.location.search).get('forcePaid') === '1' ||
-    (typeof localStorage !== 'undefined' && localStorage.getItem('forcePaid') === '1')
-  );
+  const devForcePaid = isForcePaidEnabled();
   const managedSubscription = hasManagedSubscription(
     currentOrganization?.kind,
     currentOrganization?.subscriptionStatus,
@@ -184,29 +183,11 @@ export const CartPage = () => {
   const annualSeatPricePerYear = PRICES.annual.unit_amount / 100;
   const annualSeatPricePerMonth = annualSeatPricePerYear / 12;
 
-  // Keyboard navigation for radiogroup
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (!priceIds) return;
-    const priceIdList = [priceIds.annual, priceIds.monthly];
-    const currentIndex = priceIdList.indexOf(selectedPriceId);
-    
-    switch (event.key) {
-      case 'ArrowLeft':
-      case 'ArrowUp': {
-        event.preventDefault();
-        const prevIndex = currentIndex > 0 ? currentIndex - 1 : priceIdList.length - 1;
-        setSelectedPriceId(priceIdList[prevIndex]);
-        break;
-      }
-      case 'ArrowRight':
-      case 'ArrowDown': {
-        event.preventDefault();
-        const nextIndex = currentIndex < priceIdList.length - 1 ? currentIndex + 1 : 0;
-        setSelectedPriceId(priceIdList[nextIndex]);
-        break;
-      }
-    }
-  }, [selectedPriceId, priceIds]);
+  // Compute discount percent for annual vs monthly effective monthly price
+  const annualDiscountPercent = Math.max(
+    0,
+    Math.round(((monthlySeatPrice - annualSeatPricePerMonth) / monthlySeatPrice) * 100)
+  );
 
   const subtotal = isAnnual
     ? monthlySeatPrice * quantity * 12 // baseline yearly cost at monthly rate
@@ -390,92 +371,33 @@ export const CartPage = () => {
           <div className="px-4 md:px-8 lg:px-16">
             <h2 className="text-2xl font-bold mb-6">Pick your plan</h2>
             
-            {/* Price cards */}
-            <div 
-              role="radiogroup" 
-              aria-label="Billing plan selection"
-              className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
-              onKeyDown={handleKeyDown}
-              tabIndex={0}
-            >
-              <button
-                onClick={() => priceIds && setSelectedPriceId(priceIds.annual)}
-                role="radio"
-                aria-checked={priceIds ? selectedPriceId === priceIds.annual : false}
-                aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`}
-                tabIndex={priceIds && selectedPriceId === priceIds.annual ? 0 : -1}
-                className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
-                  priceIds && selectedPriceId === priceIds.annual 
-                    ? 'border-white bg-gray-800' 
-                    : 'border-gray-700 hover:border-gray-600'
-                }`}
-              >
-                {/* Floating discount badge */}
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-accent-500 text-white text-xs md:text-sm font-medium px-2 py-1 rounded">
-                    Save 12%
-                  </span>
-                </div>
-
-                {/* Header with radio indicator */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-base md:text-lg font-bold text-white">Annual</div>
-                  <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
-                    {priceIds && selectedPriceId === priceIds.annual && (
-                      <div className="w-3 h-3 bg-accent-500 rounded-full" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Pricing with strikethrough for discounts */}
-                <div className="text-xs md:text-sm text-white mb-1">
-                  {currencyFormatter.format(annualSeatPricePerMonth)}
-                  <span className="text-xs md:text-sm text-gray-400 line-through ml-1">{currencyFormatter.format(monthlySeatPrice)}</span>
-                </div>
-                <div className="text-xs md:text-sm text-gray-400 mb-3">per user/month</div>
-
-                {/* Feature list */}
-                <ul className="text-xs md:text-sm text-gray-400 space-y-1">
-                  <li>• Billed annually</li>
-                  <li>• Minimum 1 user</li>
-                  <li>• Add and reassign users</li>
-                </ul>
-              </button>
-              
-              <button
-                onClick={() => priceIds && setSelectedPriceId(priceIds.monthly)}
-                role="radio"
-                aria-checked={priceIds ? selectedPriceId === priceIds.monthly : false}
-                aria-label={`Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`}
-                tabIndex={priceIds && selectedPriceId === priceIds.monthly ? 0 : -1}
-                className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
-                  priceIds && selectedPriceId === priceIds.monthly
-                    ? 'border-white bg-gray-800'
-                    : 'border-gray-700 hover:border-gray-600'
-                }`}
-              >
-                {/* Header with radio indicator */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-base md:text-lg font-bold text-white">Monthly</div>
-                  <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
-                    {priceIds && selectedPriceId === priceIds.monthly && (
-                      <div className="w-3 h-3 bg-accent-500 rounded-full" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Pricing */}
-                <div className="text-xs md:text-sm text-white mb-1">{currencyFormatter.format(monthlySeatPrice)}</div>
-                <div className="text-xs md:text-sm text-gray-400 mb-3">per user / month</div>
-
-                {/* Feature list */}
-                <ul className="text-xs md:text-sm text-gray-400 space-y-1">
-                  <li>• Billed monthly</li>
-                  <li>• Minimum 1 user</li>
-                  <li>• Add or remove users</li>
-                </ul>
-              </button>
-            </div>
+            {priceIds && (
+              <PlanSelectionGroup
+                selectedPriceId={selectedPriceId}
+                priceOptions={[
+                  {
+                    id: priceIds.annual,
+                    label: 'Annual',
+                    price: currencyFormatter.format(annualSeatPricePerMonth),
+                    originalPrice: currencyFormatter.format(monthlySeatPrice),
+                    period: 'per user / month',
+                    features: ['Billed annually', 'Minimum 1 user', 'Add and reassign users'],
+                    showDiscount: true,
+                    discountText: `Save ${annualDiscountPercent}%`,
+                    ariaLabel: `Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`
+                  },
+                  {
+                    id: priceIds.monthly,
+                    label: 'Monthly',
+                    price: currencyFormatter.format(monthlySeatPrice),
+                    period: 'per user / month',
+                    features: ['Billed monthly', 'Minimum 1 user', 'Add or remove users'],
+                    ariaLabel: `Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`
+                  }
+                ]}
+                onSelect={setSelectedPriceId}
+              />
+            )}
 
             <QuantitySelector
               quantity={quantity}

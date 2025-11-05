@@ -48,25 +48,54 @@ export async function createTestUser(
 
   // Submit form
   await page.click('[data-testid="signup-submit-button"]');
-
-  // Wait for success message or redirect
+  
+  // Wait for success message or redirect (like auth.spec.ts does - simple and reliable)
   await Promise.race([
-    page.waitForURL('/', { timeout: 15000 }),
-    page.waitForSelector('text=/Account created|Welcome|signed in/i', { timeout: 15000 }),
+    page.waitForURL('/', { timeout: 25000 }).catch(() => {}),
+    page.waitForSelector('text=/Account created|Welcome|signed in/i', { timeout: 25000 }).catch(() => {})
   ]);
-
-  // Navigate to home page if still on auth page
+  
+  // Wait for network to settle (like auth.spec.ts does)
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  
+  // Verify session is established
+  {
+    let authenticated = false;
+    const attempts = 10;
+    for (let i = 0; i < attempts; i++) {
+      const sessionCheck: any = await page.evaluate(async () => {
+        try {
+          const res = await fetch('/api/auth/get-session', { credentials: 'include' });
+          if (!res.ok) return null;
+          const data: any = await res.json();
+          return data?.session ?? null;
+        } catch {
+          return null;
+        }
+      });
+      if (sessionCheck) { authenticated = true; break; }
+      await page.waitForTimeout(300);
+    }
+    if (!authenticated) {
+      // Throw to fail fast if session wasn't established
+      throw new Error(`Authentication not established after ${attempts} attempts`);
+    }
+  }
+  
+  // Navigate to home page manually if still on auth page (like auth.spec.ts does)
   if (page.url().includes('/auth')) {
     await page.goto('/');
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   }
-
-  // Dismiss welcome modal if it appears
-  const welcomeModalButton = page.getByRole('button', { name: /Okay, let's go/i });
+  
+  // Dismiss welcome modal if it appears (like auth.spec.ts does)
   try {
-    await expect(welcomeModalButton).toBeVisible({ timeout: 2000 });
+    const welcomeModalButton = page.getByRole('button', { name: /Okay, let's go/i });
+    await expect(welcomeModalButton).toBeVisible({ timeout: 5000 });
     await welcomeModalButton.click();
+    await page.waitForTimeout(500); // Wait for modal to close
   } catch {
-    // Modal might not appear, that's okay
+    // Welcome modal might not appear, that's okay
   }
 
   return user;

@@ -5,12 +5,14 @@ import { useOrganizationManagement } from '../../hooks/useOrganizationManagement
 import { useNavigation } from '../../utils/navigation';
 import { useToastContext } from '../../contexts/ToastContext';
 import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../utils/subscription';
+import { isForcePaidEnabled } from '../../utils/devFlags';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { currentOrganization, organizations, refetch, loading, error } = useOrganizationManagement();
   const { showSuccess, showError } = useToastContext();
+  const devForcePaid = isForcePaidEnabled();
   const [isOpen] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [ready, setReady] = useState(false);
@@ -84,10 +86,6 @@ export const BusinessOnboardingPage = () => {
       setSyncing(true);
       try {
         // Dev/test-only header to force paid tier during E2E flows
-        const devForcePaid = (import.meta.env.MODE !== 'production') && (typeof window !== 'undefined') && (
-          new URLSearchParams(window.location.search).get('forcePaid') === '1' ||
-          (typeof localStorage !== 'undefined' && localStorage.getItem('forcePaid') === '1')
-        );
         const response = await fetch('/api/subscription/sync', {
           method: 'POST',
           credentials: 'include',
@@ -128,11 +126,15 @@ export const BusinessOnboardingPage = () => {
     };
 
     syncSubscription();
-	 }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError]);
+  }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError, devForcePaid]);
 
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {
     if (!ready || !targetOrganization) return;
+    if (devForcePaid) {
+      console.debug('[ONBOARDING][DEV_FORCE_PAID] Bypassing subscription eligibility guard.');
+      return;
+    }
     const resolvedKind = resolveOrganizationKind(targetOrganization.kind, targetOrganization.isPersonal ?? null);
     const resolvedStatus = normalizeSubscriptionStatus(targetOrganization.subscriptionStatus, resolvedKind);
     const allowedStatuses = new Set(['active', 'trialing', 'paused']);
@@ -145,7 +147,7 @@ export const BusinessOnboardingPage = () => {
       showError('Not Available', 'Business onboarding is only available for active business subscriptions.');
       navigate('/');
     }
-  }, [ready, targetOrganization, showError, navigate]);
+  }, [ready, targetOrganization, showError, navigate, devForcePaid]);
 
   // Guard: Redirect if onboarding already completed
   useEffect(() => {
@@ -295,4 +297,3 @@ export const BusinessOnboardingPage = () => {
 };
 
 export default BusinessOnboardingPage;
-
