@@ -44,7 +44,10 @@ export const Switch = ({
     <div className={cn('flex items-center justify-between py-3', className)}>
       <div className="flex-1 min-w-0">
         {label && (
-          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          <div
+            className="text-sm font-medium text-gray-900 dark:text-gray-100"
+            id={id ? `${id}-label` : undefined}
+          >
             {label}
           </div>
         )}
@@ -68,9 +71,9 @@ export const Switch = ({
         onClick={() => !disabled && onChange(!value)}
         disabled={disabled}
         aria-pressed={value}
-        aria-label={label ? `Toggle ${label}` : 'Toggle switch'}
+        aria-label={id ? undefined : (label || 'Toggle switch')}
         id={id}
-        aria-labelledby={label ? `${id}-label` : undefined}
+        aria-labelledby={id ? `${id}-label` : undefined}
       >
         <span
           className={cn(
