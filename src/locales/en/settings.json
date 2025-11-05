@@ -58,7 +58,11 @@
       "currentPlanLabel": "Current Plan: {{tier}}",
       "seatsLabel": "seats",
       "manageBilling": "Manage billing",
-      "upgradeToManageBilling": "Upgrade to manage billing",
+      "manage": "Manage",
+      "upgrade": "Upgrade",
+      "upgradeBusiness": "Upgrade",
+      "getBusiness": "Get Business",
+      "autoRenews": "Your plan auto-renews on {{date}}",
       "cancelSubscription": "Cancel subscription",
       "tiers": {
         "free": "Free",

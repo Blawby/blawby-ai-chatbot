@@ -29,24 +29,25 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [error, setError] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Check URL params for mode and onboarding
+  // Check URL params for mode and onboarding (guarded by server truth)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlMode = urlParams.get('mode');
     const needsOnboarding = urlParams.get('onboarding') === 'true';
-    
+
     if (urlMode === 'signin' || urlMode === 'signup') {
       setIsSignUp(urlMode === 'signup');
     }
-    
-    // Show onboarding if redirected here for OAuth users
+
+    // Only open onboarding when explicitly requested via URL param
     if (needsOnboarding) {
-      if (import.meta.env.DEV) {
-        try {
-          console.debug('[AUTH][ONBOARDING] onboarding param detected, opening modal');
-        } catch {}
-      }
       setShowOnboarding(true);
+      // Strip the param to avoid re-triggering on rebuilds
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('onboarding');
+        window.history.replaceState({}, '', url.toString());
+      } catch {}
     }
   }, []);
 
@@ -224,8 +225,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       // Onboarding completed with redacted data
     }
     
-    // Persist onboarding completion flag before redirecting
-    localStorage.setItem('onboardingCompleted', 'true');
+    // Legacy onboardingCompleted localStorage write removed - server truth is used instead
     
     // Clear the onboarding check flag since user completed onboarding
     try {

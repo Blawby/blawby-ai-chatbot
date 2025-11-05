@@ -1,12 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '../../ui/Button';
-import { Select, FormLabel } from '../../ui';
-import { FormItem } from '../../ui/form';
+import { SectionDivider } from '../../ui';
 import Modal from '../../Modal';
 import ConfirmationDialog from '../../ConfirmationDialog';
-import { 
-  EnvelopeIcon
-} from '@heroicons/react/24/outline';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useNavigation } from '../../../utils/navigation';
 import { useSession } from '../../../contexts/AuthContext';
@@ -23,8 +19,12 @@ import {
   hasActiveSubscriptionStatus,
   resolveOrganizationKind,
   normalizeSubscriptionStatus,
+  displayPlan,
 } from '../../../utils/subscription';
+import { formatDate } from '../../../utils/dateTime';
 import type { UserLinks, EmailSettings, SubscriptionTier } from '../../../types/user';
+import { SettingHeader } from '../atoms';
+import { SettingRow, SettingSection, PlanFeaturesList, DomainSelector, EmailSettingsSection } from '../molecules';
 
 
 export interface AccountPageProps {
@@ -73,6 +73,16 @@ export const AccountPage = ({
     currentOrganization?.isPersonal ?? null
   );
   const canManageBilling = managedSubscription && Boolean(currentOrganization?.stripeCustomerId);
+  
+  // Determine if we have a subscription (not free)
+  const hasSubscription = managedSubscription && resolvedSubscriptionStatus !== 'none';
+  
+  // Get renewal date from subscription period_end (stored in seconds, from Stripe webhooks)
+  const renewalDate = useMemo(() => {
+    if (!hasSubscription || !currentOrganization?.subscriptionPeriodEnd) return null;
+    // subscriptionPeriodEnd is stored as Unix timestamp in seconds
+    return new Date(currentOrganization.subscriptionPeriodEnd * 1000);
+  }, [hasSubscription, currentOrganization?.subscriptionPeriodEnd]);
 
   const clearLocalAuthState = useCallback(() => {
     try {
@@ -620,112 +630,85 @@ export const AccountPage = ({
 
   return (
     <div className={`h-full flex flex-col ${className}`}>
-      {/* Header */}
-      <div className="px-6 py-4">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {t('settings:account.title')}
-        </h1>
-        <div className="border-t border-gray-200 dark:border-dark-border mt-4" />
-      </div>
+      <SettingHeader title={t('settings:account.title')} />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6">
         <div className="space-y-0">
           {/* Subscription Plan Section */}
-          <div className="py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  {t('settings:account.plan.sectionTitle')}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {planLabel} • {normalizeSeats(currentOrganization?.seats)} {t('settings:account.plan.seatsLabel')}
-                </p>
-              </div>
-              {isOwner && currentOrganization && (
-                <div className="flex gap-2 ml-4">
-                  {canManageBilling ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => openBillingPortal({ 
-                        organizationId: currentOrganization.id, 
-                        returnUrl: `${window.location.origin}/settings/account?sync=1` 
-                      })}
-                      disabled={submitting}
-                    >
-                      {t('settings:account.plan.manageBilling')}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigate('/#pricing')}
-                    >
-                      {t('settings:account.plan.upgradeToManageBilling')}
-                    </Button>
+          <SettingRow
+            label={t('settings:account.plan.sectionTitle')}
+            description={
+              hasSubscription ? (
+                <>
+                  {displayPlan((currentTier || 'free'))}
+                  {renewalDate && (
+                    <> • {t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })}</>
                   )}
-                  {managedSubscription && activeSubscription && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setShowCancelConfirm(true)}
-                      disabled={submitting}
-                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                      {t('settings:account.plan.cancelSubscription')}
-                    </Button>
-                  )}
-                </div>
+                </>
+              ) : (
+                t('settings:account.plan.getBusiness')
+              )
+            }
+          >
+            <div className="flex gap-2">
+              {currentOrganization && isOwner && canManageBilling ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openBillingPortal({ 
+                    organizationId: currentOrganization.id, 
+                    returnUrl: `${window.location.origin}/settings/account?sync=1` 
+                  })}
+                  disabled={submitting}
+                >
+                  {t('settings:account.plan.manage')}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate('/#pricing')}
+                >
+                  {t('settings:account.plan.upgrade')}
+                </Button>
+              )}
+              {currentOrganization && isOwner && managedSubscription && activeSubscription && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowCancelConfirm(true)}
+                  disabled={submitting}
+                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  {t('settings:account.plan.cancelSubscription')}
+                </Button>
               )}
             </div>
-          </div>
+          </SettingRow>
 
-          <div className="border-t border-gray-200 dark:border-dark-border" />
+          <SectionDivider />
 
           {/* Plan Features Section */}
           <div className="py-3">
-            <div className="space-y-2">
-              {currentPlanFeatures.map((feature, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <div className="text-gray-500 dark:text-gray-400">
-                    <feature.icon className="w-5 h-5 flex-shrink-0" />
-                  </div>
-                  <span className="text-sm text-gray-900 dark:text-gray-100">
-                    {feature.text}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <PlanFeaturesList features={currentPlanFeatures} />
           </div>
 
-          <div className="border-t border-gray-200 dark:border-dark-border" />
+          <SectionDivider />
 
           {/* Links Section */}
-          <div className="py-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              {t('settings:account.links.title')}
-            </h3>
-            
+          <SettingSection title={t('settings:account.links.title')}>
             {/* Domain Selector */}
-            <FormItem>
-              <div className="flex-1 min-w-0">
-                <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
-              </div>
-              <div className="ml-4">
-                <Select
-                  value={selectedDomain}
-                  options={[
-                    { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
-                    { value: 'whynot.earth', label: 'whynot.earth' },
-                    { value: 'example.com', label: 'example.com' },
-                    ...customDomainOptions,
-                    { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
-                  ]}
-                  onChange={handleDomainChange}
-                />
-              </div>
-            </FormItem>
+            <DomainSelector
+              label={t('settings:account.links.domainLabel')}
+              value={selectedDomain}
+              options={[
+                { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
+                ...customDomainOptions,
+                { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
+              ]}
+              onChange={handleDomainChange}
+            />
 
             {/* LinkedIn */}
             <div className="flex items-center justify-between py-3">
@@ -762,59 +745,34 @@ export const AccountPage = ({
                 {t('settings:account.links.addButton')}
               </Button>
             </div>
-          </div>
+          </SettingSection>
 
-          <div className="border-t border-gray-200 dark:border-dark-border" />
+          <SectionDivider />
 
           {/* Email Section */}
-          <div className="py-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              {t('settings:account.email.title')}
-            </h3>
-            
-            {/* Email Address */}
-            <div className="flex items-center gap-3 py-3">
-              <EnvelopeIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <span className="text-sm text-gray-900 dark:text-gray-100">
-                {emailAddress}
-              </span>
-            </div>
+          <EmailSettingsSection
+            email={emailAddress}
+            receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails || false}
+            onFeedbackChange={handleFeedbackEmailsChange}
+            title={t('settings:account.email.title')}
+            feedbackLabel={t('settings:account.email.receiveFeedback')}
+          />
 
-            {/* Feedback Emails Checkbox */}
-            <div className="flex items-center gap-3 py-3">
-              <input
-                type="checkbox"
-                id="feedback-emails"
-                checked={emailSettings?.receiveFeedbackEmails || false}
-                onChange={(e) => handleFeedbackEmailsChange(e.currentTarget.checked)}
-                className="w-4 h-4 text-accent-500 bg-transparent border-gray-300 dark:border-gray-600 rounded focus:ring-accent-500 focus:ring-2"
-              />
-              <label htmlFor="feedback-emails" className="text-sm text-gray-900 dark:text-gray-100 cursor-pointer">
-                {t('settings:account.email.receiveFeedback')}
-              </label>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 dark:border-dark-border" />
+          <SectionDivider />
 
           {/* Delete account Section */}
-          <div className="flex items-center justify-between py-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                {t('settings:account.delete.sectionTitle')}
-              </h3>
-            </div>
-            <div className="ml-4">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleDeleteAccount}
-                className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500"
-              >
-                {t('settings:account.delete.button')}
-              </Button>
-            </div>
-          </div>
+          <SettingRow
+            label={t('settings:account.delete.sectionTitle')}
+          >
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleDeleteAccount}
+              className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500"
+            >
+              {t('settings:account.delete.button')}
+            </Button>
+          </SettingRow>
         </div>
       </div>
 

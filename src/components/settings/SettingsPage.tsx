@@ -18,7 +18,6 @@ import {
   ArrowLeftIcon,
   BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigation } from '../../utils/navigation';
 import { useToastContext } from '../../contexts/ToastContext';
 import { cn } from '../../utils/cn';
@@ -125,77 +124,66 @@ export const SettingsPage = ({
     );
   }
 
-  // Mobile layout - show navigation or content based on current page with fade animations
+  // Mobile layout - show navigation or content based on current page
   if (isMobile) {
     return (
       <div className={cn('h-full flex flex-col', className)}>
-        <AnimatePresence mode="wait">
-            <motion.div
-              key={currentPage}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="h-full flex flex-col"
-            >
-              {currentPage === 'navigation' ? (
-              // Main settings page (navigation)
-              <>
-                {/* Mobile Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
-                  <div className="flex-1" />
-                  <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Settings</h1>
-                  <div className="flex-1 flex justify-end">
-                    <button
-                      onClick={handleBack}
-                      className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      aria-label={t('settings:navigation.close')}
-                    >
-                      <XMarkIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
+        {currentPage === 'navigation' ? (
+          // Main settings page (navigation)
+          <>
+            {/* Mobile Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
+              <div className="flex-1" />
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Settings</h1>
+              <div className="flex-1 flex justify-end">
+                <button
+                  onClick={handleBack}
+                  className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label={t('settings:navigation.close')}
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
 
-                {/* Mobile Content - Show sidebar navigation as main content */}
-                <div className="flex-1 overflow-y-auto bg-white dark:bg-dark-bg">
-                  <div className="px-4 py-2">
-                    <SidebarNavigation
-                      items={navigationItems}
-                      activeItem={currentPage}
-                      onItemClick={handleNavigation}
-                      mobile={true}
-                    />
-                  </div>
-                </div>
-              </>
-            ) : (
-              // Specific settings page
-              <>
-                {/* Mobile Header with Back Button */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
-                  <button
-                    onClick={() => navigate('/settings')}
-                    className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    aria-label={t('settings:navigation.backToSettings')}
-                  >
-                    <ArrowLeftIcon className="w-5 h-5" />
-                  </button>
-                  <div className="flex-1 flex justify-center">
-                    <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {navigationItems.find(item => item.id === currentPage)?.label || 'Settings'}
-                    </h1>
-                  </div>
-                  <div className="w-9" /> {/* Spacer to center the title */}
-                </div>
+            {/* Mobile Content - Show sidebar navigation as main content */}
+            <div className="flex-1 overflow-y-auto bg-white dark:bg-dark-bg">
+              <div className="px-4 py-2">
+                <SidebarNavigation
+                  items={navigationItems}
+                  activeItem={currentPage}
+                  onItemClick={handleNavigation}
+                  mobile={true}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          // Specific settings page
+          <>
+            {/* Mobile Header with Back Button */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
+              <button
+                onClick={() => navigate('/settings')}
+                className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                aria-label={t('settings:navigation.backToSettings')}
+              >
+                <ArrowLeftIcon className="w-5 h-5" />
+              </button>
+              <div className="flex-1 flex justify-center">
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {navigationItems.find(item => item.id === currentPage)?.label || 'Settings'}
+                </h1>
+              </div>
+              <div className="w-9" /> {/* Spacer to center the title */}
+            </div>
 
-                {/* Mobile Content - Show specific settings page */}
-                <div className="flex-1 overflow-y-auto bg-white dark:bg-dark-bg">
-                  {renderContent()}
-                </div>
-              </>
-            )}
-          </motion.div>
-        </AnimatePresence>
+            {/* Mobile Content - Show specific settings page */}
+            <div className="flex-1 overflow-y-auto bg-white dark:bg-dark-bg">
+              {renderContent()}
+            </div>
+          </>
+        )}
       </div>
     );
   }

@@ -39,6 +39,7 @@ export interface Organization {
   seats?: number;
   kind: OrganizationKind;
   subscriptionStatus: SubscriptionLifecycleStatus;
+  subscriptionPeriodEnd?: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -575,7 +576,14 @@ export class OrganizationService {
               WHERE s.reference_id = o.id
               ORDER BY s.updated_at DESC
               LIMIT 1
-           ) AS subscription_status
+           ) AS subscription_status,
+           (
+             SELECT s.period_end
+               FROM subscriptions s
+              WHERE s.reference_id = o.id
+              ORDER BY s.updated_at DESC
+              LIMIT 1
+           ) AS subscription_period_end
          FROM organizations o
         WHERE o.id = ? OR o.slug = ?`
       ).bind(organizationId, organizationId).first();
@@ -594,6 +602,13 @@ export class OrganizationService {
           updatedAt = orgRow.created_at ? new Date(orgRow.created_at as string).getTime() : Date.now();
         }
 
+        const rawPeriodEnd = (orgRow as Record<string, unknown>).subscription_period_end;
+        const subscriptionPeriodEnd = typeof rawPeriodEnd === 'number' && rawPeriodEnd > 0
+          ? rawPeriodEnd
+          : typeof rawPeriodEnd === 'string' && rawPeriodEnd.trim() !== ''
+            ? Number(rawPeriodEnd)
+            : null;
+
         const organization: Organization = {
           id: orgRow.id as string,
           name: orgRow.name as string,
@@ -611,6 +626,7 @@ export class OrganizationService {
           subscriptionStatus: this.normalizeSubscriptionStatus(
             (orgRow as Record<string, unknown>).subscription_status
           ),
+          subscriptionPeriodEnd: subscriptionPeriodEnd && !isNaN(subscriptionPeriodEnd) ? subscriptionPeriodEnd : null,
           createdAt: new Date(orgRow.created_at as string).getTime(),
           updatedAt: updatedAt,
         };

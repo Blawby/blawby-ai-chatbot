@@ -19,7 +19,8 @@ import {
   handleAuth,
   handleConfig,
   handleUsage,
-  handleStripeWebhook
+  handleStripeWebhook,
+  handleUsers
 } from './routes';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
@@ -103,6 +104,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleOnboarding(request, env);
     } else if (path.startsWith('/api/payment')) {
       response = await handlePayment(request, env);
+    } else if (path.startsWith('/api/users')) {
+      response = await handleUsers(request, env);
     } else if (path.startsWith('/api/pdf')) {
       response = await handlePDF(request, env);
     } else if (path.startsWith('/api/debug')) {

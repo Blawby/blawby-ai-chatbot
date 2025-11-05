@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import ChatContainer from './components/ChatContainer';
@@ -22,8 +22,8 @@ import type { ChatMessageUI, FileAttachment } from '../worker/types';
 // Settings components
 import { SettingsLayout } from './components/settings/SettingsLayout';
 import { useNavigation } from './utils/navigation';
-import PricingModal from './components/PricingModal';
-import WelcomeModal from './components/onboarding/WelcomeModal';
+import { PricingModal, WelcomeModal } from './components/modals/organisms';
+import { useWelcomeModal } from './components/modals/hooks/useWelcomeModal';
 import { BusinessWelcomePrompt } from './components/onboarding/organisms/BusinessWelcomePrompt';
 import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPage';
 import { CartPage } from './components/cart/CartPage';
@@ -55,7 +55,9 @@ function MainApp({
 	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
 	const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 	const [isRecording, setIsRecording] = useState(false);
-	const [showSettingsModal, setShowSettingsModal] = useState(false);
+	const location = useLocation();
+	const { navigate } = useNavigation();
+	const isSettingsRouteNow = location.path.startsWith('/settings');
 	const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 	const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
 	// Removed legacy business setup modal flow (replaced by /business-onboarding route)
@@ -63,10 +65,6 @@ function MainApp({
 	// Mobile state - initialized as false to avoid SSR/client hydration mismatch
 	const [isMobile, setIsMobile] = useState(false);
 	
-	// Get current location to detect settings routes
-	const location = useLocation();
-	const { navigate } = useNavigation();
-
 	// Use session from Better Auth
 	const { data: session, isPending: sessionIsPending } = useSession();
 
@@ -152,30 +150,11 @@ function MainApp({
 		}
 	}, [sessionError]);
 
-	// Handle settings modal based on URL
-	useEffect(() => {
-		const isSettingsRoute = location.path.startsWith('/settings');
-		setShowSettingsModal(isSettingsRoute);
-	}, [location.path]);
-
-	// Check if we should show welcome modal (after onboarding completion)
-	useEffect(() => {
-		// Check if user just completed onboarding
-		try {
-			const onboardingCompleted = localStorage.getItem('onboardingCompleted');
-			if (onboardingCompleted === 'true') {
-				setShowWelcomeModal(true);
-				// Don't remove the flag here - let the completion handler do it
-				// This prevents permanent loss if the modal fails to render
-			}
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to check onboarding completion status:', _error);
-			}
-		}
-	}, []);
+    // Welcome modal state via server-truth + session debounce
+    const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal();
+    useEffect(() => {
+        setShowWelcomeModal(shouldShowWelcome);
+    }, [shouldShowWelcome]);
 
     // Check if OAuth user needs onboarding (one-time check after auth)
     useEffect(() => {
@@ -228,24 +207,11 @@ function MainApp({
                 }
 			}
 			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
-			const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
+            const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
             const userWithOnboarding = user as typeof user & { onboardingCompleted?: boolean };
 			const hasCompletedOnboarding = userWithOnboarding.onboardingCompleted === true;
 			
-			// Sync onboardingCompleted flag if user has completed onboarding but flag is missing
-			if (hasCompletedOnboarding && !hasOnboardingFlag) {
-				if (import.meta.env.DEV) {
-					console.debug('[ONBOARDING][SYNC] syncing onboardingCompleted flag');
-				}
-				try {
-					localStorage.setItem('onboardingCompleted', 'true');
-					localStorage.setItem('onboardingCheckDone', 'true');
-                } catch (_error) {
-                    // Handle localStorage failures gracefully
-                    console.warn('[ONBOARDING][SYNC] localStorage set failed:', _error);
-                }
-			}
-			
+			// Legacy localStorage sync removed; welcome modal now uses server truth
 			// If user hasn't completed onboarding and we haven't checked yet
 			if (!hasOnboardingFlag && !hasOnboardingCheckFlag) {
 				const needsOnboarding = userWithOnboarding.onboardingCompleted === false || 
@@ -266,16 +232,10 @@ function MainApp({
 					// Redirect to auth page with onboarding
 					window.location.href = '/auth?mode=signin&onboarding=true';
 				} else {
-					// User has completed onboarding, sync the flags with database state
-					try {
-						localStorage.setItem('onboardingCompleted', 'true');
-						localStorage.setItem('onboardingCheckDone', 'true');
-					} catch (_error) {
-						// Handle localStorage failures gracefully
-					}
-				}
-			}
-		}
+					// Legacy localStorage sync removed; welcome modal now uses server truth
+                }
+            }
+        }
     }, [session?.user, sessionIsPending]);
 
 
@@ -451,37 +411,16 @@ function MainApp({
 		// Could show a toast notification here
 	}, []);
 
-	// Handle welcome modal
-	const handleWelcomeComplete = () => {
-		setShowWelcomeModal(false);
-		
-		// Remove the onboarding completion flag now that the welcome modal has been shown
-		try {
-			localStorage.removeItem('onboardingCompleted');
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to remove onboarding completion flag:', _error);
-			}
-		}
-	};
+    // Handle welcome modal using server-truth hook
+    const handleWelcomeComplete = async () => {
+        await markWelcomeAsShown();
+        setShowWelcomeModal(false);
+    };
 
-	const handleWelcomeClose = () => {
-		setShowWelcomeModal(false);
-		
-		// Remove the onboarding completion flag even if user closes without completing
-		// This prevents the welcome modal from showing again
-		try {
-			localStorage.removeItem('onboardingCompleted');
-		} catch (_error) {
-			// Handle localStorage access failures (private browsing, etc.)
-			if (import.meta.env.DEV) {
-				 
-				console.warn('Failed to remove onboarding completion flag:', _error);
-			}
-		}
-	};
+    const handleWelcomeClose = async () => {
+        await markWelcomeAsShown();
+        setShowWelcomeModal(false);
+    };
 
 	const handleBusinessWelcomeClose = () => {
 		setShowBusinessWelcome(false);
@@ -534,7 +473,7 @@ function MainApp({
 				onTabChange={setCurrentTab}
 				isMobileSidebarOpen={isMobileSidebarOpen}
 				onToggleMobileSidebar={setIsMobileSidebarOpen}
-				isSettingsModalOpen={showSettingsModal}
+				isSettingsModalOpen={isSettingsRouteNow}
 				organizationConfig={{
 					name: organizationConfig.name ?? '',
 					profileImage: organizationConfig?.profileImage ?? null,
@@ -593,18 +532,7 @@ function MainApp({
 				</div>
 			</AppLayout>
 
-			{/* Settings Modal */}
-			{showSettingsModal && (
-				<SettingsLayout
-					isMobile={isMobile}
-					onClose={() => {
-						setShowSettingsModal(false);
-						setIsMobileSidebarOpen(false); // Close mobile sidebar when settings close
-						navigate('/');
-					}}
-					className="h-full"
-				/>
-			)}
+			{/* Settings Modal moved to AppWithSEO to persist across settings sub-routes */}
 
 			{/* Pricing Modal */}
 			<PricingModal
@@ -717,7 +645,6 @@ function AppWithOrganization() {
 	/>;
 }
 
-// Component that uses organization context for SEO
 function AppWithSEO({ 
 	organizationId, 
 	organizationConfig, 
@@ -730,12 +657,46 @@ function AppWithSEO({
 	handleRetryOrganizationConfig: () => void;
 }) {
 	const location = useLocation();
+	const { navigate } = useNavigation();
 	
 	// Create reactive currentUrl that updates on navigation
 	const currentUrl = typeof window !== 'undefined' 
 		? `${window.location.origin}${location.url}`
 		: undefined;
-	
+
+	// Hoisted settings modal controls
+	const isSettingsOpen = location.path.startsWith('/settings');
+	// Responsive mobile state for the hoisted settings layout
+	const [isMobileHoisted, setIsMobileHoisted] = useState(false);
+	useLayoutEffect(() => {
+		if (typeof window === 'undefined') return;
+		const checkIsMobile = () => window.innerWidth < 1024;
+		setIsMobileHoisted(checkIsMobile());
+		const debouncedResizeHandler = debounce(() => {
+			setIsMobileHoisted(checkIsMobile());
+		}, 100);
+		window.addEventListener('resize', debouncedResizeHandler);
+		return () => {
+			window.removeEventListener('resize', debouncedResizeHandler);
+			debouncedResizeHandler.cancel();
+		};
+	}, []);
+
+	// Stable component to avoid remounting the MainApp subtree for settings
+	const SettingsRoute = useMemo(() => {
+		return function SettingsRouteInner(props: Record<string, unknown>) {
+			return (
+				<MainAppWithProviders 
+					organizationId={organizationId}
+					organizationConfig={organizationConfig}
+					organizationNotFound={organizationNotFound}
+					handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+					{...props}
+				/>
+			);
+		};
+	}, [organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig]);
+
 	return (
 		<>
 			<SEOHead 
@@ -747,13 +708,7 @@ function AppWithSEO({
 					<Route path="/auth" component={AuthPage} />
 					<Route path="/cart" component={CartPage} />
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
-					<Route path="/settings/*" component={(props) => <MainAppWithProviders 
-						organizationId={organizationId}
-						organizationConfig={organizationConfig}
-						organizationNotFound={organizationNotFound}
-						handleRetryOrganizationConfig={handleRetryOrganizationConfig}
-						{...props}
-					/>} />
+					<Route path="/settings/*" component={SettingsRoute} />
 					<Route default component={(props) => <MainAppWithProviders 
 						organizationId={organizationId}
 						organizationConfig={organizationConfig}
@@ -762,6 +717,18 @@ function AppWithSEO({
 						{...props}
 					/>} />
 				</Router>
+
+				{/* Hoisted Settings Modal - single instance persists across sub-routes */}
+				{isSettingsOpen && (
+					<SettingsLayout
+						key="settings-modal-hoisted"
+						isMobile={isMobileHoisted}
+						onClose={() => {
+							navigate('/');
+						}}
+						className="h-full"
+					/>
+				)}
 			</ToastProvider>
 		</>
 	);

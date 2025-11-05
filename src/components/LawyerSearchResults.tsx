@@ -1,7 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useState } from 'preact/hooks';
 import { Button } from './ui/Button';
-import ContactOptionsModal from './ContactOptionsModal';
+import { ContactOptionsModal } from './modals/organisms';
 import {
   UserIcon,
   BuildingOfficeIcon,
