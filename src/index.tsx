@@ -58,7 +58,6 @@ function MainApp({
 	const location = useLocation();
 	const { navigate } = useNavigation();
 	const isSettingsRouteNow = location.path.startsWith('/settings');
-	const [showSettingsModal, setShowSettingsModal] = useState(() => isSettingsRouteNow);
 	const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 	const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
 	// Removed legacy business setup modal flow (replaced by /business-onboarding route)
@@ -150,14 +149,6 @@ function MainApp({
 			console.error('Session initialization error:', sessionError);
 		}
 	}, [sessionError]);
-
-	// Handle settings modal based on URL
-	const prevIsSettingsRef = useRef<boolean>(isSettingsRouteNow);
-	useEffect(() => {
-		const isSettingsRoute = location.path.startsWith('/settings');
-		setShowSettingsModal(isSettingsRoute);
-		prevIsSettingsRef.current = isSettingsRoute;
-	}, [location.path]);
 
     // Welcome modal state via server-truth + session debounce
     const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal();
@@ -482,7 +473,7 @@ function MainApp({
 				onTabChange={setCurrentTab}
 				isMobileSidebarOpen={isMobileSidebarOpen}
 				onToggleMobileSidebar={setIsMobileSidebarOpen}
-				isSettingsModalOpen={showSettingsModal}
+				isSettingsModalOpen={isSettingsRouteNow}
 				organizationConfig={{
 					name: organizationConfig.name ?? '',
 					profileImage: organizationConfig?.profileImage ?? null,

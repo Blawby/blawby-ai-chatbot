@@ -3,7 +3,7 @@ import { useTranslation } from '@/i18n/hooks';
 import Modal from '../Modal';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
-import { updateUser } from '../../lib/authClient';
+import { updateUser, getSession } from '../../lib/authClient';
 import type { OnboardingData } from '../../types/user';
 import { toOnboardingData, fromOnboardingData } from '../../types/user';
 import { useToastContext } from '../../contexts/ToastContext';
@@ -113,6 +113,9 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
         onboardingData: fromOnboardingData(completedData)
       } as Parameters<typeof updateUser>[0]);
 
+      // Refresh session to get updated fields immediately (best-effort)
+      try { await getSession(); } catch {}
+
       // Legacy localStorage cache removed - server truth is used instead
 
       // Show success notification
@@ -172,7 +175,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
       type="fullscreen"
       showCloseButton={false}
     >
-      <div className="h-full bg-white dark:bg-dark-bg flex flex-col">
+      <div className="h-full bg-white dark:bg-dark-bg flex flex-col" data-testid="onboarding-modal">
         {renderStep()}
       </div>
     </Modal>

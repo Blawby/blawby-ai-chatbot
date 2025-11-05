@@ -166,6 +166,20 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
       ? Number.parseInt(raw.seats, 10) || null
       : null;
 
+  const subscriptionPeriodEnd = (() => {
+    // Preserve explicit null; coalesce camelCase and snake_case; allow undefined if missing
+    const camel = (raw as Record<string, unknown>).subscriptionPeriodEnd;
+    const snake = (raw as Record<string, unknown>).subscription_period_end;
+    const val = camel !== undefined ? camel : snake;
+    if (val === null) return null;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string' && val.trim().length > 0) {
+      const n = Number.parseInt(val, 10);
+      return Number.isFinite(n) ? n : undefined;
+    }
+    return undefined;
+  })();
+
   return {
     id,
     slug,
@@ -178,6 +192,7 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
+    subscriptionPeriodEnd,
     config: (() => {
       const cfg = (raw as Record<string, unknown>).config as unknown;
       if (cfg && typeof cfg === 'object' && !Array.isArray(cfg)) {

@@ -353,7 +353,12 @@ export const SecurityPage = ({
             label={t('settings:security.trustedDevices.title')}
             description={t('settings:security.trustedDevices.description')}
           >
-            {/* Empty - no control */}
+            <span
+              className="text-xs text-gray-500 dark:text-gray-400"
+              aria-label={t('settings:security.trustedDevices.comingSoonAria', { defaultValue: 'Trusted devices management is coming soon' })}
+            >
+              {t('settings:security.trustedDevices.comingSoon', { defaultValue: 'Coming soon' })}
+            </span>
           </SettingRow>
 
           <SectionDivider />

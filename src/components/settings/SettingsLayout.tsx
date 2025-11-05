@@ -76,7 +76,7 @@ export const SettingsLayout = ({
       document.documentElement.style.overflow = '';
       document.body.classList.remove('modal-open');
     };
-  }, [showSettings]);
+  }, [showSettings, handleClose]);
 
   return (
     <AnimatePresence initial mode="wait">

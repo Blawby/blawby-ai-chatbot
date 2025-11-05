@@ -28,6 +28,7 @@ export const SettingToggle = ({
       </div>
       <div className="ml-4">
         <Switch
+          id={id}
           value={value}
           onChange={onChange}
           disabled={false}

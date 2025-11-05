@@ -14,6 +14,13 @@ export interface PasswordChangeFormProps {
   onCancel: () => void;
   isOpen: boolean;
   className?: string;
+  isLoading?: boolean;
+  error?: string | null;
+  fieldErrors?: {
+    currentPassword?: string;
+    newPassword?: string;
+    confirmPassword?: string;
+  };
 }
 
 export const PasswordChangeForm = ({
@@ -26,7 +33,10 @@ export const PasswordChangeForm = ({
   onSubmit,
   onCancel,
   isOpen,
-  className = ''
+  className = '',
+  isLoading = false,
+  error,
+  fieldErrors
 }: PasswordChangeFormProps) => {
   const { t } = useTranslation(['settings']);
 
@@ -34,14 +44,18 @@ export const PasswordChangeForm = ({
 
   return (
     <div className={cn('mt-4 space-y-4', className)}>
+      {error && (
+        <div className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</div>
+      )}
       <div>
         <Input
           type="password"
           value={currentPassword}
-          onChange={onCurrentPasswordChange}
+          onChange={(v) => !isLoading && onCurrentPasswordChange(v)}
           label={t('settings:security.password.fields.current.label')}
           placeholder={t('settings:security.password.fields.current.placeholder')}
           id="current-password"
+          error={fieldErrors?.currentPassword}
         />
       </div>
       
@@ -49,10 +63,11 @@ export const PasswordChangeForm = ({
         <Input
           type="password"
           value={newPassword}
-          onChange={onNewPasswordChange}
+          onChange={(v) => !isLoading && onNewPasswordChange(v)}
           label={t('settings:security.password.fields.new.label')}
           placeholder={t('settings:security.password.fields.new.placeholder')}
           id="new-password"
+          error={fieldErrors?.newPassword}
         />
       </div>
       
@@ -60,10 +75,11 @@ export const PasswordChangeForm = ({
         <Input
           type="password"
           value={confirmPassword}
-          onChange={onConfirmPasswordChange}
+          onChange={(v) => !isLoading && onConfirmPasswordChange(v)}
           label={t('settings:security.password.fields.confirm.label')}
           placeholder={t('settings:security.password.fields.confirm.placeholder')}
           id="confirm-password"
+          error={fieldErrors?.confirmPassword}
         />
       </div>
       
@@ -71,14 +87,16 @@ export const PasswordChangeForm = ({
         <Button
           variant="secondary"
           size="sm"
-          onClick={onCancel}
+          onClick={() => { if (!isLoading) onCancel(); }}
+          disabled={isLoading}
         >
           {t('settings:security.password.cancelButton')}
         </Button>
         <Button
           variant="primary"
           size="sm"
-          onClick={onSubmit}
+          onClick={() => { if (!isLoading) onSubmit(); }}
+          disabled={isLoading}
         >
           {t('settings:security.password.submit')}
         </Button>

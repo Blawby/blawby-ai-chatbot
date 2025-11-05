@@ -641,7 +641,7 @@ export const AccountPage = ({
             description={
               hasSubscription ? (
                 <>
-                  {displayPlan(currentOrganization?.subscriptionTier || 'business')}
+                  {displayPlan((currentTier || 'free'))}
                   {renewalDate && (
                     <> • {t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })}</>
                   )}
@@ -704,8 +704,6 @@ export const AccountPage = ({
               value={selectedDomain}
               options={[
                 { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
-                { value: 'whynot.earth', label: 'whynot.earth' },
-                { value: 'example.com', label: 'example.com' },
                 ...customDomainOptions,
                 { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
               ]}

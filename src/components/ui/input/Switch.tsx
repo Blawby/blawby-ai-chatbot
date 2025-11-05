@@ -9,6 +9,7 @@ export interface SwitchProps {
   disabled?: boolean;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
+  id?: string;
 }
 
 export const Switch = ({
@@ -18,7 +19,8 @@ export const Switch = ({
   description,
   disabled = false,
   className = '',
-  size = 'md'
+  size = 'md',
+  id
 }: SwitchProps) => {
   const sizeClasses = {
     sm: 'h-4 w-8',
@@ -67,6 +69,8 @@ export const Switch = ({
         disabled={disabled}
         aria-pressed={value}
         aria-label={label ? `Toggle ${label}` : 'Toggle switch'}
+        id={id}
+        aria-labelledby={label ? `${id}-label` : undefined}
       >
         <span
           className={cn(
