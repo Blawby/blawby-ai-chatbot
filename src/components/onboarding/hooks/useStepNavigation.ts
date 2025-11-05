@@ -36,7 +36,8 @@ export const useStepNavigation = (
 
   const goNext = useCallback(() => {
     if (navigationInProgress.current) return;
-    const tentativeNextIndex = Math.min(currentStepIndex + 1, STEP_ORDER.length - 1);
+    const originalIndex = currentStepIndex;
+    const tentativeNextIndex = Math.min(originalIndex + 1, STEP_ORDER.length - 1);
     const nextStep = STEP_ORDER[tentativeNextIndex];
 
     if (onStepChange && nextStep !== currentStep) {
@@ -45,7 +46,10 @@ export const useStepNavigation = (
         try {
           await Promise.resolve(onStepChange(nextStep, currentStep));
           if (isMounted.current) {
-            setCurrentStepIndex((prev) => Math.min(prev + 1, STEP_ORDER.length - 1));
+            setCurrentStepIndex((prev) => (prev === originalIndex
+              ? Math.min(originalIndex + 1, STEP_ORDER.length - 1)
+              : prev
+            ));
           }
         } catch (error) {
           console.error('Error in goNext onStepChange:', error);
@@ -61,7 +65,8 @@ export const useStepNavigation = (
 
   const goBack = useCallback(() => {
     if (navigationInProgress.current) return;
-    const tentativePrevIndex = Math.max(currentStepIndex - 1, 0);
+    const originalIndex = currentStepIndex;
+    const tentativePrevIndex = Math.max(originalIndex - 1, 0);
     const prevStep = STEP_ORDER[tentativePrevIndex];
 
     if (onStepChange && prevStep !== currentStep) {
@@ -70,7 +75,10 @@ export const useStepNavigation = (
         try {
           await Promise.resolve(onStepChange(prevStep, currentStep));
           if (isMounted.current) {
-            setCurrentStepIndex((prev) => Math.max(prev - 1, 0));
+            setCurrentStepIndex((prev) => (prev === originalIndex
+              ? Math.max(originalIndex - 1, 0)
+              : prev
+            ));
           }
         } catch (error) {
           console.error('Error in goBack onStepChange:', error);

@@ -168,8 +168,8 @@ export const usePaymentUpgrade = () => {
       }
     } catch (activeErr) {
       const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active organization.';
-      console.warn('[UPGRADE] Active organization setup error:', message);
-      throw new Error(message);
+      console.warn('[UPGRADE] Active organization setup error:', activeErr instanceof Error ? activeErr : message);
+      throw (activeErr instanceof Error ? activeErr : new Error(message));
     }
   }, []);
 
