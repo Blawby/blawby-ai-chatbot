@@ -1223,27 +1223,79 @@ export class OrganizationService {
   }
 
   async markBusinessOnboardingComplete(organizationId: string): Promise<boolean> {
-    // Perform the update first to avoid TOCTOU between existence check and update
+    // Load current config and saved onboarding data to map fields on completion
+    const row = await this.env.DB.prepare(
+      `SELECT config, business_onboarding_data as data, name, is_personal
+         FROM organizations
+        WHERE id = ?
+        LIMIT 1`
+    ).bind(organizationId).first<{ config: string | null; data: string | null; name: string; is_personal: number | null }>();
+
+    if (!row) {
+      throw new Error(`Organization not found: ${organizationId}`);
+    }
+
+    // Parse current config JSON safely
+    let configObj: Record<string, unknown> = {};
+    try {
+      if (row.config) {
+        configObj = JSON.parse(row.config) as Record<string, unknown>;
+      }
+    } catch { /* keep default empty object */ }
+
+    // Parse saved onboarding data safely
+    let onboardingData: Record<string, unknown> = {};
+    try {
+      if (row.data) {
+        onboardingData = JSON.parse(row.data) as Record<string, unknown>;
+      }
+    } catch { /* ignore corrupt onboarding data */ }
+
+    // Guard: ensure organization is of kind 'business' before completing onboarding
+    const isBusinessKind = !(row.is_personal === 1 || row.is_personal === true as unknown as number);
+    if (!isBusinessKind) {
+      throw new Error('Cannot complete business onboarding for a personal organization');
+    }
+
+    // Validation helpers
+    const sanitize = (value: unknown, maxLen: number): string => {
+      if (typeof value !== 'string') return '';
+      // Remove control characters except common whitespace, then trim
+      const cleaned = value.replace(/[\u0000-\u001F\u007F]/g, '').trim();
+      if (cleaned.length === 0) return '';
+      return cleaned.length > maxLen ? cleaned.slice(0, maxLen) : cleaned;
+    };
+
+    // Extract and validate mapped fields
+    const firmName = sanitize(onboardingData?.['firmName'], 255);
+    const overview = sanitize(onboardingData?.['overview'], 2000);
+
+    // Prepare updated values, preserving existing ones when onboarding fields are missing
+    const nextName = firmName || row.name;
+    const nextConfig = {
+      ...configObj,
+      // Map overview into description inside config
+      ...(overview ? { description: overview } : {}),
+    } as Record<string, unknown>;
+
+    // Perform atomic update: set completion flags and map fields
     const result = await this.env.DB.prepare(
       `UPDATE organizations 
-         SET business_onboarding_completed_at = strftime('%s','now'),
+         SET name = ?,
+             config = ?,
+             business_onboarding_completed_at = strftime('%s','now'),
              business_onboarding_skipped = 0,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
-    ).bind(organizationId).run();
+    ).bind(nextName, JSON.stringify(nextConfig), organizationId).run();
+
     const changes = (result as unknown as { meta?: { changes?: number } ; changes?: number })?.meta?.changes ?? (result as unknown as { changes?: number })?.changes ?? 0;
     if (changes > 0) {
       this.clearCache(organizationId);
       return true;
     }
-    // No rows updated. Check if organization exists to distinguish not found vs already completed
-    const exists = await this.env.DB.prepare(
-      `SELECT id FROM organizations WHERE id = ? LIMIT 1`
-    ).bind(organizationId).first<{ id: string }>();
-    if (!exists) {
-      throw new Error(`Organization not found: ${organizationId}`);
-    }
-    // Organization exists but no update occurred - likely already completed
+
+    // Organization exists but no update occurred - likely already completed with same values
     return false;
   }
 

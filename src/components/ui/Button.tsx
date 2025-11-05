@@ -58,13 +58,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     }
   }
   
-  const baseClasses = 'inline-flex items-center justify-center font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border';
+  const baseClasses = 'inline-flex items-center justify-center font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border transition-shadow';
   
   const variantClasses: Record<ButtonVariant, string> = {
-    primary: 'bg-accent-500 text-gray-900 hover:bg-accent-600 focus:ring-accent-500 border-accent-500',
-    secondary: 'bg-transparent text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 focus:ring-gray-200 dark:focus:ring-gray-700',
-    ghost: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-dark-hover focus:ring-gray-200 dark:focus:ring-gray-700',
-    icon: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-dark-hover focus:ring-gray-200 dark:focus:ring-gray-700',
+    primary: 'bg-accent-500 text-gray-900 hover:bg-accent-600 active:bg-accent-700 focus:ring-accent-500 border-accent-500 shadow-sm hover:shadow',
+    secondary: 'bg-transparent text-gray-900 dark:text-white border-gray-300 dark:border-white/15 hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
+    ghost: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
+    icon: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
   };
   
   const sizeClasses = {

@@ -22,9 +22,10 @@ interface BusinessDetailsStepProps {
   onContinue: () => void;
   onBack: () => void;
   errors?: string | null;
+  disabled?: boolean;
 }
 
-export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors }: BusinessDetailsStepProps) {
+export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors, disabled = false }: BusinessDetailsStepProps) {
   const { t } = useTranslation();
 
   return (
@@ -35,12 +36,14 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors
           label={t('onboarding:businessDetails.addressLine1Label')}
           value={data.addressLine1 || ''}
           onChange={(value) => onChange({ ...data, addressLine1: value })}
+          disabled={disabled}
           placeholder={t('onboarding:businessDetails.addressLine1Placeholder')}
         />
         <Input
           label={t('onboarding:businessDetails.addressLine2Label')}
           value={data.addressLine2 || ''}
           onChange={(value) => onChange({ ...data, addressLine2: value })}
+          disabled={disabled}
           placeholder={t('onboarding:businessDetails.addressLine2Placeholder')}
         />
       </div>
@@ -51,18 +54,21 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors
           label={t('onboarding:businessDetails.cityLabel')}
           value={data.city || ''}
           onChange={(value) => onChange({ ...data, city: value })}
+          disabled={disabled}
           placeholder={t('onboarding:businessDetails.cityPlaceholder')}
         />
         <Input
           label={t('onboarding:businessDetails.stateLabel')}
           value={data.state || ''}
           onChange={(value) => onChange({ ...data, state: value })}
+          disabled={disabled}
           placeholder={t('onboarding:businessDetails.statePlaceholder')}
         />
         <Input
           label={t('onboarding:businessDetails.postalCodeLabel')}
           value={data.postalCode || ''}
           onChange={(value) => onChange({ ...data, postalCode: value })}
+          disabled={disabled}
           placeholder={t('onboarding:businessDetails.postalCodePlaceholder')}
         />
       </div>
@@ -72,6 +78,7 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors
         label={t('onboarding:businessDetails.countryLabel')}
         value={data.country || ''}
         onChange={(value) => onChange({ ...data, country: value })}
+        disabled={disabled}
         placeholder={t('onboarding:businessDetails.countryPlaceholder')}
       />
 
@@ -80,6 +87,7 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors
         label={t('onboarding:businessDetails.businessDescriptionLabel')}
         value={data.overview}
         onChange={(value) => onChange({ ...data, overview: value })}
+        disabled={disabled}
         rows={5}
         placeholder={t('onboarding:businessDetails.businessDescriptionPlaceholder')}
       />
@@ -87,6 +95,7 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors
       <OnboardingActions
         onContinue={onContinue}
         onBack={onBack}
+        loading={disabled}
         backLabel={t('onboarding:businessDetails.backButton')}
         continueLabel={t('onboarding:businessDetails.nextButton')}
       />

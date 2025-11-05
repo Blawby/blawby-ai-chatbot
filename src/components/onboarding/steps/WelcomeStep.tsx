@@ -28,7 +28,7 @@ export function WelcomeStep({ onContinue, onBack }: WelcomeStepProps) {
 
   return (
     <div className="space-y-6">
-      <FeatureList items={features} />
+      <FeatureList items={features} size="lg" />
       <OnboardingActions 
         onContinue={onContinue}
         onBack={onBack}

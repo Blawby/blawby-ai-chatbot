@@ -58,7 +58,10 @@ const initialFormData: OnboardingFormData = {
   services: []
 };
 
-export const useOnboardingState = (initialData?: Partial<OnboardingFormData>) => {
+export const useOnboardingState = (
+  initialData?: Partial<OnboardingFormData>,
+  onSave?: (data: OnboardingFormData) => void | Promise<void>
+) => {
   const [formData, setFormData] = useState<OnboardingFormData>(() => {
     const merged = { ...initialFormData, ...initialData };
     // Normalize services to ensure each has a stable ID
@@ -69,30 +72,68 @@ export const useOnboardingState = (initialData?: Partial<OnboardingFormData>) =>
     return merged;
   });
 
-  const updateField = useCallback(<K extends keyof OnboardingFormData>(
-    field: K,
-    value: OnboardingFormData[K]
-  ) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  }, []);
+  const updateField = useCallback(<K extends keyof OnboardingFormData>(field: K, value: OnboardingFormData[K]) => {
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value } as OnboardingFormData;
+      if (onSave) {
+        void Promise.resolve(onSave(next)).catch(() => {
+          // Silently handle save errors here - they're handled by the auto-save hook
+        });
+      }
+      return next;
+    });
+  }, [onSave]);
 
   const updateFields = useCallback((updates: Partial<OnboardingFormData>) => {
-    setFormData(prev => ({
-      ...prev,
-      ...updates
-    }));
-  }, []);
+    setFormData((prev) => {
+      const next = { ...prev, ...updates } as OnboardingFormData;
+      if (onSave) {
+        void Promise.resolve(onSave(next)).catch(() => {
+          // Silently handle save errors here - they're handled by the auto-save hook
+        });
+      }
+      return next;
+    });
+  }, [onSave]);
 
   const resetForm = useCallback(() => {
-    setFormData(initialFormData);
-  }, []);
+    // Rebuild from the latest caller-provided initialData merged with defaults
+    const merged = { ...initialFormData, ...initialData } as OnboardingFormData;
+    // Normalize services to ensure each has a stable ID
+    merged.services = (merged.services || []).map(service => ({
+      ...service,
+      id: service.id || generateServiceId()
+    }));
 
-  const setFormDataDirect = useCallback((data: OnboardingFormData) => {
-    setFormData(data);
-  }, []);
+    const nextState = merged;
+    setFormData(nextState);
+    if (onSave) {
+      void Promise.resolve(onSave(nextState)).catch(() => {
+        // Silently handle save errors
+      });
+    }
+  }, [onSave, initialData]);
+
+  const setFormDataDirect = useCallback((data: OnboardingFormData | ((prev: OnboardingFormData) => OnboardingFormData)) => {
+    if (typeof data === 'function') {
+      setFormData((prev) => {
+        const next = (data as (p: OnboardingFormData) => OnboardingFormData)(prev);
+        if (onSave) {
+          void Promise.resolve(onSave(next)).catch(() => {
+            // Silently handle save errors
+          });
+        }
+        return next;
+      });
+    } else {
+      setFormData(data);
+      if (onSave) {
+        void Promise.resolve(onSave(data)).catch(() => {
+          // Silently handle save errors
+        });
+      }
+    }
+  }, [onSave]);
 
   return {
     formData,

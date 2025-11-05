@@ -341,4 +341,377 @@ test.describe('Business Onboarding', () => {
     expect(orgAfter?.kind).toBe('business');
     expect(orgAfter?.subscriptionStatus).toBe('active');
   });
+
+  test('should auto-save onboarding data on form field changes', async ({ page }) => {
+    await ensureAuthenticated(page);
+    
+    const appOrigin = await getAppOrigin(page);
+    const stubCheckoutUrl = 'https://stripe.test/checkout-session';
+    await setupStripeStubs(page, appOrigin, stubCheckoutUrl, { mockSync: true });
+
+    const continueButton = await navigateToCartAndSelectPlan(page);
+    
+    const upgradeReq = page.waitForRequest((req) => req.url().includes('/api/auth/subscription/upgrade') && req.method() === 'POST');
+    const stripeNav = page.waitForURL(stubCheckoutUrl);
+    await continueButton.click();
+    await upgradeReq;
+    await stripeNav;
+
+    const syncOk = page.waitForResponse((res) => res.url().includes('/api/subscription/sync') && res.request().method() === 'POST' && res.status() === 200);
+    await syncOk;
+    await page.waitForURL(/\/business-onboarding/);
+    
+    // Wait for onboarding modal to appear
+    await expect(page.getByRole('heading', { name: /Welcome to Blawby/i })).toBeVisible({ timeout: 10000 });
+    
+    // Click Continue to get to firm-basics step
+    await page.getByRole('button', { name: /(continue|get started)/i }).click();
+    await page.waitForTimeout(500);
+    
+    // Wait for firm basics form to appear
+    await expect(page.getByLabel(/business name/i)).toBeVisible({ timeout: 5000 });
+    
+    // Intercept save API calls BEFORE any actions that trigger them
+    const saveRequests: any[] = [];
+    await page.route('**/api/onboarding/save', async (route) => {
+      const request = route.request();
+      const postData = request.postDataJSON();
+      saveRequests.push(postData);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+    });
+    
+    // Fill form fields - should trigger auto-save
+    const firmNameInput = page.getByLabel(/business name/i);
+    await firmNameInput.fill('Test Law Firm');
+    
+    // Wait for debounced save (500ms + network)
+    await page.waitForTimeout(1000);
+    
+    // Verify save API was called
+    if (saveRequests.length === 0) {
+      throw new Error('No /api/onboarding/save requests captured after filling firm name');
+    }
+    const lastSaveRequest = saveRequests[saveRequests.length - 1];
+    expect(lastSaveRequest).toBeDefined();
+    expect(lastSaveRequest?.data).toBeDefined();
+    expect(lastSaveRequest?.data?.firmName).toBe('Test Law Firm');
+    
+    // Fill email field - should trigger another save
+    const emailInput = page.getByLabel(/business email/i);
+    await emailInput.fill('test@lawfirm.com');
+    
+    await page.waitForTimeout(1000);
+    
+    // Verify save API was called again with updated data
+    expect(saveRequests.length).toBeGreaterThan(1);
+    const finalSaveRequest = saveRequests[saveRequests.length - 1];
+    expect(finalSaveRequest).toBeDefined();
+    expect(finalSaveRequest?.data).toBeDefined();
+    expect(finalSaveRequest?.data?.firmName).toBe('Test Law Firm');
+    expect(finalSaveRequest?.data?.contactEmail).toBe('test@lawfirm.com');
+  });
+
+  test('should auto-save onboarding data on step navigation', async ({ page }) => {
+    await ensureAuthenticated(page);
+    
+    const appOrigin = await getAppOrigin(page);
+    const stubCheckoutUrl = 'https://stripe.test/checkout-session';
+    await setupStripeStubs(page, appOrigin, stubCheckoutUrl, { mockSync: true });
+
+    const continueButton = await navigateToCartAndSelectPlan(page);
+    
+    const upgradeReq = page.waitForRequest((req) => req.url().includes('/api/auth/subscription/upgrade') && req.method() === 'POST');
+    const stripeNav = page.waitForURL(stubCheckoutUrl);
+    await continueButton.click();
+    await upgradeReq;
+    await stripeNav;
+
+    const syncOk = page.waitForResponse((res) => res.url().includes('/api/subscription/sync') && res.request().method() === 'POST' && res.status() === 200);
+    await syncOk;
+    await page.waitForURL(/\/business-onboarding/);
+    
+    await expect(page.getByRole('heading', { name: /Welcome to Blawby/i })).toBeVisible({ timeout: 10000 });
+    
+    // Click Continue to get to firm-basics step
+    await page.getByRole('button', { name: /(continue|get started)/i }).click();
+    await page.waitForTimeout(500);
+    
+    await expect(page.getByLabel(/business name/i)).toBeVisible({ timeout: 5000 });
+    
+    // Intercept save API calls BEFORE filling (so we capture auto-save triggered by navigation)
+    const saveRequests: any[] = [];
+    await page.route('**/api/onboarding/save', async (route) => {
+      const request = route.request();
+      const postData = request.postDataJSON();
+      saveRequests.push(postData);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+    });
+    
+    // Fill form fields
+    await page.getByLabel(/business name/i).fill('Test Law Firm');
+    await page.getByLabel(/business email/i).fill('test@lawfirm.com');
+    
+    // Navigate to next step - should trigger save
+    await page.getByRole('button', { name: /(continue|get started)/i }).click();
+    
+    // Wait for save to complete
+    await page.waitForTimeout(1000);
+    
+    // Verify save API was called before step change
+    if (saveRequests.length === 0) {
+      throw new Error('No /api/onboarding/save requests captured during step navigation');
+    }
+    const saveRequest = saveRequests[saveRequests.length - 1];
+    expect(saveRequest).toBeDefined();
+    expect(saveRequest?.data).toBeDefined();
+    expect(saveRequest?.data?.firmName).toBe('Test Law Firm');
+    expect(saveRequest?.data?.contactEmail).toBe('test@lawfirm.com');
+  });
+
+  test('should load saved onboarding data on modal mount', async ({ page }) => {
+    await ensureAuthenticated(page);
+    
+    // Get organization ID
+    const orgsData: any = await page.evaluate(async () => {
+      const res = await fetch('/api/organizations/me', { credentials: 'include' });
+      if (!res.ok) return null;
+      return await res.json();
+    });
+    
+    const personalOrg = orgsData?.data?.find(
+      (org: { kind?: string; isPersonal?: boolean }) =>
+        org.kind === 'personal' || org.isPersonal === true
+    );
+    const organizationId = personalOrg?.id;
+    if (!organizationId || String(organizationId).trim().length === 0) {
+      throw new Error('organizationId missing when mocking onboarding status; cannot proceed with /business-onboarding navigation');
+    }
+    
+    // Mock the organization as business tier
+    await page.route('**/api/organizations/me', async (route) => {
+      const upgradedOrgs = (orgsData?.data ?? []).map((org: Record<string, unknown>) => {
+        if (org.id === organizationId) {
+          return {
+            ...org,
+            kind: 'business',
+            isPersonal: false,
+            subscriptionStatus: 'active',
+            subscriptionTier: 'business',
+          };
+        }
+        return org;
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: upgradedOrgs }),
+      });
+    });
+    
+    // Mock onboarding status to return saved data
+    await page.route(`**/api/onboarding/status?organizationId=${organizationId}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          completed: false,
+          skipped: false,
+          completedAt: null,
+          data: {
+            firmName: 'Saved Law Firm',
+            contactEmail: 'saved@lawfirm.com',
+            contactPhone: '555-1234',
+          },
+        }),
+      });
+    });
+    
+    // Navigate to onboarding page
+    await page.goto(`/business-onboarding?organizationId=${organizationId}`);
+    
+    // Wait for onboarding modal to appear
+    await expect(page.getByRole('heading', { name: /Welcome to Blawby/i })).toBeVisible({ timeout: 10000 });
+    
+    // Click Continue to get to firm-basics step
+    await page.getByRole('button', { name: /(continue|get started)/i }).click();
+    await page.waitForTimeout(500);
+    
+    // Wait for form to load
+    await expect(page.getByLabel(/business name/i)).toBeVisible({ timeout: 5000 });
+    
+    // Verify saved data is loaded into form fields
+    const firmNameInput = page.getByLabel(/business name/i);
+    const emailInput = page.getByLabel(/business email/i);
+    const phoneInput = page.getByLabel(/business phone/i);
+    
+    await expect(firmNameInput).toHaveValue('Saved Law Firm');
+    await expect(emailInput).toHaveValue('saved@lawfirm.com');
+    await expect(phoneInput).toHaveValue('555-1234');
+  });
+
+  test('should persist onboarding data across page refresh', async ({ page }) => {
+    await ensureAuthenticated(page);
+    
+    const appOrigin = await getAppOrigin(page);
+    const stubCheckoutUrl = 'https://stripe.test/checkout-session';
+    await setupStripeStubs(page, appOrigin, stubCheckoutUrl, { mockSync: true });
+
+    const continueButton = await navigateToCartAndSelectPlan(page);
+    
+    const upgradeReq = page.waitForRequest((req) => req.url().includes('/api/auth/subscription/upgrade') && req.method() === 'POST');
+    const stripeNav = page.waitForURL(stubCheckoutUrl);
+    await continueButton.click();
+    await upgradeReq;
+    await stripeNav;
+
+    const syncOk = page.waitForResponse((res) => res.url().includes('/api/subscription/sync') && res.request().method() === 'POST' && res.status() === 200);
+    await syncOk;
+    await page.waitForURL(/\/business-onboarding/);
+    
+    await expect(page.getByRole('heading', { name: /Welcome to Blawby/i })).toBeVisible({ timeout: 10000 });
+    
+    // Get organization ID from URL
+    const url = new URL(page.url());
+    const organizationId = url.searchParams.get('organizationId') || '';
+    if (!organizationId || organizationId.trim().length === 0) {
+      throw new Error('organizationId missing from URL for persistence test; refusing to construct routes with empty id');
+    }
+    
+    // Click Continue to get to firm-basics step
+    await page.getByRole('button', { name: /(continue|get started)/i }).click();
+    await page.waitForTimeout(500);
+    
+    await expect(page.getByLabel(/business name/i)).toBeVisible({ timeout: 5000 });
+    
+    // Intercept and store save requests
+    const savedData: Record<string, unknown> = {};
+    await page.route('**/api/onboarding/save', async (route) => {
+      const request = route.request();
+      const postData = request.postDataJSON();
+      Object.assign(savedData, postData.data);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+    });
+    
+    // Fill form fields
+    await page.getByLabel(/business name/i).fill('Persistent Law Firm');
+    await page.getByLabel(/business email/i).fill('persistent@lawfirm.com');
+    
+    // Wait for save to complete
+    await page.waitForTimeout(1000);
+    
+    // Mock onboarding status to return saved data after refresh
+    await page.route(`**/api/onboarding/status?organizationId=${organizationId}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          completed: false,
+          skipped: false,
+          completedAt: null,
+          data: savedData,
+        }),
+      });
+    });
+    
+    // Refresh the page
+    await page.reload();
+    
+    // Wait for onboarding modal to appear again
+    await expect(page.getByRole('heading', { name: /Welcome to Blawby/i })).toBeVisible({ timeout: 10000 });
+    
+    // Click Continue to get to firm-basics step
+    await page.getByRole('button', { name: /(continue|get started)/i }).click();
+    await page.waitForTimeout(500);
+    
+    // Wait for form to load
+    await expect(page.getByLabel(/business name/i)).toBeVisible({ timeout: 5000 });
+    
+    // Verify saved data is restored after refresh
+    const firmNameInput = page.getByLabel(/business name/i);
+    const emailInput = page.getByLabel(/business email/i);
+    
+    await expect(firmNameInput).toHaveValue('Persistent Law Firm');
+    await expect(emailInput).toHaveValue('persistent@lawfirm.com');
+  });
+  test('should reflect onboarding fields in Settings after completion', async ({ page }) => {
+    await ensureAuthenticated(page);
+
+    const appOrigin = await getAppOrigin(page);
+    const stubCheckoutUrl = 'https://stripe.test/checkout-session';
+    await setupStripeStubs(page, appOrigin, stubCheckoutUrl, { mockSync: true });
+
+    const continueButton = await navigateToCartAndSelectPlan(page);
+
+    const upgradeReq = page.waitForRequest((req) => req.url().includes('/api/auth/subscription/upgrade') && req.method() === 'POST');
+    const stripeNav = page.waitForURL(stubCheckoutUrl);
+    await continueButton.click();
+    await upgradeReq;
+    await stripeNav;
+
+    const syncOk = page.waitForResponse((res) => res.url().includes('/api/subscription/sync') && res.request().method() === 'POST' && res.status() === 200);
+    await syncOk;
+    await page.waitForURL(/\/business-onboarding/);
+
+    await expect(page.getByRole('heading', { name: /Welcome to Blawby/i })).toBeVisible({ timeout: 10000 });
+
+    // Get organization ID from URL
+    const url = new URL(page.url());
+    const organizationId = url.searchParams.get('organizationId') || '';
+    if (!organizationId || organizationId.trim().length === 0) {
+      throw new Error('organizationId missing from URL before completing onboarding; refusing to POST /api/onboarding/complete with empty id');
+    }
+
+    // Step 1: Welcome -> Firm Basics
+    await page.getByRole('button', { name: /(continue|get started)/i }).click();
+    await page.waitForTimeout(400);
+
+    // Fill Firm Basics (required fields)
+    await expect(page.getByLabel(/business name/i)).toBeVisible({ timeout: 5000 });
+    await page.getByLabel(/business name/i).fill('Settings Reflect Law');
+    await page.getByLabel(/business email/i).fill('settings@reflectlaw.com');
+
+    // Navigate to next steps until Business Details
+    await page.getByRole('button', { name: /continue|next/i }).click(); // to trust-account-intro
+    await page.getByRole('button', { name: /continue|next/i }).click(); // to stripe-onboarding
+    await page.getByRole('button', { name: /continue|next/i }).click(); // to business-details
+
+    // Fill Business Details overview
+    await expect(page.getByLabel(/description|business description/i)).toBeVisible({ timeout: 5000 });
+    await page.getByLabel(/description|business description/i).fill('We provide comprehensive legal services.');
+
+    // Save should be auto-triggered; wait for save response instead of fixed timeout
+    await page.waitForResponse((res) => res.url().includes('/api/onboarding/save') && res.request().method() === 'POST' && res.status() === 200);
+
+    // Mark onboarding complete via API (ensures completion + mapping proceeds after save)
+    const completeRes = await page.evaluate(async (orgId: string) => {
+      const res = await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: orgId })
+      });
+      return { ok: res.ok, status: res.status };
+    }, organizationId);
+    expect(completeRes.ok).toBe(true);
+
+    // Navigate to Settings -> Organization
+    await page.goto('/settings/organization?sync=1');
+
+    // Verify UI reflects mapped fields
+    await expect(page.getByText('Organization Name', { exact: false })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Settings Reflect Law', { exact: false })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/We provide comprehensive legal services\./i)).toBeVisible({ timeout: 10000 });
+  });
 });

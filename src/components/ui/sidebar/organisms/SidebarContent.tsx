@@ -8,7 +8,7 @@
 import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
-import { ChatBubbleOvalLeftEllipsisIcon, DocumentIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleOvalLeftEllipsisIcon, DocumentIcon, RocketLaunchIcon } from '@heroicons/react/24/outline';
 import UserProfile from '../../../UserProfile';
 import { MatterStatus } from '../../../../types/matter';
 
@@ -21,6 +21,7 @@ interface SidebarContentProps {
   currentRoute: string;
   onGoToChats?: () => void;
   onGoToMatter?: () => void;
+  onOpenOnboarding?: () => void;
   onClose?: () => void;
   matterStatus?: MatterStatus;
   currentOrganization?: {
@@ -36,6 +37,7 @@ export const SidebarContent = ({
   currentRoute,
   onGoToChats,
   onGoToMatter,
+  onOpenOnboarding,
   onClose,
   matterStatus,
   currentOrganization,
@@ -72,6 +74,15 @@ export const SidebarContent = ({
             onClick={onGoToMatter || (() => {})}
             isCollapsed={isCollapsed}
             matterStatus={matterStatus}
+          />
+
+          {/* Test Onboarding Trigger */}
+          <NavigationItem
+            icon={<RocketLaunchIcon />}
+            label="Test: Onboarding"
+            isActive={false}
+            onClick={onOpenOnboarding || (() => {})}
+            isCollapsed={isCollapsed}
           />
         </NavigationList>
       </div>

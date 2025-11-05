@@ -148,6 +148,31 @@ export const usePaymentUpgrade = () => {
   const [error, setError] = useState<string | null>(null);
   const { showError, showSuccess } = useToastContext();
 
+  const ensureActiveOrganization = useCallback(async (organizationId: string) => {
+    try {
+      const response = await fetch('/api/organizations/active', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        const message =
+          (result && typeof result === 'object' && 'error' in result && typeof (result as any).error === 'string')
+            ? (result as any).error as string
+            : 'Unable to set active organization for subscription.';
+        console.warn('[UPGRADE] Failed to set active organization:', message);
+        throw new Error(message);
+      }
+    } catch (activeErr) {
+      const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active organization.';
+      console.warn('[UPGRADE] Active organization setup error:', activeErr instanceof Error ? activeErr : message);
+      throw (activeErr instanceof Error ? activeErr : new Error(message));
+    }
+  }, []);
+
   const buildSuccessUrl = useCallback((organizationId: string) => {
     if (typeof window === 'undefined') return '/settings/account?sync=1';
     const url = new URL(`${window.location.origin}/settings/account`);
@@ -268,6 +293,8 @@ export const usePaymentUpgrade = () => {
       const resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
 
       try {
+        await ensureActiveOrganization(organizationId);
+
         const requestBody: Record<string, unknown> = {
           plan: 'business',
           referenceId: organizationId,
@@ -373,7 +400,7 @@ export const usePaymentUpgrade = () => {
         setSubmitting(false);
       }
     },
-    [buildCancelUrl, buildSuccessUrl, handleAlreadySubscribed, showError]
+    [buildCancelUrl, buildSuccessUrl, ensureActiveOrganization, handleAlreadySubscribed, showError]
   );
 
   const syncSubscription = useCallback(

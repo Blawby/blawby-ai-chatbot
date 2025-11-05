@@ -41,11 +41,23 @@ export const OnboardingActions = ({
   };
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3', className)}>
+      {onBack && (
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-full order-2 sm:order-1"
+          onClick={onBack}
+          disabled={loading}
+        >
+          {getBackLabel()}
+        </Button>
+      )}
+
       <Button
         variant="primary"
         size="lg"
-        className="w-full"
+        className={cn('w-full', onBack ? 'order-1 sm:order-2' : '')}
         onClick={onContinue}
         disabled={loading}
         aria-disabled={loading}
@@ -63,18 +75,6 @@ export const OnboardingActions = ({
           getContinueLabel() || 'Continue'
         )}
       </Button>
-      
-      {onBack && (
-        <Button
-          variant="secondary"
-          size="lg"
-          className="w-full"
-          onClick={onBack}
-          disabled={loading}
-        >
-          {getBackLabel()}
-        </Button>
-      )}
     </div>
   );
 };

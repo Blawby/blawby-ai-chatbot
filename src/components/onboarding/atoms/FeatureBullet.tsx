@@ -27,9 +27,9 @@ export const FeatureBullet = ({
   className = ''
 }: FeatureBulletProps) => {
   const sizeClasses = {
-    sm: 'text-xs',
-    md: 'text-sm',
-    lg: 'text-base'
+    sm: 'text-sm',
+    md: 'text-base',
+    lg: 'text-lg'
   };
 
   const iconSizeClasses = {

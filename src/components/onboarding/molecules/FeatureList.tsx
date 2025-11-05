@@ -26,8 +26,13 @@ export const FeatureList = ({
   size = 'md',
   className = ''
 }: FeatureListProps) => {
+  const spacingBySize = {
+    sm: 'space-y-2',
+    md: 'space-y-3',
+    lg: 'space-y-4'
+  } as const;
   return (
-    <ul className={cn('space-y-3', className)}>
+    <ul className={cn(spacingBySize[size] || 'space-y-3', className)}>
       {items.map((item, index) => (
         <FeatureBullet
           key={index}

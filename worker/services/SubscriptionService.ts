@@ -6,6 +6,15 @@ const DEFAULT_STRIPE_API_VERSION: Stripe.StripeConfig["apiVersion"] = null;
 // Cache Stripe clients by apiVersion to support multiple API versions
 const stripeClientCache = new Map<string | null, Stripe>();
 
+// Managed statuses used to determine when an organization is considered on a managed (non-free) tier
+const MANAGED_STATUSES: ReadonlySet<StripeSubscriptionCache["status"]> = new Set<StripeSubscriptionCache["status"]>([
+  "active",
+  "trialing",
+  "paused",
+  "past_due",
+  "unpaid",
+]);
+
 /**
  * Generates a cache key from the apiVersion parameter.
  * Uses null as the key for the default API version to maintain backward compatibility.
@@ -96,19 +105,16 @@ async function persistOrganizationSubscriptionState(args: {
   env: Env;
   organizationId: string;
   stripeCustomerId: string | null;
-  plan?: string | null;
+  tier?: string | null;
   seats?: number | null;
   status: StripeSubscriptionCache["status"];
 }): Promise<void> {
-  const { env, organizationId, stripeCustomerId, plan, seats, status } = args;
+  const { env, organizationId, stripeCustomerId, tier, seats, status } = args;
   const normalizedSeats = typeof seats === "number" && seats > 0 ? seats : 1;
 
-  const normalizedTier =
-    status === "active" || status === "trialing" || status === "paused"
-      ? (plan ?? "business")
-      : "free";
+  const allowedTier = tier === "business" ? "business" : "free";
 
-  const markBusiness = status === "active" || status === "trialing" || status === "paused";
+  const markBusiness = MANAGED_STATUSES.has(status) && allowedTier === "business";
 
   await env.DB.prepare(
     `UPDATE organizations 
@@ -121,7 +127,7 @@ async function persistOrganizationSubscriptionState(args: {
   )
     .bind(
       stripeCustomerId,
-      normalizedTier,
+      allowedTier,
       normalizedSeats,
       markBusiness ? 1 : 0,
       Math.floor(Date.now() / 1000),
@@ -338,6 +344,43 @@ async function upsertSubscriptionRecord(args: UpsertSubscriptionRecordArgs): Pro
   );
 }
 
+function resolveSubscriptionTier(args: {
+  env: Env;
+  priceId?: string | null;
+  planName?: string | null;
+  status: StripeSubscriptionCache["status"];
+}): "free" | "business" {
+  const { env, priceId, planName, status } = args;
+
+  if (!MANAGED_STATUSES.has(status)) {
+    return "free";
+  }
+
+  const monthlyPriceId =
+    typeof env.STRIPE_PRICE_ID === "string" ? env.STRIPE_PRICE_ID.trim().toLowerCase() : null;
+  const annualPriceId =
+    typeof env.STRIPE_ANNUAL_PRICE_ID === "string"
+      ? env.STRIPE_ANNUAL_PRICE_ID.trim().toLowerCase()
+      : null;
+
+  const normalizedPriceId = typeof priceId === "string" ? priceId.trim().toLowerCase() : null;
+  if (
+    normalizedPriceId &&
+    [monthlyPriceId, annualPriceId]
+      .filter((id): id is string => Boolean(id && id.length > 0))
+      .includes(normalizedPriceId)
+  ) {
+    return "business";
+  }
+
+  const normalizedPlan = typeof planName === "string" ? planName.trim().toLowerCase() : "";
+  if (normalizedPlan.startsWith("business") || normalizedPlan.includes("business")) {
+    return "business";
+  }
+
+  return "free";
+}
+
 export async function getStripeSubscriptionCache(
   env: Env,
   organizationId: string
@@ -398,11 +441,18 @@ export async function applyStripeSubscriptionUpdate(args: {
     priceId: price.id,
   });
 
+  const tier = resolveSubscriptionTier({
+    env,
+    priceId: cache.priceId,
+    planName: plan ?? price.nickname ?? price.id ?? null,
+    status: cache.status,
+  });
+
   await persistOrganizationSubscriptionState({
     env,
     organizationId,
     stripeCustomerId: cache.stripeCustomerId,
-    plan: cache.priceId,
+    tier,
     seats: cache.seats,
     status: cache.status,
   });
@@ -427,7 +477,7 @@ export async function clearStripeSubscriptionCache(env: Env, organizationId: str
     env,
     organizationId,
     stripeCustomerId: null,
-    plan: "free",
+    tier: "free",
     seats: 1,
     status: "canceled",
   });

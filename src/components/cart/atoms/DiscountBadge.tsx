@@ -15,3 +15,4 @@ export const DiscountBadge: FunctionComponent<DiscountBadgeProps> = ({ text, cla
   );
 };
 
+

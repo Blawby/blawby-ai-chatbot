@@ -19,6 +19,7 @@ interface FirmBasicsStepProps {
   onContinue: () => void;
   onBack: () => void;
   errors?: string | null;
+  disabled?: boolean;
 }
 
 export function FirmBasicsStep({ 
@@ -26,7 +27,8 @@ export function FirmBasicsStep({
   onChange, 
   onContinue, 
   onBack,
-  errors
+  errors,
+  disabled = false
 }: FirmBasicsStepProps) {
   return (
     <div className="space-y-6">
@@ -40,6 +42,7 @@ export function FirmBasicsStep({
         label="Business name"
         value={data.firmName}
         onChange={(value) => onChange({ ...data, firmName: value })}
+        disabled={disabled}
         required
       />
 
@@ -47,6 +50,7 @@ export function FirmBasicsStep({
         label="Business email"
         value={data.contactEmail}
         onChange={(value) => onChange({ ...data, contactEmail: value })}
+        disabled={disabled}
         required
         showValidation
       />
@@ -55,12 +59,14 @@ export function FirmBasicsStep({
         label="Business phone (optional)"
         value={data.contactPhone || ''}
         onChange={(value) => onChange({ ...data, contactPhone: value })}
+        disabled={disabled}
       />
 
       <URLInput
         label="Website (optional)"
         value={data.website || ''}
         onChange={(value) => onChange({ ...data, website: value })}
+        disabled={disabled}
         placeholder="https://yourbusiness.com"
       />
 
@@ -69,13 +75,16 @@ export function FirmBasicsStep({
         description="Upload a square logo. Maximum 5 MB."
         accept="image/*"
         multiple={false}
+        maxFileSize={5 * 1024 * 1024}
         value={[]}
         onChange={() => {}} // Placeholder - no actual upload
+        disabled={disabled}
       />
 
       <OnboardingActions
         onContinue={onContinue}
         onBack={onBack}
+        loading={disabled}
       />
     </div>
   );
