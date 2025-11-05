@@ -12,6 +12,7 @@ import { OrganizationProvider, useOrganization } from './contexts/OrganizationCo
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
 import { type SubscriptionTier } from './types/user';
+import { resolveOrganizationKind } from './utils/subscription';
 import type { UIOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
@@ -208,12 +209,13 @@ function MainApp({
         })();
     }, [session?.user, sessionIsPending]);
 
-	useEffect(() => {
-		if (session?.user && !sessionIsPending) {
+    useEffect(() => {
+        const user = session?.user;
+        if (user && !sessionIsPending) {
 			if (import.meta.env.DEV) {
 				try {
 					// Lightweight visibility into onboarding decision path
-					const debugUser = session.user as Record<string, unknown>;
+                    const debugUser = user as Record<string, unknown>;
 					// Avoid logging PII beyond booleans/keys
 					console.debug('[ONBOARDING][CHECK] session detected', {
 						onboardingCompleted: debugUser?.onboardingCompleted,
@@ -227,7 +229,7 @@ function MainApp({
 			}
 			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
 			const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
-			const userWithOnboarding = session.user as typeof session.user & { onboardingCompleted?: boolean };
+            const userWithOnboarding = user as typeof user & { onboardingCompleted?: boolean };
 			const hasCompletedOnboarding = userWithOnboarding.onboardingCompleted === true;
 			
 			// Sync onboardingCompleted flag if user has completed onboarding but flag is missing
@@ -274,7 +276,7 @@ function MainApp({
 				}
 			}
 		}
-	}, [session?.user, sessionIsPending, session, showError]);
+    }, [session?.user, sessionIsPending]);
 
 
 
@@ -292,7 +294,26 @@ function MainApp({
 	
   // Derive current user tier from organization config (our custom system)
   // Note: subscriptionTier is on Organization, not OrganizationConfig
-  const currentUserTier = (currentOrganization?.subscriptionTier ?? 'free') as SubscriptionTier;
+  const resolvedKindForTier = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
+  
+  // Whitelist of valid SubscriptionTier values
+  const VALID_SUBSCRIPTION_TIERS: SubscriptionTier[] = ['free', 'plus', 'business', 'enterprise'];
+  
+  // Normalize and validate subscriptionTier
+  const normalizedTier = currentOrganization?.subscriptionTier
+    ? currentOrganization.subscriptionTier.trim().toLowerCase()
+    : null;
+  
+  // Find matching tier from whitelist (case-insensitive) to avoid unsafe casts
+  const validatedTier = normalizedTier
+    ? VALID_SUBSCRIPTION_TIERS.find(tier => tier.toLowerCase() === normalizedTier)
+    : null;
+  
+  const currentUserTier: SubscriptionTier = validatedTier
+    ? validatedTier
+    : resolvedKindForTier === 'business'
+      ? 'business'
+      : 'free';
 	
 	useEffect(() => {
 		const handleHashChange = () => {

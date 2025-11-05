@@ -4,6 +4,7 @@ import BusinessOnboardingModal from '../onboarding/BusinessOnboardingModal';
 import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
 import { useNavigation } from '../../utils/navigation';
 import { useToastContext } from '../../contexts/ToastContext';
+import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../utils/subscription';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
@@ -22,12 +23,10 @@ export const BusinessOnboardingPage = () => {
   
   // Prefer the upgraded business/enterprise org when available to ensure we mark the correct org
   const targetOrganization = useMemo(() => {
-    // If the URL explicitly specifies an org, try to match it first
     const fromUrl = organizations?.find(org => org.id === organizationId);
     if (fromUrl) return fromUrl;
-    // Otherwise, prefer any non-personal business/enterprise org
-    const upgraded = organizations?.find(org => (org.subscriptionTier === 'business' || org.subscriptionTier === 'enterprise'));
-    return upgraded || currentOrganization || null;
+    const upgraded = organizations?.find(org => resolveOrganizationKind(org.kind, org.isPersonal ?? null) === 'business');
+    return upgraded ?? currentOrganization ?? organizations?.[0] ?? null;
   }, [organizations, organizationId, currentOrganization]);
   
   const targetOrganizationId = targetOrganization?.id || organizationId;
@@ -99,14 +98,16 @@ export const BusinessOnboardingPage = () => {
           body: JSON.stringify({ organizationId: targetOrganizationId })
         });
 
+        const result = await response.json().catch(() => ({} as Record<string, unknown>));
         if (!response.ok) {
           throw new Error('Failed to sync subscription');
         }
 
-        // Refetch organization data to get updated tier
         await refetch();
 
-        showSuccess('Payment Successful', 'Your subscription has been activated!');
+        if (typeof result === 'object' && result !== null && 'synced' in result && (result as Record<string, unknown>).synced === true) {
+          showSuccess('Payment Successful', 'Your subscription has been activated!');
+        }
       } catch (error) {
         console.error('Sync failed:', error);
         showError('Sync Failed', 'Could not refresh subscription status');
@@ -132,10 +133,16 @@ export const BusinessOnboardingPage = () => {
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {
     if (!ready || !targetOrganization) return;
-    const tier = targetOrganization.subscriptionTier;
-    if (tier !== 'business' && tier !== 'enterprise') {
-      console.warn('❌ Onboarding access denied: invalid tier', { tier });
-      showError('Not Available', 'Business onboarding is only available for paid plans.');
+    const resolvedKind = resolveOrganizationKind(targetOrganization.kind, targetOrganization.isPersonal ?? null);
+    const resolvedStatus = normalizeSubscriptionStatus(targetOrganization.subscriptionStatus, resolvedKind);
+    const allowedStatuses = new Set(['active', 'trialing', 'paused']);
+    const eligible = resolvedKind === 'business' && allowedStatuses.has(resolvedStatus);
+    if (!eligible) {
+      console.warn('❌ Onboarding access denied: insufficient subscription state', {
+        kind: resolvedKind,
+        status: resolvedStatus,
+      });
+      showError('Not Available', 'Business onboarding is only available for active business subscriptions.');
       navigate('/');
     }
   }, [ready, targetOrganization, showError, navigate]);
@@ -288,5 +295,4 @@ export const BusinessOnboardingPage = () => {
 };
 
 export default BusinessOnboardingPage;
-
 

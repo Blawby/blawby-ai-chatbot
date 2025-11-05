@@ -11,6 +11,7 @@ import {
   organizationApiTokenSchema,
   createTokenResponseSchema
 } from '../../worker/schemas/validation';
+import { resolveOrganizationKind as resolveOrgKind, normalizeSubscriptionStatus as normalizeOrgStatus } from '../utils/subscription';
 
 // API Response interfaces
 interface ApiErrorResponse {
@@ -34,6 +35,7 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
+  subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
   config?: {
     ownerEmail?: string;
     metadata?: {
@@ -41,6 +43,7 @@ export interface Organization {
       planStatus?: string;
     };
   };
+  kind?: 'personal' | 'business';
   isPersonal?: boolean | null;
 }
 
@@ -123,6 +126,67 @@ interface UseOrganizationManagementReturn {
   fetchWorkspaceData: (orgId: string, resource: string) => Promise<void>;
   
   refetch: () => Promise<void>;
+}
+
+function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization {
+  const id = typeof raw.id === 'string' ? raw.id : String(raw.id ?? '');
+  const slug = typeof raw.slug === 'string' ? raw.slug : id;
+  const name = typeof raw.name === 'string' ? raw.name : 'Organization';
+
+  const rawIsPersonal = typeof raw.isPersonal === 'boolean'
+    ? raw.isPersonal
+    : typeof raw.is_personal === 'number'
+      ? raw.is_personal === 1
+      : undefined;
+
+  const rawStatus = typeof raw.subscriptionStatus === 'string'
+    ? raw.subscriptionStatus
+    : typeof raw.subscription_status === 'string'
+      ? raw.subscription_status
+      : undefined;
+
+  const resolvedKind = resolveOrgKind(typeof raw.kind === 'string' ? raw.kind : undefined, rawIsPersonal);
+  const normalizedStatus = normalizeOrgStatus(rawStatus, resolvedKind);
+
+  const subscriptionTier = typeof raw.subscriptionTier === 'string'
+    ? raw.subscriptionTier
+    : typeof raw.subscription_tier === 'string'
+      ? raw.subscription_tier
+      : null;
+
+  const allowedTiers = new Set(['free', 'plus', 'business', 'enterprise']);
+  const normalizedTier = (typeof subscriptionTier === 'string' && allowedTiers.has(subscriptionTier))
+    ? (subscriptionTier as Organization['subscriptionTier'])
+    : null;
+
+  const seats = typeof raw.seats === 'number'
+    ? raw.seats
+    : typeof raw.seats === 'string' && raw.seats.trim().length > 0
+      ? Number.parseInt(raw.seats, 10) || null
+      : null;
+
+  return {
+    id,
+    slug,
+    name,
+    description: typeof raw.description === 'string' ? raw.description : undefined,
+    stripeCustomerId: (() => {
+      const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
+      return typeof val === 'string' && val.trim().length > 0 ? val : null;
+    })(),
+    subscriptionTier: normalizedTier,
+    seats,
+    subscriptionStatus: normalizedStatus,
+    config: (() => {
+      const cfg = (raw as Record<string, unknown>).config as unknown;
+      if (cfg && typeof cfg === 'object' && !Array.isArray(cfg)) {
+        return cfg as Organization['config'];
+      }
+      return undefined;
+    })(),
+    kind: resolvedKind,
+    isPersonal: rawIsPersonal ?? (resolvedKind === 'personal'),
+  };
 }
 
 export function useOrganizationManagement(options: UseOrganizationManagementOptions = {}): UseOrganizationManagementReturn {
@@ -308,24 +372,28 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       // Only fetch user orgs if authenticated
       let data = await apiCall(`${getOrganizationsEndpoint()}/me`);
 
-      // Disable auto-creation of personal organizations to avoid duplicates
-      // We rely on a single system to provision the personal org (e.g., Better Auth or a dedicated backend flow)
+      const rawOrgList = Array.isArray(data) ? data : [];
+      const normalizedList = rawOrgList
+        .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item))
+        .map((org) => normalizeOrganizationRecord(org))
+        .filter((org) => org.id.length > 0);
 
-      const orgList = Array.isArray(data) ? data : [];
-      
-      if (orgList.some(org => org?.isPersonal)) {
+      if (normalizedList.some(org => org.kind === 'personal')) {
         personalOrgEnsuredRef.current = true;
       }
-      const personalOrg = orgList.find(org => org?.isPersonal);
-      
-      setOrganizations(orgList);
-      setCurrentOrganization(personalOrg || orgList[0] || null);
+      const personalOrg = normalizedList.find(org => org.kind === 'personal');
+
+      setOrganizations(normalizedList);
+      setCurrentOrganization(personalOrg || normalizedList[0] || null);
       
       // Mark as fetched
       organizationsFetchedRef.current = true;
     } catch (err) {
       console.error('Error in fetchOrganizations:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch organizations');
+      // Set currentOrganization to null (not undefined) so components know loading is done
+      setCurrentOrganization(null);
+      setOrganizations([]);
     } finally {
       setLoading(false);
       currentRequestRef.current = null;
@@ -397,7 +465,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       if (shouldFetchInvitations) {
         await fetchInvitations();
       }
-      return validatedResult as unknown as Organization;
+      return normalizeOrganizationRecord(validatedResult as unknown as Record<string, unknown>);
     } catch (error) {
       console.error('Invalid organization data:', result, error);
       throw new Error('Invalid organization response format');
@@ -446,7 +514,15 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       // Validate with Zod schema
       try {
         const validatedData = membersResponseSchema.parse(data);
-        setMembers(prev => ({ ...prev, [orgId]: validatedData.members || [] }));
+        const normalizedMembers: Member[] = (validatedData.members || []).map(m => ({
+          userId: m.userId,
+          role: m.role,
+          email: m.email ?? '',
+          name: m.name ?? undefined,
+          image: m.image ?? undefined,
+          createdAt: m.createdAt,
+        }));
+        setMembers(prev => ({ ...prev, [orgId]: normalizedMembers }));
       } catch (error) {
         console.error('Invalid members data:', data, error);
         setMembers(prev => ({ ...prev, [orgId]: [] }));

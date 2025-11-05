@@ -1,4 +1,5 @@
-import type { Env } from "../types.js";
+import type { Env, OrganizationKind, SubscriptionLifecycleStatus } from "../types.js";
+import { normalizeSubscriptionStatus } from "../utils/subscription";
 import { TIER_LIMITS, PUBLIC_ORGANIZATION_LIMITS, type TierName } from "../config/tiers.js";
 
 type UsageMetric = "messages" | "files";
@@ -33,11 +34,14 @@ export interface QuotaInfo {
 const DEFAULT_TIER: TierName = "free";
 const PUBLIC_ORG_SLUG = "blawby-ai";
 
+// Subscription status normalization is centralized in ../utils/subscription
+
 export interface OrganizationUsageMetadata {
   id: string;
   slug: string | null;
   tier: TierName;
-  isPersonal: boolean;
+  kind: OrganizationKind;
+  subscriptionStatus: SubscriptionLifecycleStatus;
 }
 
 interface UsageCachePayload {
@@ -426,13 +430,21 @@ export class UsageService {
   private static async fetchOrganizationInfo(env: Env, organizationId: string): Promise<OrganizationUsageMetadata> {
     const row = await env.DB.prepare(
       `
-        SELECT id,
-               slug,
-               subscription_tier,
-               is_personal
-          FROM organizations
-         WHERE id = ?
-         LIMIT 1
+        SELECT 
+          o.id,
+          o.slug,
+          o.subscription_tier,
+          o.is_personal,
+          (
+            SELECT s.status
+              FROM subscriptions s
+             WHERE s.reference_id = o.id
+             ORDER BY s.updated_at DESC
+             LIMIT 1
+          ) AS subscription_status
+        FROM organizations o
+        WHERE o.id = ?
+        LIMIT 1
       `
     )
       .bind(organizationId)
@@ -443,7 +455,8 @@ export class UsageService {
         id: organizationId,
         slug: null,
         tier: DEFAULT_TIER,
-        isPersonal: false,
+        kind: 'business',
+        subscriptionStatus: 'none',
       };
     }
 
@@ -453,7 +466,8 @@ export class UsageService {
       id: String(row.id),
       slug: row.slug ? String(row.slug) : null,
       tier: (tier && TIER_LIMITS[tier] ? tier : DEFAULT_TIER),
-      isPersonal: Boolean(row.is_personal),
+      kind: row.is_personal ? 'personal' as OrganizationKind : 'business',
+      subscriptionStatus: normalizeSubscriptionStatus(row.subscription_status),
     };
   }
 

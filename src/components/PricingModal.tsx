@@ -167,6 +167,8 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
       }
       setIsBillingLoading(true);
       await openBillingPortal({ organizationId: orgId });
+      // Close modal only on successful portal open
+      onClose();
     } catch (error) {
       console.error('Failed to open billing portal:', error);
       const message = error instanceof Error ? error.message : 'Please try again later.';

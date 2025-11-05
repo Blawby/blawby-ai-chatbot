@@ -67,33 +67,58 @@ async function waitForSessionReady(
 
 /**
  * Set the active organization for a user's session
+ * @param userId - The user ID
+ * @param sessionId - The session ID (primary key)
+ * @param env - Environment variables
+ * @param organizationId - Optional organization ID to set directly (avoids race condition with queries)
  */
 export async function setActiveOrganizationForSession(
   userId: string,
-  sessionToken: string,
-  env: Env
+  sessionId: string,
+  env: Env,
+  organizationId?: string
 ): Promise<void> {
   try {
-    const organizationService = new OrganizationService(env);
-    const organizations = await organizationService.listOrganizations(userId);
-    const personalOrg = organizations.find(org => org.isPersonal);
+    console.log(`🔧 setActiveOrganizationForSession called for user ${userId}, session ${sessionId}, organizationId: ${organizationId ?? 'undefined'}`);
+    let targetOrgId: string | null = null;
     
-    if (personalOrg) {
-      // Update the session with active organization, ensuring session belongs to the user
+    if (organizationId) {
+      // Use the provided organization ID directly (avoids race condition)
+      targetOrgId = organizationId;
+      console.log(`✅ Using provided organizationId: ${targetOrgId}`);
+    } else {
+      // Fallback: query for personal organization (may have race condition issues)
+      console.log(`⚠️ No organizationId provided, querying for personal org...`);
+      const organizationService = new OrganizationService(env);
+      const organizations = await organizationService.listOrganizations(userId);
+      const personalOrg = organizations.find(org => org.kind === 'personal');
+      targetOrgId = personalOrg?.id ?? null;
+      console.log(`🔍 Found personal org: ${targetOrgId ?? 'null'}`);
+    }
+    
+    if (targetOrgId) {
+      console.log(`🔧 Updating session ${sessionId} with active_organization_id: ${targetOrgId}`);
+      // In session.create.after hook, the session is already committed to DB
+      // Just update by session ID - we trust Better Auth that this session belongs to the user
       const result = await env.DB.prepare(
-        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE token = ? AND user_id = ?`
-      ).bind(personalOrg.id, Math.floor(Date.now() / 1000), sessionToken, userId).run();
+        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
+      ).bind(targetOrgId, new Date().toISOString(), sessionId, userId).run();
       
       // D1Result.run() returns { success: boolean, meta: { changes: number } }
       if (!result.success) {
-        throw new Error(`Database operation failed while updating session for user ${userId}`);
+        console.error(`Database operation failed while updating session ${sessionId} for user ${userId}`);
+        throw new Error(`Failed to update session ${sessionId} for user ${userId}`);
       }
       
       if ((result.meta?.changes ?? 0) === 0) {
-        throw new Error(`Session ownership verification failed: session token does not belong to user ${userId}`);
+        // Session not found - log but don't throw (might be a timing issue with Better Auth)
+        console.warn(`⚠️ Session ${sessionId} not found when setting active organization for user ${userId}`);
+        return;
       }
       
-      console.log(`✅ Set personal org ${personalOrg.id} as active for user ${userId}`);
+      console.log(`✅ Set personal org ${targetOrgId} as active for user ${userId} (session ${sessionId})`);
+    } else {
+      console.warn(`⚠️ No personal organization found for user ${userId}, cannot set active organization`);
     }
   } catch (error) {
     console.error(`❌ Failed to set active organization for user ${userId}:`, error);
@@ -110,10 +135,8 @@ export async function handlePostSignup(
   env: Env
 ): Promise<void> {
   try {
-    // Wait for session to be properly established
-    await waitForSessionReady(userId, env);
-    
-    // Create personal organization
+    // Create personal organization (don't wait for session - session.create.after will handle it)
+    // The session.create.after hook will ensure the org exists and set it as active
     await createPersonalOrganizationOnSignup(userId, userName, env);
     
     // Note: Active organization will be set in the session.create.after hook

@@ -18,7 +18,8 @@ import {
   handleDebug,
   handleAuth,
   handleConfig,
-  handleUsage
+  handleUsage,
+  handleStripeWebhook
 } from './routes';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
@@ -29,7 +30,8 @@ import type { ScheduledEvent } from '@cloudflare/workers-types';
 
 // Basic request validation
 function validateRequest(request: Request): boolean {
-  const _url = new URL(request.url);
+  const url = new URL(request.url);
+  const path = url.pathname;
   
   // Check for reasonable request size (10MB limit)
   const contentLength = request.headers.get('content-length');
@@ -71,9 +73,9 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
   try {
     // Route handling with enhanced error context
     let response: Response;
-    
+
     console.log('🔍 Route matching for path:', path);
-    
+
     if (path === '/api/agent/stream') {
       console.log('✅ Matched agent route');
       response = await handleAgentStream(request, env);
@@ -93,6 +95,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleAnalyze(request, env);
     } else if (path.startsWith('/api/review')) {
       response = await handleReview(request, env);
+    } else if (path === '/api/stripe/webhook') {
+      response = await handleStripeWebhook(request, env);
     } else if (path.startsWith('/api/subscription')) {
       response = await handleSubscription(request, env);
     } else if (path.startsWith('/api/onboarding')) {

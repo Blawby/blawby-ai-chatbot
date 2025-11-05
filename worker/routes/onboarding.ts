@@ -4,6 +4,28 @@ import { requireAuth, requireOrgOwner } from '../middleware/auth.js';
 import { OrganizationService } from '../services/OrganizationService.js';
 import { parseJsonBody } from '../utils';
 
+function validateAndExtractOrgId(parsed: unknown, source: 'body' | 'query'): string {
+  if (source === 'body') {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw HttpErrors.badRequest('body must be a JSON object');
+    }
+    const orgId = (parsed as Record<string, unknown>).organizationId;
+    if (typeof orgId !== 'string' || orgId.trim().length === 0) {
+      throw HttpErrors.badRequest('organizationId must be a non-empty string');
+    }
+    return orgId.trim();
+  }
+  // source === 'query'
+  if (typeof parsed !== 'string') {
+    throw HttpErrors.badRequest('organizationId is required');
+  }
+  const trimmed = parsed.trim();
+  if (!trimmed) {
+    throw HttpErrors.badRequest('organizationId is required');
+  }
+  return trimmed;
+}
+
 export async function handleOnboarding(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -11,17 +33,13 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
   try {
     if (path === '/api/onboarding/complete' && request.method === 'POST') {
       await requireAuth(request, env);
-      const parsed = await parseJsonBody(request) as unknown;
-      if (
-        !parsed ||
-        typeof parsed !== 'object' ||
-        Array.isArray(parsed) ||
-        typeof (parsed as Record<string, unknown>).organizationId !== 'string' ||
-        !(parsed as Record<string, string>).organizationId.trim()
-      ) {
-        throw HttpErrors.badRequest('organizationId must be a non-empty string');
+      let parsed: unknown;
+      try {
+        parsed = await parseJsonBody(request) as unknown;
+      } catch (_err) {
+        throw HttpErrors.badRequest('Invalid JSON body');
       }
-      const organizationId = (parsed as Record<string, string>).organizationId.trim();
+      const organizationId = validateAndExtractOrgId(parsed, 'body');
       await requireOrgOwner(request, env, organizationId);
       const orgService = new OrganizationService(env);
       await orgService.markBusinessOnboardingComplete(organizationId);
@@ -30,23 +48,13 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
 
     if (path === '/api/onboarding/skip' && request.method === 'POST') {
       await requireAuth(request, env);
-      const parsed = await parseJsonBody(request) as unknown;
-      const errors: string[] = [];
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        errors.push('body must be a JSON object');
+      let parsed: unknown;
+      try {
+        parsed = await parseJsonBody(request) as unknown;
+      } catch (_err) {
+        throw HttpErrors.badRequest('Invalid JSON body');
       }
-      const organizationId = (
-        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-          ? (parsed as Record<string, unknown>).organizationId
-          : undefined
-      );
-      if (typeof organizationId !== 'string' || organizationId.trim().length === 0) {
-        errors.push('organizationId must be a non-empty string');
-      }
-      if (errors.length > 0) {
-        throw HttpErrors.badRequest(`Invalid request: ${errors.join('; ')}`);
-      }
-      const orgId = (organizationId as string).trim();
+      const orgId = validateAndExtractOrgId(parsed, 'body');
       await requireOrgOwner(request, env, orgId);
       const orgService = new OrganizationService(env);
       const updated = await orgService.markBusinessOnboardingSkipped(orgId);
@@ -58,28 +66,18 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
 
     if (path === '/api/onboarding/save' && request.method === 'POST') {
       await requireAuth(request, env);
-      const parsed = await parseJsonBody(request) as unknown;
-      const errors: string[] = [];
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        errors.push('body must be a JSON object');
+      let parsed: unknown;
+      try {
+        parsed = await parseJsonBody(request) as unknown;
+      } catch (_err) {
+        throw HttpErrors.badRequest('Invalid JSON body');
       }
-      const organizationId = (
-        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-          ? (parsed as Record<string, unknown>).organizationId
-          : undefined
-      );
+      const orgId = validateAndExtractOrgId(parsed, 'body');
       const data = (
         parsed && typeof parsed === 'object' && !Array.isArray(parsed)
           ? (parsed as Record<string, unknown>).data
           : undefined
       );
-      if (typeof organizationId !== 'string' || organizationId.trim().length === 0) {
-        errors.push('organizationId must be a non-empty string');
-      }
-      if (errors.length > 0) {
-        throw HttpErrors.badRequest(`Invalid request: ${errors.join('; ')}`);
-      }
-      const orgId = (organizationId as string).trim();
       await requireOrgOwner(request, env, orgId);
 
       // Proceed with full data validation after ownership check
@@ -105,14 +103,10 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
 
     if (path === '/api/onboarding/status' && request.method === 'GET') {
       await requireAuth(request, env);
-      const organizationId = url.searchParams.get('organizationId');
-      const organizationIdTrimmed = typeof organizationId === 'string' ? organizationId.trim() : '';
-      if (!organizationIdTrimmed) {
-        throw HttpErrors.badRequest('organizationId is required');
-      }
-      await requireOrgOwner(request, env, organizationIdTrimmed);
+      const organizationId = validateAndExtractOrgId(url.searchParams.get('organizationId'), 'query');
+      await requireOrgOwner(request, env, organizationId);
       const orgService = new OrganizationService(env);
-      const status = await orgService.getBusinessOnboardingStatus(organizationIdTrimmed);
+      const status = await orgService.getBusinessOnboardingStatus(organizationId);
       return createSuccessResponse(status);
     }
 

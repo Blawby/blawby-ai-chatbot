@@ -3,8 +3,10 @@ import {
   getSubscriptionUpgradeEndpoint,
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionSyncEndpoint,
+  getSubscriptionCancelEndpoint,
 } from '../config/api';
 import { useToastContext } from '../contexts/ToastContext';
+import { hasManagedSubscription, resolveOrganizationKind, normalizeSubscriptionStatus } from '../utils/subscription';
 
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
@@ -18,6 +20,18 @@ function extractUrl(result: unknown): string | undefined {
     if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
       if ('url' in result.data && typeof result.data.url === 'string') {
         return result.data.url;
+      }
+    }
+    
+    // Better Auth Stripe plugin might return it directly in the response body
+    if ('billingPortalUrl' in result && typeof result.billingPortalUrl === 'string') {
+      return result.billingPortalUrl;
+    }
+    
+    // Check nested in data.billingPortalUrl
+    if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
+      if ('billingPortalUrl' in result.data && typeof result.data.billingPortalUrl === 'string') {
+        return result.data.billingPortalUrl;
       }
     }
   }
@@ -136,10 +150,10 @@ export const usePaymentUpgrade = () => {
   const { showError, showSuccess } = useToastContext();
 
   const buildSuccessUrl = useCallback((organizationId: string) => {
-    if (typeof window === 'undefined') return '/business-onboarding';
-    const url = new URL(`${window.location.origin}/business-onboarding`);
-    url.searchParams.set('organizationId', organizationId);
+    if (typeof window === 'undefined') return '/settings/account?sync=1';
+    const url = new URL(`${window.location.origin}/settings/account`);
     url.searchParams.set('sync', '1');
+    url.searchParams.set('organizationId', organizationId);
     return url.toString();
   }, []);
 
@@ -171,10 +185,26 @@ export const usePaymentUpgrade = () => {
           console.error('Invalid response structure: missing or invalid url property', result);
         }
         if (!response.ok || !url) {
-          // Handle specific error codes
-          if (result && typeof result === 'object' && 'errorCode' in result) {
+          // Handle specific error codes (Better Auth uses 'code', our API uses 'errorCode')
+          const errorCode = result && typeof result === 'object' 
+            ? (('code' in result && result.code) || ('errorCode' in result && result.errorCode))
+            : null;
+          
+          // Map Better Auth error codes to our error codes
+          let mappedErrorCode: SubscriptionErrorCode | null = null;
+          if (typeof errorCode === 'string' && errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
+            mappedErrorCode = SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND;
+          } else if (typeof errorCode === 'string') {
+            // Try to map to existing error codes
+            const upperCode = errorCode.toUpperCase();
+            if (Object.values(SubscriptionErrorCode).includes(upperCode as SubscriptionErrorCode)) {
+              mappedErrorCode = upperCode as SubscriptionErrorCode;
+            }
+          }
+          
+          if (mappedErrorCode || errorCode) {
             throw new Error(JSON.stringify({
-              errorCode: result.errorCode,
+              errorCode: mappedErrorCode || errorCode,
               message: extractErrorMessage(result, 'Unable to open billing portal'),
               details: (result && typeof result === 'object' && 'details' in result) ? result.details : undefined
             }));
@@ -203,7 +233,13 @@ export const usePaymentUpgrade = () => {
         }
 
         const title = errorCode ? getErrorTitle(errorCode) : 'Billing Portal Error';
-        showError(title, errorMessage);
+        
+        // Provide helpful message for missing Stripe customer
+        if (errorCode === SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND) {
+          showError(title, 'No billing account found. Please upgrade to a paid plan first to access billing management.');
+        } else {
+          showError(title, errorMessage);
+        }
       }
     },
     [showError]
@@ -245,10 +281,25 @@ export const usePaymentUpgrade = () => {
           const orgData = (result && typeof result === 'object' && result.data && typeof result.data === 'object')
             ? (result.data as Record<string, unknown>)
             : {} as Record<string, unknown>;
-          const rawTier = (orgData?.subscriptionTier ?? orgData?.subscription_tier) as unknown;
-          const tier = typeof rawTier === 'string' ? rawTier : '';
-          const isPaidTier = tier.length > 0 && tier !== 'free' && tier !== 'trial';
-          if (isPaidTier) {
+          const rawIsPersonal = typeof orgData?.isPersonal === 'boolean'
+            ? orgData.isPersonal
+            : typeof orgData?.is_personal === 'number'
+              ? orgData.is_personal === 1
+              : undefined;
+          const kind = resolveOrganizationKind(
+            typeof orgData?.kind === 'string' ? orgData.kind : undefined,
+            rawIsPersonal
+          );
+          const status = normalizeSubscriptionStatus(
+            typeof orgData?.subscriptionStatus === 'string'
+              ? orgData.subscriptionStatus
+              : typeof orgData?.subscription_status === 'string'
+                ? orgData.subscription_status as string
+                : undefined,
+            kind
+          );
+
+          if (hasManagedSubscription(kind, status, rawIsPersonal)) {
             // User is already on a paid plan, redirect via centralized handler
             await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
             return;
@@ -330,41 +381,19 @@ export const usePaymentUpgrade = () => {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upgrade failed';
         
-        // Try to parse structured error response
-        let errorCode: SubscriptionErrorCode | null = null;
-        let errorMessage = message;
-        
-        try {
-          const parsedError = JSON.parse(message);
-          if (parsedError.errorCode && Object.values(SubscriptionErrorCode).includes(parsedError.errorCode)) {
-            errorCode = parsedError.errorCode as SubscriptionErrorCode;
-            errorMessage = parsedError.message || message;
+        // Try to parse structured error response; if detected, rethrow to bubble up
+        {
+          try {
+            const parsedError = JSON.parse(message);
+            if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
+              const code = (parsedError as { errorCode?: string }).errorCode;
+              if (code && Object.values(SubscriptionErrorCode).includes(code as SubscriptionErrorCode)) {
+                throw err; // bubble structured errors
+              }
+            }
+          } catch {
+            // JSON.parse failed or not structured; continue with legacy handling below
           }
-        } catch {
-          // Not a structured error, fall back to string matching for backward compatibility
-        }
-
-        // Handle specific error codes with robust logic
-        if (errorCode === SubscriptionErrorCode.SUBSCRIPTION_ALREADY_ACTIVE) {
-          await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
-          return;
-        }
-
-        if (errorCode === SubscriptionErrorCode.EMAIL_VERIFICATION_REQUIRED) {
-          setError(errorMessage);
-          showError(
-            'Verify Email',
-            'Please verify your email address before upgrading. Check your inbox for the verification link.'
-          );
-          return;
-        }
-
-        // Handle other specific error codes
-        if (errorCode) {
-          setError(errorMessage);
-          const title = getErrorTitle(errorCode);
-          showError(title, errorMessage);
-          return;
         }
 
         // Fallback to original string matching for backward compatibility
@@ -446,11 +475,64 @@ export const usePaymentUpgrade = () => {
     [showError, showSuccess]
   );
 
+  const cancelSubscription = useCallback(
+    async (organizationId: string) => {
+      try {
+        const response = await fetch(getSubscriptionCancelEndpoint(), {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizationId }),
+        });
+
+        const result = await response.json().catch(() => ({})) as SubscriptionApiResponse;
+        const success = extractProperty<boolean>(result, 'success');
+        if (!response.ok || success === false) {
+          const errorCode = extractProperty<string>(result, 'errorCode');
+          if (errorCode) {
+            throw new Error(JSON.stringify({
+              errorCode,
+              message: extractErrorMessage(result, 'Failed to cancel subscription'),
+              details: extractProperty<unknown>(result, 'details')
+            }));
+          }
+          
+          const message = extractErrorMessage(result, 'Failed to cancel subscription');
+          throw new Error(message);
+        }
+
+        showSuccess('Subscription cancelled', 'Your subscription has been cancelled successfully.');
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to cancel subscription';
+        
+        let errorCode: SubscriptionErrorCode | null = null;
+        let errorMessage = message;
+        
+        try {
+          const parsedError = JSON.parse(message);
+          if (parsedError.errorCode && Object.values(SubscriptionErrorCode).includes(parsedError.errorCode)) {
+            errorCode = parsedError.errorCode as SubscriptionErrorCode;
+            errorMessage = parsedError.message || message;
+          }
+        } catch {
+          // Not a structured error, use original message
+        }
+
+        const title = errorCode ? getErrorTitle(errorCode) : 'Cancellation Error';
+        showError(title, errorMessage);
+        return false;
+      }
+    },
+    [showError, showSuccess]
+  );
+
   return {
     submitting,
     error,
     submitUpgrade,
     openBillingPortal,
     syncSubscription,
+    cancelSubscription,
   };
 };

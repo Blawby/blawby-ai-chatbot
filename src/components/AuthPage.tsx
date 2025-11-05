@@ -332,6 +332,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
                           placeholder={t('signup.fullNamePlaceholder')}
                           icon={<UserIcon className="h-5 w-5 text-gray-400" />}
                           error={error?.message}
+                          data-testid="signup-name-input"
                         />
                       </FormControl>
                       {error && <FormMessage>{error.message}</FormMessage>}
@@ -354,6 +355,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
                         }}
                         placeholder={t(isSignUp ? 'signup.emailPlaceholder' : 'signin.emailPlaceholder')}
                         error={error?.message}
+                        data-testid={isSignUp ? 'signup-email-input' : 'signin-email-input'}
                       />
                     </FormControl>
                     {error && <FormMessage>{error.message}</FormMessage>}
@@ -376,6 +378,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
                         }}
                         placeholder={t(isSignUp ? 'signup.passwordPlaceholder' : 'signin.passwordPlaceholder')}
                         error={error?.message}
+                        data-testid={isSignUp ? 'signup-password-input' : 'signin-password-input'}
                       />
                     </FormControl>
                     {error && <FormMessage>{error.message}</FormMessage>}
@@ -399,6 +402,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
                           }}
                           placeholder={t('signup.confirmPasswordPlaceholder')}
                           error={error?.message}
+                          data-testid="signup-confirm-password-input"
                         />
                       </FormControl>
                       {error && <FormMessage>{error.message}</FormMessage>}
@@ -424,6 +428,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
               <button
                 type="submit"
                 disabled={loading}
+                data-testid={isSignUp ? 'signup-submit-button' : 'signin-submit-button'}
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-accent-500 hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? (
@@ -443,6 +448,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
                   setMessage('');
                   setFormData({ name: '', email: '', password: '', confirmPassword: '' });
                 }}
+                data-testid={isSignUp ? 'auth-toggle-signin' : 'auth-toggle-signup'}
                 className="text-sm text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 transition-colors"
               >
                 {isSignUp ? `${t('signup.hasAccount')} ${t('signup.signInLink')}` : `${t('signin.noAccount')} ${t('signin.signUpLink')}`}

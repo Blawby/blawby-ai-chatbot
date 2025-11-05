@@ -1,0 +1,18 @@
+name: Link Check
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Link Checker
+        uses: lycheeverse/lychee-action@v1.9.0
+        with:
+          args: --verbose --no-progress --exclude-mail --accept 200,201,202,203,204,205,206,207,208,226,300,301,302,303,304,307,308 "**/*.md"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

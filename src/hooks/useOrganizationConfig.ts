@@ -11,13 +11,14 @@ const OrganizationSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
-  isPersonal: z.boolean().optional(),
   domain: z.string().nullable().optional(), // API can return null
   createdAt: z.number().optional(),
   updatedAt: z.number().optional(),
   stripeCustomerId: z.string().nullable().optional(), // API can return null
   subscriptionTier: z.string().optional(),
-  seats: z.number().optional()
+  seats: z.number().optional(),
+  kind: z.enum(['personal', 'business']).optional(),
+  subscriptionStatus: z.enum(['trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
 });
 
 const OrganizationsResponseSchema = z.object({

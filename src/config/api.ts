@@ -94,6 +94,11 @@ export const getSubscriptionSyncEndpoint = () => {
   return `${config.baseUrl}/api/subscription/sync`;
 };
 
+export const getSubscriptionCancelEndpoint = () => {
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/subscription/cancel`;
+};
+
 export const getOrganizationWorkspaceEndpoint = (orgId: string, resource: string) => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/organizations/${encodeURIComponent(orgId)}/workspace/${encodeURIComponent(resource)}`;

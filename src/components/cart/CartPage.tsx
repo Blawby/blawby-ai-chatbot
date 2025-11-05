@@ -8,6 +8,10 @@ import { useNavigation } from '../../utils/navigation';
 import { useTranslation } from '../../i18n/hooks';
 import { QuantitySelector } from './QuantitySelector';
 import { PricingSummary } from '../ui/cards/PricingSummary';
+import {
+  describeSubscriptionPlan,
+  hasManagedSubscription,
+} from '../../utils/subscription';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -53,33 +57,20 @@ export const CartPage = () => {
     new URLSearchParams(window.location.search).get('forcePaid') === '1' ||
     (typeof localStorage !== 'undefined' && localStorage.getItem('forcePaid') === '1')
   );
-  const isPaidTier = devForcePaid || currentOrganization?.subscriptionTier === 'business' || currentOrganization?.subscriptionTier === 'enterprise';
+  const managedSubscription = hasManagedSubscription(
+    currentOrganization?.kind,
+    currentOrganization?.subscriptionStatus,
+    currentOrganization?.isPersonal ?? null
+  );
+  const isPaidTier = devForcePaid || managedSubscription;
 
-  // Derive a safe, explicit label for the current paid plan
-  const subscriptionTier = currentOrganization?.subscriptionTier;
-  const planLabel =
-    subscriptionTier === 'business'
-      ? 'Business'
-      : subscriptionTier === 'enterprise'
-        ? 'Enterprise'
-        : (devForcePaid ? 'Paid Plan (dev)' : 'Paid Plan');
-
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      try {
-        console.debug('[CART][DEBUG]', {
-          path: typeof window !== 'undefined' ? window.location.pathname : 'n/a',
-          search: typeof window !== 'undefined' ? window.location.search : 'n/a',
-          devForcePaid,
-          tier: currentOrganization?.subscriptionTier,
-          orgId: currentOrganization?.id,
-        });
-      } catch (e) {
-        // no-op: debug logging failed
-        console.warn('[CART][DEBUG] log failed:', e);
-      }
-    }
-  }, [devForcePaid, currentOrganization?.subscriptionTier, currentOrganization?.id]);
+  const planLabel = describeSubscriptionPlan(
+    currentOrganization?.kind,
+    currentOrganization?.subscriptionStatus,
+    currentOrganization?.subscriptionTier,
+    currentOrganization?.isPersonal ?? null
+  );
+  const displayPlanLabel = devForcePaid ? 'Paid Plan (dev)' : planLabel;
 
   const handleManageBilling = useCallback(async () => {
     if (!currentOrganization?.id) return;
@@ -94,7 +85,7 @@ export const CartPage = () => {
     }
   }, [currentOrganization?.id, openBillingPortal, showError]);
 
-  // If org is already on paid tier, show Manage Billing immediately (even before pricing loads)
+  // If org is already on paid tier, define paid UI state and return early (before any pricing load/error logic)
   const paidState = isPaidTier ? (
       <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-paid-state="cart-paid-state">
         <header className="py-4">
@@ -109,7 +100,7 @@ export const CartPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {planLabel} Plan</h2>
+            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {displayPlanLabel} Plan</h2>
             <p className="text-gray-300 mb-6">Your organization &quot;{currentOrganization?.name}&quot; is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">Manage Billing</button>
@@ -119,6 +110,32 @@ export const CartPage = () => {
         </main>
       </div>
     ) : null;
+
+  if (isPaidTier) {
+    return paidState;
+  }
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      try {
+        console.debug('[CART][DEBUG]', {
+          path: typeof window !== 'undefined' ? window.location.pathname : 'n/a',
+          search: typeof window !== 'undefined' ? window.location.search : 'n/a',
+          devForcePaid,
+          tier: currentOrganization?.subscriptionTier,
+          status: currentOrganization?.subscriptionStatus,
+          orgId: currentOrganization?.id,
+        });
+      } catch (e) {
+        // no-op: debug logging failed
+        console.warn('[CART][DEBUG] log failed:', e);
+      }
+    }
+  }, [devForcePaid, currentOrganization?.subscriptionTier, currentOrganization?.subscriptionStatus, currentOrganization?.id]);
+
+  // (handleManageBilling moved above)
+
+  // (paidState definition moved above for early return)
 
   useEffect(() => {
 
@@ -199,10 +216,7 @@ export const CartPage = () => {
   const discount = isAnnual ? subtotal - annualTotal : 0;
   const total = isAnnual ? annualTotal : subtotal;
 
-  // Early return: if already on a paid tier, show billing/manage UI only (before any loading UI)
-  if (isPaidTier) {
-    return paidState;
-  }
+  // (early return moved above before pricing load/error checks)
 
   const handleContinue = async () => {
     try {
@@ -263,7 +277,7 @@ export const CartPage = () => {
           credentials: 'include',
           headers: { 'Accept': 'application/json' },
         });
-        type Org = { id?: string; isPersonal?: boolean };
+        type Org = { id?: string; kind?: 'personal' | 'business' };
         let orgs: Org[] = [];
         try {
           const data = await orgsRes.json();
@@ -273,7 +287,7 @@ export const CartPage = () => {
           orgs = [];
         }
         if (orgs.length > 0) {
-          const personal = orgs.find(o => o.isPersonal);
+          const personal = orgs.find(o => o.kind === 'personal');
           organizationId = personal?.id ?? orgs[0]?.id ?? null;
         }
         console.debug('[CART][UPGRADE] Ensured/loaded orgs. Resolved organizationId:', organizationId);

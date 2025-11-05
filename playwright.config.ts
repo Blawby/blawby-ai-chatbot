@@ -9,6 +9,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  globalSetup: './tests/e2e/global-setup.ts',
   webServer: [
     { 
       command: 'npm run dev:worker:clean', 

@@ -145,7 +145,7 @@ The application supports **18 languages** covering 5+ billion speakers — ~90%+
 **Development:**
 - Locale files: `src/locales/<locale>/<namespace>.json`
 - Configuration: `src/i18n/index.ts`
-- Full guide: `docs/INTERNATIONALIZATION.md`
+- Full guide: `docs/internationalization.md`
 - Run `npm run lint:i18n` to validate translation consistency
 - Run `npm run test:i18n` for internationalization smoke tests
 

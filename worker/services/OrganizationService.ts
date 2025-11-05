@@ -14,6 +14,19 @@ export interface OrganizationVoiceConfig {
   previewUrl?: string;
 }
 
+export type OrganizationKind = 'personal' | 'business';
+
+export type SubscriptionLifecycleStatus =
+  | 'none'
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'canceled'
+  | 'incomplete'
+  | 'incomplete_expired'
+  | 'unpaid'
+  | 'paused';
+
 export interface Organization {
   id: string;
   name: string;
@@ -24,7 +37,8 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number;
-  isPersonal: boolean;
+  kind: OrganizationKind;
+  subscriptionStatus: SubscriptionLifecycleStatus;
   createdAt: number;
   updatedAt: number;
 }
@@ -250,7 +264,7 @@ export class OrganizationService {
       stripeCustomerId: null,
       subscriptionTier: 'free',
       seats: 1,
-      isPersonal: true,
+      kind: 'personal',
     });
 
     try {
@@ -502,6 +516,33 @@ export class OrganizationService {
     return normalizedVoice;
   }
 
+  private deriveKind(isPersonalValue: unknown): OrganizationKind {
+    return isPersonalValue ? 'personal' : 'business';
+  }
+
+  private normalizeSubscriptionStatus(status: unknown): SubscriptionLifecycleStatus {
+    if (typeof status !== 'string' || status.trim().length === 0) {
+      return 'incomplete';
+    }
+
+    const normalized = status.trim().toLowerCase();
+    switch (normalized) {
+      case 'none':
+        return 'none';
+      case 'active':
+      case 'trialing':
+      case 'paused':
+      case 'past_due':
+      case 'canceled':
+      case 'incomplete':
+      case 'incomplete_expired':
+      case 'unpaid':
+        return normalized;
+      default:
+        return 'incomplete';
+    }
+  }
+
   async getOrganization(organizationId: string): Promise<Organization | null> {
     console.log('OrganizationService.getOrganization called with organizationId:', organizationId);
     
@@ -516,7 +557,27 @@ export class OrganizationService {
       // Query Better Auth organizations table - support both ID and slug lookups
       console.log('Querying database for organization...');
       const orgRow = await this.env.DB.prepare(
-        'SELECT id, name, slug, domain, config, stripe_customer_id, subscription_tier, seats, is_personal, created_at, updated_at FROM organizations WHERE id = ? OR slug = ?'
+        `SELECT 
+           o.id,
+           o.name,
+           o.slug,
+           o.domain,
+           o.config,
+           o.stripe_customer_id,
+           o.subscription_tier,
+           o.seats,
+           o.is_personal,
+           o.created_at,
+           o.updated_at,
+           (
+             SELECT s.status
+               FROM subscriptions s
+              WHERE s.reference_id = o.id
+              ORDER BY s.updated_at DESC
+              LIMIT 1
+           ) AS subscription_status
+         FROM organizations o
+        WHERE o.id = ? OR o.slug = ?`
       ).bind(organizationId, organizationId).first();
       
       if (orgRow) {
@@ -546,7 +607,10 @@ export class OrganizationService {
             const numSeats = Number(rawSeats ?? 1);
             return isNaN(numSeats) ? 1 : numSeats;
           })(),
-          isPersonal: Boolean((orgRow as Record<string, unknown>).is_personal),
+          kind: this.deriveKind((orgRow as Record<string, unknown>).is_personal),
+          subscriptionStatus: this.normalizeSubscriptionStatus(
+            (orgRow as Record<string, unknown>).subscription_status
+          ),
           createdAt: new Date(orgRow.created_at as string).getTime(),
           updatedAt: updatedAt,
         };
@@ -575,7 +639,25 @@ export class OrganizationService {
       if (userId) {
         // Get organizations where user is a member
         const orgRows = await this.env.DB.prepare(`
-          SELECT o.id, o.name, o.slug, o.domain, o.config, o.stripe_customer_id, o.subscription_tier, o.seats, o.is_personal, o.created_at, o.updated_at
+          SELECT 
+            o.id,
+            o.name,
+            o.slug,
+            o.domain,
+            o.config,
+            o.stripe_customer_id,
+            o.subscription_tier,
+            o.seats,
+            o.is_personal,
+            o.created_at,
+            o.updated_at,
+            (
+              SELECT s.status
+                FROM subscriptions s
+               WHERE s.reference_id = o.id
+               ORDER BY s.updated_at DESC
+               LIMIT 1
+            ) AS subscription_status
           FROM organizations o
           INNER JOIN members m ON o.id = m.organization_id
           WHERE m.user_id = ?
@@ -596,7 +678,8 @@ export class OrganizationService {
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
-            isPersonal: Boolean(row.is_personal),
+            kind: this.deriveKind(row.is_personal),
+            subscriptionStatus: this.normalizeSubscriptionStatus(row.subscription_status),
             createdAt: new Date(row.created_at as string).getTime(),
             updatedAt: row.updated_at && !isNaN(new Date(row.updated_at as string).getTime())
               ? new Date(row.updated_at as string).getTime()
@@ -606,9 +689,27 @@ export class OrganizationService {
       } else {
         // Get all organizations (for admin purposes)
         const orgRows = await this.env.DB.prepare(`
-          SELECT id, name, slug, domain, config, stripe_customer_id, subscription_tier, seats, is_personal, created_at, updated_at
-          FROM organizations
-          ORDER BY created_at DESC
+          SELECT 
+            o.id,
+            o.name,
+            o.slug,
+            o.domain,
+            o.config,
+            o.stripe_customer_id,
+            o.subscription_tier,
+            o.seats,
+            o.is_personal,
+            o.created_at,
+            o.updated_at,
+            (
+              SELECT s.status
+                FROM subscriptions s
+               WHERE s.reference_id = o.id
+               ORDER BY s.updated_at DESC
+               LIMIT 1
+            ) AS subscription_status
+          FROM organizations o
+          ORDER BY o.created_at DESC
         `).all();
         
         return orgRows.results.map(row => {
@@ -625,7 +726,8 @@ export class OrganizationService {
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
-            isPersonal: Boolean(row.is_personal),
+            kind: this.deriveKind(row.is_personal),
+            subscriptionStatus: this.normalizeSubscriptionStatus(row.subscription_status),
             createdAt: new Date(row.created_at as string).getTime(),
             updatedAt: row.updated_at && !isNaN(new Date(row.updated_at as string).getTime())
               ? new Date(row.updated_at as string).getTime()
@@ -688,7 +790,10 @@ export class OrganizationService {
   }
 
   async createOrganization(
-    organizationData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'isPersonal'> & { isPersonal?: boolean }
+    organizationData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'kind' | 'subscriptionStatus'> & {
+      kind?: OrganizationKind;
+      subscriptionStatus?: SubscriptionLifecycleStatus;
+    }
   ): Promise<Organization> {
     const id = this.generateULID();
     const now = new Date().toISOString();
@@ -698,14 +803,16 @@ export class OrganizationService {
     
     const defaultSeats = Number(organizationData.seats ?? 1) || 1;
 
-    const isPersonal = Boolean(organizationData.isPersonal);
+    const resolvedKind: OrganizationKind = organizationData.kind ?? 'business';
+    const isPersonal = resolvedKind === 'personal';
 
     const organization: Organization = {
       ...organizationData,
       stripeCustomerId: organizationData.stripeCustomerId ?? null,
       subscriptionTier: organizationData.subscriptionTier ?? 'free',
       seats: defaultSeats,
-      isPersonal,
+      kind: resolvedKind,
+      subscriptionStatus: this.normalizeSubscriptionStatus(organizationData.subscriptionStatus),
       config: normalizedConfig,
       id,
       createdAt: new Date(now).getTime(),
@@ -727,7 +834,7 @@ export class OrganizationService {
         organization.stripeCustomerId ?? null,
         organization.subscriptionTier ?? 'free',
         organization.seats ?? 1,
-        organization.isPersonal ? 1 : 0,
+        isPersonal ? 1 : 0,
         organization.createdAt,
         organization.updatedAt
       ).run();
@@ -756,7 +863,7 @@ export class OrganizationService {
     }
 
     // Extract only mutable fields from updates, excluding immutable fields
-    const { id: _ignoreId, createdAt: _ignoreCreatedAt, isPersonal: _ignoreIsPersonal, ...mutableUpdates } = updates;
+    const { id: _ignoreId, createdAt: _ignoreCreatedAt, /* isPersonal: _ignoreIsPersonal */ ...mutableUpdates } = updates;
 
     // Validate and normalize the organization configuration if it's being updated
     let normalizedConfig = existingOrganization.config;
@@ -764,21 +871,26 @@ export class OrganizationService {
       normalizedConfig = this.validateAndNormalizeConfig(mutableUpdates.config, true, organizationId);
     }
     
+    // Prefer `kind` if provided; otherwise maintain existing.
+    const resolvedKind: OrganizationKind = (mutableUpdates.kind ?? existingOrganization.kind);
+    const isPersonal = resolvedKind === 'personal';
+
     const updatedOrganization: Organization = {
       ...existingOrganization,
       ...mutableUpdates,
       config: normalizedConfig,
-      isPersonal: existingOrganization.isPersonal,
+      kind: resolvedKind,
       updatedAt: new Date().getTime()
     };
 
     updatedOrganization.stripeCustomerId = updatedOrganization.stripeCustomerId ?? null;
     updatedOrganization.subscriptionTier = updatedOrganization.subscriptionTier ?? existingOrganization.subscriptionTier ?? 'free';
     updatedOrganization.seats = Number(updatedOrganization.seats ?? existingOrganization.seats ?? 1) || 1;
+    updatedOrganization.subscriptionStatus = this.normalizeSubscriptionStatus(updatedOrganization.subscriptionStatus ?? existingOrganization.subscriptionStatus);
 
     await this.env.DB.prepare(`
       UPDATE organizations 
-      SET slug = ?, name = ?, domain = ?, config = ?, stripe_customer_id = ?, subscription_tier = ?, seats = ?, updated_at = ?
+      SET slug = ?, name = ?, domain = ?, config = ?, stripe_customer_id = ?, subscription_tier = ?, seats = ?, is_personal = ?, updated_at = ?
       WHERE id = ?
     `).bind(
       updatedOrganization.slug,
@@ -788,6 +900,7 @@ export class OrganizationService {
       updatedOrganization.stripeCustomerId ?? null,
       updatedOrganization.subscriptionTier ?? 'free',
       updatedOrganization.seats ?? 1,
+      isPersonal ? 1 : 0,
       updatedOrganization.updatedAt,
       organizationId
     ).run();

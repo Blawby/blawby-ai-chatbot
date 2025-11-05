@@ -37,7 +37,7 @@ export interface PIIAuditLog {
 
 export class PIIEncryptionService {
   private env: Env;
-  private encryptionKey: CryptoKey | null = null;
+  private encryptionKey: globalThis.CryptoKey | null = null;
 
   constructor(env: Env) {
     this.env = env;
@@ -47,7 +47,7 @@ export class PIIEncryptionService {
    * Initialize encryption key from environment using HKDF
    * Follows Web Crypto API best practices for key derivation
    */
-  private async getEncryptionKey(): Promise<CryptoKey> {
+  private async getEncryptionKey(): Promise<globalThis.CryptoKey> {
     if (this.encryptionKey) {
       return this.encryptionKey;
     }

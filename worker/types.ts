@@ -130,6 +130,19 @@ export interface Matter {
   metadata?: Record<string, unknown>;
 }
 
+export type OrganizationKind = 'personal' | 'business';
+
+export type SubscriptionLifecycleStatus =
+  | 'none'
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'canceled'
+  | 'incomplete'
+  | 'incomplete_expired'
+  | 'unpaid'
+  | 'paused';
+
 // Organization types (Better Auth compatible)
 export interface Organization {
   id: string;
@@ -164,7 +177,8 @@ export interface Organization {
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
-  isPersonal: boolean;
+  kind: OrganizationKind;
+  subscriptionStatus: SubscriptionLifecycleStatus;
   createdAt: number;
   updatedAt: number;
 }
@@ -174,7 +188,7 @@ export interface StripeSubscriptionCache {
   subscriptionId: string;
   // Maps to Organization.stripeCustomerId for cross-reference
   stripeCustomerId?: string | null;
-  status: 'active' | 'trialing' | 'canceled' | 'past_due' | 'incomplete' | 'incomplete_expired' | 'unpaid';
+  status: 'active' | 'trialing' | 'canceled' | 'past_due' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
   priceId: string;
   // Optional to match Organization interface - defaults to 1 if not specified
   seats?: number | null;

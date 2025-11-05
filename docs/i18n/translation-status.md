@@ -238,7 +238,7 @@ Last run: 2025-01-13
 ## Resources for Translators
 
 ### Internal Resources
-- [Internationalization Guide](./INTERNATIONALIZATION.md)
+- [Internationalization Guide](../internationalization.md)
 - English baseline: `src/locales/en/`
 - Current locale files: `src/locales/[lang]/`
 

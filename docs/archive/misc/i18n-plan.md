@@ -1,6 +1,9 @@
 Foundation
-
-Adopt i18next + react-i18next (works with preact/compat) and add supporting deps (i18next-browser-languagedetector, i18next-http-backend, @types/i18next) in package.json:1; wire npm script lint:i18n for JSON validation and missing-key checks.
+ 
+ > Archived on: 2025-11-04 — This planning note is superseded by the canonical guide: [internationalization.md](../../internationalization.md)
+ 
+ 
+ Adopt i18next + react-i18next (works with preact/compat) and add supporting deps (i18next-browser-languagedetector, i18next-http-backend, @types/i18next) in package.json:1; wire npm script lint:i18n for JSON validation and missing-key checks.
 Create locale asset tree (src/locales/en/common.json, etc.) and loader modules (src/i18n/index.ts:1, src/i18n/detectLocale.ts:1); enable code-splitting via import(/* @vite-ignore */ ...) so Vite bundles per-locale chunks.
 Update bundler/tooling: add JSON locale alias in tsconfig.json:1, include .json glob in vitest.config.ts:1 resolve aliases, extend vite.config.ts:1 to pre-bundle i18next, mark locale chunk manual splitting, expose env var for available languages.
 Wrap the app root with the provider (src/index.tsx:1) and supply suspense fallback for lazy-loaded namespaces; ensure SSR/prerender path hydrates with default en and rehydrates once detection finishes.
