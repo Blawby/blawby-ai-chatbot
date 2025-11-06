@@ -170,6 +170,7 @@ const BusinessOnboardingModal = ({
 
   useEffect(() => {
     if (!currentStepFromUrl) return;
+    if (!STEP_SEQUENCE.includes(currentStepFromUrl)) return;
     goToStep(currentStepFromUrl);
   }, [currentStepFromUrl, goToStep]);
 
@@ -195,16 +196,22 @@ const BusinessOnboardingModal = ({
               ...rest,
               contactEmail: rest.contactEmail || prev.contactEmail || fallbackContactEmail || ''
             }));
+            const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
             if (progress.status === 'completed') {
-              goToStep('review-and-launch');
+              if (!hasValidUrlStep) {
+                goToStep('review-and-launch');
+              }
             } else {
               const resumeTarget = __meta?.resumeStep;
-              if (resumeTarget) {
+              if (resumeTarget && !hasValidUrlStep) {
                 goToStep(resumeTarget);
               }
             }
           } else if (progress?.status === 'completed') {
-            goToStep('review-and-launch');
+            const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
+            if (!hasValidUrlStep) {
+              goToStep('review-and-launch');
+            }
           }
         }
       } catch (error) {
@@ -216,7 +223,7 @@ const BusinessOnboardingModal = ({
     };
 
     void loadSavedData();
-  }, [isOpen, organizationId, fallbackContactEmail, setFormData, goToStep, onClose]);
+  }, [isOpen, organizationId, fallbackContactEmail, setFormData, goToStep, onClose, currentStepFromUrl]);
 
   // useStepValidation already initialized above
 

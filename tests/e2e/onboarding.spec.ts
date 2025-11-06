@@ -624,6 +624,8 @@ test.describe('Business Onboarding', () => {
   });
 
   test('Skip for now advances without validation and does not save', async ({ page }) => {
+    // Navigate to home page first to ensure page is loaded
+    await page.goto('/');
     await ensureAuthenticated(page);
     
     const appOrigin = await getAppOrigin(page);
@@ -666,7 +668,7 @@ test.describe('Business Onboarding', () => {
     });
     
     // Click "Skip for now" button
-    const skipButton = page.getByRole('button', { name: /skip for now/i });
+    const skipButton = page.getByText(/skip for now/i);
     await expect(skipButton).toBeVisible({ timeout: 5000 });
     await skipButton.click();
     

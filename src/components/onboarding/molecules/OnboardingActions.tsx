@@ -83,7 +83,13 @@ export const OnboardingActions = ({
           <button
             type="button"
             onClick={onSkip}
-            className="text-sm font-bold underline"
+            disabled={loading}
+            aria-disabled={loading}
+            aria-busy={loading}
+            className={cn(
+              'text-sm font-bold underline',
+              loading && 'opacity-50 cursor-not-allowed no-underline pointer-events-none'
+            )}
           >
             Skip for now
           </button>

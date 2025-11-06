@@ -100,21 +100,40 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
     return suggestions;
   }, [suggestions, asyncSuggestionsList]);
 
-  // Filter suggestions based on input and existing tags
-  const filteredSuggestions = useMemo(() => {
-    if (!inputValue.trim()) return [];
+  // Helper function to compute filtered suggestions synchronously
+  const computeFilteredSuggestions = useCallback((query: string, suggestionsList: string[], currentTags: string[]) => {
+    if (!query.trim()) return [];
     
-    const lowerInput = inputValue.toLowerCase();
-    return allSuggestions
+    const lowerInput = query.toLowerCase();
+    return suggestionsList
       .filter(suggestion => {
         const lowerSuggestion = suggestion.toLowerCase();
         // Don't show if already in tags (unless duplicates allowed)
-        if (!allowDuplicates && value.includes(suggestion)) return false;
+        if (!allowDuplicates && currentTags.includes(suggestion)) return false;
         // Filter by input match
         return lowerSuggestion.includes(lowerInput);
       })
       .slice(0, 10); // Limit to 10 suggestions
-  }, [inputValue, allSuggestions, value, allowDuplicates]);
+  }, [allowDuplicates]);
+
+  // Filter suggestions based on input and existing tags
+  const filteredSuggestions = useMemo(() => {
+    return computeFilteredSuggestions(inputValue, allSuggestions, value);
+  }, [inputValue, allSuggestions, value, computeFilteredSuggestions]);
+
+  // Precompute delimiter regex for paste handling
+  const delimiterRegex = useMemo(() => {
+    const delimiterChars = delimiters
+      .filter(d => d !== 'Enter') // Enter is not in paste text
+      .map(d => {
+        // Escape special regex characters
+        if (d === ',') return ',';
+        // Escape other special regex characters
+        return d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      })
+      .join('');
+    return new RegExp(`[${delimiterChars}]`);
+  }, [delimiters]);
 
   // Load async suggestions
   useEffect(() => {
@@ -240,7 +259,11 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
 
   const handleInputChange = (newValue: string) => {
     setInputValue(newValue);
-    setIsDropdownOpen(newValue.trim().length > 0 && (filteredSuggestions.length > 0 || isLoadingSuggestions));
+    
+    // Compute filtered suggestions synchronously from newValue
+    const computedFiltered = computeFilteredSuggestions(newValue, allSuggestions, value);
+    const hasSuggestions = computedFiltered.length > 0 || isLoadingSuggestions;
+    setIsDropdownOpen(newValue.trim().length > 0 && hasSuggestions);
     setFocusedSuggestionIndex(-1);
   };
 
@@ -248,7 +271,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
     const pastedText = e.clipboardData?.getData('text') || '';
     if (!pastedText) return;
 
-    // Check if pasted text contains delimiters
+    // Check if pasted text contains delimiters (excluding Enter)
     const hasDelimiter = delimiters.some(delimiter => {
       if (delimiter === 'Enter') return false; // Enter is not in paste text
       return pastedText.includes(delimiter);
@@ -256,24 +279,42 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
 
     if (hasDelimiter) {
       e.preventDefault();
-      const tags = pastedText
-        .split(new RegExp(`[${delimiters.filter(d => d !== 'Enter').map(d => d === ',' ? ',' : `\\${d}`).join('')}]`))
+      
+      // Split using precomputed regex
+      const rawTags = pastedText
+        .split(delimiterRegex)
         .map(tag => normalizeTagValue(tag))
         .filter(tag => tag.length > 0);
 
-      tags.forEach(tag => {
-        if (maxTags && value.length >= maxTags) return;
-        if (!allowDuplicates && value.includes(tag)) return;
+      // Snapshot current value to avoid stale closure
+      const currentValueSnapshot = [...value];
+      
+      // Collect all valid tags from pasted text
+      const newTags: string[] = [];
+      
+      for (const tag of rawTags) {
+        // Check max tags limit
+        if (maxTags && currentValueSnapshot.length + newTags.length >= maxTags) break;
+        
+        // Skip duplicates if not allowed
+        if (!allowDuplicates && (currentValueSnapshot.includes(tag) || newTags.includes(tag))) continue;
+        
+        // Validate tag
         const validation = validateTag(tag);
         if (validation.valid) {
-          onChange([...value, tag]);
+          newTags.push(tag);
         }
-      });
+      }
+
+      // Call onChange once with merged array
+      if (newTags.length > 0) {
+        onChange([...currentValueSnapshot, ...newTags]);
+        announceTagChange(`Added ${newTags.length} tag${newTags.length !== 1 ? 's' : ''}`);
+      }
 
       setInputValue('');
-      announceTagChange(`Added ${tags.length} tag${tags.length !== 1 ? 's' : ''}`);
     }
-  }, [delimiters, normalizeTagValue, value, onChange, maxTags, allowDuplicates, validateTag, announceTagChange]);
+  }, [delimiters, delimiterRegex, normalizeTagValue, value, onChange, maxTags, allowDuplicates, validateTag, announceTagChange]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (disabled || isComposing) return;
@@ -385,12 +426,6 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             variantClasses[variant],
             disabled && 'opacity-50 cursor-not-allowed'
           )}
-          role="combobox"
-          aria-expanded={isDropdownOpen}
-          aria-controls={isDropdownOpen ? listboxId : undefined}
-          aria-haspopup="listbox"
-          aria-label={ariaLabel || displayLabel}
-          aria-describedby={computedAriaDescribedBy}
         >
           {/* Existing tags */}
           {value.map((tag, index) => (
@@ -419,7 +454,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
             onFocus={() => {
-              if (inputValue.trim() && (filteredSuggestions.length > 0 || isLoadingSuggestions)) {
+              const computedFiltered = computeFilteredSuggestions(inputValue, allSuggestions, value);
+              if (inputValue.trim() && (computedFiltered.length > 0 || isLoadingSuggestions)) {
                 setIsDropdownOpen(true);
               }
             }}
@@ -433,11 +469,13 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
               disabled && 'cursor-not-allowed'
             )}
             id={inputId}
-            aria-label={ariaLabel || 'Tag input'}
-            aria-describedby={computedAriaDescribedBy}
-            aria-autocomplete="list"
+            role="combobox"
             aria-expanded={isDropdownOpen}
             aria-controls={isDropdownOpen ? listboxId : undefined}
+            aria-haspopup="listbox"
+            aria-label={ariaLabel || displayLabel || 'Tag input'}
+            aria-describedby={computedAriaDescribedBy}
+            aria-autocomplete="list"
             aria-activedescendant={
               focusedSuggestionIndex >= 0
                 ? `${inputId}-suggestion-${focusedSuggestionIndex}`
