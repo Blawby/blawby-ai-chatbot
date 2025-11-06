@@ -121,22 +121,16 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
     return computeFilteredSuggestions(inputValue, allSuggestions, value);
   }, [inputValue, allSuggestions, value, computeFilteredSuggestions]);
 
-  // Precompute delimiter regex for paste handling
-  const delimiterRegex = useMemo(() => {
-    const delimiterChars = delimiters
+  // Precompute delimiter regex for paste handling (support multi-character tokens)
+  const delimiterRegex = useMemo<RegExp | null>(() => {
+    const tokens = delimiters
       .filter(d => d !== 'Enter') // Enter is not in paste text
-      .map(d => {
-        // Escape special regex characters
-        if (d === ',') return ',';
-        // Escape other special regex characters
-        return d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      })
-      .join('');
-    // If there are no character delimiters, return a regex that never matches
-    if (delimiterChars.length === 0) {
-      return new RegExp('$^');
+      .map(d => (d === 'Tab' ? '\t' : d))
+      .map(d => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    if (tokens.length === 0) {
+      return null;
     }
-    return new RegExp(`[${delimiterChars}]`);
+    return new RegExp(`(?:${tokens.join('|')})`);
   }, [delimiters]);
 
   // Load async suggestions
@@ -275,13 +269,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
     const pastedText = e.clipboardData?.getData('text') || '';
     if (!pastedText) return;
 
-    // Check if pasted text contains delimiters (excluding Enter)
-    const hasDelimiter = delimiters.some(delimiter => {
-      if (delimiter === 'Enter') return false; // Enter is not in paste text
-      return pastedText.includes(delimiter);
-    });
-
-    if (hasDelimiter) {
+    // If any configured delimiter is present, handle splitting
+    if (delimiterRegex?.test(pastedText)) {
       e.preventDefault();
       
       // Split using precomputed regex
