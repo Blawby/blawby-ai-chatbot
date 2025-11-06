@@ -1,12 +1,15 @@
 import { FunctionalComponent } from 'preact';
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { analyzeMissingInfo } from '../utils/matterAnalysis';
+import { MatterStatusBadge } from './matters/StatusBadge';
+import { MatterWorkflowStatus } from '../hooks/useOrganizationManagement';
 
 interface MatterCanvasProps {
   matterId?: string;
   matterNumber?: string;
   service: string;
   matterSummary: string;
+  status?: MatterWorkflowStatus;
   
   answers: Record<string, string | { question: string; answer: string }>;
 }
@@ -20,10 +23,11 @@ const MatterCanvas: FunctionalComponent<MatterCanvasProps> = ({
   matterNumber: _matterNumber,
   service,
   matterSummary,
-  
+  status,
   answers: _answers
 }) => {
 
+  const effectiveStatus: MatterWorkflowStatus = status ?? 'lead';
 
   // Generate markdown content for the matter - CLIENT-FACING ONLY
   const generateMarkdown = () => {
@@ -41,6 +45,12 @@ const MatterCanvas: FunctionalComponent<MatterCanvasProps> = ({
 
   return (
     <div className="matter-canvas">
+      <div className="flex items-center justify-between mb-4">
+        <MatterStatusBadge status={effectiveStatus} />
+        <span className="text-sm text-gray-600 dark:text-gray-300">
+          {effectiveStatus === 'lead' ? 'Waiting for review' : effectiveStatus.replace('_', ' ')}
+        </span>
+      </div>
       <div className="matter-canvas-content">
         <pre className="matter-canvas-markdown">
           {markdownContent}

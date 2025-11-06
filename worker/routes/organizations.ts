@@ -1,4 +1,5 @@
 import { OrganizationService } from '../services/OrganizationService.js';
+import { MatterService } from '../services/MatterService.js';
 import { Env } from '../types.js';
 import { ValidationError } from '../utils/validationErrors.js';
 import { requireAuth, requireOrgOwner, requireOrgMember } from '../middleware/auth.js';
@@ -6,6 +7,8 @@ import { handleError, HttpErrors } from '../errorHandler.js';
 import type { Organization } from '../services/OrganizationService.js';
 import { organizationCreateSchema, organizationUpdateSchema } from '../schemas/validation.js';
 import { requireFeature, type FeatureName } from '../middleware/featureGuard.js';
+import { parseJsonBody } from '../utils.js';
+import { NotificationService } from '../services/NotificationService.js';
 
 /**
  * Helper function to create standardized error responses
@@ -72,6 +75,22 @@ function createSuccessResponse(data: unknown): Response {
 }
 
 const ACTIVE_BUSINESS_STATUSES = new Set(['active', 'trialing']);
+type MatterStatusValue = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
+const MATTER_STATUS_VALUES: Set<MatterStatusValue> = new Set(['lead', 'open', 'in_progress', 'completed', 'archived']);
+
+type WorkspaceMatterRow = {
+  id: string;
+  title: string;
+  matterType: string;
+  status: MatterStatusValue;
+  priority: string;
+  clientName?: string | null;
+  leadSource?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  acceptedByUserId?: string | null;
+  acceptedAt?: string | null;
+};
 
 async function requireActiveBusinessOrganization(
   request: Request,
@@ -136,6 +155,69 @@ function parseJsonField<T = unknown>(value: unknown): T | null {
   } catch {
     return null;
   }
+}
+
+function normalizeMatterStatus(value: string): MatterStatusValue {
+  const normalized = value.trim().toLowerCase();
+  if (!MATTER_STATUS_VALUES.has(normalized as MatterStatusValue)) {
+    throw HttpErrors.badRequest(`Invalid matter status: ${value}`);
+  }
+  return normalized as MatterStatusValue;
+}
+
+type MattersCursor = { createdAt: string; id: string };
+
+function encodeMattersCursor(cursor: MattersCursor): string {
+  const payload = JSON.stringify(cursor);
+  const base64 = Buffer.from(payload, 'utf8').toString('base64');
+
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/u, '');
+}
+
+function decodeMattersCursor(cursor: string): MattersCursor {
+  try {
+    const padding = '='.repeat((4 - cursor.length % 4) % 4);
+    const base64 = (cursor + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = Buffer.from(base64, 'base64').toString('utf8');
+    const parsed = JSON.parse(decoded) as Partial<MattersCursor>;
+
+    if (!parsed.createdAt || !parsed.id) {
+      throw new Error('Invalid cursor payload');
+    }
+
+    return {
+      createdAt: String(parsed.createdAt),
+      id: String(parsed.id)
+    };
+  } catch {
+    throw HttpErrors.badRequest('Invalid cursor');
+  }
+}
+
+async function validateIdempotencyKeyLength(key: string): Promise<void> {
+  if (key.length > 128) {
+    throw HttpErrors.badRequest('Idempotency key exceeds maximum length');
+  }
+}
+
+function buildMatterIdempotencyKey(organizationId: string, key: string): string {
+  return `idempotency:matters:${organizationId}:${key}`;
+}
+
+async function getMatterMutationResult(env: Env, organizationId: string, key: string): Promise<Record<string, unknown> | null> {
+  const storageKey = buildMatterIdempotencyKey(organizationId, key);
+  const raw = await env.CHAT_SESSIONS.get(storageKey);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function storeMatterMutationResult(env: Env, organizationId: string, key: string, value: Record<string, unknown>): Promise<void> {
+  const storageKey = buildMatterIdempotencyKey(organizationId, key);
+  await env.CHAT_SESSIONS.put(storageKey, JSON.stringify(value), { expirationTtl: 60 * 60 * 24 });
 }
 async function recordOrganizationEvent(
   env: Env,
@@ -390,33 +472,6 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
 
         const limit = parseLimit(url.searchParams.get('limit'));
 
-        if (resource === 'contact-forms') {
-          const submissions = await env.DB.prepare(
-            `SELECT id,
-                    conversation_id as conversationId,
-                    phone_number as phoneNumber,
-                    email,
-                    matter_details as matterDetails,
-                    status,
-                    assigned_lawyer as assignedLawyer,
-                    notes,
-                    created_at as createdAt,
-                    updated_at as updatedAt
-               FROM contact_forms
-              WHERE organization_id = ?
-              ORDER BY created_at DESC
-              LIMIT ?`
-          ).bind(organization.id, limit).all();
-
-          // Preact usage: fetch(`/api/organizations/${slug}/workspace/contact-forms`) for the intake dashboard table.
-          return createSuccessResponse({
-            submissions: submissions.results?.map(record => ({
-              ...record,
-              notes: parseJsonField(record.notes) ?? record.notes
-            })) ?? []
-          });
-        }
-
         if (resource === 'sessions') {
           const stateFilter = url.searchParams.get('state');
           const baseQuery = `
@@ -451,33 +506,317 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         }
 
         if (resource === 'matters') {
-          const statusFilter = url.searchParams.get('status');
-          const baseQuery = `
+          const matterService = new MatterService(env);
+
+          if (pathParts.length >= 4) {
+            const matterId = pathParts[3];
+            if (!matterId) {
+              throw HttpErrors.badRequest('matterId is required');
+            }
+
+            const action = pathParts[4] ?? null;
+            if (!action && request.method === 'GET') {
+              const record = await env.DB.prepare(
+                `SELECT id,
+                        title,
+                        matter_type as matterType,
+                        status,
+                        priority,
+                        client_name as clientName,
+                        lead_source as leadSource,
+                        created_at as createdAt,
+                        updated_at as updatedAt,
+                        (
+                          SELECT created_by_lawyer_id
+                            FROM matter_events
+                           WHERE matter_id = matters.id
+                             AND event_type = 'accept'
+                           ORDER BY event_date DESC
+                           LIMIT 1
+                        ) AS acceptedByUserId,
+                        (
+                          SELECT event_date
+                            FROM matter_events
+                           WHERE matter_id = matters.id
+                             AND event_type = 'accept'
+                           ORDER BY event_date DESC
+                           LIMIT 1
+                        ) AS acceptedAt
+                   FROM matters
+                  WHERE organization_id = ?
+                    AND id = ?`
+              ).bind(organization.id, matterId).first<WorkspaceMatterRow | null>();
+
+              if (!record) {
+                throw HttpErrors.notFound('Matter not found');
+              }
+
+              const payload = {
+                id: record.id,
+                title: record.title,
+                matterType: record.matterType,
+                status: record.status,
+                priority: record.priority,
+                clientName: record.clientName ?? null,
+                leadSource: record.leadSource ?? null,
+                createdAt: record.createdAt,
+                updatedAt: record.updatedAt,
+                acceptedBy: record.acceptedByUserId
+                  ? {
+                      userId: record.acceptedByUserId,
+                      acceptedAt: record.acceptedAt ?? null
+                    }
+                  : null
+              };
+
+              return createSuccessResponse({ matter: payload });
+        }
+          // Handle matter actions
+          if (action === 'accept' && request.method === 'POST') {
+            const authContext = await requireAuth(request, env);
+            await requireOrgMember(request, env, organization.id, 'attorney');
+
+            let idempotencyKey = request.headers.get('Idempotency-Key');
+            if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
+
+            if (idempotencyKey) {
+              const existing = await getMatterMutationResult(env, organization.id, idempotencyKey);
+              if (existing) {
+                return createSuccessResponse(existing);
+              }
+            }
+
+            const result = await matterService.acceptLead({
+              organizationId: organization.id,
+              matterId,
+              actorUserId: authContext.user.id
+            });
+
+            if (idempotencyKey) {
+              await storeMatterMutationResult(env, organization.id, idempotencyKey, result as unknown as Record<string, unknown>);
+            }
+
+            // Fire notification (best-effort)
+            try {
+              const notifier = new NotificationService(env);
+              await notifier.sendMatterUpdateNotification({
+                type: 'matter_update',
+                organizationConfig: organization,
+                matterInfo: { type: 'Lead' },
+                update: {
+                  action: 'accept',
+                  fromStatus: (result as any).previousStatus,
+                  toStatus: result.status,
+                  actorId: authContext.user.id
+                }
+              });
+            } catch {}
+
+            return createSuccessResponse(result);
+          }
+
+          if (action === 'reject' && request.method === 'POST') {
+            const authContext = await requireAuth(request, env);
+            await requireOrgMember(request, env, organization.id, 'attorney');
+
+            let idempotencyKey = request.headers.get('Idempotency-Key');
+            if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
+
+            const body: Record<string, unknown> = (await parseJsonBody(request).catch(() => ({}))) as Record<string, unknown>;
+            const reason = typeof body.reason === 'string' && body.reason.trim().length > 0 ? (body.reason as string).trim() : null;
+
+            if (idempotencyKey) {
+              const existing = await getMatterMutationResult(env, organization.id, idempotencyKey);
+              if (existing) {
+                return createSuccessResponse(existing);
+              }
+            }
+
+            const result = await matterService.rejectLead({
+              organizationId: organization.id,
+              matterId,
+              actorUserId: authContext.user.id,
+              reason
+            });
+
+            if (idempotencyKey) {
+              await storeMatterMutationResult(env, organization.id, idempotencyKey, result as unknown as Record<string, unknown>);
+            }
+
+            // Fire notification (best-effort)
+            try {
+              const notifier = new NotificationService(env);
+              await notifier.sendMatterUpdateNotification({
+                type: 'matter_update',
+                organizationConfig: organization,
+                matterInfo: { type: 'Lead' },
+                update: {
+                  action: 'reject',
+                  fromStatus: (result as any).previousStatus,
+                  toStatus: result.status,
+                  actorId: authContext.user.id
+                }
+              });
+            } catch {}
+
+            return createSuccessResponse(result);
+          }
+
+          if (action === 'status' && request.method === 'PATCH') {
+            const authContext = await requireAuth(request, env);
+            await requireOrgMember(request, env, organization.id, 'attorney');
+
+            let idempotencyKey = request.headers.get('Idempotency-Key');
+            if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
+
+            const body = await parseJsonBody(request);
+            const targetStatusRaw = (body as Record<string, unknown>).status;
+            if (typeof targetStatusRaw !== 'string' || targetStatusRaw.trim().length === 0) {
+              throw HttpErrors.badRequest('status is required');
+            }
+            const targetStatus = normalizeMatterStatus(String(targetStatusRaw));
+            const reason = typeof (body as Record<string, unknown>).reason === 'string'
+              ? ((body as Record<string, unknown>).reason as string).trim()
+              : null;
+
+            if (idempotencyKey) {
+              const existing = await getMatterMutationResult(env, organization.id, idempotencyKey);
+              if (existing) {
+                return createSuccessResponse(existing);
+              }
+            }
+
+            const result = await matterService.transitionStatus({
+              organizationId: organization.id,
+              matterId,
+              targetStatus,
+              actorUserId: authContext.user.id,
+              reason
+            });
+
+            if (idempotencyKey) {
+              await storeMatterMutationResult(env, organization.id, idempotencyKey, result as unknown as Record<string, unknown>);
+            }
+
+            // Fire notification (best-effort)
+            try {
+              const notifier = new NotificationService(env);
+              await notifier.sendMatterUpdateNotification({
+                type: 'matter_update',
+                organizationConfig: organization,
+                matterInfo: { type: 'Lead' },
+                update: {
+                  action: 'status_change',
+                  fromStatus: (result as any).previousStatus,
+                  toStatus: result.status,
+                  actorId: authContext.user.id
+                }
+              });
+            } catch {}
+
+            return createSuccessResponse(result);
+          }
+
+        }
+
+          if (request.method !== 'GET') {
+            throw HttpErrors.methodNotAllowed('Unsupported method for matters workspace endpoint');
+          }
+
+          const statusFilterRaw = url.searchParams.get('status');
+          const statusFilter = statusFilterRaw ? normalizeMatterStatus(statusFilterRaw) : null;
+          const searchTerm = url.searchParams.get('q');
+          const limitWithBuffer = Math.min(limit, 50);
+          const cursorParam = url.searchParams.get('cursor');
+
+          const cursor = cursorParam ? decodeMattersCursor(cursorParam) : null;
+
+          const conditions: string[] = ['organization_id = ?'];
+          const bindings: unknown[] = [organization.id];
+
+          if (statusFilter) {
+            conditions.push('status = ?');
+            bindings.push(statusFilter);
+          }
+
+          if (searchTerm && searchTerm.trim().length > 0) {
+            const likeValue = `%${searchTerm.trim().toLowerCase()}%`;
+            conditions.push('(LOWER(title) LIKE ? OR LOWER(client_name) LIKE ?)');
+            bindings.push(likeValue, likeValue);
+          }
+
+          if (cursor) {
+            conditions.push('(created_at < ? OR (created_at = ? AND id < ?))');
+            bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+          }
+
+          const query = `
             SELECT id,
                    title,
                    matter_type as matterType,
                    status,
                    priority,
-                   assigned_lawyer_id as assignedLawyerId,
                    client_name as clientName,
                    lead_source as leadSource,
                    created_at as createdAt,
-                   updated_at as updatedAt
+                   updated_at as updatedAt,
+                   (
+                     SELECT created_by_lawyer_id
+                       FROM matter_events
+                      WHERE matter_id = matters.id
+                        AND event_type = 'accept'
+                      ORDER BY event_date DESC
+                      LIMIT 1
+                   ) AS acceptedByUserId,
+                   (
+                     SELECT event_date
+                       FROM matter_events
+                      WHERE matter_id = matters.id
+                        AND event_type = 'accept'
+                      ORDER BY event_date DESC
+                      LIMIT 1
+                   ) AS acceptedAt
               FROM matters
-             WHERE organization_id = ?
-             ${statusFilter ? 'AND status = ?' : ''}
-             ORDER BY created_at DESC
+             WHERE ${conditions.join(' AND ')}
+             ORDER BY created_at DESC, id DESC
              LIMIT ?`;
 
-          const bindings = statusFilter
-            ? [organization.id, statusFilter, limit]
-            : [organization.id, limit];
+          const results = await env.DB.prepare(query).bind(...bindings, limitWithBuffer + 1).all<WorkspaceMatterRow>();
 
-          const matters = await env.DB.prepare(baseQuery).bind(...bindings).all();
+          const rows = results.results ?? [];
+          const hasMore = rows.length > limitWithBuffer;
+          const slicedRows = hasMore ? rows.slice(0, limitWithBuffer) : rows;
 
-          // Preact usage: populate the matter board / Kanban.
+          const items = slicedRows.map(row => ({
+            id: row.id,
+            title: row.title,
+            matterType: row.matterType,
+            status: row.status,
+            priority: row.priority,
+            clientName: row.clientName ?? null,
+            leadSource: row.leadSource ?? null,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            acceptedBy: row.acceptedByUserId
+              ? {
+                  userId: row.acceptedByUserId,
+                  acceptedAt: row.acceptedAt ?? null
+                }
+              : null
+          }));
+
+          const nextCursor = hasMore
+            ? encodeMattersCursor({
+                createdAt: slicedRows[slicedRows.length - 1].createdAt,
+                id: slicedRows[slicedRows.length - 1].id
+              })
+            : null;
+
           return createSuccessResponse({
-            matters: matters.results ?? []
+            items,
+            matters: items,
+            hasMore,
+            nextCursor
           });
         }
 

@@ -3,7 +3,7 @@ import type { Env } from '../types.js';
 import type { Organization } from './OrganizationService.js';
 
 export interface NotificationRequest {
-  type: 'lawyer_review' | 'matter_created' | 'payment_required';
+  type: 'lawyer_review' | 'matter_created' | 'payment_required' | 'matter_update';
   organizationConfig: Organization | null;
   matterInfo?: {
     type: string;
@@ -15,6 +15,12 @@ export interface NotificationRequest {
     name: string;
     email?: string;
     phone?: string;
+  };
+  update?: {
+    action: 'accept' | 'reject' | 'status_change';
+    fromStatus?: string | null;
+    toStatus?: string | null;
+    actorId?: string | null;
   };
 }
 
@@ -142,6 +148,41 @@ Payment link has been sent to the client. Please monitor payment status.`
       Logger.info('Payment required notification sent successfully');
     } catch (error) {
       Logger.warn('Failed to send payment required notification:', error);
+    }
+  }
+
+  async sendMatterUpdateNotification(request: NotificationRequest): Promise<void> {
+    const { organizationConfig, update, matterInfo } = request;
+
+    try {
+      const { EmailService } = await import('./EmailService.js');
+      const emailService = new EmailService(this.env.RESEND_API_KEY);
+
+      const ownerEmail = extractOwnerEmail(organizationConfig);
+      if (!ownerEmail) {
+        Logger.info('No owner email configured for organization - skipping matter update notification');
+        return;
+      }
+
+      const actionLabel = (update?.action || 'status_change').replace('_', ' ');
+      const subjectMatter = matterInfo?.type || 'Matter';
+
+      await emailService.send({
+        from: 'noreply@blawby.com',
+        to: ownerEmail,
+        subject: `${subjectMatter}: ${actionLabel}`,
+        text: `A matter was updated:
+
+Action: ${actionLabel}
+From: ${update?.fromStatus || 'n/a'}
+To: ${update?.toStatus || 'n/a'}
+Actor: ${update?.actorId || 'system'}
+`
+      });
+
+      Logger.info('Matter update notification sent successfully');
+    } catch (error) {
+      Logger.warn('Failed to send matter update notification:', error);
     }
   }
 }

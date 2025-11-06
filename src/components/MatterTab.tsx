@@ -10,6 +10,8 @@ import {
 import { MatterData, MatterStatus } from '../types/matter';
 import { getDefaultDocumentSuggestions } from '../hooks/useMatterState';
 import type { DocumentIconAttachment } from '../../worker/types';
+import { MatterStatusBadge } from './matters/StatusBadge';
+import type { MatterWorkflowStatus } from '../hooks/useOrganizationManagement';
 
 interface MatterTabProps {
   matter: MatterData | null;
@@ -139,15 +141,28 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
   // Analyze missing information
   const missingInfo = analyzeMissingInfo(matter);
 
+  // Derive a workflow badge status for display
+  const badgeStatus: MatterWorkflowStatus = (() => {
+    switch (status) {
+      case 'ready':
+        return 'completed';
+      default:
+        return 'lead';
+    }
+  })();
+
   return (
     <div>
       {/* Matter Header */}
       <div>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <h3>{matter.matterNumber || 'Matter'}</h3>
-          <div>{status}</div>
+          <MatterStatusBadge status={badgeStatus} />
         </div>
         <p>{matter.service}</p>
+        <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+          Waiting for review by the legal team
+        </p>
         {matter.matterSummary && (
           <p>{matter.matterSummary.substring(0, 100)}...</p>
         )}

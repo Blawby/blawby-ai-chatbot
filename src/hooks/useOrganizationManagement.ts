@@ -27,6 +27,18 @@ interface ApiSuccessResponse {
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
 export type BusinessOnboardingStatus = 'not_required' | 'pending' | 'completed' | 'skipped';
+export type MatterWorkflowStatus = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
+
+export interface MatterTransitionResult {
+  matterId: string;
+  status: MatterWorkflowStatus;
+  previousStatus: MatterWorkflowStatus;
+  updatedAt: string;
+  acceptedBy?: {
+    userId: string;
+    acceptedAt: string | null;
+  } | null;
+}
 
 export interface Organization {
   id: string;
@@ -131,6 +143,11 @@ interface UseOrganizationManagementReturn {
   // Workspace data
   getWorkspaceData: (orgId: string, resource: string) => Record<string, unknown>[];
   fetchWorkspaceData: (orgId: string, resource: string) => Promise<void>;
+  
+  // Matter workflows
+  acceptMatter: (orgId: string, matterId: string) => Promise<MatterTransitionResult>;
+  rejectMatter: (orgId: string, matterId: string, reason?: string) => Promise<MatterTransitionResult>;
+  updateMatterStatus: (orgId: string, matterId: string, status: MatterWorkflowStatus, reason?: string) => Promise<MatterTransitionResult>;
   
   refetch: () => Promise<void>;
 }
@@ -285,6 +302,58 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     businessOnboardingHasDraft: onboardingData != null && Object.keys(onboardingData).length > 0,
     businessOnboardingStatus: onboardingStatus,
   };
+}
+
+function normalizeWorkflowStatus(value: unknown): MatterWorkflowStatus {
+  const str = typeof value === 'string' ? value.toLowerCase() : '';
+  switch (str) {
+    case 'lead':
+    case 'open':
+    case 'in_progress':
+    case 'completed':
+    case 'archived':
+      return str;
+    default:
+      return 'lead';
+  }
+}
+
+function normalizeMatterTransitionResult(raw: unknown): MatterTransitionResult {
+  if (!raw || typeof raw !== 'object' || raw === null) {
+    throw new Error('Invalid matter transition response');
+  }
+
+  const record = raw as Record<string, unknown>;
+  const acceptedByRaw = record.acceptedBy as Record<string, unknown> | null | undefined;
+  const acceptedBy = acceptedByRaw && typeof acceptedByRaw === 'object'
+    ? {
+        userId: typeof acceptedByRaw.userId === 'string'
+          ? acceptedByRaw.userId
+          : String(acceptedByRaw.userId ?? ''),
+        acceptedAt: typeof acceptedByRaw.acceptedAt === 'string'
+          ? acceptedByRaw.acceptedAt
+          : null
+      }
+    : null;
+
+  return {
+    matterId: typeof record.matterId === 'string'
+      ? record.matterId
+      : String(record.matterId ?? ''),
+    status: normalizeWorkflowStatus(record.status),
+    previousStatus: normalizeWorkflowStatus(record.previousStatus),
+    updatedAt: typeof record.updatedAt === 'string'
+      ? record.updatedAt
+      : new Date().toISOString(),
+    acceptedBy
+  };
+}
+
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function useOrganizationManagement(options: UseOrganizationManagementOptions = {}): UseOrganizationManagementReturn {
@@ -762,6 +831,66 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     }
   }, [apiCall]);
 
+  const acceptMatter = useCallback(async (orgId: string, matterId: string): Promise<MatterTransitionResult> => {
+    if (!orgId || !matterId) {
+      throw new Error('Organization ID and matter ID are required');
+    }
+
+    const endpoint = `${getOrganizationWorkspaceEndpoint(orgId, 'matters')}/${encodeURIComponent(matterId)}/accept`;
+    const response = await apiCall(endpoint, {
+      method: 'POST',
+      headers: {
+        'Idempotency-Key': generateIdempotencyKey()
+      }
+    });
+
+    return normalizeMatterTransitionResult(response);
+  }, [apiCall]);
+
+  const rejectMatter = useCallback(async (orgId: string, matterId: string, reason?: string): Promise<MatterTransitionResult> => {
+    if (!orgId || !matterId) {
+      throw new Error('Organization ID and matter ID are required');
+    }
+
+    const endpoint = `${getOrganizationWorkspaceEndpoint(orgId, 'matters')}/${encodeURIComponent(matterId)}/reject`;
+    const payload: Record<string, unknown> = {};
+    if (typeof reason === 'string' && reason.trim().length > 0) {
+      payload.reason = reason.trim();
+    }
+
+    const response = await apiCall(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: {
+        'Idempotency-Key': generateIdempotencyKey()
+      }
+    });
+
+    return normalizeMatterTransitionResult(response);
+  }, [apiCall]);
+
+  const updateMatterStatus = useCallback(async (orgId: string, matterId: string, status: MatterWorkflowStatus, reason?: string): Promise<MatterTransitionResult> => {
+    if (!orgId || !matterId) {
+      throw new Error('Organization ID and matter ID are required');
+    }
+
+    const endpoint = `${getOrganizationWorkspaceEndpoint(orgId, 'matters')}/${encodeURIComponent(matterId)}/status`;
+    const payload: Record<string, unknown> = { status };
+    if (typeof reason === 'string' && reason.trim().length > 0) {
+      payload.reason = reason.trim();
+    }
+
+    const response = await apiCall(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+      headers: {
+        'Idempotency-Key': generateIdempotencyKey()
+      }
+    });
+
+    return normalizeMatterTransitionResult(response);
+  }, [apiCall]);
+
   // Refetch all data
   const refetch = useCallback(async () => {
     // Reset the fetched flag to ensure we actually refetch
@@ -820,6 +949,9 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     revokeToken,
     getWorkspaceData,
     fetchWorkspaceData,
+    acceptMatter,
+    rejectMatter,
+    updateMatterStatus,
     refetch,
   };
 }
