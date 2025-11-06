@@ -707,14 +707,15 @@ function AppWithSEO({
 			/>
 			<ToastProvider>
 				<Router>
-					<Route path="/auth" component={AuthPage} />
+  					<Route path="/auth" component={AuthPage} />
 					<Route path="/cart" component={CartPage} />
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
+					<Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
 					<Route path="/settings/*" component={SettingsRoute} />
-					<Route default component={(props) => <MainAppWithProviders 
-						organizationId={organizationId}
-						organizationConfig={organizationConfig}
-						organizationNotFound={organizationNotFound}
+  					<Route default component={(props) => <MainAppWithProviders 
+  						organizationId={organizationId}
+  						organizationConfig={organizationConfig}
+  						organizationNotFound={organizationNotFound}
 						handleRetryOrganizationConfig={handleRetryOrganizationConfig}
 						{...props}
 					/>} />

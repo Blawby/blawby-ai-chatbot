@@ -11,6 +11,7 @@ import { cn } from '../../../utils/cn';
 interface OnboardingActionsProps {
   onBack?: () => void;
   onContinue: () => void;
+  onSkip?: () => void;
   backLabel?: string;
   continueLabel?: string;
   loading?: boolean;
@@ -22,6 +23,7 @@ interface OnboardingActionsProps {
 export const OnboardingActions = ({
   onBack,
   onContinue,
+  onSkip,
   backLabel = 'Back',
   continueLabel = 'Continue',
   loading = false,
@@ -75,6 +77,24 @@ export const OnboardingActions = ({
           getContinueLabel() || 'Continue'
         )}
       </Button>
+
+      {onSkip && (
+        <div className="col-span-2 text-center mt-2 order-3">
+          <button
+            type="button"
+            onClick={onSkip}
+            disabled={loading}
+            aria-disabled={loading}
+            aria-busy={loading}
+            className={cn(
+              'text-sm font-bold underline',
+              loading && 'opacity-50 cursor-not-allowed no-underline pointer-events-none'
+            )}
+          >
+            Skip for now
+          </button>
+        </div>
+      )}
     </div>
   );
 };

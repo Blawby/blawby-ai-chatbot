@@ -160,18 +160,16 @@ export const usePaymentUpgrade = () => {
   }, []);
 
   const buildSuccessUrl = useCallback((organizationId: string) => {
-    if (typeof window === 'undefined') return '/settings/account?sync=1';
-    const url = new URL(`${window.location.origin}/settings/account`);
+    if (typeof window === 'undefined') return '/business-onboarding?sync=1';
+    const url = new URL(`${window.location.origin}/business-onboarding`);
     url.searchParams.set('sync', '1');
     url.searchParams.set('organizationId', organizationId);
     return url.toString();
   }, []);
 
-  const buildCancelUrl = useCallback((organizationId: string) => {
-    if (typeof window === 'undefined') return '/settings/account';
-    const url = new URL(`${window.location.origin}/settings/account`);
-    url.searchParams.set('organizationId', organizationId);
-    url.searchParams.set('cancelled', '1');
+  const buildCancelUrl = useCallback((_organizationId: string) => {
+    if (typeof window === 'undefined') return '/';
+    const url = new URL(`${window.location.origin}/`);
     return url.toString();
   }, []);
 
@@ -184,7 +182,7 @@ export const usePaymentUpgrade = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             referenceId: organizationId,
-            returnUrl: returnUrl ?? '/settings/account',
+            returnUrl: returnUrl ?? `/business-onboarding?sync=1&organizationId=${encodeURIComponent(organizationId)}`,
           }),
         });
 

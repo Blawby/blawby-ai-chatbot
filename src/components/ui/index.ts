@@ -15,3 +15,6 @@ export * from './validation';
 
 // Accessibility system
 export * from './accessibility';
+
+// Tag components
+export * from './tag';

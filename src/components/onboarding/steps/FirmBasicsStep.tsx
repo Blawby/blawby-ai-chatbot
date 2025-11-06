@@ -20,6 +20,7 @@ interface FirmBasicsStepProps {
   onBack: () => void;
   errors?: string | null;
   disabled?: boolean;
+  onSkip?: () => void;
 }
 
 export function FirmBasicsStep({ 
@@ -28,7 +29,8 @@ export function FirmBasicsStep({
   onContinue, 
   onBack,
   errors,
-  disabled = false
+  disabled = false,
+  onSkip
 }: FirmBasicsStepProps) {
   return (
     <div className="space-y-6">
@@ -85,6 +87,7 @@ export function FirmBasicsStep({
         onContinue={onContinue}
         onBack={onBack}
         loading={disabled}
+        onSkip={onSkip}
       />
     </div>
   );

@@ -1,10 +1,11 @@
 import { FunctionComponent } from 'preact';
+import type { ComponentChildren } from 'preact';
 import { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'preact/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import { OrganizationNotFound } from './OrganizationNotFound';
 import LeftSidebar from './LeftSidebar';
-import BusinessOnboardingModal from './onboarding/BusinessOnboardingModal';
+// Onboarding is now routed via /business-onboarding
 import MobileTopNav from './MobileTopNav';
 import MediaSidebar from './MediaSidebar';
 import PrivacySupportSidebar from './PrivacySupportSidebar';
@@ -22,6 +23,8 @@ import { analyzeMissingInfo } from '../utils/matterAnalysis';
 import { THEME } from '../utils/constants';
 import { debounce } from '../utils/debounce';
 import { useToastContext } from '../contexts/ToastContext';
+import { useNavigation } from '../utils/navigation';
+import { useLocation } from 'preact-iso';
 import type { BusinessOnboardingStatus } from '../hooks/useOrganizationManagement';
 
 // Simple messages object for localization
@@ -54,7 +57,7 @@ interface AppLayoutProps {
   onRequestConsultation?: () => void | Promise<void>;
   onSendMessage?: (message: string) => void;
   onUploadDocument?: (files: File[], metadata?: { documentType?: string; matterId?: string }) => Promise<FileAttachment[]>;
-  children: React.ReactNode; // ChatContainer component
+  children: ComponentChildren; // ChatContainer component
   onOnboardingCompleted?: () => Promise<void> | void;
 }
 
@@ -78,9 +81,9 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 }) => {
   // Matter state management
   const { matter, status: matterStatus } = useMatterState(chatMessages);
-  // Temp: local state to open the onboarding modal via sidebar test button
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const { showError } = useToastContext();
+  const { navigate } = useNavigation();
+  const location = useLocation();
   
   // Mobile state - initialized as false to avoid SSR/client hydration mismatch
   const [isMobile, setIsMobile] = useState(false);
@@ -203,12 +206,19 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   });
 
   const handleOpenOnboarding = useCallback(() => {
-    if (!currentOrganization?.id) {
+    const orgId = currentOrganization?.id || organizationId;
+    if (!orgId) {
       showError('Organization loading', 'Select an organization before starting onboarding.');
       return;
     }
-    setIsOnboardingOpen(true);
-  }, [currentOrganization?.id, showError]);
+    // If launching from settings, replace directly to onboarding (single history replace)
+    if (location.path.startsWith('/settings')) {
+      navigate(`/business-onboarding?organizationId=${encodeURIComponent(orgId)}`, true);
+    } else {
+      // Otherwise push normally to preserve previous page in history
+      navigate(`/business-onboarding?organizationId=${encodeURIComponent(orgId)}`);
+    }
+  }, [currentOrganization?.id, organizationId, showError, navigate, location.path]);
 
   if (organizationNotFound) {
     return <OrganizationNotFound organizationId={organizationId} onRetry={onRetryOrganizationConfig} />;
@@ -354,9 +364,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
             description={organizationConfig.description}
             variant="sidebar"
             showVerified={true}
-            businessOnboardingStatus={onboardingStatus}
-            onResumeOnboarding={handleOpenOnboarding}
-            businessOnboardingHasDraft={hasOnboardingDraft}
           />
 
           {/* Request Consultation Button - Primary Action */}
@@ -398,16 +405,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
         <DebugOverlay isVisible={true} />
       )}
 
-      {/* Temporary: Onboarding modal trigger via sidebar test button */}
-      {isOnboardingOpen && onboardingOrganizationId && (
-        <BusinessOnboardingModal
-          isOpen={isOnboardingOpen}
-          organizationId={onboardingOrganizationId}
-          organizationName={organizationConfig.name || undefined}
-          onClose={() => setIsOnboardingOpen(false)}
-          onCompleted={onOnboardingCompleted}
-        />
-      )}
+      {/* Onboarding modal handled by /business-onboarding route */}
     </div>
   );
 };

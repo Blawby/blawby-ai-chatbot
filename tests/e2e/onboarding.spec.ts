@@ -9,6 +9,10 @@ test.describe('Business Onboarding', () => {
     return firmNameInput;
   }
 
+  async function waitForTrustAccountIntro(page: import('@playwright/test').Page) {
+    await expect(page.getByRole('heading', { name: /connect your trust account/i })).toBeVisible({ timeout: 10000 });
+  }
+
   async function getAppOrigin(page: any): Promise<string> {
     const baseURL = (page.context() as any)?._options?.baseURL as string | undefined;
     const fromEnv = process.env.APP_ORIGIN as string | undefined;
@@ -62,15 +66,12 @@ test.describe('Business Onboarding', () => {
         }
         
         // Extract organizationId from request body and convert org to business
-        // This mimics persistOrganizationSubscriptionState: markBusiness = true when
-        // status is in MANAGED_STATUSES ('active', 'trialing', etc.) and tier is 'business'
+        // This mimics persistOrganizationSubscriptionState
         try {
           const requestBody = route.request().postDataJSON();
           const organizationId = requestBody?.organizationId;
           
           if (organizationId) {
-            // Convert organization to business using test helper endpoint
-            // This does the same direct SQL update as persistOrganizationSubscriptionState
             await page.evaluate(async (orgId: string) => {
               try {
                 const response = await fetch('/api/test/convert-org-to-business', {
@@ -87,17 +88,12 @@ test.describe('Business Onboarding', () => {
                 console.warn('[TEST] Error converting org to business:', e);
               }
             }, organizationId);
-            
-            // Small delay to ensure update completes
             await page.waitForTimeout(100);
           }
         } catch (e) {
-          // If extraction fails, continue anyway
           console.warn('[TEST] Failed to extract orgId from sync request:', e);
         }
         
-        // Return mock response (test expects sync to succeed)
-        // The organization should now be business (is_personal = 0, kind = 'business')
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -625,6 +621,63 @@ test.describe('Business Onboarding', () => {
     await expect(firmNameInput).toHaveValue('Saved Law Firm');
     await expect(emailInput).toHaveValue('saved@lawfirm.com');
     await expect(phoneInput).toHaveValue('555-1234');
+  });
+
+  test('Skip for now advances without validation and does not save', async ({ page }) => {
+    // Navigate to home page first to ensure page is loaded
+    await page.goto('/');
+    await ensureAuthenticated(page);
+    
+    const appOrigin = await getAppOrigin(page);
+    const stubCheckoutUrl = 'https://stripe.test/checkout-session';
+    await setupStripeStubs(page, appOrigin, stubCheckoutUrl, { mockSync: true });
+
+    const continueButton = await navigateToCartAndSelectPlan(page);
+    
+    const upgradeReq = page.waitForRequest((req) => req.url().includes('/api/auth/subscription/upgrade') && req.method() === 'POST');
+    const stripeNav = page.waitForURL(stubCheckoutUrl);
+    await continueButton.click();
+    await upgradeReq;
+    await stripeNav;
+
+    const syncOk = page.waitForResponse((res) => res.url().includes('/api/subscription/sync') && res.request().method() === 'POST' && res.status() === 200);
+    await syncOk;
+    await page.waitForURL(/\/business-onboarding/);
+    
+    // Wait for onboarding modal to appear
+    await expect(page.getByRole('heading', { name: /Welcome to Blawby/i })).toBeVisible({ timeout: 10000 });
+    
+    // Click Continue to get to firm-basics step
+    await page.getByRole('button', { name: /(continue|get started)/i }).click();
+    await page.waitForTimeout(500);
+    
+    // Wait for firm basics form to appear
+    await waitForFirmBasicsStep(page);
+    
+    // Intercept save API calls to verify they are NOT called
+    const saveRequests: any[] = [];
+    await page.route('**/api/onboarding/save', async (route) => {
+      const request = route.request();
+      const postData = request.postDataJSON();
+      saveRequests.push(postData);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+    });
+    
+    // Click "Skip for now" button
+    const skipButton = page.getByText(/skip for now/i);
+    await expect(skipButton).toBeVisible({ timeout: 5000 });
+    await skipButton.click();
+    
+    // Wait for navigation to Trust Account Intro step
+    await waitForTrustAccountIntro(page);
+    
+    // Verify no save API was called
+    await page.waitForTimeout(500); // Brief wait to ensure any async saves would have completed
+    expect(saveRequests.length).toBe(0);
   });
 
 });

@@ -8,9 +8,10 @@ import { OnboardingActions } from '../molecules/OnboardingActions';
 interface StripeOnboardingStepProps {
   onContinue: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
-export function StripeOnboardingStep({ onContinue, onBack }: StripeOnboardingStepProps) {
+export function StripeOnboardingStep({ onContinue, onBack, onSkip }: StripeOnboardingStepProps) {
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -32,6 +33,7 @@ export function StripeOnboardingStep({ onContinue, onBack }: StripeOnboardingSte
       <OnboardingActions
         onContinue={onContinue}
         onBack={onBack}
+        onSkip={onSkip}
       />
     </div>
   );

@@ -23,9 +23,10 @@ interface BusinessDetailsStepProps {
   onBack: () => void;
   errors?: string | null;
   disabled?: boolean;
+  onSkip?: () => void;
 }
 
-export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors, disabled = false }: BusinessDetailsStepProps) {
+export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors, disabled = false, onSkip }: BusinessDetailsStepProps) {
   const { t } = useTranslation();
 
   return (
@@ -98,6 +99,7 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors
         loading={disabled}
         backLabel={t('onboarding:businessDetails.backButton')}
         continueLabel={t('onboarding:businessDetails.nextButton')}
+        onSkip={onSkip}
       />
     </div>
   );

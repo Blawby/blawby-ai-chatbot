@@ -9,9 +9,10 @@ import { OnboardingActions } from '../molecules/OnboardingActions';
 interface TrustAccountIntroStepProps {
   onContinue: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
-export function TrustAccountIntroStep({ onContinue, onBack }: TrustAccountIntroStepProps) {
+export function TrustAccountIntroStep({ onContinue, onBack, onSkip }: TrustAccountIntroStepProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -37,6 +38,7 @@ export function TrustAccountIntroStep({ onContinue, onBack }: TrustAccountIntroS
       <OnboardingActions
         onContinue={onContinue}
         onBack={onBack}
+        onSkip={onSkip}
       />
     </div>
   );
