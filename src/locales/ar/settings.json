@@ -52,6 +52,8 @@
     "retry": "إعادة المحاولة",
     "plan": {
       "currentPlanLabel": "الخطة الحالية: {{tier}}",
+      "manageBilling": "إدارة",
+      "manage": "إدارة",
       "tiers": {
         "free": "مجاني",
         "plus": "Plus",

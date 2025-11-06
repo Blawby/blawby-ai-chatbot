@@ -108,7 +108,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleUsers(request, env);
     } else if (path.startsWith('/api/pdf')) {
       response = await handlePDF(request, env);
-    } else if (path.startsWith('/api/debug')) {
+    } else if (path.startsWith('/api/debug') || path.startsWith('/api/test')) {
       response = await handleDebug(request, env);
     } else if (path.startsWith('/api/status')) {
       response = await handleStatus(request, env);

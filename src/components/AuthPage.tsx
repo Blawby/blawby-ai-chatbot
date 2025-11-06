@@ -47,6 +47,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         const url = new URL(window.location.href);
         url.searchParams.delete('onboarding');
         window.history.replaceState({}, '', url.toString());
+        // eslint-disable-next-line no-empty
       } catch {}
     }
   }, []);

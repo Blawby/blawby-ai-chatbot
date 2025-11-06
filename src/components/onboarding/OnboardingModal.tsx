@@ -107,6 +107,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
       } as Parameters<typeof updateUser>[0]);
 
       // Refresh session to get updated fields immediately (best-effort)
+      // eslint-disable-next-line no-empty
       try { await getSession(); } catch {}
 
       // Legacy localStorage cache removed - server truth is used instead

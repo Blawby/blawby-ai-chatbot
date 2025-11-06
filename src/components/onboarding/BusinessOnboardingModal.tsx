@@ -30,6 +30,33 @@ const STEP_DESCRIPTIONS: Record<OnboardingStep, string> = {
   'review-and-launch': 'Review your setup and launch your intake assistant.'
 };
 
+const STEP_SEQUENCE: OnboardingStep[] = [
+  'welcome',
+  'firm-basics',
+  'trust-account-intro',
+  'stripe-onboarding',
+  'business-details',
+  'services',
+  'review-and-launch'
+];
+
+type PersistedOnboardingSnapshot = OnboardingFormData & {
+  __meta?: {
+    resumeStep?: OnboardingStep;
+    savedAt?: string;
+  };
+};
+
+interface BusinessOnboardingStatusResponse {
+  status: 'completed' | 'skipped' | 'pending' | 'not_required';
+  completed: boolean;
+  skipped: boolean;
+  completedAt: number | null;
+  lastSavedAt: number | null;
+  hasDraft: boolean;
+  data: PersistedOnboardingSnapshot | null;
+}
+
 interface BusinessOnboardingModalProps {
   isOpen: boolean;
   organizationId: string;
@@ -50,18 +77,25 @@ const BusinessOnboardingModal = ({
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const { showError } = useToastContext();
+  const { showError, showSuccess } = useToastContext();
   
   // Create save function that calls the API
-  const saveOnboardingData = useCallback(async (data: OnboardingFormData) => {
+  const saveOnboardingData = useCallback(async (data: OnboardingFormData, resumeStep: OnboardingStep) => {
     try {
+      const payload: PersistedOnboardingSnapshot = {
+        ...data,
+        __meta: {
+          resumeStep,
+          savedAt: new Date().toISOString()
+        }
+      };
       const response = await fetch('/api/onboarding/save', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           organizationId,
-          data
+          data: payload
         })
       });
 
@@ -84,6 +118,42 @@ const BusinessOnboardingModal = ({
     }
   );
 
+  const getAdjacentStep = useCallback((step: OnboardingStep, delta: number): OnboardingStep => {
+    const index = STEP_SEQUENCE.indexOf(step);
+    if (index === -1) {
+      return step;
+    }
+    const nextIndex = Math.min(Math.max(index + delta, 0), STEP_SEQUENCE.length - 1);
+    return STEP_SEQUENCE[nextIndex];
+  }, []);
+
+  const completeOnboarding = useCallback(async () => {
+    try {
+      const response = await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error((errorData as { message?: string }).message || 'Failed to finalize onboarding');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to finalize onboarding';
+      showError('Completion Failed', message);
+      throw error;
+    }
+  }, [organizationId, showError]);
+
+  const handleStepChange = useCallback((_step: OnboardingStep, _prevStep: OnboardingStep) => {
+    // No-op: explicit saves are handled in continue/back handlers to avoid redundant/conflicting saves
+    return;
+  }, []);
+
+  const { currentStep, goNext, goBack, goToStep, progress, isFirstStep, isLastStep } = useStepNavigation(handleStepChange);
+
   // Load saved data on mount
   useEffect(() => {
     if (!isOpen || !organizationId) return;
@@ -96,20 +166,24 @@ const BusinessOnboardingModal = ({
         });
 
         if (response.ok) {
-          const status = await response.json() as { 
-            completed?: boolean; 
-            data?: Record<string, unknown> | null;
-          } | null;
-          
-          if (status?.data && !status.completed) {
-            // Merge saved data with initial form data using functional updater to avoid stale closure
-            const savedData = status.data as Partial<OnboardingFormData>;
+          const payload = await response.json() as { success?: boolean; data?: BusinessOnboardingStatusResponse | null };
+          const progress = payload?.data ?? null;
+
+          if (progress?.data && progress.status !== 'completed') {
+            const { __meta, ...rest } = progress.data;
             setFormData((prev) => ({
               ...prev,
-              ...savedData,
-              // Preserve contactEmail from fallback if not in saved data
-              contactEmail: savedData.contactEmail || prev.contactEmail || fallbackContactEmail || ''
+              ...rest,
+              contactEmail: rest.contactEmail || prev.contactEmail || fallbackContactEmail || ''
             }));
+
+            const resumeTarget = __meta?.resumeStep;
+            if (resumeTarget) {
+              goToStep(resumeTarget);
+            }
+          } else if (progress?.status === 'completed') {
+            // Allow viewing/editing even when completed; default to review step
+            goToStep('review-and-launch');
           }
         }
       } catch (error) {
@@ -121,15 +195,8 @@ const BusinessOnboardingModal = ({
     };
 
     void loadSavedData();
-  }, [isOpen, organizationId, fallbackContactEmail, setFormData]);
+  }, [isOpen, organizationId, fallbackContactEmail, setFormData, goToStep, onClose]);
 
-  // Setup step change callback
-  const handleStepChange = useCallback((_step: OnboardingStep, _prevStep: OnboardingStep) => {
-    // No-op: explicit saves are handled in continue/back handlers to avoid redundant/conflicting saves
-    return;
-  }, []);
-
-  const { currentStep, goNext, goBack, progress, isFirstStep, isLastStep } = useStepNavigation(handleStepChange);
   const { validateStep, clearErrors, errors } = useStepValidation();
 
   const handleStepContinue = async () => {
@@ -147,34 +214,28 @@ const BusinessOnboardingModal = ({
       return;
     }
 
+    const resumeStep = isLastStep ? currentStep : getAdjacentStep(currentStep, 1);
+
     // Save current step data before navigation (explicit save)
     try {
-      await saveOnboardingData(formData);
-    } catch (error) {
-      console.warn('[ONBOARDING][CONTINUE] Failed to save before navigation:', error);
-      setSubmitError('Failed to save onboarding progress');
-      setLoading(false);
-      return;
-    }
-
-    if (isLastStep) {
-      // Final step - complete onboarding
-      try {
+      await saveOnboardingData(formData, resumeStep);
+      if (isLastStep) {
+        await completeOnboarding();
+        showSuccess('Onboarding Complete', 'Your business onboarding is finished. You can now publish your assistant.');
         if (onCompleted) {
           await onCompleted();
         }
         onClose();
-      } catch (err) {
-        console.error('Failed to complete onboarding:', err);
-        setSubmitError(err instanceof Error ? err.message : 'Failed to complete onboarding');
-        setLoading(false);
-        return;
+      } else {
+        goNext();
       }
-    } else {
-      goNext();
+    } catch (error) {
+      console.warn('[ONBOARDING][CONTINUE] Failed to save before navigation:', error);
+      setSubmitError('Failed to save onboarding progress');
+      return;
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const handleBack = async () => {
@@ -186,9 +247,11 @@ const BusinessOnboardingModal = ({
       return;
     }
     
+    const resumeStep = getAdjacentStep(currentStep, -1);
+
     // Save current step data before navigation (explicit save)
     try {
-      await saveOnboardingData(formData);
+      await saveOnboardingData(formData, resumeStep);
     } catch (error) {
       console.warn('[ONBOARDING][BACK] Failed to save before navigation:', error);
       setSubmitError('Failed to save onboarding progress');

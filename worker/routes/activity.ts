@@ -3,7 +3,7 @@ import { SessionService } from '../services/SessionService';
 import { rateLimit, getClientId } from '../middleware/rateLimit';
 import { createRateLimitResponse } from '../errorHandler';
 import { HttpErrors, handleError } from '../errorHandler';
-import { parseJsonBody } from '../utils';
+import { parseJsonBody } from '../utils.js';
 import type { Env } from '../types';
 
 interface CreateActivityRequest {

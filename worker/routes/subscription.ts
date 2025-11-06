@@ -1,5 +1,5 @@
 import type { Env } from "../types";
-import { parseJsonBody } from "../utils";
+import { parseJsonBody } from "../utils.js";
 import { HttpErrors, handleError, createSuccessResponse } from "../errorHandler";
 import { requireAuth, requireOrgOwner } from "../middleware/auth.js";
 import {

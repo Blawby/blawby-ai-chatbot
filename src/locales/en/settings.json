@@ -57,7 +57,7 @@
       "sectionTitle": "Subscription Plan",
       "currentPlanLabel": "Current Plan: {{tier}}",
       "seatsLabel": "seats",
-      "manageBilling": "Manage billing",
+      "manageBilling": "Manage",
       "manage": "Manage",
       "upgrade": "Upgrade",
       "upgradeBusiness": "Upgrade",

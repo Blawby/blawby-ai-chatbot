@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useRef, useEffect, useState, useLayoutEffect } from 'preact/hooks';
+import { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'preact/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import { OrganizationNotFound } from './OrganizationNotFound';
@@ -21,6 +21,8 @@ import { useMatterState } from '../hooks/useMatterState';
 import { analyzeMissingInfo } from '../utils/matterAnalysis';
 import { THEME } from '../utils/constants';
 import { debounce } from '../utils/debounce';
+import { useToastContext } from '../contexts/ToastContext';
+import type { BusinessOnboardingStatus } from '../hooks/useOrganizationManagement';
 
 // Simple messages object for localization
 const messages = {
@@ -44,12 +46,16 @@ interface AppLayoutProps {
   currentOrganization?: {
     id: string;
     subscriptionTier?: string;
+    businessOnboardingStatus?: BusinessOnboardingStatus;
+    businessOnboardingCompletedAt?: number | null;
+    businessOnboardingHasDraft?: boolean;
   } | null;
   messages: ChatMessageUI[];
   onRequestConsultation?: () => void | Promise<void>;
   onSendMessage?: (message: string) => void;
   onUploadDocument?: (files: File[], metadata?: { documentType?: string; matterId?: string }) => Promise<FileAttachment[]>;
   children: React.ReactNode; // ChatContainer component
+  onOnboardingCompleted?: () => Promise<void> | void;
 }
 
 const AppLayout: FunctionComponent<AppLayoutProps> = ({
@@ -67,12 +73,14 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   onRequestConsultation,
   onSendMessage,
   onUploadDocument,
-  children
+  children,
+  onOnboardingCompleted
 }) => {
   // Matter state management
   const { matter, status: matterStatus } = useMatterState(chatMessages);
   // Temp: local state to open the onboarding modal via sidebar test button
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const { showError } = useToastContext();
   
   // Mobile state - initialized as false to avoid SSR/client hydration mismatch
   const [isMobile, setIsMobile] = useState(false);
@@ -194,6 +202,14 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     debounceMs: 0
   });
 
+  const handleOpenOnboarding = useCallback(() => {
+    if (!currentOrganization?.id) {
+      showError('Organization loading', 'Select an organization before starting onboarding.');
+      return;
+    }
+    setIsOnboardingOpen(true);
+  }, [currentOrganization?.id, showError]);
+
   if (organizationNotFound) {
     return <OrganizationNotFound organizationId={organizationId} onRetry={onRetryOrganizationConfig} />;
   }
@@ -211,6 +227,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     }
   };
 
+  const onboardingStatus = currentOrganization?.businessOnboardingStatus;
+  const hasOnboardingDraft = currentOrganization?.businessOnboardingHasDraft ?? false;
+  const onboardingOrganizationId = currentOrganization?.id;
+
   return (
     <div className="max-md:h-[100dvh] md:h-screen w-full flex bg-white dark:bg-dark-bg">
       {/* Left Sidebar - Desktop: always visible, Mobile: slide-out, Hidden when settings modal is open on mobile */}
@@ -222,7 +242,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               currentRoute={currentTab}
               onGoToChats={handleGoToChats}
               onGoToMatter={handleGoToMatter}
-              onOpenOnboarding={() => setIsOnboardingOpen(true)}
+              onOpenOnboarding={handleOpenOnboarding}
               matterStatus={matterStatus}
               organizationConfig={{
                 name: organizationConfig.name,
@@ -230,6 +250,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                 organizationId
               }}
               currentOrganization={currentOrganization}
+              onboardingStatus={onboardingStatus}
+              onboardingHasDraft={hasOnboardingDraft}
             />
           </div>
           
@@ -281,7 +303,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       onToggleMobileSidebar(false);
                     }}
                     onOpenOnboarding={() => {
-                      setIsOnboardingOpen(true);
+                      handleOpenOnboarding();
                       onToggleMobileSidebar(false);
                     }}
                     onClose={() => onToggleMobileSidebar(false)}
@@ -292,6 +314,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       organizationId
                     }}
                     currentOrganization={currentOrganization}
+                    onboardingStatus={onboardingStatus}
+                    onboardingHasDraft={hasOnboardingDraft}
                   />
                 </motion.div>
               </motion.div>
@@ -330,6 +354,9 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
             description={organizationConfig.description}
             variant="sidebar"
             showVerified={true}
+            businessOnboardingStatus={onboardingStatus}
+            onResumeOnboarding={handleOpenOnboarding}
+            businessOnboardingHasDraft={hasOnboardingDraft}
           />
 
           {/* Request Consultation Button - Primary Action */}
@@ -372,12 +399,15 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       )}
 
       {/* Temporary: Onboarding modal trigger via sidebar test button */}
-      <BusinessOnboardingModal
-        isOpen={isOnboardingOpen}
-        organizationId={organizationId}
-        organizationName={organizationConfig.name || undefined}
-        onClose={() => setIsOnboardingOpen(false)}
-      />
+      {isOnboardingOpen && onboardingOrganizationId && (
+        <BusinessOnboardingModal
+          isOpen={isOnboardingOpen}
+          organizationId={onboardingOrganizationId}
+          organizationName={organizationConfig.name || undefined}
+          onClose={() => setIsOnboardingOpen(false)}
+          onCompleted={onOnboardingCompleted}
+        />
+      )}
     </div>
   );
 };

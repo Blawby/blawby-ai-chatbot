@@ -78,7 +78,7 @@ function MainApp({
 		showErrorRef.current = showError;
 	}, [showError]);
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
-	const { currentOrganization } = useOrganizationManagement();
+	const { currentOrganization, refetch: refetchOrganizations } = useOrganizationManagement();
 
 	const isQuotaRestricted = Boolean(
 		quota &&
@@ -480,6 +480,7 @@ function MainApp({
 					description: organizationConfig?.description ?? ''
 				}}
 				currentOrganization={currentOrganization}
+				onOnboardingCompleted={refetchOrganizations}
 				messages={messages}
 				onSendMessage={handleSendMessage}
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {

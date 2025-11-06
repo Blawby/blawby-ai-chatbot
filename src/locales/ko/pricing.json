@@ -211,7 +211,9 @@
     "currentPlan": "[NEEDS TRANSLATION] Current Plan",
     "recommended": "[NEEDS TRANSLATION] Recommended",
     "popular": "[NEEDS TRANSLATION] Most Popular",
-    "close": "[NEEDS TRANSLATION] Close"
+    "close": "[NEEDS TRANSLATION] Close",
+    "manageBilling": "관리",
+    "openingBilling": "열리는 중…"
   },
   "billing": {
     "monthly": "[NEEDS TRANSLATION] month",

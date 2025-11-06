@@ -52,6 +52,8 @@
     "retry": "Réessayer",
     "plan": {
       "currentPlanLabel": "Forfait actuel : {{tier}}",
+      "manageBilling": "Gérer",
+      "manage": "Gérer",
       "tiers": {
         "free": "Gratuit",
         "plus": "Plus",

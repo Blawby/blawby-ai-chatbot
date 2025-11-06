@@ -211,7 +211,9 @@
     "currentPlan": "الخطة الحالية",
     "recommended": "موصى به",
     "popular": "الأكثر شعبية",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "manageBilling": "إدارة",
+    "openingBilling": "جارٍ الفتح…"
   },
   "billing": {
     "monthly": "شهر",

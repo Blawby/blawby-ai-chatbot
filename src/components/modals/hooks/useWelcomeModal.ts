@@ -18,15 +18,19 @@ export function useWelcomeModal(): UseWelcomeModalResult {
       const handler = (e: MessageEvent) => {
         if (e?.data === 'shown' && session?.user?.id) {
           const sessionKey = `welcomeModalShown_v1_${session.user.id}`;
+          // eslint-disable-next-line no-empty
           try { sessionStorage.setItem(sessionKey, '1'); } catch {}
           setShouldShow(false);
         }
       };
       bcRef.current.addEventListener('message', handler as never);
       return () => {
+        // eslint-disable-next-line no-empty
         try { bcRef.current?.removeEventListener('message', handler as never); } catch {}
+        // eslint-disable-next-line no-empty
         try { bcRef.current?.close(); } catch {}
       };
+      // eslint-disable-next-line no-empty
     } catch {}
   }, [session?.user?.id]);
 
@@ -61,8 +65,10 @@ export function useWelcomeModal(): UseWelcomeModalResult {
     }
     const userId = session.user.id;
     const sessionKey = `welcomeModalShown_v1_${userId}`;
+    // eslint-disable-next-line no-empty
     try { sessionStorage.setItem(sessionKey, '1'); } catch {}
     setShouldShow(false);
+    // eslint-disable-next-line no-empty
     try { bcRef.current?.postMessage('shown'); } catch {}
     try {
       await fetch('/api/users/welcome', {
@@ -70,6 +76,7 @@ export function useWelcomeModal(): UseWelcomeModalResult {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
+      // eslint-disable-next-line no-empty
     } catch {}
   }, [session?.user?.id]);
 

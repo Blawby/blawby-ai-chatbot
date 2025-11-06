@@ -211,7 +211,9 @@
     "currentPlan": "当前计划",
     "recommended": "推荐",
     "popular": "最受欢迎",
-    "close": "关闭"
+    "close": "关闭",
+    "manageBilling": "管理",
+    "openingBilling": "正在打开…"
   },
   "billing": {
     "monthly": "月",

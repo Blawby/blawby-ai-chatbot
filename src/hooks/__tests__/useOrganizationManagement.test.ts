@@ -112,7 +112,12 @@ describe('useOrganizationManagement', () => {
         })
       );
 
-      expect(result.current.organizations).toEqual(mockOrganizations);
+      expect(result.current.organizations).toHaveLength(1);
+      expect(result.current.organizations[0]).toMatchObject({
+        id: 'org-1',
+        name: 'Test Organization',
+        businessOnboardingStatus: 'pending',
+      });
       expect(result.current.loading).toBe(false);
       expect(result.current.error).toBeNull();
     });

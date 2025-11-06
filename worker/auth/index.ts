@@ -7,7 +7,7 @@ import type { Env } from "../types";
 import * as authSchema from "../db/auth.schema";
 import { EmailService } from "../services/EmailService.js";
 import { OrganizationService } from "../services/OrganizationService.js";
-import { handlePostSignup, setActiveOrganizationForSession } from "./hooks.js";
+import { handlePostSignup } from "./hooks.js";
 import { stripe as stripePlugin } from "@better-auth/stripe";
 import Stripe from "stripe";
 import {
@@ -1072,7 +1072,6 @@ export async function getAuth(env: Env, request?: Request) {
                   if (session.userId && session.id) {
                     try {
                       // Ensure a personal organization exists for the user (idempotent)
-                      let personalOrgId: string | undefined = undefined;
                       try {
                         const organizationService = new OrganizationService(env);
                         const existing = await organizationService.listOrganizations(session.userId);
@@ -1085,30 +1084,18 @@ export async function getAuth(env: Env, request?: Request) {
                             .first<{ name: string | null; email: string | null }>();
                           const fallbackName = (row?.name && row.name.trim()) || (row?.email?.split('@')[0] ?? 'New User');
                           const org = await organizationService.ensurePersonalOrganization(session.userId, fallbackName);
-                          personalOrgId = org.id; // Capture the org ID directly to avoid race condition
-                          console.log('✅ Ensured personal organization on session.create for user', session.userId, { organizationId: personalOrgId });
+                          console.log('✅ Ensured personal organization on session.create for user', session.userId, { organizationId: org.id });
                         } else {
-                          // Find the existing personal org ID
                           const personalOrg = existing.find(org => org.kind === 'personal');
-                          personalOrgId = personalOrg?.id;
-                          if (!personalOrgId) {
+                          if (!personalOrg?.id) {
                             console.warn(`⚠️ Personal org not found in existing orgs for user ${session.userId}, existing orgs:`, existing.map(o => ({ id: o.id, kind: o.kind })));
                           }
                         }
                       } catch (ensureError) {
                         console.error('❌ Failed to ensure personal organization on session.create:', ensureError);
                       }
-
-                      // Pass the org ID directly to avoid race condition with listOrganizations query
-                      // Use session.id (primary key) instead of session.token for more reliable updates
-                      if (!personalOrgId) {
-                        console.warn(`⚠️ personalOrgId is undefined when calling setActiveOrganizationForSession for user ${session.userId}, session ${session.id}`);
-                      } else {
-                        console.log(`🔧 Calling setActiveOrganizationForSession with personalOrgId: ${personalOrgId} for user ${session.userId}, session ${session.id}`);
-                        await setActiveOrganizationForSession(session.userId, session.id, env, personalOrgId);
-                      }
                     } catch (error) {
-                      console.error("❌ Failed to set active organization for session:", {
+                      console.error("❌ Failed to ensure personal organization for session:", {
                         error: error instanceof Error ? error.message : String(error),
                         userId: session.userId,
                         sessionId: session.id,

@@ -43,7 +43,7 @@ export const AccountPage = ({
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
-  const { syncSubscription, openBillingPortal, cancelSubscription, submitting } = usePaymentUpgrade();
+  const { syncSubscription, openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentOrganization, loading: orgLoading, refetch, getMembers, fetchMembers } = useOrganizationManagement();
   const { data: session, isPending } = useSession();
   const [links, setLinks] = useState<UserLinks | null>(null);
@@ -56,7 +56,7 @@ export const AccountPage = ({
   const [domainError, setDomainError] = useState<string | null>(null);
   const [deleteVerificationSent, setDeleteVerificationSent] = useState(false);
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  
 
   const resolvedOrgKind = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
   const resolvedSubscriptionStatus = normalizeSubscriptionStatus(currentOrganization?.subscriptionStatus, resolvedOrgKind);
@@ -180,6 +180,8 @@ export const AccountPage = ({
   const requiresPassword = passwordRequiredOverride ?? loginMethodRequiresPassword;
   const isOAuthUser = !requiresPassword;
 
+  // (moved) deletionBlockedBySubscription computed after isOwner is available
+
   // Check if current user is organization owner
   const currentUserEmail = session?.user?.email || '';
   const members = useMemo(() => {
@@ -194,6 +196,16 @@ export const AccountPage = ({
   }, [currentOrganization, currentUserEmail, members, session?.user?.id]);
   
   const isOwner = currentMember?.role === 'owner';
+
+  // Subscription deletion guard for personal account deletion (compute after isOwner)
+  const hasManagedSub = Boolean(currentOrganization?.stripeCustomerId);
+  const subStatus = (resolvedSubscriptionStatus || 'none').toLowerCase();
+  const deletionBlockedBySubscription = isOwner && hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
+
+  // SSR-safe origin for return URLs
+  const origin = (typeof window !== 'undefined' && window.location)
+    ? window.location.origin
+    : '';
 
   // Fetch members when organization is available (needed for owner check)
   useEffect(() => {
@@ -274,21 +286,7 @@ export const AccountPage = ({
     : DOMAIN_SELECT_VALUE;
 
 
-  const handleCancelSubscription = useCallback(async () => {
-    const orgId = currentOrganization?.id;
-    if (!orgId) return;
-    
-    try {
-      const success = await cancelSubscription(orgId);
-      if (success) {
-        setShowCancelConfirm(false);
-        await refetch();
-      }
-    } catch (error) {
-      console.error('Failed to cancel subscription:', error);
-      // Error already handled by cancelSubscription hook
-    }
-  }, [currentOrganization?.id, cancelSubscription, refetch]);
+  
 
   const handleDeleteAccount = () => {
     setShowDeleteConfirm(true);
@@ -673,17 +671,6 @@ export const AccountPage = ({
                   {t('settings:account.plan.upgrade')}
                 </Button>
               )}
-              {currentOrganization && isOwner && managedSubscription && activeSubscription && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowCancelConfirm(true)}
-                  disabled={submitting}
-                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                >
-                  {t('settings:account.plan.cancelSubscription')}
-                </Button>
-              )}
             </div>
           </SettingRow>
 
@@ -764,49 +751,34 @@ export const AccountPage = ({
           <SettingRow
             label={t('settings:account.delete.sectionTitle')}
           >
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleDeleteAccount}
-              className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500"
-            >
-              {t('settings:account.delete.button')}
-            </Button>
+            {deletionBlockedBySubscription ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => currentOrganization && openBillingPortal({
+                  organizationId: currentOrganization.id,
+                  returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
+                })}
+                data-testid="account-delete-action"
+              >
+                Manage
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleDeleteAccount}
+                className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 focus:ring-red-500"
+                data-testid="account-delete-action"
+              >
+                {t('settings:account.delete.button')}
+              </Button>
+            )}
           </SettingRow>
         </div>
       </div>
 
-      {/* Cancel Subscription Confirmation Dialog */}
-      <Modal
-        isOpen={showCancelConfirm}
-        onClose={() => setShowCancelConfirm(false)}
-        title={t('settings:account.plan.cancel.modalTitle')}
-        showCloseButton={true}
-        type="modal"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {t('settings:account.plan.cancel.description')}
-          </p>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={() => setShowCancelConfirm(false)}
-              disabled={submitting}
-            >
-              {t('settings:account.plan.cancel.goBack')}
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={handleCancelSubscription}
-              disabled={submitting}
-              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            >
-              {submitting ? t('settings:account.plan.cancel.cancelling') : t('settings:account.plan.cancel.cancelButton')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+
 
       {/* Delete Account Confirmation Dialog */}
       <ConfirmationDialog

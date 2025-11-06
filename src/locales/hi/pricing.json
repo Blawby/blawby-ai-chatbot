@@ -211,7 +211,9 @@
     "currentPlan": "वर्तमान योजना",
     "recommended": "अनुशंसित",
     "popular": "सबसे लोकप्रिय",
-    "close": "बंद करें"
+    "close": "बंद करें",
+    "manageBilling": "प्रबंधित करें",
+    "openingBilling": "खोला जा रहा है…"
   },
   "billing": {
     "monthly": "महीना",

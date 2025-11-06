@@ -17,7 +17,7 @@ import type { OnboardingStep, OnboardingFormData } from '../hooks';
 interface OnboardingStepRendererProps {
   currentStep: OnboardingStep;
   stepData: OnboardingFormData;
-  onChange: (field: keyof OnboardingFormData, value: any) => void;
+  onChange: (field: keyof OnboardingFormData, value: unknown) => void;
   onContinue: () => void;
   onBack: () => void;
   errors?: string | null;

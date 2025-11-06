@@ -1,5 +1,6 @@
 import { FaceSmileIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
+import type { BusinessOnboardingStatus } from '../hooks/useOrganizationManagement';
 
 interface OrganizationProfileProps {
 	name: string;
@@ -8,6 +9,9 @@ interface OrganizationProfileProps {
 	description?: string | null;
 	variant?: 'sidebar' | 'welcome';
 	showVerified?: boolean;
+	businessOnboardingStatus?: BusinessOnboardingStatus;
+	businessOnboardingHasDraft?: boolean;
+	onResumeOnboarding?: () => void;
 }
 
 export default function OrganizationProfile({ 
@@ -16,7 +20,7 @@ export default function OrganizationProfile({
 	organizationId, 
 	description,
 	variant = 'sidebar',
-	showVerified = true 
+	showVerified = true,
 }: OrganizationProfileProps) {
 	const { t } = useTranslation('organization');
 	const isWelcome = variant === 'welcome';
@@ -50,6 +54,8 @@ export default function OrganizationProfile({
 			<div className="text-center w-full">
 				<span className="text-sm sm:text-base lg:text-lg font-medium text-[#d4af37] truncate block" title={t('profile.slug', { id: organizationId })}>@{organizationId}</span>
 			</div>
+
+			{/* Onboarding reminder removed in favor of global top banner */}
 
 			{/* Organization Description - Only show for welcome variant */}
 			{description && variant === 'welcome' && (

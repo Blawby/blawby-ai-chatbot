@@ -88,6 +88,11 @@ interface FeatureFlags {
      */
     enableParalegalAgent: boolean;
 
+    /**
+     * Enable Plus subscription tier in UI
+     * When false, the Plus plan is hidden from pricing/upgrade flows
+     */
+    enablePlusTier: boolean;
 }
 
 // Immutable base configuration
@@ -105,12 +110,14 @@ const baseFeatureConfig: FeatureFlags = {
     enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
     enableMultipleOrganizations: true, // Enable multiple organizations feature
     enableParalegalAgent: false, // Disable paralegal agent features by default
+    enablePlusTier: false, // Hide Plus plan by default (not available at launch)
 };
 
 // DEV-only overrides (computed via spread, no mutation)
 const devOverrides: Partial<FeatureFlags> = import.meta.env.DEV ? {
     // Enable all features in development if needed
     // enableAudioRecording: true,
+    // enablePlusTier: true,
 } : {};
 
 // Export frozen, readonly configuration

@@ -1,6 +1,6 @@
 import type { Env } from '../types';
 import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
-import { parseJsonBody } from '../utils';
+import { parseJsonBody } from '../utils.js';
 import { PaymentService } from '../services/PaymentService';
 import { PaymentRequest } from '../schemas';
 import { MockPaymentService } from '../services/MockPaymentService';

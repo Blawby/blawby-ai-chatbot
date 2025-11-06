@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { MatterStatus } from '../types/matter';
 import { SidebarContent } from './ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '../hooks/useMobileDetection';
+import type { BusinessOnboardingStatus } from '../hooks/useOrganizationManagement';
 
 interface LeftSidebarProps {
   currentRoute: string;
@@ -19,9 +20,11 @@ interface LeftSidebarProps {
     id: string;
     subscriptionTier?: string;
   } | null;
+  onboardingStatus?: BusinessOnboardingStatus;
+  onboardingHasDraft?: boolean;
 }
 
-const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding, onClose, matterStatus, organizationConfig, currentOrganization }: LeftSidebarProps) => {
+const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding, onClose, matterStatus, organizationConfig, currentOrganization, onboardingStatus, onboardingHasDraft }: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useMobileDetection();
   
@@ -39,6 +42,8 @@ const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding
         onClose={onClose}
         matterStatus={matterStatus}
         currentOrganization={currentOrganization}
+        onboardingStatus={onboardingStatus}
+        onboardingHasDraft={onboardingHasDraft}
         isCollapsed={shouldShowCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
       />

@@ -45,7 +45,7 @@
   - Update org to `business` if status is `active`.
 
 4) Session/org alignment (previously added)
-- `POST /api/organizations/active` to set session active org.
+- Better Auth's `/api/auth/organization/set-active` endpoint (via `authClient.organization.setActive`) now manages the active org.
 - Cart sets active org before initiating checkout.
 
 ## Still Recommended
@@ -69,5 +69,4 @@
 - `🔔 onSubscriptionComplete { referenceId: <orgId>, stripeSubscriptionId: <sub_...>, status: active }`
 - `✅ Subscription persisted (complete): { success: true, changes: 1 }`
 - `✅ Organization tier updated (complete): { success: true, changes: 1, organizationId: <orgId> }`
-
 

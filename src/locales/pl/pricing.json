@@ -211,7 +211,9 @@
     "currentPlan": "[NEEDS TRANSLATION] Current Plan",
     "recommended": "[NEEDS TRANSLATION] Recommended",
     "popular": "[NEEDS TRANSLATION] Most Popular",
-    "close": "[NEEDS TRANSLATION] Close"
+    "close": "[NEEDS TRANSLATION] Close",
+    "manageBilling": "Zarządzaj",
+    "openingBilling": "Otwieranie…"
   },
   "billing": {
     "monthly": "[NEEDS TRANSLATION] month",

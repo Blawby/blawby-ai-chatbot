@@ -20,6 +20,7 @@ import { useSession } from '../../../contexts/AuthContext';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { normalizeSeats } from '../../../utils/subscription';
 import { useLocation } from 'preact-iso';
+import { useTranslation } from '@/i18n/hooks';
 
 interface OrganizationPageProps {
   className?: string;
@@ -53,6 +54,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   const { navigate } = useNavigation();
   const location = useLocation();
   const { openBillingPortal, syncSubscription, submitting } = usePaymentUpgrade();
+  const { t } = useTranslation(['settings']);
   
   // Get current user email from session
   const currentUserEmail = session?.user?.email || '';
@@ -110,8 +112,29 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     ? window.location.origin
     : '';
 
+  // Subscription guard for deletion
+  const hasManagedSub = Boolean(currentOrganization?.stripeCustomerId);
+  const subStatus = (currentOrganization?.subscriptionStatus || 'none').toLowerCase();
+  const deletionBlockedBySubscription = hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
+  const deletionBlockedMessage = (() => {
+    if (!deletionBlockedBySubscription) return '';
+    const end = currentOrganization?.subscriptionPeriodEnd ? new Date((currentOrganization.subscriptionPeriodEnd as number) * 1000) : null;
+    if (end) {
+      return `Subscription must be canceled before deleting. Access ends on ${formatDate(end)}.`;
+    }
+    return 'Subscription must be canceled in Stripe before deleting this organization.';
+  })();
+
 
   // Current user email is now derived from session - no need for useEffect
+
+  useEffect(() => {
+    if (!currentOrganization) return;
+    const allowed = Boolean(currentOrganization.stripeCustomerId) && (String(currentOrganization.subscriptionStatus || 'none').toLowerCase() !== 'none');
+    if (!allowed) {
+      navigate('/settings/account');
+    }
+  }, [currentOrganization?.stripeCustomerId, currentOrganization?.subscriptionStatus, navigate]);
 
   // Initialize form with current organization data
   useEffect(() => {
@@ -476,7 +499,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                           disabled={submitting}
                           className="ml-2 underline text-blue-600 hover:text-blue-700"
                         >
-                          Manage billing
+                          {t('settings:account.plan.manage')}
                         </Button>
                       )}
                     </p>
@@ -648,7 +671,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                   <div className="border-t border-gray-200 dark:border-dark-border" />
 
                   {/* Delete Organization Section (Owner only) */}
-                  <div className="flex items-center justify-between py-3">
+                  <div className="flex items-center justify-between py-3" data-testid="org-delete-section">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Organization</h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -656,15 +679,31 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                       </p>
                     </div>
                     <div className="ml-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowDeleteModal(true)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <TrashIcon className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
+                      {deletionBlockedBySubscription ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openBillingPortal({ 
+                            organizationId: currentOrganization!.id, 
+                            returnUrl: origin ? `${origin}/settings/organization?sync=1` : '/settings/organization?sync=1' 
+                          })}
+                          disabled={submitting}
+                          data-testid="org-delete-action"
+                        >
+                          {t('settings:account.plan.manage')}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowDeleteModal(true)}
+                          className="text-red-600 hover:text-red-700"
+                          data-testid="org-delete-action"
+                        >
+                          <TrashIcon className="w-4 h-4 mr-2" />
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </>

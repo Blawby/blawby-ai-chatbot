@@ -26,6 +26,7 @@ interface ApiSuccessResponse {
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
+export type BusinessOnboardingStatus = 'not_required' | 'pending' | 'completed' | 'skipped';
 
 export interface Organization {
   id: string;
@@ -46,6 +47,10 @@ export interface Organization {
   };
   kind?: 'personal' | 'business';
   isPersonal?: boolean | null;
+  businessOnboardingStatus?: BusinessOnboardingStatus;
+  businessOnboardingCompletedAt?: number | null;
+  businessOnboardingSkipped?: boolean;
+  businessOnboardingHasDraft?: boolean;
 }
 
 export interface Member {
@@ -189,6 +194,62 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     return undefined as Organization['config'] & { description?: string } | undefined;
   })();
 
+  const onboardingCompletedAt = (() => {
+    const camel = (raw as Record<string, unknown>).businessOnboardingCompletedAt;
+    const snake = (raw as Record<string, unknown>).business_onboarding_completed_at;
+    const value = camel !== undefined ? camel : snake;
+    if (value === null) return null;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return undefined;
+  })();
+
+  const onboardingSkipped = (() => {
+    const camel = (raw as Record<string, unknown>).businessOnboardingSkipped;
+    const snake = (raw as Record<string, unknown>).business_onboarding_skipped;
+    const value = camel !== undefined ? camel : snake;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === '1' || normalized === 'true';
+    }
+    return false;
+  })();
+
+  const onboardingData = (() => {
+    const camel = (raw as Record<string, unknown>).businessOnboardingData;
+    const snake = (raw as Record<string, unknown>).business_onboarding_data;
+    const value = camel !== undefined ? camel : snake;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    if (typeof value === 'string' && value.trim().length > 0) {
+      try {
+        return JSON.parse(value) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  })();
+
+  const onboardingStatus: BusinessOnboardingStatus = (() => {
+    if (resolvedKind === 'personal') {
+      return 'not_required';
+    }
+    if (typeof onboardingCompletedAt === 'number') {
+      return 'completed';
+    }
+    if (onboardingSkipped) {
+      return 'skipped';
+    }
+    return 'pending';
+  })();
+
   return {
     id,
     slug,
@@ -210,6 +271,10 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     config: cfg,
     kind: resolvedKind,
     isPersonal: rawIsPersonal ?? (resolvedKind === 'personal'),
+    businessOnboardingCompletedAt: onboardingCompletedAt,
+    businessOnboardingSkipped: onboardingSkipped,
+    businessOnboardingHasDraft: onboardingData != null && Object.keys(onboardingData).length > 0,
+    businessOnboardingStatus: onboardingStatus,
   };
 }
 
@@ -394,7 +459,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       }
       
       // Only fetch user orgs if authenticated
-      let data = await apiCall(`${getOrganizationsEndpoint()}/me`);
+      const data = await apiCall(`${getOrganizationsEndpoint()}/me`);
 
       const rawOrgList = Array.isArray(data) ? data : [];
       const normalizedList = rawOrgList

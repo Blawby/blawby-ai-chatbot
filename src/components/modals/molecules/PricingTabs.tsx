@@ -16,7 +16,7 @@ const PricingTabs: FunctionComponent<PricingTabsProps> = ({ selected, onSelect, 
     (tab === 'personal' ? personalRef.current : businessRef.current)?.focus();
   };
 
-  const onKeyDown = (e: KeyboardEvent) => {
+  const onKeyDown = (e: preact.JSX.TargetedKeyboardEvent<HTMLButtonElement>) => {
     const keys = ['ArrowLeft','ArrowRight','Home','End'];
     if (!keys.includes(e.key)) return;
     e.preventDefault();
@@ -37,7 +37,7 @@ const PricingTabs: FunctionComponent<PricingTabsProps> = ({ selected, onSelect, 
         role="tab"
         aria-selected={selected === 'personal'}
         tabIndex={selected === 'personal' ? 0 : -1}
-        onKeyDown={onKeyDown as any}
+        onKeyDown={onKeyDown}
         onClick={() => onSelect('personal')}
         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
           selected === 'personal' ? 'bg-dark-bg text-white' : 'text-gray-400 hover:text-white'
@@ -51,7 +51,7 @@ const PricingTabs: FunctionComponent<PricingTabsProps> = ({ selected, onSelect, 
         role="tab"
         aria-selected={selected === 'business'}
         tabIndex={selected === 'business' ? 0 : -1}
-        onKeyDown={onKeyDown as any}
+        onKeyDown={onKeyDown}
         onClick={() => onSelect('business')}
         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
           selected === 'business' ? 'bg-dark-bg text-white' : 'text-gray-400 hover:text-white'

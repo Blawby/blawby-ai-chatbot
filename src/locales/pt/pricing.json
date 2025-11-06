@@ -211,7 +211,9 @@
     "currentPlan": "Plano Atual",
     "recommended": "Recomendado",
     "popular": "Mais Popular",
-    "close": "Fechar"
+    "close": "Fechar",
+    "manageBilling": "Gerenciar",
+    "openingBilling": "Abrindo…"
   },
   "billing": {
     "monthly": "mês",

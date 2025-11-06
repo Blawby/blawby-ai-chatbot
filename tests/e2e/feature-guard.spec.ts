@@ -10,22 +10,18 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     // Ensure the personal organization exists (idempotent on server)
     await fetchJsonViaPage(page, '/api/organizations/me/ensure-personal', { method: 'POST' });
 
-    // Poll for active organization first (also sets active_organization_id if missing)
     const retries = 8;
     const delayMs = 400;
     for (let i = 0; i < retries; i++) {
-      const activeResp = await fetchJsonViaPage(page, '/api/organizations/active');
-      if (activeResp.status === 200 && activeResp.data?.success) {
-        const activeOrg = activeResp.data.data?.organization;
-        if (activeOrg?.kind === 'personal') {
-          return activeOrg;
-        }
-      }
-
       const orgsResult = await fetchJsonViaPage(page, '/api/organizations/me');
       if (orgsResult.status === 200 && orgsResult.data?.success) {
         const personalOrg = orgsResult.data.data?.find((org: { kind?: string }) => org?.kind === 'personal');
-        if (personalOrg) {
+        if (personalOrg?.id) {
+          await fetchJsonViaPage(page, '/api/auth/organization/set-active', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ organizationId: personalOrg.id }),
+          });
           return personalOrg;
         }
       }
@@ -114,8 +110,11 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     // But we can test that the endpoint exists and handles quota errors properly
     
     // Ensure active organization is set for session (prefer using active if available)
-    const activeResp = await fetchJsonViaPage(page, '/api/organizations/active');
-    const orgIdToUse = activeResp.data?.data?.activeOrganizationId ?? personalOrg.id;
+    const activeResp = await fetchJsonViaPage(page, '/api/auth/organization/get-full-organization');
+    const activeOrgId = activeResp.status === 200 && activeResp.data && typeof activeResp.data === 'object'
+      ? (activeResp.data as { id?: string }).id
+      : undefined;
+    const orgIdToUse = activeOrgId ?? personalOrg.id;
 
     // Try to send a message - if quota is exceeded, should get 402
     const chatResponse = await postStreamViaPage(page, '/api/agent/stream', {
@@ -142,8 +141,11 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     const personalOrg = await getPersonalOrganization(page);
     
     // Ensure active organization is set for session (prefer using active if available)
-    const activeResp = await fetchJsonViaPage(page, '/api/organizations/active');
-    const orgIdToUse = activeResp.data?.data?.activeOrganizationId ?? personalOrg.id;
+    const activeResp = await fetchJsonViaPage(page, '/api/auth/organization/get-full-organization');
+    const activeOrgId = activeResp.status === 200 && activeResp.data && typeof activeResp.data === 'object'
+      ? (activeResp.data as { id?: string }).id
+      : undefined;
+    const orgIdToUse = activeOrgId ?? personalOrg.id;
 
     // Create a test file and try to upload
     const testFileContent = 'Test file content for quota testing';
@@ -174,8 +176,11 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     const personalOrg = await getPersonalOrganization(page);
     
     // Ensure active organization is set for session (prefer using active if available)
-    const activeResp = await fetchJsonViaPage(page, '/api/organizations/active');
-    const orgIdToUse = activeResp.data?.data?.activeOrganizationId ?? personalOrg.id;
+    const activeResp = await fetchJsonViaPage(page, '/api/auth/organization/get-full-organization');
+    const activeOrgId = activeResp.status === 200 && activeResp.data && typeof activeResp.data === 'object'
+      ? (activeResp.data as { id?: string }).id
+      : undefined;
+    const orgIdToUse = activeOrgId ?? personalOrg.id;
 
     // Send a chat message - should succeed if quota allows
     const chatResponse = await postStreamViaPage(page, '/api/agent/stream', {
@@ -261,8 +266,11 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     expect(personalOrg.subscriptionTier === 'free' || personalOrg.subscriptionTier === undefined || personalOrg.subscriptionTier === null).toBe(true);
 
     // Ensure active organization is set for session (prefer using active if available)
-    const activeResp = await fetchJsonViaPage(page, '/api/organizations/active');
-    const orgIdToUse = activeResp.data?.data?.activeOrganizationId ?? personalOrg.id;
+    const activeResp = await fetchJsonViaPage(page, '/api/auth/organization/get-full-organization');
+    const activeOrgId = activeResp.status === 200 && activeResp.data && typeof activeResp.data === 'object'
+      ? (activeResp.data as { id?: string }).id
+      : undefined;
+    const orgIdToUse = activeOrgId ?? personalOrg.id;
 
     // Send a chat message via API - for free tier within quota this should succeed (200)
     const chatResponse = await postStreamViaPage(page, '/api/agent/stream', {
@@ -279,4 +287,3 @@ test.describe('Feature Guard - Quota Enforcement', () => {
     }
   });
 });
-

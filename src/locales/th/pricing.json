@@ -211,7 +211,9 @@
     "currentPlan": "แผนปัจจุบัน",
     "recommended": "แนะนำ",
     "popular": "ยอดนิยมที่สุด",
-    "close": "ปิด"
+    "close": "ปิด",
+    "manageBilling": "จัดการ",
+    "openingBilling": "กำลังเปิด…"
   },
   "billing": {
     "monthly": "เดือน",

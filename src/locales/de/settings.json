@@ -52,6 +52,8 @@
     "retry": "Wiederholen",
     "plan": {
       "currentPlanLabel": "Aktueller Plan: {{tier}}",
+      "manageBilling": "Verwalten",
+      "manage": "Verwalten",
       "tiers": {
         "free": "Kostenlos",
         "plus": "Plus",

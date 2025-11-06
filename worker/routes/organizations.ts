@@ -137,37 +137,6 @@ function parseJsonField<T = unknown>(value: unknown): T | null {
     return null;
   }
 }
-
-/**
- * Produce a truncated and redacted preview of a potentially sensitive body string.
- * - Masks common sensitive patterns (emails, JWTs, long tokens, credit card-like numbers, SSNs)
- * - Truncates to a maximum length to avoid logging entire payloads
- */
-function createSafeBodyPreview(raw: string, maxPreviewChars: number = 200): string {
-  let masked = raw;
-
-  // Email addresses
-  masked = masked.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]');
-
-  // JWT-like tokens (three base64url parts separated by dots). Enforce minimum segment lengths
-  // to avoid false positives like "1.2.3" or "foo.bar.baz".
-  masked = masked.replace(/\b[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{8,}\b/g, '[REDACTED_JWT]');
-
-  // Long API keys/tokens (20+ contiguous base64url/hex-like chars)
-  masked = masked.replace(/\b[a-zA-Z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
-
-  // Credit card-like numbers (13-19 digits, allowing spaces or dashes)
-  masked = masked.replace(/\b(?=(?:\D*\d){13,19}\b)\d(?:[ -]?\d){12,18}\b/g, '[REDACTED_CARD]');
-
-  // US SSN-like patterns
-  masked = masked.replace(/\b\d{3}-?\d{2}-?\d{4}\b/g, '[REDACTED_SSN]');
-
-  if (masked.length > maxPreviewChars) {
-    return masked.slice(0, maxPreviewChars) + '…';
-  }
-  return masked;
-}
-
 async function recordOrganizationEvent(
   env: Env,
   organizationId: string,
@@ -231,32 +200,6 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     if ((path === '/me' || path === '/me/') && request.method === 'GET') {
       const authContext = await requireAuth(request, env);
       
-      // Ensure active_organization_id is set for this session if it's not already set
-      // This handles cases where the session was created before the hook ran, or
-      // where Better Auth reused an existing session on sign-in
-      const sessionRow = await env.DB.prepare(
-        `SELECT active_organization_id FROM sessions WHERE id = ? LIMIT 1`
-      ).bind(authContext.session.id).first<{ active_organization_id: string | null }>();
-      
-      // Check if active_organization_id is null or empty (handles both NULL and string "null")
-      const activeOrgId = sessionRow?.active_organization_id;
-      const needsUpdate =
-        activeOrgId == null ||
-        activeOrgId === 'null' ||
-        (typeof activeOrgId === 'string' && activeOrgId.trim() === '');
-      
-      if (sessionRow && needsUpdate) {
-        // Session doesn't have active_organization_id set, find and set it
-        const organizations = await organizationService.listOrganizations(authContext.user.id);
-        const personalOrg = organizations.find(org => org.kind === 'personal');
-        if (personalOrg) {
-          await env.DB.prepare(
-            `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
-          ).bind(personalOrg.id, Math.floor(Date.now()/1000), authContext.session.id, authContext.user.id).run();
-          console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id}`);
-        }
-      }
-      
       const organizations = await organizationService.listOrganizations(authContext.user.id);
 
       return new Response(
@@ -280,129 +223,6 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       return createSuccessResponse({
         organization: organization ? sanitizeOrganizationResponse(organization) : null,
       });
-    }
-
-    // GET current active organization for session
-    if ((path === '/active' || path === '/active/') && request.method === 'GET') {
-      const authContext = await requireAuth(request, env);
-      
-      // Query the session's active_organization_id from the database
-      const sessionRow = await env.DB.prepare(
-        `SELECT active_organization_id FROM sessions WHERE id = ? LIMIT 1`
-      ).bind(authContext.session.id).first<{ active_organization_id: string | null }>();
-      
-      if (!sessionRow) {
-        throw HttpErrors.notFound('Session not found');
-      }
-      
-      // Check if active_organization_id is null or the string "null" (handles both cases)
-      let activeOrgId = sessionRow.active_organization_id;
-      const needsUpdate =
-        activeOrgId == null ||
-        activeOrgId === 'null' ||
-        (typeof activeOrgId === 'string' && activeOrgId.trim() === '');
-      
-      // If not set, find and set it (same logic as /me endpoint)
-      if (needsUpdate) {
-        const organizations = await organizationService.listOrganizations(authContext.user.id);
-        const personalOrg = organizations.find(org => org.kind === 'personal');
-        if (personalOrg) {
-          await env.DB.prepare(
-            `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`
-          ).bind(personalOrg.id, Math.floor(Date.now()/1000), authContext.session.id, authContext.user.id).run();
-          activeOrgId = personalOrg.id;
-          console.log(`✅ Set active_organization_id for session ${authContext.session.id} to personal org ${personalOrg.id} (via /active endpoint)`);
-        }
-      }
-      
-      if (
-        activeOrgId == null ||
-        activeOrgId === 'null' ||
-        (typeof activeOrgId === 'string' && activeOrgId.trim() === '')
-      ) {
-        return createSuccessResponse({ activeOrganizationId: null });
-      }
-      
-      // Verify the organization exists and user has access
-      const organization = await organizationService.getOrganization(activeOrgId);
-      if (!organization) {
-        return createSuccessResponse({ activeOrganizationId: null });
-      }
-      
-      // Verify user is a member
-      const membershipRow = await env.DB.prepare(
-        `SELECT role FROM members WHERE organization_id = ? AND user_id = ? LIMIT 1`
-      ).bind(activeOrgId, authContext.user.id).first<{ role: string }>();
-      if (!membershipRow) {
-        return createSuccessResponse({ activeOrganizationId: null });
-      }
-      
-      return createSuccessResponse({
-        activeOrganizationId: activeOrgId,
-        organization: sanitizeOrganizationResponse(organization)
-      });
-    }
-
-    // Explicitly set active organization for current session (used before checkout)
-    if ((path === '/active' || path === '/active/') && request.method === 'POST') {
-      const authContext = await requireAuth(request, env);
-      let body: unknown = {};
-      const requestClone = request.clone();
-      try {
-        body = await request.json();
-      } catch (error) {
-        let rawBody: string | undefined;
-        try {
-          rawBody = await requestClone.text();
-        } catch (_readError) {
-          rawBody = undefined;
-        }
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const bodyLength = typeof rawBody === 'string' ? rawBody.length : undefined;
-        const bodyPreview = typeof rawBody === 'string' ? createSafeBodyPreview(rawBody) : undefined;
-        throw HttpErrors.badRequest(
-          `Invalid JSON body: ${errorMessage}`,
-          {
-            endpoint: 'POST /api/organizations/active',
-            bodyLength,
-            bodyPreview
-          }
-        );
-      }
-
-      if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-        throw HttpErrors.badRequest('request body must be a JSON object', {
-          endpoint: 'POST /api/organizations/active'
-        });
-      }
-
-      const organizationId = (body as { organizationId?: string }).organizationId;
-      if (!organizationId) {
-        throw HttpErrors.badRequest('organizationId is required');
-      }
-
-      // Validate membership (any member can set their active org)
-      await requireOrgMember(request, env, organizationId);
-
-      // Confirm session row exists before updating
-      const existingSession = await env.DB.prepare(
-        `SELECT id FROM sessions WHERE id = ? LIMIT 1`
-      ).bind(authContext.session.id).first<{ id: string }>();
-
-      if (!existingSession) {
-        throw HttpErrors.notFound('Session not found for active organization update');
-      }
-
-      // Update active organization on this session id (no token needed)
-      const update = await env.DB.prepare(
-        `UPDATE sessions SET active_organization_id = ?, updated_at = ? WHERE id = ?`
-      ).bind(organizationId, Math.floor(Date.now()/1000), authContext.session.id).run();
-
-      if (!update.success) {
-        throw HttpErrors.internalServerError('Failed to update active organization for session');
-      }
-
-      return createSuccessResponse({ activeOrganizationId: organizationId });
     }
 
     if (pathSegments.length === 2 && pathSegments[1] === 'member') {
@@ -1046,6 +866,30 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           }
           
           await requireOrgOwner(request, env, targetOrganization.id);
+          // Guard: prevent deletion if Stripe subscription is active (managed)
+          const subStatus = (targetOrganization.subscriptionStatus || 'none').toLowerCase();
+          const hasManagedSubscription = Boolean(targetOrganization.stripeCustomerId);
+          const isCanceled = subStatus === 'canceled' || subStatus === 'none';
+
+          if (hasManagedSubscription && !isCanceled) {
+            // Block deletion until subscription is fully canceled via Stripe webhooks
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Subscription must be canceled before deleting the organization',
+                code: 'SUBSCRIPTION_ACTIVE',
+                details: {
+                  subscriptionStatus: subStatus,
+                  subscriptionPeriodEnd: targetOrganization.subscriptionPeriodEnd ?? null
+                }
+              }),
+              {
+                status: 409,
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
           return await deleteOrganization(organizationService, targetOrganization.id);
         }
         console.log('DELETE path does not start with /');

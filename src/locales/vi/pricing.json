@@ -211,7 +211,9 @@
     "currentPlan": "Gói Hiện tại",
     "recommended": "Được đề xuất",
     "popular": "Phổ biến nhất",
-    "close": "Đóng"
+    "close": "Đóng",
+    "manageBilling": "Quản lý",
+    "openingBilling": "Đang mở…"
   },
   "billing": {
     "monthly": "tháng",

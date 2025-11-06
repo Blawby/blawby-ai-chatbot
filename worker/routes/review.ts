@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import { parseJsonBody } from '../utils';
+import { parseJsonBody } from '../utils.js';
 import { ReviewService } from '../services/ReviewService';
 import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
 

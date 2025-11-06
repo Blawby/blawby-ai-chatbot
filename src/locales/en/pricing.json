@@ -281,7 +281,9 @@
     "currentPlan": "Your current plan",
     "recommended": "Recommended",
     "popular": "Most Popular",
-    "close": "Close"
+    "close": "Close",
+    "manageBilling": "Manage",
+    "openingBilling": "Opening…"
   },
   "footer": {
     "enterprise": {

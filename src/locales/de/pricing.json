@@ -211,7 +211,9 @@
     "currentPlan": "Aktueller Tarif",
     "recommended": "Empfohlen",
     "popular": "Am Beliebtesten",
-    "close": "Schließen"
+    "close": "Schließen",
+    "manageBilling": "Verwalten",
+    "openingBilling": "Öffnen…"
   },
   "billing": {
     "monthly": "Monat",
