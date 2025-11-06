@@ -84,3 +84,6 @@ backups/
 # Cookie files (may contain session tokens)
 cookies.txt
 *.cookies.txt
+
+# Playwright auth state (contains session tokens and PII)
+playwright/.auth/
