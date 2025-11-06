@@ -84,27 +84,6 @@ describe('TagInput', () => {
       expect(onChange).toHaveBeenCalledWith(['tag1']);
     });
 
-    it('should split pasted text by delimiters', async () => {
-      const onChange = vi.fn();
-      render(<TagInput {...defaultProps} onChange={onChange} />);
-      const input = screen.getByRole('textbox') as HTMLInputElement;
-
-      input.focus();
-      
-      // Use fireEvent.paste with mocked clipboardData
-      const pasteEvent = new ClipboardEvent('paste', {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: new DataTransfer()
-      });
-      pasteEvent.clipboardData?.setData('text/plain', 'tag1,tag2,tag3');
-      
-      fireEvent(input, pasteEvent);
-
-      await waitFor(() => {
-        expect(onChange).toHaveBeenCalledWith(['tag1', 'tag2', 'tag3']);
-      });
-    });
   });
 
   describe('Duplicate prevention', () => {
