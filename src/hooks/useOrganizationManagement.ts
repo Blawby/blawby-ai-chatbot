@@ -26,12 +26,14 @@ interface ApiSuccessResponse {
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
+export type BusinessOnboardingStatus = 'not_required' | 'pending' | 'completed' | 'skipped';
 
 export interface Organization {
   id: string;
   slug: string;
   name: string;
   description?: string;
+  betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
@@ -46,6 +48,10 @@ export interface Organization {
   };
   kind?: 'personal' | 'business';
   isPersonal?: boolean | null;
+  businessOnboardingStatus?: BusinessOnboardingStatus;
+  businessOnboardingCompletedAt?: number | null;
+  businessOnboardingSkipped?: boolean;
+  businessOnboardingHasDraft?: boolean;
 }
 
 export interface Member {
@@ -188,6 +194,69 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     }
     return undefined as Organization['config'] & { description?: string } | undefined;
   })();
+  const betterAuthOrgId = (() => {
+    const direct = (raw as Record<string, unknown>).betterAuthOrgId;
+    if (typeof direct === 'string' && direct.trim().length > 0) return direct;
+    const fromCfg = cfg && (cfg as unknown as { betterAuthOrgId?: string }).betterAuthOrgId;
+    if (typeof fromCfg === 'string' && fromCfg.trim().length > 0) return fromCfg;
+    return id; // fallback to our DB id, aligned with backend mapping
+  })();
+
+  const onboardingCompletedAt = (() => {
+    const camel = (raw as Record<string, unknown>).businessOnboardingCompletedAt;
+    const snake = (raw as Record<string, unknown>).business_onboarding_completed_at;
+    const value = camel !== undefined ? camel : snake;
+    if (value === null) return null;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const ts = new Date(value.trim()).getTime();
+      return Number.isFinite(ts) ? ts : null;
+    }
+    return undefined;
+  })();
+
+  const onboardingSkipped = (() => {
+    const camel = (raw as Record<string, unknown>).businessOnboardingSkipped;
+    const snake = (raw as Record<string, unknown>).business_onboarding_skipped;
+    const value = camel !== undefined ? camel : snake;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === '1' || normalized === 'true';
+    }
+    return undefined;
+  })();
+
+  const onboardingData = (() => {
+    const camel = (raw as Record<string, unknown>).businessOnboardingData;
+    const snake = (raw as Record<string, unknown>).business_onboarding_data;
+    const value = camel !== undefined ? camel : snake;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    if (typeof value === 'string' && value.trim().length > 0) {
+      try {
+        return JSON.parse(value) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  })();
+
+  const onboardingStatus: BusinessOnboardingStatus = (() => {
+    if (resolvedKind === 'personal') {
+      return 'not_required';
+    }
+    if (typeof onboardingCompletedAt === 'number') {
+      return 'completed';
+    }
+    if (onboardingSkipped) {
+      return 'skipped';
+    }
+    return 'pending';
+  })();
 
   return {
     id,
@@ -208,8 +277,13 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
     config: cfg,
+    betterAuthOrgId,
     kind: resolvedKind,
     isPersonal: rawIsPersonal ?? (resolvedKind === 'personal'),
+    businessOnboardingCompletedAt: onboardingCompletedAt,
+    businessOnboardingSkipped: onboardingSkipped,
+    businessOnboardingHasDraft: onboardingData != null && Object.keys(onboardingData).length > 0,
+    businessOnboardingStatus: onboardingStatus,
   };
 }
 
@@ -394,7 +468,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       }
       
       // Only fetch user orgs if authenticated
-      let data = await apiCall(`${getOrganizationsEndpoint()}/me`);
+      const data = await apiCall(`${getOrganizationsEndpoint()}/me`);
 
       const rawOrgList = Array.isArray(data) ? data : [];
       const normalizedList = rawOrgList

@@ -59,8 +59,7 @@ const initialFormData: OnboardingFormData = {
 };
 
 export const useOnboardingState = (
-  initialData?: Partial<OnboardingFormData>,
-  onSave?: (data: OnboardingFormData) => void | Promise<void>
+  initialData?: Partial<OnboardingFormData>
 ) => {
   const [formData, setFormData] = useState<OnboardingFormData>(() => {
     const merged = { ...initialFormData, ...initialData };
@@ -74,27 +73,15 @@ export const useOnboardingState = (
 
   const updateField = useCallback(<K extends keyof OnboardingFormData>(field: K, value: OnboardingFormData[K]) => {
     setFormData((prev) => {
-      const next = { ...prev, [field]: value } as OnboardingFormData;
-      if (onSave) {
-        void Promise.resolve(onSave(next)).catch(() => {
-          // Silently handle save errors here - they're handled by the auto-save hook
-        });
-      }
-      return next;
+      return { ...prev, [field]: value } as OnboardingFormData;
     });
-  }, [onSave]);
+  }, []);
 
   const updateFields = useCallback((updates: Partial<OnboardingFormData>) => {
     setFormData((prev) => {
-      const next = { ...prev, ...updates } as OnboardingFormData;
-      if (onSave) {
-        void Promise.resolve(onSave(next)).catch(() => {
-          // Silently handle save errors here - they're handled by the auto-save hook
-        });
-      }
-      return next;
+      return { ...prev, ...updates } as OnboardingFormData;
     });
-  }, [onSave]);
+  }, []);
 
   const resetForm = useCallback(() => {
     // Rebuild from the latest caller-provided initialData merged with defaults
@@ -107,33 +94,17 @@ export const useOnboardingState = (
 
     const nextState = merged;
     setFormData(nextState);
-    if (onSave) {
-      void Promise.resolve(onSave(nextState)).catch(() => {
-        // Silently handle save errors
-      });
-    }
-  }, [onSave, initialData]);
+  }, [initialData]);
 
   const setFormDataDirect = useCallback((data: OnboardingFormData | ((prev: OnboardingFormData) => OnboardingFormData)) => {
     if (typeof data === 'function') {
       setFormData((prev) => {
-        const next = (data as (p: OnboardingFormData) => OnboardingFormData)(prev);
-        if (onSave) {
-          void Promise.resolve(onSave(next)).catch(() => {
-            // Silently handle save errors
-          });
-        }
-        return next;
+        return (data as (p: OnboardingFormData) => OnboardingFormData)(prev);
       });
     } else {
       setFormData(data);
-      if (onSave) {
-        void Promise.resolve(onSave(data)).catch(() => {
-          // Silently handle save errors
-        });
-      }
     }
-  }, [onSave]);
+  }, []);
 
   return {
     formData,

@@ -211,7 +211,9 @@
     "currentPlan": "現在のプラン",
     "recommended": "おすすめ",
     "popular": "最も人気",
-    "close": "閉じる"
+    "close": "閉じる",
+    "manageBilling": "管理",
+    "openingBilling": "開いています…"
   },
   "billing": {
     "monthly": "月",

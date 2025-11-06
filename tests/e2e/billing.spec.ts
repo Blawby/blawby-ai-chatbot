@@ -142,7 +142,7 @@ test.describe('Billing Integration', () => {
     // Wait for the page to load and cart page elements to be ready
     await page.waitForLoadState('networkidle');
     // Wait for the main cart page heading to be visible, indicating the page is ready
-    await page.waitForSelector('text=Pick your plan', { state: 'visible' });
+    await expect(page.getByRole('heading', { name: /pick your plan/i })).toBeVisible({ timeout: 10000 });
     
     // Check if the page loaded
     const title = await page.title();

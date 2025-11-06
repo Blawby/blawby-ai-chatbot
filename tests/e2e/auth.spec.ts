@@ -90,6 +90,11 @@ test.describe('Better Auth Integration', () => {
     expect(personalOrg).toBeDefined();
     expect(personalOrg?.kind).toBe('personal');
     expect(personalOrg?.subscriptionStatus).toBe('none');
+    
+    // Note: Better Auth's organization plugin doesn't automatically set an active org after signup
+    // The upgrade flow will set it when needed via authClient.organization.setActive()
+    // For now, we just verify the personal org exists (already done above)
+    // The active organization will be set during the checkout/upgrade flow
   });
 
   test('should sign in with existing account', async ({ page, browser }) => {

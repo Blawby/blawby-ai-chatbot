@@ -211,7 +211,9 @@
     "currentPlan": "Поточний план",
     "recommended": "Рекомендовано",
     "popular": "Найпопулярніший",
-    "close": "Закрити"
+    "close": "Закрити",
+    "manageBilling": "Керувати",
+    "openingBilling": "Відкриття…"
   },
   "billing": {
     "monthly": "місяць",

@@ -1,17 +1,19 @@
 import { FunctionComponent } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { useTranslation, i18n } from '@/i18n/hooks';
 import { useNavigation } from '../../../utils/navigation';
 import Modal from '../../Modal';
 import { Button } from '../../ui/Button';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { BadgeRecommended, ModalCloseButton } from '../atoms';
-import { PricingTabs } from '../molecules';
-import { getBusinessPrices } from '../../../utils/stripe-products';
+// Tabs removed per product decision
+import { getBusinessPrices, TIER_FEATURES } from '../../../utils/stripe-products';
 import type { SubscriptionTier } from '../../../types/user';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useToastContext } from '../../../contexts/ToastContext';
+import { PlanFeaturesList, type PlanFeature } from '../../settings/molecules/PlanFeaturesList';
+import { features } from '../../../config/features';
 
 interface PricingModalProps {
   isOpen: boolean;
@@ -31,37 +33,52 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
   const { currentOrganization } = useOrganizationManagement();
   const { openBillingPortal } = usePaymentUpgrade();
   const { showError } = useToastContext();
-  const [selectedTab, setSelectedTab] = useState<'personal' | 'business'>('business');
   const [isBillingLoading, setIsBillingLoading] = useState(false);
 
   const userLocale = i18n.language;
   const prices = getBusinessPrices(userLocale);
+  const getFeaturesForTier = (tier: SubscriptionTier) => {
+    if (tier === 'business' || tier === 'plus' || tier === 'enterprise') return TIER_FEATURES.business;
+    return TIER_FEATURES.free;
+  };
   const allPlans = [
-    { id: 'free' as SubscriptionTier, name: t('plans.free.name'), price: t('plans.free.price'), description: t('plans.free.description'), features: [], buttonText: t('plans.free.buttonText'), isRecommended: currentTier === 'free' },
-    { id: 'plus' as SubscriptionTier, name: t('plans.plus.name'), price: t('plans.plus.price'), description: t('plans.plus.description'), features: [], buttonText: t('plans.plus.buttonText'), isRecommended: currentTier === 'free' },
-    { id: 'business' as SubscriptionTier, name: t('plans.business.name'), price: prices.monthly, description: t('plans.business.description'), features: [], buttonText: t('plans.business.buttonText'), isRecommended: currentTier === 'free' || currentTier === 'plus' },
-    { id: 'enterprise' as SubscriptionTier, name: t('plans.enterprise.name'), price: t('plans.enterprise.price'), description: t('plans.enterprise.description'), features: [], buttonText: t('plans.enterprise.buttonText'), isRecommended: currentTier === 'business' },
+    { id: 'free' as SubscriptionTier, name: t('plans.free.name'), price: t('plans.free.price'), description: t('plans.free.description'), features: getFeaturesForTier('free'), buttonText: t('plans.free.buttonText'), isRecommended: currentTier === 'free' },
+    { id: 'plus' as SubscriptionTier, name: t('plans.plus.name'), price: t('plans.plus.price'), description: t('plans.plus.description'), features: getFeaturesForTier('plus'), buttonText: t('plans.plus.buttonText'), isRecommended: currentTier === 'free' },
+    { id: 'business' as SubscriptionTier, name: t('plans.business.name'), price: prices.monthly, description: t('plans.business.description'), features: getFeaturesForTier('business'), buttonText: t('plans.business.buttonText'), isRecommended: currentTier === 'free' || currentTier === 'plus' },
+    { id: 'enterprise' as SubscriptionTier, name: t('plans.enterprise.name'), price: t('plans.enterprise.price'), description: t('plans.enterprise.description'), features: getFeaturesForTier('enterprise'), buttonText: t('plans.enterprise.buttonText'), isRecommended: currentTier === 'business' },
   ];
 
-  const upgradeTiers: Record<SubscriptionTier, SubscriptionTier[]> = {
+  const visiblePlans = features.enablePlusTier
+    ? allPlans
+    : allPlans.filter(p => p.id !== 'plus');
+
+  const upgradeTiers: Record<SubscriptionTier, SubscriptionTier[]> = features.enablePlusTier ? {
     free: ['free', 'plus', 'business'],
     plus: ['plus', 'business'],
     business: ['business', 'enterprise'],
     enterprise: ['enterprise'],
+  } : {
+    free: ['free', 'business'],
+    plus: ['business'],
+    business: ['business', 'enterprise'],
+    enterprise: ['enterprise'],
   };
 
-  type SimplePlan = { id: SubscriptionTier; name: string; price: string; description: string; features: Array<{ icon?: unknown; text?: string }>; buttonText: string; isRecommended: boolean; isCurrent?: boolean };
+  type SimplePlan = { id: SubscriptionTier; name: string; price: string; description: string; features: PlanFeature[]; buttonText: string; isRecommended: boolean; isCurrent?: boolean };
 
   const mainPlans: SimplePlan[] = (() => {
     const availableTiers = (upgradeTiers[currentTier] || []) as SubscriptionTier[];
-    if (selectedTab === 'personal') {
-      return allPlans.filter(p => availableTiers.includes(p.id) && p.id !== 'business').map(p => ({ ...p, isCurrent: p.id === currentTier, buttonText: (p.id === currentTier) ? t('modal.currentPlan') : p.buttonText, isRecommended: p.id === currentTier }));
-    } else {
-      return allPlans.filter(p => availableTiers.includes(p.id)).map(p => ({ ...p, isCurrent: p.id === currentTier, buttonText: (p.id === currentTier) ? t('modal.currentPlan') : p.buttonText, isRecommended: p.id !== currentTier && p.id === 'business' && (currentTier === 'free' || currentTier === 'plus') }));
-    }
+    return visiblePlans
+      .filter(p => availableTiers.includes(p.id))
+      .map(p => ({
+        ...p,
+        isCurrent: p.id === currentTier,
+        buttonText: (p.id === currentTier) ? t('modal.currentPlan') : p.buttonText,
+        isRecommended: p.id !== currentTier && p.id === 'business' && (currentTier === 'free' || currentTier === 'plus')
+      }));
   })();
 
-  const shouldShowTabs = !(currentTier === 'business' || currentTier === 'enterprise' || currentTier === 'plus');
+  
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
     let shouldNavigateToCart = true;
@@ -112,14 +129,6 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
           <ModalCloseButton onClick={onClose} ariaLabel={t('common:close')} className="absolute top-4 right-4" />
           <div className="flex flex-col items-center space-y-6">
             <h1 data-testid="pricing-modal-title" className="text-2xl font-semibold text-white">{t('modal.title')}</h1>
-            {shouldShowTabs && (
-              <PricingTabs
-                selected={selectedTab}
-                onSelect={(tab) => setSelectedTab(tab)}
-                personalLabel={t('tabs.personal')}
-                businessLabel={t('tabs.business')}
-              />
-            )}
           </div>
         </div>
 
@@ -140,7 +149,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                 <div className="mb-6">
                   {plan.isCurrent && (plan.id === 'business' || plan.id === 'enterprise' || plan.id === 'plus') ? (
                     <Button onClick={handleManageBilling} variant="secondary" size="lg" className="w-full" disabled={isBillingLoading}>
-                      {isBillingLoading ? t('modal.openingBilling', { defaultValue: 'Opening…' }) : t('modal.manageBilling', { defaultValue: 'Manage Billing' })}
+                      {isBillingLoading ? t('modal.openingBilling') : t('modal.manageBilling')}
                     </Button>
                   ) : (
                     <Button onClick={() => handleUpgrade(plan.id)} disabled={plan.isCurrent} variant={plan.isCurrent ? 'secondary' : 'primary'} size="lg" className="w-full">
@@ -148,7 +157,9 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                     </Button>
                   )}
                 </div>
-                <div className="space-y-3 flex-1" />
+                <div className="space-y-3 flex-1">
+                  <PlanFeaturesList features={plan.features} />
+                </div>
                 {plan.id === 'free' && (
                   <div className="mt-6 pt-4 border-t border-dark-border">
                     <p className="text-xs text-gray-400">

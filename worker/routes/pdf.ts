@@ -1,5 +1,5 @@
 import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
-import { parseJsonBody } from '../utils';
+import { parseJsonBody } from '../utils.js';
 import { PDFGenerationService } from '../services/PDFGenerationService';
 import { ConversationContextManager } from '../middleware/conversationContextManager';
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'preact/hooks';
+import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { PRODUCTS, PRICES, getStripePriceIds } from '../../utils/stripe-products';
 import { usePaymentUpgrade } from '../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
@@ -6,14 +6,14 @@ import { useToastContext } from '../../contexts/ToastContext';
 import { useLocation } from 'preact-iso';
 import { useNavigation } from '../../utils/navigation';
 import { useTranslation } from '../../i18n/hooks';
-import { QuantitySelector } from './molecules';
-import { PlanSelectionGroup } from './organisms';
+import { QuantitySelector } from './molecules/QuantitySelector';
 import { PricingSummary } from '../ui/cards/PricingSummary';
 import {
   describeSubscriptionPlan,
   hasManagedSubscription,
 } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
+import { authClient } from '../../lib/authClient';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -21,7 +21,7 @@ export const CartPage = () => {
   const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
   const { currentOrganization } = useOrganizationManagement();
   const { showError } = useToastContext();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation(['settings']);
 
   const seatsQuery = location.query?.seats;
   const seatsFromQuery = Array.isArray(seatsQuery) ? seatsQuery[0] : seatsQuery;
@@ -34,6 +34,10 @@ export const CartPage = () => {
   const [quantity, setQuantity] = useState(initialSeats);
   const [priceIds, setPriceIds] = useState<{ monthly: string; annual: string } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Refs for radio buttons to manage focus programmatically
+  const annualRef = useRef<HTMLButtonElement | null>(null);
+  const monthlyRef = useRef<HTMLButtonElement | null>(null);
 
   const loadPriceIds = useCallback(async () => {
     try {
@@ -84,36 +88,7 @@ export const CartPage = () => {
     }
   }, [currentOrganization?.id, openBillingPortal, showError]);
 
-  // If org is already on paid tier, define paid UI state and return early (before any pricing load/error logic)
-  const paidState = isPaidTier ? (
-      <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-paid-state="cart-paid-state">
-        <header className="py-4">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">
-            <img src="/blawby-favicon-iframe.png" alt="Blawby" className="h-8 w-8" />
-          </div>
-        </header>
-        <main className="max-w-3xl mx-auto px-4 md:px-6 lg:px-8 py-12">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
-            <div className="flex items-center justify-center mb-4">
-              <svg className="w-12 h-12 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {displayPlanLabel} Plan</h2>
-            <p className="text-gray-300 mb-6">Your organization &quot;{currentOrganization?.name}&quot; is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
-            <div className="flex gap-3 justify-center">
-              <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">Manage Billing</button>
-              <button onClick={() => navigate('/')} className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium">Go to Dashboard</button>
-            </div>
-          </div>
-        </main>
-      </div>
-    ) : null;
-
-  if (isPaidTier) {
-    return paidState;
-  }
-
+  // All hooks must be called before any conditional returns
   useEffect(() => {
     if (import.meta.env.DEV) {
       try {
@@ -132,12 +107,7 @@ export const CartPage = () => {
     }
   }, [devForcePaid, currentOrganization?.subscriptionTier, currentOrganization?.subscriptionStatus, currentOrganization?.id]);
 
-  // (handleManageBilling moved above)
-
-  // (paidState definition moved above for early return)
-
   useEffect(() => {
-
     if (typeof window === 'undefined') {
       return;
     }
@@ -168,7 +138,79 @@ export const CartPage = () => {
     } catch (error) {
       console.warn('❌ Cart Page - Unable to read stored cart preferences:', error);
     }
-  }, [tierFromQuery]);
+  }, [tierFromQuery, setQuantity]);
+
+  // If org is already on paid tier, define paid UI state and return early (after all hooks)
+  const paidState = isPaidTier ? (
+      <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-paid-state="cart-paid-state">
+        <header className="py-4">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-20">
+            <img src="/blawby-favicon-iframe.png" alt="Blawby" className="h-8 w-8" />
+          </div>
+        </header>
+        <main className="max-w-3xl mx-auto px-4 md:px-6 lg:px-8 py-12">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <svg className="w-12 h-12 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {displayPlanLabel} Plan</h2>
+            <p className="text-gray-300 mb-6">Your organization &quot;{currentOrganization?.name}&quot; is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">{t('settings:account.plan.manage')}</button>
+              <button onClick={() => navigate('/')} className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium">Go to Dashboard</button>
+            </div>
+          </div>
+        </main>
+      </div>
+    ) : null;
+
+  // Keyboard navigation for radiogroup (must be before early return)
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (!priceIds) return;
+    const priceIdList = [priceIds.annual, priceIds.monthly];
+    const currentIndex = priceIdList.indexOf(selectedPriceId);
+    
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp': {
+        event.preventDefault();
+        const prevIndex = currentIndex > 0 ? currentIndex - 1 : priceIdList.length - 1;
+        const nextId = priceIdList[prevIndex];
+        setSelectedPriceId(nextId);
+        // Move focus to the newly selected button
+        queueMicrotask(() => {
+          if (nextId === priceIds.annual) {
+            annualRef.current?.focus();
+          } else {
+            monthlyRef.current?.focus();
+          }
+        });
+        break;
+      }
+      case 'ArrowRight':
+      case 'ArrowDown': {
+        event.preventDefault();
+        const nextIndex = currentIndex < priceIdList.length - 1 ? currentIndex + 1 : 0;
+        const nextId = priceIdList[nextIndex];
+        setSelectedPriceId(nextId);
+        // Move focus to the newly selected button
+        queueMicrotask(() => {
+          if (nextId === priceIds.annual) {
+            annualRef.current?.focus();
+          } else {
+            monthlyRef.current?.focus();
+          }
+        });
+        break;
+      }
+    }
+  }, [selectedPriceId, priceIds]);
+
+  if (isPaidTier) {
+    return paidState;
+  }
 
   const selectedPrice = priceIds ? (selectedPriceId === priceIds.annual ? PRICES.annual : PRICES.monthly) : null;
   const isAnnual = priceIds ? selectedPriceId === priceIds.annual : false;
@@ -182,12 +224,6 @@ export const CartPage = () => {
   const monthlySeatPrice = PRICES.monthly.unit_amount / 100;
   const annualSeatPricePerYear = PRICES.annual.unit_amount / 100;
   const annualSeatPricePerMonth = annualSeatPricePerYear / 12;
-
-  // Compute discount percent for annual vs monthly effective monthly price
-  const annualDiscountPercent = Math.max(
-    0,
-    Math.round(((monthlySeatPrice - annualSeatPricePerMonth) / monthlySeatPrice) * 100)
-  );
 
   const subtotal = isAnnual
     ? monthlySeatPrice * quantity * 12 // baseline yearly cost at monthly rate
@@ -244,6 +280,7 @@ export const CartPage = () => {
     
     // Ensure personal organization exists server-side to avoid race conditions
     let organizationId = currentOrganization?.id;
+    let betterAuthOrgId = currentOrganization?.betterAuthOrgId ?? currentOrganization?.id;
     if (!organizationId) {
       try {
         console.debug('[CART][UPGRADE] Ensuring personal organization via /api/organizations/me/ensure-personal');
@@ -268,8 +305,9 @@ export const CartPage = () => {
           orgs = [];
         }
         if (orgs.length > 0) {
-          const personal = orgs.find(o => o.kind === 'personal');
+          const personal = orgs.find(o => o.kind === 'personal') as { id?: string; betterAuthOrgId?: string } | undefined;
           organizationId = personal?.id ?? orgs[0]?.id ?? null;
+          betterAuthOrgId = personal?.betterAuthOrgId ?? organizationId ?? null;
         }
         console.debug('[CART][UPGRADE] Ensured/loaded orgs. Resolved organizationId:', organizationId);
       } catch (e) {
@@ -282,21 +320,19 @@ export const CartPage = () => {
       return;
     }
 
-    // Align session active organization with the resolved organization before checkout
+    // Align active organization using Better Auth client helpers before checkout (use Better Auth org id if available)
     try {
-      await fetch('/api/organizations/active', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId })
-      });
-      console.debug('[CART][UPGRADE] Active organization set for session:', organizationId);
+      const authOrgId = betterAuthOrgId ?? organizationId;
+      if (authOrgId) {
+        await authClient.organization.setActive({ organizationId: authOrgId });
+        console.debug('[CART][UPGRADE] Active organization set via auth client:', authOrgId);
+      }
     } catch (e) {
-      console.warn('[CART][UPGRADE] Failed to set active organization (continuing anyway):', e);
+      console.warn('[CART][UPGRADE] Failed to set active organization with auth client (continuing anyway):', e);
     }
 
     const upgradeParams = {
-      organizationId,
+      organizationId, // our DB org id as referenceId for backend
       seats: quantity,
       annual: isAnnual,
       cancelUrl: typeof window !== 'undefined' ? window.location.href : undefined,
@@ -371,33 +407,103 @@ export const CartPage = () => {
           <div className="px-4 md:px-8 lg:px-16">
             <h2 className="text-2xl font-bold mb-6">Pick your plan</h2>
             
-            {priceIds && (
-              <PlanSelectionGroup
-                selectedPriceId={selectedPriceId}
-                priceOptions={[
-                  {
-                    id: priceIds.annual,
-                    label: 'Annual',
-                    price: currencyFormatter.format(annualSeatPricePerMonth),
-                    originalPrice: currencyFormatter.format(monthlySeatPrice),
-                    period: 'per user / month',
-                    features: ['Billed annually', 'Minimum 1 user', 'Add and reassign users'],
-                    showDiscount: true,
-                    discountText: `Save ${annualDiscountPercent}%`,
-                    ariaLabel: `Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`
-                  },
-                  {
-                    id: priceIds.monthly,
-                    label: 'Monthly',
-                    price: currencyFormatter.format(monthlySeatPrice),
-                    period: 'per user / month',
-                    features: ['Billed monthly', 'Minimum 1 user', 'Add or remove users'],
-                    ariaLabel: `Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`
+            {/* Price cards */}
+            <div 
+              role="radiogroup" 
+              aria-label="Billing plan selection"
+              className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
+              onKeyDown={handleKeyDown}
+            >
+              <button
+                ref={annualRef}
+                onClick={() => {
+                  if (priceIds) {
+                    setSelectedPriceId(priceIds.annual);
+                    queueMicrotask(() => annualRef.current?.focus());
                   }
-                ]}
-                onSelect={setSelectedPriceId}
-              />
-            )}
+                }}
+                role="radio"
+                aria-checked={priceIds ? selectedPriceId === priceIds.annual : false}
+                aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`}
+                tabIndex={priceIds && selectedPriceId === priceIds.annual ? 0 : -1}
+                className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
+                  priceIds && selectedPriceId === priceIds.annual 
+                    ? 'border-white bg-gray-800' 
+                    : 'border-gray-700 hover:border-gray-600'
+                }`}
+              >
+                {/* Floating discount badge */}
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-accent-500 text-white text-xs md:text-sm font-medium px-2 py-1 rounded">
+                    Save 12%
+                  </span>
+                </div>
+
+                {/* Header with radio indicator */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-base md:text-lg font-bold text-white">Annual</div>
+                  <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
+                    {priceIds && selectedPriceId === priceIds.annual && (
+                      <div className="w-3 h-3 bg-accent-500 rounded-full" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Pricing with strikethrough for discounts */}
+                <div className="text-xs md:text-sm text-white mb-1">
+                  {currencyFormatter.format(annualSeatPricePerMonth)}
+                  <span className="text-xs md:text-sm text-gray-400 line-through ml-1">{currencyFormatter.format(monthlySeatPrice)}</span>
+                </div>
+                <div className="text-xs md:text-sm text-gray-400 mb-3">per user/month</div>
+
+                {/* Feature list */}
+                <ul className="text-xs md:text-sm text-gray-400 space-y-1">
+                  <li>• Billed annually</li>
+                  <li>• Minimum 1 user</li>
+                  <li>• Add and reassign users</li>
+                </ul>
+              </button>
+              
+              <button
+                ref={monthlyRef}
+                onClick={() => {
+                  if (priceIds) {
+                    setSelectedPriceId(priceIds.monthly);
+                    queueMicrotask(() => monthlyRef.current?.focus());
+                  }
+                }}
+                role="radio"
+                aria-checked={priceIds ? selectedPriceId === priceIds.monthly : false}
+                aria-label={`Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`}
+                tabIndex={priceIds && selectedPriceId === priceIds.monthly ? 0 : -1}
+                className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
+                  priceIds && selectedPriceId === priceIds.monthly
+                    ? 'border-white bg-gray-800'
+                    : 'border-gray-700 hover:border-gray-600'
+                }`}
+              >
+                {/* Header with radio indicator */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-base md:text-lg font-bold text-white">Monthly</div>
+                  <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
+                    {priceIds && selectedPriceId === priceIds.monthly && (
+                      <div className="w-3 h-3 bg-accent-500 rounded-full" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Pricing */}
+                <div className="text-xs md:text-sm text-white mb-1">{currencyFormatter.format(monthlySeatPrice)}</div>
+                <div className="text-xs md:text-sm text-gray-400 mb-3">per user / month</div>
+
+                {/* Feature list */}
+                <ul className="text-xs md:text-sm text-gray-400 space-y-1">
+                  <li>• Billed monthly</li>
+                  <li>• Minimum 1 user</li>
+                  <li>• Add or remove users</li>
+                </ul>
+              </button>
+            </div>
 
             <QuantitySelector
               quantity={quantity}

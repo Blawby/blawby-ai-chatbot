@@ -34,6 +34,7 @@ export interface Organization {
   domain?: string;
   metadata?: Record<string, unknown>;
   config: OrganizationConfig;
+  betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number;
@@ -42,6 +43,9 @@ export interface Organization {
   subscriptionPeriodEnd?: number | null;
   createdAt: number;
   updatedAt: number;
+  businessOnboardingCompletedAt?: number | null;
+  businessOnboardingSkipped?: boolean;
+  businessOnboardingData?: Record<string, unknown> | null;
 }
 
 export interface OrganizationConfig {
@@ -78,6 +82,7 @@ export interface OrganizationConfig {
   };
   testMode?: boolean;  // Organization-level testing flag for notifications and other features
   metadata?: Record<string, unknown>; // Additional metadata for organization configuration
+  betterAuthOrgId?: string; // Canonical org id to use with Better Auth endpoints
 }
 
 const LEGACY_AI_PROVIDER = 'workers-ai';
@@ -193,6 +198,51 @@ export function buildDefaultOrganizationConfig(env: Env): OrganizationConfig {
   };
 }
 
+const parseOnboardingCompletedAt = (value: unknown): number | null | undefined => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value === null) {
+    return null;
+  }
+  return undefined;
+};
+
+const parseOnboardingSkipped = (value: unknown): boolean => {
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim().toLowerCase();
+    return trimmed === '1' || trimmed === 'true';
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  return false;
+};
+
+const parseOnboardingData = (value: unknown): Record<string, unknown> | null => {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+};
+
 export class OrganizationService {
   private organizationCache = new Map<string, { organization: Organization; timestamp: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -268,6 +318,17 @@ export class OrganizationService {
       kind: 'personal',
     });
 
+    // Eagerly persist betterAuthOrgId mapping to config (canonical to our organization id)
+    try {
+      await this.env.DB.prepare(
+        `UPDATE organizations SET config = json_set(COALESCE(config, '{}'), '$.betterAuthOrgId', ?) WHERE id = ?`
+      ).bind(organization.id, organization.id).run();
+      // Clear cache to ensure subsequent reads include updated config
+      this.clearCache(organization.id);
+    } catch (e) {
+      console.warn('⚠️ Failed to persist betterAuthOrgId after org creation', { id: organization.id, error: String(e) });
+    }
+
     try {
       await this.env.DB.prepare(
         `INSERT INTO members (id, organization_id, user_id, role, created_at)
@@ -308,6 +369,17 @@ export class OrganizationService {
     if (personalMembership?.id) {
       const existing = await this.getOrganization(personalMembership.id);
       if (existing) {
+        // Ensure betterAuthOrgId is present in config
+        if (!existing.config?.betterAuthOrgId) {
+          try {
+            await this.env.DB.prepare(
+              `UPDATE organizations SET config = json_set(COALESCE(config, '{}'), '$.betterAuthOrgId', ?) WHERE id = ?`
+            ).bind(existing.id, existing.id).run();
+            this.clearCache(existing.id);
+          } catch (e) {
+            console.warn('⚠️ Failed to persist betterAuthOrgId in ensurePersonalOrganization', { id: existing.id, error: String(e) });
+          }
+        }
         // Ensure membership row exists with owner role (idempotent)
         try {
           const membership = await this.env.DB.prepare(
@@ -337,6 +409,61 @@ export class OrganizationService {
     }
 
     return this.createPersonalOrganizationForUser(userId, userName);
+  }
+
+  /**
+   * Ensure the given user has owner membership for the organization.
+   * Used to recover from data drift where the membership row might not exist.
+   * - If the user already has a membership with role 'owner', nothing is done.
+   * - If the user has a membership with a different role, it is upgraded to owner.
+   * - If no membership exists and there are no other owners, a new owner membership is created.
+   * - If another owner exists, we leave memberships untouched (and caller will enforce access).
+   */
+  async ensureOwnerMembership(organizationId: string, userId: string): Promise<void> {
+    try {
+      const existingMembership = await this.env.DB.prepare(
+        `SELECT role FROM members WHERE organization_id = ? AND user_id = ? LIMIT 1`
+      ).bind(organizationId, userId).first<{ role: string }>();
+
+      if (existingMembership?.role === 'owner') {
+        return;
+      }
+
+      if (existingMembership && existingMembership.role !== 'owner') {
+        await this.env.DB.prepare(
+          `UPDATE members SET role = 'owner' WHERE organization_id = ? AND user_id = ?`
+        ).bind(organizationId, userId).run();
+        this.clearCache(organizationId);
+        return;
+      }
+
+      const ownerCountRow = await this.env.DB.prepare(
+        `SELECT COUNT(*) as ownerCount FROM members WHERE organization_id = ? AND role = 'owner'`
+      ).bind(organizationId).first<{ ownerCount: number }>();
+
+      const ownerCount = Number(ownerCountRow?.ownerCount ?? 0);
+      if (ownerCount > 0) {
+        return;
+      }
+
+      await this.env.DB.prepare(
+        `INSERT INTO members (id, organization_id, user_id, role, created_at)
+         VALUES (?, ?, ?, 'owner', ?)`
+      ).bind(
+        crypto.randomUUID(),
+        organizationId,
+        userId,
+        Math.floor(Date.now() / 1000)
+      ).run();
+      this.clearCache(organizationId);
+    } catch (error) {
+      console.error('[OrganizationService.ensureOwnerMembership] Failed to ensure owner membership:', {
+        organizationId,
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Swallow errors: callers will still enforce permissions via requireOrgOwner
+    }
   }
 
   /**
@@ -570,6 +697,9 @@ export class OrganizationService {
            o.is_personal,
            o.created_at,
            o.updated_at,
+           o.business_onboarding_completed_at,
+           o.business_onboarding_skipped,
+           o.business_onboarding_data,
            (
              SELECT s.status
                FROM subscriptions s
@@ -592,6 +722,16 @@ export class OrganizationService {
         const rawConfig = orgRow.config ? JSON.parse(orgRow.config as string) : {};
         const resolvedConfig = this.resolveEnvironmentVariables(rawConfig);
         const normalizedConfig = this.validateAndNormalizeConfig(resolvedConfig as OrganizationConfig, false, organizationId);
+        if (!normalizedConfig.betterAuthOrgId) {
+          normalizedConfig.betterAuthOrgId = orgRow.id as string;
+          try {
+            await this.env.DB.prepare(
+              `UPDATE organizations SET config = json_set(COALESCE(config, '{}'), '$.betterAuthOrgId', ?) WHERE id = ?`
+            ).bind(orgRow.id as string, orgRow.id as string).run();
+          } catch (e) {
+            console.warn('⚠️ Failed to persist betterAuthOrgId into organization config', { id: orgRow.id, error: String(e) });
+          }
+        }
         
         // Parse updated_at defensively
         let updatedAt: number;
@@ -615,6 +755,7 @@ export class OrganizationService {
           slug: orgRow.slug as string,
           domain: orgRow.domain as string | undefined,
           config: normalizedConfig,
+          betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (orgRow.id as string),
           stripeCustomerId: (orgRow as Record<string, unknown>).stripe_customer_id as string | null | undefined,
           subscriptionTier: (orgRow as Record<string, unknown>).subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
           seats: (() => {
@@ -629,6 +770,15 @@ export class OrganizationService {
           subscriptionPeriodEnd: subscriptionPeriodEnd && !isNaN(subscriptionPeriodEnd) ? subscriptionPeriodEnd : null,
           createdAt: new Date(orgRow.created_at as string).getTime(),
           updatedAt: updatedAt,
+          businessOnboardingCompletedAt: parseOnboardingCompletedAt(
+            (orgRow as Record<string, unknown>).business_onboarding_completed_at
+          ),
+          businessOnboardingSkipped: parseOnboardingSkipped(
+            (orgRow as Record<string, unknown>).business_onboarding_skipped
+          ),
+          businessOnboardingData: parseOnboardingData(
+            (orgRow as Record<string, unknown>).business_onboarding_data
+          ),
         };
         
         console.log('Found organization:', { id: organization.id, slug: organization.slug, name: organization.name });
@@ -667,6 +817,9 @@ export class OrganizationService {
             o.is_personal,
             o.created_at,
             o.updated_at,
+            o.business_onboarding_completed_at,
+            o.business_onboarding_skipped,
+            o.business_onboarding_data,
             (
               SELECT s.status
                 FROM subscriptions s
@@ -684,6 +837,7 @@ export class OrganizationService {
           const rawConfig = row.config ? JSON.parse(row.config as string) : {};
           const resolvedConfig = this.resolveEnvironmentVariables(rawConfig);
           const normalizedConfig = this.validateAndNormalizeConfig(resolvedConfig as OrganizationConfig, false, row.id as string);
+          const rawRow = row as Record<string, unknown>;
           
           return {
             id: row.id as string,
@@ -691,6 +845,7 @@ export class OrganizationService {
             slug: row.slug as string,
             domain: row.domain as string | undefined,
             config: normalizedConfig,
+            betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (row.id as string),
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
@@ -700,6 +855,9 @@ export class OrganizationService {
             updatedAt: row.updated_at && !isNaN(new Date(row.updated_at as string).getTime())
               ? new Date(row.updated_at as string).getTime()
               : new Date(row.created_at as string).getTime(),
+            businessOnboardingCompletedAt: parseOnboardingCompletedAt(rawRow.business_onboarding_completed_at),
+            businessOnboardingSkipped: parseOnboardingSkipped(rawRow.business_onboarding_skipped),
+            businessOnboardingData: parseOnboardingData(rawRow.business_onboarding_data),
           };
         });
       } else {
@@ -717,6 +875,9 @@ export class OrganizationService {
             o.is_personal,
             o.created_at,
             o.updated_at,
+            o.business_onboarding_completed_at,
+            o.business_onboarding_skipped,
+            o.business_onboarding_data,
             (
               SELECT s.status
                 FROM subscriptions s
@@ -732,6 +893,7 @@ export class OrganizationService {
           const rawConfig = row.config ? JSON.parse(row.config as string) : {};
           const resolvedConfig = this.resolveEnvironmentVariables(rawConfig);
           const normalizedConfig = this.validateAndNormalizeConfig(resolvedConfig as OrganizationConfig, false, row.id as string);
+          const rawRow = row as Record<string, unknown>;
           
           return {
             id: row.id as string,
@@ -739,6 +901,7 @@ export class OrganizationService {
             slug: row.slug as string,
             domain: row.domain as string | undefined,
             config: normalizedConfig,
+            betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (row.id as string),
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
@@ -748,6 +911,9 @@ export class OrganizationService {
             updatedAt: row.updated_at && !isNaN(new Date(row.updated_at as string).getTime())
               ? new Date(row.updated_at as string).getTime()
               : new Date(row.created_at as string).getTime(),
+            businessOnboardingCompletedAt: parseOnboardingCompletedAt(rawRow.business_onboarding_completed_at),
+            businessOnboardingSkipped: parseOnboardingSkipped(rawRow.business_onboarding_skipped),
+            businessOnboardingData: parseOnboardingData(rawRow.business_onboarding_data),
           };
         });
       }
@@ -1223,13 +1389,24 @@ export class OrganizationService {
   }
 
   async markBusinessOnboardingComplete(organizationId: string): Promise<boolean> {
-    // Load current config and saved onboarding data to map fields on completion
+    // Get the normalized organization to check kind (not deprecated is_personal)
+    const organization = await this.getOrganization(organizationId);
+    if (!organization) {
+      throw new Error(`Organization not found: ${organizationId}`);
+    }
+
+    // Guard: ensure organization is of kind 'business' before completing onboarding
+    if (organization.kind !== 'business') {
+      throw new Error(`Cannot complete business onboarding for a ${organization.kind} organization`);
+    }
+
+    // Load onboarding data and config for field mapping
     const row = await this.env.DB.prepare(
-      `SELECT config, business_onboarding_data as data, name, is_personal
+      `SELECT config, business_onboarding_data as data, name
          FROM organizations
         WHERE id = ?
         LIMIT 1`
-    ).bind(organizationId).first<{ config: string | null; data: string | null; name: string; is_personal: number | null }>();
+    ).bind(organizationId).first<{ config: string | null; data: string | null; name: string }>();
 
     if (!row) {
       throw new Error(`Organization not found: ${organizationId}`);
@@ -1251,16 +1428,11 @@ export class OrganizationService {
       }
     } catch { /* ignore corrupt onboarding data */ }
 
-    // Guard: ensure organization is of kind 'business' before completing onboarding
-    const isBusinessKind = !(row.is_personal === 1 || row.is_personal === true as unknown as number);
-    if (!isBusinessKind) {
-      throw new Error('Cannot complete business onboarding for a personal organization');
-    }
-
     // Validation helpers
     const sanitize = (value: unknown, maxLen: number): string => {
       if (typeof value !== 'string') return '';
       // Remove control characters except common whitespace, then trim
+      // eslint-disable-next-line no-control-regex
       const cleaned = value.replace(/[\u0000-\u001F\u007F]/g, '').trim();
       if (cleaned.length === 0) return '';
       return cleaned.length > maxLen ? cleaned.slice(0, maxLen) : cleaned;
@@ -1284,6 +1456,7 @@ export class OrganizationService {
          SET name = ?,
              config = ?,
              business_onboarding_completed_at = strftime('%s','now'),
+             business_onboarding_data = NULL,
              business_onboarding_skipped = 0,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
@@ -1303,6 +1476,8 @@ export class OrganizationService {
     const result = await this.env.DB.prepare(
       `UPDATE organizations 
          SET business_onboarding_skipped = 1,
+             business_onboarding_data = NULL,
+             business_onboarding_completed_at = NULL,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
     ).bind(organizationId).run();
@@ -1318,6 +1493,8 @@ export class OrganizationService {
     const result = await this.env.DB.prepare(
       `UPDATE organizations 
          SET business_onboarding_data = ?,
+             business_onboarding_completed_at = NULL,
+             business_onboarding_skipped = 0,
              updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
     ).bind(JSON.stringify(data), organizationId).run();
@@ -1329,47 +1506,78 @@ export class OrganizationService {
   }
 
   async getBusinessOnboardingStatus(organizationId: string): Promise<{
+    status: 'completed' | 'skipped' | 'pending' | 'not_required';
     completed: boolean;
     skipped: boolean;
     completedAt: number | null;
+    lastSavedAt: number | null;
+    hasDraft: boolean;
     data: Record<string, unknown> | null;
   }> {
     const row = await this.env.DB.prepare(
       `SELECT business_onboarding_completed_at as completedAt,
               business_onboarding_skipped as skipped,
-              business_onboarding_data as data
+              business_onboarding_data as data,
+              updated_at as updatedAt,
+              is_personal as isPersonal
          FROM organizations
         WHERE id = ?
         LIMIT 1`
-    ).bind(organizationId).first<{ completedAt: number | null; skipped: number | null; data: string | null }>();
+    ).bind(organizationId).first<{ completedAt: number | null | string; skipped: number | null | string; data: string | null; updatedAt: string | number | null; isPersonal: number | null | boolean | string }>();
+
+    const completedAt = parseOnboardingCompletedAt(row?.completedAt ?? undefined) ?? null;
+    const skipped = parseOnboardingSkipped(row?.skipped ?? undefined);
+    const data = parseOnboardingData(row?.data ?? null);
+    const lastSavedAt = (() => {
+      const value = row?.updatedAt;
+      if (typeof value === 'number') {
+        return value;
+      }
+      if (typeof value === 'string' && value.trim().length > 0) {
+        // If numeric-like, try Number first (seconds or ms)
+        const maybeNum = Number(value);
+        if (Number.isFinite(maybeNum)) {
+          return maybeNum;
+        }
+        // Fallback to Date parsing for full datetime strings
+        const ms = Date.parse(value);
+        return Number.isFinite(ms) ? ms : null;
+      }
+      return null;
+    })();
+
+    const isPersonal = (() => {
+      const value = row?.isPersonal;
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return value === 1;
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        return normalized === '1' || normalized === 'true';
+      }
+      return false;
+    })();
+
+    const status: 'completed' | 'skipped' | 'pending' | 'not_required' = (() => {
+      if (isPersonal) {
+        return 'not_required';
+      }
+      if (typeof completedAt === 'number') {
+        return 'completed';
+      }
+      if (skipped) {
+        return 'skipped';
+      }
+      return 'pending';
+    })();
 
     return {
-      completed: Boolean(row?.completedAt),
-      skipped: Boolean(row?.skipped),
-      completedAt: row?.completedAt ?? null,
-      data: (() => {
-        if (!row?.data) {
-          return null;
-        }
-        try {
-          return JSON.parse(row.data) as Record<string, unknown>;
-        } catch (error) {
-          const errMsg = error instanceof Error ? error.message : String(error);
-          // Prefer environment logger if available; fall back to console
-          try {
-            (this.env as unknown as { logger?: { error?: (...args: unknown[]) => void } })
-              ?.logger?.error?.('Failed to parse business_onboarding_data JSON', {
-                organizationId,
-                error: errMsg,
-              });
-          } catch { /* no-op */ }
-          console.error('Failed to parse business_onboarding_data JSON', {
-            organizationId,
-            error: errMsg,
-          });
-          return null;
-        }
-      })(),
+      status,
+      completed: status === 'completed',
+      skipped,
+      completedAt,
+      lastSavedAt,
+      hasDraft: data != null && Object.keys(data).length > 0,
+      data,
     };
   }
 

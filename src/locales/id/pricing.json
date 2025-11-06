@@ -211,7 +211,9 @@
     "currentPlan": "Paket Saat Ini",
     "recommended": "Direkomendasikan",
     "popular": "Paling Populer",
-    "close": "Tutup"
+    "close": "Tutup",
+    "manageBilling": "Kelola",
+    "openingBilling": "Membuka…"
   },
   "billing": {
     "monthly": "bulan",

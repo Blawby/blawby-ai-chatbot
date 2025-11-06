@@ -48,7 +48,7 @@ export const QuantitySelector = ({ quantity, onChange, min = 1, helperText, labe
     commitValue();
   }, [commitValue]);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: preact.JSX.TargetedKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       commitValue();
@@ -70,7 +70,7 @@ export const QuantitySelector = ({ quantity, onChange, min = 1, helperText, labe
           value={inputValue}
           onChange={handleInputChange}
           onBlur={handleBlur}
-          onKeyDown={handleKeyDown as any}
+          onKeyDown={handleKeyDown}
           min={min}
           className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg bg-dark-input-bg text-white
             focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500

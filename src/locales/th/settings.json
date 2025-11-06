@@ -52,6 +52,7 @@
     "retry": "[NEEDS TRANSLATION] Retry",
     "plan": {
       "currentPlanLabel": "[NEEDS TRANSLATION] Current Plan: {{tier}}",
+      "manage": "จัดการ",
       "tiers": {
         "free": "[NEEDS TRANSLATION] Free",
         "plus": "[NEEDS TRANSLATION] Plus",

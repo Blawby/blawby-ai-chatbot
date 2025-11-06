@@ -73,7 +73,7 @@ export function ServicesStep({ data, onChange, onContinue, onBack, errors }: Ser
 
         {data.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <p>No services added yet. Click "Add Service" to get started.</p>
+            <p>No services added yet. Click &quot;Add Service&quot; to get started.</p>
           </div>
         ) : (
           <div className="space-y-4">

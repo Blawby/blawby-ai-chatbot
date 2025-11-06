@@ -2,7 +2,7 @@ import type { Env } from '../types';
 import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
 import { requireAuth, requireOrgOwner } from '../middleware/auth.js';
 import { OrganizationService } from '../services/OrganizationService.js';
-import { parseJsonBody } from '../utils';
+import { parseJsonBody } from '../utils.js';
 
 function validateAndExtractOrgId(parsed: unknown, source: 'body' | 'query'): string {
   if (source === 'body') {
@@ -32,7 +32,7 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
 
   try {
     if (path === '/api/onboarding/complete' && request.method === 'POST') {
-      await requireAuth(request, env);
+      const authContext = await requireAuth(request, env);
       let parsed: unknown;
       try {
         parsed = await parseJsonBody(request) as unknown;
@@ -40,14 +40,15 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
         throw HttpErrors.badRequest('Invalid JSON body');
       }
       const organizationId = validateAndExtractOrgId(parsed, 'body');
-      await requireOrgOwner(request, env, organizationId);
       const orgService = new OrganizationService(env);
+      await orgService.ensureOwnerMembership(organizationId, authContext.user.id);
+      await requireOrgOwner(request, env, organizationId);
       await orgService.markBusinessOnboardingComplete(organizationId);
       return createSuccessResponse({ success: true });
     }
 
     if (path === '/api/onboarding/skip' && request.method === 'POST') {
-      await requireAuth(request, env);
+      const authContext = await requireAuth(request, env);
       let parsed: unknown;
       try {
         parsed = await parseJsonBody(request) as unknown;
@@ -55,8 +56,9 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
         throw HttpErrors.badRequest('Invalid JSON body');
       }
       const orgId = validateAndExtractOrgId(parsed, 'body');
-      await requireOrgOwner(request, env, orgId);
       const orgService = new OrganizationService(env);
+      await orgService.ensureOwnerMembership(orgId, authContext.user.id);
+      await requireOrgOwner(request, env, orgId);
       const updated = await orgService.markBusinessOnboardingSkipped(orgId);
       if (!updated) {
         throw HttpErrors.notFound('Organization not found');
@@ -65,7 +67,7 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
     }
 
     if (path === '/api/onboarding/save' && request.method === 'POST') {
-      await requireAuth(request, env);
+      const authContext = await requireAuth(request, env);
       let parsed: unknown;
       try {
         parsed = await parseJsonBody(request) as unknown;
@@ -78,6 +80,8 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
           ? (parsed as Record<string, unknown>).data
           : undefined
       );
+      const orgService = new OrganizationService(env);
+      await orgService.ensureOwnerMembership(orgId, authContext.user.id);
       await requireOrgOwner(request, env, orgId);
 
       // Proceed with full data validation after ownership check
@@ -96,16 +100,16 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
       if (byteSize > 50000) {
         throw HttpErrors.payloadTooLarge('data exceeds maximum size of 50KB');
       }
-      const orgService = new OrganizationService(env);
       await orgService.saveBusinessOnboardingProgress(orgId, dataObject);
       return createSuccessResponse({ success: true });
     }
 
     if (path === '/api/onboarding/status' && request.method === 'GET') {
-      await requireAuth(request, env);
+      const authContext = await requireAuth(request, env);
       const organizationId = validateAndExtractOrgId(url.searchParams.get('organizationId'), 'query');
-      await requireOrgOwner(request, env, organizationId);
       const orgService = new OrganizationService(env);
+      await orgService.ensureOwnerMembership(organizationId, authContext.user.id);
+      await requireOrgOwner(request, env, organizationId);
       const status = await orgService.getBusinessOnboardingStatus(organizationId);
       return createSuccessResponse(status);
     }
@@ -116,5 +120,4 @@ export async function handleOnboarding(request: Request, env: Env): Promise<Resp
     return handleError(error);
   }
 }
-
 

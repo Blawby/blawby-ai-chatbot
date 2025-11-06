@@ -56,6 +56,7 @@ export const DropdownMenuCheckboxItem = ({
       onKeyDown={handleKeyDown}
     >
       <span className="flex-1">{children}</span>
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div 
         className="ml-2" 
         onClick={(e) => e.stopPropagation()}

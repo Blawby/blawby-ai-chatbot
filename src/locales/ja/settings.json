@@ -52,6 +52,8 @@
     "retry": "再試行",
     "plan": {
       "currentPlanLabel": "現在のプラン: {{tier}}",
+      "manageBilling": "管理",
+      "manage": "管理",
       "tiers": {
         "free": "無料",
         "plus": "プラス",

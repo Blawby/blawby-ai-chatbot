@@ -52,6 +52,8 @@
     "retry": "Thử lại",
     "plan": {
       "currentPlanLabel": "Gói hiện tại: {{tier}}",
+      "manageBilling": "Quản lý",
+      "manage": "Quản lý",
       "tiers": {
         "free": "Miễn phí",
         "plus": "Plus",

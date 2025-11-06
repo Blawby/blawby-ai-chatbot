@@ -52,6 +52,8 @@
     "retry": "重试",
     "plan": {
       "currentPlanLabel": "当前套餐：{{tier}}",
+      "manageBilling": "管理",
+      "manage": "管理",
       "tiers": {
         "free": "免费",
         "plus": "增强版",

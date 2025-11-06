@@ -15,7 +15,7 @@ export function StripeOnboardingStep({ onContinue, onBack }: StripeOnboardingSte
     <div className="space-y-6">
       <div className="text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          You'll be redirected to Stripe to complete your account setup and link your trust account.
+          You&apos;ll be redirected to Stripe to complete your account setup and link your trust account.
         </p>
       </div>
       

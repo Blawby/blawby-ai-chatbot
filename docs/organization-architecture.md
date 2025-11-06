@@ -9,8 +9,8 @@
 
 | Stage | Component | Notes |
 |-------|-----------|-------|
-| Signup | `worker/auth/hooks.ts` | Ensures a personal org exists and sets the session's `active_organization_id`. Failures are logged but non-blocking. |
-| Session creation | `worker/auth/index.ts` | Re-checks personal org existence, guarantees an owner membership, and stores `active_organization_id`. |
+| Signup | `worker/auth/hooks.ts` | Ensures a personal org exists. Active-organization state is now managed by Better Auth's organization plugin. |
+| Session creation | `worker/auth/index.ts` | Re-checks personal org existence and guarantees an owner membership. Active org selection persists via the Better Auth plugin. |
 | Upgrade | Checkout flow → Stripe webhook (`/api/stripe/webhook`) | `usePaymentUpgrade` seeds the organization ID via `subscription_data.metadata` before launching Checkout, ensuring webhooks can resolve the org without guessing. The webhook then moves the org to business, updates seats, flips `is_personal` to `0`, and persists subscription metadata in D1. |
 | Entitlements | Feature guards (`worker/middleware/featureGuard.ts`) | Checks `tier`, `isPersonal`, and `subscriptionStatus` before allowing access to APIs (tokens, invitations, etc.). |
 | Onboarding | `BusinessOnboardingPage` | Accessible only for business orgs with subscription status `active`, `trialing`, or `paused`. |

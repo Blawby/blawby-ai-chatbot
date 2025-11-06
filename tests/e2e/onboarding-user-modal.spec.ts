@@ -40,10 +40,15 @@ async function completeOnboarding(page: import('@playwright/test').Page) {
   const continueBtn = page.getByRole('button', { name: /continue/i });
   await expect(continueBtn).toBeVisible({ timeout: 10000 });
 
-  // Fill first textbox for full name if present
-  const textboxes = page.getByRole('textbox');
-  if (await textboxes.count()) {
-    await textboxes.first().fill('Test User');
+  // Fill out personal info requirements
+  const nameInput = page.getByLabel(/full name/i);
+  if (await nameInput.count()) {
+    await nameInput.fill('Test User');
+  }
+
+  const birthdayInput = page.locator('input[type="date"]');
+  if (await birthdayInput.count()) {
+    await birthdayInput.first().fill('1990-01-01');
   }
 
   // Agree to terms checkbox by id if present

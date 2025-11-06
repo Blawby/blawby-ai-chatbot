@@ -23,6 +23,7 @@ import { useToastContext } from '../../contexts/ToastContext';
 import { cn } from '../../utils/cn';
 import { useTranslation } from '@/i18n/hooks';
 import { signOut } from '../../utils/auth';
+import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
 
 
 export interface SettingsPageProps {
@@ -40,6 +41,7 @@ export const SettingsPage = ({
   const { navigate } = useNavigation();
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
+  const { currentOrganization } = useOrganizationManagement();
   
   // Get current page from URL path
   const getCurrentPage = () => {
@@ -80,13 +82,18 @@ export const SettingsPage = ({
   };
 
 
+  // Determine if Organization tab should be shown (only for managed subscriptions)
+  const hasManagedSub = Boolean(currentOrganization?.stripeCustomerId);
+  const subStatus = (currentOrganization?.subscriptionStatus || 'none').toLowerCase();
+  const showOrganizationTab = hasManagedSub && subStatus !== 'none' && subStatus !== 'canceled';
+
   // Define navigation items with ChatGPT-like structure
   // Note: Icons are now properly typed to accept SVG props like className, aria-hidden, strokeWidth, etc.
   const navigationItems: SidebarNavigationItem[] = [
     { id: 'general', label: t('settings:navigation.items.general'), icon: Cog6ToothIcon },
     { id: 'notifications', label: t('settings:navigation.items.notifications'), icon: BellIcon },
     { id: 'account', label: t('settings:navigation.items.account'), icon: UserIcon },
-    { id: 'organization', label: t('settings:navigation.items.organization'), icon: BuildingOfficeIcon },
+    ...(showOrganizationTab ? [{ id: 'organization', label: t('settings:navigation.items.organization'), icon: BuildingOfficeIcon } as SidebarNavigationItem] : []),
     { id: 'security', label: t('settings:navigation.items.security'), icon: ShieldCheckIcon },
     { id: 'help', label: t('settings:navigation.items.help'), icon: QuestionMarkCircleIcon },
     { id: 'signout', label: t('settings:navigation.items.signOut'), icon: ArrowRightOnRectangleIcon, isAction: true, onClick: handleSignOut, variant: 'danger' }
