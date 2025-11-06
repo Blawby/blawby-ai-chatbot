@@ -113,7 +113,7 @@ export const WithLabel: Story = {
   }
 };
 
-export const Error: Story = {
+export const ErrorStory: Story = {
   render: (args) => <InteractiveTagInput {...args} />,
   args: {
     label: 'Tags',

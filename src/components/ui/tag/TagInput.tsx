@@ -132,6 +132,10 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
         return d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       })
       .join('');
+    // If there are no character delimiters, return a regex that never matches
+    if (delimiterChars.length === 0) {
+      return new RegExp('$^');
+    }
     return new RegExp(`[${delimiterChars}]`);
   }, [delimiters]);
 

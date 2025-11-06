@@ -7,7 +7,7 @@
 
 import { ComponentChildren } from 'preact';
 import { cn } from '../../../../utils/cn';
-import { RemoveButton } from '../../../upload/atoms/RemoveButton';
+import { RemoveButton } from '../../upload/atoms/RemoveButton';
 
 export interface TagProps {
   children: ComponentChildren;
