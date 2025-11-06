@@ -1078,7 +1078,7 @@ export async function getAuth(env: Env, request?: Request) {
                     let personalOrgId: string | null = null;
                     if (Array.isArray(existing) && existing.length > 0) {
                       const personal = existing.find(o => o.kind === 'personal');
-                      personalOrgId = personal?.id ?? existing[0]?.id ?? null;
+                      personalOrgId = personal?.id ?? null;
                     }
                     if (!personalOrgId) {
                       // Fetch fallback name from users table when creating personal org
@@ -1101,42 +1101,6 @@ export async function getAuth(env: Env, request?: Request) {
                     console.error('❌ session.create.before error', err);
                   }
                   return { data: session };
-                },
-                after: async (session, _context) => {
-                  // Set active organization when a session is created
-                  if (session.userId && session.id) {
-                    try {
-                      // Ensure a personal organization exists for the user (idempotent)
-                      try {
-                        const organizationService = new OrganizationService(env);
-                        const existing = await organizationService.listOrganizations(session.userId);
-                        const hasPersonal = Array.isArray(existing) && existing.some(org => org.kind === 'personal');
-                        if (!hasPersonal) {
-                          // Fetch user name for a friendly org name
-                          const row = await env.DB
-                            .prepare('SELECT name, email FROM users WHERE id = ?')
-                            .bind(session.userId)
-                            .first<{ name: string | null; email: string | null }>();
-                          const fallbackName = (row?.name && row.name.trim()) || (row?.email?.split('@')[0] ?? 'New User');
-                          const org = await organizationService.ensurePersonalOrganization(session.userId, fallbackName);
-                          console.log('✅ Ensured personal organization on session.create for user', session.userId, { organizationId: org.id });
-                        } else {
-                          const personalOrg = existing.find(org => org.kind === 'personal');
-                          if (!personalOrg?.id) {
-                            console.warn(`⚠️ Personal org not found in existing orgs for user ${session.userId}, existing orgs:`, existing.map(o => ({ id: o.id, kind: o.kind })));
-                          }
-                        }
-                      } catch (ensureError) {
-                        console.error('❌ Failed to ensure personal organization on session.create:', ensureError);
-                      }
-                    } catch (error) {
-                      console.error("❌ Failed to ensure personal organization for session:", {
-                        error: error instanceof Error ? error.message : String(error),
-                        userId: session.userId,
-                        sessionId: session.id,
-                      });
-                    }
-                  }
                 },
               },
             },

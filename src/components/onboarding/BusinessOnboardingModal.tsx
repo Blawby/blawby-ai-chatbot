@@ -224,8 +224,12 @@ const BusinessOnboardingModal = ({
       if (isLastStep) {
         await completeOnboarding();
         showSuccess('Onboarding Complete', 'Your business onboarding is finished. You can now publish your assistant.');
-        if (onCompleted) {
-          await onCompleted();
+        try {
+          if (onCompleted) {
+            await onCompleted();
+          }
+        } catch (e) {
+          console.warn('[ONBOARDING][COMPLETE] onCompleted callback failed:', e);
         }
         onClose();
       } else {
