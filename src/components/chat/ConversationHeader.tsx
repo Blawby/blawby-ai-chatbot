@@ -249,6 +249,7 @@ export const ConversationHeader = ({
                   value={matter.status}
                   onChange={(event) => handleStatusChange(event.currentTarget.value as MatterWorkflowStatus)}
                   disabled={actionLoading}
+                  aria-label="Matter status"
                   className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-accent-500"
                 >
                   {availableStatusOptions.map(option => (

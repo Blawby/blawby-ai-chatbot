@@ -5,7 +5,7 @@
  * Handles the overall layout and spacing of sidebar components.
  */
 
-import { useEffect, useMemo } from 'preact/hooks';
+import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
@@ -89,11 +89,12 @@ export const SidebarContent = ({
       return;
     }
 
-    const hasSelected = selectedMatterId ? matters.some(matter => matter.id === selectedMatterId) : false;
-    if (!hasSelected) {
+    // Only auto-select on initial load, not on filter changes
+    if (!hasInitialSelection.current) {
       onSelectMatter(matters[0].id);
+      hasInitialSelection.current = true;
     }
-  }, [matters, onSelectMatter, selectedMatterId, showMattersSection]);
+  }, [matters, onSelectMatter, showMattersSection]);
 
   const statusFilters = useMemo(() => ([
     { value: 'lead', label: 'Leads' },
@@ -102,6 +103,14 @@ export const SidebarContent = ({
     { value: 'completed', label: 'Completed' },
     { value: 'archived', label: 'Archived' }
   ] satisfies Array<{ value: MattersSidebarStatus; label: string }>), []);
+
+  const searchPlaceholder = useMemo(() => {
+    const selectedFilter = statusFilters.find(f => f.value === matterStatusFilter);
+    const label = selectedFilter?.label.toLowerCase() || 'matters';
+    return `Search ${label}`;
+  }, [statusFilters, matterStatusFilter]);
+
+  const hasInitialSelection = useRef(false);
 
   const handleMatterSelect = (matterId: string) => {
     if (onSelectMatter) {
@@ -129,7 +138,7 @@ export const SidebarContent = ({
                 const target = event.target as HTMLInputElement;
                 setSearchTerm(target.value);
               }}
-              placeholder="Search leads"
+              placeholder={searchPlaceholder}
               label=""
               hideLabel
             />

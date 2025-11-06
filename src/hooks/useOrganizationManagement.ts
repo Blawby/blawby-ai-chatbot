@@ -314,6 +314,15 @@ function normalizeWorkflowStatus(value: unknown): MatterWorkflowStatus {
     case 'archived':
       return str;
     default:
+      try {
+        // Use app logger if available; fallback to console
+        // @ts-ignore - optional global logger
+        if (typeof window !== 'undefined' && (window as any).appLogger?.warn) {
+          (window as any).appLogger.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
+        } else {
+          console.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
+        }
+      } catch {}
       return 'lead';
   }
 }
@@ -342,9 +351,12 @@ function normalizeMatterTransitionResult(raw: unknown): MatterTransitionResult {
       : String(record.matterId ?? ''),
     status: normalizeWorkflowStatus(record.status),
     previousStatus: normalizeWorkflowStatus(record.previousStatus),
-    updatedAt: typeof record.updatedAt === 'string'
-      ? record.updatedAt
-      : new Date().toISOString(),
+    updatedAt: (() => {
+      if (typeof record.updatedAt !== 'string' || record.updatedAt.trim().length === 0) {
+        throw new Error('Missing or invalid updatedAt in matter transition response');
+      }
+      return record.updatedAt;
+    })(),
     acceptedBy
   };
 }
@@ -836,11 +848,13 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       throw new Error('Organization ID and matter ID are required');
     }
 
+    // Deterministic idempotency key derived from operation params
+    const idempotencyKey = `matter:${orgId}:${matterId}:accept`;
     const endpoint = `${getOrganizationWorkspaceEndpoint(orgId, 'matters')}/${encodeURIComponent(matterId)}/accept`;
     const response = await apiCall(endpoint, {
       method: 'POST',
       headers: {
-        'Idempotency-Key': generateIdempotencyKey()
+        'Idempotency-Key': idempotencyKey
       }
     });
 
@@ -862,7 +876,8 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       method: 'POST',
       body: JSON.stringify(payload),
       headers: {
-        'Idempotency-Key': generateIdempotencyKey()
+        // Deterministic idempotency key derived from operation params
+        'Idempotency-Key': `matter:${orgId}:${matterId}:reject:${payload.reason ?? ''}`
       }
     });
 
@@ -884,7 +899,8 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       method: 'PATCH',
       body: JSON.stringify(payload),
       headers: {
-        'Idempotency-Key': generateIdempotencyKey()
+        // Deterministic idempotency key derived from operation params
+        'Idempotency-Key': `matter:${orgId}:${matterId}:status:${status}:${payload.reason ?? ''}`
       }
     });
 

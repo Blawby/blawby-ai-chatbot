@@ -48,7 +48,7 @@ const MatterCanvas: FunctionalComponent<MatterCanvasProps> = ({
       <div className="flex items-center justify-between mb-4">
         <MatterStatusBadge status={effectiveStatus} />
         <span className="text-sm text-gray-600 dark:text-gray-300">
-          {effectiveStatus === 'lead' ? 'Waiting for review' : effectiveStatus.replace('_', ' ')}
+          {effectiveStatus === 'lead' ? 'Waiting for review' : effectiveStatus.replaceAll('_', ' ')}
         </span>
       </div>
       <div className="matter-canvas-content">

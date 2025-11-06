@@ -11,10 +11,10 @@ export interface MattersSidebarItem {
   priority?: string;
   clientName?: string | null;
   leadSource?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | null;
+  updatedAt: string | null;
   acceptedBy?: {
-    userId: string;
+    userId: string | null;
     acceptedAt: string | null;
   } | null;
 }
@@ -47,36 +47,152 @@ export interface UseMattersSidebarResult {
   hasMore: boolean;
 }
 
-function normalizeMattersResponse(payload: FetchResponsePayload): MattersSidebarItem[] {
+type Logger = {
+  warn: (message: string, data?: unknown) => void;
+};
+
+const defaultLogger: Logger = {
+  warn: (message: string, data?: unknown) => {
+    console.warn(`[useMattersSidebar] ${message}`, data);
+  }
+};
+
+const VALID_STATUSES: MattersSidebarStatus[] = ['lead', 'open', 'in_progress', 'completed', 'archived'];
+
+export function normalizeMattersResponse(
+  payload: FetchResponsePayload,
+  logger: Logger = defaultLogger
+): MattersSidebarItem[] {
   const source = Array.isArray(payload.items) ? payload.items
     : Array.isArray(payload.matters) ? payload.matters
     : [];
 
   return source.map(item => {
+    const itemId = typeof item.id === 'string' ? item.id : String(item.id ?? '');
+    
+    // Validate and normalize acceptedBy
     const acceptedByRaw = item.acceptedBy as
       | { userId?: unknown; acceptedAt?: unknown }
       | null
       | undefined;
-    const acceptedBy = acceptedByRaw && typeof acceptedByRaw === 'object'
-      ? {
-          userId: typeof acceptedByRaw.userId === 'string' ? acceptedByRaw.userId : String(acceptedByRaw.userId ?? ''),
-          acceptedAt: ((): string | null => {
-            if (acceptedByRaw.acceptedAt === null) return null;
-            return typeof acceptedByRaw.acceptedAt === 'string' ? acceptedByRaw.acceptedAt : null;
-          })()
+    
+    let acceptedBy: MattersSidebarItem['acceptedBy'] = null;
+    if (acceptedByRaw && typeof acceptedByRaw === 'object') {
+      const userId = acceptedByRaw.userId;
+      const acceptedAt = acceptedByRaw.acceptedAt;
+      
+      // Validate userId - if shape is present but invalid, log and set to null
+      let normalizedUserId: string | null = null;
+      if (userId !== undefined && userId !== null) {
+        if (typeof userId === 'string' && userId.trim().length > 0) {
+          normalizedUserId = userId;
+        } else {
+          logger.warn('Invalid userId in acceptedBy', {
+            itemId,
+            field: 'acceptedBy.userId',
+            value: userId,
+            type: typeof userId
+          });
+          normalizedUserId = null;
         }
-      : null;
+      }
+      
+      // Validate acceptedAt - if shape is present but invalid, log and set to null
+      let normalizedAcceptedAt: string | null = null;
+      if (acceptedAt !== undefined && acceptedAt !== null) {
+        if (typeof acceptedAt === 'string' && acceptedAt.trim().length > 0) {
+          normalizedAcceptedAt = acceptedAt;
+        } else {
+          logger.warn('Invalid acceptedAt in acceptedBy', {
+            itemId,
+            field: 'acceptedBy.acceptedAt',
+            value: acceptedAt,
+            type: typeof acceptedAt
+          });
+          normalizedAcceptedAt = null;
+        }
+      }
+      
+      acceptedBy = {
+        userId: normalizedUserId,
+        acceptedAt: normalizedAcceptedAt
+      };
+    }
+
+    // Validate status against allowed values
+    let normalizedStatus: MattersSidebarStatus = 'lead';
+    if (typeof item.status === 'string') {
+      if (VALID_STATUSES.includes(item.status as MattersSidebarStatus)) {
+        normalizedStatus = item.status as MattersSidebarStatus;
+      } else {
+        logger.warn('Invalid status value', {
+          itemId,
+          field: 'status',
+          value: item.status,
+          allowedValues: VALID_STATUSES
+        });
+        normalizedStatus = 'lead';
+      }
+    } else if (item.status !== undefined && item.status !== null) {
+      logger.warn('Invalid status type', {
+        itemId,
+        field: 'status',
+        value: item.status,
+        type: typeof item.status,
+        allowedValues: VALID_STATUSES
+      });
+    }
+
+    // Validate createdAt - do not default, set to null if missing/invalid
+    let normalizedCreatedAt: string | null = null;
+    if (item.createdAt !== undefined && item.createdAt !== null) {
+      if (typeof item.createdAt === 'string' && item.createdAt.trim().length > 0) {
+        normalizedCreatedAt = item.createdAt;
+      } else {
+        logger.warn('Invalid createdAt value', {
+          itemId,
+          field: 'createdAt',
+          value: item.createdAt,
+          type: typeof item.createdAt
+        });
+      }
+    } else {
+      logger.warn('Missing createdAt timestamp', {
+        itemId,
+        field: 'createdAt'
+      });
+    }
+
+    // Validate updatedAt - do not default, set to null if missing/invalid
+    let normalizedUpdatedAt: string | null = null;
+    if (item.updatedAt !== undefined && item.updatedAt !== null) {
+      if (typeof item.updatedAt === 'string' && item.updatedAt.trim().length > 0) {
+        normalizedUpdatedAt = item.updatedAt;
+      } else {
+        logger.warn('Invalid updatedAt value', {
+          itemId,
+          field: 'updatedAt',
+          value: item.updatedAt,
+          type: typeof item.updatedAt
+        });
+      }
+    } else {
+      logger.warn('Missing updatedAt timestamp', {
+        itemId,
+        field: 'updatedAt'
+      });
+    }
 
     return {
-      id: typeof item.id === 'string' ? item.id : String(item.id ?? ''),
+      id: itemId,
       title: typeof item.title === 'string' ? item.title : 'Untitled Matter',
       matterType: typeof item.matterType === 'string' ? item.matterType : 'General',
-      status: (typeof item.status === 'string' ? item.status : 'lead') as MattersSidebarStatus,
+      status: normalizedStatus,
       priority: typeof item.priority === 'string' ? item.priority : undefined,
       clientName: typeof item.clientName === 'string' ? item.clientName : null,
       leadSource: typeof item.leadSource === 'string' ? item.leadSource : null,
-      createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
-      updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
+      createdAt: normalizedCreatedAt,
+      updatedAt: normalizedUpdatedAt,
       acceptedBy
     };
   });
@@ -100,6 +216,10 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
   const cursorRef = useRef<string | null>(null);
   const searchTermRef = useRef(searchTerm);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchMattersRef = useRef<((append?: boolean, overrideSearch?: string) => Promise<void>) | null>(null);
+  const resetPaginationRef = useRef<(() => void) | null>(null);
+  const searchDelayMsRef = useRef(searchDelayMs);
+  const organizationIdRef = useRef(organizationId);
 
   const setSearchTerm = useCallback((value: string) => {
     setSearchTermState(value);
@@ -199,6 +319,23 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
     searchTermRef.current = searchTerm;
   }, [searchTerm]);
 
+  // Keep function refs synchronized
+  useEffect(() => {
+    fetchMattersRef.current = fetchMatters;
+  }, [fetchMatters]);
+
+  useEffect(() => {
+    resetPaginationRef.current = resetPagination;
+  }, [resetPagination]);
+
+  useEffect(() => {
+    searchDelayMsRef.current = searchDelayMs;
+  }, [searchDelayMs]);
+
+  useEffect(() => {
+    organizationIdRef.current = organizationId;
+  }, [organizationId]);
+
   // Auto fetch on organization/status change
   useEffect(() => {
     if (!autoFetch) {
@@ -208,21 +345,21 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
     void fetchMatters(false);
   }, [autoFetch, fetchMatters, resetPagination, status, organizationId]);
 
-  // Debounced search updates
+  // Debounced search updates - only responds to searchTerm changes
   useEffect(() => {
-    if (!autoFetch || !organizationId) {
+    if (!autoFetch || !organizationIdRef.current || !fetchMattersRef.current || !resetPaginationRef.current) {
       return;
     }
 
     const handler = window.setTimeout(() => {
-      resetPagination();
-      void fetchMatters(false, searchTermRef.current);
-    }, searchDelayMs);
+      resetPaginationRef.current?.();
+      void fetchMattersRef.current?.(false, searchTermRef.current);
+    }, searchDelayMsRef.current);
 
     return () => {
       window.clearTimeout(handler);
     };
-  }, [autoFetch, fetchMatters, organizationId, resetPagination, searchDelayMs, searchTerm]);
+  }, [autoFetch, searchTerm]);
 
   const result = useMemo<UseMattersSidebarResult>(() => ({
     matters,

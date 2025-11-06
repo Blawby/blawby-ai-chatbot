@@ -62,76 +62,116 @@ async function globalSetup(config: FullConfig) {
   console.log('🔐 Creating persisted authenticated session (storageState)...');
 
   const browser = await chromium.launch();
-  const context = await browser.newContext({ baseURL: 'http://localhost:5173' });
-  const page = await context.newPage();
-
-  // Attempt to check an existing session to avoid duplicate signups (idempotent)
-  let hasSession = false;
+  let context: any = null;
+  let page: any = null;
   try {
-    const sessionRes = await page.evaluate(async () => {
-      const r = await fetch('/api/auth/get-session', { credentials: 'include' });
-      if (!r.ok) return null;
-      const data: any = await r.json().catch(() => null);
-      return data?.session ?? null;
-    });
-    hasSession = Boolean(sessionRes);
-  } catch {}
+    context = await browser.newContext({ baseURL: 'http://localhost:5173' });
+    page = await context.newPage();
 
-  if (!hasSession) {
-    const timestamp = Date.now();
-    const email = `e2e-setup-${timestamp}@example.com`;
-    const password = 'TestPassword123!';
-
-    // Avoid onboarding redirects
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem('onboardingCompleted', 'true');
-        localStorage.setItem('onboardingCheckDone', 'true');
-      } catch {}
-    });
-
-    await page.goto('/auth');
+    // Ensure we have a valid origin before using relative fetch URLs in page.evaluate
+    await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Switch to Sign up
-    try { await page.click('[data-testid="auth-toggle-signup"]', { timeout: 5000 }); } catch {}
-    await page.fill('[data-testid="signup-name-input"]', 'E2E Setup User');
-    await page.fill('[data-testid="signup-email-input"]', email);
-    await page.fill('[data-testid="signup-password-input"]', password);
-    await page.fill('[data-testid="signup-confirm-password-input"]', password);
-    await page.click('[data-testid="signup-submit-button"]');
-
-    // Wait for session establishment
-    let authenticated = false;
-    for (let i = 0; i < 20; i++) {
-      const s = await page.evaluate(async () => {
-        try {
-          const r = await fetch('/api/auth/get-session', { credentials: 'include' });
-          if (!r.ok) return null;
-          const data: any = await r.json().catch(() => null);
-          return data?.session ?? null;
-        } catch { return null; }
+    // Attempt to check an existing session to avoid duplicate signups (idempotent)
+    let hasSession = false;
+    try {
+      const sessionRes = await page.evaluate(async () => {
+        const r = await fetch('/api/auth/get-session', { credentials: 'include' });
+        if (!r.ok) return null;
+        const data: any = await r.json().catch(() => null);
+        return data?.session ?? null;
       });
-      if (s) { authenticated = true; break; }
-      await page.waitForTimeout(300);
+      hasSession = Boolean(sessionRes);
+    } catch {}
+
+    if (!hasSession) {
+      const timestamp = Date.now();
+      const email = `e2e-setup-${timestamp}@example.com`;
+      const password = 'TestPassword123!';
+
+      // Avoid onboarding redirects
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('onboardingCompleted', 'true');
+          localStorage.setItem('onboardingCheckDone', 'true');
+        } catch {}
+      });
+
+      await page.goto('/auth');
+      await page.waitForLoadState('domcontentloaded');
+
+      // Switch to Sign up with explicit presence check and error handling
+      await page
+        .waitForSelector('[data-testid="auth-toggle-signup"]', { timeout: 5000 })
+        .then(() => page.click('[data-testid="auth-toggle-signup"]'))
+        .catch((err: any) => {
+          console.error('Signup toggle missing or click failed:', err);
+          throw err;
+        });
+
+      // Ensure form fields exist before interacting
+      await page.locator('[data-testid="signup-name-input"]').waitFor({ state: 'visible', timeout: 5000 });
+      await page.locator('[data-testid="signup-email-input"]').waitFor({ state: 'visible', timeout: 5000 });
+      await page.locator('[data-testid="signup-password-input"]').waitFor({ state: 'visible', timeout: 5000 });
+      await page.locator('[data-testid="signup-confirm-password-input"]').waitFor({ state: 'visible', timeout: 5000 });
+      await page.locator('[data-testid="signup-submit-button"]').waitFor({ state: 'visible', timeout: 5000 });
+
+      // Fill and submit with explicit error propagation
+      try {
+        await page.fill('[data-testid="signup-name-input"]', 'E2E Setup User');
+        await page.fill('[data-testid="signup-email-input"]', email);
+        await page.fill('[data-testid="signup-password-input"]', password);
+        await page.fill('[data-testid="signup-confirm-password-input"]', password);
+        await page.click('[data-testid="signup-submit-button"]');
+      } catch (err: any) {
+        console.error('Signup form interaction failed:', err);
+        throw err;
+      }
+
+      // Wait for submission to complete (navigation or network idle)
+      try {
+        await page.waitForLoadState('networkidle', { timeout: 10000 });
+      } catch {}
+
+      // Wait for session establishment
+      let authenticated = false;
+      for (let i = 0; i < 20; i++) {
+        const s = await page.evaluate(async () => {
+          try {
+            const r = await fetch('/api/auth/get-session', { credentials: 'include' });
+            if (!r.ok) return null;
+            const data: any = await r.json().catch(() => null);
+            return data?.session ?? null;
+          } catch { return null; }
+        });
+        if (s) { authenticated = true; break; }
+        await page.waitForTimeout(300);
+      }
+
+      if (!authenticated) {
+        console.warn('⚠️  Global setup could not establish a session via UI signup in time; tests may re-auth.');
+      }
     }
 
-    if (!authenticated) {
-      console.warn('⚠️  Global setup could not establish a session via UI signup in time; tests may re-auth.');
+    // Persist storage state
+    const { mkdirSync } = await import('fs');
+    const { join } = await import('path');
+    const authDir = join(process.cwd(), 'playwright', '.auth');
+    try { mkdirSync(authDir, { recursive: true }); } catch {}
+    const storagePath = join(authDir, 'user.json');
+    try {
+      await context.storageState({ path: storagePath });
+      console.log('✅ storageState saved to playwright/.auth/user.json');
+    } catch (err: any) {
+      console.error('Failed to write storageState to', storagePath, err);
+      throw err;
     }
+
+    console.log('✅ Global setup complete');
+  } finally {
+    try { if (context) await context.close(); } catch {}
+    try { await browser.close(); } catch {}
   }
-
-  // Persist storage state
-  const { mkdirSync } = await import('fs');
-  const { join } = await import('path');
-  const authDir = join(process.cwd(), 'playwright', '.auth');
-  try { mkdirSync(authDir, { recursive: true }); } catch {}
-  const storagePath = join(authDir, 'user.json');
-  await context.storageState({ path: storagePath });
-
-  await browser.close();
-  console.log('✅ storageState saved to playwright/.auth/user.json');
-  console.log('✅ Global setup complete');
 }
 
 export default globalSetup;

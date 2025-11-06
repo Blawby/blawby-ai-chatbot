@@ -53,7 +53,6 @@ export class MatterService {
   async createLeadFromContactForm(input: CreateLeadInput): Promise<{ matterId: string; matterNumber: string; createdAt: string }> {
     const now = new Date();
     const matterId = crypto.randomUUID();
-    const matterNumber = await this.generateMatterNumber(input.organizationId);
     const createdAt = now.toISOString();
 
     const clientName = input.name?.trim() || 'New Lead';
@@ -64,40 +63,55 @@ export class MatterService {
       source: 'contact_form',
       submittedAt: createdAt
     };
-
-    await this.env.DB.prepare(
-      `INSERT INTO matters (
-         id,
-         organization_id,
-         client_name,
-         client_email,
-         client_phone,
-         matter_type,
-         title,
-         description,
-         status,
-         priority,
-         lead_source,
-         matter_number,
-         custom_fields,
-         created_at,
-         updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'normal', ?, ?, ?, ?, ?)`
-    ).bind(
-      matterId,
-      input.organizationId,
-      clientName,
-      input.email.trim(),
-      input.phoneNumber.trim(),
-      'General Consultation',
-      `Lead: ${clientName}`,
-      input.matterDetails.trim(),
-      leadSource,
-      matterNumber,
-      JSON.stringify(customFields),
-      createdAt,
-      createdAt
-    ).run();
+    // Insert with retry-on-unique-conflict for matter_number to avoid race conditions
+    let matterNumber: string = '';
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      matterNumber = await this.generateMatterNumber(input.organizationId);
+      try {
+        await this.env.DB.prepare(
+          `INSERT INTO matters (
+             id,
+             organization_id,
+             client_name,
+             client_email,
+             client_phone,
+             matter_type,
+             title,
+             description,
+             status,
+             priority,
+             lead_source,
+             matter_number,
+             custom_fields,
+             created_at,
+             updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'normal', ?, ?, ?, ?, ?)`
+        ).bind(
+          matterId,
+          input.organizationId,
+          clientName,
+          input.email.trim(),
+          input.phoneNumber.trim(),
+          'General Consultation',
+          `Lead: ${clientName}`,
+          input.matterDetails.trim(),
+          leadSource,
+          matterNumber,
+          JSON.stringify(customFields),
+          createdAt,
+          createdAt
+        ).run();
+        break; // success
+      } catch (err) {
+        const message = (err instanceof Error ? err.message : String(err)).toLowerCase();
+        const isUniqueConflict = message.includes('unique') && (message.includes('matter_number') || message.includes('idx_matters_org_matter_number_unique'));
+        if (!isUniqueConflict || attempt === maxAttempts) {
+          throw err;
+        }
+        // Retry with a new candidate
+      }
+    }
 
     await this.activityService.createEvent({
       type: 'matter_event',
@@ -124,10 +138,6 @@ export class MatterService {
   async acceptLead(options: { organizationId: string; matterId: string; actorUserId: string }): Promise<StatusTransitionResult> {
     const eventDate = new Date().toISOString();
     const { matter, previousStatus } = await this.assertMatterForLeadAction(options.organizationId, options.matterId, 'accept');
-
-    if (previousStatus !== 'lead') {
-      throw HttpErrors.badRequest('Only leads can be accepted');
-    }
 
     await this.updateMatterStatusInternal(options.organizationId, options.matterId, 'open');
 
@@ -162,10 +172,6 @@ export class MatterService {
   async rejectLead(options: { organizationId: string; matterId: string; actorUserId: string; reason?: string | null }): Promise<StatusTransitionResult> {
     const eventDate = new Date().toISOString();
     const { matter, previousStatus } = await this.assertMatterForLeadAction(options.organizationId, options.matterId, 'reject');
-
-    if (previousStatus !== 'lead') {
-      throw HttpErrors.badRequest('Only leads can be rejected');
-    }
 
     await this.updateMatterStatusInternal(options.organizationId, options.matterId, 'archived');
 
@@ -262,10 +268,6 @@ export class MatterService {
   private async assertMatterForLeadAction(organizationId: string, matterId: string, action: 'accept' | 'reject'): Promise<{ matter: MatterRecord; previousStatus: MatterStatus }> {
     const matter = await this.getMatter(organizationId, matterId);
     const previousStatus = this.normalizeStatus(matter.status);
-
-    if (!matter) {
-      throw HttpErrors.notFound('Matter not found');
-    }
 
     if (previousStatus !== 'lead') {
       throw HttpErrors.badRequest(`Only leads can be ${action === 'accept' ? 'accepted' : 'rejected'}`);

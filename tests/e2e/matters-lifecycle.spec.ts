@@ -88,6 +88,8 @@ test.describe('Matter lead lifecycle (conversation-centric)', () => {
 
   test('submit lead → reject → verify archived', async ({ page }) => {
     const orgs = await getJson<{ success: boolean; data: Array<{ id: string }> }>(page, '/api/organizations/me');
+    expect(orgs.success).toBeTruthy();
+    expect(Array.isArray(orgs.data) && orgs.data.length > 0).toBeTruthy();
     const organizationId = orgs.data[0].id;
 
     const formsResp = await sendJson<{ success: boolean; data: { matterId: string } }>(
@@ -102,6 +104,8 @@ test.describe('Matter lead lifecycle (conversation-centric)', () => {
       },
       { 'Idempotency-Key': key('forms2') }
     );
+    expect(formsResp.success).toBeTruthy();
+    expect(typeof formsResp.data?.matterId).toBe('string');
     const matterId = formsResp.data.matterId;
 
     const rejectResp = await sendJson<{ success: boolean; data: { matterId: string; status: string } }>(
@@ -111,6 +115,7 @@ test.describe('Matter lead lifecycle (conversation-centric)', () => {
       { reason: 'Not a fit' },
       { 'Idempotency-Key': key('reject') }
     );
+    expect(rejectResp.success).toBeTruthy();
     expect(rejectResp.data.status).toBe('archived');
   });
 });

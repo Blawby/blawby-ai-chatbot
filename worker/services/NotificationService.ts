@@ -155,6 +155,15 @@ Payment link has been sent to the client. Please monitor payment status.`
     const { organizationConfig, update, matterInfo } = request;
 
     try {
+      // Validate update payload
+      const hasMinimalUpdate = Boolean(
+        update && (update.action || update.fromStatus || update.toStatus || update.actorId)
+      );
+      if (!hasMinimalUpdate) {
+        Logger.info('Skipping matter update notification: missing or insufficient update payload');
+        return;
+      }
+
       const { EmailService } = await import('./EmailService.js');
       const emailService = new EmailService(this.env.RESEND_API_KEY);
 

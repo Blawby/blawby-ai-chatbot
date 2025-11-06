@@ -160,9 +160,23 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
           <MatterStatusBadge status={badgeStatus} />
         </div>
         <p>{matter.service}</p>
-        <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-          Waiting for review by the legal team
-        </p>
+        {(() => {
+          const msg = (() => {
+            switch (status) {
+              case 'ready':
+                return 'Ready — all required information provided';
+              case 'incomplete':
+                return 'In progress — more information may be needed';
+              default:
+                return 'Waiting for review by the legal team';
+            }
+          })();
+          return (
+            <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+              {msg}
+            </p>
+          );
+        })()}
         {matter.matterSummary && (
           <p>{matter.matterSummary.substring(0, 100)}...</p>
         )}

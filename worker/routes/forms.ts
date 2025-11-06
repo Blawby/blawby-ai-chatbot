@@ -79,20 +79,29 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
     }
 
     const notificationService = new NotificationService(env);
-    await notificationService.sendMatterCreatedNotification({
-      type: 'matter_created',
-      organizationConfig: organization,
-      matterInfo: {
-        type: 'Lead',
-        description: matterDetails,
-        urgency: 'standard'
-      },
-      clientInfo: {
-        name: body.name ?? 'New Lead',
+    try {
+      await notificationService.sendMatterCreatedNotification({
+        type: 'matter_created',
+        organizationConfig: organization,
+        matterInfo: {
+          type: 'Lead',
+          description: matterDetails,
+          urgency: 'standard'
+        },
+        clientInfo: {
+          name: body.name ?? 'New Lead',
+          email,
+          phone: phoneNumber
+        }
+      });
+    } catch (notifyErr) {
+      // Best-effort: log and continue without failing the submission
+      console.error('Notification send failed for matter creation', {
+        organizationId: organization.id,
         email,
-        phone: phoneNumber
-      }
-    });
+        phoneNumber
+      }, notifyErr);
+    }
 
     // Note for future Preact wiring: call POST /api/forms with the user's answers.
     return createSuccessResponse(responsePayload);
