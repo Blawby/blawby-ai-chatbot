@@ -370,6 +370,17 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
     };
   }, [autoFetch, searchTerm]);
 
+  // Cleanup on unmount: abort any in-flight request
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        try {
+          abortControllerRef.current.abort();
+        } catch {}
+      }
+    };
+  }, []);
+
   const result = useMemo<UseMattersSidebarResult>(() => ({
     matters,
     loading,

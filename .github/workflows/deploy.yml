@@ -93,16 +93,7 @@ jobs:
       with:
         node-version: '20'
         run-build: 'true'
-        install-wrangler: 'true'
-
-    - name: Deploy preview Worker
-      if: github.event.action != 'closed'
-      run: |
-        echo "Deploying preview Worker for PR #${{ github.event.pull_request.number }}"
-        wrangler deploy --env dev
-      env:
-        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        install-wrangler: 'false'
 
     - name: Deploy preview Pages
       if: github.event.action != 'closed'

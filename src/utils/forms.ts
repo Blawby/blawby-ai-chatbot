@@ -67,7 +67,7 @@ export async function submitContactForm(
         console.warn('Failed to fetch organization config:', error);
       }
       
-      // Create confirmation message based on payment requirements and matter creation status
+      // Create confirmation message for matter vs lead first
       const baseMessage = '✅ Your lead has been submitted. The legal team will review and contact you.';
       let confirmationContent = baseMessage;
 
@@ -76,17 +76,23 @@ export async function submitContactForm(
 
       if (hasMatter) {
         confirmationContent = '✅ Perfect! Your matter details have been submitted successfully and updated below.';
-      } else if (organizationConfig?.config?.requiresPayment) {
+      }
+
+      // Independently append payment block if required by organization config
+      if (organizationConfig?.config?.requiresPayment) {
         const fee = organizationConfig.config?.consultationFee ?? 0;
         const paymentLink = organizationConfig.config?.paymentLink ?? '';
         const organizationName = organizationConfig.name ?? 'our firm';
 
+        let paymentText = '';
         if (fee <= 0 || !paymentLink) {
           console.warn('Payment required but missing fee or payment link:', { fee, paymentLink });
-          confirmationContent = `${baseMessage}\n\nA lawyer will reach out with payment details shortly. Thank you for choosing ${organizationName}!`;
+          paymentText = `A lawyer will reach out with payment details shortly. Thank you for choosing ${organizationName}!`;
         } else {
-          confirmationContent = `${baseMessage}\n\n💰 **Consultation Fee**: $${fee}\n\nTo continue, please complete the payment.\n\n🔗 **Payment Link**: ${paymentLink}\n\nOnce payment is complete, a lawyer will review your matter and follow up.`;
+          paymentText = `💰 **Consultation Fee**: $${fee}\n\nTo continue, please complete the payment.\n\n🔗 **Payment Link**: ${paymentLink}\n\nOnce payment is complete, a lawyer will review your matter and follow up.`;
         }
+
+        confirmationContent = `${confirmationContent}\n\n${paymentText}`;
       }
 
       // Update the loading message with confirmation

@@ -33,6 +33,14 @@ const STATUS_OPTIONS: { value: MatterWorkflowStatus; label: string }[] = [
   { value: 'archived', label: 'Archived' }
 ];
 
+const STATUS_TRANSITIONS: Record<MatterWorkflowStatus, MatterWorkflowStatus[]> = {
+  lead: ['open', 'archived'],
+  open: ['in_progress', 'archived'],
+  in_progress: ['open', 'completed', 'archived'],
+  completed: ['in_progress', 'archived'],
+  archived: ['open']
+};
+
 export const ConversationHeader = ({
   organizationId,
   matterId,
@@ -172,7 +180,16 @@ export const ConversationHeader = ({
 
   const availableStatusOptions = useMemo(() => {
     if (!matter) return STATUS_OPTIONS;
-    return STATUS_OPTIONS.filter(option => option.value !== 'lead' || matter.status === 'lead');
+    if (matter.status === 'lead') {
+      return STATUS_OPTIONS.filter(option => option.value === 'lead');
+    }
+
+    const allowed = new Set<MatterWorkflowStatus>([
+      matter.status,
+      ...(STATUS_TRANSITIONS[matter.status] ?? [])
+    ]);
+
+    return STATUS_OPTIONS.filter(option => allowed.has(option.value));
   }, [matter]);
 
   if (!organizationId || !matterId) {

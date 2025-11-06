@@ -1,8 +1,9 @@
 -- Migration: Add helpful indexes for matters and matter_events, and ensure closed_at exists
--- Safe for D1: uses CREATE INDEX IF NOT EXISTS and ALTER TABLE ... IF NOT EXISTS
+-- Note: D1/SQLite does not support ALTER TABLE ... ADD COLUMN IF NOT EXISTS. The migration
+-- runner should ignore the duplicate-column error if closed_at already exists.
 
 BEGIN TRANSACTION;
-ALTER TABLE matters ADD COLUMN IF NOT EXISTS closed_at DATETIME;
+ALTER TABLE matters ADD COLUMN closed_at DATETIME;
 COMMIT;
 
 -- 2) Indexes to speed workspace listing and acceptedBy derivation

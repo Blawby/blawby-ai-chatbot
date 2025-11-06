@@ -86,8 +86,19 @@ export const SidebarContent = ({
 
   const hasInitialSelection = useRef(false);
 
+  // Reset initial selection state when organization changes
+  useEffect(() => {
+    hasInitialSelection.current = false;
+  }, [organizationId]);
+
   useEffect(() => {
     if (!showMattersSection || !onSelectMatter || matters.length === 0) {
+      return;
+    }
+
+    // Respect upstream selection; only auto-select if none is provided
+    if (selectedMatterId) {
+      hasInitialSelection.current = true;
       return;
     }
 
@@ -96,7 +107,7 @@ export const SidebarContent = ({
       onSelectMatter(matters[0].id);
       hasInitialSelection.current = true;
     }
-  }, [matters, onSelectMatter, showMattersSection]);
+  }, [matters, onSelectMatter, showMattersSection, selectedMatterId, organizationId]);
 
   const statusFilters = useMemo(() => ([
     { value: 'lead', label: 'Leads' },
