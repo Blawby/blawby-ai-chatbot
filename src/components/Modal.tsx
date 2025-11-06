@@ -99,10 +99,10 @@ const Modal: FunctionComponent<ModalProps> = ({
                     <motion.div 
                         className={`shadow-2xl bg-white dark:bg-dark-bg text-gray-900 dark:text-white border border-gray-200 dark:border-dark-border ${
                             shouldUseDrawer 
-                                ? 'fixed bottom-0 left-0 right-0 rounded-t-2xl max-h-[90vh]'
+                                ? 'fixed bottom-0 left-0 right-0 rounded-t-2xl flex flex-col overflow-hidden'
                                 : shouldUseFullscreen
                                 ? 'fixed inset-0 w-full h-full overflow-y-auto'
-                                : 'relative rounded-xl max-w-4xl w-full max-h-[90vh]'
+                                : 'relative rounded-xl max-w-4xl w-full flex flex-col overflow-hidden'
                         }`}
                         initial={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
                         animate={shouldUseDrawer ? { y: 0 } : { scale: 1 }}
@@ -154,7 +154,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                         {/* Content */}
                         <div className={shouldUseFullscreen 
                           ? 'min-h-full flex flex-col'
-                          : 'p-4 overflow-auto max-h-[90vh]'}>
+                          : 'p-4 overflow-auto flex-1 min-h-0'}>
                             {children}
                         </div>
                     </motion.div>
