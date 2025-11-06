@@ -80,3 +80,7 @@ backups/
 .cache
 .parcel-cache
 .turbo
+
+# Cookie files (may contain session tokens)
+cookies.txt
+*.cookies.txt
