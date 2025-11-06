@@ -33,6 +33,7 @@ export interface Organization {
   slug: string;
   name: string;
   description?: string;
+  betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
@@ -193,6 +194,13 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     }
     return undefined as Organization['config'] & { description?: string } | undefined;
   })();
+  const betterAuthOrgId = (() => {
+    const direct = (raw as Record<string, unknown>).betterAuthOrgId;
+    if (typeof direct === 'string' && direct.trim().length > 0) return direct;
+    const fromCfg = cfg && (cfg as unknown as { betterAuthOrgId?: string }).betterAuthOrgId;
+    if (typeof fromCfg === 'string' && fromCfg.trim().length > 0) return fromCfg;
+    return id; // fallback to our DB id, aligned with backend mapping
+  })();
 
   const onboardingCompletedAt = (() => {
     const camel = (raw as Record<string, unknown>).businessOnboardingCompletedAt;
@@ -269,6 +277,7 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
     config: cfg,
+    betterAuthOrgId,
     kind: resolvedKind,
     isPersonal: rawIsPersonal ?? (resolvedKind === 'personal'),
     businessOnboardingCompletedAt: onboardingCompletedAt,

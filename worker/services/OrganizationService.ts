@@ -34,6 +34,7 @@ export interface Organization {
   domain?: string;
   metadata?: Record<string, unknown>;
   config: OrganizationConfig;
+  betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number;
@@ -81,6 +82,7 @@ export interface OrganizationConfig {
   };
   testMode?: boolean;  // Organization-level testing flag for notifications and other features
   metadata?: Record<string, unknown>; // Additional metadata for organization configuration
+  betterAuthOrgId?: string; // Canonical org id to use with Better Auth endpoints
 }
 
 const LEGACY_AI_PROVIDER = 'workers-ai';
@@ -316,6 +318,17 @@ export class OrganizationService {
       kind: 'personal',
     });
 
+    // Eagerly persist betterAuthOrgId mapping to config (canonical to our organization id)
+    try {
+      await this.env.DB.prepare(
+        `UPDATE organizations SET config = json_set(COALESCE(config, '{}'), '$.betterAuthOrgId', ?) WHERE id = ?`
+      ).bind(organization.id, organization.id).run();
+      // Clear cache to ensure subsequent reads include updated config
+      this.clearCache(organization.id);
+    } catch (e) {
+      console.warn('⚠️ Failed to persist betterAuthOrgId after org creation', { id: organization.id, error: String(e) });
+    }
+
     try {
       await this.env.DB.prepare(
         `INSERT INTO members (id, organization_id, user_id, role, created_at)
@@ -356,6 +369,17 @@ export class OrganizationService {
     if (personalMembership?.id) {
       const existing = await this.getOrganization(personalMembership.id);
       if (existing) {
+        // Ensure betterAuthOrgId is present in config
+        if (!existing.config?.betterAuthOrgId) {
+          try {
+            await this.env.DB.prepare(
+              `UPDATE organizations SET config = json_set(COALESCE(config, '{}'), '$.betterAuthOrgId', ?) WHERE id = ?`
+            ).bind(existing.id, existing.id).run();
+            this.clearCache(existing.id);
+          } catch (e) {
+            console.warn('⚠️ Failed to persist betterAuthOrgId in ensurePersonalOrganization', { id: existing.id, error: String(e) });
+          }
+        }
         // Ensure membership row exists with owner role (idempotent)
         try {
           const membership = await this.env.DB.prepare(
@@ -698,6 +722,16 @@ export class OrganizationService {
         const rawConfig = orgRow.config ? JSON.parse(orgRow.config as string) : {};
         const resolvedConfig = this.resolveEnvironmentVariables(rawConfig);
         const normalizedConfig = this.validateAndNormalizeConfig(resolvedConfig as OrganizationConfig, false, organizationId);
+        if (!normalizedConfig.betterAuthOrgId) {
+          normalizedConfig.betterAuthOrgId = orgRow.id as string;
+          try {
+            await this.env.DB.prepare(
+              `UPDATE organizations SET config = json_set(COALESCE(config, '{}'), '$.betterAuthOrgId', ?) WHERE id = ?`
+            ).bind(orgRow.id as string, orgRow.id as string).run();
+          } catch (e) {
+            console.warn('⚠️ Failed to persist betterAuthOrgId into organization config', { id: orgRow.id, error: String(e) });
+          }
+        }
         
         // Parse updated_at defensively
         let updatedAt: number;
@@ -721,6 +755,7 @@ export class OrganizationService {
           slug: orgRow.slug as string,
           domain: orgRow.domain as string | undefined,
           config: normalizedConfig,
+          betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (orgRow.id as string),
           stripeCustomerId: (orgRow as Record<string, unknown>).stripe_customer_id as string | null | undefined,
           subscriptionTier: (orgRow as Record<string, unknown>).subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
           seats: (() => {
@@ -810,6 +845,7 @@ export class OrganizationService {
             slug: row.slug as string,
             domain: row.domain as string | undefined,
             config: normalizedConfig,
+            betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (row.id as string),
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,
@@ -865,6 +901,7 @@ export class OrganizationService {
             slug: row.slug as string,
             domain: row.domain as string | undefined,
             config: normalizedConfig,
+            betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (row.id as string),
             stripeCustomerId: row.stripe_customer_id as string | undefined,
             subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
             seats: Number(row.seats ?? 1) || 1,

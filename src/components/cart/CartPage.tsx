@@ -280,6 +280,7 @@ export const CartPage = () => {
     
     // Ensure personal organization exists server-side to avoid race conditions
     let organizationId = currentOrganization?.id;
+    let betterAuthOrgId = currentOrganization?.betterAuthOrgId ?? currentOrganization?.id;
     if (!organizationId) {
       try {
         console.debug('[CART][UPGRADE] Ensuring personal organization via /api/organizations/me/ensure-personal');
@@ -304,8 +305,9 @@ export const CartPage = () => {
           orgs = [];
         }
         if (orgs.length > 0) {
-          const personal = orgs.find(o => o.kind === 'personal');
+          const personal = orgs.find(o => o.kind === 'personal') as { id?: string; betterAuthOrgId?: string } | undefined;
           organizationId = personal?.id ?? orgs[0]?.id ?? null;
+          betterAuthOrgId = personal?.betterAuthOrgId ?? organizationId ?? null;
         }
         console.debug('[CART][UPGRADE] Ensured/loaded orgs. Resolved organizationId:', organizationId);
       } catch (e) {
@@ -318,16 +320,19 @@ export const CartPage = () => {
       return;
     }
 
-    // Align active organization using Better Auth client helpers before checkout
+    // Align active organization using Better Auth client helpers before checkout (use Better Auth org id if available)
     try {
-      await authClient.organization.setActive({ organizationId });
-      console.debug('[CART][UPGRADE] Active organization set via auth client:', organizationId);
+      const authOrgId = betterAuthOrgId ?? organizationId;
+      if (authOrgId) {
+        await authClient.organization.setActive({ organizationId: authOrgId });
+        console.debug('[CART][UPGRADE] Active organization set via auth client:', authOrgId);
+      }
     } catch (e) {
       console.warn('[CART][UPGRADE] Failed to set active organization with auth client (continuing anyway):', e);
     }
 
     const upgradeParams = {
-      organizationId,
+      organizationId, // our DB org id as referenceId for backend
       seats: quantity,
       annual: isAnnual,
       cancelUrl: typeof window !== 'undefined' ? window.location.href : undefined,
