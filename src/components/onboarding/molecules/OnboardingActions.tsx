@@ -11,6 +11,7 @@ import { cn } from '../../../utils/cn';
 interface OnboardingActionsProps {
   onBack?: () => void;
   onContinue: () => void;
+  onSkip?: () => void;
   backLabel?: string;
   continueLabel?: string;
   loading?: boolean;
@@ -22,6 +23,7 @@ interface OnboardingActionsProps {
 export const OnboardingActions = ({
   onBack,
   onContinue,
+  onSkip,
   backLabel = 'Back',
   continueLabel = 'Continue',
   loading = false,
@@ -75,6 +77,18 @@ export const OnboardingActions = ({
           getContinueLabel() || 'Continue'
         )}
       </Button>
+
+      {onSkip && (
+        <div className="col-span-2 text-center mt-2 order-3">
+          <button
+            type="button"
+            onClick={onSkip}
+            className="text-sm font-bold underline"
+          >
+            Skip for now
+          </button>
+        </div>
+      )}
     </div>
   );
 };

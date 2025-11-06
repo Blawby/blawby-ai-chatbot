@@ -31,6 +31,7 @@ interface ReviewAndLaunchStepProps {
   onVisibilityChange: (isPublic: boolean) => void;
   onComplete: () => void;
   onBack: () => void;
+  onSkip?: () => void;
 }
 
 export function ReviewAndLaunchStep({ 
@@ -38,7 +39,8 @@ export function ReviewAndLaunchStep({
   organizationSlug,
   onVisibilityChange,
   onComplete, 
-  onBack 
+  onBack,
+  onSkip
 }: ReviewAndLaunchStepProps) {
   const { t } = useTranslation('common');
   const intakeUrl = `https://ai.blawby.com/${encodeURIComponent((organizationSlug || 'your-firm').trim())}`;
@@ -164,6 +166,7 @@ export function ReviewAndLaunchStep({
         onBack={onBack}
         continueLabel={t('onboarding:reviewAndLaunch.actions.launchAssistant')}
         isLastStep={true}
+        onSkip={onSkip}
       />
     </div>
   );

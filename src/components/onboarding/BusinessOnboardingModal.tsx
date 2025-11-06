@@ -64,6 +64,8 @@ interface BusinessOnboardingModalProps {
   fallbackContactEmail?: string | undefined;
   onClose: () => void;
   onCompleted?: () => Promise<void> | void;
+  currentStepFromUrl?: OnboardingStep;
+  onStepChange?: (step: OnboardingStep) => void;
 }
 
 const BusinessOnboardingModal = ({
@@ -72,7 +74,9 @@ const BusinessOnboardingModal = ({
   organizationName,
   fallbackContactEmail,
   onClose,
-  onCompleted
+  onCompleted,
+  currentStepFromUrl,
+  onStepChange
 }: BusinessOnboardingModalProps) => {
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -147,12 +151,27 @@ const BusinessOnboardingModal = ({
     }
   }, [organizationId, showError]);
 
-  const handleStepChange = useCallback((_step: OnboardingStep, _prevStep: OnboardingStep) => {
-    // No-op: explicit saves are handled in continue/back handlers to avoid redundant/conflicting saves
-    return;
-  }, []);
+  const handleStepChange = useCallback((step: OnboardingStep, _prevStep: OnboardingStep) => {
+    if (onStepChange) onStepChange(step);
+  }, [onStepChange]);
 
   const { currentStep, goNext, goBack, goToStep, progress, isFirstStep, isLastStep } = useStepNavigation(handleStepChange);
+
+  // Initialize validation before handlers that use clearErrors
+  const { validateStep, clearErrors, errors } = useStepValidation();
+
+  // Advance to next step without saving (Skip for now)
+  const handleSkip = useCallback(() => {
+    if (isLoadingData) return;
+    goNext();
+    clearErrors();
+    setSubmitError(null);
+  }, [isLoadingData, goNext, clearErrors]);
+
+  useEffect(() => {
+    if (!currentStepFromUrl) return;
+    goToStep(currentStepFromUrl);
+  }, [currentStepFromUrl, goToStep]);
 
   // Load saved data on mount
   useEffect(() => {
@@ -199,7 +218,7 @@ const BusinessOnboardingModal = ({
     void loadSavedData();
   }, [isOpen, organizationId, fallbackContactEmail, setFormData, goToStep, onClose]);
 
-  const { validateStep, clearErrors, errors } = useStepValidation();
+  // useStepValidation already initialized above
 
   const handleStepContinue = async () => {
     if (isLoadingData) {
@@ -302,6 +321,7 @@ const BusinessOnboardingModal = ({
           errors={errors && errors.length > 0 ? errors[0].message : null}
           organizationSlug={organizationName?.toLowerCase().replace(/\s+/g, '-')}
           disabled={isLoadingData}
+          onSkip={handleSkip}
         />
             
       </OnboardingContainer>

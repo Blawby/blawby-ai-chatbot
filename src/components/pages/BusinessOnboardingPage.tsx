@@ -6,6 +6,7 @@ import { useNavigation } from '../../utils/navigation';
 import { useToastContext } from '../../contexts/ToastContext';
 import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
+import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
@@ -17,6 +18,24 @@ export const BusinessOnboardingPage = () => {
   const [syncing, setSyncing] = useState(false);
   const [ready, setReady] = useState(false);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
+
+  // Derive step from URL path like /business-onboarding/:step
+  const validSteps: OnboardingStep[] = useMemo(() => [
+    'welcome',
+    'firm-basics',
+    'trust-account-intro',
+    'stripe-onboarding',
+    'business-details',
+    'services',
+    'review-and-launch'
+  ], []);
+
+  const currentStepFromUrl: OnboardingStep = useMemo(() => {
+    const segments = location.path.split('/').filter(Boolean);
+    const stepCandidate = (segments[1] as OnboardingStep | undefined);
+    if (!stepCandidate) return 'welcome';
+    return (validSteps as string[]).includes(stepCandidate) ? stepCandidate : 'welcome';
+  }, [location.path, validSteps]);
 
   // Extract query params
   const sessionId = location.query?.session_id;
@@ -215,6 +234,22 @@ export const BusinessOnboardingPage = () => {
     navigate('/');
   }, [targetOrganizationId, navigate]);
 
+  const handleStepChangeFromModal = useCallback((nextStep: OnboardingStep) => {
+    // Prevent feedback loops: if URL already reflects this step, do nothing
+    if (nextStep === currentStepFromUrl) return;
+    try {
+      const url = new URL(window.location.href);
+      const search = url.search; // preserve all existing query params
+      const base = '/business-onboarding';
+      const nextPath = nextStep === 'welcome' ? base : `${base}/${nextStep}`;
+      navigate(`${nextPath}${search}`, true);
+    } catch {
+      const base = '/business-onboarding';
+      const nextPath = nextStep === 'welcome' ? base : `${base}/${nextStep}`;
+      navigate(nextPath, true);
+    }
+  }, [navigate, currentStepFromUrl]);
+
   if (syncing) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -292,6 +327,8 @@ export const BusinessOnboardingPage = () => {
       fallbackContactEmail={targetOrganization?.config?.ownerEmail}
       onClose={handleClose}
       onCompleted={handleComplete}
+      currentStepFromUrl={currentStepFromUrl}
+      onStepChange={handleStepChangeFromModal}
     />
   );
 };

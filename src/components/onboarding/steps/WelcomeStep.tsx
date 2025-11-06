@@ -8,9 +8,10 @@ import { OnboardingActions } from '../molecules/OnboardingActions';
 interface WelcomeStepProps {
   onContinue: () => void;
   onBack?: () => void;
+  onSkip?: () => void;
 }
 
-export function WelcomeStep({ onContinue, onBack }: WelcomeStepProps) {
+export function WelcomeStep({ onContinue, onBack, onSkip }: WelcomeStepProps) {
   const features = [
     {
       text: 'Configure your business profile and branding',
@@ -32,6 +33,7 @@ export function WelcomeStep({ onContinue, onBack }: WelcomeStepProps) {
       <OnboardingActions 
         onContinue={onContinue}
         onBack={onBack}
+        onSkip={onSkip}
         continueLabel="Get Started"
         isFirstStep={true}
       />

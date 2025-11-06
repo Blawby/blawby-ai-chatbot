@@ -20,6 +20,7 @@ interface OnboardingStepRendererProps {
   onChange: (field: keyof OnboardingFormData, value: unknown) => void;
   onContinue: () => void;
   onBack: () => void;
+  onSkip?: () => void;
   errors?: string | null;
   organizationSlug?: string;
   disabled?: boolean;
@@ -31,13 +32,15 @@ export const OnboardingStepRenderer = ({
   onChange,
   onContinue,
   onBack,
+  onSkip,
   errors,
   organizationSlug,
   disabled = false,
 }: OnboardingStepRendererProps) => {
   const commonProps = {
     onContinue,
-    onBack
+    onBack,
+    onSkip
   };
 
   switch (currentStep) {
@@ -62,6 +65,7 @@ export const OnboardingStepRenderer = ({
             onChange('website', data.website);
           }}
           errors={errors}
+          onSkip={onSkip}
         />
       );
 
@@ -113,6 +117,7 @@ export const OnboardingStepRenderer = ({
       return (
         <ReviewAndLaunchStep
           {...commonProps}
+          onSkip={onSkip}
           data={stepData}
           organizationSlug={organizationSlug}
           onVisibilityChange={(isPublic) => onChange('isPublic', isPublic)}
