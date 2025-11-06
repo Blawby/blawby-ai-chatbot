@@ -7,6 +7,7 @@ import DragDropOverlay from './components/DragDropOverlay';
 import AppLayout from './components/AppLayout';
 import AuthPage from './components/AuthPage';
 import { SEOHead } from './components/SEOHead';
+import { ConversationHeader } from './components/chat/ConversationHeader';
 import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
 import { SessionProvider } from './contexts/SessionContext';
@@ -78,7 +79,12 @@ function MainApp({
 		showErrorRef.current = showError;
 	}, [showError]);
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
-	const { currentOrganization, refetch: refetchOrganizations } = useOrganizationManagement();
+	const { currentOrganization, refetch: refetchOrganizations, acceptMatter, rejectMatter, updateMatterStatus } = useOrganizationManagement();
+	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
+
+	useEffect(() => {
+		setSelectedMatterId(null);
+	}, [organizationId]);
 
 	const isQuotaRestricted = Boolean(
 		quota &&
@@ -486,8 +492,17 @@ function MainApp({
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
 					return await handleFileSelect(files);
 				}}
+				selectedMatterId={selectedMatterId}
+				onMatterSelect={setSelectedMatterId}
 			>
 				<div className="relative h-full flex flex-col">
+					<ConversationHeader
+						organizationId={organizationId}
+						matterId={selectedMatterId}
+						acceptMatter={acceptMatter}
+						rejectMatter={rejectMatter}
+						updateMatterStatus={updateMatterStatus}
+					/>
 					{(quota && !quota.messages.unlimited) && (
 						<div className="px-4 pt-4">
 							<QuotaBanner

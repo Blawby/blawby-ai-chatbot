@@ -2,7 +2,8 @@ import type { Env } from '../types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
 import { OrganizationService } from '../services/OrganizationService.js';
-import { requireOrgMember } from '../middleware/auth.js';
+import { MatterService } from '../services/MatterService.js';
+import { NotificationService } from '../services/NotificationService.js';
 
 type ContactFormPayload = {
   name?: string;
@@ -14,59 +15,14 @@ type ContactFormPayload = {
 };
 
 export async function handleForms(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-
-  if (request.method === 'GET') {
-    const organizationId = url.searchParams.get('organizationId');
-    if (!organizationId) {
-      throw HttpErrors.badRequest('organizationId query parameter is required');
-    }
-
-    // Resolve organization by ID or slug to get canonical numeric ID
-    const organizationService = new OrganizationService(env);
-    const organization = await organizationService.getOrganization(organizationId);
-    if (!organization) {
-      throw HttpErrors.notFound('Organization not found');
-    }
-
-    // Require at least admin membership to read submissions using canonical ID
-    await requireOrgMember(request, env, organization.id, 'admin');
-
-    const forms = await env.DB.prepare(
-      `SELECT id,
-              organization_id as organizationId,
-              conversation_id as conversationId,
-              phone_number as phoneNumber,
-              email,
-              matter_details as matterDetails,
-              status,
-              assigned_lawyer as assignedLawyer,
-              notes,
-              created_at as createdAt,
-              updated_at as updatedAt
-         FROM contact_forms
-        WHERE organization_id = ?
-        ORDER BY created_at DESC`
-    ).bind(organization.id).all();
-
-    // Future Preact usage: fetch this endpoint inside an org dashboard to render submissions.
-    return createSuccessResponse({
-      submissions: forms.results?.map(form => ({
-        ...form,
-        notes: typeof form.notes === 'string'
-          ? safeParseNotes(form.notes)
-          : form.notes
-      })) ?? []
-    });
-  }
-
   if (request.method !== 'POST') {
-    throw HttpErrors.methodNotAllowed('Only POST method is allowed');
+    throw HttpErrors.methodNotAllowed('Only POST method is allowed for /api/forms');
   }
 
   try {
     const body = await parseJsonBody(request) as ContactFormPayload;
     const organizationService = new OrganizationService(env);
+    const matterService = new MatterService(env);
 
     const organizationId = body.organizationId?.trim();
     if (!organizationId) {
@@ -92,49 +48,88 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
       throw HttpErrors.badRequest('matterDetails is required');
     }
 
-    const contactFormId = crypto.randomUUID();
-    const notes = JSON.stringify({
-      name: body.name ?? null
+    const idempotencyKey = request.headers.get('Idempotency-Key') ?? null;
+    if (idempotencyKey) {
+      const existing = await getIdempotencyResult(env, organization.id, idempotencyKey);
+      if (existing) {
+        return createSuccessResponse(existing);
+      }
+    }
+
+    const matter = await matterService.createLeadFromContactForm({
+      organizationId: organization.id,
+      sessionId: body.sessionId ?? null,
+      name: body.name ?? null,
+      email,
+      phoneNumber,
+      matterDetails,
+      leadSource: 'contact_form'
     });
 
-    await env.DB.prepare(
-      `INSERT INTO contact_forms (
-         id,
-         organization_id,
-         conversation_id,
-         phone_number,
-         email,
-         matter_details,
-         status,
-         assigned_lawyer,
-         notes
-       ) VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, ?)`
-    ).bind(
-      contactFormId,
-      organization.id,
-      body.sessionId ?? null,
-      phoneNumber,
-      email,
-      matterDetails,
-      notes
-    ).run();
+    const responsePayload = {
+      matterId: matter.matterId,
+      matterNumber: matter.matterNumber,
+      organizationId: organization.id,
+      status: 'lead' as const,
+      message: 'Lead submitted successfully. A team member will follow up soon.'
+    };
+
+    if (idempotencyKey) {
+      await storeIdempotencyResult(env, organization.id, idempotencyKey, responsePayload);
+    }
+
+    const notificationService = new NotificationService(env);
+    try {
+      await notificationService.sendMatterCreatedNotification({
+        type: 'matter_created',
+        organizationConfig: organization,
+        matterInfo: {
+          type: 'Lead',
+          description: matterDetails,
+          urgency: 'standard'
+        },
+        clientInfo: {
+          name: body.name ?? 'New Lead',
+          email,
+          phone: phoneNumber
+        }
+      });
+    } catch (notifyErr) {
+      // Best-effort: log and continue without failing the submission
+      console.error('Notification send failed for matter creation', {
+        organizationId: organization.id,
+        email,
+        phoneNumber
+      }, notifyErr);
+    }
 
     // Note for future Preact wiring: call POST /api/forms with the user's answers.
-    return createSuccessResponse({
-      id: contactFormId,
-      organizationId: organization.id,
-      message: 'Contact form saved. A team member will follow up soon.'
-    });
+    return createSuccessResponse(responsePayload);
   } catch (error) {
     return handleError(error);
   }
 }
 
-function safeParseNotes(value: string | null): Record<string, unknown> | null {
-  if (!value) return null;
-  try {
-    return JSON.parse(value) as Record<string, unknown>;
-  } catch {
-    return { raw: value };
+async function getIdempotencyResult(env: Env, organizationId: string, key: string): Promise<Record<string, unknown> | null> {
+  const storageKey = buildIdempotencyKey(organizationId, key);
+  const rawValue = await env.CHAT_SESSIONS.get(storageKey);
+  if (!rawValue) {
+    return null;
   }
+
+  try {
+    const parsed = JSON.parse(rawValue) as Record<string, unknown>;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function storeIdempotencyResult(env: Env, organizationId: string, key: string, value: Record<string, unknown>): Promise<void> {
+  const storageKey = buildIdempotencyKey(organizationId, key);
+  await env.CHAT_SESSIONS.put(storageKey, JSON.stringify(value), { expirationTtl: 60 * 60 * 24 });
+}
+
+function buildIdempotencyKey(organizationId: string, key: string): string {
+  return `idempotency:forms:${organizationId}:${key}`;
 }
