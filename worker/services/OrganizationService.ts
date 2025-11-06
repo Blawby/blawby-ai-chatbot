@@ -1497,8 +1497,14 @@ export class OrganizationService {
         return value;
       }
       if (typeof value === 'string' && value.trim().length > 0) {
-        const parsed = Number.parseInt(value, 10);
-        return Number.isFinite(parsed) ? parsed : null;
+        // If numeric-like, try Number first (seconds or ms)
+        const maybeNum = Number(value);
+        if (Number.isFinite(maybeNum)) {
+          return maybeNum;
+        }
+        // Fallback to Date parsing for full datetime strings
+        const ms = Date.parse(value);
+        return Number.isFinite(ms) ? ms : null;
       }
       return null;
     })();

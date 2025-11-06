@@ -169,20 +169,22 @@ const BusinessOnboardingModal = ({
           const payload = await response.json() as { success?: boolean; data?: BusinessOnboardingStatusResponse | null };
           const progress = payload?.data ?? null;
 
-          if (progress?.data && progress.status !== 'completed') {
+          if (progress?.data) {
             const { __meta, ...rest } = progress.data;
             setFormData((prev) => ({
               ...prev,
               ...rest,
               contactEmail: rest.contactEmail || prev.contactEmail || fallbackContactEmail || ''
             }));
-
-            const resumeTarget = __meta?.resumeStep;
-            if (resumeTarget) {
-              goToStep(resumeTarget);
+            if (progress.status === 'completed') {
+              goToStep('review-and-launch');
+            } else {
+              const resumeTarget = __meta?.resumeStep;
+              if (resumeTarget) {
+                goToStep(resumeTarget);
+              }
             }
           } else if (progress?.status === 'completed') {
-            // Allow viewing/editing even when completed; default to review step
             goToStep('review-and-launch');
           }
         }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'preact/hooks';
+import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { PRODUCTS, PRICES, getStripePriceIds } from '../../utils/stripe-products';
 import { usePaymentUpgrade } from '../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
@@ -34,6 +34,10 @@ export const CartPage = () => {
   const [quantity, setQuantity] = useState(initialSeats);
   const [priceIds, setPriceIds] = useState<{ monthly: string; annual: string } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Refs for radio buttons to manage focus programmatically
+  const annualRef = useRef<HTMLButtonElement | null>(null);
+  const monthlyRef = useRef<HTMLButtonElement | null>(null);
 
   const loadPriceIds = useCallback(async () => {
     try {
@@ -173,14 +177,32 @@ export const CartPage = () => {
       case 'ArrowUp': {
         event.preventDefault();
         const prevIndex = currentIndex > 0 ? currentIndex - 1 : priceIdList.length - 1;
-        setSelectedPriceId(priceIdList[prevIndex]);
+        const nextId = priceIdList[prevIndex];
+        setSelectedPriceId(nextId);
+        // Move focus to the newly selected button
+        queueMicrotask(() => {
+          if (nextId === priceIds.annual) {
+            annualRef.current?.focus();
+          } else {
+            monthlyRef.current?.focus();
+          }
+        });
         break;
       }
       case 'ArrowRight':
       case 'ArrowDown': {
         event.preventDefault();
         const nextIndex = currentIndex < priceIdList.length - 1 ? currentIndex + 1 : 0;
-        setSelectedPriceId(priceIdList[nextIndex]);
+        const nextId = priceIdList[nextIndex];
+        setSelectedPriceId(nextId);
+        // Move focus to the newly selected button
+        queueMicrotask(() => {
+          if (nextId === priceIds.annual) {
+            annualRef.current?.focus();
+          } else {
+            monthlyRef.current?.focus();
+          }
+        });
         break;
       }
     }
@@ -386,10 +408,15 @@ export const CartPage = () => {
               aria-label="Billing plan selection"
               className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
               onKeyDown={handleKeyDown}
-              tabIndex={0}
             >
               <button
-                onClick={() => priceIds && setSelectedPriceId(priceIds.annual)}
+                ref={annualRef}
+                onClick={() => {
+                  if (priceIds) {
+                    setSelectedPriceId(priceIds.annual);
+                    queueMicrotask(() => annualRef.current?.focus());
+                  }
+                }}
                 role="radio"
                 aria-checked={priceIds ? selectedPriceId === priceIds.annual : false}
                 aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`}
@@ -433,7 +460,13 @@ export const CartPage = () => {
               </button>
               
               <button
-                onClick={() => priceIds && setSelectedPriceId(priceIds.monthly)}
+                ref={monthlyRef}
+                onClick={() => {
+                  if (priceIds) {
+                    setSelectedPriceId(priceIds.monthly);
+                    queueMicrotask(() => monthlyRef.current?.focus());
+                  }
+                }}
                 role="radio"
                 aria-checked={priceIds ? selectedPriceId === priceIds.monthly : false}
                 aria-label={`Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`}

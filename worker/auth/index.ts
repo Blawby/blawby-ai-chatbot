@@ -1067,6 +1067,41 @@ export async function getAuth(env: Env, request?: Request) {
             },
             session: {
               create: {
+                before: async (session, _context) => {
+                  // Ensure the session carries activeOrganizationId for clients
+                  try {
+                    if (!session?.userId) {
+                      return { data: session };
+                    }
+                    const organizationService = new OrganizationService(env);
+                    const existing = await organizationService.listOrganizations(session.userId);
+                    let personalOrgId: string | null = null;
+                    if (Array.isArray(existing) && existing.length > 0) {
+                      const personal = existing.find(o => o.kind === 'personal');
+                      personalOrgId = personal?.id ?? existing[0]?.id ?? null;
+                    }
+                    if (!personalOrgId) {
+                      // Fetch fallback name from users table when creating personal org
+                      try {
+                        const row = await env.DB
+                          .prepare('SELECT name, email FROM users WHERE id = ?')
+                          .bind(session.userId)
+                          .first<{ name: string | null; email: string | null }>();
+                        const fallbackName = (row?.name && row.name.trim()) || (row?.email?.split('@')[0] ?? 'New User');
+                        const org = await organizationService.ensurePersonalOrganization(session.userId, fallbackName);
+                        personalOrgId = org.id;
+                      } catch (createErr) {
+                        console.error('❌ session.create.before: failed to ensure personal org', createErr);
+                      }
+                    }
+                    if (personalOrgId) {
+                      return { data: { ...session, activeOrganizationId: personalOrgId } };
+                    }
+                  } catch (err) {
+                    console.error('❌ session.create.before error', err);
+                  }
+                  return { data: session };
+                },
                 after: async (session, _context) => {
                   // Set active organization when a session is created
                   if (session.userId && session.id) {

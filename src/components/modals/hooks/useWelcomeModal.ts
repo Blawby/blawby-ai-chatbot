@@ -18,20 +18,24 @@ export function useWelcomeModal(): UseWelcomeModalResult {
       const handler = (e: MessageEvent) => {
         if (e?.data === 'shown' && session?.user?.id) {
           const sessionKey = `welcomeModalShown_v1_${session.user.id}`;
-          // eslint-disable-next-line no-empty
-          try { sessionStorage.setItem(sessionKey, '1'); } catch {}
+          try { sessionStorage.setItem(sessionKey, '1'); } catch (err) {
+            console.warn('[WELCOME_MODAL] Failed to set sessionStorage sessionKey', err);
+          }
           setShouldShow(false);
         }
       };
       bcRef.current.addEventListener('message', handler as never);
       return () => {
-        // eslint-disable-next-line no-empty
-        try { bcRef.current?.removeEventListener('message', handler as never); } catch {}
-        // eslint-disable-next-line no-empty
-        try { bcRef.current?.close(); } catch {}
+        try { bcRef.current?.removeEventListener('message', handler as never); } catch (err) {
+          console.warn('[WELCOME_MODAL] Failed to remove event listener', err);
+        }
+        try { bcRef.current?.close(); } catch (err) {
+          console.warn('[WELCOME_MODAL] BroadcastChannel close failed', err);
+        }
       };
-      // eslint-disable-next-line no-empty
-    } catch {}
+    } catch (err) {
+      console.error('[WELCOME_MODAL] Failed to initialize BroadcastChannel', err);
+    }
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -65,19 +69,26 @@ export function useWelcomeModal(): UseWelcomeModalResult {
     }
     const userId = session.user.id;
     const sessionKey = `welcomeModalShown_v1_${userId}`;
-    // eslint-disable-next-line no-empty
-    try { sessionStorage.setItem(sessionKey, '1'); } catch {}
+    try { sessionStorage.setItem(sessionKey, '1'); } catch (err) {
+      console.warn('[WELCOME_MODAL] Failed to set sessionStorage sessionKey', err);
+    }
     setShouldShow(false);
-    // eslint-disable-next-line no-empty
-    try { bcRef.current?.postMessage('shown'); } catch {}
+    try { bcRef.current?.postMessage('shown'); } catch (err) {
+      console.warn('[WELCOME_MODAL] BroadcastChannel postMessage failed', err);
+    }
     try {
-      await fetch('/api/users/welcome', {
+      const res = await fetch('/api/users/welcome', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
-      // eslint-disable-next-line no-empty
-    } catch {}
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.warn('[WELCOME_MODAL] /api/users/welcome returned non-OK', { status: res.status, body: text });
+      }
+    } catch (err) {
+      console.error('[WELCOME_MODAL] Failed to fetch /api/users/welcome', err);
+    }
   }, [session?.user?.id]);
 
   return { shouldShow, markAsShown };

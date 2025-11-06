@@ -85,7 +85,7 @@ export const SettingsPage = ({
   // Determine if Organization tab should be shown (only for managed subscriptions)
   const hasManagedSub = Boolean(currentOrganization?.stripeCustomerId);
   const subStatus = (currentOrganization?.subscriptionStatus || 'none').toLowerCase();
-  const showOrganizationTab = hasManagedSub && subStatus !== 'none';
+  const showOrganizationTab = hasManagedSub && subStatus !== 'none' && subStatus !== 'canceled';
 
   // Define navigation items with ChatGPT-like structure
   // Note: Icons are now properly typed to accept SVG props like className, aria-hidden, strokeWidth, etc.

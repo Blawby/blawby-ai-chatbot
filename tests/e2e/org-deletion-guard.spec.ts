@@ -4,6 +4,10 @@ import { ensureAuthenticated } from './helpers/createTestUser.js';
 test.describe('Organization Deletion Guard', () => {
   const baseUrl = 'http://localhost:8787';
 
+  test.beforeEach(async ({ page }) => {
+    await ensureAuthenticated(page);
+  });
+
 
   test('API returns 409 when deleting an org with active managed subscription (if present)', async ({ page }) => {
     // Discover organizations via authenticated browser fetch (cookies included)

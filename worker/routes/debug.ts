@@ -93,6 +93,14 @@ async function convertOrgToBusiness(request: Request, env: Env): Promise<Respons
       success: result.success
     });
 
+    // Clear service cache to prevent stale reads in tests
+    try {
+      await Promise.resolve(orgService.clearCache(organizationId));
+      console.log(`[TEST] Cleared OrganizationService cache for ${organizationId}`);
+    } catch (cacheErr) {
+      console.warn('[TEST] Failed to clear OrganizationService cache:', cacheErr);
+    }
+
     // Verify the update
     const updated = await env.DB.prepare(
       `SELECT id, is_personal, subscription_tier FROM organizations WHERE id = ?`
