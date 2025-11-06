@@ -209,8 +209,8 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     if (value === null) return null;
     if (typeof value === 'number') return value;
     if (typeof value === 'string' && value.trim().length > 0) {
-      const parsed = Number.parseInt(value, 10);
-      return Number.isFinite(parsed) ? parsed : null;
+      const ts = new Date(value.trim()).getTime();
+      return Number.isFinite(ts) ? ts : null;
     }
     return undefined;
   })();
