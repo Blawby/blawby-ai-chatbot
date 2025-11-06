@@ -84,6 +84,8 @@ export const SidebarContent = ({
     autoFetch: showMattersSection
   });
 
+  const hasInitialSelection = useRef(false);
+
   useEffect(() => {
     if (!showMattersSection || !onSelectMatter || matters.length === 0) {
       return;
@@ -110,7 +112,6 @@ export const SidebarContent = ({
     return `Search ${label}`;
   }, [statusFilters, matterStatusFilter]);
 
-  const hasInitialSelection = useRef(false);
 
   const handleMatterSelect = (matterId: string) => {
     if (onSelectMatter) {

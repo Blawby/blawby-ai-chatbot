@@ -63,55 +63,42 @@ export class MatterService {
       source: 'contact_form',
       submittedAt: createdAt
     };
-    // Insert with retry-on-unique-conflict for matter_number to avoid race conditions
-    let matterNumber: string = '';
-    const maxAttempts = 5;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      matterNumber = await this.generateMatterNumber(input.organizationId);
-      try {
-        await this.env.DB.prepare(
-          `INSERT INTO matters (
-             id,
-             organization_id,
-             client_name,
-             client_email,
-             client_phone,
-             matter_type,
-             title,
-             description,
-             status,
-             priority,
-             lead_source,
-             matter_number,
-             custom_fields,
-             created_at,
-             updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'normal', ?, ?, ?, ?, ?)`
-        ).bind(
-          matterId,
-          input.organizationId,
-          clientName,
-          input.email.trim(),
-          input.phoneNumber.trim(),
-          'General Consultation',
-          `Lead: ${clientName}`,
-          input.matterDetails.trim(),
-          leadSource,
-          matterNumber,
-          JSON.stringify(customFields),
-          createdAt,
-          createdAt
-        ).run();
-        break; // success
-      } catch (err) {
-        const message = (err instanceof Error ? err.message : String(err)).toLowerCase();
-        const isUniqueConflict = message.includes('unique') && (message.includes('matter_number') || message.includes('idx_matters_org_matter_number_unique'));
-        if (!isUniqueConflict || attempt === maxAttempts) {
-          throw err;
-        }
-        // Retry with a new candidate
-      }
-    }
+    // Atomically allocate next matter number using DB-backed counter
+    const matterNumber = await this.generateMatterNumber(input.organizationId);
+
+    await this.env.DB.prepare(
+      `INSERT INTO matters (
+         id,
+         organization_id,
+         client_name,
+         client_email,
+         client_phone,
+         matter_type,
+         title,
+         description,
+         status,
+         priority,
+         lead_source,
+         matter_number,
+         custom_fields,
+         created_at,
+         updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'normal', ?, ?, ?, ?, ?)`
+    ).bind(
+      matterId,
+      input.organizationId,
+      clientName,
+      input.email.trim(),
+      input.phoneNumber.trim(),
+      'General Consultation',
+      `Lead: ${clientName}`,
+      input.matterDetails.trim(),
+      leadSource,
+      matterNumber,
+      JSON.stringify(customFields),
+      createdAt,
+      createdAt
+    ).run();
 
     await this.activityService.createEvent({
       type: 'matter_event',
@@ -298,15 +285,18 @@ export class MatterService {
 
   private async generateMatterNumber(organizationId: string): Promise<string> {
     const year = new Date().getFullYear().toString();
-    const countResult = await this.env.DB.prepare(
-      `SELECT COUNT(*) as count
-         FROM matters
-        WHERE organization_id = ?
-          AND strftime('%Y', created_at) = ?`
-    ).bind(organizationId, year).first<{ count?: number } | null>();
+    const counterName = `matter_number_${year}`;
+    // Use SQLite UPSERT with RETURNING to atomically increment and fetch value
+    const row = await this.env.DB.prepare(
+      `INSERT INTO counters (organization_id, name, next_value)
+         VALUES (?, ?, 1)
+         ON CONFLICT(organization_id, name)
+         DO UPDATE SET next_value = counters.next_value + 1
+         RETURNING next_value`
+    ).bind(organizationId, counterName).first<{ next_value?: number } | null>();
 
-    const count = Number(countResult?.count ?? 0);
-    return `MAT-${year}-${(count + 1).toString().padStart(3, '0')}`;
+    const seq = Number(row?.next_value ?? 1);
+    return `MAT-${year}-${seq.toString().padStart(3, '0')}`;
   }
 
   private normalizeStatus(status: string | null | undefined): MatterStatus {

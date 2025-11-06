@@ -155,12 +155,27 @@ Payment link has been sent to the client. Please monitor payment status.`
     const { organizationConfig, update, matterInfo } = request;
 
     try {
-      // Validate update payload
-      const hasMinimalUpdate = Boolean(
-        update && (update.action || update.fromStatus || update.toStatus || update.actorId)
-      );
-      if (!hasMinimalUpdate) {
-        Logger.info('Skipping matter update notification: missing or insufficient update payload');
+      // Validate update payload in an action-aware manner
+      if (!update || !update.action) {
+        Logger.info('Skipping matter update notification: missing action in update payload');
+        return;
+      }
+      const action = update.action;
+      let valid = false;
+      switch (action) {
+        case 'status_change':
+          valid = Boolean(update.fromStatus || update.toStatus);
+          break;
+        case 'accept':
+        case 'reject':
+          valid = Boolean(update.toStatus);
+          break;
+        default:
+          // Require at least one meaningful field if unknown action
+          valid = Boolean(update.fromStatus || update.toStatus || update.actorId);
+      }
+      if (!valid) {
+        Logger.info('Skipping matter update notification: insufficient details for action', { action, update });
         return;
       }
 

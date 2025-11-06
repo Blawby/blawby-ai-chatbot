@@ -67,8 +67,17 @@ export function normalizeMattersResponse(
     : Array.isArray(payload.matters) ? payload.matters
     : [];
 
-  return source.map(item => {
-    const itemId = typeof item.id === 'string' ? item.id : String(item.id ?? '');
+  return source.map((item, index) => {
+    let itemId: string;
+    const rawId = (item as Record<string, unknown>).id as unknown;
+    if (typeof rawId === 'string' && rawId.trim().length > 0) {
+      itemId = rawId;
+    } else if (typeof rawId === 'number' && Number.isFinite(rawId)) {
+      itemId = String(rawId);
+    } else {
+      itemId = `unknown-id-${index}`;
+      logger.warn('Missing or invalid matter id; using placeholder', { id: rawId, index });
+    }
     
     // Validate and normalize acceptedBy
     const acceptedByRaw = item.acceptedBy as
