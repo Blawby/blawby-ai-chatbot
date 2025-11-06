@@ -227,7 +227,10 @@ const parseOnboardingSkipped = (value: unknown): boolean => {
 const parseOnboardingData = (value: unknown): Record<string, unknown> | null => {
   if (typeof value === 'string' && value.trim().length > 0) {
     try {
-      return JSON.parse(value) as Record<string, unknown>;
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
     } catch {
       return null;
     }

@@ -12,7 +12,7 @@ import type { SubscriptionTier } from '../../../types/user';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useToastContext } from '../../../contexts/ToastContext';
-import { PlanFeaturesList } from '../../settings/molecules/PlanFeaturesList';
+import { PlanFeaturesList, type PlanFeature } from '../../settings/molecules/PlanFeaturesList';
 import { features } from '../../../config/features';
 
 interface PricingModalProps {
@@ -64,7 +64,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
     enterprise: ['enterprise'],
   };
 
-  type SimplePlan = { id: SubscriptionTier; name: string; price: string; description: string; features: Array<{ icon?: unknown; text?: string }>; buttonText: string; isRecommended: boolean; isCurrent?: boolean };
+  type SimplePlan = { id: SubscriptionTier; name: string; price: string; description: string; features: PlanFeature[]; buttonText: string; isRecommended: boolean; isCurrent?: boolean };
 
   const mainPlans: SimplePlan[] = (() => {
     const availableTiers = (upgradeTiers[currentTier] || []) as SubscriptionTier[];
@@ -158,7 +158,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
                   )}
                 </div>
                 <div className="space-y-3 flex-1">
-                  <PlanFeaturesList features={plan.features as any} />
+                  <PlanFeaturesList features={plan.features} />
                 </div>
                 {plan.id === 'free' && (
                   <div className="mt-6 pt-4 border-t border-dark-border">

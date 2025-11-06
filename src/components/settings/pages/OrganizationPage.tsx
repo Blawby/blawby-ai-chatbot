@@ -118,7 +118,8 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   const deletionBlockedBySubscription = hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
   const deletionBlockedMessage = (() => {
     if (!deletionBlockedBySubscription) return '';
-    const end = currentOrganization?.subscriptionPeriodEnd ? new Date((currentOrganization.subscriptionPeriodEnd as number) * 1000) : null;
+    const ts = currentOrganization?.subscriptionPeriodEnd;
+    const end = (typeof ts === 'number' && Number.isFinite(ts)) ? new Date(ts * 1000) : null;
     if (end) {
       return `Subscription must be canceled before deleting. Access ends on ${formatDate(end)}.`;
     }
@@ -126,15 +127,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   })();
 
 
-  // Current user email is now derived from session - no need for useEffect
-
-  useEffect(() => {
-    if (!currentOrganization) return;
-    const allowed = Boolean(currentOrganization.stripeCustomerId) && (String(currentOrganization.subscriptionStatus || 'none').toLowerCase() !== 'none');
-    if (!allowed) {
-      navigate('/settings/account');
-    }
-  }, [currentOrganization?.stripeCustomerId, currentOrganization?.subscriptionStatus, navigate]);
+  // Current user email is now derived from session - removed redirect to keep organization settings accessible
 
   // Initialize form with current organization data
   useEffect(() => {
@@ -706,6 +699,13 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                       )}
                     </div>
                   </div>
+                  {deletionBlockedBySubscription && deletionBlockedMessage && (
+                    <div role="status" aria-live="polite" className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+                      <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                        {deletionBlockedMessage}
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </>

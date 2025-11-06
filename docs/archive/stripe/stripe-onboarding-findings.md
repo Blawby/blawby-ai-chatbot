@@ -45,7 +45,7 @@
   - Update org to `business` if status is `active`.
 
 4) Session/org alignment (previously added)
-- Better Auth's `/api/auth/organization/set-active` endpoint (via `authClient.organization.setActive`) now manages the active org.
+- Better Auth's `POST /organization/set-active` endpoint (via `authClient.organization.setActive`) now manages the active org.
 - Cart sets active org before initiating checkout.
 
 ## Still Recommended

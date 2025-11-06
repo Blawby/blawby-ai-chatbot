@@ -217,7 +217,7 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
       const normalized = value.trim().toLowerCase();
       return normalized === '1' || normalized === 'true';
     }
-    return false;
+    return undefined;
   })();
 
   const onboardingData = (() => {

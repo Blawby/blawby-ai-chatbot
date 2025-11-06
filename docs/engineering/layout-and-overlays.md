@@ -29,6 +29,10 @@ Add these to `THEME.zIndex` in `src/utils/constants.ts` and reference them inste
 
 Ordering (top to bottom): Modal > FileMenu > Banner > Nav > Sidebars/Content.
 
+**Legacy layers** (avoid in new code):
+- `layout`: 1900 (sits between FileMenu and Banner; do not use for new overlays)
+- `settings`: 1500, `settingsContent`: 1600 (settings panel legacy; prefer `fileMenu` for new popover menus)
+
 ## Overlay Implementation
 
 - Always render overlays via `createPortal(..., document.body)`.

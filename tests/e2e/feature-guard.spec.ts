@@ -17,11 +17,15 @@ test.describe('Feature Guard - Quota Enforcement', () => {
       if (orgsResult.status === 200 && orgsResult.data?.success) {
         const personalOrg = orgsResult.data.data?.find((org: { kind?: string }) => org?.kind === 'personal');
         if (personalOrg?.id) {
-          await fetchJsonViaPage(page, '/api/auth/organization/set-active', {
+          const setActiveResp = await fetchJsonViaPage(page, '/api/auth/organization/set-active', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ organizationId: personalOrg.id }),
           });
+          if (!(setActiveResp.status >= 200 && setActiveResp.status < 300) || (setActiveResp.data && 'success' in setActiveResp.data && setActiveResp.data.success === false)) {
+            const msg = typeof setActiveResp.error === 'string' ? setActiveResp.error : JSON.stringify(setActiveResp.data || {});
+            throw new Error(`Failed to set active org: status ${setActiveResp.status} ${msg}`);
+          }
           return personalOrg;
         }
       }
