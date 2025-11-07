@@ -4,35 +4,26 @@ import type { Env } from '../types.js';
 import { SessionService } from '../services/SessionService.js';
 import { sessionRequestBodySchema } from '../schemas/validation.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
-import { DEFAULT_ORGANIZATION_ID } from '../../src/utils/constants.js';
 
 async function normalizeOrganizationId(env: Env, organizationId?: string | null): Promise<string> {
-  if (!organizationId) {
-    return DEFAULT_ORGANIZATION_ID; // Use default instead of throwing error
-  }
-  const trimmed = organizationId.trim();
-  if (!trimmed) {
-    return DEFAULT_ORGANIZATION_ID; // Use default instead of throwing error
+  if (!organizationId || typeof organizationId !== 'string') {
+    throw HttpErrors.badRequest('organizationId is required');
   }
 
-  // Try to find organization by ID (ULID) first, then by slug
-  let organizationRow = await env.DB.prepare(
-    'SELECT id FROM organizations WHERE id = ?'
-  ).bind(trimmed).first();
-  
+  const trimmed = organizationId.trim();
+  if (!trimmed) {
+    throw HttpErrors.badRequest('organizationId is required');
+  }
+
+  const organizationRow = await env.DB.prepare(
+    'SELECT id FROM organizations WHERE id = ? OR slug = ?'
+  ).bind(trimmed, trimmed).first<{ id: string }>();
+
   if (!organizationRow) {
-    organizationRow = await env.DB.prepare(
-      'SELECT id FROM organizations WHERE slug = ?'
-    ).bind(trimmed).first();
+    throw HttpErrors.notFound('Organization not found');
   }
-  
-  if (organizationRow) {
-    return organizationRow.id as string;
-  }
-  
-  // If no organization found, return the original trimmed value
-  // This will cause a foreign key constraint error, but that's better than silent failure
-  return trimmed;
+
+  return organizationRow.id;
 }
 
 function createJsonResponse(data: unknown, setCookie?: string[]): Response {
@@ -58,6 +49,13 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
 
   // POST /api/sessions
   if (segments.length === 2 && request.method === 'POST') {
+    const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+    const rateKey = `sessions:rate:${ip}`;
+    const rateCount = Number(await env.CHAT_SESSIONS.get(rateKey) ?? '0');
+    if (!Number.isNaN(rateCount) && rateCount >= 30) {
+      throw HttpErrors.tooManyRequests('Too many session requests from this client');
+    }
+
     const rawBody = await parseJsonBody(request);
     
     // Runtime validation of request body
@@ -72,20 +70,16 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     const body = validationResult.data;
     
     // Determine organization ID: body takes precedence over URL param
-    let organizationId: string;
-    if (body.organizationId) {
-      // Use organization from request body
-      organizationId = await normalizeOrganizationId(env, body.organizationId);
-    } else {
-      // Use organization context middleware to extract from URL/cookies
+    let organizationIdSource = body.organizationId ?? null;
+    if (!organizationIdSource) {
       const requestWithContext = await withOrganizationContext(request, env, {
-        requireOrganization: false,  // Allow fallback to default
-        allowUrlOverride: true,
-        defaultOrganizationId: DEFAULT_ORGANIZATION_ID
+        requireOrganization: true,
+        allowUrlOverride: true
       });
-      const contextOrgId = getOrganizationId(requestWithContext) || DEFAULT_ORGANIZATION_ID;
-      organizationId = await normalizeOrganizationId(env, contextOrgId);
+      organizationIdSource = getOrganizationId(requestWithContext);
     }
+
+    const organizationId = await normalizeOrganizationId(env, organizationIdSource);
 
     const resolution = await SessionService.resolveSession(env, {
       request,
@@ -95,6 +89,8 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
       retentionHorizonDays: body.retentionHorizonDays,
       createIfMissing: true
     });
+
+    await env.CHAT_SESSIONS.put(rateKey, String(rateCount + 1), { expirationTtl: 60 });
 
     const maxAgeSeconds = SessionService.getCookieMaxAgeSeconds();
     const expiresAt = new Date(Date.now() + 1000 * maxAgeSeconds).toISOString();
@@ -122,47 +118,18 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
       throw HttpErrors.badRequest('Session ID is required');
     }
     
-    // Use organization context middleware
     const requestWithContext = await withOrganizationContext(request, env, {
-      requireOrganization: false, // Allow fallback for GET requests
-      defaultOrganizationId: 'public'
+      requireOrganization: true,
+      allowUrlOverride: true
     });
-    
-    let session: Awaited<ReturnType<typeof SessionService.getSessionById>>;
-    try {
-      session = await SessionService.getSessionById(env, sessionId);
-    } catch (error) {
-      console.warn('[SessionsRoute] Failed to load session, falling back to ephemeral view', {
-        sessionId,
-        message: error instanceof Error ? error.message : String(error)
-      });
-      session = null;
-    }
 
-    if (!session) {
-      const fallbackOrganizationId = await normalizeOrganizationId(env, getOrganizationId(requestWithContext));
-      const fallback = {
-        sessionId,
-        organizationId: fallbackOrganizationId,
-        state: 'active' as const,
-        statusReason: 'ephemeral_fallback',
-        retentionHorizonDays: 180,
-        isHold: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        lastActive: new Date().toISOString(),
-        closedAt: null
-      };
-      return createJsonResponse(fallback);
-    }
-
-    // Validate organization access using context
     const contextOrganizationId = getOrganizationId(requestWithContext);
-    if (contextOrganizationId !== 'public') {
-      const requestedOrganization = await normalizeOrganizationId(env, contextOrganizationId);
-      if (requestedOrganization !== session.organizationId) {
-        throw HttpErrors.notFound('Session not found for requested organization');
-      }
+    const organizationId = await normalizeOrganizationId(env, contextOrganizationId);
+
+    const session = await SessionService.getSessionById(env, sessionId);
+
+    if (!session || session.organizationId !== organizationId) {
+      throw HttpErrors.notFound('Session not found for requested organization');
     }
 
     const data = {

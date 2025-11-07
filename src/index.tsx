@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } fr
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import ChatContainer from './components/ChatContainer';
+import { ConversationThread } from './components/conversations/ConversationThread';
 import DragDropOverlay from './components/DragDropOverlay';
 import AppLayout from './components/AppLayout';
 import AuthPage from './components/AuthPage';
@@ -32,10 +33,13 @@ import { debounce } from './utils/debounce';
 import { useToastContext } from './contexts/ToastContext';
 import { useSessionContext } from './contexts/SessionContext';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
+import { useMatterSummary } from './hooks/useMatterSummary';
 import QuotaBanner from './components/QuotaBanner';
 // useSession is now imported from AuthContext above
 import './index.css';
 import { i18n, initI18n } from './i18n';
+import { Button } from './components/ui/Button';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 
 
@@ -79,12 +83,44 @@ function MainApp({
 		showErrorRef.current = showError;
 	}, [showError]);
 	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
-	const { currentOrganization, refetch: refetchOrganizations, acceptMatter, rejectMatter, updateMatterStatus } = useOrganizationManagement();
-	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
+        const { currentOrganization, refetch: refetchOrganizations, acceptMatter, rejectMatter, updateMatterStatus } = useOrganizationManagement();
+        const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
+        const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
-	useEffect(() => {
-		setSelectedMatterId(null);
-	}, [organizationId]);
+        useEffect(() => {
+                setSelectedMatterId(null);
+                setSelectedConversationId(null);
+        }, [organizationId]);
+
+        const {
+                matter: leadMatterSummary,
+                loading: leadMatterLoading,
+                error: leadMatterError,
+                refresh: refreshLeadMatterSummary,
+                setMatter: setLeadMatterSummary
+        } = useMatterSummary(organizationId, selectedMatterId);
+
+        const leadBannerStatus = useMemo<'idle' | 'pending' | 'accepted' | 'rejected'>(() => {
+                if (!selectedMatterId) {
+                        return 'idle';
+                }
+                if (leadMatterLoading) {
+                        return 'pending';
+                }
+                if (!leadMatterSummary) {
+                        return 'idle';
+                }
+                if (leadMatterSummary.status === 'lead') {
+                        return 'pending';
+                }
+                if (leadMatterSummary.status === 'archived') {
+                        return 'rejected';
+                }
+                return 'accepted';
+        }, [selectedMatterId, leadMatterLoading, leadMatterSummary]);
+
+        const leadMatterNumber = leadMatterSummary?.matterNumber ?? null;
+        const leadRejectionReason: string | null = null;
 
 	const isQuotaRestricted = Boolean(
 		quota &&
@@ -113,9 +149,9 @@ function MainApp({
 		}
 	});
 
-	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
-		// Let sendMessage errors propagate to its onError handler
-		await sendMessage(message, attachments);
+        const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
+                // Let sendMessage errors propagate to its onError handler
+                await sendMessage(message, attachments);
 		
 		// Handle quota refresh separately to avoid leaving stale UI
 		try {
@@ -126,7 +162,16 @@ function MainApp({
 			// Show user-facing notification for quota refresh failure
 			showError('Unable to update usage quota', 'Your message was sent, but we couldn\'t refresh your usage information.');
 		}
-	}, [sendMessage, refreshQuota, showError]);
+        }, [sendMessage, refreshQuota, showError]);
+
+        const handleConversationSelect = useCallback((conversationId: string) => {
+                setSelectedConversationId(conversationId);
+                setCurrentTab('chats');
+        }, [setCurrentTab]);
+
+        const handleExitConversation = useCallback(() => {
+                setSelectedConversationId(null);
+        }, []);
 
 	const {
 		previewFiles,
@@ -471,83 +516,114 @@ function MainApp({
 		<>
 			<DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
 			
-			<AppLayout
-				organizationNotFound={organizationNotFound}
-				organizationId={organizationId}
-				onRetryOrganizationConfig={handleRetryOrganizationConfig}
-				currentTab={currentTab}
-				onTabChange={setCurrentTab}
-				isMobileSidebarOpen={isMobileSidebarOpen}
-				onToggleMobileSidebar={setIsMobileSidebarOpen}
-				isSettingsModalOpen={isSettingsRouteNow}
-				organizationConfig={{
-					name: organizationConfig.name ?? '',
-					profileImage: organizationConfig?.profileImage ?? null,
-					description: organizationConfig?.description ?? ''
-				}}
-				currentOrganization={currentOrganization}
-				onOnboardingCompleted={refetchOrganizations}
-				messages={messages}
-				onSendMessage={handleSendMessage}
-				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
-					return await handleFileSelect(files);
-				}}
-				selectedMatterId={selectedMatterId}
-				onMatterSelect={setSelectedMatterId}
-			>
-				<div className="relative h-full flex flex-col">
-					<ConversationHeader
-						organizationId={organizationId}
-						matterId={selectedMatterId}
-						acceptMatter={acceptMatter}
-						rejectMatter={rejectMatter}
-						updateMatterStatus={updateMatterStatus}
-					/>
-					{(quota && !quota.messages.unlimited) && (
-						<div className="px-4 pt-4">
-							<QuotaBanner
-								quota={quota}
-								loading={quotaLoading}
-								onUpgrade={() => navigate('/pricing')}
-							/>
-						</div>
-					)}
-					<div className="flex-1 min-h-0">
-						<ChatContainer
-							messages={messages}
-							onSendMessage={handleSendMessage}
-							onContactFormSubmit={handleContactFormSubmit}
-							organizationConfig={{
-								name: organizationConfig.name ?? '',
-								profileImage: organizationConfig?.profileImage ?? null,
-								organizationId,
-								description: organizationConfig?.description ?? ''
-							}}
-							onOpenSidebar={() => setIsMobileSidebarOpen(true)}
-							sessionId={sessionId}
-							organizationId={'blawby-ai'}
-							onFeedbackSubmit={handleFeedbackSubmit}
-							previewFiles={previewFiles}
-							uploadingFiles={uploadingFiles}
-							removePreviewFile={removePreviewFile}
-							clearPreviewFiles={clearPreviewFiles}
-							handleCameraCapture={handleCameraCapture}
-							handleFileSelect={async (files: File[]) => {
-								await handleFileSelect(files);
-							}}
-							cancelUpload={cancelUpload}
-							handleMediaCapture={handleMediaCaptureWrapper}
-							isRecording={isRecording}
-							setIsRecording={setIsRecording}
-							clearInput={clearInputTrigger}
-							isReadyToUpload={isReadyToUpload}
-							isSessionReady={isSessionReady}
-							isUsageRestricted={isQuotaRestricted}
-							usageMessage={quotaUsageMessage}
-						/>
-					</div>
-				</div>
-			</AppLayout>
+                        <AppLayout
+                                organizationNotFound={organizationNotFound}
+                                organizationId={organizationId}
+                                onRetryOrganizationConfig={handleRetryOrganizationConfig}
+                                currentTab={currentTab}
+                                onTabChange={setCurrentTab}
+                                isMobileSidebarOpen={isMobileSidebarOpen}
+                                onToggleMobileSidebar={setIsMobileSidebarOpen}
+                                isSettingsModalOpen={isSettingsRouteNow}
+                                organizationConfig={{
+                                        name: organizationConfig.name ?? '',
+                                        profileImage: organizationConfig?.profileImage ?? null,
+                                        description: organizationConfig?.description ?? ''
+                                }}
+                                currentOrganization={currentOrganization}
+                                onOnboardingCompleted={refetchOrganizations}
+                                messages={messages}
+                                onSendMessage={handleSendMessage}
+                                onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
+                                        return await handleFileSelect(files);
+                                }}
+                                selectedMatterId={selectedMatterId}
+                                onMatterSelect={setSelectedMatterId}
+                                selectedConversationId={selectedConversationId}
+                                onConversationSelect={handleConversationSelect}
+                        >
+                                <div className="relative h-full flex flex-col">
+                                        {!selectedConversationId && (
+                                                <>
+                                                        <ConversationHeader
+                                                                organizationId={organizationId}
+                                                                matterId={selectedMatterId}
+                                                                acceptMatter={acceptMatter}
+                                                                rejectMatter={rejectMatter}
+                                                                updateMatterStatus={updateMatterStatus}
+                                                                matterSummary={leadMatterSummary}
+                                                                matterLoading={leadMatterLoading}
+                                                                matterError={leadMatterError}
+                                                                onMatterChange={setLeadMatterSummary}
+                                                                onRefreshMatter={refreshLeadMatterSummary}
+                                                        />
+                                                        {(quota && !quota.messages.unlimited) && (
+                                                                <div className="px-4 pt-4">
+                                                                        <QuotaBanner
+                                                                                quota={quota}
+                                                                                loading={quotaLoading}
+                                                                                onUpgrade={() => navigate('/pricing')}
+                                                                        />
+                                                                </div>
+                                                        )}
+                                                </>
+                                        )}
+                                        <div className="flex-1 min-h-0">
+                                                {selectedConversationId ? (
+                                                        <div className="flex h-full flex-col">
+                                                                <div className="flex items-center justify-between border-b border-border bg-white px-4 py-3 dark:bg-dark-card-bg">
+                                                                        <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                onClick={handleExitConversation}
+                                                                                className="inline-flex items-center gap-2"
+                                                                        >
+                                                                                <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
+                                                                                <span>Back to AI chat</span>
+                                                                        </Button>
+                                                                </div>
+                                                                <ConversationThread conversationId={selectedConversationId} />
+                                                        </div>
+                                                ) : (
+                                                        <ChatContainer
+                                                                messages={messages}
+                                                                onSendMessage={handleSendMessage}
+                                                                onContactFormSubmit={handleContactFormSubmit}
+                                                                organizationConfig={{
+                                                                        name: organizationConfig.name ?? '',
+                                                                        profileImage: organizationConfig?.profileImage ?? null,
+                                                                        organizationId,
+                                                                        description: organizationConfig?.description ?? ''
+                                                                }}
+                                                                onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+                                                                sessionId={sessionId}
+                                                                organizationId={organizationId}
+                                                                onFeedbackSubmit={handleFeedbackSubmit}
+                                                                previewFiles={previewFiles}
+                                                                uploadingFiles={uploadingFiles}
+                                                                removePreviewFile={removePreviewFile}
+                                                                clearPreviewFiles={clearPreviewFiles}
+                                                                handleCameraCapture={handleCameraCapture}
+                                                                handleFileSelect={async (files: File[]) => {
+                                                                        await handleFileSelect(files);
+                                                                }}
+                                                                cancelUpload={cancelUpload}
+                                                                handleMediaCapture={handleMediaCaptureWrapper}
+                                                                isRecording={isRecording}
+                                                                setIsRecording={setIsRecording}
+                                                                clearInput={clearInputTrigger}
+                                                                isReadyToUpload={isReadyToUpload}
+                                                                isSessionReady={isSessionReady}
+                                                                isUsageRestricted={isQuotaRestricted}
+                                                                usageMessage={quotaUsageMessage}
+                                                                leadStatus={leadBannerStatus}
+                                                                leadMatterNumber={leadMatterNumber}
+                                                                leadRejectionReason={leadRejectionReason}
+                                                        />
+                                                )}
+                                        </div>
+                                </div>
+                        </AppLayout>
 
 			{/* Settings Modal moved to AppWithSEO to persist across settings sub-routes */}
 

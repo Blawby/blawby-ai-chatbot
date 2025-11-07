@@ -1,4 +1,11 @@
-import type { Ai, KVNamespace, R2Bucket, D1Database, Queue } from '@cloudflare/workers-types';
+import type {
+  Ai,
+  KVNamespace,
+  R2Bucket,
+  D1Database,
+  Queue,
+  DurableObjectNamespace
+} from '@cloudflare/workers-types';
 
 // Environment interface with proper Cloudflare Workers types
 export interface Env {
@@ -10,6 +17,7 @@ export interface Env {
   FILES_BUCKET?: R2Bucket;
   DOC_EVENTS: Queue;
   PARALEGAL_TASKS: Queue;
+  CONVERSATION_ROOM: DurableObjectNamespace;
   PAYMENT_API_KEY?: string;
   PAYMENT_API_URL?: string;
   ADOBE_CLIENT_ID?: string;

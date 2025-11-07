@@ -24,9 +24,11 @@ interface LeftSidebarProps {
   onboardingHasDraft?: boolean;
   selectedMatterId?: string | null;
   onSelectMatter?: (matterId: string) => void;
+  selectedConversationId?: string | null;
+  onSelectConversation?: (conversationId: string) => void;
 }
 
-const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding, onClose, matterStatus, organizationConfig, currentOrganization, onboardingStatus, onboardingHasDraft, selectedMatterId, onSelectMatter }: LeftSidebarProps) => {
+const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding, onClose, matterStatus, organizationConfig, currentOrganization, onboardingStatus, onboardingHasDraft, selectedMatterId, onSelectMatter, selectedConversationId, onSelectConversation }: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useMobileDetection();
   
@@ -50,6 +52,8 @@ const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
         selectedMatterId={selectedMatterId}
         onSelectMatter={onSelectMatter}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={onSelectConversation}
       />
     </div>
   );

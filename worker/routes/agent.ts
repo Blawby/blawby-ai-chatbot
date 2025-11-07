@@ -21,6 +21,7 @@ import { Logger } from '../utils/logger.js';
 import { ensureActiveSubscription } from '../middleware/subscription.js';
 import { UsageService } from '../services/UsageService.js';
 import { requireFeature } from '../middleware/featureGuard.js';
+import { optionalAuth } from '../middleware/auth.js';
 
 // Interface for the request body
 interface RouteBody {
@@ -254,6 +255,16 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
     const body = rawBody as RouteBody;
     const { messages, organizationId, sessionId, attachments = [], aiProvider, aiModel } = body;
 
+    const maxAttachmentSize = 25 * 1024 * 1024;
+    for (const attachment of attachments) {
+      if (!attachment || typeof attachment.size !== 'number') {
+        continue;
+      }
+      if (attachment.size > maxAttachmentSize) {
+        throw HttpErrors.payloadTooLarge('Attachment exceeds 25MB limit');
+      }
+    }
+
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       throw HttpErrors.badRequest('No message content provided');
     }
@@ -342,6 +353,23 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
 
     const resolvedSessionId = sessionResolution.session.id;
     const resolvedOrganizationId = sessionResolution.session.organizationId;
+
+    const organizationRecord = await env.DB.prepare(
+      'SELECT 1 FROM organizations WHERE id = ?'
+    ).bind(resolvedOrganizationId).first();
+    if (!organizationRecord) {
+      throw HttpErrors.badRequest('Organization not found');
+    }
+
+    const maybeAuth = await optionalAuth(request, env);
+    if (maybeAuth) {
+      const membership = await env.DB.prepare(
+        'SELECT role FROM members WHERE organization_id = ? AND user_id = ?'
+      ).bind(resolvedOrganizationId, maybeAuth.user.id).first();
+      if (!membership) {
+        throw HttpErrors.forbidden('User is not authorized for this organization');
+      }
+    }
 
     // Security check: ensure session belongs to the requested organization
     if (resolvedOrganizationId !== effectiveOrganizationId) {

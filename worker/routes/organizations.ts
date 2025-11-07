@@ -9,6 +9,13 @@ import { organizationCreateSchema, organizationUpdateSchema } from '../schemas/v
 import { requireFeature, type FeatureName } from '../middleware/featureGuard.js';
 import { parseJsonBody } from '../utils.js';
 import { NotificationService } from '../services/NotificationService.js';
+import { ConversationService } from '../services/ConversationService.js';
+import { ConversationMessageService } from '../services/ConversationMessageService.js';
+import {
+  listConversationIdsForMatter,
+  listParticipants as listConversationParticipants,
+  getMessage as getConversationMessage
+} from '../services/ConversationRepository.js';
 
 /**
  * Helper function to create standardized error responses
@@ -63,13 +70,13 @@ function createErrorResponse(
  */
 function createSuccessResponse(data: unknown): Response {
   return new Response(
-    JSON.stringify({ 
-      success: true, 
-      data 
-    }), 
-    { 
+    JSON.stringify({
+      success: true,
+      data
+    }),
+    {
       status: 200,
-      headers: { 'Content-Type': 'application/json' } 
+      headers: { 'Content-Type': 'application/json' }
     }
   );
 }
@@ -77,6 +84,105 @@ function createSuccessResponse(data: unknown): Response {
 const ACTIVE_BUSINESS_STATUSES = new Set(['active', 'trialing']);
 type MatterStatusValue = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
 const MATTER_STATUS_VALUES: Set<MatterStatusValue> = new Set(['lead', 'open', 'in_progress', 'completed', 'archived']);
+
+interface LeadConversationContext {
+  organizationId: string;
+  matterId: string;
+  actorUserId: string;
+  actorName: string;
+  reason?: string | null;
+}
+
+async function propagateLeadAcceptanceToConversations(env: Env, context: LeadConversationContext): Promise<void> {
+  const conversationIds = await listConversationIdsForMatter(env, context.organizationId, context.matterId);
+  if (conversationIds.length === 0) {
+    return;
+  }
+
+  const conversationService = new ConversationService(env);
+  const messageService = new ConversationMessageService(env);
+  const notificationService = new NotificationService(env);
+
+  const matterRecord = await env.DB.prepare(
+    'SELECT matter_number FROM matters WHERE id = ? AND organization_id = ?'
+  ).bind(context.matterId, context.organizationId).first<{ matter_number: string | null }>();
+  const matterNumber = matterRecord?.matter_number ?? undefined;
+
+  for (const conversationId of conversationIds) {
+    await conversationService.setType(conversationId, 'human');
+    await conversationService.addParticipant(conversationId, context.organizationId, context.actorUserId, 'attorney');
+
+    const systemMessage = await messageService.sendSystemMessage({
+      conversationId,
+      organizationId: context.organizationId,
+      content: `${context.actorName} accepted this matter`,
+      messageType: 'system'
+    });
+
+    const systemRecord = await getConversationMessage(env, systemMessage.id);
+    if (systemRecord) {
+      await conversationService.broadcastEvent(conversationId, 'message', systemRecord);
+    }
+
+    const participants = await listConversationParticipants(env, conversationId);
+    const clientParticipant = participants.find(participant => participant.role === 'client');
+    if (clientParticipant) {
+      await notificationService.sendConversationAcceptedNotification({
+        organizationId: context.organizationId,
+        conversationId,
+        clientUserId: clientParticipant.user_id,
+        actorName: context.actorName,
+        matterNumber
+      });
+    }
+  }
+}
+
+async function propagateLeadRejectionToConversations(env: Env, context: LeadConversationContext): Promise<void> {
+  const conversationIds = await listConversationIdsForMatter(env, context.organizationId, context.matterId);
+  if (conversationIds.length === 0) {
+    return;
+  }
+
+  const conversationService = new ConversationService(env);
+  const messageService = new ConversationMessageService(env);
+  const notificationService = new NotificationService(env);
+
+  const matterRecord = await env.DB.prepare(
+    'SELECT matter_number FROM matters WHERE id = ? AND organization_id = ?'
+  ).bind(context.matterId, context.organizationId).first<{ matter_number: string | null }>();
+  const matterNumber = matterRecord?.matter_number ?? undefined;
+
+  for (const conversationId of conversationIds) {
+    await conversationService.setStatus(conversationId, 'locked');
+
+    const systemMessage = await messageService.sendSystemMessage({
+      conversationId,
+      organizationId: context.organizationId,
+      content: `${context.actorName} was unable to accept this matter`,
+      messageType: 'matter_update',
+      metadata: context.reason ? { reason: context.reason } : undefined
+    });
+
+    const systemRecord = await getConversationMessage(env, systemMessage.id);
+    if (systemRecord) {
+      await conversationService.broadcastEvent(conversationId, 'message', systemRecord);
+    }
+
+    const participants = await listConversationParticipants(env, conversationId);
+    const clientParticipant = participants.find(participant => participant.role === 'client');
+    if (clientParticipant) {
+      await notificationService.sendConversationRejectedNotification({
+        organizationId: context.organizationId,
+        conversationId,
+        clientUserId: clientParticipant.user_id,
+        actorName: context.actorName,
+        reason: context.reason ?? undefined,
+        matterNumber
+      });
+    }
+  }
+}
 
 type WorkspaceMatterRow = {
   id: string;
@@ -86,6 +192,7 @@ type WorkspaceMatterRow = {
   priority: string;
   clientName?: string | null;
   leadSource?: string | null;
+  matterNumber?: string | null;
   createdAt: string;
   updatedAt: string;
   acceptedByUserId?: string | null;
@@ -524,6 +631,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
                         priority,
                         client_name as clientName,
                         lead_source as leadSource,
+                        matter_number as matterNumber,
                         created_at as createdAt,
                         updated_at as updatedAt,
                         (
@@ -559,6 +667,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
                 priority: record.priority,
                 clientName: record.clientName ?? null,
                 leadSource: record.leadSource ?? null,
+                matterNumber: record.matterNumber ?? null,
                 createdAt: record.createdAt,
                 updatedAt: record.updatedAt,
                 acceptedBy: record.acceptedByUserId
@@ -591,6 +700,21 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
               matterId,
               actorUserId: authContext.user.id
             });
+
+            try {
+              await propagateLeadAcceptanceToConversations(env, {
+                organizationId: organization.id,
+                matterId,
+                actorUserId: authContext.user.id,
+                actorName: authContext.user.name ?? 'Team member'
+              });
+            } catch (error) {
+              console.warn('Failed to propagate conversation updates for lead acceptance', {
+                organizationId: organization.id,
+                matterId,
+                error
+              });
+            }
 
             if (idempotencyKey) {
               await storeMatterMutationResult(env, organization.id, idempotencyKey, result as unknown as Record<string, unknown>);
@@ -638,6 +762,22 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
               actorUserId: authContext.user.id,
               reason
             });
+
+            try {
+              await propagateLeadRejectionToConversations(env, {
+                organizationId: organization.id,
+                matterId,
+                actorUserId: authContext.user.id,
+                actorName: authContext.user.name ?? 'Team member',
+                reason
+              });
+            } catch (error) {
+              console.warn('Failed to propagate conversation updates for lead rejection', {
+                organizationId: organization.id,
+                matterId,
+                error
+              });
+            }
 
             if (idempotencyKey) {
               await storeMatterMutationResult(env, organization.id, idempotencyKey, result as unknown as Record<string, unknown>);

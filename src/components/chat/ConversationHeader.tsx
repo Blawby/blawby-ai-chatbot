@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import { MatterStatusBadge } from '../matters/StatusBadge';
 import { getOrganizationWorkspaceEndpoint } from '../../config/api';
 import type { MatterWorkflowStatus, MatterTransitionResult } from '../../hooks/useOrganizationManagement';
+import type { MatterSummary } from '../../hooks/useMatterSummary';
 
 interface ConversationHeaderProps {
   organizationId?: string;
@@ -10,19 +11,11 @@ interface ConversationHeaderProps {
   acceptMatter: (orgId: string, matterId: string) => Promise<MatterTransitionResult>;
   rejectMatter: (orgId: string, matterId: string) => Promise<MatterTransitionResult>;
   updateMatterStatus: (orgId: string, matterId: string, status: MatterWorkflowStatus) => Promise<MatterTransitionResult>;
-}
-
-interface MatterSummary {
-  id: string;
-  title: string;
-  matterType: string;
-  status: MatterWorkflowStatus;
-  clientName?: string | null;
-  leadSource?: string | null;
-  acceptedBy?: {
-    userId: string;
-    acceptedAt: string | null;
-  } | null;
+  matterSummary?: MatterSummary | null;
+  matterLoading?: boolean;
+  matterError?: string | null;
+  onMatterChange?: (next: MatterSummary | null) => void;
+  onRefreshMatter?: () => Promise<void> | void;
 }
 
 const STATUS_OPTIONS: { value: MatterWorkflowStatus; label: string }[] = [
@@ -46,24 +39,40 @@ export const ConversationHeader = ({
   matterId,
   acceptMatter,
   rejectMatter,
-  updateMatterStatus
+  updateMatterStatus,
+  matterSummary,
+  matterLoading,
+  matterError,
+  onMatterChange,
+  onRefreshMatter
 }: ConversationHeaderProps) => {
-  const [matter, setMatter] = useState<MatterSummary | null>(null);
-  const [loading, setLoading] = useState(false);
+  const isControlled = typeof matterSummary !== 'undefined';
+  const [internalMatter, setInternalMatter] = useState<MatterSummary | null>(null);
+  const [internalLoading, setInternalLoading] = useState(false);
+  const [internalError, setInternalError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const matter = isControlled ? matterSummary ?? null : internalMatter;
+  const loading = isControlled ? Boolean(matterLoading) : internalLoading;
+  const baseError = isControlled ? matterError ?? null : internalError;
+  const error = actionError ?? baseError;
 
   useEffect(() => {
+    if (isControlled) {
+      return;
+    }
+
     if (!organizationId || !matterId) {
-      setMatter(null);
-      setError(null);
+      setInternalMatter(null);
+      setInternalError(null);
       return;
     }
 
     const controller = new AbortController();
     const fetchMatter = async () => {
-      setLoading(true);
-      setError(null);
+      setInternalLoading(true);
+      setInternalError(null);
       try {
         const endpoint = `${getOrganizationWorkspaceEndpoint(organizationId, 'matters')}/${encodeURIComponent(matterId)}`;
         const response = await fetch(endpoint, {
@@ -97,9 +106,9 @@ export const ConversationHeader = ({
         const acceptedByRaw = matterRecord.acceptedBy as Record<string, unknown> | null | undefined;
         const acceptedBy = acceptedByRaw && typeof acceptedByRaw === 'object'
           ? {
-              userId: typeof acceptedByRaw.userId === 'string'
+              userId: typeof acceptedByRaw.userId === 'string' && acceptedByRaw.userId.trim().length > 0
                 ? acceptedByRaw.userId
-                : String(acceptedByRaw.userId ?? ''),
+                : null,
               acceptedAt: typeof acceptedByRaw.acceptedAt === 'string'
                 ? acceptedByRaw.acceptedAt
                 : null
@@ -111,37 +120,56 @@ export const ConversationHeader = ({
           title: typeof matterRecord.title === 'string' ? matterRecord.title : 'Matter',
           matterType: typeof matterRecord.matterType === 'string' ? matterRecord.matterType : 'General',
           status: (typeof matterRecord.status === 'string' ? matterRecord.status : 'lead') as MatterWorkflowStatus,
+          priority: typeof matterRecord.priority === 'string' ? matterRecord.priority : null,
           clientName: typeof matterRecord.clientName === 'string' ? matterRecord.clientName : null,
           leadSource: typeof matterRecord.leadSource === 'string' ? matterRecord.leadSource : null,
+          matterNumber: typeof matterRecord.matterNumber === 'string' ? matterRecord.matterNumber : null,
+          createdAt: typeof matterRecord.createdAt === 'string' ? matterRecord.createdAt : new Date().toISOString(),
+          updatedAt: typeof matterRecord.updatedAt === 'string' ? matterRecord.updatedAt : new Date().toISOString(),
           acceptedBy
         };
 
-        setMatter(normalized);
+        setInternalMatter(normalized);
       } catch (err) {
         if ((err as DOMException).name !== 'AbortError') {
           const message = err instanceof Error ? err.message : 'Failed to load matter';
-          setError(message);
-          setMatter(null);
+          setInternalError(message);
+          setInternalMatter(null);
         }
       } finally {
-        setLoading(false);
+        setInternalLoading(false);
       }
     };
 
     void fetchMatter();
     return () => controller.abort();
-  }, [organizationId, matterId]);
+  }, [isControlled, organizationId, matterId]);
+
+  useEffect(() => {
+    if (!isControlled) {
+      return;
+    }
+
+    setActionError(null);
+  }, [isControlled, matterSummary, matterError]);
 
   const handleAccept = async () => {
     if (!organizationId || !matterId) return;
     setActionLoading(true);
-    setError(null);
+    setActionError(null);
     try {
       const result = await acceptMatter(organizationId, matterId);
-      setMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: result.acceptedBy ?? prev.acceptedBy } : prev);
+      if (isControlled) {
+        if (matter && onMatterChange) {
+          onMatterChange({ ...matter, status: result.status, acceptedBy: result.acceptedBy ?? matter.acceptedBy ?? null });
+        }
+        await onRefreshMatter?.();
+      } else {
+        setInternalMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: result.acceptedBy ?? prev.acceptedBy } : prev);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to accept lead';
-      setError(message);
+      setActionError(message);
     } finally {
       setActionLoading(false);
     }
@@ -150,13 +178,20 @@ export const ConversationHeader = ({
   const handleReject = async () => {
     if (!organizationId || !matterId) return;
     setActionLoading(true);
-    setError(null);
+    setActionError(null);
     try {
       const result = await rejectMatter(organizationId, matterId);
-      setMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: null } : prev);
+      if (isControlled) {
+        if (matter && onMatterChange) {
+          onMatterChange({ ...matter, status: result.status, acceptedBy: null });
+        }
+        await onRefreshMatter?.();
+      } else {
+        setInternalMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: null } : prev);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to reject lead';
-      setError(message);
+      setActionError(message);
     } finally {
       setActionLoading(false);
     }
@@ -166,13 +201,18 @@ export const ConversationHeader = ({
     if (!organizationId || !matterId || !matter) return;
     if (nextStatus === matter.status) return;
     setActionLoading(true);
-    setError(null);
+    setActionError(null);
     try {
       const result = await updateMatterStatus(organizationId, matterId, nextStatus);
-      setMatter(prev => prev ? { ...prev, status: result.status } : prev);
+      if (isControlled) {
+        onMatterChange?.({ ...matter, status: result.status });
+        await onRefreshMatter?.();
+      } else {
+        setInternalMatter(prev => prev ? { ...prev, status: result.status } : prev);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update status';
-      setError(message);
+      setActionError(message);
     } finally {
       setActionLoading(false);
     }

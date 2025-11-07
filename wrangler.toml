@@ -3,6 +3,10 @@ main = "worker/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+[[durable_objects.bindings]]
+name = "CONVERSATION_ROOM"
+class_name = "ConversationRoom"
+
 [ai]
 binding = "AI"
 
@@ -126,6 +130,9 @@ kv_namespaces = [
 ]
 d1_databases = [
   { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf", migrations_dir = "worker/migrations" }
+]
+durable_objects = [
+  { binding = "CONVERSATION_ROOM", class_name = "ConversationRoom" }
 ]
 [[env.dev.queues.producers]]
 queue = "doc-events"
