@@ -6,8 +6,7 @@
 -- This migration is truly idempotent and can be safely re-run
 -- Uses PRAGMA table_info to check column existence before ALTER TABLE operations
 -- Note: SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we use a different approach
-
-BEGIN TRANSACTION;
+-- Note: D1 handles transactions automatically - do not use BEGIN TRANSACTION or COMMIT
 
 -- Create a temporary table to check column existence
 CREATE TEMP TABLE IF NOT EXISTS column_check AS 
@@ -117,5 +116,3 @@ CREATE INDEX IF NOT EXISTS pii_audit_user_agent_hash_idx ON pii_access_audit(use
 
 -- Clean up temporary table
 DROP TABLE IF EXISTS column_check;
-
-COMMIT;
