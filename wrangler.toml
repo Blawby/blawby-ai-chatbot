@@ -37,7 +37,7 @@ migrations_dir = "worker/migrations"
 [vars]
 BLAWBY_API_URL = "https://staging.blawby.com"
 BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
-BETTER_AUTH_URL = "http://localhost:8787"
+# BETTER_AUTH_URL should be set per environment (not in base vars to avoid localhost leaking to production)
 DOMAIN = "localhost"
 # Stripe price configuration for all environments (test mode IDs)
 STRIPE_PRICE_ID = "price_1SHfgbDJLzJ14cfPBGuTvcG3"
@@ -150,6 +150,7 @@ AI_MODEL_DEFAULT = "@cf/openai/gpt-oss-20b"
 AI_MODEL_FALLBACK = "@cf/openai/gpt-oss-20b"
 ENABLE_WORKERS_AI = true
 ENABLE_GATEWAY_OPENAI = false
+BETTER_AUTH_URL = "http://localhost:8787"
 DOMAIN = "localhost"
 
 # Domain configuration for ai.blawby.com
