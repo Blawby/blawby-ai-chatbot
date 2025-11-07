@@ -114,7 +114,12 @@ queue = "doc-events"
 [[queues.consumers]]
 queue = "paralegal-tasks"
 
-# Durable Objects migrations removed - no longer using Durable Objects
+# Durable Objects migration to remove ConversationRoom class
+# This migration is needed because a previous deployment created ConversationRoom Durable Objects
+# that need to be properly deleted before removing the class export
+[[migrations]]
+tag = "v2"
+deleted_classes = ["ConversationRoom"]
 
 # Development environment
 [env.dev]
