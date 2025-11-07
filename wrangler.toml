@@ -172,6 +172,12 @@ kv_namespaces = [
 d1_databases = [
   { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf", migrations_dir = "worker/migrations" }
 ]
+
+# Durable Objects migration for production environment
+# This ensures the ConversationRoom deletion migration is applied when deploying to production
+[[env.production.migrations]]
+tag = "v2"
+deleted_classes = ["ConversationRoom"]
 # Production environment variables
 [env.production.vars]
 NODE_ENV = "production"
