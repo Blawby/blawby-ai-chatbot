@@ -180,8 +180,21 @@ export async function getAuth(env: Env, request?: Request) {
     
     const db = drizzle(env.DB, { schema: authSchema });
     
-    // Ensure we always have a valid baseURL with a sane default for local development
-    const baseUrl = env.BETTER_AUTH_URL || env.CLOUDFLARE_PUBLIC_URL || "http://localhost:8787";
+    // Determine baseURL: prefer explicit config, then request origin, then fallback
+    // This ensures OAuth callbacks use the correct domain (ai.blawby.com in production)
+    let baseUrl = env.BETTER_AUTH_URL || env.CLOUDFLARE_PUBLIC_URL;
+    if (!baseUrl && request) {
+      try {
+        const url = new URL(request.url);
+        baseUrl = `${url.protocol}//${url.host}`;
+      } catch {
+        // Fallback if URL parsing fails
+      }
+    }
+    // Final fallback for local development
+    if (!baseUrl) {
+      baseUrl = "http://localhost:8787";
+    }
     
     // Feature flags for geolocation and IP detection (default to disabled)
     const enableGeolocation = env.ENABLE_AUTH_GEOLOCATION === 'true';

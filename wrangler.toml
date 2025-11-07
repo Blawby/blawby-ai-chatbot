@@ -195,6 +195,7 @@ AI_MODEL_FALLBACK = "@cf/openai/gpt-oss-20b"
 ENABLE_WORKERS_AI = true
 ENABLE_GATEWAY_OPENAI = false
 BETTER_AUTH_URL = "https://ai.blawby.com"
+CLOUDFLARE_PUBLIC_URL = "https://ai.blawby.com"
 DOMAIN = "ai.blawby.com"
 ENABLE_STRIPE_SUBSCRIPTIONS = true
 REQUIRE_EMAIL_VERIFICATION = "false"
