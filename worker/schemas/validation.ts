@@ -61,18 +61,18 @@ export const matterUpdateSchema = z.object({
 
 // Organization schemas
 export const organizationConfigSchema = z.object({
-  aiModel: z.string().min(1),
-  consultationFee: z.number().min(0),
-  requiresPayment: z.boolean(),
-  ownerEmail: emailSchema,
-  availableServices: z.array(z.string().min(1)),
-  serviceQuestions: z.record(z.string(), z.array(z.string().min(1))),
-  domain: z.string().min(1),
-  description: z.string().min(1),
+  aiModel: z.string().min(1).optional(),
+  consultationFee: z.number().min(0).optional(),
+  requiresPayment: z.boolean().optional(),
+  ownerEmail: emailSchema.optional(),
+  availableServices: z.array(z.string().min(1)).optional(),
+  serviceQuestions: z.record(z.string(), z.array(z.string().min(1))).optional(),
+  domain: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
   paymentLink: z.string().url().optional(),
-  brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
-  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
-  introMessage: z.string().min(1),
+  brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  introMessage: z.string().min(1).optional(),
   profileImage: z.string().url().optional(),
   voice: z.object({
     enabled: z.boolean().optional(),
@@ -81,8 +81,21 @@ export const organizationConfigSchema = z.object({
     displayName: z.string().min(1).optional().nullable(),
     previewUrl: z.string().url().optional().nullable()
   }).optional(),
-
-});
+  betterAuthOrgId: z.string().optional(),
+  isPublic: z.boolean().optional(),
+  tools: z.record(z.string(), z.object({
+    enabled: z.boolean(),
+    quotaMetric: z.enum(['messages', 'files']).nullable().optional(),
+    requiredRole: z.enum(['owner', 'admin', 'attorney', 'paralegal']).nullable().optional(),
+    allowAnonymous: z.boolean().optional()
+  })).optional(),
+  agentMember: z.object({
+    enabled: z.boolean(),
+    userId: z.string().optional(),
+    autoInvoke: z.boolean().optional(),
+    tagRequired: z.boolean().optional()
+  }).optional()
+}).passthrough();
 
 
 // Organization database schema with constraints

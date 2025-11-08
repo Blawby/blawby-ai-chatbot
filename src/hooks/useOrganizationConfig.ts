@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { z } from 'zod';
 import type { OrganizationConfig } from '../../worker/types';
+import { useActiveOrganization } from './useActiveOrganization.js';
+import { DEFAULT_ORGANIZATION_ID } from '../utils/constants.js';
 
 // API endpoints - moved inline since api.ts was removed
 const getOrganizationsEndpoint = () => '/api/organizations';
@@ -32,11 +34,13 @@ export interface UIOrganizationConfig extends OrganizationConfig {
 
 interface UseOrganizationConfigOptions {
   onError?: (error: string) => void;
+  organizationId?: string; // Optional explicit override
 }
 
-export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions = {}) => {
+export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }: UseOrganizationConfigOptions = {}) => {
   // Using our custom organization system instead of Better Auth's organization plugin
   
+  const { activeOrgId } = useActiveOrganization();
   const [organizationId, setOrganizationId] = useState<string>('');
   const [organizationNotFound, setOrganizationNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -149,16 +153,15 @@ export const useOrganizationConfig = ({ onError }: UseOrganizationConfigOptions 
         return;
       }
 
-      // Always use blawby-ai for organization configuration (UI display)
-      // This ensures chat, profile image, intro message, etc. come from blawby-ai
+      // Priority: URL param > explicit param > active org > constant
       if (organizationIdParam) {
         setOrganizationId(organizationIdParam);
       } else {
-        // Default to blawby-ai for organization configuration
-        setOrganizationId('blawby-ai');
+        const resolved = (explicitOrgId ?? activeOrgId ?? DEFAULT_ORGANIZATION_ID);
+        setOrganizationId(resolved);
       }
     }
-  }, []);
+  }, [explicitOrgId, activeOrgId]);
 
   // Fetch organization configuration
   const fetchOrganizationConfig = useCallback(async (currentOrganizationId: string) => {

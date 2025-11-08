@@ -10,6 +10,7 @@ import { SEOHead } from './components/SEOHead';
 import { ConversationHeader } from './components/chat/ConversationHeader';
 import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
+import { ActiveOrganizationProvider } from './contexts/ActiveOrganizationContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
 import { type SubscriptionTier } from './types/user';
@@ -567,9 +568,6 @@ function MainApp({
 							return false;
 						}
 
-						// Always use blawby-ai organization for stripe upgrades
-                        // Use 'blawby-ai' organization for Stripe upgrades (no local variable needed)
-
 						if (tier === 'business') {
 							// Navigate to cart page for business upgrades instead of direct checkout
 							try {
@@ -640,13 +638,15 @@ export function App() {
 	}, []);
 
 	return (
-		<LocationProvider>
-			<AuthProvider>
-				<OrganizationProvider onError={handleOrgError}>
-					<AppWithOrganization />
-				</OrganizationProvider>
-			</AuthProvider>
-		</LocationProvider>
+        <LocationProvider>
+            <AuthProvider>
+                <ActiveOrganizationProvider>
+                    <OrganizationProvider onError={handleOrgError}>
+                        <AppWithOrganization />
+                    </OrganizationProvider>
+                </ActiveOrganizationProvider>
+            </AuthProvider>
+        </LocationProvider>
 	);
 }
 

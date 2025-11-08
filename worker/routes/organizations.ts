@@ -1,4 +1,6 @@
 import { OrganizationService } from '../services/OrganizationService.js';
+import { DefaultOrganizationService } from '../services/DefaultOrganizationService.js';
+import { DEFAULT_ORGANIZATION_ID, DEFAULT_PUBLIC_ORG_SLUG } from '../../src/utils/constants.js';
 import { MatterService } from '../services/MatterService.js';
 import { Env } from '../types.js';
 import { ValidationError } from '../utils/validationErrors.js';
@@ -247,6 +249,30 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     const pathSegments = path.split('/').filter(segment => segment.length > 0);
     
     const organizationService = new OrganizationService(env);
+    const defaultOrgService = new DefaultOrganizationService(env);
+
+    // Public org endpoint (stub for Phase 1)
+    if ((path === '/public' || path === '/public/') && request.method === 'GET') {
+      try {
+        const org = await defaultOrgService.getPublicOrg();
+        if (!org) {
+          return new Response(JSON.stringify({ success: false, error: 'Public organization not configured', data: null }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ success: true, data: org }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      } catch (error) {
+        return createErrorResponse(error, 'Get public organization', 'Failed to load public organization');
+      }
+    }
+
+    // Default org endpoint (stub for Phase 1)
+    if ((path === '/default' || path === '/default/') && request.method === 'GET') {
+      try {
+        const organizationId = await defaultOrgService.resolveDefaultOrg(undefined, false).catch(() => DEFAULT_ORGANIZATION_ID);
+        return new Response(JSON.stringify({ success: true, data: { organizationId } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      } catch (error) {
+        return new Response(JSON.stringify({ success: true, data: { organizationId: DEFAULT_ORGANIZATION_ID } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
 
     // Handle pending invitations
     if ((path === '/me/invitations' || path === '/me/invitations/') && request.method === 'GET') {

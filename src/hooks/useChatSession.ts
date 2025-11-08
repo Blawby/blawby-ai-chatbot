@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useActiveOrganization } from './useActiveOrganization.js';
 
 const STORAGE_PREFIX = 'blawby_session:';
 
@@ -24,7 +25,8 @@ export interface ChatSessionState {
  * This is the preferred way to use chat sessions in components
  */
 export function useChatSessionWithContext(): ChatSessionState {
-  return useChatSession('blawby-ai');
+  const { activeOrgId } = useActiveOrganization();
+  return useChatSession(activeOrgId ?? 'blawby-ai');
 }
 
 /**
