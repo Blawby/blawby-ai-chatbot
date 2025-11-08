@@ -78,9 +78,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const activeOrganizationSlug: string | null = useMemo(() => {
     if (!activeOrganizationId) return null;
     if (activeOrganizationId === DEFAULT_ORGANIZATION_ID) return DEFAULT_PUBLIC_ORG_SLUG;
-    const org = organizations.find(
-      (o) => o.id === activeOrganizationId || o.slug === activeOrganizationId
-    );
+    const org = organizations.find((o) => o.id === activeOrganizationId);
     return org?.slug ?? null;
   }, [activeOrganizationId, organizations]);
 

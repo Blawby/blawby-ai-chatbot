@@ -647,8 +647,17 @@ function AppWithOrganization() {
     organizationId,
     organizationConfig,
     organizationNotFound,
-    handleRetryOrganizationConfig
+    handleRetryOrganizationConfig,
+    isLoading
   } = useOrganizationConfig({ onError: handleOrgError });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        Loading organization…
+      </div>
+    );
+  }
 
   return (
     <AppWithSEO

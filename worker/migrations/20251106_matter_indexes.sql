@@ -1,7 +1,14 @@
--- Migration temporarily disabled: D1 migration system has issues with multiple CREATE INDEX statements
--- These indexes can be created manually if needed:
+-- Migration temporarily disabled: our migration runner executes SQL using a single-statement/prepared API,
+-- which fails when batching multiple CREATE INDEX statements. D1 itself supports multiple statements via
+-- db.exec() and `wrangler d1 execute`.
+--
+-- Manual creation (until runner is updated):
 --   CREATE INDEX IF NOT EXISTS idx_matters_org_status_created_at ON matters(organization_id, status, created_at DESC);
 --   CREATE INDEX IF NOT EXISTS idx_matter_events_matter_type_date ON matter_events(matter_id, event_type, event_date DESC);
--- 
--- Note: These indexes are for performance optimization and are not required for the database to function
--- Date disabled: 2025-01-08
+--
+-- Follow-up tasks:
+--   1) Update the migration runner to use db.exec() or multiple execute calls (or batch/transaction helpers).
+--   2) Re-enable these CREATE INDEX statements in this migration once the runner is fixed.
+--
+-- Note: These indexes are for performance optimization and are not required for the database to function.
+-- Date disabled: 2025-11-08

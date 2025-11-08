@@ -52,7 +52,6 @@
 		"framer-motion": "^12.23.12",
 		"i18next": "^23.15.1",
 		"i18next-browser-languagedetector": "^7.2.1",
-		"libphonenumber-js": "^1.12.10",
 		"nanostores": "^1.0.1",
 		"preact": "^10.25.3",
 		"preact-iso": "^2.9.1",

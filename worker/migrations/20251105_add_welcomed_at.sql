@@ -1,6 +1,6 @@
 -- Migration removed: welcomed_at column is now in schema.sql
 -- This migration was redundant since schema.sql already includes the welcomed_at column
--- Date removed: 2025-01-08
+-- Date removed: 2025-11-08
 -- 
 -- Note: SQLite doesn't support IF NOT EXISTS for ALTER TABLE ADD COLUMN
 -- If you have an existing database that needs this column, it should already exist

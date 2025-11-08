@@ -114,13 +114,33 @@ export async function setActiveOrganization(organizationId: string): Promise<voi
   }
 
   try {
+    // Ensure session reflects the new active organization
     await authClient.getSession();
   } catch (err) {
-    console.error('[setActiveOrganization] Failed to refresh session after org switch', err);
-    try {
-      authClient.$store?.notify?.('$sessionSignal');
-    } catch (notifyErr) {
-      console.warn('[setActiveOrganization] Failed to notify authClient store', notifyErr);
+    console.error('[setActiveOrganization] Session refresh failed, retrying with backoff', err);
+    const maxAttempts = 3;
+    let attempt = 1;
+    let lastErr: unknown = err;
+    while (attempt < maxAttempts) {
+      const delayMs = 200 * Math.pow(2, attempt - 1); // 200ms, 400ms
+      await new Promise((r) => setTimeout(r, delayMs));
+      try {
+        await authClient.getSession();
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        attempt += 1;
+      }
+    }
+    if (lastErr) {
+      try {
+        authClient.$store?.notify?.('$sessionSignal');
+      } catch (notifyErr) {
+        console.warn('[setActiveOrganization] Failed to notify authClient store', notifyErr);
+      }
+      // Callers must handle this rejection to ensure session validity
+      throw lastErr instanceof Error ? lastErr : new Error('Failed to refresh session after organization switch');
     }
   }
 }
