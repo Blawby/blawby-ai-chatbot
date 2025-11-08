@@ -108,16 +108,6 @@ vi.mock('../contexts/ToastContext', () => ({
   }),
 }));
 
-// Mock OrganizationContext
-vi.mock('../contexts/OrganizationContext', () => ({
-  OrganizationProvider: ({ children }: { children: ComponentChildren }) => children,
-  useOrganization: () => ({
-    organization: null,
-    loading: false,
-    error: null,
-  }),
-}));
-
 // Mock features config
 vi.mock('../config/features', () => ({
   features: {

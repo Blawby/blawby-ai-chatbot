@@ -16,7 +16,7 @@ import { Select } from '../../ui/input/Select';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { formatDate } from '../../../utils/dateTime';
 import { useNavigation } from '../../../utils/navigation';
-import { useSession } from '../../../contexts/AuthContext';
+import { useSession } from '../../../lib/authClient';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { normalizeSeats } from '../../../utils/subscription';
 import { useLocation } from 'preact-iso';

@@ -3,11 +3,10 @@ import { useTranslation } from '@/i18n/hooks';
 import Modal from '../Modal';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
-import { updateUser, getSession } from '../../lib/authClient';
+import { updateUser, getSession, useSession } from '../../lib/authClient';
 import type { OnboardingData } from '../../types/user';
 import { toOnboardingData, fromOnboardingData } from '../../types/user';
 import { useToastContext } from '../../contexts/ToastContext';
-import { useSession } from '../../contexts/AuthContext';
 
 interface OnboardingModalProps {
   isOpen: boolean;

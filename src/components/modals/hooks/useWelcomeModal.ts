@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { useSession } from '../../../contexts/AuthContext';
+import { useSession } from '../../../lib/authClient';
 
 interface UseWelcomeModalResult {
   shouldShow: boolean;

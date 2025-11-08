@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import { SectionDivider } from '../../ui';
 import { useToastContext } from '../../../contexts/ToastContext';
-import { useSession } from '../../../contexts/AuthContext';
-import { updateUser } from '../../../lib/authClient';
+import { useSession, updateUser } from '../../../lib/authClient';
 import { useTranslation } from '@/i18n/hooks';
 import { getNotificationDisplayText } from '../../ui/validation/defaultValues';
 import type { NotificationSettings } from '../../../types/user';

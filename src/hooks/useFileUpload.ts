@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
-import { useActiveOrganization } from './useActiveOrganization.js';
+import { useSessionContext } from '../contexts/SessionContext.js';
 import { FileAttachment } from '../../worker/types';
 import { uploadWithProgress, validateFile } from '../services/upload/UploadTransport';
 
@@ -39,8 +39,8 @@ interface UseFileUploadOptions {
  * This is the preferred way to use file upload in components
  */
 export const useFileUploadWithContext = ({ sessionId, onError }: Omit<UseFileUploadOptions, 'organizationId'>) => {
-  const { activeOrgId } = useActiveOrganization();
-  return useFileUpload({ organizationId: activeOrgId ?? 'blawby-ai', sessionId, onError });
+  const { activeOrganizationId } = useSessionContext();
+  return useFileUpload({ organizationId: activeOrganizationId ?? undefined, sessionId, onError });
 };
 
 // Utility function to upload a file to backend

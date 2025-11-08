@@ -1,5 +1,4 @@
 import { createAuthClient } from "better-auth/react";
-import { organizationClient } from "better-auth/client/plugins";
 import { cloudflareClient } from "better-auth-cloudflare/client";
 import { stripeClient } from "@better-auth/stripe/client";
 
@@ -37,7 +36,7 @@ const getBaseURL = () => {
 
 export const authClient = createAuthClient({
   baseURL: getBaseURL(),
-  plugins: [organizationClient(), cloudflareClient(), stripeClient({ subscription: true })],
+  plugins: [cloudflareClient(), stripeClient({ subscription: true })],
   fetchOptions: {
     credentials: "include", // Important for CORS
   },
@@ -84,7 +83,38 @@ export const deleteUser = authClient.deleteUser;
 
 // Export Better Auth's reactive hooks (primary method for components)
 export const useSession = authClient.useSession;
-export const useActiveOrganization = authClient.useActiveOrganization;
 
 // Export getSession for one-time checks (secondary method)
 export const getSession = authClient.getSession;
+
+/**
+ * Custom helper to switch the active organization via our session endpoint.
+ * Mirrors the previous Better Auth plugin behavior without requiring the plugin.
+ */
+export async function setActiveOrganization(organizationId: string): Promise<void> {
+  const response = await fetch('/api/sessions/organization', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ organizationId })
+  });
+
+  if (!response.ok) {
+    let message = 'Failed to switch organization';
+    try {
+      const errorJson = await response.json() as { error?: string };
+      if (errorJson?.error) {
+        message = errorJson.error;
+      }
+    } catch {
+      // ignore parse issues
+    }
+    throw new Error(message);
+  }
+
+  try {
+    authClient.$store?.notify?.('$sessionSignal');
+  } catch (err) {
+    console.warn('[setActiveOrganization] Failed to notify authClient store', err);
+  }
+}

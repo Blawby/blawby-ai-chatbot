@@ -9,11 +9,8 @@ import AuthPage from './components/AuthPage';
 import { SEOHead } from './components/SEOHead';
 import { ConversationHeader } from './components/chat/ConversationHeader';
 import { ToastProvider } from './contexts/ToastContext';
-import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
-import { ActiveOrganizationProvider } from './contexts/ActiveOrganizationContext';
-import { useActiveOrganization } from './hooks/useActiveOrganization';
-import { SessionProvider } from './contexts/SessionContext';
-import { AuthProvider, useSession } from './contexts/AuthContext';
+import { SessionProvider, useSessionContext } from './contexts/SessionContext';
+import { useSession } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
 import { resolveOrganizationKind } from './utils/subscription';
 import type { UIOrganizationConfig } from './hooks/useOrganizationConfig';
@@ -32,10 +29,10 @@ import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPag
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
 import { useToastContext } from './contexts/ToastContext';
-import { useSessionContext } from './contexts/SessionContext';
+import { useOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
 import QuotaBanner from './components/QuotaBanner';
-// useSession is now imported from AuthContext above
+import { DEFAULT_ORGANIZATION_ID } from './utils/constants';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -80,7 +77,7 @@ function MainApp({
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug } = useSessionContext();
+	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug, activeOrganizationId } = useSessionContext();
 	const { currentOrganization, refetch: refetchOrganizations, acceptMatter, rejectMatter, updateMatterStatus } = useOrganizationManagement();
 	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
 
@@ -97,7 +94,7 @@ function MainApp({
 	);
 
 	const quotaUsageMessage = isQuotaRestricted
-		? (activeOrganizationSlug === 'blawby-ai'
+		? (activeOrganizationId === DEFAULT_ORGANIZATION_ID
 			? 'You have used all available anonymous messages for this month.'
 			: 'You have reached the monthly message limit for your current plan.')
 		: null;
@@ -631,47 +628,36 @@ function MainApp({
 
 // Main App component with routing
 export function App() {
+  return (
+    <LocationProvider>
+      <SessionProvider>
+        <AppWithOrganization />
+      </SessionProvider>
+    </LocationProvider>
+  );
+}
+
+// Component that loads organization config before rendering the app shell
+function AppWithOrganization() {
   const handleOrgError = useCallback((error: string) => {
     console.error('Organization config error:', error);
   }, []);
 
+  const {
+    organizationId,
+    organizationConfig,
+    organizationNotFound,
+    handleRetryOrganizationConfig
+  } = useOrganizationConfig({ onError: handleOrgError });
+
   return (
-        <LocationProvider>
-            <AuthProvider>
-                <ActiveOrganizationProvider>
-                    <OrganizationProvider onError={handleOrgError}>
-                        <AppWithActiveOrgGate />
-                    </OrganizationProvider>
-                </ActiveOrganizationProvider>
-            </AuthProvider>
-        </LocationProvider>
+    <AppWithSEO
+      organizationId={organizationId}
+      organizationConfig={organizationConfig}
+      organizationNotFound={organizationNotFound}
+      handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+    />
   );
-}
-
-// Component that calls useOrganization and passes data to AppWithSEO
-function AppWithOrganization() {
-  const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
-  
-  return <AppWithSEO 
-    organizationId={organizationId}
-    organizationConfig={organizationConfig}
-    organizationNotFound={organizationNotFound}
-    handleRetryOrganizationConfig={handleRetryOrganizationConfig}
-  />;
-}
-
-function AppWithActiveOrgGate() {
-  const { isLoading } = useActiveOrganization();
-  // Bypass loading screen during SSR since effects don't run and isLoading may be stale
-  // The provider initializes isLoading=false on server, but this check ensures we render content
-  if (isLoading && typeof window !== 'undefined') {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center text-neutral-500">
-        Loading...
-      </div>
-    );
-  }
-  return <AppWithOrganization />;
 }
 
 function AppWithSEO({
@@ -715,7 +701,7 @@ function AppWithSEO({
 	const SettingsRoute = useMemo(() => {
 		return function SettingsRouteInner(props: Record<string, unknown>) {
 			return (
-				<MainAppWithProviders 
+				<MainApp 
 					organizationId={organizationId}
 					organizationConfig={organizationConfig}
 					organizationNotFound={organizationNotFound}
@@ -739,13 +725,15 @@ function AppWithSEO({
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
 					<Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
 					<Route path="/settings/*" component={SettingsRoute} />
-  					<Route default component={(props) => <MainAppWithProviders 
-  						organizationId={organizationId}
-  						organizationConfig={organizationConfig}
-  						organizationNotFound={organizationNotFound}
-						handleRetryOrganizationConfig={handleRetryOrganizationConfig}
-						{...props}
-					/>} />
+  					<Route default component={(props) => (
+						  <MainApp
+  							organizationId={organizationId}
+  							organizationConfig={organizationConfig}
+  							organizationNotFound={organizationNotFound}
+							  handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+							  {...props}
+						  />
+					)} />
 				</Router>
 
 				{/* Hoisted Settings Modal - single instance persists across sub-routes */}
@@ -761,20 +749,6 @@ function AppWithSEO({
 				)}
 			</ToastProvider>
 		</>
-	);
-}
-
-// Wrapper component that provides context to MainApp
-function MainAppWithProviders(props: {
-	organizationId: string;
-	organizationConfig: UIOrganizationConfig;
-	organizationNotFound: boolean;
-	handleRetryOrganizationConfig: () => void;
-} & Record<string, unknown>) {
-	return (
-		<SessionProvider>
-			<MainApp {...props} />
-		</SessionProvider>
 	);
 }
 

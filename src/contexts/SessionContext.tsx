@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { ComponentChildren } from 'preact';
 import { z } from 'zod';
 import { authClient } from '../lib/authClient';
-import { useActiveOrganization } from '../hooks/useActiveOrganization';
+import { DEFAULT_ORGANIZATION_ID, DEFAULT_PUBLIC_ORG_SLUG } from '../utils/constants';
 
 // Zod schema for runtime validation of QuotaCounter
 const quotaCounterSchema = z.object({
@@ -56,7 +56,6 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData } = authClient.useSession();
-  const { activeOrgId, userOrgs } = useActiveOrganization();
 
   const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
@@ -65,11 +64,18 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const abortRef = useRef<AbortController | null>(null);
   const isAnonymous = !sessionData?.user;
 
-  const activeOrganizationId: string | null = activeOrgId ?? null;
+  const activeOrganizationIdFromSession =
+    ((sessionData?.session as { activeOrganizationId?: string } | undefined)?.activeOrganizationId) ??
+    ((sessionData?.user as { activeOrganizationId?: string } | undefined)?.activeOrganizationId) ??
+    null;
 
-  const activeOrganizationSlug: string | null = userOrgs?.find(o => o.id === activeOrganizationId)?.slug ?? null;
+  const activeOrganizationId: string | null =
+    activeOrganizationIdFromSession ?? (isAnonymous ? DEFAULT_ORGANIZATION_ID : null);
 
-  const resolvedOrgIdentifier = activeOrganizationId ?? null;
+  const activeOrganizationSlug: string | null =
+    activeOrganizationId === DEFAULT_ORGANIZATION_ID ? DEFAULT_PUBLIC_ORG_SLUG : null;
+
+  const resolvedOrgIdentifier = activeOrganizationId;
 
   const fetchQuota = useCallback(async () => {
     if (typeof window === 'undefined') {
@@ -141,10 +147,6 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     fetchQuota();
     return () => abortRef.current?.abort();
   }, [fetchQuota]);
-
-  // Ensure active org is set after login
-  // Note: We rely on our custom organization management instead of Better Auth's setActive
-  // This avoids 403 FORBIDDEN errors since our custom org creation doesn't sync with Better Auth's members table
 
   const value = useMemo<SessionContextValue>(() => ({
     session: sessionData ?? null,

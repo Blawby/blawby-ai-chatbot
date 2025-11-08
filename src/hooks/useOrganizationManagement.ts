@@ -3,7 +3,7 @@ import {
   getOrganizationsEndpoint, 
   getOrganizationWorkspaceEndpoint 
 } from '../config/api';
-import { useSession } from '../contexts/AuthContext';
+import { useSession } from '../lib/authClient';
 import { 
   organizationInvitationSchema,
   organizationSchema,

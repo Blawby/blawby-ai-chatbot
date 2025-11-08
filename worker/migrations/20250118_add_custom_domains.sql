@@ -1,6 +1,6 @@
--- Add custom_domains column to users table
--- Migration: Add custom domains storage for user links
--- Date: 2025-01-18
-
--- Add custom_domains column to store JSON array of custom domains
-ALTER TABLE users ADD COLUMN custom_domains TEXT;
+-- Migration removed: custom_domains column is now in schema.sql
+-- This migration was redundant since schema.sql already includes the custom_domains column
+-- Date removed: 2025-01-08
+-- 
+-- If you have an existing database that needs this column, it should already exist
+-- from when this migration was first run. Fresh databases get everything from schema.sql.
