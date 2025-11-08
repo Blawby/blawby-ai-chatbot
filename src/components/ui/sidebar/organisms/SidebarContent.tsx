@@ -150,7 +150,7 @@ export const SidebarContent = ({
                 setSearchTerm(value);
               }}
               placeholder={searchPlaceholder}
-              label=""
+              aria-label="Search matters"
             />
           </div>
         )}

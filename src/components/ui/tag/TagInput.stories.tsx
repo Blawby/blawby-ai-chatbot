@@ -6,6 +6,7 @@
 
 import { TagInput, type TagInputProps } from './TagInput';
 import { h } from 'preact';
+import { useState } from 'preact/hooks';
 
 const meta = {
   title: 'Components/Input/TagInput',
@@ -56,7 +57,16 @@ const meta = {
 
 export default meta;
 type Story = { render: (args: TagInputProps) => unknown; args?: Partial<TagInputProps> };
-const renderTagInput = (args: TagInputProps) => h(TagInput, args);
+const StatefulTagInput = (args: TagInputProps) => {
+  const [value, setValue] = useState<string[]>(Array.isArray(args.value) ? args.value : []);
+  const handleChange = (next: string[]) => {
+    setValue(next);
+    args.onChange?.(next);
+  };
+  return h(TagInput, { ...args, value, onChange: handleChange });
+};
+
+const renderTagInput = (args: TagInputProps) => h(StatefulTagInput, args);
 
 export const Default: Story = {
   render: renderTagInput,
