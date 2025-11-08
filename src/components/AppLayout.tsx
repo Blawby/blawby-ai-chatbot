@@ -61,6 +61,8 @@ interface AppLayoutProps {
   onOnboardingCompleted?: () => Promise<void> | void;
   selectedMatterId?: string | null;
   onMatterSelect?: (matterId: string) => void;
+  selectedConversationId?: string | null;
+  onConversationSelect?: (conversationId: string) => void;
 }
 
 const AppLayout: FunctionComponent<AppLayoutProps> = ({
@@ -81,7 +83,9 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   children,
   onOnboardingCompleted,
   selectedMatterId,
-  onMatterSelect
+  onMatterSelect,
+  selectedConversationId,
+  onConversationSelect
 }) => {
   // Matter state management
   const { matter, status: matterStatus } = useMatterState(chatMessages);
@@ -268,6 +272,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               onboardingHasDraft={hasOnboardingDraft}
               selectedMatterId={selectedMatterId}
               onSelectMatter={onMatterSelect}
+              selectedConversationId={selectedConversationId}
+              onSelectConversation={onConversationSelect}
             />
           </div>
           
@@ -335,6 +341,11 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                     selectedMatterId={selectedMatterId}
                     onSelectMatter={(id) => {
                       onMatterSelect?.(id);
+                      onToggleMobileSidebar(false);
+                    }}
+                    selectedConversationId={selectedConversationId}
+                    onSelectConversation={(conversationId) => {
+                      onConversationSelect?.(conversationId);
                       onToggleMobileSidebar(false);
                     }}
                   />

@@ -9,6 +9,7 @@ import type { MessageBatch } from '@cloudflare/workers-types';
 import type { DocumentEvent, AutoAnalysisEvent } from '../types/events.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
 import { requireFeature } from '../middleware/featureGuard.js';
+import { optionalAuth, userIsAdminOrOwner } from '../middleware/auth.js';
 import { UsageService } from '../services/UsageService.js';
 
 /**
@@ -701,16 +702,56 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       console.log('File download request:', { fileId, path });
 
       // Try to get file metadata from database first
-      let fileRecord = null;
+      let fileRecord: Record<string, unknown> | null = null;
       try {
         const stmt = env.DB.prepare(`
           SELECT * FROM files WHERE id = ? AND is_deleted = FALSE
         `);
-        fileRecord = await stmt.bind(fileId).first();
+        fileRecord = await stmt.bind(fileId).first<Record<string, unknown>>();
         console.log('Database file record:', fileRecord);
       } catch (dbError) {
         console.warn('Failed to get file metadata from database:', dbError);
-        // Continue without database metadata
+      }
+
+      if (!fileRecord) {
+        throw HttpErrors.notFound('File not found');
+      }
+
+      const organizationId = String(fileRecord.organization_id ?? '');
+      if (!organizationId) {
+        throw HttpErrors.notFound('File organization not found');
+      }
+
+      const authContext = await optionalAuth(request, env);
+      if (authContext) {
+        const membership = await env.DB.prepare(
+          'SELECT role FROM members WHERE organization_id = ? AND user_id = ?'
+        ).bind(organizationId, authContext.user.id).first();
+        if (!membership) {
+          throw HttpErrors.forbidden('Not authorized to access this file');
+        }
+
+        const conversationId = fileRecord.conversation_id as string | null | undefined;
+        if (conversationId) {
+          const isPrivileged = await userIsAdminOrOwner(env, authContext.user.id, organizationId);
+          if (!isPrivileged) {
+            const participant = await env.DB.prepare(
+              'SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?'
+            ).bind(conversationId, authContext.user.id).first();
+            if (!participant) {
+              throw HttpErrors.forbidden('You must be a participant in this conversation to access the file');
+            }
+          }
+        }
+      } else {
+        const sessionId = fileRecord.session_id as string | null | undefined;
+        if (!sessionId) {
+          throw HttpErrors.unauthorized('Authentication is required to access this file');
+        }
+        const session = await SessionService.getSessionById(env, sessionId);
+        if (!session || session.organizationId !== organizationId) {
+          throw HttpErrors.forbidden('Session is not authorized to access this file');
+        }
       }
 
       // Get file from R2 bucket
@@ -719,7 +760,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       }
 
       // Try to construct the file path from the fileId if we don't have database metadata
-      let filePath = fileRecord?.file_path;
+      let filePath = fileRecord.file_path as string | undefined;
       if (!filePath) {
         // Extract organizationId and sessionId from fileId format: organizationId-sessionId-timestamp-random
         // The organizationId can contain hyphens, so we need to be more careful about parsing

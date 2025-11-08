@@ -24,6 +24,23 @@ export interface NotificationRequest {
   };
 }
 
+export interface ConversationMessageNotificationInput {
+  organizationId: string;
+  conversationId: string;
+  senderName: string;
+  messagePreview: string;
+  recipientUserIds: string[];
+}
+
+export interface ConversationLifecycleNotificationInput {
+  organizationId: string;
+  conversationId: string;
+  clientUserId: string;
+  actorName: string;
+  matterNumber?: string;
+  reason?: string;
+}
+
 /**
  * Safely extracts owner email from organization configuration
  * @param organizationConfig - Organization configuration object
@@ -207,6 +224,176 @@ Actor: ${update?.actorId || 'system'}
       Logger.info('Matter update notification sent successfully');
     } catch (error) {
       Logger.warn('Failed to send matter update notification:', error);
+    }
+  }
+
+  async sendConversationMessageNotification(input: ConversationMessageNotificationInput): Promise<void> {
+    const uniqueRecipientIds = Array.from(new Set(input.recipientUserIds));
+    if (uniqueRecipientIds.length === 0) {
+      Logger.info('No recipients provided for conversation message notification');
+      return;
+    }
+
+    try {
+      const contacts = await this.fetchUserContacts(input.organizationId, uniqueRecipientIds);
+      const { EmailService } = await import('./EmailService.js');
+      const emailService = this.env.RESEND_API_KEY ? new EmailService(this.env.RESEND_API_KEY) : null;
+
+      const preview = input.messagePreview.length > 280
+        ? `${input.messagePreview.slice(0, 277)}...`
+        : input.messagePreview;
+
+      for (const userId of uniqueRecipientIds) {
+        const contact = contacts.get(userId);
+        if (!contact) {
+          continue;
+        }
+
+        if (emailService && contact.email) {
+          try {
+            await emailService.send({
+              from: 'noreply@blawby.com',
+              to: contact.email,
+              subject: `New message from ${input.senderName}`,
+              text: `${input.senderName} sent a new message:\n\n${preview}\n\nOpen the conversation to reply.`
+            });
+          } catch (error) {
+            Logger.warn('Failed to send conversation message email notification', { error, userId });
+          }
+        }
+
+        await this.pushInAppNotification({
+          recipientUserId: userId,
+          organizationId: input.organizationId,
+          message: `${input.senderName} sent a new message`,
+          conversationId: input.conversationId,
+          kind: 'message',
+          data: { preview }
+        });
+      }
+    } catch (error) {
+      Logger.warn('Failed to deliver conversation message notifications', error);
+    }
+  }
+
+  async sendConversationAcceptedNotification(input: ConversationLifecycleNotificationInput): Promise<void> {
+    await this.sendConversationLifecycleNotification({
+      ...input,
+      kind: 'accepted',
+      emailSubject: input.matterNumber
+        ? `Your matter ${input.matterNumber} was accepted`
+        : 'Your matter was accepted',
+      emailBody: `${input.actorName} accepted your matter. You can continue the conversation now.`
+    });
+  }
+
+  async sendConversationRejectedNotification(input: ConversationLifecycleNotificationInput): Promise<void> {
+    const reasonLine = input.reason ? `\nReason: ${input.reason}` : '';
+    await this.sendConversationLifecycleNotification({
+      ...input,
+      kind: 'rejected',
+      emailSubject: input.matterNumber
+        ? `Your matter ${input.matterNumber} was not accepted`
+        : 'Your matter was not accepted',
+      emailBody: `${input.actorName} was unable to accept your matter.${reasonLine}`
+    });
+  }
+
+  private async sendConversationLifecycleNotification(input: ConversationLifecycleNotificationInput & {
+    kind: 'accepted' | 'rejected';
+    emailSubject: string;
+    emailBody: string;
+  }): Promise<void> {
+    try {
+      const contacts = await this.fetchUserContacts(input.organizationId, [input.clientUserId]);
+      const contact = contacts.get(input.clientUserId);
+      const { EmailService } = await import('./EmailService.js');
+      const emailService = this.env.RESEND_API_KEY ? new EmailService(this.env.RESEND_API_KEY) : null;
+
+      if (emailService && contact?.email) {
+        try {
+          await emailService.send({
+            from: 'noreply@blawby.com',
+            to: contact.email,
+            subject: input.emailSubject,
+            text: `${input.emailBody}\n\nVisit Blawby to review the conversation.`
+          });
+        } catch (error) {
+          Logger.warn('Failed to send conversation lifecycle email notification', { error, userId: input.clientUserId });
+        }
+      }
+
+      await this.pushInAppNotification({
+        recipientUserId: input.clientUserId,
+        organizationId: input.organizationId,
+        message: input.kind === 'accepted'
+          ? `${input.actorName} accepted your matter`
+          : `${input.actorName} was unable to accept your matter`,
+        conversationId: input.conversationId,
+        kind: input.kind,
+        data: input.reason ? { reason: input.reason } : undefined
+      });
+    } catch (error) {
+      Logger.warn('Failed to deliver conversation lifecycle notification', error);
+    }
+  }
+
+  private async fetchUserContacts(
+    organizationId: string,
+    userIds: string[]
+  ): Promise<Map<string, { email?: string | null; name?: string | null }>> {
+    const contacts = new Map<string, { email?: string | null; name?: string | null }>();
+    if (userIds.length === 0) {
+      return contacts;
+    }
+
+    const uniqueIds = Array.from(new Set(userIds));
+    const placeholders = uniqueIds.map(() => '?').join(', ');
+    const query = `
+      SELECT members.user_id AS userId, accounts.email AS email, accounts.name AS name
+      FROM members
+      JOIN accounts ON accounts.id = members.user_id
+      WHERE members.organization_id = ? AND members.user_id IN (${placeholders})
+    `;
+
+    try {
+      const result = await this.env.DB.prepare(query).bind(organizationId, ...uniqueIds).all();
+      const rows = (result.results ?? []) as Array<{ userId: string; email?: string | null; name?: string | null }>;
+      for (const row of rows) {
+        contacts.set(row.userId, { email: row.email ?? undefined, name: row.name ?? undefined });
+      }
+    } catch (error) {
+      Logger.warn('Failed to fetch user contacts for notifications', error);
+    }
+
+    return contacts;
+  }
+
+  private async pushInAppNotification(input: {
+    recipientUserId: string;
+    organizationId: string;
+    message: string;
+    conversationId: string;
+    kind: 'message' | 'accepted' | 'rejected';
+    data?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      const { StatusService } = await import('./StatusService.js');
+      await StatusService.setStatus(this.env, {
+        id: `conversation:${input.conversationId}:${input.kind}:${crypto.randomUUID()}`,
+        sessionId: `user:${input.recipientUserId}`,
+        organizationId: input.organizationId,
+        type: 'system_notification',
+        status: 'completed',
+        message: input.message,
+        data: {
+          conversationId: input.conversationId,
+          kind: input.kind,
+          ...(input.data ?? {})
+        }
+      });
+    } catch (error) {
+      Logger.warn('Failed to push in-app conversation notification', error);
     }
   }
 }

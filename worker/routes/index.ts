@@ -20,3 +20,4 @@ export { handleDebug } from './debug';
 export { handleUsage } from './usage';
 export { handleStripeWebhookWithErrorHandling as handleStripeWebhook } from './stripeWebhook';
 export { handleUsers } from './users';
+export { handleConversations } from './conversations';

@@ -41,6 +41,9 @@ interface ChatContainerProps {
 
   // Input control prop
   clearInput?: number;
+  leadStatus?: 'idle' | 'pending' | 'accepted' | 'rejected';
+  leadMatterNumber?: string | null;
+  leadRejectionReason?: string | null;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -66,7 +69,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isSessionReady,
   isUsageRestricted,
   usageMessage,
-  clearInput
+  clearInput,
+  leadStatus = 'idle',
+  leadMatterNumber,
+  leadRejectionReason
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -144,6 +150,41 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   return (
     <div className="flex flex-col h-screen md:h-screen w-full m-0 p-0 relative overflow-hidden bg-white dark:bg-dark-bg" data-testid="chat-container">
       <main className="flex flex-col h-full w-full overflow-hidden relative bg-white dark:bg-dark-bg">
+        {leadStatus !== 'idle' && (
+          <div
+            className={`mx-4 mt-4 rounded-lg border px-4 py-3 text-sm shadow-sm ${
+              leadStatus === 'pending'
+                ? 'border-amber-400 bg-amber-50 text-amber-900'
+                : leadStatus === 'accepted'
+                  ? 'border-emerald-400 bg-emerald-50 text-emerald-900'
+                  : 'border-rose-400 bg-rose-50 text-rose-900'
+            }`}
+          >
+            {leadStatus === 'pending' && (
+              <div>
+                <strong>Lead created</strong>
+                {leadMatterNumber ? ` · Matter ${leadMatterNumber}` : ''}
+                <div className="mt-1 text-xs">A lawyer will review your details and join the conversation shortly.</div>
+              </div>
+            )}
+            {leadStatus === 'accepted' && (
+              <div>
+                <strong>Your lawyer has joined the conversation</strong>
+                {leadMatterNumber ? ` · Matter ${leadMatterNumber}` : ''}
+                <div className="mt-1 text-xs">Feel free to continue the discussion and share any additional information.</div>
+              </div>
+            )}
+            {leadStatus === 'rejected' && (
+              <div>
+                <strong>Lead unavailable</strong>
+                <div className="mt-1 text-xs">
+                  {leadRejectionReason || 'This matter could not be accepted at this time. A team member will follow up with next steps.'}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <VirtualMessageList
           messages={messages}
           organizationConfig={organizationConfig}

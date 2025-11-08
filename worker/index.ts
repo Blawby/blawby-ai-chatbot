@@ -20,7 +20,8 @@ import {
   handleConfig,
   handleUsage,
   handleStripeWebhook,
-  handleUsers
+  handleUsers,
+  handleConversations
 } from './routes';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
@@ -116,6 +117,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleConfig(request, env);
     } else if (path.startsWith('/api/usage')) {
       response = await handleUsage(request, env);
+    } else if (path.startsWith('/api/conversations')) {
+      response = await handleConversations(request, env);
     } else if (path === '/api/health') {
       response = await handleHealth(request, env);
     } else if (path === '/') {
@@ -158,4 +161,4 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
   ctx.waitUntil(cleanupPromise);
 }
 
-// Export Durable Object classes (none currently)
+export { ConversationRoom } from './durable/ConversationRoom';

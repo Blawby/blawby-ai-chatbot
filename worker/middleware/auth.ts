@@ -122,6 +122,55 @@ export async function requireOrganizationMember(
   }
 }
 
+export async function userIsAdminOrOwner(env: Env, userId: string, organizationId: string): Promise<boolean> {
+  if (!userId || !organizationId) {
+    return false;
+  }
+
+  const result = await env.DB.prepare(
+    `SELECT 1 FROM members WHERE organization_id = ? AND user_id = ? AND role IN ('owner', 'admin')`
+  ).bind(organizationId, userId).first();
+
+  return Boolean(result);
+}
+
+export async function requireConversationParticipant(
+  request: Request,
+  env: Env,
+  conversationId: string,
+  { allowPrivileged = true }: { allowPrivileged?: boolean } = {}
+): Promise<AuthContext & { organizationId: string }> {
+  const authContext = await requireAuth(request, env);
+
+  if (!conversationId || typeof conversationId !== 'string' || conversationId.trim() === '') {
+    throw HttpErrors.badRequest('Invalid or missing conversationId');
+  }
+
+  const conversation = await env.DB.prepare(
+    `SELECT organization_id FROM conversations WHERE id = ?`
+  ).bind(conversationId).first<{ organization_id: string }>();
+
+  if (!conversation) {
+    throw HttpErrors.notFound('Conversation not found');
+  }
+
+  const organizationId = conversation.organization_id;
+
+  if (allowPrivileged && await userIsAdminOrOwner(env, authContext.user.id, organizationId)) {
+    return { ...authContext, organizationId };
+  }
+
+  const participant = await env.DB.prepare(
+    `SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?`
+  ).bind(conversationId, authContext.user.id).first();
+
+  if (!participant) {
+    throw HttpErrors.forbidden('User is not a participant of this conversation');
+  }
+
+  return { ...authContext, organizationId };
+}
+
 export async function optionalAuth(
   request: Request,
   env: Env

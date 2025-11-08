@@ -16,6 +16,7 @@ import type { BusinessOnboardingStatus } from '../../../../hooks/useOrganization
 import { useMattersSidebar, MattersSidebarStatus } from '../../../../hooks/useMattersSidebar';
 import { Input } from '../../input/Input';
 import { Button } from '../../Button';
+import { ConversationList } from '../../../conversations/ConversationList';
 
 interface SidebarContentProps {
   organizationConfig?: {
@@ -39,6 +40,8 @@ interface SidebarContentProps {
   onToggleCollapse: () => void;
   selectedMatterId?: string | null;
   onSelectMatter?: (matterId: string) => void;
+  selectedConversationId?: string | null;
+  onSelectConversation?: (conversationId: string) => void;
 }
 
 export const SidebarContent = ({
@@ -55,7 +58,9 @@ export const SidebarContent = ({
   isCollapsed,
   onToggleCollapse,
   selectedMatterId,
-  onSelectMatter
+  onSelectMatter,
+  selectedConversationId,
+  onSelectConversation
 }: SidebarContentProps) => {
   
   const onboardingLabel = (() => {
@@ -66,6 +71,7 @@ export const SidebarContent = ({
 
   const organizationId = organizationConfig?.organizationId;
   const showMattersSection = Boolean(organizationId) && !isCollapsed;
+  const showConversationsSection = Boolean(organizationId) && !isCollapsed;
 
   const {
     matters,
@@ -236,6 +242,16 @@ export const SidebarContent = ({
                 </Button>
               )}
             </div>
+          </div>
+        )}
+
+        {showConversationsSection && (
+          <div className="border-t border-border">
+            <ConversationList
+              organizationId={organizationId}
+              selectedConversationId={selectedConversationId}
+              onSelectConversation={onSelectConversation}
+            />
           </div>
         )}
 
