@@ -1,5 +1,5 @@
 import { createContext, type ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { authClient } from '../lib/authClient';
 import { DEFAULT_ORGANIZATION_ID } from '../utils/constants';
 
@@ -24,6 +24,7 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
   const [userOrgs, setUserOrgs] = useState<OrganizationSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const switchingRef = useRef(false);
 
   const setPublicOrgAsActive = useCallback(async () => {
     try {
@@ -109,15 +110,31 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
 
   useEffect(() => {
     if (!activeOrgId) return;
+    /**
+     * Better Auth organization API may be unavailable in certain builds or environments.
+     * Guard the call at runtime and log failures during development.
+     */
+    const hasSetActiveOrganization = (client: unknown): client is { organization: { setActiveOrganization: (args: { organizationId: string }) => Promise<unknown> } } => {
+      return Boolean((client as any)?.organization?.setActiveOrganization) && typeof (client as any).organization.setActiveOrganization === 'function';
+    };
+
     const setBA = async () => {
+      if (!hasSetActiveOrganization(authClient)) return;
       try {
-        await (authClient as any).organization?.setActiveOrganization?.({ organizationId: activeOrgId });
-      } catch {}
+        await authClient.organization.setActiveOrganization({ organizationId: activeOrgId });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[ActiveOrganization] Failed to notify authClient of active org', err);
+      }
     };
     void setBA();
   }, [activeOrgId]);
 
   const setActiveOrg = useCallback(async (orgId: string) => {
+    if (switchingRef.current) {
+      throw new Error('Organization switch already in progress');
+    }
+    switchingRef.current = true;
     setIsLoading(true);
     try {
       const resp = await fetch('/api/sessions/organization', {
@@ -128,16 +145,13 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
       });
       if (!resp.ok) throw new Error('Failed to switch organization');
       setActiveOrgId(orgId);
-      if (typeof window !== 'undefined') {
-        try { localStorage.setItem('activeOrgId', orgId); } catch {}
-      }
-      try { await (authClient as any).organization?.setActiveOrganization?.({ organizationId: orgId }); } catch {}
     } catch (e) {
       console.error('Failed to switch org:', e);
       setError(e instanceof Error ? e.message : 'Failed to switch organization');
       throw e;
     } finally {
       setIsLoading(false);
+      switchingRef.current = false;
     }
   }, []);
 

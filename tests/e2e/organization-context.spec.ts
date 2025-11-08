@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import type { ConsoleMessage } from 'playwright';
 
 // Expected Better Auth endpoints that return 404 (best-effort calls, handled gracefully)
 const expectedIgnoredEndpoints = [
@@ -9,13 +10,13 @@ const expectedIgnoredEndpoints = [
 // Utility to collect console errors and fail the test if any unexpected errors appear
 function attachConsoleErrorFail(page: Page) {
   const errors: Array<{ type: string; text: string; location?: string }> = [];
-  
-  page.on('console', (msg) => {
+
+  const onConsole = (msg: ConsoleMessage) => {
     const type = msg.type();
     if (type === 'error') {
       const text = msg.text();
       const location = msg.location();
-      
+
       // Filter out expected Better Auth errors (best-effort calls)
       const isExpectedBAError = expectedIgnoredEndpoints.some(endpoint => 
         text.includes(endpoint) || (location && location.url.includes(endpoint))
@@ -32,9 +33,11 @@ function attachConsoleErrorFail(page: Page) {
         console.error(`[browser:error] ${text}`);
       }
     }
-  });
-  
-  return async () => {
+  };
+
+  page.on('console', onConsole);
+
+  const assertNoConsoleErrors = async () => {
     if (errors.length > 0) {
       const errorMessages = errors.map(e => 
         e.location ? `${e.text} (${e.location})` : e.text
@@ -42,17 +45,23 @@ function attachConsoleErrorFail(page: Page) {
       throw new Error(`Unexpected console errors detected:\n${errorMessages}`);
     }
   };
+
+  const disposeConsoleListener = () => {
+    page.off('console', onConsole);
+  };
+
+  return { assertNoConsoleErrors, disposeConsoleListener };
 }
 
 test.describe('Organization Context E2E', () => {
   // Anonymous initialization should set activeOrgId in localStorage (public org)
   test('anonymous initializes activeOrgId (public org) and no console errors', async ({ page, baseURL }) => {
-    const assertNoConsoleErrors = attachConsoleErrorFail(page);
+    const { assertNoConsoleErrors, disposeConsoleListener } = attachConsoleErrorFail(page);
 
     await page.goto(baseURL ?? '/');
 
     // Wait for page to load and organization context to initialize
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Wait for localStorage key to be set by ActiveOrganizationProvider
     const activeOrgId = await page.waitForFunction(() => {
@@ -66,18 +75,19 @@ test.describe('Organization Context E2E', () => {
 
     // Verify no unexpected console errors
     await assertNoConsoleErrors();
+    disposeConsoleListener();
   });
 
   // URL override has highest priority
   test('URL organizationId override preserves param and no console errors', async ({ page, baseURL }) => {
-    const assertNoConsoleErrors = attachConsoleErrorFail(page);
+    const { assertNoConsoleErrors, disposeConsoleListener } = attachConsoleErrorFail(page);
 
     const url = new URL(baseURL ?? 'http://localhost:5173');
     url.searchParams.set('organizationId', 'blawby-ai');
     await page.goto(url.toString());
 
     // Wait for page to load
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Ensure URL override param is present (highest priority remains intact)
     const hasParam = await page.evaluate(() => {
@@ -87,6 +97,7 @@ test.describe('Organization Context E2E', () => {
 
     // Verify no unexpected console errors
     await assertNoConsoleErrors();
+    disposeConsoleListener();
   });
 
   // API stubs should respond as expected

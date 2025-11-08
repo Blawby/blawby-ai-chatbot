@@ -58,22 +58,15 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
 
   // PATCH /api/sessions/organization (Phase 1 stub)
   if (segments.length === 3 && segments[2] === 'organization' && request.method === 'PATCH') {
-    try {
-      const body = await parseJsonBody(request) as { organizationId?: string };
-      if (!body?.organizationId || typeof body.organizationId !== 'string') {
-        throw HttpErrors.badRequest('organizationId is required');
-      }
-      // Phase 1: Do not persist. Just acknowledge.
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Invalid request' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    const body = await parseJsonBody(request) as { organizationId?: string };
+    if (!body?.organizationId || typeof body.organizationId !== 'string') {
+      throw HttpErrors.badRequest('organizationId is required');
     }
+    // Phase 1: Do not persist. Just acknowledge.
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // POST /api/sessions

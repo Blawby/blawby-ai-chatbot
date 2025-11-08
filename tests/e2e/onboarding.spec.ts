@@ -528,58 +528,32 @@ test.describe('Business Onboarding', () => {
   });
 
   test('should load saved onboarding data on modal mount', async ({ page }) => {
-    await ensureAuthenticated(page);
+    // Create a test user with business tier organization
+    const businessUser = await createTestUser(page, { upgradeToBusiness: true });
     
-    // Get organization ID
-    const orgsData: any = await page.evaluate(async () => {
+    if (!businessUser.organizationId) {
+      throw new Error('Failed to create business tier organization for test');
+    }
+    
+    const organizationId = businessUser.organizationId;
+    
+    // Verify the organization was upgraded to business tier
+    const orgsDataAfter: any = await page.evaluate(async () => {
       const res = await fetch('/api/organizations/me', { credentials: 'include' });
       if (!res.ok) return null;
       return await res.json();
     });
     
-    const personalOrg = orgsData?.data?.find(
-      (org: { kind?: string; isPersonal?: boolean }) =>
-        org.kind === 'personal' || org.isPersonal === true
-    );
-    const organizationId = personalOrg?.id;
-    if (!organizationId || String(organizationId).trim().length === 0) {
-      throw new Error('organizationId missing when mocking onboarding status; cannot proceed with /business-onboarding navigation');
-    }
+    const upgradedOrg = orgsDataAfter?.data?.find((org: { id: string }) => org.id === organizationId);
+    expect(upgradedOrg).toBeDefined();
+    expect(upgradedOrg?.kind).toBe('business');
+    expect(upgradedOrg?.subscriptionTier).toBe('business');
     
-    // Mock the organization as business tier
-    await page.route('**/api/organizations/me', async (route) => {
-      const upgradedOrgs = (orgsData?.data ?? []).map((org: Record<string, unknown>) => {
-        if (org.id === organizationId) {
-          return {
-            ...org,
-            kind: 'business',
-            isPersonal: false,
-            subscriptionStatus: 'active',
-            subscriptionTier: 'business',
-          };
-        }
-        return org;
-      });
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: upgradedOrgs }),
-      });
-    });
+    // Navigate to home first to ensure hooks are initialized
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
     
     // Mock onboarding status to return saved data
-    await page.route('**/api/auth/organization/set-active', async (route) => {
-      if (route.request().method() === 'POST') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({}),
-        });
-        return;
-      }
-      await route.continue();
-    });
-
     await page.route(`**/api/onboarding/status?organizationId=${organizationId}`, async (route) => {
       await route.fulfill({
         status: 200,

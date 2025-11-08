@@ -5,9 +5,10 @@ import * as path from 'path';
 test.describe('Console and Network Inspection', () => {
   test('inspect console logs and network requests', async ({ page }) => {
     const consoleMessages: Array<{ type: string; text: string; location?: string }> = [];
-    const networkRequests: Array<{ method: string; url: string; status?: number; error?: string }> = [];
+    const networkRequests: Array<{ method: string; url: string; status?: number }> = [];
     const networkResponses: Array<{ url: string; status: number; headers: Record<string, string> }> = [];
     const errors: Array<{ type: string; message: string; stack?: string }> = [];
+    const requestFailures = new Map<string, string>();
 
     // Capture console messages
     page.on('console', (msg) => {
@@ -54,13 +55,10 @@ test.describe('Console and Network Inspection', () => {
       console.log(`❌ Page error:`, error.message);
     });
 
-    // Capture request failures
+    // Capture request failures without duplicating networkRequests entries
     page.on('requestfailed', (request) => {
-      networkRequests.push({
-        method: request.method(),
-        url: request.url(),
-        error: request.failure()?.errorText || 'Unknown error',
-      });
+      const key = `${request.method()} ${request.url()}`;
+      requestFailures.set(key, request.failure()?.errorText || 'Unknown error');
       console.log(`❌ Request failed: ${request.method()} ${request.url()} - ${request.failure()?.errorText}`);
     });
 
@@ -168,13 +166,9 @@ test.describe('Console and Network Inspection', () => {
     // Network requests summary
     console.log(`\n🌐 Network Requests: ${networkRequests.length} total`);
     // Filter out expected Better Auth 404s
-    const failedRequests = networkRequests.filter(r => {
-      if (r.error || (r.status && r.status >= 400)) {
-        const isExpected404 = r.status === 404 && expectedIgnoredEndpoints.some(endpoint => r.url.includes(endpoint));
-        return !isExpected404;
-      }
-      return false;
-    });
+    const failedRequests = networkRequests
+      .filter(r => requestFailures.has(`${r.method} ${r.url}`))
+      .map(r => ({ ...r, error: requestFailures.get(`${r.method} ${r.url}`) }));
     const uniqueUrls = new Set(networkRequests.map(r => r.url));
     
     console.log(`  Unique URLs: ${uniqueUrls.size}`);
@@ -257,10 +251,16 @@ test.describe('Console and Network Inspection', () => {
     }
 
     // CORS check
-    const corsIssues = networkResponses.filter(r => 
-      r.status === 0 || 
-      (r.headers['access-control-allow-origin'] === undefined && r.url.includes('http'))
-    );
+    const pageOrigin = new URL(page.url()).origin;
+    const corsIssues = networkResponses.filter(r => {
+      if (r.status === 0) return true;
+      try {
+        const resOrigin = new URL(r.url).origin;
+        return resOrigin !== pageOrigin && r.headers['access-control-allow-origin'] === undefined;
+      } catch {
+        return false;
+      }
+    });
     if (corsIssues.length > 0) {
       console.log(`\n🚫 Potential CORS Issues: ${corsIssues.length}`);
       corsIssues.slice(0, 5).forEach((res, idx) => {

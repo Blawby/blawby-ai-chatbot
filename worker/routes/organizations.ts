@@ -266,12 +266,13 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
 
     // Default org endpoint (stub for Phase 1)
     if ((path === '/default' || path === '/default/') && request.method === 'GET') {
-      try {
-        const organizationId = await defaultOrgService.resolveDefaultOrg(undefined, false).catch(() => DEFAULT_ORGANIZATION_ID);
-        return new Response(JSON.stringify({ success: true, data: { organizationId } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      } catch (error) {
-        return new Response(JSON.stringify({ success: true, data: { organizationId: DEFAULT_ORGANIZATION_ID } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
+      const organizationId = await defaultOrgService
+        .resolveDefaultOrg(undefined, false)
+        .catch(() => DEFAULT_ORGANIZATION_ID);
+      return new Response(
+        JSON.stringify({ success: true, data: { organizationId } }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // Handle pending invitations
