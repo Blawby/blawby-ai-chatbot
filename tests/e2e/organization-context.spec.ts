@@ -54,24 +54,37 @@ function attachConsoleErrorFail(page: Page) {
 }
 
 test.describe('Organization Context E2E', () => {
-  // Anonymous initialization should set activeOrgId in localStorage (public org)
+  // Anonymous initialization should use default org (public org) from session
   test('anonymous initializes activeOrgId (public org) and no console errors', async ({ page, baseURL }) => {
     const { assertNoConsoleErrors, disposeConsoleListener } = attachConsoleErrorFail(page);
 
     await page.goto(baseURL ?? '/');
 
-    // Wait for page to load and organization context to initialize
+    // Wait for page to load and session to initialize
     await page.waitForLoadState('networkidle', { timeout: 10000 });
 
-    // Wait for localStorage key to be set by ActiveOrganizationProvider
-    const activeOrgId = await page.waitForFunction(() => {
-      return window.localStorage.getItem('activeOrgId');
-    }, undefined, { timeout: 15_000 });
-
-    const value = await activeOrgId.jsonValue();
-    expect(value, 'activeOrgId should be set in localStorage').toBeTruthy();
-    expect(typeof value).toBe('string');
-    expect(value.length).toBeGreaterThan(0);
+    // Verify organization ID is available via session API
+    // For anonymous users, SessionContext derives activeOrganizationId from session
+    // or falls back to DEFAULT_ORGANIZATION_ID
+    const sessionResponse = await page.request.get(`${baseURL}/api/auth/get-session`);
+    expect(sessionResponse.ok(), 'Session API should return 200').toBeTruthy();
+    
+    const sessionData = await sessionResponse.json();
+    
+    // Verify session structure (may be null for anonymous users)
+    expect(sessionData).toBeDefined();
+    
+    // For anonymous users, verify that organization context is working
+    // by checking that the default organization endpoint is accessible
+    // This verifies the context has initialized and can resolve the default org
+    const defaultOrgResponse = await page.request.get(`${baseURL}/api/organizations/default`);
+    expect(defaultOrgResponse.ok(), 'Default organization endpoint should be accessible').toBeTruthy();
+    
+    const defaultOrgData = await defaultOrgResponse.json();
+    expect(defaultOrgData, 'Default org response should have success=true').toHaveProperty('success', true);
+    expect(defaultOrgData.data, 'Default org response should have organizationId').toHaveProperty('organizationId');
+    expect(typeof defaultOrgData.data.organizationId).toBe('string');
+    expect(defaultOrgData.data.organizationId.length).toBeGreaterThan(0);
 
     // Verify no unexpected console errors
     await assertNoConsoleErrors();

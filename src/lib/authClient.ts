@@ -92,7 +92,8 @@ export const getSession = authClient.getSession;
  * Mirrors the previous Better Auth plugin behavior without requiring the plugin.
  */
 export async function setActiveOrganization(organizationId: string): Promise<void> {
-  const response = await fetch('/api/sessions/organization', {
+  const url = new URL('/api/sessions/organization', getBaseURL());
+  const response = await fetch(url.toString(), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -113,8 +114,13 @@ export async function setActiveOrganization(organizationId: string): Promise<voi
   }
 
   try {
-    authClient.$store?.notify?.('$sessionSignal');
+    await authClient.getSession();
   } catch (err) {
-    console.warn('[setActiveOrganization] Failed to notify authClient store', err);
+    console.error('[setActiveOrganization] Failed to refresh session after org switch', err);
+    try {
+      authClient.$store?.notify?.('$sessionSignal');
+    } catch (notifyErr) {
+      console.warn('[setActiveOrganization] Failed to notify authClient store', notifyErr);
+    }
   }
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { ComponentChildren } from 'preact';
 import { z } from 'zod';
 import { authClient } from '../lib/authClient';
+import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
 import { DEFAULT_ORGANIZATION_ID, DEFAULT_PUBLIC_ORG_SLUG } from '../utils/constants';
 
 // Zod schema for runtime validation of QuotaCounter
@@ -72,8 +73,16 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const activeOrganizationId: string | null =
     activeOrganizationIdFromSession ?? (isAnonymous ? DEFAULT_ORGANIZATION_ID : null);
 
-  const activeOrganizationSlug: string | null =
-    activeOrganizationId === DEFAULT_ORGANIZATION_ID ? DEFAULT_PUBLIC_ORG_SLUG : null;
+  const { organizations } = useOrganizationManagement({ fetchInvitations: false });
+
+  const activeOrganizationSlug: string | null = useMemo(() => {
+    if (!activeOrganizationId) return null;
+    if (activeOrganizationId === DEFAULT_ORGANIZATION_ID) return DEFAULT_PUBLIC_ORG_SLUG;
+    const org = organizations.find(
+      (o) => o.id === activeOrganizationId || o.slug === activeOrganizationId
+    );
+    return org?.slug ?? null;
+  }, [activeOrganizationId, organizations]);
 
   const resolvedOrgIdentifier = activeOrganizationId;
 
