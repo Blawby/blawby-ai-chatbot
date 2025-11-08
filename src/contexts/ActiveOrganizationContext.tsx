@@ -19,12 +19,21 @@ export interface OrganizationContextValue {
 
 export const ActiveOrganizationContext = createContext<OrganizationContextValue | null>(null);
 
+class AsyncMutex {
+  private tail: Promise<void> = Promise.resolve();
+  runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.tail.then(() => fn(), () => fn());
+    this.tail = run.then(() => undefined, () => undefined);
+    return run;
+  }
+}
+
 export function ActiveOrganizationProvider({ children }: { children: ComponentChildren }) {
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [userOrgs, setUserOrgs] = useState<OrganizationSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const switchingRef = useRef(false);
+  const mutexRef = useRef(new AsyncMutex());
 
   const setPublicOrgAsActive = useCallback(async () => {
     try {
@@ -131,28 +140,25 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
   }, [activeOrgId]);
 
   const setActiveOrg = useCallback(async (orgId: string) => {
-    if (switchingRef.current) {
-      throw new Error('Organization switch already in progress');
-    }
-    switchingRef.current = true;
-    setIsLoading(true);
-    try {
-      const resp = await fetch('/api/sessions/organization', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ organizationId: orgId })
-      });
-      if (!resp.ok) throw new Error('Failed to switch organization');
-      setActiveOrgId(orgId);
-    } catch (e) {
-      console.error('Failed to switch org:', e);
-      setError(e instanceof Error ? e.message : 'Failed to switch organization');
-      throw e;
-    } finally {
-      setIsLoading(false);
-      switchingRef.current = false;
-    }
+    await mutexRef.current.runExclusive(async () => {
+      setIsLoading(true);
+      try {
+        const resp = await fetch('/api/sessions/organization', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ organizationId: orgId })
+        });
+        if (!resp.ok) throw new Error('Failed to switch organization');
+        setActiveOrgId(orgId);
+      } catch (e) {
+        console.error('Failed to switch org:', e);
+        setError(e instanceof Error ? e.message : 'Failed to switch organization');
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    });
   }, []);
 
   const value = useMemo<OrganizationContextValue>(() => ({

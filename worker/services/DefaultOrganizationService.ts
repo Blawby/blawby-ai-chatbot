@@ -80,15 +80,10 @@ export class DefaultOrganizationService {
   }
 
   private async isUserMember(organizationId: string, userId: string): Promise<boolean> {
-    try {
-      const row = await this.env.DB.prepare(
-        `SELECT 1 as ok FROM members WHERE organization_id = ? AND user_id = ? LIMIT 1`
-      ).bind(organizationId, userId).first<{ ok: number }>();
-      return Boolean(row?.ok);
-    } catch (error) {
-      console.warn('Membership check failed:', error);
-      return false;
-    }
+    const row = await this.env.DB.prepare(
+      `SELECT 1 as ok FROM members WHERE organization_id = ? AND user_id = ? LIMIT 1`
+    ).bind(organizationId, userId).first<{ ok: number }>();
+    return Boolean(row?.ok);
   }
 
   clearCache(): void {

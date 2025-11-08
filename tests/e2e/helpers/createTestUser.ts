@@ -138,8 +138,30 @@ export async function createTestUser(
 
         if (convertResponse?.success) {
           user.organizationId = personalOrg.id;
-          // Wait a moment for the upgrade to propagate
-          await page.waitForTimeout(500);
+          // Reload the page to force hooks to refetch organization data
+          await page.reload({ waitUntil: 'networkidle' });
+          
+          // Wait for the organization to be fetched and verified as business tier
+          // Poll until the API returns business tier (up to 5 seconds)
+          let verified = false;
+          for (let i = 0; i < 10; i++) {
+            const orgsCheck: any = await page.evaluate(async () => {
+              const res = await fetch('/api/organizations/me', { credentials: 'include' });
+              if (!res.ok) return null;
+              return await res.json();
+            });
+            
+            const upgradedOrg = orgsCheck?.data?.find((org: { id: string }) => org.id === personalOrg.id);
+            if (upgradedOrg?.kind === 'business' && upgradedOrg?.subscriptionStatus === 'active') {
+              verified = true;
+              break;
+            }
+            await page.waitForTimeout(500);
+          }
+          
+          if (!verified) {
+            console.warn('[TEST] Organization upgrade verified but status may not be fully propagated');
+          }
         } else {
           console.warn('[TEST] Failed to upgrade org to business:', convertResponse?.error || convertResponse?.status);
         }
