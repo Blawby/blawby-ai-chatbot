@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import BusinessOnboardingModal from '../onboarding/BusinessOnboardingModal';
 import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
@@ -18,6 +18,8 @@ export const BusinessOnboardingPage = () => {
   const [syncing, setSyncing] = useState(false);
   const [ready, setReady] = useState(false);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
+  // Track in-flight sync status across renders (separate from UI state)
+  const isSyncInProgressRef = useRef(false);
 
   // Derive step from URL path like /business-onboarding/:step
   const validSteps: OnboardingStep[] = useMemo(() => [
@@ -92,6 +94,7 @@ export const BusinessOnboardingPage = () => {
 
   // Sync subscription data on mount if needed
   useEffect(() => {
+    const inFlightRef = isSyncInProgressRef;
     const syncSubscription = async () => {
       // If no sync is needed, mark as ready so downstream guards can run
       if (!shouldSync) {
@@ -99,9 +102,10 @@ export const BusinessOnboardingPage = () => {
         return;
       }
 
-      if (!targetOrganizationId || syncing) return;
+      if (!targetOrganizationId || inFlightRef.current) return;
       console.debug('[ONBOARDING][SYNC] Starting subscription sync for org:', targetOrganizationId);
       
+      inFlightRef.current = true;
       setSyncing(true);
       try {
         // Dev/test-only header to force paid tier during E2E flows
@@ -129,6 +133,7 @@ export const BusinessOnboardingPage = () => {
         console.error('Sync failed:', error);
         showError('Sync Failed', 'Could not refresh subscription status');
       } finally {
+        inFlightRef.current = false;
         setSyncing(false);
         // Clean up URL
         try {
@@ -145,7 +150,9 @@ export const BusinessOnboardingPage = () => {
     };
 
     syncSubscription();
-  }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError, devForcePaid, syncing]);
+  }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError, devForcePaid]);
+
+  
 
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {

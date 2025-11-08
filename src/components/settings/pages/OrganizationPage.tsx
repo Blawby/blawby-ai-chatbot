@@ -406,7 +406,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                   </p>
                   </div>
                 <div className="ml-4 flex gap-2">
-                  {organizationsWithCurrent.length > 1 ? (
+                  {organizationsWithCurrent.length > 1 && (
                     <DropdownMenu
                       open={isOrgDropdownOpen}
                       onOpenChange={setIsOrgDropdownOpen}
@@ -449,17 +449,25 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                             );
                           })}
                         </div>
+                        <DropdownMenuItem
+                          onSelect={() => setShowCreateModal(true)}
+                          disabled={isSwitchingOrg}
+                          className="flex items-center gap-2"
+                        >
+                          <PlusIcon className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm">Add organization</span>
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setShowCreateModal(true)}
-                    >
-                      Add
-                    </Button>
                   )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowCreateModal(true)}
+                    disabled={isSwitchingOrg}
+                  >
+                    Add
+                  </Button>
                   <Button
                     variant="secondary"
                     size="sm"
