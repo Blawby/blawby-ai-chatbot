@@ -119,7 +119,48 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
           return;
         }
 
+        // After successful signup, wait for organization to be created and session to be established
+        // This prevents race conditions where the app loads before the organization exists
         setMessage(t('messages.accountCreated'));
+        setLoading(true); // Keep loading while we verify setup
+        
+        // Poll for organization to be ready (with timeout)
+        let orgReady = false;
+        const maxAttempts = 10;
+        const pollInterval = 500; // 500ms between attempts
+        
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const sessionCheck = await fetch('/api/auth/get-session', { credentials: 'include' });
+            if (sessionCheck.ok) {
+              const sessionData = await sessionCheck.json() as unknown;
+              const sessionObj = sessionData && typeof sessionData === 'object' ? sessionData as Record<string, unknown> : {};
+              const user = sessionObj.user as Record<string, unknown> | undefined;
+              
+              if (user?.id) {
+                // Check if organization exists
+                const orgCheck = await fetch('/api/organizations/default', { credentials: 'include' });
+                if (orgCheck.ok) {
+                  orgReady = true;
+                  break;
+                }
+              }
+            }
+          } catch (e) {
+            // Continue polling on error
+            console.debug('Polling for organization setup...', attempt + 1);
+          }
+          
+          if (attempt < maxAttempts - 1) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+        }
+        
+        setLoading(false);
+        
+        if (!orgReady) {
+          console.warn('Organization not ready after signup, but continuing anyway');
+        }
         
         // Show onboarding for new sign-ups
         setShowOnboarding(true);

@@ -106,8 +106,12 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
       };
 
       if (hasUserId(sessionObj)) {
-        // 2. Resolve default org
-        const orgResponse = await fetch('/api/organizations/default', { credentials: 'include' });
+        // 2. Fetch default org and user orgs in parallel for faster initialization
+        const [orgResponse] = await Promise.all([
+          fetch('/api/organizations/default', { credentials: 'include' }),
+          loadUserOrganizations(), // Load user orgs in parallel - doesn't block active org selection
+        ]);
+        
         if (orgResponse.ok) {
           const bodyRaw = await orgResponse.json() as unknown;
           let organizationId: string | null = null;
@@ -123,16 +127,15 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
           } else {
             await setPublicOrgAsActive();
           }
-          // 3. Load user's orgs for switcher
-          await loadUserOrganizations();
         } else {
           await setPublicOrgAsActive();
-          await loadUserOrganizations();
         }
       } else {
-        // Anonymous → public org
-        await setPublicOrgAsActive();
-        await loadUserOrganizations();
+        // Anonymous → public org (loadUserOrganizations can still run but won't find anything)
+        await Promise.all([
+          setPublicOrgAsActive(),
+          loadUserOrganizations(),
+        ]);
       }
     } catch (e) {
       console.error('Failed to initialize active org:', e);
