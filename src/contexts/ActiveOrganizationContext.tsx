@@ -31,7 +31,9 @@ class AsyncMutex {
 export function ActiveOrganizationProvider({ children }: { children: ComponentChildren }) {
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [userOrgs, setUserOrgs] = useState<OrganizationSummary[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // Initialize isLoading to false on server (SSR) since effects don't run there
+  // On client, useEffect will set it to true during initialization
+  const [isLoading, setIsLoading] = useState<boolean>(typeof window === 'undefined' ? false : true);
   const [error, setError] = useState<string | null>(null);
   const mutexRef = useRef(new AsyncMutex());
 

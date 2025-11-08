@@ -662,7 +662,9 @@ function AppWithOrganization() {
 
 function AppWithActiveOrgGate() {
   const { isLoading } = useActiveOrganization();
-  if (isLoading) {
+  // Bypass loading screen during SSR since effects don't run and isLoading may be stale
+  // The provider initializes isLoading=false on server, but this check ensures we render content
+  if (isLoading && typeof window !== 'undefined') {
     return (
       <div className="flex h-screen w-screen items-center justify-center text-neutral-500">
         Loading...
