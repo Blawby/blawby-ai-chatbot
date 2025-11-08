@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { ComponentChildren } from 'preact';
 import { z } from 'zod';
 import { authClient } from '../lib/authClient';
-import { useOrganization } from './OrganizationContext';
+import { useActiveOrganization } from '../hooks/useActiveOrganization';
 
 // Zod schema for runtime validation of QuotaCounter
 const quotaCounterSchema = z.object({
@@ -56,7 +56,7 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData } = authClient.useSession();
-  const activeOrganization = authClient.useActiveOrganization();
+  const { activeOrgId, userOrgs } = useActiveOrganization();
 
   const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
@@ -65,15 +65,9 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const abortRef = useRef<AbortController | null>(null);
   const isAnonymous = !sessionData?.user;
 
-  const activeOrganizationId: string | null =
-    (activeOrganization?.data as { organization?: { id?: string } } | undefined)?.organization?.id ??
-    (activeOrganization?.data as { id?: string } | undefined)?.id ??
-    null;
+  const activeOrganizationId: string | null = activeOrgId ?? null;
 
-  const activeOrganizationSlug: string | null =
-    (activeOrganization?.data as { organization?: { slug?: string } } | undefined)?.organization?.slug ??
-    (activeOrganization?.data as { slug?: string } | undefined)?.slug ??
-    null;
+  const activeOrganizationSlug: string | null = userOrgs?.find(o => o.id === activeOrganizationId)?.slug ?? null;
 
   const resolvedOrgIdentifier = activeOrganizationId ?? null;
 

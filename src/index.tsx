@@ -10,6 +10,8 @@ import { SEOHead } from './components/SEOHead';
 import { ConversationHeader } from './components/chat/ConversationHeader';
 import { ToastProvider } from './contexts/ToastContext';
 import { OrganizationProvider, useOrganization } from './contexts/OrganizationContext';
+import { ActiveOrganizationProvider } from './contexts/ActiveOrganizationContext';
+import { useActiveOrganization } from './hooks/useActiveOrganization';
 import { SessionProvider } from './contexts/SessionContext';
 import { AuthProvider, useSession } from './contexts/AuthContext';
 import { type SubscriptionTier } from './types/user';
@@ -567,9 +569,6 @@ function MainApp({
 							return false;
 						}
 
-						// Always use blawby-ai organization for stripe upgrades
-                        // Use 'blawby-ai' organization for Stripe upgrades (no local variable needed)
-
 						if (tier === 'business') {
 							// Navigate to cart page for business upgrades instead of direct checkout
 							try {
@@ -626,60 +625,73 @@ function MainApp({
 					onClose={handleBusinessWelcomeClose}
 				/>
 			)}
-
-
 		</>
 	);
 }
 
-
 // Main App component with routing
 export function App() {
-	const handleOrgError = useCallback((error: string) => {
-		console.error('Organization config error:', error);
-	}, []);
+  const handleOrgError = useCallback((error: string) => {
+    console.error('Organization config error:', error);
+  }, []);
 
-	return (
-		<LocationProvider>
-			<AuthProvider>
-				<OrganizationProvider onError={handleOrgError}>
-					<AppWithOrganization />
-				</OrganizationProvider>
-			</AuthProvider>
-		</LocationProvider>
-	);
+  return (
+        <LocationProvider>
+            <AuthProvider>
+                <ActiveOrganizationProvider>
+                    <OrganizationProvider onError={handleOrgError}>
+                        <AppWithActiveOrgGate />
+                    </OrganizationProvider>
+                </ActiveOrganizationProvider>
+            </AuthProvider>
+        </LocationProvider>
+  );
 }
 
 // Component that calls useOrganization and passes data to AppWithSEO
 function AppWithOrganization() {
-	const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
-	
-	return <AppWithSEO 
-		organizationId={organizationId}
-		organizationConfig={organizationConfig}
-		organizationNotFound={organizationNotFound}
-		handleRetryOrganizationConfig={handleRetryOrganizationConfig}
-	/>;
+  const { organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig } = useOrganization();
+  
+  return <AppWithSEO 
+    organizationId={organizationId}
+    organizationConfig={organizationConfig}
+    organizationNotFound={organizationNotFound}
+    handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+  />;
 }
 
-function AppWithSEO({ 
-	organizationId, 
-	organizationConfig, 
-	organizationNotFound, 
-	handleRetryOrganizationConfig
+function AppWithActiveOrgGate() {
+  const { isLoading } = useActiveOrganization();
+  // Bypass loading screen during SSR since effects don't run and isLoading may be stale
+  // The provider initializes isLoading=false on server, but this check ensures we render content
+  if (isLoading && typeof window !== 'undefined') {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center text-neutral-500">
+        Loading...
+      </div>
+    );
+  }
+  return <AppWithOrganization />;
+}
+
+function AppWithSEO({
+  organizationId,
+  organizationConfig,
+  organizationNotFound,
+  handleRetryOrganizationConfig,
 }: {
-	organizationId: string;
-	organizationConfig: UIOrganizationConfig;
-	organizationNotFound: boolean;
-	handleRetryOrganizationConfig: () => void;
+  organizationId: string;
+  organizationConfig: UIOrganizationConfig;
+  organizationNotFound: boolean;
+  handleRetryOrganizationConfig: () => void;
 }) {
-	const location = useLocation();
-	const { navigate } = useNavigation();
-	
-	// Create reactive currentUrl that updates on navigation
-	const currentUrl = typeof window !== 'undefined' 
-		? `${window.location.origin}${location.url}`
-		: undefined;
+  const location = useLocation();
+  const { navigate } = useNavigation();
+  
+  // Create reactive currentUrl that updates on navigation
+  const currentUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}${location.url}`
+    : undefined;
 
 	// Hoisted settings modal controls
 	const isSettingsOpen = location.path.startsWith('/settings');

@@ -149,12 +149,18 @@ let authInstance: ReturnType<typeof betterAuth> | null = null;
  * This forces Better Auth to reinitialize with a new env configuration
  */
 export function resetAuthInstance(): void {
-  const envName = (typeof process !== 'undefined' && process.env && typeof process.env.NODE_ENV === 'string')
-    ? process.env.NODE_ENV
-    : undefined;
+  const envName = (() => {
+    try {
+      const maybeProc = (globalThis as unknown as { process?: { env?: { NODE_ENV?: unknown } } }).process;
+      const val = maybeProc?.env?.NODE_ENV;
+      return typeof val === 'string' ? val : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
   if (envName === 'production') {
     // Guard: never reset the auth singleton in production
-    // eslint-disable-next-line no-console
+     
     console.warn('resetAuthInstance skipped in production environment');
     return;
   }
@@ -803,7 +809,7 @@ export async function getAuth(env: Env, request?: Request) {
 
                   const organizations = (ownedOrganizations.results ?? []).map(org => ({
                     ...org,
-                    kind: Boolean(org.isPersonal) ? 'personal' as const : 'business' as const
+                    kind: org.isPersonal ? 'personal' as const : 'business' as const
                   }));
                   if (!organizations.length) {
                     return;

@@ -47,6 +47,9 @@ const useOrgMgmtMock = {
   invitations: [],
   loading: false,
   error: null,
+  acceptMatter: vi.fn(),
+  rejectMatter: vi.fn(),
+  updateMatterStatus: vi.fn(),
   createOrganization: mockCreateOrganization,
   updateOrganization: mockUpdateOrganization,
   deleteOrganization: mockDeleteOrganization,
@@ -153,6 +156,9 @@ describe('OrganizationPage', () => {
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
+    useOrgMgmtMock.acceptMatter = vi.fn();
+    useOrgMgmtMock.rejectMatter = vi.fn();
+    useOrgMgmtMock.updateMatterStatus = vi.fn();
     useOrgMgmtMock.createOrganization = mockCreateOrganization;
     useOrgMgmtMock.updateOrganization = mockUpdateOrganization;
     useOrgMgmtMock.deleteOrganization = mockDeleteOrganization;

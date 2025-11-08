@@ -63,6 +63,40 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 
 ---
 
+### Phase 1 Follow-ups: Fixes and Additional Review Items
+
+- **Matter status transitions (UI) — ConversationHeader.tsx**
+  - Added `STATUS_TRANSITIONS` and constrained status dropdown to current status + valid transitions.
+  - Prevented illegal transitions and restricted `lead` to self when applicable.
+
+- **Payment instructions (forms.ts)**
+  - Made payment block independent of `hasMatter` branch to always append to `confirmationContent`.
+  - Logged warnings when `fee <= 0` or missing `paymentLink` and concatenated copy with proper spacing.
+
+- **Cloudflare D1 migration safety (20251106_matter_indexes.sql)**
+  - Removed unsupported `ALTER TABLE ... IF NOT EXISTS` for D1.
+  - Kept transaction boundaries; rely on migration runner to ignore duplicate-column error or preflight separately.
+
+- **Abort in-flight requests on unmount (useMattersSidebar.ts)**
+  - Added cleanup effect to abort pending fetch via `AbortController` on unmount to avoid state updates after unmount.
+
+- **Sidebar auto-selection behavior (SidebarContent.tsx)**
+  - Respected upstream `selectedMatterId` to avoid clobbering selection.
+  - Reset initial auto-select marker when `organizationId` changes and included it in deps.
+
+- **Better Auth organization 400 on page load**
+  - Avoided automatic Better Auth org hook in `AuthContext` to stop early `get-full-organization` calls.
+  - Updated `SessionContext` to use custom `useActiveOrganization()` (from our provider) for `activeOrgId` and slug derivation.
+  - Wired `ActiveOrganizationProvider` to best-effort set Better Auth active org after resolving/switching (non-blocking, guarded).
+  - Added runtime guard + warning around `authClient.organization.setActiveOrganization` availability.
+  - Introduced a lightweight `AsyncMutex` in the provider to serialize org switches.
+
+- **General**
+  - Ensured all new effects include precise dependency arrays.
+  - Preserved existing capabilities while eliminating non-blocking console errors.
+
+**Outcome:** Clean startup (no BA org 400s), safer fetch lifecycles, correct status controls, and consistent payment messaging across lead/matter flows.
+
 ### Issue #2: Create Default Organization Resolver Service
 **Type:** Enhancement  
 **Priority:** High  

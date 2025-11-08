@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
+import { useActiveOrganization } from './useActiveOrganization.js';
 import { ChatMessageUI, FileAttachment } from '../../worker/types';
 import { ContactData } from '../components/ContactForm';
 
@@ -62,7 +63,8 @@ interface UseMessageHandlingOptions {
  * This is the preferred way to use message handling in components
  */
 export const useMessageHandlingWithContext = ({ sessionId, onError }: Omit<UseMessageHandlingOptions, 'organizationId'>) => {
-  return useMessageHandling({ organizationId: 'blawby-ai', sessionId, onError });
+  const { activeOrgId } = useActiveOrganization();
+  return useMessageHandling({ organizationId: activeOrgId ?? 'blawby-ai', sessionId, onError });
 };
 
 /**

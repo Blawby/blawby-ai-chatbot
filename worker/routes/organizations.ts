@@ -1,4 +1,6 @@
 import { OrganizationService } from '../services/OrganizationService.js';
+import { DefaultOrganizationService } from '../services/DefaultOrganizationService.js';
+import { DEFAULT_ORGANIZATION_ID } from '../../src/utils/constants.js';
 import { MatterService } from '../services/MatterService.js';
 import { Env } from '../types.js';
 import { ValidationError } from '../utils/validationErrors.js';
@@ -247,6 +249,40 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     const pathSegments = path.split('/').filter(segment => segment.length > 0);
     
     const organizationService = new OrganizationService(env);
+    const defaultOrgService = new DefaultOrganizationService(env);
+
+    // Public org endpoint (stub for Phase 1)
+    if ((path === '/public' || path === '/public/') && request.method === 'GET') {
+      try {
+        const org = await defaultOrgService.getPublicOrg();
+        if (!org) {
+          return new Response(JSON.stringify({ success: false, error: 'Public organization not configured', data: null }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ success: true, data: org }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      } catch (error) {
+        return createErrorResponse(error, 'Get public organization', 'Failed to load public organization');
+      }
+    }
+
+    // Default org endpoint (user-aware when authenticated)
+    if ((path === '/default' || path === '/default/') && request.method === 'GET') {
+      // Try to get authenticated user ID (optional - anonymous users get public org)
+      let userId: string | undefined;
+      try {
+        const authContext = await requireAuth(request, env);
+        userId = authContext.user.id;
+      } catch {
+        // Anonymous user - will get public org
+      }
+
+      const organizationId = await defaultOrgService
+        .resolveDefaultOrg(userId, false)
+        .catch(() => DEFAULT_ORGANIZATION_ID);
+      return new Response(
+        JSON.stringify({ success: true, data: { organizationId } }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Handle pending invitations
     if ((path === '/me/invitations' || path === '/me/invitations/') && request.method === 'GET') {
@@ -599,18 +635,20 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
             // Fire notification (best-effort)
             try {
               const notifier = new NotificationService(env);
+              const prevStatusCandidate = (result as unknown as { previousStatus?: unknown }).previousStatus;
+              const prevStatus = typeof prevStatusCandidate === 'string' ? prevStatusCandidate : undefined;
               await notifier.sendMatterUpdateNotification({
                 type: 'matter_update',
                 organizationConfig: organization,
                 matterInfo: { type: 'Lead' },
                 update: {
                   action: 'accept',
-                  fromStatus: (result as any).previousStatus,
+                  fromStatus: prevStatus,
                   toStatus: result.status,
                   actorId: authContext.user.id
                 }
               });
-            } catch {}
+            } catch (error) { void error; }
 
             return createSuccessResponse(result);
           }
@@ -646,18 +684,20 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
             // Fire notification (best-effort)
             try {
               const notifier = new NotificationService(env);
+              const prevStatusCandidate2 = (result as unknown as { previousStatus?: unknown }).previousStatus;
+              const prevStatus = typeof prevStatusCandidate2 === 'string' ? prevStatusCandidate2 : undefined;
               await notifier.sendMatterUpdateNotification({
                 type: 'matter_update',
                 organizationConfig: organization,
                 matterInfo: { type: 'Lead' },
                 update: {
                   action: 'reject',
-                  fromStatus: (result as any).previousStatus,
+                  fromStatus: prevStatus,
                   toStatus: result.status,
                   actorId: authContext.user.id
                 }
               });
-            } catch {}
+            } catch (error) { void error; }
 
             return createSuccessResponse(result);
           }
@@ -701,18 +741,20 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
             // Fire notification (best-effort)
             try {
               const notifier = new NotificationService(env);
+              const prevStatusCandidate3 = (result as unknown as { previousStatus?: unknown }).previousStatus;
+              const prevStatus = typeof prevStatusCandidate3 === 'string' ? prevStatusCandidate3 : undefined;
               await notifier.sendMatterUpdateNotification({
                 type: 'matter_update',
                 organizationConfig: organization,
                 matterInfo: { type: 'Lead' },
                 update: {
                   action: 'status_change',
-                  fromStatus: (result as any).previousStatus,
+                  fromStatus: prevStatus,
                   toStatus: result.status,
                   actorId: authContext.user.id
                 }
               });
-            } catch {}
+            } catch (error) { void error; }
 
             return createSuccessResponse(result);
           }

@@ -83,6 +83,21 @@ export interface OrganizationConfig {
   testMode?: boolean;  // Organization-level testing flag for notifications and other features
   metadata?: Record<string, unknown>; // Additional metadata for organization configuration
   betterAuthOrgId?: string; // Canonical org id to use with Better Auth endpoints
+  tools?: {
+    [toolName: string]: {
+      enabled: boolean;
+      quotaMetric?: 'messages' | 'files' | null;
+      requiredRole?: 'owner' | 'admin' | 'attorney' | 'paralegal' | null;
+      allowAnonymous?: boolean;
+    }
+  };
+  agentMember?: {
+    enabled: boolean;
+    userId?: string;
+    autoInvoke?: boolean;
+    tagRequired?: boolean;
+  };
+  isPublic?: boolean;
 }
 
 const LEGACY_AI_PROVIDER = 'workers-ai';
@@ -245,6 +260,7 @@ const parseOnboardingData = (value: unknown): Record<string, unknown> | null => 
 
 export class OrganizationService {
   private organizationCache = new Map<string, { organization: Organization; timestamp: number }>();
+  private configCache = new Map<string, { config: OrganizationConfig; timestamp: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(private env: Env) {}
@@ -797,6 +813,18 @@ export class OrganizationService {
   async getOrganizationConfig(organizationId: string): Promise<OrganizationConfig | null> {
     const organization = await this.getOrganization(organizationId);
     return organization?.config || null;
+  }
+
+  async getConfig(organizationId: string): Promise<OrganizationConfig> {
+    const cached = this.configCache.get(organizationId);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.config;
+    }
+
+    const config = await this.getOrganizationConfig(organizationId);
+    const finalConfig = config ?? this.getDefaultConfig();
+    this.configCache.set(organizationId, { config: finalConfig, timestamp: Date.now() });
+    return finalConfig;
   }
 
 
@@ -1579,13 +1607,16 @@ export class OrganizationService {
       hasDraft: data != null && Object.keys(data).length > 0,
       data,
     };
+
   }
 
   clearCache(organizationId?: string): void {
     if (organizationId) {
       this.organizationCache.delete(organizationId);
+      this.configCache.delete(organizationId);
     } else {
       this.organizationCache.clear();
+      this.configCache.clear();
     }
   }
-} 
+}

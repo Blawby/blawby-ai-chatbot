@@ -17,3 +17,4 @@ export const SUMMARY_MIN_LENGTH = 50;
 
 // Organization constants
 export const DEFAULT_ORGANIZATION_ID = '01K0TNGNKTM4Q0AG0XF0A8ST0Q'; // blawby-ai organization ID
+export const DEFAULT_PUBLIC_ORG_SLUG = 'blawby-ai';

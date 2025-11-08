@@ -115,7 +115,11 @@ test.describe('Better Auth Integration', () => {
     ]);
     await page.waitForLoadState('networkidle');
 
-    const returningContext = await browser.newContext();
+    // Create a fresh context without authentication to simulate a returning user
+    // This ensures we test the sign-in flow from an anonymous state
+    const returningContext = await browser.newContext({
+      storageState: undefined, // No pre-authenticated session
+    });
     const returningPage = await returningContext.newPage();
     await returningPage.goto('/auth');
 

@@ -53,6 +53,8 @@
 		"dist",
 		"test-results",
 		"playwright-report",
-		"public/sw.js"
+		"public/sw.js",
+		"**/*.stories.tsx",
+		"**/*.stories.ts"
 	]
 }

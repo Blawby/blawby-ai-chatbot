@@ -316,13 +316,13 @@ function normalizeWorkflowStatus(value: unknown): MatterWorkflowStatus {
     default:
       try {
         // Use app logger if available; fallback to console
-        // @ts-ignore - optional global logger
-        if (typeof window !== 'undefined' && (window as any).appLogger?.warn) {
-          (window as any).appLogger.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
+        const maybeLogger = (globalThis as unknown as { appLogger?: { warn: (msg: string, data?: unknown) => void } }).appLogger;
+        if (maybeLogger && typeof maybeLogger.warn === 'function') {
+          maybeLogger.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
         } else {
           console.warn('normalizeWorkflowStatus: unexpected value', { value, type: typeof value });
         }
-      } catch {}
+      } catch (e) { void e; }
       return 'lead';
   }
 }

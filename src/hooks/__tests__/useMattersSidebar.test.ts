@@ -655,10 +655,8 @@ describe('normalizeMattersResponse', () => {
     });
 
     it('should handle non-array items', () => {
-      const payload = {
-        items: 'not-an-array'
-      };
-      const result = normalizeMattersResponse(payload, mockLogger);
+      const badPayload = { items: 'not-an-array' } as unknown as Parameters<typeof normalizeMattersResponse>[0];
+      const result = normalizeMattersResponse(badPayload, mockLogger);
       expect(result).toHaveLength(0);
     });
   });
