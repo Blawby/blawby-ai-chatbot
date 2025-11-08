@@ -74,19 +74,29 @@ async function convertOrgToBusiness(request: Request, env: Env): Promise<Respons
     // Direct SQL update - same logic as persistOrganizationSubscriptionState
     // markBusiness = true when status is 'active' and tier is 'business'
     // This sets is_personal = 0, subscription_tier = 'business', seats = 1
-    const result = await env.DB.prepare(
-      `UPDATE organizations 
-       SET subscription_tier = 'business',
-           seats = 1,
-           is_personal = 0,
-           updated_at = ?
-     WHERE id = ?`
-    )
-      .bind(
-        Math.floor(Date.now() / 1000),
-        organizationId
+    let result;
+    try {
+      result = await env.DB.prepare(
+        `UPDATE organizations 
+         SET subscription_tier = 'business',
+             seats = 1,
+             is_personal = 0,
+             updated_at = ?
+        WHERE id = ?`
       )
-      .run();
+        .bind(
+          Math.floor(Date.now() / 1000),
+          organizationId
+        )
+        .run();
+
+      if (!result?.success) {
+        throw new Error('Failed to update organization');
+      }
+    } catch (e) {
+      console.error('[TEST] Organization update failed:', e);
+      throw e;
+    }
 
     // Create a subscription record so subscription_status resolves to 'active'
     // This is required for the business onboarding guard to pass
@@ -99,39 +109,49 @@ async function convertOrgToBusiness(request: Request, env: Env): Promise<Respons
       `SELECT id FROM subscriptions WHERE reference_id = ?`
     ).bind(organizationId).first<{ id: string }>();
     
-    if (existingSub) {
-      // Update existing subscription
-      await env.DB.prepare(
-        `UPDATE subscriptions 
-         SET status = 'active',
-             period_end = ?,
-             updated_at = ?
-         WHERE reference_id = ?`
-      )
-        .bind(periodEnd, now, organizationId)
-        .run();
-    } else {
-      // Insert new subscription
-      await env.DB.prepare(
-        `INSERT INTO subscriptions (
-          id, plan, reference_id, stripe_subscription_id, stripe_customer_id,
-          status, period_start, period_end, seats, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-        .bind(
-          subscriptionId,
-          'business',
-          organizationId,
-          subscriptionId,
-          null, // stripe_customer_id
-          'active',
-          now,
-          periodEnd,
-          1,
-          now,
-          now
+    let subResult;
+    try {
+      if (existingSub) {
+        // Update existing subscription
+        subResult = await env.DB.prepare(
+          `UPDATE subscriptions 
+           SET status = 'active',
+               period_end = ?,
+               updated_at = ?
+           WHERE reference_id = ?`
         )
-        .run();
+          .bind(periodEnd, now, organizationId)
+          .run();
+      } else {
+        // Insert new subscription
+        subResult = await env.DB.prepare(
+          `INSERT INTO subscriptions (
+            id, plan, reference_id, stripe_subscription_id, stripe_customer_id,
+            status, period_start, period_end, seats, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+          .bind(
+            subscriptionId,
+            'business',
+            organizationId,
+            subscriptionId,
+            null, // stripe_customer_id
+            'active',
+            now,
+            periodEnd,
+            1,
+            now,
+            now
+          )
+          .run();
+      }
+
+      if (!subResult?.success) {
+        throw new Error('Failed to create/update subscription');
+      }
+    } catch (e) {
+      console.error('[TEST] Subscription operation failed:', e);
+      throw e;
     }
 
     console.log(`[TEST] Converted organization ${organizationId} to business:`, {

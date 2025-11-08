@@ -142,6 +142,7 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
   const setActiveOrg = useCallback(async (orgId: string) => {
     await mutexRef.current.runExclusive(async () => {
       setIsLoading(true);
+      setError(null);
       try {
         const resp = await fetch('/api/sessions/organization', {
           method: 'PATCH',

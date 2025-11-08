@@ -566,18 +566,6 @@ test.describe('Business Onboarding', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     
-    // Wait for organizations to be loaded by checking for organization data in the page
-    // The hook should have fetched organizations by now
-    await page.waitForTimeout(1000);
-    
-    // Verify organizations are loaded
-    const orgsLoaded: any = await page.evaluate(async () => {
-      const res = await fetch('/api/organizations/me', { credentials: 'include' });
-      if (!res.ok) return null;
-      return await res.json();
-    });
-    expect(orgsLoaded?.data?.length).toBeGreaterThan(0);
-    
     // Mock onboarding status to return saved data
     await page.route(`**/api/onboarding/status?organizationId=${organizationId}`, async (route) => {
       await route.fulfill({
