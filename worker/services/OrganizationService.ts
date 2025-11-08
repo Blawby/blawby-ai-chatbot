@@ -260,6 +260,7 @@ const parseOnboardingData = (value: unknown): Record<string, unknown> | null => 
 
 export class OrganizationService {
   private organizationCache = new Map<string, { organization: Organization; timestamp: number }>();
+  private configCache = new Map<string, { config: OrganizationConfig; timestamp: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(private env: Env) {}
@@ -814,10 +815,16 @@ export class OrganizationService {
     return organization?.config || null;
   }
 
-  async getConfig(organizationId: string): Promise<OrganizationConfig | null> {
-    // Do not cache here; delegate to getOrganizationConfig and let callers handle null
+  async getConfig(organizationId: string): Promise<OrganizationConfig> {
+    const cached = this.configCache.get(organizationId);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.config;
+    }
+
     const config = await this.getOrganizationConfig(organizationId);
-    return config;
+    const finalConfig = config ?? this.getDefaultConfig();
+    this.configCache.set(organizationId, { config: finalConfig, timestamp: Date.now() });
+    return finalConfig;
   }
 
 
@@ -1606,8 +1613,10 @@ export class OrganizationService {
   clearCache(organizationId?: string): void {
     if (organizationId) {
       this.organizationCache.delete(organizationId);
+      this.configCache.delete(organizationId);
     } else {
       this.organizationCache.clear();
+      this.configCache.clear();
     }
   }
 }

@@ -376,7 +376,7 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
       if (abortControllerRef.current) {
         try {
           abortControllerRef.current.abort();
-        } catch {}
+        } catch (e) { void e; }
       }
     };
   }, []);

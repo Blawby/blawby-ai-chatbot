@@ -39,9 +39,17 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
     try {
       const resp = await fetch('/api/organizations/public', { credentials: 'include' });
       if (resp.ok) {
-        const data = await resp.json() as any;
-        const org = (data && 'data' in data) ? (data as any).data : data;
-        setActiveOrgId(org?.id ?? DEFAULT_ORGANIZATION_ID);
+        const data = await resp.json() as unknown;
+        let nextId: string | null = null;
+        if (data && typeof data === 'object') {
+          const container = data as Record<string, unknown>;
+          const payload = (container.data && typeof container.data === 'object')
+            ? (container.data as Record<string, unknown>)
+            : container;
+          const idVal = (payload as Record<string, unknown>).id;
+          if (typeof idVal === 'string') nextId = idVal;
+        }
+        setActiveOrgId(nextId ?? DEFAULT_ORGANIZATION_ID);
       } else {
         setActiveOrgId(DEFAULT_ORGANIZATION_ID);
       }
@@ -54,9 +62,20 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
     try {
       const resp = await fetch('/api/organizations/me', { credentials: 'include' });
       if (resp.ok) {
-        const payload = await resp.json() as any;
-        const list = ((payload && payload.data) ? payload.data : []) as Array<{ id: string; name?: string; slug?: string }>;
-        setUserOrgs(list.map(o => ({ id: o.id, name: o.name, slug: o.slug })));
+        const payload = await resp.json() as unknown;
+        let listRaw: unknown = undefined;
+        if (payload && typeof payload === 'object' && 'data' in (payload as Record<string, unknown>)) {
+          listRaw = (payload as Record<string, unknown>).data;
+        }
+        const list = Array.isArray(listRaw) ? listRaw as Array<Record<string, unknown>> : [];
+        setUserOrgs(list.map((o) => {
+          const obj = o as Record<string, unknown>;
+          return {
+            id: typeof obj.id === 'string' ? obj.id : String(obj.id ?? ''),
+            name: typeof obj.name === 'string' ? obj.name : undefined,
+            slug: typeof obj.slug === 'string' ? obj.slug : undefined,
+          };
+        }));
       }
     } catch {
       // ignore
@@ -75,14 +94,28 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
       // 1. Check auth session
       const authResponse = await fetch('/api/auth/get-session', { credentials: 'include' });
       if (!authResponse.ok) throw new Error('Auth check failed');
-      const session = await authResponse.json() as any;
+      const sessionRaw = await authResponse.json() as unknown;
+      const sessionObj = (sessionRaw && typeof sessionRaw === 'object') ? sessionRaw as Record<string, unknown> : {};
+      const hasUserId = (val: unknown): val is { user: { id: string } } => {
+        if (!val || typeof val !== 'object') return false;
+        const v = val as Record<string, unknown>;
+        const user = v.user as Record<string, unknown> | undefined;
+        return typeof user?.id === 'string' && user.id.length > 0;
+      };
 
-      if (session && session.user && session.user.id) {
+      if (hasUserId(sessionObj)) {
         // 2. Resolve default org
         const orgResponse = await fetch('/api/organizations/default', { credentials: 'include' });
         if (orgResponse.ok) {
-          const body = await orgResponse.json() as any;
-          const organizationId = (body && body.data && body.data.organizationId) ? body.data.organizationId : (body?.organizationId ?? null);
+          const bodyRaw = await orgResponse.json() as unknown;
+          let organizationId: string | null = null;
+          if (bodyRaw && typeof bodyRaw === 'object') {
+            const body = bodyRaw as Record<string, unknown>;
+            const data = (body.data && typeof body.data === 'object') ? (body.data as Record<string, unknown>) : null;
+            const idFromData = data && typeof data.organizationId === 'string' ? data.organizationId : null;
+            const idTop = typeof body.organizationId === 'string' ? body.organizationId : null;
+            organizationId = idFromData ?? idTop;
+          }
           if (organizationId) {
             setActiveOrgId(organizationId);
           } else {
@@ -92,10 +125,12 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
           await loadUserOrganizations();
         } else {
           await setPublicOrgAsActive();
+          await loadUserOrganizations();
         }
       } else {
         // Anonymous → public org
         await setPublicOrgAsActive();
+        await loadUserOrganizations();
       }
     } catch (e) {
       console.error('Failed to initialize active org:', e);
@@ -113,7 +148,7 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
   // Persist to localStorage
   useEffect(() => {
     if (activeOrgId && typeof window !== 'undefined') {
-      try { localStorage.setItem('activeOrgId', activeOrgId); } catch {}
+      try { localStorage.setItem('activeOrgId', activeOrgId); } catch (e) { void e; }
     }
   }, [activeOrgId]);
 
@@ -124,7 +159,10 @@ export function ActiveOrganizationProvider({ children }: { children: ComponentCh
      * Guard the call at runtime and log failures during development.
      */
     const hasSetActiveOrganization = (client: unknown): client is { organization: { setActiveOrganization: (args: { organizationId: string }) => Promise<unknown> } } => {
-      return Boolean((client as any)?.organization?.setActiveOrganization) && typeof (client as any).organization.setActiveOrganization === 'function';
+      if (!client || typeof client !== 'object') return false;
+      const c = client as Record<string, unknown>;
+      const org = c.organization as Record<string, unknown> | undefined;
+      return typeof org?.setActiveOrganization === 'function';
     };
 
     const setBA = async () => {

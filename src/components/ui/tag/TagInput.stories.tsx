@@ -4,11 +4,10 @@
  * Storybook stories for TagInput component demonstrating various use cases.
  */
 
-import type { Meta, StoryObj } from '@storybook/preact';
-import { TagInput } from './TagInput';
-import { useState } from 'preact/hooks';
+import { TagInput, type TagInputProps } from './TagInput';
+import { h } from 'preact';
 
-const meta: Meta<typeof TagInput> = {
+const meta = {
   title: 'Components/Input/TagInput',
   component: TagInput,
   parameters: {
@@ -20,6 +19,11 @@ const meta: Meta<typeof TagInput> = {
     }
   },
   tags: ['autodocs'],
+  args: {
+    // Provide required props so individual stories can override as needed
+    value: [],
+    onChange: () => {}
+  },
   argTypes: {
     size: {
       control: 'select',
@@ -48,25 +52,14 @@ const meta: Meta<typeof TagInput> = {
       description: 'Maximum length per tag'
     }
   }
-};
+} as const;
 
 export default meta;
-type Story = StoryObj<typeof TagInput>;
-
-// Interactive wrapper component
-const InteractiveTagInput = (args: any) => {
-  const [tags, setTags] = useState<string[]>(args.value || []);
-  return (
-    <TagInput
-      {...args}
-      value={tags}
-      onChange={setTags}
-    />
-  );
-};
+type Story = { render: (args: TagInputProps) => unknown; args?: Partial<TagInputProps> };
+const renderTagInput = (args: TagInputProps) => h(TagInput, args);
 
 export const Default: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     placeholder: 'Type and press Enter',
     value: []
@@ -74,7 +67,7 @@ export const Default: Story = {
 };
 
 export const WithTags: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: ['React', 'Preact', 'TypeScript'],
     placeholder: 'Add more tags...'
@@ -82,7 +75,7 @@ export const WithTags: Story = {
 };
 
 export const WithSuggestions: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: [],
     suggestions: [
@@ -105,7 +98,7 @@ export const WithSuggestions: Story = {
 };
 
 export const WithLabel: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     label: 'Skills',
     description: 'Add your technical skills',
@@ -114,7 +107,7 @@ export const WithLabel: Story = {
 };
 
 export const ErrorStory: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     label: 'Tags',
     error: 'Please add at least one tag',
@@ -124,7 +117,7 @@ export const ErrorStory: Story = {
 };
 
 export const Disabled: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: ['React', 'TypeScript'],
     disabled: true
@@ -132,7 +125,7 @@ export const Disabled: Story = {
 };
 
 export const MaxTags: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: ['Tag1', 'Tag2'],
     maxTags: 3,
@@ -142,7 +135,7 @@ export const MaxTags: Story = {
 };
 
 export const MaxTagLength: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: [],
     maxTagLength: 10,
@@ -151,7 +144,7 @@ export const MaxTagLength: Story = {
 };
 
 export const AllowDuplicates: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: ['React'],
     allowDuplicates: true,
@@ -160,7 +153,7 @@ export const AllowDuplicates: Story = {
 };
 
 export const CustomDelimiters: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: [],
     delimiters: [';', 'Tab'],
@@ -169,7 +162,7 @@ export const CustomDelimiters: Story = {
 };
 
 export const WithValidation: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: [],
     onValidate: (tag: string) => {
@@ -186,7 +179,7 @@ export const WithValidation: Story = {
 };
 
 export const WithNormalization: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     value: [],
     normalizeTag: (tag: string) => tag.toLowerCase().trim().replace(/\s+/g, '-'),
@@ -195,7 +188,7 @@ export const WithNormalization: Story = {
 };
 
 export const Small: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     size: 'sm',
     value: ['Small', 'Tags']
@@ -203,7 +196,7 @@ export const Small: Story = {
 };
 
 export const Large: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     size: 'lg',
     value: ['Large', 'Tags']
@@ -211,7 +204,7 @@ export const Large: Story = {
 };
 
 export const Success: Story = {
-  render: (args) => <InteractiveTagInput {...args} />,
+  render: renderTagInput,
   args: {
     variant: 'success',
     value: ['Valid', 'Tags'],
@@ -221,29 +214,17 @@ export const Success: Story = {
 
 // Async suggestions example
 export const AsyncSuggestions: Story = {
-  render: (args) => {
-    const [tags, setTags] = useState<string[]>([]);
-    return (
-      <TagInput
-        {...args}
-        value={tags}
-        onChange={setTags}
-        asyncSuggestions={async (query: string) => {
-          // Simulate API call
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const allSuggestions = [
-            'JavaScript', 'TypeScript', 'React', 'Preact', 'Vue',
-            'Angular', 'Svelte', 'Node.js', 'Python', 'Java'
-          ];
-          return allSuggestions.filter(s => 
-            s.toLowerCase().includes(query.toLowerCase())
-          );
-        }}
-      />
-    );
-  },
+  render: renderTagInput,
   args: {
     value: [],
+    asyncSuggestions: async (query: string) => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const allSuggestions = [
+        'JavaScript', 'TypeScript', 'React', 'Preact', 'Vue',
+        'Angular', 'Svelte', 'Node.js', 'Python', 'Java'
+      ];
+      return allSuggestions.filter(s => s.toLowerCase().includes(query.toLowerCase()));
+    },
     placeholder: 'Type to load suggestions asynchronously...'
   }
 };

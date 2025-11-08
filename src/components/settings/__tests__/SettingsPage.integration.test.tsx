@@ -82,6 +82,9 @@ const useOrgMgmtMock = {
   currentOrganization: null,
   loadOrganizations: mockLoadOrganizations,
   loadInvitations: mockLoadInvitations,
+  acceptMatter: vi.fn(),
+  rejectMatter: vi.fn(),
+  updateMatterStatus: vi.fn(),
   createOrganization: vi.fn(),
   updateOrganization: vi.fn(),
   deleteOrganization: vi.fn(),
@@ -192,6 +195,9 @@ describe('SettingsPage Integration Tests', () => {
     useOrgMgmtMock.currentOrganization = null;
     useOrgMgmtMock.loadOrganizations = mockLoadOrganizations;
     useOrgMgmtMock.loadInvitations = mockLoadInvitations;
+    useOrgMgmtMock.acceptMatter = vi.fn();
+    useOrgMgmtMock.rejectMatter = vi.fn();
+    useOrgMgmtMock.updateMatterStatus = vi.fn();
     useOrgMgmtMock.createOrganization = vi.fn();
     useOrgMgmtMock.updateOrganization = vi.fn();
     useOrgMgmtMock.deleteOrganization = vi.fn();

@@ -146,13 +146,11 @@ export const SidebarContent = ({
           <div className="px-2 pt-2">
             <Input
               value={searchTerm}
-              onInput={(event) => {
-                const target = event.target as HTMLInputElement;
-                setSearchTerm(target.value);
+              onChange={(value) => {
+                setSearchTerm(value);
               }}
               placeholder={searchPlaceholder}
               label=""
-              hideLabel
             />
           </div>
         )}
