@@ -19,7 +19,8 @@ export function displayPlan(tier?: string | null): string {
  * @returns Normalized seats count (minimum 1)
  */
 export function normalizeSeats(seats?: number | null): number {
-  return Number.isFinite(seats) && seats! > 0 ? seats! : 1;
+  const seatsValue = seats ?? 0;
+  return Number.isFinite(seatsValue) && seatsValue > 0 ? seatsValue : 1;
 }
 export type SubscriptionKind = 'personal' | 'business';
 export type SubscriptionLifecycleStatus =
@@ -63,7 +64,7 @@ export function resolveOrganizationKind(kind?: string | null, isPersonal?: boole
 
 export function normalizeSubscriptionStatus(
   status?: string | null,
-  fallbackKind: SubscriptionKind = 'personal'
+  _fallbackKind: SubscriptionKind = 'personal'
 ): SubscriptionLifecycleStatus {
   if (typeof status !== 'string' || status.trim().length === 0) {
     return 'none';

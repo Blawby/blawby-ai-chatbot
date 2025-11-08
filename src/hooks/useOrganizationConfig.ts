@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { z } from 'zod';
 import type { OrganizationConfig } from '../../worker/types';
-import { useActiveOrganization } from './useActiveOrganization.js';
+import { useSessionContext } from '../contexts/SessionContext.js';
 import { DEFAULT_ORGANIZATION_ID } from '../utils/constants.js';
 
 // API endpoints - moved inline since api.ts was removed
@@ -38,9 +38,7 @@ interface UseOrganizationConfigOptions {
 }
 
 export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }: UseOrganizationConfigOptions = {}) => {
-  // Using our custom organization system instead of Better Auth's organization plugin
-  
-  const { activeOrgId } = useActiveOrganization();
+  const { activeOrganizationId } = useSessionContext();
   const [organizationId, setOrganizationId] = useState<string>('');
   const [organizationNotFound, setOrganizationNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -157,11 +155,11 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       if (organizationIdParam) {
         setOrganizationId(organizationIdParam);
       } else {
-        const resolved = (explicitOrgId ?? activeOrgId ?? DEFAULT_ORGANIZATION_ID);
+        const resolved = (explicitOrgId ?? activeOrganizationId ?? DEFAULT_ORGANIZATION_ID);
         setOrganizationId(resolved);
       }
     }
-  }, [explicitOrgId, activeOrgId]);
+  }, [explicitOrgId, activeOrganizationId]);
 
   // Fetch organization configuration
   const fetchOrganizationConfig = useCallback(async (currentOrganizationId: string) => {
@@ -249,6 +247,11 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
             setOrganizationNotFound(true);
           }
         } catch (parseError) {
+          // If the request was aborted while parsing, allow retry by removing fetched marker and exit quietly
+          if (parseError instanceof Error && parseError.name === 'AbortError') {
+            fetchedOrganizationIds.current.delete(currentOrganizationId);
+            return;
+          }
           // Remove from fetched set so it can be retried
           fetchedOrganizationIds.current.delete(currentOrganizationId);
           console.error('Failed to parse organizations response:', parseError);
@@ -268,7 +271,8 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        // Request was aborted, don't update state
+        // Request was aborted; remove fetched marker so a new attempt can proceed
+        fetchedOrganizationIds.current.delete(currentOrganizationId);
         return;
       }
       // Remove from fetched set so it can be retried

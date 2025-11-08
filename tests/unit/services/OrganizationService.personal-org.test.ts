@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { OrganizationService } from '../../../worker/services/OrganizationService.js';
 import type { Env } from '../../../worker/types.js';
+import type { D1Database, Ai, KVNamespace, Queue } from '@cloudflare/workers-types';
 
 // Mock environment
 const mockEnv: Env = {
@@ -12,12 +13,12 @@ const mockEnv: Env = {
         run: vi.fn().mockResolvedValue({ success: true, meta: { changes: 1 } })
       })
     })
-  } as any,
-  AI: {} as any,
-  CHAT_SESSIONS: {} as any,
+  } as unknown as D1Database,
+  AI: {} as unknown as Ai,
+  CHAT_SESSIONS: {} as unknown as KVNamespace,
   RESEND_API_KEY: 'test-key',
-  DOC_EVENTS: {} as any,
-  PARALEGAL_TASKS: {} as any,
+  DOC_EVENTS: {} as unknown as Queue,
+  PARALEGAL_TASKS: {} as unknown as Queue,
 } as Env;
 
 // Mock crypto.randomUUID (cast to satisfy template literal return type expectations)
@@ -26,7 +27,7 @@ if (globalThis.crypto && globalThis.crypto.randomUUID) {
   vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(mockRandomUUID as unknown as () => `${string}-${string}-${string}-${string}-${string}`);
 } else {
   // If crypto doesn't exist, create it
-  (globalThis as any).crypto = {
+  (globalThis as { crypto?: { randomUUID: () => `${string}-${string}-${string}-${string}-${string}` } }).crypto = {
     randomUUID: mockRandomUUID as unknown as () => `${string}-${string}-${string}-${string}-${string}`
   };
 }

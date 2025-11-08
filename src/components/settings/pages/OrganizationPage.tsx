@@ -4,7 +4,8 @@ import {
   PlusIcon, 
   UserPlusIcon,
   KeyIcon,
-  TrashIcon
+  TrashIcon,
+  CheckIcon
 } from '@heroicons/react/24/outline';
 import { useOrganizationManagement, type Role } from '../../../hooks/useOrganizationManagement';
 import { features } from '../../../config/features';
@@ -16,11 +17,15 @@ import { Select } from '../../ui/input/Select';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { formatDate } from '../../../utils/dateTime';
 import { useNavigation } from '../../../utils/navigation';
-import { useSession } from '../../../contexts/AuthContext';
+import { useSession } from '../../../lib/authClient';
+import { setActiveOrganization } from '../../../lib/authClient';
+import { useSessionContext } from '../../../contexts/SessionContext';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { normalizeSeats } from '../../../utils/subscription';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/i18n/hooks';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../ui/dropdown';
+import { OrgLogo } from '../../ui/sidebar/atoms/OrgLogo';
 
 interface OrganizationPageProps {
   className?: string;
@@ -28,7 +33,9 @@ interface OrganizationPageProps {
 
 export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   const { data: session } = useSession();
+  const { activeOrganizationId } = useSessionContext();
   const { 
+    organizations,
     currentOrganization, 
     getMembers,
     getTokens,
@@ -58,6 +65,10 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   
   // Get current user email from session
   const currentUserEmail = session?.user?.email || '';
+  
+  // Organization switcher state
+  const [isSwitchingOrg, setIsSwitchingOrg] = useState(false);
+  const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
   
   // Form states
   const [editOrgForm, setEditOrgForm] = useState({
@@ -322,6 +333,31 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
   };
 
+  // Organization switcher handler
+  const handleOrganizationSwitch = async (orgId: string) => {
+    if (orgId === activeOrganizationId || isSwitchingOrg) return;
+    
+    setIsSwitchingOrg(true);
+    setIsOrgDropdownOpen(false);
+    try {
+      await setActiveOrganization(orgId);
+      await refetch();
+      showSuccess('Organization switched successfully');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to switch organization');
+    } finally {
+      setIsSwitchingOrg(false);
+    }
+  };
+
+  // Ensure current organization is always included if it exists
+  const organizationsWithCurrent = useMemo(() => {
+    if (!currentOrganization) return organizations;
+    const hasCurrent = organizations.some(org => org.id === currentOrganization.id);
+    if (hasCurrent) return organizations;
+    return [currentOrganization, ...organizations];
+  }, [organizations, currentOrganization]);
+
   if (loading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
@@ -369,7 +405,69 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                     {currentOrganization.name}
                   </p>
                   </div>
-                <div className="ml-4">
+                <div className="ml-4 flex gap-2">
+                  {organizationsWithCurrent.length > 1 && (
+                    <DropdownMenu
+                      open={isOrgDropdownOpen}
+                      onOpenChange={setIsOrgDropdownOpen}
+                    >
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={isSwitchingOrg}
+                        >
+                          Switch
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-64 max-h-96">
+                        <div className="max-h-64 overflow-y-auto">
+                          {organizationsWithCurrent.map((org) => {
+                            const orgProfileImage = org.config ? (org.config as { profileImage?: string | null }).profileImage ?? null : null;
+                            const isActive = org.id === activeOrganizationId;
+                            return (
+                              <DropdownMenuItem
+                                key={org.id}
+                                onSelect={() => handleOrganizationSwitch(org.id)}
+                                disabled={isSwitchingOrg}
+                                className="flex items-center gap-2"
+                              >
+                                {orgProfileImage ? (
+                                  <OrgLogo 
+                                    src={orgProfileImage} 
+                                    alt={org.name}
+                                    size="sm"
+                                  />
+                                ) : (
+                                  <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
+                                )}
+                                <span className="flex-1 text-sm">{org.name}</span>
+                                {isActive && (
+                                  <CheckIcon className="w-4 h-4 text-accent-500" />
+                                )}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </div>
+                        <DropdownMenuItem
+                          onSelect={() => setShowCreateModal(true)}
+                          disabled={isSwitchingOrg}
+                          className="flex items-center gap-2"
+                        >
+                          <PlusIcon className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm">Add organization</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowCreateModal(true)}
+                    disabled={isSwitchingOrg}
+                  >
+                    Add
+                  </Button>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -676,10 +774,13 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => openBillingPortal({ 
-                            organizationId: currentOrganization!.id, 
-                            returnUrl: origin ? `${origin}/settings/organization?sync=1` : '/settings/organization?sync=1' 
-                          })}
+                          onClick={() => {
+                            if (!currentOrganization?.id) return;
+                            openBillingPortal({ 
+                              organizationId: currentOrganization.id, 
+                              returnUrl: origin ? `${origin}/settings/organization?sync=1` : '/settings/organization?sync=1' 
+                            });
+                          }}
                           disabled={submitting}
                           data-testid="org-delete-action"
                         >

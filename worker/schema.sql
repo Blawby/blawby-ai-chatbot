@@ -397,6 +397,8 @@ CREATE TABLE IF NOT EXISTS users (
   -- Onboarding
   onboarding_completed INTEGER DEFAULT 0,
   onboarding_data TEXT,
+  -- First-time welcome modal/view timestamp (ms since epoch)
+  welcomed_at INTEGER,
   
   -- Better Auth lastLoginMethod plugin
   last_login_method TEXT,

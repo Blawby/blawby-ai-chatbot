@@ -1,16 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { rateLimit, getClientId } from '../../../worker/middleware/rateLimit.js';
+import type { Env } from '../../../worker/types.js';
 
 // Mock environment
-const createMockEnv = () => ({
+const createMockEnv = (): Partial<Env> => ({
   CHAT_SESSIONS: {
     get: vi.fn(),
     put: vi.fn()
-  }
+  } as unknown as KVNamespace
 });
 
 describe('Rate Limiting Tests', () => {
-  let mockEnv: any;
+  let mockEnv: Partial<Env>;
 
   beforeEach(() => {
     mockEnv = createMockEnv();

@@ -1,7 +1,5 @@
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import { SettingSection } from './SettingSection';
-import { useTranslation } from '@/i18n/hooks';
-import { cn } from '../../../utils/cn';
 
 export interface EmailSettingsSectionProps {
   email: string;

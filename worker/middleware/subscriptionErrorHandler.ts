@@ -85,7 +85,7 @@ export class SubscriptionErrorHandler {
   /**
    * Enhanced error handler that adds error codes to subscription-related errors
    */
-  static handleError(error: unknown, request: Request, env: Env): Response {
+  static handleError(error: unknown, request: Request, _env: Env): Response {
     const url = new URL(request.url);
     const path = url.pathname;
     

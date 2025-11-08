@@ -7,7 +7,6 @@
 
 import { InfoCard } from '../atoms/InfoCard';
 import { Button } from '../../ui/Button';
-import { cn } from '../../../utils/cn';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 

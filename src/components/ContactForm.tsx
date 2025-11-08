@@ -127,13 +127,7 @@ export function ContactForm({
   const { fields: validFields, required: validRequired, message: validMessage } = validatedProps;
   
   // Always call hooks at the top level
-  const normalizedInitialValues = useMemo(() => normalizeInitialValues(initialValues), [
-    initialValues?.name,
-    initialValues?.email,
-    initialValues?.phone,
-    initialValues?.location,
-    initialValues?.opposingParty
-  ]);
+  const normalizedInitialValues = useMemo(() => normalizeInitialValues(initialValues), [initialValues]);
 
   const { t } = useTranslation('common');
 

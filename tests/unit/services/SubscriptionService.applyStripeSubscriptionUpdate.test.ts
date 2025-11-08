@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Env } from '../../../worker/types.js';
 import { applyStripeSubscriptionUpdate } from '../../../worker/services/SubscriptionService.js';
 import type Stripe from 'stripe';
+import type { Ai, KVNamespace, Queue } from '@cloudflare/workers-types';
 
 describe('SubscriptionService.applyStripeSubscriptionUpdate', () => {
   let env: Env;
@@ -33,11 +34,11 @@ describe('SubscriptionService.applyStripeSubscriptionUpdate', () => {
       DB: {
         prepare: prepareMock,
       } as unknown as Env['DB'],
-      AI: {} as any,
-      CHAT_SESSIONS: {} as any,
+      AI: {} as unknown as Ai,
+      CHAT_SESSIONS: {} as unknown as KVNamespace,
       RESEND_API_KEY: 'test',
-      DOC_EVENTS: {} as any,
-      PARALEGAL_TASKS: {} as any,
+      DOC_EVENTS: {} as unknown as Queue,
+      PARALEGAL_TASKS: {} as unknown as Queue,
     } as Env;
   });
 

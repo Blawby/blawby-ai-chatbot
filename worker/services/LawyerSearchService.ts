@@ -68,7 +68,7 @@ export class LawyerSearchService {
             if (errorData.error?.includes('quota exceeded') || errorData.error?.includes('Daily quota')) {
               throw new QuotaExceededError('Our lawyer search service is temporarily busy right now. Don\'t worry - this happens sometimes when lots of people are looking for legal help!');
             }
-          } catch (parseError) {
+          } catch (_parseError) {
             // If we can't parse the error, still check for quota-related text
             if (errorText.includes('quota exceeded') || errorText.includes('Daily quota')) {
               throw new QuotaExceededError('Our lawyer search service is temporarily busy right now. Don\'t worry - this happens sometimes when lots of people are looking for legal help!');

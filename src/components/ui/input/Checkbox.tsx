@@ -34,10 +34,10 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
   description,
   error,
   indeterminate = false,
-  labelKey,
-  descriptionKey,
-  errorKey,
-  namespace = 'common',
+  labelKey: _labelKey,
+  descriptionKey: _descriptionKey,
+  errorKey: _errorKey,
+  namespace: _namespace = 'common',
   id
 }, ref) => {
   // TODO: Add i18n support when useTranslation hook is available

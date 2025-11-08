@@ -289,7 +289,7 @@ export class OrganizationService {
 
   private buildPersonalOrganizationConfig(userName: string): OrganizationConfig {
     const defaultConfig = this.getDefaultConfig();
-    const safeName = typeof userName === 'string' && userName.trim().length > 0 ? userName.trim() : 'New User';
+    const _safeName = typeof userName === 'string' && userName.trim().length > 0 ? userName.trim() : 'New User';
 
     return {
       ...defaultConfig,

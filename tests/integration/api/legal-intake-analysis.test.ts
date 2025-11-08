@@ -1,7 +1,19 @@
 import { describe, it, expect } from 'vitest';
 
+interface MockAnalysis {
+  summary?: string;
+  key_facts?: string[];
+  entities?: {
+    people?: string[];
+    orgs?: string[];
+    dates?: string[];
+  };
+  action_items?: string[];
+  confidence?: number;
+}
+
 // Test version of the analysis logic without file retrieval
-function testHandleAnalyzeDocument(analysis_type: string, mockAnalysis: any) {
+function testHandleAnalyzeDocument(analysis_type: string, mockAnalysis: MockAnalysis) {
   // Extract key information for legal intake
   const parties = mockAnalysis.entities?.people || [];
   const organizations = mockAnalysis.entities?.orgs || [];

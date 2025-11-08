@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { useSession } from '../../../contexts/AuthContext';
+import { useSession } from '../../../lib/authClient';
 
 interface UseWelcomeModalResult {
   shouldShow: boolean;
@@ -60,7 +60,7 @@ export function useWelcomeModal(): UseWelcomeModalResult {
     } else {
       setShouldShow(false);
     }
-  }, [session?.user, sessionIsPending]);
+  }, [session, session?.user, sessionIsPending]);
 
   const markAsShown = useCallback(async () => {
     if (!session?.user?.id) {

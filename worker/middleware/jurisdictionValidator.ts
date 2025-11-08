@@ -12,7 +12,7 @@ export const jurisdictionValidator: PipelineMiddleware = {
   kind: 'standard',
   name: 'jurisdictionValidator',
   
-  execute: async (messages: AgentMessage[], context: ConversationContext, organizationConfig: OrganizationConfig, env: Env) => {
+  execute: async (messages: AgentMessage[], context: ConversationContext, organizationConfig: OrganizationConfig, _env: Env) => {
     const jurisdiction = organizationConfig?.jurisdiction as JurisdictionConfig | undefined;
     
     // If no jurisdiction restrictions, allow all

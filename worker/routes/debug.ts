@@ -1,6 +1,5 @@
 import type { Env } from '../types.js';
 import { AdobeDocumentService } from '../services/AdobeDocumentService.js';
-import { Logger } from '../utils/logger.js';
 import { requireAuth } from '../middleware/auth.js';
 import { parseJsonBody } from '../utils.js';
 import { createSuccessResponse, handleError } from '../errorHandler.js';

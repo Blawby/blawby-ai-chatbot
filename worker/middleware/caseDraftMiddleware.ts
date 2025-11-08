@@ -1,4 +1,4 @@
-import type { ConversationContext, CaseDraft } from './conversationContextManager.js';
+import type { ConversationContext } from './conversationContextManager.js';
 import type { OrganizationConfig } from '../services/OrganizationService.js';
 import type { PipelineMiddleware } from './pipeline.js';
 import type { Env, AgentMessage } from '../types.js';
@@ -16,13 +16,6 @@ interface CaseInfo {
   urgency?: 'low' | 'normal' | 'high' | 'urgent';
 }
 
-// Middleware response type
-interface MiddlewareResponse {
-  context: ConversationContext;
-  response: string;
-  shouldStop: boolean;
-}
-
 /**
  * Case Draft Middleware - handles case building and organization requests
  * Detects when users want to build case drafts and provides structured case building
@@ -31,10 +24,10 @@ export const caseDraftMiddleware: PipelineMiddleware = {
   kind: 'standard',
   name: 'caseDraftMiddleware',
   
-  execute: async (messages: AgentMessage[], context: ConversationContext, organizationConfig: OrganizationConfig, env: Env) => {
+  execute: async (messages: AgentMessage[], context: ConversationContext, _organizationConfig: OrganizationConfig, _env: Env) => {
     // Build conversation text for context-aware analysis
     const conversationText = messages.map(msg => msg.content).join(' ');
-    const latestMessage = messages[messages.length - 1];
+    const _latestMessage = messages[messages.length - 1];
     
     // Check if user is requesting case draft building
     const caseDraftKeywords = [

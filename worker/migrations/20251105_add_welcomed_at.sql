@@ -1,3 +1,7 @@
--- Add welcomed_at column to users table if it does not already exist
--- Uses IF NOT EXISTS to ensure idempotency on re-runs
-ALTER TABLE users ADD COLUMN IF NOT EXISTS welcomed_at INTEGER;
+-- Migration removed: welcomed_at column is now in schema.sql
+-- This migration was redundant since schema.sql already includes the welcomed_at column
+-- Date removed: 2025-11-08
+-- 
+-- Note: SQLite doesn't support IF NOT EXISTS for ALTER TABLE ADD COLUMN
+-- If you have an existing database that needs this column, it should already exist
+-- from when this migration was first run. Fresh databases get everything from schema.sql.

@@ -1,5 +1,4 @@
 import { createAuthClient } from "better-auth/react";
-import { organizationClient } from "better-auth/client/plugins";
 import { cloudflareClient } from "better-auth-cloudflare/client";
 import { stripeClient } from "@better-auth/stripe/client";
 
@@ -37,7 +36,7 @@ const getBaseURL = () => {
 
 export const authClient = createAuthClient({
   baseURL: getBaseURL(),
-  plugins: [organizationClient(), cloudflareClient(), stripeClient({ subscription: true })],
+  plugins: [cloudflareClient(), stripeClient({ subscription: true })],
   fetchOptions: {
     credentials: "include", // Important for CORS
   },
@@ -84,7 +83,64 @@ export const deleteUser = authClient.deleteUser;
 
 // Export Better Auth's reactive hooks (primary method for components)
 export const useSession = authClient.useSession;
-export const useActiveOrganization = authClient.useActiveOrganization;
 
 // Export getSession for one-time checks (secondary method)
 export const getSession = authClient.getSession;
+
+/**
+ * Custom helper to switch the active organization via our session endpoint.
+ * Mirrors the previous Better Auth plugin behavior without requiring the plugin.
+ */
+export async function setActiveOrganization(organizationId: string): Promise<void> {
+  const url = new URL('/api/sessions/organization', getBaseURL());
+  const response = await fetch(url.toString(), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ organizationId })
+  });
+
+  if (!response.ok) {
+    let message = 'Failed to switch organization';
+    try {
+      const errorJson = await response.json() as { error?: string };
+      if (errorJson?.error) {
+        message = errorJson.error;
+      }
+    } catch {
+      // ignore parse issues
+    }
+    throw new Error(message);
+  }
+
+  try {
+    // Ensure session reflects the new active organization
+    await authClient.getSession();
+  } catch (err) {
+    console.error('[setActiveOrganization] Session refresh failed, retrying with backoff', err);
+    const maxAttempts = 3;
+    let attempt = 1;
+    let lastErr: unknown = err;
+    while (attempt < maxAttempts) {
+      const delayMs = 200 * Math.pow(2, attempt - 1); // 200ms, 400ms
+      await new Promise((r) => setTimeout(r, delayMs));
+      try {
+        await authClient.getSession();
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        attempt += 1;
+      }
+    }
+    if (lastErr) {
+      try {
+        authClient.$store?.notify?.('$sessionSignal');
+      } catch (notifyErr) {
+        console.warn('[setActiveOrganization] Failed to notify authClient store', notifyErr);
+      }
+      // Callers must handle this rejection to ensure session validity
+      throw lastErr instanceof Error ? lastErr : new Error('Failed to refresh session after organization switch');
+    }
+  }
+}

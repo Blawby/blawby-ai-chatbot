@@ -3,8 +3,7 @@ import {
   sanitizePII, 
   containsPII, 
   createContentHash, 
-  sanitizeForLogging,
-  type SanitizationOptions 
+  sanitizeForLogging
 } from '../../../worker/utils/piiSanitizer';
 
 describe('PII Sanitizer', () => {

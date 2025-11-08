@@ -493,7 +493,7 @@ function buildSafeStructuredPayload(tables: Record<string, unknown>[], elements:
   return '[structured data omitted - too large]';
 }
 
-async function summarizeAdobeResult(env: Env, extract: AdobeExtractSuccess, sessionId?: string, organizationId?: string, statusId?: string) {
+async function summarizeAdobeResult(env: Env, extract: AdobeExtractSuccess, _sessionId?: string, _organizationId?: string, _statusId?: string) {
   const text = extract.text ?? '';
   const structured = buildSafeStructuredPayload(
     (extract.tables ?? []) as Record<string, unknown>[], 

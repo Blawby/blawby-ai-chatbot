@@ -24,7 +24,7 @@ const mockCache = {
 
 describe('Stripe webhook route', () => {
   beforeEach(() => {
-    (env as unknown as WorkerEnv).ENABLE_STRIPE_SUBSCRIPTIONS = 'true' as any;
+    (env as unknown as WorkerEnv).ENABLE_STRIPE_SUBSCRIPTIONS = 'true';
     (env as unknown as WorkerEnv).STRIPE_WEBHOOK_SECRET = 'whsec_test';
     vi.restoreAllMocks();
   });

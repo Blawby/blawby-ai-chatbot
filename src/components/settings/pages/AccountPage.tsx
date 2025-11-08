@@ -5,8 +5,7 @@ import Modal from '../../Modal';
 import ConfirmationDialog from '../../ConfirmationDialog';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useNavigation } from '../../../utils/navigation';
-import { useSession } from '../../../contexts/AuthContext';
-import { updateUser } from '../../../lib/authClient';
+import { useSession, updateUser } from '../../../lib/authClient';
 import { signOut } from '../../../utils/auth';
 import { TIER_FEATURES } from '../../../utils/stripe-products';
 import { useTranslation } from '@/i18n/hooks';
@@ -14,7 +13,6 @@ import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
 import {
   describeSubscriptionPlan,
-  normalizeSeats,
   hasManagedSubscription,
   hasActiveSubscriptionStatus,
   resolveOrganizationKind,
@@ -65,8 +63,8 @@ export const AccountPage = ({
     currentOrganization?.subscriptionStatus,
     currentOrganization?.isPersonal ?? null
   );
-  const activeSubscription = hasActiveSubscriptionStatus(resolvedSubscriptionStatus);
-  const planLabel = describeSubscriptionPlan(
+  const _activeSubscription = hasActiveSubscriptionStatus(resolvedSubscriptionStatus);
+  const _planLabel = describeSubscriptionPlan(
     currentOrganization?.kind,
     currentOrganization?.subscriptionStatus,
     currentOrganization?.subscriptionTier,

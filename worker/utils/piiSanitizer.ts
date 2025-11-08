@@ -104,7 +104,7 @@ function validateLuhn(cardNumber: string): boolean {
 function processCreditCards(content: string, remove: boolean, maskText: string): string {
   let processed = content;
   
-  for (const { issuer, pattern } of CREDIT_CARD_PATTERNS) {
+  for (const { issuer: _issuer, pattern } of CREDIT_CARD_PATTERNS) {
     // Create a fresh regex instance to avoid lastIndex issues
     const freshPattern = new RegExp(pattern.source, pattern.flags);
     

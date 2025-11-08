@@ -35,7 +35,7 @@ export const businessScopeValidator: PipelineMiddleware = {
   kind: 'standard',
   name: 'businessScopeValidator',
   
-  execute: async (messages: AgentMessage[], context: ConversationContext, organizationConfig: OrganizationConfig, env: Env) => {
+  execute: async (messages: AgentMessage[], context: ConversationContext, organizationConfig: OrganizationConfig, _env: Env) => {
     // Guard clause: ensure we have at least one message
     if (!messages || messages.length === 0) {
       console.warn('businessScopeValidator: No messages provided');
@@ -173,7 +173,7 @@ This will help me determine if we can assist you directly or connect you with th
 /**
  * Get referral response for out-of-scope matters
  */
-function getReferralResponse(matterType: string, organizationConfig: OrganizationConfig): string {
+function _getReferralResponse(matterType: string, organizationConfig: OrganizationConfig): string {
   const organizationName = organizationConfig?.description || 'your organization';
   
   return `While ${organizationName} doesn't handle ${matterType} matters, I can help you find a qualified attorney who specializes in this area. 

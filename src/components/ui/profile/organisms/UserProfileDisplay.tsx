@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';
-import { useSession } from '../../../../contexts/AuthContext';
+import { useSession } from '../../../../lib/authClient';
 import { useToastContext } from '../../../../contexts/ToastContext';
 import { signOut } from '../../../../utils/auth';
 import { useNavigation } from '../../../../utils/navigation';

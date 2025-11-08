@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { WORKER_URL } from '../../setup-real-api';
 import { Currency } from '../../../worker/agents/legal-intake/index.js';
 
@@ -14,7 +14,11 @@ interface TestContext {
   organizationMetadata?: {
     name: string;
     slug: string;
-    config: any;
+    config: {
+      blawbyApi?: {
+        enabled?: boolean;
+      };
+    };
   };
 }
 

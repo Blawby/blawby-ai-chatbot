@@ -155,63 +155,83 @@ function normalize(s: string) {
 }
 
 function extractKeyLegalInfo(text: string): string {
-  // Extract key information for legal intake analysis
+  // Extract key information for legal intake analysis using regex patterns
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-  
-  // Look for common legal document patterns
-  const keySections: string[] = [];
-  
-  // Extract names (common patterns)
+
+  // Helper to normalize tokens
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+  // Pattern groups
   const namePatterns = [
     /(?:name|full name|client|tenant|landlord|defendant|plaintiff):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi,
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+(?:LLC|Inc|Corp|Company|Associates)/gi,
     /(?:Mr\.|Ms\.|Mrs\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi
   ];
-  
-  // Extract dates
+
   const datePatterns = [
     /(?:date|signed|effective|expires?):\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/gi,
     /(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/gi
   ];
-  
-  // Extract amounts
+
   const amountPatterns = [
     /\$[\d,]+(?:\.\d{2})?/g,
-    /(?:amount|payment|value):\s*\$[\d,]+(?:\.\d{2})?/gi
+    /(?:amount|payment|value):\s*(\$[\d,]+(?:\.\d{2})?)/gi
   ];
-  
-  // Extract addresses
+
   const addressPatterns = [
     /(?:address|location):\s*([^,\n]+(?:,\s*[A-Z]{2}\s+\d{5})?)/gi,
     /([^,\n]+(?:,\s*[A-Z]{2}\s+\d{5})?)/gi
   ];
-  
-  // Extract document types
+
   const docTypePatterns = [
     /(?:contract|agreement|lease|deed|will|trust|petition|complaint|motion|order)/gi,
     /(?:form|application|notice|letter|resume|invoice|receipt)/gi
   ];
-  
-  // Combine all found information
+
   const foundInfo: string[] = [];
-  
-  // Add first few lines (usually contain title/header)
+
+  // Include header/title if present
   if (lines.length > 0) {
     foundInfo.push(`Document Title/Header: ${lines[0]}`);
   }
-  
-  // Add any lines that seem important (contain key words)
+
+  // Collect matches helper
+  const collectMatches = (patterns: RegExp[], source: string, preferGroup = 1) => {
+    const results = new Set<string>();
+    for (const re of patterns) {
+      re.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(source)) !== null) {
+        const val = (m.length > preferGroup && m[preferGroup]) ? m[preferGroup] : m[0];
+        const n = norm(val);
+        if (n) results.add(n);
+      }
+    }
+    return Array.from(results);
+  };
+
+  const names = collectMatches(namePatterns, text, 1).slice(0, 10);
+  const dates = collectMatches(datePatterns, text, 1).slice(0, 10);
+  const amounts = collectMatches(amountPatterns, text, 1).slice(0, 10);
+  const addresses = collectMatches(addressPatterns, text, 1).slice(0, 10);
+  const docTypes = collectMatches(docTypePatterns, text, 0).slice(0, 10);
+
+  if (names.length) foundInfo.push(`Names: ${names.join(', ')}`);
+  if (dates.length) foundInfo.push(`Dates: ${dates.join(', ')}`);
+  if (amounts.length) foundInfo.push(`Amounts: ${amounts.join(', ')}`);
+  if (addresses.length) foundInfo.push(`Addresses: ${addresses.join(' | ')}`);
+  if (docTypes.length) foundInfo.push(`Document Types: ${Array.from(new Set(docTypes.map(d => d.toLowerCase()))).join(', ')}`);
+
+  // Heuristic: add first N lines with important keywords
   const importantKeywords = ['name', 'date', 'address', 'phone', 'email', 'amount', 'contract', 'agreement', 'lease', 'deed', 'will', 'trust', 'petition', 'complaint'];
-  
-  for (const line of lines.slice(1, 20)) { // Check first 20 lines
+  for (const line of lines.slice(1, 30)) {
     const lowerLine = line.toLowerCase();
     if (importantKeywords.some(keyword => lowerLine.includes(keyword))) {
       foundInfo.push(line);
     }
   }
-  
-  // Limit to reasonable size
-  const summary = foundInfo.join('\n').substring(0, 1000);
-  
-  return summary || 'Document content extracted but no specific legal information identified';
+
+  const summary = foundInfo.join('\n');
+  const trimmed = summary.length > 1200 ? summary.slice(0, 1200) : summary;
+  return trimmed || 'Document content extracted but no specific legal information identified';
 }

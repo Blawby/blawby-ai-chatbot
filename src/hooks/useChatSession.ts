@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { useActiveOrganization } from './useActiveOrganization.js';
+import { useSessionContext } from '../contexts/SessionContext.js';
 
 const STORAGE_PREFIX = 'blawby_session:';
 
@@ -25,21 +25,21 @@ export interface ChatSessionState {
  * This is the preferred way to use chat sessions in components
  */
 export function useChatSessionWithContext(): ChatSessionState {
-  const { activeOrgId } = useActiveOrganization();
-  return useChatSession(activeOrgId ?? 'blawby-ai');
+  const { activeOrganizationId } = useSessionContext();
+  return useChatSession(activeOrganizationId);
 }
 
 /**
  * Legacy hook that requires organizationId parameter
  * @deprecated Use useChatSessionWithContext() instead
  */
-export function useChatSession(organizationId: string): ChatSessionState {
+export function useChatSession(organizationId?: string | null): ChatSessionState {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const isDisposedRef = useRef(false);
-  const handshakeOrgRef = useRef<{ orgId: string; promise: Promise<SessionResponsePayload | void> } | null>(null);
+  const handshakeOrgRef = useRef<{ orgId: string | null; promise: Promise<SessionResponsePayload | void> } | null>(null);
 
   useEffect(() => {
     return () => {

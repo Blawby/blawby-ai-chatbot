@@ -1,4 +1,3 @@
-import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 import { validateLocation as validateLocationUtil } from '../utils/locationValidator';
 
 export interface ValidationResult {
@@ -91,6 +90,7 @@ export class ValidationService {
       
       return { isValid: true };
     } catch (error) {
+      console.error('Phone validation error:', error);
       return { isValid: false, error: 'Phone validation error' };
     }
   }

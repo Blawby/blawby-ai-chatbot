@@ -123,12 +123,12 @@ export function createLoggingMiddleware(): StandardMiddleware {
   return {
     kind: 'standard',
     name: 'logging',
-    execute: async (messages, context, organizationConfig, env) => {
+    execute: async (messages, context, organizationConfig, _env) => {
       // Null-safe access with defaults
       const latestMessage = messages[messages.length - 1];
       const safeMessage = latestMessage ? String(latestMessage.content || '').substring(0, 100) : '';
-      const safeContext = context || {};
-      const safeOrganizationConfig = organizationConfig || {};
+      const _safeContext = context || {};
+      const _safeOrganizationConfig = organizationConfig || {};
       
       console.log('Pipeline execution:', {
         messageCount: messages.length,

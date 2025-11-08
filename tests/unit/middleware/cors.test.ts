@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { withCORS, createProductionCorsOptions, createDevelopmentCorsOptions } from '../../../worker/middleware/cors';
+import type { Env } from '../../../worker/types';
 
 // Mock environment
-const mockEnv = {
+const mockEnv: Partial<Env> = {
   NODE_ENV: 'production'
-} as any;
+};
 
 const mockCtx = {} as ExecutionContext;
 

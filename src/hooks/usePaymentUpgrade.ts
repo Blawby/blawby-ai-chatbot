@@ -6,7 +6,7 @@ import {
   getSubscriptionCancelEndpoint,
 } from '../config/api';
 import { useToastContext } from '../contexts/ToastContext';
-import { authClient } from '../lib/authClient';
+import { setActiveOrganization } from '../lib/authClient';
 
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
@@ -151,7 +151,7 @@ export const usePaymentUpgrade = () => {
 
   const ensureActiveOrganization = useCallback(async (organizationId: string) => {
     try {
-      await authClient.organization.setActive({ organizationId });
+      await setActiveOrganization(organizationId);
     } catch (activeErr) {
       const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active organization.';
       console.warn('[UPGRADE] Active organization setup error:', activeErr instanceof Error ? activeErr : message);

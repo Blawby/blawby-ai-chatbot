@@ -5,6 +5,7 @@
 import { Input, Textarea } from '../../ui/input';
 import { OnboardingActions } from '../molecules/OnboardingActions';
 import { useTranslation } from '../../../i18n/hooks';
+import { ValidationAlert } from '../atoms/ValidationAlert';
 
 interface BusinessDetailsData {
   addressLine1: string;
@@ -31,6 +32,11 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors
 
   return (
     <div className="space-y-6">
+      {errors && (
+        <ValidationAlert type="error">
+          {errors}
+        </ValidationAlert>
+      )}
       {/* Address fields - Row 1: Address Line 1 & 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input

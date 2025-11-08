@@ -137,23 +137,6 @@ vi.mock('../../../hooks/useNavigation', () => ({
   }),
 }));
 
-// Mock the organization context
-vi.mock('../../../contexts/OrganizationContext', async () => {
-  const actual = await vi.importActual<typeof import('../../../contexts/OrganizationContext')>(
-    '../../../contexts/OrganizationContext'
-  );
-  return {
-    ...actual,
-    useOrganization: () => ({
-      currentOrganization: {
-        id: 'org-1',
-        name: 'Test Organization',
-        slug: 'test-org',
-      },
-    }),
-  };
-});
-
 // Mock the feature flags
 vi.mock('../../../config/features', () => ({
   features: {

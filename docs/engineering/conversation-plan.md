@@ -35,7 +35,7 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 - `worker/migrations/20250X_add_tool_config_to_blawby.sql` (update blawby-ai config)
 
 **Tasks:**
-- [ ] Extend `OrganizationConfig` interface to include:
+- [x] Extend `OrganizationConfig` interface to include:
   ```typescript
   tools?: {
     [toolName: string]: {
@@ -52,9 +52,9 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
     tagRequired?: boolean;
   };
   ```
-- [ ] Update Zod validation schema
-- [ ] Create migration to add tool config to `blawby-ai` org
-- [ ] Add config caching in `OrganizationConfigService`
+- [x] Update Zod validation schema
+- [x] Create migration to add tool config to `blawby-ai` org
+- [x] Add config caching in `OrganizationConfigService`
 
 **Acceptance Criteria:**
 - Tool permissions stored in `organizations.config` JSON
@@ -84,18 +84,18 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
   - Respected upstream `selectedMatterId` to avoid clobbering selection.
   - Reset initial auto-select marker when `organizationId` changes and included it in deps.
 
-- **Better Auth organization 400 on page load**
-  - Avoided automatic Better Auth org hook in `AuthContext` to stop early `get-full-organization` calls.
-  - Updated `SessionContext` to use custom `useActiveOrganization()` (from our provider) for `activeOrgId` and slug derivation.
-  - Wired `ActiveOrganizationProvider` to best-effort set Better Auth active org after resolving/switching (non-blocking, guarded).
-  - Added runtime guard + warning around `authClient.organization.setActiveOrganization` availability.
-  - Introduced a lightweight `AsyncMutex` in the provider to serialize org switches.
+- **Auth + Org consolidation (flicker-free startup)**
+  - Removed Better Auth organization plugin usage on the client and all custom ActiveOrganization/Auth/Organization providers.
+  - Consolidated on a single `SessionProvider` exposing `session`, `activeOrganizationId` (derived from the session), and quota state.
+  - Introduced a unified loading gate keyed off `authClient.useSession()` during hydration; no polling.
+  - Added a minimal `setActiveOrganization(orgId)` helper that calls `PATCH /api/sessions/organization` and triggers session revalidation.
+  - All consumers (chat, upload, payments) now read `activeOrganizationId` from `SessionProvider` only.
 
 - **General**
   - Ensured all new effects include precise dependency arrays.
   - Preserved existing capabilities while eliminating non-blocking console errors.
 
-**Outcome:** Clean startup (no BA org 400s), safer fetch lifecycles, correct status controls, and consistent payment messaging across lead/matter flows.
+**Outcome:** Clean startup (no BA org 400s), single `get-session` on boot, no polling loops, and stable org state across the app.
 
 ### Issue #2: Create Default Organization Resolver Service
 **Type:** Enhancement  
@@ -105,14 +105,14 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 - Update `worker/constants.ts` (keep `DEFAULT_ORGANIZATION_ID` but make it configurable)
 
 **Tasks:**
-- [ ] Create `DefaultOrganizationService.resolveDefaultOrg(userId?, context)`:
+- [x] Create `DefaultOrganizationService.resolveDefaultOrg(userId?, context)`:
   - If `userId` provided → query Better Auth for `active_organization_id` from `sessions` table
   - If no active org or anonymous → return `DEFAULT_ORGANIZATION_ID`
   - Cache result in context
-- [ ] Create `DefaultOrganizationService.getPublicOrg()`:
+- [x] Create `DefaultOrganizationService.getPublicOrg()`:
   - Query `organizations` where `is_personal = 0` and config has `isPublic: true`
   - Cache result
-- [ ] Add environment variable `DEFAULT_PUBLIC_ORG_SLUG` (defaults to 'blawby-ai')
+- [x] Add environment variable `DEFAULT_PUBLIC_ORG_SLUG` (defaults to 'blawby-ai')
 
 **Acceptance Criteria:**
 - Service resolves org from Better Auth session
@@ -122,7 +122,7 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 
 ---
 
-### Issue #3: Parameterize Frontend Hooks
+### Issue #3: Parameterize Frontend Hooks (Consolidated on SessionProvider)
 **Type:** Refactor  
 **Priority:** High  
 **Files:**
@@ -130,29 +130,18 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 - `src/hooks/useMessageHandling.ts`
 - `src/hooks/useFileUpload.ts`
 - `src/hooks/useOrganizationConfig.ts`
-- Create `src/contexts/OrganizationContext.tsx`
-- Create `src/hooks/useActiveOrganization.ts`
+- `src/contexts/SessionContext.tsx` (single source of truth)
 
 **Tasks:**
-- [ ] Create `OrganizationContext` provider with state:
-  ```typescript
-  {
-    activeOrgId: string;
-    setActiveOrg: (id: string) => void;
-    userOrgs: Organization[];
-    isLoading: boolean;
-  }
-  ```
-- [ ] Wrap app with `OrganizationProvider`
-- [ ] Update hooks to accept `organizationId?: string` param (defaults to context value)
-- [ ] Create `useActiveOrganization()` hook to consume context
-- [ ] Initialize context with default org on mount
+- [x] Update hooks to accept `organizationId?: string` and resolve as: explicit param → `SessionProvider.activeOrganizationId` → `DEFAULT_ORGANIZATION_ID`.
+- [x] Remove any dependency on custom org contexts or Better Auth org plugin client.
+- [x] Ensure no hook performs its own session/org fetch; they read from `SessionProvider` only.
 
 **Acceptance Criteria:**
-- All hooks parameterized
-- Context provides app-wide org state
-- Default behavior unchanged (still uses blawby-ai)
-- No breaking changes to existing code
+- All hooks parameterized and default to `SessionProvider.activeOrganizationId`.
+- No custom ActiveOrganization/Auth/Organization providers remain.
+- No hardcoded `blawby-ai` defaults; anonymous falls back to `DEFAULT_ORGANIZATION_ID`.
+- No redundant session/org fetching in hooks.
 
 ---
 
@@ -185,30 +174,27 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 
 ---
 
-### Issue #5: Add Organization Switching Support
+### Issue #5: Add Organization Switching Support (Session-based)
 **Type:** Feature  
 **Priority:** Medium  
 **Files:**
-- Update `worker/routes/sessions.ts` (add PATCH endpoint)
-- `src/hooks/useActiveOrganization.ts`
+- Update `worker/routes/sessions.ts` (PATCH endpoint)
+- `src/lib/authClient.ts` (`setActiveOrganization` helper)
 - Create `src/components/OrganizationSwitcher.tsx`
 
 **Tasks:**
-- [ ] Create `PATCH /api/sessions/:sessionId/organization` endpoint:
-  - Validates user membership in target org
-  - Updates Better Auth `sessions.active_organization_id`
-  - Creates/resolves chat session for new org
-  - Returns new session data
-- [ ] Update `useActiveOrganization` to call switch endpoint
-- [ ] Create `OrganizationSwitcher` component (dropdown)
-- [ ] Store per-org sessions in localStorage (already supports this pattern)
-- [ ] Handle session migration between orgs
+- [x] Create `PATCH /api/sessions/organization` endpoint (no sessionId in path):
+  - Validates membership and updates `sessions.active_organization_id`.
+  - Returns `{ success: true }` and relies on client session revalidation.
+- [x] Implement `setActiveOrganization(organizationId)` in `authClient` to call the endpoint and notify session store.
+- [x] Create `OrganizationSwitcher` dropdown that uses `setActiveOrganization`.
+- [x] Ensure per-org chat sessions persist as they do today (no change in storage shape).
+
 
 **Acceptance Criteria:**
-- Users can switch between their orgs
-- Better Auth session updated on switch
-- Chat sessions preserved per org
-- UI shows current org with switcher
+- Users can switch between their orgs via `setActiveOrganization`.
+- Session updates (via revalidation) propagate `activeOrganizationId` to all consumers.
+- Chat sessions preserved per org; UI shows current org with switcher.
 
 ---
 

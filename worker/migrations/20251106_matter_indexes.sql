@@ -1,7 +1,14 @@
--- Migration: Add helpful indexes for matters and matter_events
--- Note: D1 handles transactions automatically - do not use BEGIN TRANSACTION or COMMIT
--- Note: The closed_at column already exists in schema.sql, so we don't need to add it here
-
--- Create indexes to speed workspace listing and acceptedBy derivation
-CREATE INDEX IF NOT EXISTS idx_matters_org_status_created_at ON matters(organization_id, status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_matter_events_matter_type_date ON matter_events(matter_id, event_type, event_date DESC);
+-- Migration temporarily disabled: our migration runner executes SQL using a single-statement/prepared API,
+-- which fails when batching multiple CREATE INDEX statements. D1 itself supports multiple statements via
+-- db.exec() and `wrangler d1 execute`.
+--
+-- Manual creation (until runner is updated):
+--   CREATE INDEX IF NOT EXISTS idx_matters_org_status_created_at ON matters(organization_id, status, created_at DESC);
+--   CREATE INDEX IF NOT EXISTS idx_matter_events_matter_type_date ON matter_events(matter_id, event_type, event_date DESC);
+--
+-- Follow-up tasks:
+--   1) Update the migration runner to use db.exec() or multiple execute calls (or batch/transaction helpers).
+--   2) Re-enable these CREATE INDEX statements in this migration once the runner is fixed.
+--
+-- Note: These indexes are for performance optimization and are not required for the database to function.
+-- Date disabled: 2025-11-08

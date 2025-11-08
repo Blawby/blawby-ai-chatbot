@@ -1,7 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback } from 'preact/hooks';
 import Modal from '../../Modal';
-import { Button } from '../../ui/Button';
 import { CameraCaptureButton } from '../atoms';
 
 interface CameraModalProps {
@@ -62,9 +61,9 @@ const CameraModal: FunctionComponent<CameraModalProps> = ({
 
   useEffect(() => {
     if (isOpen) startCamera();
+    const video = videoRef.current;
     return () => {
       // Remove listeners before stopping camera
-      const video = videoRef.current;
       if (video) {
         video.removeEventListener('loadedmetadata', onVideoLoaded);
         video.removeEventListener('error', onVideoError);
