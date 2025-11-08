@@ -131,15 +131,44 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           try {
-            const sessionCheck = await fetch('/api/auth/get-session', { credentials: 'include' });
+            // Fetch session with timeout
+            const sessionController = new AbortController();
+            const sessionTimeoutId = setTimeout(() => sessionController.abort(), 3000);
+            
+            let sessionCheck: Response;
+            try {
+              sessionCheck = await fetch('/api/auth/get-session', { 
+                credentials: 'include',
+                signal: sessionController.signal
+              });
+              clearTimeout(sessionTimeoutId);
+            } catch (fetchError) {
+              clearTimeout(sessionTimeoutId);
+              throw fetchError;
+            }
+            
             if (sessionCheck.ok) {
               const sessionData = await sessionCheck.json() as unknown;
               const sessionObj = sessionData && typeof sessionData === 'object' ? sessionData as Record<string, unknown> : {};
               const user = sessionObj.user as Record<string, unknown> | undefined;
               
               if (user?.id) {
-                // Check if organization exists
-                const orgCheck = await fetch('/api/organizations/default', { credentials: 'include' });
+                // Check if organization exists with timeout
+                const orgController = new AbortController();
+                const orgTimeoutId = setTimeout(() => orgController.abort(), 3000);
+                
+                let orgCheck: Response;
+                try {
+                  orgCheck = await fetch('/api/organizations/default', { 
+                    credentials: 'include',
+                    signal: orgController.signal
+                  });
+                  clearTimeout(orgTimeoutId);
+                } catch (fetchError) {
+                  clearTimeout(orgTimeoutId);
+                  throw fetchError;
+                }
+                
                 if (orgCheck.ok) {
                   orgReady = true;
                   break;
@@ -147,7 +176,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
               }
             }
           } catch (e) {
-            // Continue polling on error
+            // Continue polling on error (including AbortError)
             console.debug('Polling for organization setup...', attempt + 1);
           }
           
