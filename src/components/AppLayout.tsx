@@ -79,7 +79,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   onSendMessage,
   onUploadDocument,
   children,
-  onOnboardingCompleted,
+  onOnboardingCompleted: _onOnboardingCompleted,
   selectedMatterId,
   onMatterSelect
 }) => {
@@ -243,7 +243,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 
   const onboardingStatus = currentOrganization?.businessOnboardingStatus;
   const hasOnboardingDraft = currentOrganization?.businessOnboardingHasDraft ?? false;
-  const onboardingOrganizationId = currentOrganization?.id;
+  const _onboardingOrganizationId = currentOrganization?.id;
 
   return (
     <div className="max-md:h-[100dvh] md:h-screen w-full flex bg-white dark:bg-dark-bg">

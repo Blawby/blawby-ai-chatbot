@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { PDFGenerationService } from '../../../../worker/services/PDFGenerationService.js';
 
 // Mock the logger to avoid console output during tests
@@ -13,7 +13,7 @@ vi.mock('../../../../worker/utils/logger.js', () => ({
 describe('PDFGenerationService', () => {
   describe('validateBrandColor', () => {
     // Access the private method for testing
-    const validateBrandColor = (PDFGenerationService as any).validateBrandColor;
+    const validateBrandColor = (PDFGenerationService as unknown as { validateBrandColor?: (color: string | null | undefined) => string }).validateBrandColor;
 
     describe('valid colors', () => {
       it('should accept valid 6-digit hex colors', () => {
@@ -91,7 +91,7 @@ describe('PDFGenerationService', () => {
       it('should reject empty or undefined colors', () => {
         expect(validateBrandColor('')).toBe('#334e68');
         expect(validateBrandColor(undefined)).toBe('#334e68');
-        expect(validateBrandColor(null as any)).toBe('#334e68');
+        expect(validateBrandColor(null as unknown as string)).toBe('#334e68');
       });
 
       it('should reject colors with extra characters', () => {
@@ -143,7 +143,7 @@ describe('PDFGenerationService', () => {
     });
 
     it('should handle missing matter type', () => {
-      const caseDraftWithoutMatter = { ...mockCaseDraft, matter_type: undefined as any };
+      const caseDraftWithoutMatter = { ...mockCaseDraft, matter_type: undefined as unknown as string };
       const filename = PDFGenerationService.generateFilename(caseDraftWithoutMatter, 'John Doe');
       expect(filename).toMatch(/^case-summary-unknown-john-doe-\d{4}-\d{2}-\d{2}\.pdf$/);
     });
@@ -177,7 +177,7 @@ describe('PDFGenerationService', () => {
     });
 
     it('should handle null case draft', () => {
-      const filename = PDFGenerationService.generateFilename(null as any, 'John Doe');
+      const filename = PDFGenerationService.generateFilename(null as unknown as typeof mockCaseDraft, 'John Doe');
       expect(filename).toMatch(/^case-summary-unknown-john-doe-\d{4}-\d{2}-\d{2}\.pdf$/);
     });
   });

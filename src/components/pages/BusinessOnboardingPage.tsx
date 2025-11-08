@@ -145,7 +145,7 @@ export const BusinessOnboardingPage = () => {
     };
 
     syncSubscription();
-  }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError, devForcePaid]);
+  }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError, devForcePaid, syncing]);
 
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { normalizeMattersResponse, MattersSidebarItem, MattersSidebarStatus } from '../useMattersSidebar';
+import { normalizeMattersResponse, MattersSidebarStatus } from '../useMattersSidebar';
 
 describe('normalizeMattersResponse', () => {
   let mockLogger: { warn: ReturnType<typeof vi.fn> };

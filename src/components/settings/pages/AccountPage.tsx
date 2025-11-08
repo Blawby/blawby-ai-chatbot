@@ -13,7 +13,6 @@ import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
 import {
   describeSubscriptionPlan,
-  normalizeSeats,
   hasManagedSubscription,
   hasActiveSubscriptionStatus,
   resolveOrganizationKind,
@@ -64,8 +63,8 @@ export const AccountPage = ({
     currentOrganization?.subscriptionStatus,
     currentOrganization?.isPersonal ?? null
   );
-  const activeSubscription = hasActiveSubscriptionStatus(resolvedSubscriptionStatus);
-  const planLabel = describeSubscriptionPlan(
+  const _activeSubscription = hasActiveSubscriptionStatus(resolvedSubscriptionStatus);
+  const _planLabel = describeSubscriptionPlan(
     currentOrganization?.kind,
     currentOrganization?.subscriptionStatus,
     currentOrganization?.subscriptionTier,

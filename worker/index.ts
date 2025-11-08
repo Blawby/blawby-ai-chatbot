@@ -32,7 +32,7 @@ import type { ScheduledEvent } from '@cloudflare/workers-types';
 // Basic request validation
 function validateRequest(request: Request): boolean {
   const url = new URL(request.url);
-  const path = url.pathname;
+  const _path = url.pathname;
   
   // Check for reasonable request size (10MB limit)
   const contentLength = request.headers.get('content-length');

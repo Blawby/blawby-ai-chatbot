@@ -1,7 +1,6 @@
 import { Select, type SelectOption } from '../../ui/input';
 import { FormLabel } from '../../ui/form';
 import { FormItem } from '../../ui/form';
-import { cn } from '../../../utils/cn';
 
 export interface DomainSelectorProps {
   label: string;

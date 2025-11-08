@@ -26,7 +26,7 @@ interface BusinessDetailsStepProps {
   onSkip?: () => void;
 }
 
-export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors, disabled = false, onSkip }: BusinessDetailsStepProps) {
+export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors: _errors, disabled = false, onSkip }: BusinessDetailsStepProps) {
   const { t } = useTranslation();
 
   return (

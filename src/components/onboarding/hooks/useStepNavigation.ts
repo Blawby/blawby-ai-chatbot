@@ -134,7 +134,7 @@ export const useStepNavigation = (
         setCurrentStepIndex(stepIndex);
       }
     }
-  }, [currentStepIndex, currentStep, onStepChange]);
+  }, [currentStepIndex, onStepChange]);
 
   const canGoNext = currentStepIndex < totalSteps - 1;
   const canGoBack = currentStepIndex > 0;

@@ -113,11 +113,11 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
         if (!body || typeof body !== 'object') {
           throw new Error('Invalid JSON body');
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         throw HttpErrors.badRequest('Invalid JSON body');
       }
 
-      const { sessionId, organizationId, matterType } = body as {
+      const { sessionId, organizationId, matterType: _matterType } = body as {
         sessionId: string;
         organizationId: string;
         matterType?: string;

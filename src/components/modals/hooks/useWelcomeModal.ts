@@ -60,7 +60,7 @@ export function useWelcomeModal(): UseWelcomeModalResult {
     } else {
       setShouldShow(false);
     }
-  }, [session?.user, sessionIsPending]);
+  }, [session, session?.user, sessionIsPending]);
 
   const markAsShown = useCallback(async () => {
     if (!session?.user?.id) {

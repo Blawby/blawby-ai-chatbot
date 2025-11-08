@@ -307,7 +307,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
 
       setInputValue('');
     }
-  }, [delimiters, delimiterRegex, normalizeTagValue, value, onChange, maxTags, allowDuplicates, validateTag, announceTagChange]);
+  }, [delimiterRegex, normalizeTagValue, value, onChange, maxTags, allowDuplicates, validateTag, announceTagChange]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (disabled || isComposing) return;

@@ -187,10 +187,9 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
   - Validates membership and updates `sessions.active_organization_id`.
   - Returns `{ success: true }` and relies on client session revalidation.
 - [x] Implement `setActiveOrganization(organizationId)` in `authClient` to call the endpoint and notify session store.
-- [ ] Create `OrganizationSwitcher` dropdown that uses `setActiveOrganization`.
+- [x] Create `OrganizationSwitcher` dropdown that uses `setActiveOrganization`.
 - [x] Ensure per-org chat sessions persist as they do today (no change in storage shape).
-  
-  > TODO: OrganizationSwitcher UI implementation is pending and will be completed in Phase 1 wrap-up.
+
 
 **Acceptance Criteria:**
 - Users can switch between their orgs via `setActiveOrganization`.

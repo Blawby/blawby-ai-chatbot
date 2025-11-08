@@ -247,6 +247,11 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
             setOrganizationNotFound(true);
           }
         } catch (parseError) {
+          // If the request was aborted while parsing, allow retry by removing fetched marker and exit quietly
+          if (parseError instanceof Error && parseError.name === 'AbortError') {
+            fetchedOrganizationIds.current.delete(currentOrganizationId);
+            return;
+          }
           // Remove from fetched set so it can be retried
           fetchedOrganizationIds.current.delete(currentOrganizationId);
           console.error('Failed to parse organizations response:', parseError);
@@ -266,7 +271,8 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        // Request was aborted, don't update state
+        // Request was aborted; remove fetched marker so a new attempt can proceed
+        fetchedOrganizationIds.current.delete(currentOrganizationId);
         return;
       }
       // Remove from fetched set so it can be retried

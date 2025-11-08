@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ScopedOrganizationService } from '../../../worker/services/ScopedOrganizationService.js';
 import type { Env } from '../../../worker/types.js';
+import type { D1Database, Ai, KVNamespace, Queue } from '@cloudflare/workers-types';
 
 // Mock environment
 const mockEnv: Env = {
@@ -11,12 +12,12 @@ const mockEnv: Env = {
         first: vi.fn().mockResolvedValue(null)
       })
     })
-  } as any,
-  AI: {} as any,
-  CHAT_SESSIONS: {} as any,
+  } as unknown as D1Database,
+  AI: {} as unknown as Ai,
+  CHAT_SESSIONS: {} as unknown as KVNamespace,
   RESEND_API_KEY: 'test-key',
-  DOC_EVENTS: {} as any,
-  PARALEGAL_TASKS: {} as any,
+  DOC_EVENTS: {} as unknown as Queue,
+  PARALEGAL_TASKS: {} as unknown as Queue,
 } as Env;
 
 // Mock services

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'preact/hooks';
 import { features } from '../config/features';
 import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
@@ -80,7 +80,7 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
       controller.abort();
       clearInterval(interval);
     };
-  }, [visible, fetchProgress, features.enableParalegalAgent]);
+  }, [visible, fetchProgress]);
 
   // Don't render if paralegal agent is disabled
   if (!features.enableParalegalAgent || !visible) {

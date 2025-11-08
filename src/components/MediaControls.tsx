@@ -24,7 +24,7 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 	useEffect(() => {
 		if (!features.enableAudioRecording) return;
 		onRecordingStateChange?.(isRecording);
-	}, [isRecording, onRecordingStateChange, features.enableAudioRecording]);
+	}, [isRecording, onRecordingStateChange]);
 
 	const stopMediaStream = () => {
 		if (mediaStreamRef.current) {

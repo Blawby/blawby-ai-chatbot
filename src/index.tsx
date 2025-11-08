@@ -63,7 +63,7 @@ function MainApp({
 	// Removed legacy business setup modal flow (replaced by /business-onboarding route)
 	
 	// Mobile state - initialized as false to avoid SSR/client hydration mismatch
-	const [isMobile, setIsMobile] = useState(false);
+	const [_isMobile, setIsMobile] = useState(false);
 	
 	// Use session from Better Auth
 	const { data: session, isPending: sessionIsPending } = useSession();
@@ -77,7 +77,7 @@ function MainApp({
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug, activeOrganizationId } = useSessionContext();
+	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug: _activeOrganizationSlug, activeOrganizationId } = useSessionContext();
 	const { currentOrganization, refetch: refetchOrganizations, acceptMatter, rejectMatter, updateMatterStatus } = useOrganizationManagement();
 	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
 
@@ -214,7 +214,7 @@ function MainApp({
 			const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
             const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
             const userWithOnboarding = user as typeof user & { onboardingCompleted?: boolean };
-			const hasCompletedOnboarding = userWithOnboarding.onboardingCompleted === true;
+			const _hasCompletedOnboarding = userWithOnboarding.onboardingCompleted === true;
 			
 			// Legacy localStorage sync removed; welcome modal now uses server truth
 			// If user hasn't completed onboarding and we haven't checked yet

@@ -91,7 +91,7 @@ export class StatusService {
     const prefix = `${StatusService.STATUS_PREFIX}`;
     const list = await env.CHAT_SESSIONS.list({ prefix });
     
-    const statuses: StatusUpdate[] = [];
+    const _statuses: StatusUpdate[] = [];
     
     // Get all values in parallel for better performance
     const getPromises = list.keys.map(async (keyEntry) => {

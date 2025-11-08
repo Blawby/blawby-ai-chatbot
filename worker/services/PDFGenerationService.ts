@@ -26,7 +26,7 @@ interface PDFGenerationOptions {
 }
 
 export class PDFGenerationService {
-  public static initialize(env: Env) {
+  public static initialize(_env: Env) {
     Logger.info(`[PDFGenerationService] Initialized - using local pdf-lib for PDF generation`);
   }
 
@@ -397,7 +397,7 @@ export class PDFGenerationService {
    * Convert HTML to PDF using pdf-lib
    * This creates a real PDF document with proper formatting
    */
-  private static async convertHTMLToPDF(html: string, options: PDFGenerationOptions, env: Env): Promise<ArrayBuffer> {
+  private static async convertHTMLToPDF(html: string, options: PDFGenerationOptions, _env: Env): Promise<ArrayBuffer> {
     try {
       // Import pdf-lib dynamically for Cloudflare Workers compatibility
       const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
@@ -556,7 +556,7 @@ export class PDFGenerationService {
       // Add documents section
       if (content.documents && Array.isArray(content.documents) && content.documents.length > 0) {
         addSectionHeader('AVAILABLE DOCUMENTS');
-        content.documents.forEach((doc: { document_type: string; description?: string }, index: number) => {
+        content.documents.forEach((doc: { document_type: string; description?: string }, _index: number) => {
           const docText = doc.description ? `${doc.document_type}: ${doc.description}` : doc.document_type;
           addText(`• ${docText}`, font, fontSize, rgb(0, 0, 0), width - 100);
         });
@@ -566,7 +566,7 @@ export class PDFGenerationService {
       // Add evidence section
       if (content.evidence && Array.isArray(content.evidence) && content.evidence.length > 0) {
         addSectionHeader('EVIDENCE');
-        (content.evidence as string[]).forEach((ev: string, index: number) => {
+        (content.evidence as string[]).forEach((ev: string, _index: number) => {
           addText(`• ${ev}`, font, fontSize, rgb(0, 0, 0), width - 100);
         });
         yPosition -= 20;

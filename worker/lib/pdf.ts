@@ -159,35 +159,35 @@ function extractKeyLegalInfo(text: string): string {
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
   
   // Look for common legal document patterns
-  const keySections: string[] = [];
+  const _keySections: string[] = [];
   
   // Extract names (common patterns)
-  const namePatterns = [
+  const _namePatterns = [
     /(?:name|full name|client|tenant|landlord|defendant|plaintiff):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi,
     /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+(?:LLC|Inc|Corp|Company|Associates)/gi,
     /(?:Mr\.|Ms\.|Mrs\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi
   ];
   
   // Extract dates
-  const datePatterns = [
+  const _datePatterns = [
     /(?:date|signed|effective|expires?):\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/gi,
     /(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/gi
   ];
   
   // Extract amounts
-  const amountPatterns = [
+  const _amountPatterns = [
     /\$[\d,]+(?:\.\d{2})?/g,
     /(?:amount|payment|value):\s*\$[\d,]+(?:\.\d{2})?/gi
   ];
   
   // Extract addresses
-  const addressPatterns = [
+  const _addressPatterns = [
     /(?:address|location):\s*([^,\n]+(?:,\s*[A-Z]{2}\s+\d{5})?)/gi,
     /([^,\n]+(?:,\s*[A-Z]{2}\s+\d{5})?)/gi
   ];
   
   // Extract document types
-  const docTypePatterns = [
+  const _docTypePatterns = [
     /(?:contract|agreement|lease|deed|will|trust|petition|complaint|motion|order)/gi,
     /(?:form|application|notice|letter|resume|invoice|receipt)/gi
   ];

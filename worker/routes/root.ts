@@ -1,7 +1,6 @@
 import type { Env } from '../types';
-import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
 
-export async function handleRoot(request: Request, env: Env): Promise<Response> {
+export async function handleRoot(_request: Request, _env: Env): Promise<Response> {
   return new Response(`
 <!DOCTYPE html>
 <html>

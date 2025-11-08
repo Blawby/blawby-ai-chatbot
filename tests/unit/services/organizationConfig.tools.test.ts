@@ -31,7 +31,7 @@ describe('organizationConfigSchema tools and agentMember', () => {
       tools: {
         x: { enabled: true, quotaMetric: 'invalid', requiredRole: 'invalid', allowAnonymous: true },
       },
-    } as any;
+    } as unknown as { tools: Record<string, { enabled: boolean; quotaMetric: string; requiredRole: string; allowAnonymous: boolean }> };
 
     expect(() => organizationConfigSchema.parse(bad)).toThrowError();
   });

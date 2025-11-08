@@ -1,4 +1,5 @@
-import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
+// Phone validation functions imported but not used in current implementation
+// import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 import { validateLocation as validateLocationUtil } from '../utils/locationValidator';
 
 export interface ValidationResult {
@@ -90,7 +91,7 @@ export class ValidationService {
       }
       
       return { isValid: true };
-    } catch (error) {
+    } catch (_error) {
       return { isValid: false, error: 'Phone validation error' };
     }
   }

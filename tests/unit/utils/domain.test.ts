@@ -26,8 +26,8 @@ describe('domain utilities', () => {
     it('should return localhost for invalid input', () => {
       expect(normalizeDomain('')).toBe('localhost');
       expect(normalizeDomain('   ')).toBe('localhost');
-      expect(normalizeDomain(null as any)).toBe('localhost');
-      expect(normalizeDomain(undefined as any)).toBe('localhost');
+      expect(normalizeDomain(null as unknown as string)).toBe('localhost');
+      expect(normalizeDomain(undefined as unknown as string)).toBe('localhost');
     });
 
     it('should handle complex URLs', () => {
@@ -86,9 +86,9 @@ describe('domain utilities', () => {
     });
 
     it('should reject non-string input', () => {
-      expect(isValidCookieDomain(null as any)).toBe(false);
-      expect(isValidCookieDomain(undefined as any)).toBe(false);
-      expect(isValidCookieDomain(123 as any)).toBe(false);
+      expect(isValidCookieDomain(null as unknown as string)).toBe(false);
+      expect(isValidCookieDomain(undefined as unknown as string)).toBe(false);
+      expect(isValidCookieDomain(123 as unknown as string)).toBe(false);
     });
   });
 });

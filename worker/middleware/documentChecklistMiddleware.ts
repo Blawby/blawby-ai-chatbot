@@ -1,4 +1,4 @@
-import type { ConversationContext, DocumentChecklist } from './conversationContextManager.js';
+import type { ConversationContext } from './conversationContextManager.js';
 import type { Env, AgentMessage } from '../types.js';
 import type { SimpleMiddleware } from './pipeline.js';
 import { ConversationContextManager } from './conversationContextManager.js';
@@ -11,7 +11,7 @@ export const documentChecklistMiddleware: SimpleMiddleware = {
   kind: 'simple',
   name: 'documentChecklistMiddleware',
   
-  execute: async (messages: AgentMessage[], context: ConversationContext, env: Env) => {
+  execute: async (messages: AgentMessage[], context: ConversationContext, _env: Env) => {
     // Guard against empty messages array
     if (!messages || messages.length === 0) {
       return { context };

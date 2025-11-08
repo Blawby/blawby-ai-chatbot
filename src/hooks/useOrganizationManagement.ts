@@ -361,7 +361,7 @@ function normalizeMatterTransitionResult(raw: unknown): MatterTransitionResult {
   };
 }
 
-function generateIdempotencyKey(): string {
+function _generateIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -493,7 +493,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     return workspaceData[orgId]?.[resource] || [];
   }, [workspaceData]);
 
-  const ensurePersonalOrganization = useCallback(async () => {
+  const _ensurePersonalOrganization = useCallback(async () => {
     if (personalOrgEnsuredRef.current) {
       return;
     }
@@ -577,7 +577,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       setLoading(false);
       currentRequestRef.current = null;
     }
-  }, [apiCall, session, ensurePersonalOrganization]);
+  }, [apiCall, session]);
 
   // Fetch pending invitations
   const fetchInvitations = useCallback(async () => {

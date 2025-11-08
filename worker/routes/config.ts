@@ -2,7 +2,7 @@ import type { Env } from '../types';
 import { createSuccessResponse } from '../errorHandler';
 
 export async function handleConfig(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
+  const _url = new URL(request.url);
   
   if (request.method !== 'GET') {
     return new Response('Method not allowed', { status: 405 });
