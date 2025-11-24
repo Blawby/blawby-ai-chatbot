@@ -1,20 +1,29 @@
 import { signOut as betterAuthSignOut } from '../lib/authClient';
+import { clearToken } from '../lib/tokenStorage';
 
 /**
  * Centralized sign out utility that handles:
  * 1. Better Auth sign out (revokes session)
- * 2. Remove auth-related localStorage hints (without touching unrelated app data)
- * 3. Optional callback for custom behavior
+ * 2. Clear bearer token from IndexedDB
+ * 3. Remove auth-related localStorage hints (without touching unrelated app data)
+ * 4. Optional callback for custom behavior
  */
 export async function signOut(options?: {
   skipReload?: boolean;
   onSuccess?: () => void;
 }): Promise<void> {
   try {
-    // 1. Sign out from Better Auth (revokes server session)
+    // 1. Sign out from Better Auth (uses Better Auth method only)
     await betterAuthSignOut();
     
-    // 2. Remove auth-related client state
+    // 2. Clear bearer token from IndexedDB
+    try {
+      await clearToken();
+    } catch (error) {
+      console.warn('Failed to clear bearer token from IndexedDB:', error);
+    }
+    
+    // 3. Remove other auth-related localStorage (non-token data)
     try {
       const authKeys = [
         'onboardingCompleted',
@@ -28,7 +37,7 @@ export async function signOut(options?: {
         localStorage.removeItem(key);
       }
 
-      // Clean any Better Auth specific markers we may have stored locally
+      // Clean any Better Auth specific markers
       const betterAuthKeys = Object.keys(localStorage).filter((key) =>
         key.startsWith('better-auth') || key.startsWith('__better-auth')
       );
@@ -39,12 +48,12 @@ export async function signOut(options?: {
       console.warn('Failed to clear auth-related localStorage entries:', error);
     }
     
-    // 3. Run success callback if provided
+    // 4. Run success callback if provided
     if (options?.onSuccess) {
       options.onSuccess();
     }
     
-    // 4. Reload page to reset app state (unless explicitly skipped)
+    // 5. Reload page to reset app state (unless explicitly skipped)
     if (!options?.skipReload) {
       window.location.href = '/';
     }
