@@ -1,29 +1,49 @@
 import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { setToken, getTokenAsync } from './tokenStorage';
+import { isDevelopment } from '../utils/environment';
 
 // Remote better-auth server URL
-// Use environment variable for flexibility
-const AUTH_BASE_URL = import.meta.env.VITE_AUTH_SERVER_URL || "https://adapted-humbly-lynx.ngrok-free.app";
+// REQUIRED in production - must be set via VITE_AUTH_SERVER_URL environment variable
+const AUTH_BASE_URL = import.meta.env.VITE_AUTH_SERVER_URL;
+
+// Fail fast in production if AUTH_SERVER_URL is not configured
+if (!AUTH_BASE_URL && import.meta.env.MODE === 'production') {
+  throw new Error(
+    'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable to your Better Auth server URL.'
+  );
+}
+
+// Fallback to ngrok URL only in development (for local testing)
+const FALLBACK_AUTH_URL = "https://adapted-humbly-lynx.ngrok-free.app";
+const finalAuthUrl = AUTH_BASE_URL || (isDevelopment() ? FALLBACK_AUTH_URL : null);
+
+if (!finalAuthUrl) {
+  throw new Error('VITE_AUTH_SERVER_URL must be configured');
+}
 
 export const authClient = createAuthClient({
   plugins: [organizationClient()],
-  baseURL: AUTH_BASE_URL,
+  baseURL: finalAuthUrl,
   fetchOptions: {
     auth: {
       type: "Bearer",
       token: async () => {
         // Wait for token to be available from IndexedDB on first call
         const token = await getTokenAsync();
-        console.log("token", token);
+        if (isDevelopment()) {
+          console.debug('[Auth] Token retrieved:', token ? '***' : 'null');
+        }
         return token || "";
       }
     },
     onSuccess: async (ctx) => {
-      console.log("onSuccess", ctx);
       const authToken = ctx.response.headers.get("Set-Auth-Token");
       if (authToken) {
         await setToken(authToken);
+        if (isDevelopment()) {
+          console.debug('[Auth] Token saved from response header');
+        }
       }
     }
   }

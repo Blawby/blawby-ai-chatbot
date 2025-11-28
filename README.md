@@ -116,6 +116,8 @@ npm run lint:i18n          # Validate locale files stay in sync
 ## 🔧 **Configuration**
 
 ### Environment Variables
+
+#### Worker Secrets (`.dev.vars`)
 Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
 - `BLAWBY_API_TOKEN` - Blawby services API key
 - `LAWYER_SEARCH_API_KEY` - Lawyer search API key
@@ -123,6 +125,16 @@ Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
 - `RESEND_API_KEY` - Email notifications API key
 
 **Note:** Wrangler automatically loads `.dev.vars` during local development - no additional setup required.
+
+#### Frontend Environment Variables
+Create a `.env` file in the project root for frontend environment variables:
+
+- `VITE_AUTH_SERVER_URL` - **Required in production** - URL of your Better Auth server
+  - Example: `https://auth.yourdomain.com` or `http://localhost:8787` for local development
+  - In development, this is optional and will fall back to a default ngrok URL for testing
+  - In production, the application will fail to start if this is not set
+
+**Note:** Frontend environment variables (prefixed with `VITE_`) are different from Worker secrets. They are bundled into the frontend code at build time and should be set in your deployment environment (e.g., Cloudflare Pages environment variables).
 
 ### Internationalization
 

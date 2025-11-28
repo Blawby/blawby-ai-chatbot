@@ -2,7 +2,17 @@ const DB_NAME = 'blawby_auth';
 const STORE_NAME = 'tokens';
 const TOKEN_KEY = 'bearer_token';
 
+// Legacy localStorage keys that might contain tokens (for migration)
+const LEGACY_TOKEN_KEYS = [
+  'bearer_token',
+  'auth_token',
+  'access_token',
+  'better_auth_token',
+  '__better-auth_token',
+];
+
 let dbPromise: Promise<IDBDatabase> | null = null;
+let migrationCompleted = false;
 
 function getDB(): Promise<IDBDatabase> {
     if (!dbPromise) {
@@ -23,8 +33,58 @@ function getDB(): Promise<IDBDatabase> {
     return dbPromise;
 }
 
+/**
+ * Migrate token from localStorage to IndexedDB (one-time migration)
+ * This ensures existing users don't lose their tokens when upgrading
+ */
+async function migrateTokenFromLocalStorage(): Promise<string | null> {
+    if (migrationCompleted || typeof window === 'undefined') {
+        return null;
+    }
+
+    try {
+        // Check each legacy key in localStorage
+        for (const key of LEGACY_TOKEN_KEYS) {
+            const legacyToken = localStorage.getItem(key);
+            if (legacyToken && legacyToken.trim()) {
+                // Found a token in localStorage, migrate it to IndexedDB
+                await setToken(legacyToken);
+                
+                // Remove from localStorage after successful migration
+                localStorage.removeItem(key);
+                
+                // Also clean up any other legacy keys to avoid confusion
+                LEGACY_TOKEN_KEYS.forEach(k => {
+                    if (k !== key) {
+                        localStorage.removeItem(k);
+                    }
+                });
+
+                migrationCompleted = true;
+                console.info('[TokenStorage] Migrated token from localStorage to IndexedDB');
+                return legacyToken;
+            }
+        }
+        
+        migrationCompleted = true;
+        return null;
+    } catch (error) {
+        console.warn('[TokenStorage] Failed to migrate token from localStorage:', error);
+        migrationCompleted = true;
+        return null;
+    }
+}
+
 export async function getToken(): Promise<string | null> {
     try {
+        // Attempt migration first (only runs once)
+        if (!migrationCompleted) {
+            const migratedToken = await migrateTokenFromLocalStorage();
+            if (migratedToken) {
+                return migratedToken;
+            }
+        }
+
         const db = await getDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readonly');
@@ -48,7 +108,12 @@ export async function setToken(token: string): Promise<void> {
             const store = transaction.objectStore(STORE_NAME);
             const request = store.put(token, TOKEN_KEY);
 
-            request.onsuccess = () => resolve();
+            request.onsuccess = () => {
+                // Update cache immediately when token is set
+                cachedToken = token;
+                cacheInitialized = true;
+                resolve();
+            };
             request.onerror = () => reject(request.error);
         });
     } catch (error) {
@@ -65,7 +130,12 @@ export async function clearToken(): Promise<void> {
             const store = transaction.objectStore(STORE_NAME);
             const request = store.delete(TOKEN_KEY);
 
-            request.onsuccess = () => resolve();
+            request.onsuccess = () => {
+                // Clear cache when token is deleted
+                cachedToken = null;
+                cacheInitialized = true;
+                resolve();
+            };
             request.onerror = () => reject(request.error);
         });
     } catch (error) {
