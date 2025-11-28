@@ -47,7 +47,23 @@ export async function requireFeature(
     await requireOrgMember(request, env, options.organizationId);
   }
 
-  const organization = await UsageService.getOrganizationMetadata(env, options.organizationId);
+  let organization: OrganizationUsageMetadata;
+  try {
+    organization = await UsageService.getOrganizationMetadata(env, options.organizationId, request);
+  } catch (error) {
+    // Handle errors from remote API (not found, API down, etc.)
+    if (error instanceof Error && 'status' in error) {
+      const httpError = error as { status: number; message: string };
+      if (httpError.status === 404) {
+        throw HttpErrors.notFound(`Organization not found: ${options.organizationId}`);
+      }
+      if (httpError.status >= 500) {
+        throw HttpErrors.serviceUnavailable('Organization service temporarily unavailable');
+      }
+    }
+    // Re-throw other errors
+    throw error;
+  }
 
   if (config.requireNonPersonal && organization.kind === 'personal') {
     throw HttpErrors.forbidden("This feature is unavailable for personal organizations");

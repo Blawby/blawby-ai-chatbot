@@ -650,4 +650,4 @@ const isAuthorized = membership.role === "owner";
 - Implements all quick wins: shared utils, URL hygiene, defensive defaults, toasts/ARIA.
 # Subscription Change & Cancel Plan
 
-> **Note:** The current Stripe architecture is documented in `docs/stripe-architecture.md`. This file remains as historical background on the original change plan.
+> **Note:** The Stripe architecture document has been archived to `docs/archive/stripe/stripe-architecture-archived.md` (Stripe functionality is now handled by remote API). This file remains as historical background on the original change plan.

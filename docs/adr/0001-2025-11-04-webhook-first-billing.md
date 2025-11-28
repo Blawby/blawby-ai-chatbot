@@ -18,6 +18,6 @@ Stripe is the source of billing truth. We need fast entitlement checks and consi
 - Removes need for bespoke "sync" flows and reduces metadata coupling.
 
 ## Links
-- Canonical: ../stripe-architecture.md
+- Canonical: ../archive/stripe/stripe-architecture-archived.md (⚠️ Archived - Stripe now handled by remote API)
 - Supersedes: ../archive/stripe/stripe-simplify-plan.md, ../archive/stripe/subscription-change-cancel-plan.md
 - Related: tests/integration/api/stripe.webhook.test.ts

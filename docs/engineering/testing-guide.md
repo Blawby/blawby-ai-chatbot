@@ -45,10 +45,10 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 
 **Personal Organization Validation**:
 After signup or authentication, tests must verify personal org metadata:
-- Call `/api/organizations/me` via `page.evaluate` to fetch organizations
+- Call remote API endpoint for organizations (organization management is handled by remote API)
 - Assert exactly one organization exists with `kind: 'personal'` and `subscriptionStatus: 'none'`
-- See `tests/e2e/auth.spec.ts` for examples
-- Use `tests/e2e/helpers/createTestUser.ts` for reusable test user creation
+- Note: Auth/organization management E2E tests removed (handled by remote API)
+- Use remote API test helpers for reusable test user creation
 
 **Examples**:
 ```typescript
@@ -82,15 +82,17 @@ test('user can sign up and create account', async ({ page }) => {
 
 **What to test**:
 - ✅ Quota enforcement middleware (feature guards)
-- ✅ Webhook handlers (Stripe events, external POST requests)
 - ✅ Internal service functions using D1/KV (not called via HTTP)
 - ✅ Background jobs or scheduled workers
 - ✅ Edge cases too slow to test in E2E
 - ✅ Database operations not covered by user workflows
+- ✅ Chatbot functionality (agent, sessions, files, analyze)
 
 **What NOT to test**:
 - ❌ HTTP endpoints with user workflows (use E2E tests)
-- ❌ Authentication flows (use E2E tests)
+- ❌ Authentication flows (handled by remote API)
+- ❌ Organization/subscription management (handled by remote API)
+- ❌ Stripe webhooks (handled by remote API)
 - ❌ Features already fully covered by E2E
 - ❌ Pure functions with no dependencies (use unit tests)
 

@@ -26,6 +26,9 @@ export interface Env {
   // Remote Auth Server Configuration
   AUTH_SERVER_URL?: string; // URL of remote Better Auth server (e.g., https://staging-api.blawby.com)
   
+  // Remote API Configuration
+  REMOTE_API_URL?: string; // URL of remote API server (e.g., https://staging-api.blawby.com)
+  
   // Legacy Better Auth Configuration (deprecated - kept for migration)
   BETTER_AUTH_SECRET?: string;
   BETTER_AUTH_URL?: string;
@@ -35,7 +38,8 @@ export interface Env {
   ENABLE_AUTH_IP_DETECTION?: string;
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
   
-  // Stripe Configuration
+  // Stripe Configuration (deprecated - managed by remote API)
+  // These are kept for backward compatibility but should not be used
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_CONNECT_WEBHOOK_SECRET?: string;

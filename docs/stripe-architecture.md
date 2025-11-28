@@ -1,8 +1,21 @@
 # Stripe Architecture Overview
 
+> **⚠️ ARCHIVED**: This document describes the previous local Stripe integration architecture. As of the frontend-only migration (2025-11-28), all Stripe functionality (webhooks, subscriptions, payments) is now handled by the remote API at `staging-api.blawby.com`. This document is kept for historical reference only.
+
+## Migration Status
+
+- **Date Archived**: 2025-11-28
+- **Reason**: Frontend-only migration - Stripe functionality moved to remote API
+- **Current Architecture**: All Stripe operations (webhooks, subscriptions, payments) are handled by `staging-api.blawby.com`
+- **Local Worker**: Only handles chatbot functionality (agent/stream, sessions, files, analyze)
+
+## Previous Architecture (Archived)
+
+The following sections describe the previous local implementation:
+
 ## 1. High-Level Objectives
 - Treat Stripe as the source of billing truth while persisting the subscription snapshot in D1 for fast entitlement checks.
-- Funnel every subscription change through webhooks so the Worker is eventually consistent without manual “sync” endpoints.
+- Funnel every subscription change through webhooks so the Worker is eventually consistent without manual "sync" endpoints.
 - Keep organization metadata (tier, seats, kind) authoritative in D1 so the UI can enforce entitlements without hitting Stripe.
 
 ## 2. Runtime Flow
@@ -17,46 +30,38 @@
 
 ## 3. Data Model
 
-### `subscriptions` table (D1)
-| Column | Purpose |
-|--------|---------|
-| `reference_id` | Organization id (foreign key). |
-| `stripe_subscription_id` | Links back to Stripe—used for webhook reconciliation. |
-| `plan` | Stripe price nickname/id (used for display). |
-| `status` | Normalized lifecycle (`active`, `trialing`, `paused`, etc.). |
-| `seats`, `period_start`, `period_end`, `cancel_at_period_end` | Used for entitlements and renewal UI. |
+### `subscriptions` table (D1) - REMOVED
+This table was removed during migration. Subscription data is now managed by the remote API.
 
 ### `organizations` table
 - `subscription_tier` becomes a display hint (free/business/enterprise). Note: Enterprise is future/disabled; only Free and Business tiers are currently live in the UI.
 - `kind` in the code is derived: `business` whenever `subscriptionStatus` indicates an active/pending paid plan.
 - `is_personal` is enforced: webhook transitions flip it to `0` for paid plans so entitlement guards lock/unlock features.
 
-## 4. API Surface
+## 4. API Surface - ALL REMOVED
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/stripe/webhook` | Primary integration point. Only responsibility is to persist D1 state. |
-| `POST /api/subscription/sync` | Admin-only reconciliation refreshing an existing subscription id. Returns a snapshot of the D1 record. |
-| `POST /api/subscription/cancel` | Calls Stripe’s cancel API and immediately updates local state through `SubscriptionService`. |
-| Billing portal / Checkout | Still emitted via Better Auth plugin, but entitlement checks rely on the D1 snapshot. |
+All Stripe-related endpoints have been removed:
+- `POST /api/stripe/webhook` - Removed (handled by remote API)
+- `POST /api/subscription/sync` - Removed (handled by remote API)
+- `POST /api/subscription/cancel` - Removed (handled by remote API)
+- Billing portal / Checkout - Handled by remote API
 
 ## 5. Frontend Consumption
 
-Hook/utility | Behavior
--------------|---------
-`useOrganizationManagement` | Normalizes each organization with `kind`, `isPersonal`, and `subscriptionStatus` so downstream components can enforce entitlements.
-`subscription` utilities (`describeSubscriptionPlan`, `hasManagedSubscription`, etc.) | Shared helpers used by cart, account page, onboarding, and notifications to display status-aware messaging.
-`usePaymentUpgrade` | Sends users to billing portal when `hasManagedSubscription` is true; otherwise goes to checkout. Handles Better Auth error codes and entitlements consistently.
+Frontend now calls remote API endpoints for all Stripe/subscription operations:
+- `usePaymentUpgrade` - Calls remote API for checkout/billing portal
+- `useOrganizationManagement` - Fetches subscription status from remote API
+- Subscription utilities - Read from remote API responses
 
 ## 6. Operational Notes
 
-- Required secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ENABLE_STRIPE_SUBSCRIPTIONS`.
-- Testing: worker integration tests mock Stripe SDK and hit webhook/reconciliation endpoints (`tests/integration/api/stripe.webhook.test.ts`, `tests/integration/api/subscription.sync.test.ts`). E2E Playwright tests cover upgrade flows via cart, account, onboarding.
-- Observability: Stripe webhook handler logs signature failures, missing organization resolution, and D1 persistence errors with actionable context.
+- **Current**: All Stripe operations handled by remote API at `staging-api.blawby.com`
+- **Testing**: Stripe-related tests removed (handled by remote API)
+- **Observability**: Stripe webhook handling and logging now in remote API
 
-## 7. Known Limitations / Next Steps
+## 7. Migration Notes
 
-1. Expand webhook tests to cover edge states (`paused`, `past_due`, `resumed`).
-2. Improve logging/metrics for webhook retries (e.g., push to a central logging system or expose counters).
-3. Document the reconciliation command for support engineers (CLI/admin UI) if Stripe & D1 drift.
-4. Audit legacy copy/badges to ensure all plan status messaging uses the shared helpers.
+For developers working on the codebase:
+- Payment processing in `worker/agents/legal-intake/index.ts` has TODO comments for remote API integration
+- Organization subscription status is fetched via `RemoteApiService.getSubscriptionStatus()`
+- Feature guards use `RemoteApiService.getOrganizationMetadata()` to check entitlements

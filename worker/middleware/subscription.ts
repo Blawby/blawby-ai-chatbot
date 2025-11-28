@@ -1,9 +1,6 @@
-import type { Env, StripeSubscriptionCache } from "../types.js";
+import type { Env } from "../types.js";
 import { HttpErrors } from "../errorHandler.js";
-import {
-  getStripeSubscriptionCache,
-  refreshStripeSubscriptionById,
-} from "../services/SubscriptionService.js";
+import { RemoteApiService } from "../services/RemoteApiService.js";
 
 export interface SubscriptionGuardOptions {
   organizationId: string;
@@ -12,42 +9,32 @@ export interface SubscriptionGuardOptions {
 }
 
 export interface SubscriptionGuardResult {
-  subscription: StripeSubscriptionCache;
+  subscriptionStatus: string;
   isActive: boolean;
   isTrialing: boolean;
 }
 
 export async function ensureActiveSubscription(
   env: Env,
-  options: SubscriptionGuardOptions
+  options: SubscriptionGuardOptions,
+  request?: Request
 ): Promise<SubscriptionGuardResult> {
-  const { organizationId, subscriptionId, refreshIfMissing = true } = options;
+  const { organizationId } = options;
 
-  let cache = await getStripeSubscriptionCache(env, organizationId);
+  // Fetch subscription status from remote API
+  const subscriptionStatus = await RemoteApiService.getSubscriptionStatus(env, organizationId, request);
 
-  if (!cache && refreshIfMissing && subscriptionId) {
-    cache = await refreshStripeSubscriptionById({
-      env,
-      organizationId,
-      subscriptionId,
-    });
-  }
-
-  if (!cache) {
-    throw HttpErrors.paymentRequired("Subscription required for this feature");
-  }
-
-  const isActive = cache.status === "active";
-  const isTrialing = cache.status === "trialing";
+  const isActive = subscriptionStatus === "active";
+  const isTrialing = subscriptionStatus === "trialing";
 
   if (!isActive && !isTrialing) {
     throw HttpErrors.paymentRequired(
-      `Subscription is ${cache.status}. Please update billing to continue.`
+      `Subscription is ${subscriptionStatus}. Please update billing to continue.`
     );
   }
 
   return {
-    subscription: cache,
+    subscriptionStatus,
     isActive,
     isTrialing,
   };

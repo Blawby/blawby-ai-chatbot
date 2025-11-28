@@ -5,21 +5,15 @@ import {
   handleRoot,
   handleAgentStream,
   handleForms,
-  handleOrganizations,
   handleSessions,
   handleActivity,
   handleFiles,
   handleAnalyze,
   handleReview,
-  handleSubscription,
-  handleOnboarding,
-  handlePayment,
   handlePDF,
   handleDebug,
   handleConfig,
   handleUsage,
-  handleStripeWebhook,
-  handleUsers
 } from './routes';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
@@ -80,12 +74,16 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       console.log('✅ Matched agent route');
       response = await handleAgentStream(request, env);
     } else if (path.startsWith('/api/organizations')) {
-      response = await handleOrganizations(request, env);
+      // Organization management is handled by remote API
+      // Only workspace endpoints (for chatbot data) remain local
+      response = new Response(JSON.stringify({ error: 'Organization management endpoints are handled by remote API. Use /api/organizations/:id/workspace/* for chatbot data.' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path.startsWith('/api/forms')) {
       response = await handleForms(request, env);
     } else if (path.startsWith('/api/auth')) {
       // Auth requests are handled by remote auth server
-      // Return 404 to indicate this endpoint is not available on this worker
       response = new Response(JSON.stringify({ error: 'Auth endpoints are handled by remote auth server' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
@@ -101,15 +99,35 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
     } else if (path.startsWith('/api/review')) {
       response = await handleReview(request, env);
     } else if (path === '/api/stripe/webhook') {
-      response = await handleStripeWebhook(request, env);
+      // Stripe webhooks are handled by remote API
+      response = new Response(JSON.stringify({ error: 'Stripe webhook endpoints are handled by remote API' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path.startsWith('/api/subscription')) {
-      response = await handleSubscription(request, env);
+      // Subscription management is handled by remote API
+      response = new Response(JSON.stringify({ error: 'Subscription management endpoints are handled by remote API' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path.startsWith('/api/onboarding')) {
-      response = await handleOnboarding(request, env);
+      // Onboarding is handled by remote API
+      response = new Response(JSON.stringify({ error: 'Onboarding endpoints are handled by remote API' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path.startsWith('/api/payment')) {
-      response = await handlePayment(request, env);
+      // Payment management is handled by remote API
+      response = new Response(JSON.stringify({ error: 'Payment endpoints are handled by remote API' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path.startsWith('/api/users')) {
-      response = await handleUsers(request, env);
+      // User management is handled by remote API
+      response = new Response(JSON.stringify({ error: 'User management endpoints are handled by remote API' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path.startsWith('/api/pdf')) {
       response = await handlePDF(request, env);
     } else if (path.startsWith('/api/debug') || path.startsWith('/api/test')) {

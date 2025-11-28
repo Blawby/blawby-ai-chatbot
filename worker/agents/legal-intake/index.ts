@@ -7,7 +7,7 @@ import { withAIRetry } from '../../utils/retry.js';
 import { ToolUsageMonitor } from '../../utils/toolUsageMonitor.js';
 import { safeIncludes } from '../../utils/safeStringUtils.js';
 import { ValidationService } from '../../services/ValidationService.js';
-import { PaymentServiceFactory } from '../../services/PaymentServiceFactory.js';
+// PaymentServiceFactory removed - payment processing is now handled by remote API
 import { ContactIntakeOrchestrator } from '../../services/ContactIntakeOrchestrator.js';
 import { createValidationError, createSuccessResponse } from '../../utils/responseUtils.js';
 import { chunkResponseText } from '../../utils/streaming.js';
@@ -1807,33 +1807,39 @@ async function handleCreateMatter(
 
   const finalUrgency = urgency || 'unknown';
   
-  // Process payment
-  const paymentRequest = {
-    customerInfo: {
-      name: name as string,
-      email: (email as string) || '',
-      phone: (phone as string) || '',
-      location: (location as string) || ''
-    },
-    matterInfo: {
-      type: matter_type as string,
-      description: description as string,
-      urgency: finalUrgency,
-      opposingParty: (opposing_party as string) || ''
-    },
-    organizationId: organization?.id || env.BLAWBY_ORGANIZATION_ULID,
-    sessionId: sessionId || 'session-' + Date.now()
-  };
+  // TODO: Payment processing is now handled by remote API at staging-api.blawby.com
+  // Need to implement remote API call for payment processing
+  // For now, skip payment processing and continue with matter creation
+  let invoiceUrl: string | undefined;
+  let paymentId: string | undefined;
 
-  if (!paymentRequest.organizationId) {
-    throw new Error('Organization ID not configured - cannot process payment');
-  }
-
-  const { invoiceUrl, paymentId } = await PaymentServiceFactory.processPayment(
-    env, 
-    paymentRequest, 
-    organization
-  );
+  // Placeholder for future implementation:
+  // const paymentRequest = {
+  //   customerInfo: {
+  //     name: name as string,
+  //     email: (email as string) || '',
+  //     phone: (phone as string) || '',
+  //     location: (location as string) || ''
+  //   },
+  //   matterInfo: {
+  //     type: matter_type as string,
+  //     description: description as string,
+  //     urgency: finalUrgency,
+  //     opposingParty: (opposing_party as string) || ''
+  //   },
+  //   organizationId: organization?.id || env.BLAWBY_ORGANIZATION_ULID,
+  //   sessionId: sessionId || 'session-' + Date.now()
+  // };
+  // if (paymentRequest.organizationId) {
+  //   const response = await fetch(`${env.REMOTE_API_URL}/api/payment/process`, {
+  //     method: 'POST',
+  //     headers: { 'Authorization': request.headers.get('Authorization') || '', 'Content-Type': 'application/json' },
+  //     body: JSON.stringify(paymentRequest)
+  //   });
+  //   const result = await response.json();
+  //   invoiceUrl = result.invoiceUrl;
+  //   paymentId = result.paymentId;
+  // }
 
   const orchestrationResult = await ContactIntakeOrchestrator.finalizeSubmission({
     env,
@@ -2046,8 +2052,6 @@ async function handleCreatePaymentInvoice(
   env: Env,
   organization?: Organization | null
 ): Promise<ToolResult> {
-  const sessionId = crypto.randomUUID();
-
   if (!organization?.id) {
     return {
       success: false,
@@ -2058,74 +2062,19 @@ async function handleCreatePaymentInvoice(
     };
   }
 
-  const { invoice_id, amount, currency, recipient, description, due_date } = parameters as {
-    invoice_id?: string;
-    amount?: number;
-    currency?: string;
-    recipient?: { name: string; email: string };
-    description?: string;
-    due_date?: string;
-  };
-
-  try {
-    const paymentService = PaymentServiceFactory.createPaymentService(env);
-
-    const paymentRequest = {
-      customerInfo: {
-        name: recipient?.name || '',
-        email: recipient?.email || '',
-        phone: '',
-        location: ''
-      },
-      matterInfo: {
-        type: 'consultation',
-        description: description as string,
-        urgency: 'normal',
-        opposingParty: ''
-      },
-      organizationId: organization.id,
-      sessionId,
-      invoiceId: invoice_id as string,
-      currency: currency as string,
-      dueDate: due_date as string
-    };
-
-    const result = await paymentService.createInvoice(paymentRequest);
-
-    if (result.success) {
-      return {
-        success: true,
-        data: {
-          action: 'show_payment',
-          message: `I've created a payment invoice for your consultation. Please complete the payment to proceed.`,
-          payment: {
-            invoiceUrl: result.invoiceUrl!,
-            paymentId: result.paymentId!,
-            amount,
-            serviceType: 'consultation',
-            sessionId
-          }
-        }
-      };
-    } else {
-      return {
-        success: false,
-        error: {
-          message: result.error || 'Failed to create payment invoice',
-          toUserResponse: () => 'Payment service unavailable. Please try again later.'
-        }
-      };
+  // TODO: Invoice creation is now handled by remote API at staging-api.blawby.com
+  // Need to implement remote API call for invoice creation
+  // Tracking: Payment invoice creation via remote API integration
+  // Parameters will be used when remote API integration is implemented:
+  // - invoice_id, amount, currency, recipient, description, due_date, sessionId
+  // For now, return error to indicate invoice functionality needs to be implemented
+  return {
+    success: false,
+    error: {
+      message: 'Invoice creation is not yet implemented via remote API. Please contact support.',
+      toUserResponse: () => 'Payment service is temporarily unavailable. Please contact support for assistance.'
     }
-  } catch (error) {
-    Logger.error('❌ Payment invoice creation failed:', error);
-    return {
-      success: false,
-      error: {
-        message: error instanceof Error ? error.message : String(error),
-        toUserResponse: () => 'Payment service unavailable. Please try again later.'
-      }
-    };
-  }
+  };
 }
 
 async function handleShowContactForm(

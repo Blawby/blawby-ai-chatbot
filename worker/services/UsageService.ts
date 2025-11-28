@@ -1,6 +1,7 @@
 import type { Env, OrganizationKind, SubscriptionLifecycleStatus } from "../types.js";
 import { normalizeSubscriptionStatus } from "../utils/subscription";
 import { TIER_LIMITS, PUBLIC_ORGANIZATION_LIMITS, type TierName } from "../config/tiers.js";
+import { RemoteApiService } from "./RemoteApiService.js";
 
 type UsageMetric = "messages" | "files";
 
@@ -423,52 +424,15 @@ export class UsageService {
     return { ...limits, tier };
   }
 
-  static async getOrganizationMetadata(env: Env, organizationId: string): Promise<OrganizationUsageMetadata> {
-    return this.fetchOrganizationInfo(env, organizationId);
+  static async getOrganizationMetadata(env: Env, organizationId: string, request?: Request): Promise<OrganizationUsageMetadata> {
+    // Fetch organization metadata from remote API
+    return await RemoteApiService.getOrganizationMetadata(env, organizationId, request);
   }
 
   private static async fetchOrganizationInfo(env: Env, organizationId: string): Promise<OrganizationUsageMetadata> {
-    const row = await env.DB.prepare(
-      `
-        SELECT 
-          o.id,
-          o.slug,
-          o.subscription_tier,
-          o.is_personal,
-          (
-            SELECT s.status
-              FROM subscriptions s
-             WHERE s.reference_id = o.id
-             ORDER BY s.updated_at DESC
-             LIMIT 1
-          ) AS subscription_status
-        FROM organizations o
-        WHERE o.id = ?
-        LIMIT 1
-      `
-    )
-      .bind(organizationId)
-      .first<Record<string, unknown>>();
-
-    if (!row) {
-      return {
-        id: organizationId,
-        slug: null,
-        tier: DEFAULT_TIER,
-        kind: 'business',
-        subscriptionStatus: 'none',
-      };
-    }
-
-    const tier = (row.subscription_tier as string | null)?.toLowerCase() as TierName | null;
-
-    return {
-      id: String(row.id),
-      slug: row.slug ? String(row.slug) : null,
-      tier: (tier && TIER_LIMITS[tier] ? tier : DEFAULT_TIER),
-      kind: row.is_personal ? 'personal' as OrganizationKind : 'business',
-      subscriptionStatus: normalizeSubscriptionStatus(row.subscription_status),
-    };
+    // This method is deprecated - use RemoteApiService instead
+    // Keeping for backward compatibility during migration
+    return await RemoteApiService.getOrganizationMetadata(env, organizationId);
   }
 
   private static async persistToKV(env: Env, snapshot: UsageSnapshot): Promise<void> {

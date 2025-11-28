@@ -637,12 +637,14 @@ export function App() {
   );
 }
 
-// Component that loads organization config before rendering the app shell
+// Component that loads organization config when authenticated
 function AppWithOrganization() {
+  const { data: session, isPending: sessionIsPending } = useSession();
   const handleOrgError = useCallback((error: string) => {
     console.error('Organization config error:', error);
   }, []);
 
+  // Only load organization config when authenticated
   const {
     organizationId,
     organizationConfig,
@@ -651,10 +653,11 @@ function AppWithOrganization() {
     isLoading
   } = useOrganizationConfig({ onError: handleOrgError });
 
-  if (isLoading) {
+  // Show loading state while checking auth or loading org config
+  if (isLoading || sessionIsPending) {
     return (
       <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-        Loading organization…
+        Loading…
       </div>
     );
   }
@@ -665,6 +668,7 @@ function AppWithOrganization() {
       organizationConfig={organizationConfig}
       organizationNotFound={organizationNotFound}
       handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+      session={session}
     />
   );
 }
@@ -674,11 +678,13 @@ function AppWithSEO({
   organizationConfig,
   organizationNotFound,
   handleRetryOrganizationConfig,
+  session,
 }: {
   organizationId: string;
   organizationConfig: UIOrganizationConfig;
   organizationNotFound: boolean;
   handleRetryOrganizationConfig: () => void;
+  session: ReturnType<typeof useSession>['data'];
 }) {
   const location = useLocation();
   const { navigate } = useNavigation();
@@ -734,15 +740,21 @@ function AppWithSEO({
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
 					<Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
 					<Route path="/settings/*" component={SettingsRoute} />
-  					<Route default component={(props) => (
-						  <MainApp
-  							organizationId={organizationId}
-  							organizationConfig={organizationConfig}
-  							organizationNotFound={organizationNotFound}
-							  handleRetryOrganizationConfig={handleRetryOrganizationConfig}
-							  {...props}
-						  />
-					)} />
+  					<Route default component={(props) => {
+						// Root route: show auth if not authenticated, otherwise show chat app
+						if (!session?.user) {
+							return <AuthPage />;
+						}
+						return (
+							<MainApp
+								organizationId={organizationId}
+								organizationConfig={organizationConfig}
+								organizationNotFound={organizationNotFound}
+								handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+								{...props}
+							/>
+						);
+					}} />
 				</Router>
 
 				{/* Hoisted Settings Modal - single instance persists across sub-routes */}

@@ -1,8 +1,8 @@
 # Documentation
 
 - **Architecture**
-  - [Stripe Architecture](./stripe-architecture.md)
   - [Organization Architecture](./organization-architecture.md)
+  - [Stripe Architecture (Archived)](./archive/stripe/stripe-architecture-archived.md) ⚠️ Archived - Stripe now handled by remote API
 
 - **Decision Records (ADRs)**
   - [ADR Index](./adr/README.md)

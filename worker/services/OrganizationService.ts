@@ -2,6 +2,7 @@ import { Env } from '../types.js';
 import { ValidationService } from './ValidationService.js';
 import { ValidationError } from '../utils/validationErrors.js';
 import { getConfiguredDomain } from '../utils/domain.js';
+import { RemoteApiService } from './RemoteApiService.js';
 
 export type OrganizationVoiceProvider = 'cloudflare' | 'elevenlabs' | 'custom';
 
@@ -714,21 +715,7 @@ export class OrganizationService {
            o.updated_at,
            o.business_onboarding_completed_at,
            o.business_onboarding_skipped,
-           o.business_onboarding_data,
-           (
-             SELECT s.status
-               FROM subscriptions s
-              WHERE s.reference_id = o.id
-              ORDER BY s.updated_at DESC
-              LIMIT 1
-           ) AS subscription_status,
-           (
-             SELECT s.period_end
-               FROM subscriptions s
-              WHERE s.reference_id = o.id
-              ORDER BY s.updated_at DESC
-              LIMIT 1
-           ) AS subscription_period_end
+           o.business_onboarding_data
          FROM organizations o
         WHERE o.id = ? OR o.slug = ?`
       ).bind(organizationId, organizationId).first();
@@ -757,12 +744,14 @@ export class OrganizationService {
           updatedAt = orgRow.created_at ? new Date(orgRow.created_at as string).getTime() : Date.now();
         }
 
-        const rawPeriodEnd = (orgRow as Record<string, unknown>).subscription_period_end;
-        const subscriptionPeriodEnd = typeof rawPeriodEnd === 'number' && rawPeriodEnd > 0
-          ? rawPeriodEnd
-          : typeof rawPeriodEnd === 'string' && rawPeriodEnd.trim() !== ''
-            ? Number(rawPeriodEnd)
-            : null;
+        // Fetch subscription metadata from remote API
+        let subscriptionMetadata;
+        try {
+          subscriptionMetadata = await RemoteApiService.getOrganizationMetadata(this.env, orgRow.id as string);
+        } catch (error) {
+          console.warn('Failed to fetch subscription metadata from remote API, using defaults', error);
+          subscriptionMetadata = null;
+        }
 
         const organization: Organization = {
           id: orgRow.id as string,
@@ -772,17 +761,15 @@ export class OrganizationService {
           config: normalizedConfig,
           betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (orgRow.id as string),
           stripeCustomerId: (orgRow as Record<string, unknown>).stripe_customer_id as string | null | undefined,
-          subscriptionTier: (orgRow as Record<string, unknown>).subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
+          subscriptionTier: subscriptionMetadata?.tier || (orgRow as Record<string, unknown>).subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined || 'free',
           seats: (() => {
             const rawSeats = (orgRow as Record<string, unknown>).seats;
             const numSeats = Number(rawSeats ?? 1);
             return isNaN(numSeats) ? 1 : numSeats;
           })(),
-          kind: this.deriveKind((orgRow as Record<string, unknown>).is_personal),
-          subscriptionStatus: this.normalizeSubscriptionStatus(
-            (orgRow as Record<string, unknown>).subscription_status
-          ),
-          subscriptionPeriodEnd: subscriptionPeriodEnd && !isNaN(subscriptionPeriodEnd) ? subscriptionPeriodEnd : null,
+          kind: subscriptionMetadata?.kind || this.deriveKind((orgRow as Record<string, unknown>).is_personal),
+          subscriptionStatus: subscriptionMetadata?.subscriptionStatus || 'none',
+          subscriptionPeriodEnd: null, // Period end is now managed by remote API
           createdAt: new Date(orgRow.created_at as string).getTime(),
           updatedAt: updatedAt,
           businessOnboardingCompletedAt: parseOnboardingCompletedAt(
@@ -827,44 +814,104 @@ export class OrganizationService {
   }
 
 
-  async listOrganizations(userId?: string): Promise<Organization[]> {
+  /**
+   * Batch process remote API calls to avoid overwhelming the remote API
+   * Processes items in chunks to limit concurrent requests
+   * @param batchSize Number of concurrent requests per batch (default: 10)
+   */
+  private async batchFetchMetadata(
+    organizationIds: string[],
+    batchSize: number = 10
+  ): Promise<Array<Awaited<ReturnType<typeof RemoteApiService.getOrganizationMetadata>> | null>> {
+    const results: Array<Awaited<ReturnType<typeof RemoteApiService.getOrganizationMetadata>> | null> = [];
+    
+    // Process in batches to avoid overwhelming the remote API
+    for (let i = 0; i < organizationIds.length; i += batchSize) {
+      const batch = organizationIds.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (orgId) => {
+        try {
+          return await RemoteApiService.getOrganizationMetadata(this.env, orgId);
+        } catch (error) {
+          console.warn(`Failed to fetch subscription metadata for org ${orgId}`, error);
+          return null;
+        }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+    }
+    
+    return results;
+  }
+
+  async listOrganizations(userId?: string, options?: { limit?: number; offset?: number }): Promise<Organization[]> {
     try {
+      const limit = options?.limit ?? (userId ? undefined : 100); // Default limit of 100 for admin, no limit for user's own orgs
+      const offset = options?.offset ?? 0;
+      const maxLimit = 500; // Maximum limit to prevent abuse
+      const effectiveLimit = limit ? Math.min(limit, maxLimit) : undefined;
+
       if (userId) {
         // Get organizations where user is a member
-        const orgRows = await this.env.DB.prepare(`
-          SELECT 
-            o.id,
-            o.name,
-            o.slug,
-            o.domain,
-            o.config,
-            o.stripe_customer_id,
-            o.subscription_tier,
-            o.seats,
-            o.is_personal,
-            o.created_at,
-            o.updated_at,
-            o.business_onboarding_completed_at,
-            o.business_onboarding_skipped,
-            o.business_onboarding_data,
-            (
-              SELECT s.status
-                FROM subscriptions s
-               WHERE s.reference_id = o.id
-               ORDER BY s.updated_at DESC
-               LIMIT 1
-            ) AS subscription_status
-          FROM organizations o
-          INNER JOIN members m ON o.id = m.organization_id
-          WHERE m.user_id = ?
-          ORDER BY o.created_at DESC
-        `).bind(userId).all();
+        const query = effectiveLimit
+          ? `
+            SELECT 
+              o.id,
+              o.name,
+              o.slug,
+              o.domain,
+              o.config,
+              o.stripe_customer_id,
+              o.subscription_tier,
+              o.seats,
+              o.is_personal,
+              o.created_at,
+              o.updated_at,
+              o.business_onboarding_completed_at,
+              o.business_onboarding_skipped,
+              o.business_onboarding_data
+            FROM organizations o
+            INNER JOIN members m ON o.id = m.organization_id
+            WHERE m.user_id = ?
+            ORDER BY o.created_at DESC
+            LIMIT ? OFFSET ?
+          `
+          : `
+            SELECT 
+              o.id,
+              o.name,
+              o.slug,
+              o.domain,
+              o.config,
+              o.stripe_customer_id,
+              o.subscription_tier,
+              o.seats,
+              o.is_personal,
+              o.created_at,
+              o.updated_at,
+              o.business_onboarding_completed_at,
+              o.business_onboarding_skipped,
+              o.business_onboarding_data
+            FROM organizations o
+            INNER JOIN members m ON o.id = m.organization_id
+            WHERE m.user_id = ?
+            ORDER BY o.created_at DESC
+          `;
         
-        return orgRows.results.map(row => {
+        const orgRows = effectiveLimit
+          ? await this.env.DB.prepare(query).bind(userId, effectiveLimit, offset).all()
+          : await this.env.DB.prepare(query).bind(userId).all();
+        
+        // Fetch subscription metadata in batches to avoid overwhelming remote API
+        const organizationIds = orgRows.results.map(row => row.id as string);
+        const orgMetadataList = await this.batchFetchMetadata(organizationIds);
+        
+        return orgRows.results.map((row, index) => {
           const rawConfig = row.config ? JSON.parse(row.config as string) : {};
           const resolvedConfig = this.resolveEnvironmentVariables(rawConfig);
           const normalizedConfig = this.validateAndNormalizeConfig(resolvedConfig as OrganizationConfig, false, row.id as string);
           const rawRow = row as Record<string, unknown>;
+          const metadata = orgMetadataList[index];
           
           return {
             id: row.id as string,
@@ -874,10 +921,10 @@ export class OrganizationService {
             config: normalizedConfig,
             betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (row.id as string),
             stripeCustomerId: row.stripe_customer_id as string | undefined,
-            subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
+            subscriptionTier: metadata?.tier || row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined || 'free',
             seats: Number(row.seats ?? 1) || 1,
-            kind: this.deriveKind(row.is_personal),
-            subscriptionStatus: this.normalizeSubscriptionStatus(row.subscription_status),
+            kind: metadata?.kind || this.deriveKind(row.is_personal),
+            subscriptionStatus: metadata?.subscriptionStatus || 'none',
             createdAt: new Date(row.created_at as string).getTime(),
             updatedAt: row.updated_at && !isNaN(new Date(row.updated_at as string).getTime())
               ? new Date(row.updated_at as string).getTime()
@@ -888,7 +935,11 @@ export class OrganizationService {
           };
         });
       } else {
-        // Get all organizations (for admin purposes)
+        // Get all organizations (for admin purposes) - WITH PAGINATION
+        if (!effectiveLimit) {
+          throw new Error('Limit is required for admin organization list to prevent unbounded queries');
+        }
+
         const orgRows = await this.env.DB.prepare(`
           SELECT 
             o.id,
@@ -904,23 +955,22 @@ export class OrganizationService {
             o.updated_at,
             o.business_onboarding_completed_at,
             o.business_onboarding_skipped,
-            o.business_onboarding_data,
-            (
-              SELECT s.status
-                FROM subscriptions s
-               WHERE s.reference_id = o.id
-               ORDER BY s.updated_at DESC
-               LIMIT 1
-            ) AS subscription_status
+            o.business_onboarding_data
           FROM organizations o
           ORDER BY o.created_at DESC
-        `).all();
+          LIMIT ? OFFSET ?
+        `).bind(effectiveLimit, offset).all();
         
-        return orgRows.results.map(row => {
+        // Fetch subscription metadata in batches to avoid overwhelming remote API
+        const organizationIds = orgRows.results.map(row => row.id as string);
+        const orgMetadataList = await this.batchFetchMetadata(organizationIds);
+        
+        return orgRows.results.map((row, index) => {
           const rawConfig = row.config ? JSON.parse(row.config as string) : {};
           const resolvedConfig = this.resolveEnvironmentVariables(rawConfig);
           const normalizedConfig = this.validateAndNormalizeConfig(resolvedConfig as OrganizationConfig, false, row.id as string);
           const rawRow = row as Record<string, unknown>;
+          const metadata = orgMetadataList[index];
           
           return {
             id: row.id as string,
@@ -930,10 +980,10 @@ export class OrganizationService {
             config: normalizedConfig,
             betterAuthOrgId: normalizedConfig.betterAuthOrgId ?? (row.id as string),
             stripeCustomerId: row.stripe_customer_id as string | undefined,
-            subscriptionTier: row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined,
+            subscriptionTier: metadata?.tier || row.subscription_tier as 'free' | 'plus' | 'business' | 'enterprise' | null | undefined || 'free',
             seats: Number(row.seats ?? 1) || 1,
-            kind: this.deriveKind(row.is_personal),
-            subscriptionStatus: this.normalizeSubscriptionStatus(row.subscription_status),
+            kind: metadata?.kind || this.deriveKind(row.is_personal),
+            subscriptionStatus: metadata?.subscriptionStatus || 'none',
             createdAt: new Date(row.created_at as string).getTime(),
             updatedAt: row.updated_at && !isNaN(new Date(row.updated_at as string).getTime())
               ? new Date(row.updated_at as string).getTime()

@@ -320,154 +320,22 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_eve
 -- Sample data removed - use seed scripts for development data
 
 -- ========================================
--- BETTER AUTH TABLES (SECURE SCHEMA)
+-- AUTH TABLES REMOVED
 -- ========================================
--- Note: Geolocation and IP detection features are disabled by default
--- Set ENABLE_AUTH_GEOLOCATION=true and ENABLE_AUTH_IP_DETECTION=true to enable
+-- Auth tables (users, accounts, sessions, verifications) are now managed by remote API
+-- Only chatbot-related tables remain below
 
--- Users table for Better Auth
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  name TEXT,
-  email TEXT NOT NULL UNIQUE,
-  email_verified INTEGER DEFAULT 0 NOT NULL,
-  image TEXT,
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  updated_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  organization_id TEXT,
-  stripe_customer_id TEXT UNIQUE,
-  role TEXT,
-  phone TEXT,
-  
-  -- Profile Information
-  bio TEXT,
-  -- TODO: These fields are named *_encrypted but not actually encrypted yet
-  -- TODO: Integrate PIIEncryptionService to encrypt/decrypt these fields
-  secondary_phone_encrypted TEXT, -- Encrypted PII
-  address_street_encrypted TEXT, -- Encrypted PII
-  address_city_encrypted TEXT, -- Encrypted PII
-  address_state_encrypted TEXT, -- Encrypted PII
-  address_zip_encrypted TEXT, -- Encrypted PII
-  address_country_encrypted TEXT, -- Encrypted PII
-  preferred_contact_method TEXT,
-  
-  -- App Preferences
-  theme TEXT DEFAULT 'system',
-  accent_color TEXT DEFAULT 'default',
-  font_size TEXT DEFAULT 'medium',
-  -- Interface language: Controls UI language (en, es, fr, de, etc.)
-  language TEXT DEFAULT 'en',
-  -- Spoken language: User's primary spoken language for AI interactions and content generation
-  spoken_language TEXT DEFAULT 'en',
-  country TEXT DEFAULT 'us',
-  timezone TEXT,
-  date_format TEXT DEFAULT 'MM/DD/YYYY',
-  time_format TEXT DEFAULT '12-hour',
-  
-  -- Chat Preferences
-  auto_save_conversations INTEGER DEFAULT 1,
-  typing_indicators INTEGER DEFAULT 1,
-  
-  -- Notification Settings
-  notification_responses_push INTEGER DEFAULT 1,
-  notification_tasks_push INTEGER DEFAULT 1,
-  notification_tasks_email INTEGER DEFAULT 1,
-  notification_messaging_push INTEGER DEFAULT 1,
-  
-  -- Email Settings
-  receive_feedback_emails INTEGER DEFAULT 0,
-  marketing_emails INTEGER DEFAULT 0,
-  security_alerts INTEGER DEFAULT 1,
-  
-  -- Security Settings
-  two_factor_enabled INTEGER DEFAULT 0,
-  email_notifications INTEGER DEFAULT 1,
-  login_alerts INTEGER DEFAULT 1,
-  -- Session timeout in seconds (604800 = 7 days)
-  session_timeout INTEGER DEFAULT 604800,
-  -- Last password change timestamp (Unix timestamp)
-  last_password_change INTEGER,
-  
-  -- Links
-  selected_domain TEXT,
-  linkedin_url TEXT,
-  github_url TEXT,
-  custom_domains TEXT, -- JSON string for custom domains array
-  
-  -- Onboarding
-  onboarding_completed INTEGER DEFAULT 0,
-  onboarding_data TEXT,
-  -- First-time welcome modal/view timestamp (ms since epoch)
-  welcomed_at INTEGER,
-  
-  -- Better Auth lastLoginMethod plugin
-  last_login_method TEXT,
-  
-  -- PII Compliance & Consent
-  pii_consent_given INTEGER DEFAULT 0,
-  pii_consent_date INTEGER,
-  data_retention_consent INTEGER DEFAULT 0,
-  marketing_consent INTEGER DEFAULT 0,
-  data_processing_consent INTEGER DEFAULT 0,
-  
-  -- Data Retention & Deletion
-  data_retention_expiry INTEGER,
-  last_data_access INTEGER,
-  data_deletion_requested INTEGER DEFAULT 0,
-  data_deletion_date INTEGER
-);
+-- Note: The users table has been removed - user management is handled by remote API
+-- The following tables are kept for chatbot functionality:
+-- - organizations: For FK references in chatbot data
+-- - members: For organization membership (used by workspace endpoints)
+-- - invitations: For organization invitations (used by workspace endpoints)
 
--- PII Access Audit Log - Enhanced with encryption, retention, and compliance
-CREATE TABLE IF NOT EXISTS pii_access_audit (
-  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  
-  -- Access type with enum constraint
-  access_type TEXT NOT NULL CHECK (access_type IN ('read', 'update', 'delete', 'export')),
-  
-  pii_fields TEXT NOT NULL, -- JSON array of accessed fields
-  access_reason TEXT, -- Business justification
-  accessed_by TEXT NOT NULL, -- User ID or system identifier - must be explicitly provided
-  
-  -- Encrypted PII fields with metadata
-  -- Key versioning: v1, v2, etc. - see ENCRYPTION_KEY_MANAGEMENT.md for details
-  ip_address_encrypted TEXT, -- Encrypted IP address
-  ip_address_key_version TEXT, -- Encryption key version (e.g., 'v1')
-  ip_address_hash TEXT, -- SHA-256 hash for lookups without decryption
-  
-  user_agent_encrypted TEXT, -- Encrypted user agent
-  user_agent_key_version TEXT, -- Encryption key version (e.g., 'v1')
-  user_agent_hash TEXT, -- SHA-256 hash for lookups without decryption
-  
-  -- Retention metadata
-  retention_expires_at INTEGER, -- When this log should be deleted
-  deleted_at INTEGER, -- Soft deletion timestamp
-  retention_policy_id TEXT, -- Reference to retention policy applied
-  
-  -- Consent tracking
-  consent_id TEXT, -- Reference to consent record
-  legal_basis TEXT CHECK (legal_basis IN ('consent', 'contract', 'legal_obligation', 
-                                          'vital_interests', 'public_task', 'legitimate_interest')), -- Legal basis for processing (GDPR Article 6)
-  consent_version TEXT, -- Version of consent at time of access
-  
-  timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-  organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
-  
-  -- Consistency constraints for encrypted fields (all-or-nothing)
-  CHECK ((ip_address_encrypted IS NULL AND ip_address_hash IS NULL AND ip_address_key_version IS NULL) OR
-         (ip_address_encrypted IS NOT NULL AND ip_address_hash IS NOT NULL AND ip_address_key_version IS NOT NULL)),
-  CHECK ((user_agent_encrypted IS NULL AND user_agent_hash IS NULL AND user_agent_key_version IS NULL) OR
-         (user_agent_encrypted IS NOT NULL AND user_agent_hash IS NOT NULL AND user_agent_key_version IS NOT NULL))
-);
-
-CREATE INDEX IF NOT EXISTS pii_audit_user_idx ON pii_access_audit(user_id);
-CREATE INDEX IF NOT EXISTS pii_audit_timestamp_idx ON pii_access_audit(timestamp);
-CREATE INDEX IF NOT EXISTS pii_audit_org_idx ON pii_access_audit(organization_id);
-CREATE INDEX IF NOT EXISTS pii_audit_retention_idx ON pii_access_audit(retention_expires_at);
-CREATE INDEX IF NOT EXISTS pii_audit_deleted_idx ON pii_access_audit(deleted_at);
-CREATE INDEX IF NOT EXISTS pii_audit_consent_idx ON pii_access_audit(consent_id);
-CREATE INDEX IF NOT EXISTS pii_audit_ip_hash_idx ON pii_access_audit(ip_address_hash);
-CREATE INDEX IF NOT EXISTS pii_audit_user_agent_hash_idx ON pii_access_audit(user_agent_hash);
+-- ========================================
+-- ORGANIZATION MEMBERSHIP TABLES (for workspace endpoints)
+-- ========================================
+-- Note: These tables are kept for workspace endpoints that need membership data
+-- User management is handled by remote API, but membership data may still be needed locally
 
 -- Organization members for Better Auth multi-tenancy
 CREATE TABLE IF NOT EXISTS members (
@@ -491,29 +359,7 @@ CREATE TABLE IF NOT EXISTS invitations (
   created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL
 );
 
--- Stripe subscription table managed by Better Auth Stripe plugin
-CREATE TABLE IF NOT EXISTS subscriptions (
-  id TEXT PRIMARY KEY,
-  plan TEXT NOT NULL,
-  reference_id TEXT NOT NULL, -- References organizations.id for organization-level subscriptions
-  stripe_subscription_id TEXT UNIQUE,
-  stripe_customer_id TEXT,
-  status TEXT DEFAULT 'incomplete' NOT NULL CHECK(status IN ('incomplete', 'incomplete_expired', 'active', 'canceled', 'past_due', 'unpaid', 'trialing')),
-  period_start INTEGER,
-  period_end INTEGER,
-  trial_start INTEGER,
-  trial_end INTEGER,
-  cancel_at_period_end INTEGER DEFAULT 0 NOT NULL,
-  seats INTEGER CHECK(seats > 0),
-  created_at INTEGER DEFAULT (strftime('%s', 'now')),
-  updated_at INTEGER DEFAULT (strftime('%s', 'now')),
-  -- Foreign key constraints for data integrity
-  FOREIGN KEY (reference_id) REFERENCES organizations(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_subscriptions_reference_id ON subscriptions(reference_id);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
--- Note: stripe_subscription_id already has UNIQUE constraint in table definition
+-- Stripe subscription table removed - subscription management is handled by remote API
 
 -- Organization events table for audit logging
 CREATE TABLE IF NOT EXISTS organization_events (
@@ -525,65 +371,7 @@ CREATE TABLE IF NOT EXISTS organization_events (
   created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL
 );
 
--- Sessions table for Better Auth
-CREATE TABLE IF NOT EXISTS sessions (
-  id TEXT PRIMARY KEY,
-  expires_at INTEGER NOT NULL,
-  token TEXT NOT NULL UNIQUE,
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  updated_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  ip_address TEXT,
-  user_agent TEXT,
-  user_id TEXT NOT NULL,
-  active_organization_id TEXT,
-  -- Foreign key constraint for active_organization_id
-  FOREIGN KEY (active_organization_id) REFERENCES organizations(id) ON DELETE SET NULL
-);
-
--- Accounts table for OAuth providers (SECURE)
--- OAuth provider data only, tokens should be encrypted at application level
-CREATE TABLE IF NOT EXISTS accounts (
-  id TEXT PRIMARY KEY,
-  account_id TEXT NOT NULL,
-  provider_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  -- OAuth tokens (should be encrypted at application level)
-  access_token TEXT, -- Note: Should be encrypted before storage
-  refresh_token TEXT, -- Note: Should be encrypted before storage
-  id_token TEXT, -- Note: Should be encrypted before storage
-  access_token_expires_at INTEGER,
-  refresh_token_expires_at INTEGER,
-  scope TEXT,
-  password TEXT,
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  updated_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  -- Critical: Prevent duplicate provider accounts
-  UNIQUE(provider_id, account_id),
-  -- Also ensure one account per provider per user
-  UNIQUE(provider_id, user_id)
-);
-
--- Verifications table for email verification, password reset, etc.
-CREATE TABLE IF NOT EXISTS verifications (
-  id TEXT PRIMARY KEY,
-  identifier TEXT NOT NULL,
-  value TEXT NOT NULL,
-  expires_at INTEGER NOT NULL,
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  updated_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL
-);
-
--- Create indexes for Better Auth tables
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_email_verified ON users(email, email_verified);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_stripe_customer_id_unique ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
-CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id);
-CREATE INDEX IF NOT EXISTS idx_accounts_provider ON accounts(provider_id, account_id);
-CREATE INDEX IF NOT EXISTS idx_accounts_provider_user ON accounts(provider_id, user_id);
-CREATE INDEX IF NOT EXISTS idx_verifications_identifier ON verifications(identifier);
-CREATE INDEX IF NOT EXISTS idx_verifications_expires_at ON verifications(expires_at);
+-- Auth tables (sessions, accounts, verifications) removed - managed by remote API
 
 -- Create indexes for organization membership tables
 CREATE INDEX IF NOT EXISTS idx_member_org ON members(organization_id);
@@ -598,22 +386,7 @@ CREATE INDEX IF NOT EXISTS idx_matters_user ON matters(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id);
 
--- Create a view for secure user authentication data
--- This view can be used by the application to safely access user auth data
-CREATE VIEW IF NOT EXISTS user_auth_summary AS
-SELECT
-  u.id,
-  u.email,
-  u.email_verified,
-  u.name,
-  u.created_at,
-  -- Count OAuth providers
-  COUNT(DISTINCT a.provider_id) as oauth_provider_count,
-  -- Check if user has local password
-  MAX(CASE WHEN a.password IS NOT NULL THEN 1 ELSE 0 END) as has_local_password
-FROM users u
-LEFT JOIN accounts a ON u.id = a.user_id
-GROUP BY u.id, u.email, u.email_verified, u.name, u.created_at;
+-- Auth views removed - user management is handled by remote API
 
 -- ========================================
 -- TRIGGERS FOR AUTOMATIC UPDATED_AT TIMESTAMPS
@@ -622,41 +395,7 @@ GROUP BY u.id, u.email, u.email_verified, u.name, u.created_at;
 -- when rows are modified, using the same millisecond timestamp format
 -- as the auth schema defaults: (strftime('%s', 'now') * 1000)
 
--- Trigger for users table
-CREATE TRIGGER IF NOT EXISTS trigger_users_updated_at
-  AFTER UPDATE ON users
-  FOR EACH ROW
-  WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE users SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
-END;
-
--- Trigger for sessions table
-CREATE TRIGGER IF NOT EXISTS trigger_sessions_updated_at
-  AFTER UPDATE ON sessions
-  FOR EACH ROW
-  WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE sessions SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
-END;
-
--- Trigger for accounts table
-CREATE TRIGGER IF NOT EXISTS trigger_accounts_updated_at
-  AFTER UPDATE ON accounts
-  FOR EACH ROW
-  WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE accounts SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
-END;
-
--- Trigger for verifications table
-CREATE TRIGGER IF NOT EXISTS trigger_verifications_updated_at
-  AFTER UPDATE ON verifications
-  FOR EACH ROW
-  WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE verifications SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
-END;
+-- Auth table triggers removed - user management is handled by remote API
 
 -- Trigger for organizations table
 CREATE TRIGGER IF NOT EXISTS trigger_organizations_updated_at
@@ -667,11 +406,4 @@ BEGIN
   UPDATE organizations SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
 END;
 
--- Trigger for subscriptions table
-CREATE TRIGGER IF NOT EXISTS trigger_subscriptions_updated_at
-  AFTER UPDATE ON subscriptions
-  FOR EACH ROW
-  WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE subscriptions SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
-END;
+-- Subscription table trigger removed - subscription management is handled by remote API
