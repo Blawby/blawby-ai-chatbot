@@ -10,7 +10,7 @@ usage() {
 reset-prod-db.sh [--env ENVIRONMENT] [--force]
 
 Drops all D1 tables for the specified environment, reapplies worker/schema.sql,
-and applies migrations (which seed the default blawby-ai organization).
+and applies migrations.
 
 This is destructive. Always take a backup first:
   wrangler d1 backup blawby-ai-chatbot --env production --output backups/$(date +%Y%m%d-%H%M%S).sqlite
@@ -47,7 +47,7 @@ fi
 if [[ "${FORCE}" != true ]]; then
   cat <<'EOF'
 This will DROP EVERY TABLE in the production database, reapply worker/schema.sql,
-and apply migrations (which seed the default blawby-ai organization).
+and apply migrations.
 
 If you really want to do this, rerun with --force.
 EOF
@@ -103,5 +103,5 @@ wrangler d1 migrations apply blawby-ai-chatbot --env "${ENVIRONMENT}" --remote
 
 echo "✅ Production database reset complete."
 echo "   - All tables dropped and recreated"
-echo "   - Migrations applied (default blawby-ai organization seeded)"
+echo "   - Migrations applied"
 echo "Next step: sign up again via the app to create new user accounts and personal organizations."

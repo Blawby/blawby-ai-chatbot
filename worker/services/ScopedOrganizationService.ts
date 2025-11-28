@@ -1,5 +1,5 @@
 import type { Env } from '../types.js';
-import { OrganizationService } from './OrganizationService.js';
+import { RemoteApiService } from './RemoteApiService.js';
 import { SessionService } from './SessionService.js';
 import { ActivityService } from './ActivityService.js';
 import { StatusService } from './StatusService.js';
@@ -32,17 +32,16 @@ export class ScopedOrganizationService {
   /**
    * Get organization details
    */
-  async getOrganization() {
-    const orgService = new OrganizationService(this.env);
-    return orgService.getOrganization(this.organizationId);
+  async getOrganization(request?: Request) {
+    return RemoteApiService.getOrganization(this.env, this.organizationId, request);
   }
 
   /**
    * Get organization configuration
    */
-  async getOrganizationConfig() {
-    const orgService = new OrganizationService(this.env);
-    return orgService.getOrganizationConfig(this.organizationId);
+  async getOrganizationConfig(request?: Request) {
+    const organization = await RemoteApiService.getOrganization(this.env, this.organizationId, request);
+    return organization?.config ?? null;
   }
 
   /**

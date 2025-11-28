@@ -13,6 +13,7 @@ import { BusinessDetailsStep } from '../steps/BusinessDetailsStep';
 import { ServicesStep } from '../steps/ServicesStep';
 import { ReviewAndLaunchStep } from '../steps/ReviewAndLaunchStep';
 import type { OnboardingStep, OnboardingFormData } from '../hooks';
+import type { StripeConnectStatus } from '../types';
 
 interface OnboardingStepRendererProps {
   currentStep: OnboardingStep;
@@ -24,6 +25,9 @@ interface OnboardingStepRendererProps {
   errors?: string | null;
   organizationSlug?: string;
   disabled?: boolean;
+  stripeStatus?: StripeConnectStatus | null;
+  stripeClientSecret?: string | null;
+  stripeLoading?: boolean;
 }
 
 export const OnboardingStepRenderer = ({
@@ -36,6 +40,9 @@ export const OnboardingStepRenderer = ({
   errors,
   organizationSlug,
   disabled = false,
+  stripeStatus,
+  stripeClientSecret,
+  stripeLoading = false,
 }: OnboardingStepRendererProps) => {
   const commonProps = {
     onContinue,
@@ -73,7 +80,14 @@ export const OnboardingStepRenderer = ({
       return <TrustAccountIntroStep {...commonProps} />;
 
     case 'stripe-onboarding':
-      return <StripeOnboardingStep {...commonProps} />;
+      return (
+        <StripeOnboardingStep
+          {...commonProps}
+          status={stripeStatus}
+          loading={stripeLoading}
+          clientSecret={stripeClientSecret}
+        />
+      );
 
     case 'business-details':
       return (

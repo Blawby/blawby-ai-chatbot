@@ -7,6 +7,7 @@ import { useToastContext } from '../../contexts/ToastContext';
 import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
+import { apiClient } from '../../lib/apiClient';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
@@ -108,21 +109,15 @@ export const BusinessOnboardingPage = () => {
       inFlightRef.current = true;
       setSyncing(true);
       try {
-        // Dev/test-only header to force paid tier during E2E flows
-        const response = await fetch('/api/subscription/sync', {
-          method: 'POST',
-          credentials: 'include',
+        const response = await apiClient.post('/api/subscription/sync', {
+          organizationId: targetOrganizationId
+        }, {
           headers: {
-            'Content-Type': 'application/json',
             ...(devForcePaid ? { 'x-test-force-paid': '1' } : {})
-          },
-          body: JSON.stringify({ organizationId: targetOrganizationId })
+          }
         });
 
-        const result = await response.json().catch(() => ({} as Record<string, unknown>));
-        if (!response.ok) {
-          throw new Error('Failed to sync subscription');
-        }
+        const result = response.data;
 
         await refetch();
 
@@ -180,14 +175,22 @@ export const BusinessOnboardingPage = () => {
     if (!ready || !targetOrganizationId) return;
     const checkCompletion = async () => {
       try {
-        const response = await fetch(`/api/onboarding/status?organizationId=${targetOrganizationId}`, { credentials: 'include' });
-        if (response.ok) {
-          const status = await response.json() as { completed?: boolean } | null;
-          if (status?.completed) {
-            console.log('✅ Onboarding already completed, redirecting');
-            showSuccess('Setup Complete', 'Your business profile is already configured.');
-            navigate('/');
+        const response = await apiClient.get(`/api/onboarding/organization/${targetOrganizationId}/status`);
+        const payload = response.data;
+        let completed = false;
+
+        if (payload && typeof payload === 'object') {
+          if ('data' in payload && payload.data && typeof payload.data === 'object' && 'completed' in payload.data) {
+            completed = Boolean((payload.data as { completed?: boolean }).completed);
+          } else if ('completed' in payload) {
+            completed = Boolean((payload as { completed?: boolean }).completed);
           }
+        }
+
+        if (completed) {
+          console.log('✅ Onboarding already completed, redirecting');
+          showSuccess('Setup Complete', 'Your business profile is already configured.');
+          navigate('/');
         }
       } catch (e) {
         console.warn('Failed to check onboarding status:', e);
@@ -201,16 +204,9 @@ export const BusinessOnboardingPage = () => {
 
     try {
       console.debug('[ONBOARDING][COMPLETE] Marking onboarding complete for org:', targetOrganizationId);
-      const response = await fetch('/api/onboarding/complete', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: targetOrganizationId })
+      await apiClient.post('/api/onboarding/complete', {
+        organizationId: targetOrganizationId
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to mark onboarding complete');
-      }
 
       showSuccess('Setup Complete!', 'Your business profile is ready.');
       navigate('/');
@@ -228,11 +224,8 @@ export const BusinessOnboardingPage = () => {
 
     try {
       console.debug('[ONBOARDING][SKIP] Marking onboarding skipped for org:', targetOrganizationId);
-      await fetch('/api/onboarding/skip', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: targetOrganizationId })
+      await apiClient.post('/api/onboarding/skip', {
+        organizationId: targetOrganizationId
       });
     } catch (error) {
       console.error('Failed to mark onboarding skipped:', error);

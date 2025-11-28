@@ -1,8 +1,8 @@
 import type { ConversationContext } from './conversationContextManager.js';
-import type { OrganizationConfig } from '../services/OrganizationService.js';
+import type { OrganizationConfig } from '../types.js';
 import type { PipelineMiddleware } from './pipeline.js';
 import { LawyerSearchService } from '../services/LawyerSearchService.js';
-import { OrganizationService } from '../services/OrganizationService.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 import type { LawyerSearchResponse } from '../schemas/lawyer';
 import { QuotaExceededError, LawyerSearchError, LawyerSearchTimeoutError } from '../utils/lawyerSearchErrors.js';
 import { Logger } from '../utils/logger.js';
@@ -174,9 +174,8 @@ async function determineMode(organizationId: string | null | undefined, env: Env
 
   try {
     // Fetch the organization by ID to check its slug with retry logic
-    const organizationService = new OrganizationService(env);
     const organization = await retryWithBackoff(
-      () => organizationService.getOrganization(organizationId),
+      () => RemoteApiService.getOrganization(env, organizationId),
       3, // max attempts
       100 // base delay in ms
     );

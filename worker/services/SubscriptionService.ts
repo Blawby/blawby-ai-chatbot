@@ -206,16 +206,13 @@ export async function resolveOrganizationForStripeIdentifiers(
   // If subscriptionId is provided, we can't resolve it locally anymore
   // The remote API should handle subscription-to-organization mapping
 
+  // Stripe customer ID lookup removed - organizations are now managed by remote API
+  // If customerId is provided, the remote API should handle customer-to-organization mapping
+  // This method is deprecated and should not be used for new code
   if (customerId) {
-    const byCustomer = await env.DB.prepare(
-      `SELECT id FROM organizations WHERE stripe_customer_id = ? LIMIT 1`
-    )
-      .bind(customerId)
-      .first<{ id: string | null }>();
-
-    if (byCustomer?.id) {
-      return byCustomer.id;
-    }
+    // TODO: If needed, implement remote API call to resolve organization by Stripe customer ID
+    // For now, return null as organizations are managed remotely
+    return null;
   }
 
   return null;

@@ -2,6 +2,7 @@ import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler'
 import { parseJsonBody } from '../utils.js';
 import { PDFGenerationService } from '../services/PDFGenerationService';
 import { ConversationContextManager } from '../middleware/conversationContextManager';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 
 import type { Env } from '../types';
 
@@ -135,9 +136,7 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
       }
 
       // Load organization config for PDF generation
-      const { OrganizationService } = await import('../services/OrganizationService');
-      const organizationService = new OrganizationService(env);
-      const organization = await organizationService.getOrganization(organizationId);
+      const organization = await RemoteApiService.getOrganization(env, organizationId, request);
       const organizationConfig = organization?.config;
 
       // Generate PDF

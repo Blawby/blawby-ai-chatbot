@@ -104,10 +104,23 @@ export const authClient = new Proxy({} as AuthClientType, {
 export const signIn = new Proxy({} as AuthClientType['signIn'], {
   get(_target, prop) {
     const client = getAuthClient();
-    const value = (client.signIn as any)[prop];
+    const signInObj = client.signIn as any;
+    const value = signInObj[prop];
     // If it's a function, bind it to preserve 'this' context
     if (typeof value === 'function') {
-      return value.bind(client.signIn);
+      return value.bind(signInObj);
+    }
+    // If it's an object (like signIn.email which might be an object with methods), return a proxy for it
+    if (value && typeof value === 'object') {
+      return new Proxy(value, {
+        get(_target, subProp) {
+          const subValue = value[subProp];
+          if (typeof subValue === 'function') {
+            return subValue.bind(value);
+          }
+          return subValue;
+        }
+      });
     }
     return value;
   }
@@ -116,10 +129,23 @@ export const signIn = new Proxy({} as AuthClientType['signIn'], {
 export const signUp = new Proxy({} as AuthClientType['signUp'], {
   get(_target, prop) {
     const client = getAuthClient();
-    const value = (client.signUp as any)[prop];
+    const signUpObj = client.signUp as any;
+    const value = signUpObj[prop];
     // If it's a function, bind it to preserve 'this' context
     if (typeof value === 'function') {
-      return value.bind(client.signUp);
+      return value.bind(signUpObj);
+    }
+    // If it's an object (like signUp.email which might be an object with methods), return a proxy for it
+    if (value && typeof value === 'object') {
+      return new Proxy(value, {
+        get(_target, subProp) {
+          const subValue = value[subProp];
+          if (typeof subValue === 'function') {
+            return subValue.bind(value);
+          }
+          return subValue;
+        }
+      });
     }
     return value;
   }

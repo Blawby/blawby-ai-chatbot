@@ -1,6 +1,6 @@
 import type { Env } from '../types.js';
 import { AdobeDocumentService } from '../services/AdobeDocumentService.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireOrgMember } from '../middleware/auth.js';
 import { parseJsonBody } from '../utils.js';
 import { createSuccessResponse, handleError } from '../errorHandler.js';
 
@@ -66,9 +66,8 @@ async function convertOrgToBusiness(request: Request, env: Env): Promise<Respons
     console.log(`[TEST] Converting organization ${organizationId} from is_personal=${existing.is_personal} to business`);
 
     // Ensure user is owner (same as onboarding endpoints do)
-    const { OrganizationService } = await import('../services/OrganizationService.js');
-    const orgService = new OrganizationService(env);
-    await orgService.ensureOwnerMembership(organizationId, authContext.user.id);
+    // Note: This test endpoint directly manipulates local DB for testing purposes
+    await requireOrgMember(request, env, organizationId, 'owner');
 
     // Direct SQL update - same logic as persistOrganizationSubscriptionState
     // markBusiness = true when status is 'active' and tier is 'business'
@@ -106,13 +105,7 @@ async function convertOrgToBusiness(request: Request, env: Env): Promise<Respons
       success: result.success
     });
 
-    // Clear service cache to prevent stale reads in tests
-    try {
-      await Promise.resolve(orgService.clearCache(organizationId));
-      console.log(`[TEST] Cleared OrganizationService cache for ${organizationId}`);
-    } catch (cacheErr) {
-      console.warn('[TEST] Failed to clear OrganizationService cache:', cacheErr);
-    }
+    // Note: Cache clearing removed - organizations are now managed by remote API
 
     // Verify the update
     const updated = await env.DB.prepare(

@@ -1,7 +1,7 @@
 import type { Env } from '../types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
-import { OrganizationService } from '../services/OrganizationService.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 import { MatterService } from '../services/MatterService.js';
 import { NotificationService } from '../services/NotificationService.js';
 
@@ -21,7 +21,6 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
 
   try {
     const body = await parseJsonBody(request) as ContactFormPayload;
-    const organizationService = new OrganizationService(env);
     const matterService = new MatterService(env);
 
     const organizationId = body.organizationId?.trim();
@@ -29,7 +28,7 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
       throw HttpErrors.badRequest('organizationId is required');
     }
 
-    const organization = await organizationService.getOrganization(organizationId);
+    const organization = await RemoteApiService.getOrganization(env, organizationId, request);
     if (!organization) {
       throw HttpErrors.notFound('Organization not found');
     }

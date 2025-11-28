@@ -9,6 +9,8 @@ import { useStepNavigation } from './hooks/useStepNavigation';
 import { useToastContext } from '../../contexts/ToastContext';
 import type { OnboardingFormData } from './hooks/useOnboardingState';
 import type { OnboardingStep } from './hooks/useStepValidation';
+import { apiClient } from '../../lib/apiClient';
+import type { StripeConnectStatus } from './types';
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
   welcome: 'Welcome to Blawby',
@@ -57,6 +59,48 @@ interface BusinessOnboardingStatusResponse {
   data: PersistedOnboardingSnapshot | null;
 }
 
+const extractProgressFromPayload = (payload: unknown): BusinessOnboardingStatusResponse | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const candidate = payload as Record<string, unknown>;
+
+  if ('data' in candidate && candidate.data && typeof candidate.data === 'object') {
+    return candidate.data as BusinessOnboardingStatusResponse;
+  }
+
+  if (typeof candidate.status === 'string' && ('completed' in candidate || 'skipped' in candidate)) {
+    return candidate as BusinessOnboardingStatusResponse;
+  }
+
+  return null;
+};
+
+const extractStripeStatusFromPayload = (payload: unknown): StripeConnectStatus | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const candidate = payload as Record<string, unknown>;
+
+  if ('stripe_status' in candidate && typeof candidate.stripe_status === 'object') {
+    return candidate.stripe_status as StripeConnectStatus;
+  }
+
+  if (
+    'practice_uuid' in candidate ||
+    'stripe_account_id' in candidate ||
+    'charges_enabled' in candidate ||
+    'payouts_enabled' in candidate ||
+    'details_submitted' in candidate
+  ) {
+    return candidate as StripeConnectStatus;
+  }
+
+  return null;
+};
+
 interface BusinessOnboardingModalProps {
   isOpen: boolean;
   organizationId: string;
@@ -82,6 +126,27 @@ const BusinessOnboardingModal = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const { showError, showSuccess } = useToastContext();
+  const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
+  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+  const [stripeRequestPending, setStripeRequestPending] = useState(false);
+  const fetchStripeStatus = useCallback(async () => {
+    if (!organizationId) {
+      return null;
+    }
+
+    try {
+      const response = await apiClient.get(`/api/onboarding/organization/${organizationId}/status`);
+      const payload = response.data;
+      const status = extractStripeStatusFromPayload(payload);
+      if (status) {
+        setStripeStatus(status);
+      }
+      return extractProgressFromPayload(payload);
+    } catch (error) {
+      console.warn('[ONBOARDING][STATUS] Failed to load Stripe status:', error);
+      return null;
+    }
+  }, [organizationId]);
   
   // Create save function that calls the API
   const saveOnboardingData = useCallback(async (data: OnboardingFormData, resumeStep: OnboardingStep) => {
@@ -93,20 +158,11 @@ const BusinessOnboardingModal = ({
           savedAt: new Date().toISOString()
         }
       };
-      const response = await fetch('/api/onboarding/save', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId,
-          data: payload
-        })
-      });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({} as Record<string, unknown>));
-        throw new Error((errorData as { message?: string }).message || 'Failed to save onboarding progress');
-      }
+      await apiClient.post('/api/onboarding/save', {
+        organizationId,
+        data: payload
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save onboarding progress';
       console.error('[ONBOARDING][SAVE] Error:', errorMessage);
@@ -130,20 +186,54 @@ const BusinessOnboardingModal = ({
     const nextIndex = Math.min(Math.max(index + delta, 0), STEP_SEQUENCE.length - 1);
     return STEP_SEQUENCE[nextIndex];
   }, []);
+  const startStripeOnboarding = useCallback(async () => {
+    if (!organizationId) {
+      throw new Error('Missing organization');
+    }
+
+    if (stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled) {
+      showSuccess('Already Connected', 'Your Stripe account is already connected.');
+      return;
+    }
+
+    const email = formData.contactEmail || fallbackContactEmail;
+    if (!email) {
+      const message = 'Enter a contact email before connecting Stripe.';
+      showError('Stripe Setup', message);
+      throw new Error(message);
+    }
+
+    setStripeRequestPending(true);
+    try {
+      const { data } = await apiClient.post('/api/onboarding/connected-accounts', {
+        practice_email: email,
+        practice_uuid: organizationId
+      });
+
+      if (typeof data?.client_secret === 'string') {
+        setStripeClientSecret(data.client_secret);
+      }
+
+      await fetchStripeStatus();
+
+      showSuccess(
+        'Stripe Session Created',
+        'Complete the Stripe onboarding form to finish trust account setup.'
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start Stripe onboarding';
+      showError('Stripe Setup Failed', message);
+      throw error;
+    } finally {
+      setStripeRequestPending(false);
+    }
+  }, [organizationId, stripeStatus, formData.contactEmail, fallbackContactEmail, fetchStripeStatus, showError, showSuccess]);
 
   const completeOnboarding = useCallback(async () => {
     try {
-      const response = await fetch('/api/onboarding/complete', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId })
+      await apiClient.post('/api/onboarding/complete', {
+        organizationId
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error((errorData as { message?: string }).message || 'Failed to finalize onboarding');
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to finalize onboarding';
       showError('Completion Failed', message);
@@ -181,49 +271,41 @@ const BusinessOnboardingModal = ({
     const loadSavedData = async () => {
       setIsLoadingData(true);
       try {
-        const response = await fetch(`/api/onboarding/status?organizationId=${organizationId}`, {
-          credentials: 'include'
-        });
+        const progress = await fetchStripeStatus();
 
-        if (response.ok) {
-          const payload = await response.json() as { success?: boolean; data?: BusinessOnboardingStatusResponse | null };
-          const progress = payload?.data ?? null;
-
-          if (progress?.data) {
-            const { __meta, ...rest } = progress.data;
-            setFormData((prev) => ({
-              ...prev,
-              ...rest,
-              contactEmail: rest.contactEmail || prev.contactEmail || fallbackContactEmail || ''
-            }));
-            const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
-            if (progress.status === 'completed') {
-              if (!hasValidUrlStep) {
-                goToStep('review-and-launch');
-              }
-            } else {
-              const resumeTarget = __meta?.resumeStep;
-              if (resumeTarget && !hasValidUrlStep) {
-                goToStep(resumeTarget);
-              }
-            }
-          } else if (progress?.status === 'completed') {
-            const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
+        if (progress?.data) {
+          const { __meta, ...rest } = progress.data;
+          setFormData((prev) => ({
+            ...prev,
+            ...rest,
+            contactEmail: rest.contactEmail || prev.contactEmail || fallbackContactEmail || ''
+          }));
+          const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
+          if (progress.status === 'completed') {
             if (!hasValidUrlStep) {
               goToStep('review-and-launch');
             }
+          } else {
+            const resumeTarget = __meta?.resumeStep;
+            if (resumeTarget && !hasValidUrlStep) {
+              goToStep(resumeTarget);
+            }
+          }
+        } else if (progress?.status === 'completed') {
+          const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
+          if (!hasValidUrlStep) {
+            goToStep('review-and-launch');
           }
         }
       } catch (error) {
         console.warn('[ONBOARDING][LOAD] Failed to load saved data:', error);
-        // Non-blocking - continue with empty form
       } finally {
         setIsLoadingData(false);
       }
     };
 
     void loadSavedData();
-  }, [isOpen, organizationId, fallbackContactEmail, setFormData, goToStep, onClose, currentStepFromUrl]);
+  }, [isOpen, organizationId, fallbackContactEmail, setFormData, goToStep, currentStepFromUrl, fetchStripeStatus]);
 
   // useStepValidation already initialized above
 
@@ -240,6 +322,15 @@ const BusinessOnboardingModal = ({
     if (validationError) {
       setLoading(false);
       return;
+    }
+
+    if (currentStep === 'stripe-onboarding') {
+      try {
+        await startStripeOnboarding();
+      } catch {
+        setLoading(false);
+        return;
+      }
     }
 
     const resumeStep = isLastStep ? currentStep : getAdjacentStep(currentStep, 1);
@@ -329,6 +420,9 @@ const BusinessOnboardingModal = ({
           organizationSlug={organizationName?.toLowerCase().replace(/\s+/g, '-')}
           disabled={isLoadingData}
           onSkip={handleSkip}
+          stripeStatus={stripeStatus}
+          stripeClientSecret={stripeClientSecret}
+          stripeLoading={loading || stripeRequestPending}
         />
             
       </OnboardingContainer>

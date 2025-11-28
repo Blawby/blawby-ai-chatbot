@@ -2,29 +2,21 @@ import { getOrganizationContext, withOrganizationContext } from "../middleware/o
 import type { Env } from "../types.js";
 import { UsageService } from "../services/UsageService.js";
 import { HttpErrors, createSuccessResponse } from "../errorHandler.js";
+import { RemoteApiService } from "../services/RemoteApiService.js";
 
-async function resolveOrganizationId(env: Env, organizationIdentifier: string): Promise<string> {
+async function resolveOrganizationId(env: Env, organizationIdentifier: string, request?: Request): Promise<string> {
   const trimmed = organizationIdentifier.trim();
   if (!trimmed) {
     throw HttpErrors.badRequest("Organization identifier is required");
   }
 
-  const byId = await env.DB.prepare(
-    `SELECT id FROM organizations WHERE id = ? LIMIT 1`
-  ).bind(trimmed).first<{ id: string }>();
-  if (byId?.id) {
-    return byId.id;
+  // RemoteApiService.getOrganization supports both ID and slug lookups
+  const organization = await RemoteApiService.getOrganization(env, trimmed, request);
+  if (!organization) {
+    throw HttpErrors.notFound("Organization not found");
   }
 
-  const bySlug = await env.DB.prepare(
-    `SELECT id FROM organizations WHERE slug = ? LIMIT 1`
-  ).bind(trimmed).first<{ id: string }>();
-
-  if (bySlug?.id) {
-    return bySlug.id;
-  }
-
-  throw HttpErrors.notFound("Organization not found");
+  return organization.id;
 }
 
 export async function handleUsage(request: Request, env: Env): Promise<Response> {
@@ -46,7 +38,7 @@ export async function handleUsage(request: Request, env: Env): Promise<Response>
       throw HttpErrors.badRequest("Organization context required");
     }
 
-    const organizationId = await resolveOrganizationId(env, orgContext.organizationId);
+    const organizationId = await resolveOrganizationId(env, orgContext.organizationId, request);
     const quota = await UsageService.getRemainingQuota(env, organizationId);
     return createSuccessResponse(quota);
   }

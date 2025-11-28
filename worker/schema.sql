@@ -212,11 +212,11 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
 
 
 -- ========================================
--- DEFAULT ORGANIZATION SEEDING
+-- DEFAULT ORGANIZATION
 -- ========================================
 -- The critical public/default organization `blawby-ai` (ID: 01K0TNGNKTM4Q0AG0XF0A8ST0Q)
--- is seeded via D1 migration: 20250129_seed_blawby_ai_org.sql
--- This org MUST exist across all environments for public chat/Stripe defaults.
+-- is managed by the remote API at staging-api.blawby.com
+-- This org MUST exist across all environments for public chat defaults.
 
 -- Payment history table for tracking all payment transactions
 CREATE TABLE IF NOT EXISTS payment_history (
@@ -317,7 +317,7 @@ CREATE TABLE IF NOT EXISTS session_audit_events (
 
 CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_events(session_id, created_at);
 
--- Sample data removed - use seed scripts for development data
+-- Sample data removed - organizations are managed by remote API
 
 -- ========================================
 -- AUTH TABLES REMOVED

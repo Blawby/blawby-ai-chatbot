@@ -15,6 +15,7 @@
 - **Implementation**: Server-Sent Events for chat streaming
 - **Headers**: `Content-Type: text/event-stream` (line 48)
 - **Client**: `src/hooks/useMessageHandling.ts` (lines 55-582)
+- **Authentication**: Bearer token authentication via `src/lib/authClient.ts`
 
 **PWA & Service Worker**
 - **File**: `public/sw.js` (lines 1-18) - Basic implementation
@@ -65,6 +66,52 @@ export default {
     }
   }
 }
+```
+
+## Authentication Integration
+
+### Bearer Token Authentication for Notifications
+
+All notification endpoints and SSE connections must use the new Bearer token authentication:
+
+**SSE Authentication**:
+```typescript
+// Client: src/hooks/useMessageHandling.ts
+const eventSource = new EventSource('/api/agent/stream', {
+  headers: {
+    'Authorization': `Bearer ${await getTokenAsync()}`
+  }
+});
+
+// Worker: worker/routes/agent.ts
+// Verify Bearer token before establishing SSE
+const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+const session = await verifyToken(token);
+```
+
+**API Notification Endpoints**:
+```typescript
+// All notification API calls use the configured apiClient
+import { apiClient } from '@/lib/apiClient';
+
+// Get notifications
+const notifications = await apiClient.get('/api/notifications');
+
+// Mark as read
+await apiClient.post(`/api/notifications/${id}/read`);
+```
+
+**Queue Events Include Organization Context**:
+```typescript
+// Queue messages must include organizationId for proper routing
+await env.NOTIFICATION_QUEUE.send({
+  type: 'email',
+  notificationType: 'matter_created',
+  recipient: ownerEmail,
+  organizationId, // Required for multi-tenant isolation
+  userId, // Required for user-specific notifications
+  data: { matterInfo, clientInfo }
+});
 ```
 
 ## Implementation Strategy
