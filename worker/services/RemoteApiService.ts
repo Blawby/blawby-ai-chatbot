@@ -1,4 +1,5 @@
-import type { Env, Organization, OrganizationConfig, SubscriptionLifecycleStatus, OrganizationKind, HttpError } from '../types.js';
+import type { Env, Organization, OrganizationConfig, SubscriptionLifecycleStatus, OrganizationKind } from '../types.js';
+import { HttpError } from '../types.js';
 import { Logger } from '../utils/logger.js';
 import { HttpErrors } from '../errorHandler.js';
 

@@ -814,42 +814,97 @@ export class OrganizationService {
   }
 
 
-  async listOrganizations(userId?: string): Promise<Organization[]> {
+  /**
+   * Batch process remote API calls to avoid overwhelming the remote API
+   * Processes items in chunks to limit concurrent requests
+   * @param batchSize Number of concurrent requests per batch (default: 10)
+   */
+  private async batchFetchMetadata(
+    organizationIds: string[],
+    batchSize: number = 10
+  ): Promise<Array<Awaited<ReturnType<typeof RemoteApiService.getOrganizationMetadata>> | null>> {
+    const results: Array<Awaited<ReturnType<typeof RemoteApiService.getOrganizationMetadata>> | null> = [];
+    
+    // Process in batches to avoid overwhelming the remote API
+    for (let i = 0; i < organizationIds.length; i += batchSize) {
+      const batch = organizationIds.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (orgId) => {
+        try {
+          return await RemoteApiService.getOrganizationMetadata(this.env, orgId);
+        } catch (error) {
+          console.warn(`Failed to fetch subscription metadata for org ${orgId}`, error);
+          return null;
+        }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+    }
+    
+    return results;
+  }
+
+  async listOrganizations(userId?: string, options?: { limit?: number; offset?: number }): Promise<Organization[]> {
     try {
+      const limit = options?.limit ?? (userId ? undefined : 100); // Default limit of 100 for admin, no limit for user's own orgs
+      const offset = options?.offset ?? 0;
+      const maxLimit = 500; // Maximum limit to prevent abuse
+      const effectiveLimit = limit ? Math.min(limit, maxLimit) : undefined;
+
       if (userId) {
         // Get organizations where user is a member
-        const orgRows = await this.env.DB.prepare(`
-          SELECT 
-            o.id,
-            o.name,
-            o.slug,
-            o.domain,
-            o.config,
-            o.stripe_customer_id,
-            o.subscription_tier,
-            o.seats,
-            o.is_personal,
-            o.created_at,
-            o.updated_at,
-            o.business_onboarding_completed_at,
-            o.business_onboarding_skipped,
-            o.business_onboarding_data
-          FROM organizations o
-          INNER JOIN members m ON o.id = m.organization_id
-          WHERE m.user_id = ?
-          ORDER BY o.created_at DESC
-        `).bind(userId).all();
+        const query = effectiveLimit
+          ? `
+            SELECT 
+              o.id,
+              o.name,
+              o.slug,
+              o.domain,
+              o.config,
+              o.stripe_customer_id,
+              o.subscription_tier,
+              o.seats,
+              o.is_personal,
+              o.created_at,
+              o.updated_at,
+              o.business_onboarding_completed_at,
+              o.business_onboarding_skipped,
+              o.business_onboarding_data
+            FROM organizations o
+            INNER JOIN members m ON o.id = m.organization_id
+            WHERE m.user_id = ?
+            ORDER BY o.created_at DESC
+            LIMIT ? OFFSET ?
+          `
+          : `
+            SELECT 
+              o.id,
+              o.name,
+              o.slug,
+              o.domain,
+              o.config,
+              o.stripe_customer_id,
+              o.subscription_tier,
+              o.seats,
+              o.is_personal,
+              o.created_at,
+              o.updated_at,
+              o.business_onboarding_completed_at,
+              o.business_onboarding_skipped,
+              o.business_onboarding_data
+            FROM organizations o
+            INNER JOIN members m ON o.id = m.organization_id
+            WHERE m.user_id = ?
+            ORDER BY o.created_at DESC
+          `;
         
-        // Fetch subscription metadata for all organizations in parallel
-        const orgMetadataPromises = orgRows.results.map(async (row) => {
-          try {
-            return await RemoteApiService.getOrganizationMetadata(this.env, row.id as string);
-          } catch (error) {
-            console.warn(`Failed to fetch subscription metadata for org ${row.id}`, error);
-            return null;
-          }
-        });
-        const orgMetadataList = await Promise.all(orgMetadataPromises);
+        const orgRows = effectiveLimit
+          ? await this.env.DB.prepare(query).bind(userId, effectiveLimit, offset).all()
+          : await this.env.DB.prepare(query).bind(userId).all();
+        
+        // Fetch subscription metadata in batches to avoid overwhelming remote API
+        const organizationIds = orgRows.results.map(row => row.id as string);
+        const orgMetadataList = await this.batchFetchMetadata(organizationIds);
         
         return orgRows.results.map((row, index) => {
           const rawConfig = row.config ? JSON.parse(row.config as string) : {};
@@ -880,7 +935,11 @@ export class OrganizationService {
           };
         });
       } else {
-        // Get all organizations (for admin purposes)
+        // Get all organizations (for admin purposes) - WITH PAGINATION
+        if (!effectiveLimit) {
+          throw new Error('Limit is required for admin organization list to prevent unbounded queries');
+        }
+
         const orgRows = await this.env.DB.prepare(`
           SELECT 
             o.id,
@@ -899,18 +958,12 @@ export class OrganizationService {
             o.business_onboarding_data
           FROM organizations o
           ORDER BY o.created_at DESC
-        `).all();
+          LIMIT ? OFFSET ?
+        `).bind(effectiveLimit, offset).all();
         
-        // Fetch subscription metadata for all organizations in parallel
-        const orgMetadataPromises = orgRows.results.map(async (row) => {
-          try {
-            return await RemoteApiService.getOrganizationMetadata(this.env, row.id as string);
-          } catch (error) {
-            console.warn(`Failed to fetch subscription metadata for org ${row.id}`, error);
-            return null;
-          }
-        });
-        const orgMetadataList = await Promise.all(orgMetadataPromises);
+        // Fetch subscription metadata in batches to avoid overwhelming remote API
+        const organizationIds = orgRows.results.map(row => row.id as string);
+        const orgMetadataList = await this.batchFetchMetadata(organizationIds);
         
         return orgRows.results.map((row, index) => {
           const rawConfig = row.config ? JSON.parse(row.config as string) : {};
