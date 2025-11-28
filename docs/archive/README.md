@@ -3,7 +3,7 @@
 This index lists superseded documents for historical context. Each page includes a banner pointing to the canonical docs.
 
 - **Canonical**
-  - Stripe: ../stripe-architecture.md
+  - Stripe: ./stripe/stripe-architecture-archived.md (⚠️ Archived - Stripe now handled by remote API)
   - Organization: ../organization-architecture.md
 
 ## Stripe

@@ -60,7 +60,7 @@ A production-ready legal intake chatbot built with Cloudflare Workers AI, featur
 - **👨‍💼 Human Review Queue**: Lawyer oversight for urgent/complex matters
 - **📱 Mobile-First Design**: Responsive interface with modern UI/UX
 - **📎 File Upload Support**: Photos, videos, audio, documents (25MB max) with camera capture
-- **🔐 Authentication**: Google OAuth and email/password with Better Auth
+- **🔐 Authentication**: Handled by remote Better Auth server at staging-api.blawby.com
 - **🔒 Production Security**: OWASP-compliant headers and validation
 
 ## 🏗️ **Architecture**
@@ -80,7 +80,7 @@ Frontend (Preact) → Cloudflare Workers → AI Agent → Tool Handlers → Acti
 - **Frontend**: Preact, TypeScript, Tailwind CSS
 - **Backend**: Cloudflare Workers, D1 Database, KV Storage, R2 Object Storage
 - **AI**: Cloudflare Workers AI (GPT-OSS 20B)
-- **Auth**: Better Auth with Google OAuth & Email/Password
+- **Auth**: Remote Better Auth server (staging-api.blawby.com)
 - **Deployment**: Cloudflare Workers
 
 ## 🧪 **Testing**
@@ -175,23 +175,16 @@ The application supports **18 languages** covering 5+ billion speakers — ~90%+
 - Run `npm run test:i18n` for internationalization smoke tests
 
 ### Organization Management
-Organizations are managed via REST API:
-```bash
-# List organizations
-curl -X GET http://localhost:8787/api/organizations
-
-# Create organization (requires admin token)
-curl -X POST http://localhost:8787/api/organizations \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"slug": "new-organization", "name": "New Organization", "config": {"aiModel": "@cf/openai/gpt-oss-20b"}}'
-```
+Organization management (CRUD, invitations, subscriptions) is handled by the remote API at `staging-api.blawby.com`:
+- Frontend calls remote API endpoints for organization operations
+- Local worker only handles workspace endpoints (`/api/organizations/:id/workspace/*`) for chatbot data
+- Organization metadata (config, subscription status) is fetched from remote API when needed
 
 ### Authentication & User Management
-User authentication is handled by a remote Better Auth server:
+User authentication is handled by a remote Better Auth server at `staging-api.blawby.com`:
 - Frontend uses Better Auth React client (`better-auth/react`) to connect to remote auth server
 - Authentication tokens are stored in IndexedDB and sent as Bearer tokens
-- Worker validates tokens by calling the remote auth server API (`/api/session`)
+- Worker validates tokens by calling the remote auth server API
 - Organization membership and roles are managed through the remote Better Auth server
 - Access the application with `?organizationId=<org-slug>` parameter
 

@@ -1825,22 +1825,23 @@ async function handleCreateMatter(
     sessionId: sessionId || 'session-' + Date.now()
   };
 
-  if (!paymentRequest.organizationId) {
-    throw new Error('Organization ID not configured - cannot process payment');
-  }
-
   // TODO: Payment processing is now handled by remote API at staging-api.blawby.com
   // Need to implement remote API call for payment processing
-  // For now, throw error to indicate payment functionality needs to be implemented
-  throw new Error('Payment processing is not yet implemented via remote API. Please contact support.');
-  
+  // For now, skip payment processing and continue with matter creation
+  let invoiceUrl: string | undefined;
+  let paymentId: string | undefined;
+
   // Placeholder for future implementation:
-  // const response = await fetch(`${env.REMOTE_API_URL}/api/payment/process`, {
-  //   method: 'POST',
-  //   headers: { 'Authorization': request.headers.get('Authorization') || '', 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(paymentRequest)
-  // });
-  // const { invoiceUrl, paymentId } = await response.json();
+  // if (paymentRequest.organizationId) {
+  //   const response = await fetch(`${env.REMOTE_API_URL}/api/payment/process`, {
+  //     method: 'POST',
+  //     headers: { 'Authorization': request.headers.get('Authorization') || '', 'Content-Type': 'application/json' },
+  //     body: JSON.stringify(paymentRequest)
+  //   });
+  //   const result = await response.json();
+  //   invoiceUrl = result.invoiceUrl;
+  //   paymentId = result.paymentId;
+  // }
 
   const orchestrationResult = await ContactIntakeOrchestrator.finalizeSubmission({
     env,
@@ -2074,76 +2075,79 @@ async function handleCreatePaymentInvoice(
     due_date?: string;
   };
 
-  try {
-    // TODO: Invoice creation is now handled by remote API at staging-api.blawby.com
-    // Need to implement remote API call for invoice creation
-    // For now, return error to indicate invoice functionality needs to be implemented
-    return {
-      success: false,
-      error: 'Invoice creation is not yet implemented via remote API. Please contact support.'
-    };
-    
-    // Placeholder for future implementation:
-    // const paymentRequest = {
-    //   customerInfo: {
-    //     name: recipient?.name || '',
-    //     email: recipient?.email || '',
-    //     phone: '',
-    //     location: ''
-    //   },
-    //   matterInfo: {
-    //     type: 'consultation',
-    //     description: description as string,
-    //     urgency: 'normal',
-    //     opposingParty: ''
-    //   },
-    //   organizationId: organization.id,
-    //   sessionId,
-    //   invoiceId: invoice_id as string,
-    //   currency: currency as string,
-    //   dueDate: due_date as string
-    // };
-    // const response = await fetch(`${env.REMOTE_API_URL}/api/payment/invoice`, {
-    //   method: 'POST',
-    //   headers: { 'Authorization': request.headers.get('Authorization') || '', 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(paymentRequest)
-    // });
-    // const result = await response.json();
-
-    if (result.success) {
-      return {
-        success: true,
-        data: {
-          action: 'show_payment',
-          message: `I've created a payment invoice for your consultation. Please complete the payment to proceed.`,
-          payment: {
-            invoiceUrl: result.invoiceUrl!,
-            paymentId: result.paymentId!,
-            amount,
-            serviceType: 'consultation',
-            sessionId
-          }
-        }
-      };
-    } else {
-      return {
-        success: false,
-        error: {
-          message: result.error || 'Failed to create payment invoice',
-          toUserResponse: () => 'Payment service unavailable. Please try again later.'
-        }
-      };
+  // TODO: Invoice creation is now handled by remote API at staging-api.blawby.com
+  // Need to implement remote API call for invoice creation
+  // For now, return error to indicate invoice functionality needs to be implemented
+  return {
+    success: false,
+    error: {
+      message: 'Invoice creation is not yet implemented via remote API. Please contact support.',
+      toUserResponse: () => 'Payment service is temporarily unavailable. Please contact support for assistance.'
     }
-  } catch (error) {
-    Logger.error('❌ Payment invoice creation failed:', error);
-    return {
-      success: false,
-      error: {
-        message: error instanceof Error ? error.message : String(error),
-        toUserResponse: () => 'Payment service unavailable. Please try again later.'
-      }
-    };
-  }
+  };
+  
+  // Placeholder for future implementation:
+  // try {
+  //   const paymentRequest = {
+  //     customerInfo: {
+  //       name: recipient?.name || '',
+  //       email: recipient?.email || '',
+  //       phone: '',
+  //       location: ''
+  //     },
+  //     matterInfo: {
+  //       type: 'consultation',
+  //       description: description as string,
+  //       urgency: 'normal',
+  //       opposingParty: ''
+  //     },
+  //     organizationId: organization.id,
+  //     sessionId,
+  //     invoiceId: invoice_id as string,
+  //     currency: currency as string,
+  //     dueDate: due_date as string
+  //   };
+  //   const response = await fetch(`${env.REMOTE_API_URL}/api/payment/invoice`, {
+  //     method: 'POST',
+  //     headers: { 'Authorization': request.headers.get('Authorization') || '', 'Content-Type': 'application/json' },
+  //     body: JSON.stringify(paymentRequest)
+  //   });
+  //   const result = await response.json();
+  //
+  //   if (result.success) {
+  //     return {
+  //       success: true,
+  //       data: {
+  //         action: 'show_payment',
+  //         message: `I've created a payment invoice for your consultation. Please complete the payment to proceed.`,
+  //         payment: {
+  //           invoiceUrl: result.invoiceUrl!,
+  //           paymentId: result.paymentId!,
+  //           amount,
+  //           serviceType: 'consultation',
+  //           sessionId
+  //         }
+  //       }
+  //     };
+  //   } else {
+  //     return {
+  //       success: false,
+  //       error: {
+  //         message: result.error || 'Failed to create payment invoice',
+  //         toUserResponse: () => 'Payment service unavailable. Please try again later.'
+  //       }
+  //     };
+  //   }
+  // } catch (error) {
+  //   Logger.error('❌ Payment invoice creation failed:', error);
+  //   return {
+  //     success: false,
+  //     error: {
+  //       message: error instanceof Error ? error.message : String(error),
+  //       toUserResponse: () => 'Payment service unavailable. Please try again later.'
+  //     }
+  //   };
+  // }
 }
 
 async function handleShowContactForm(

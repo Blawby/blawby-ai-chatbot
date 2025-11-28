@@ -11,7 +11,7 @@
 |-------|-----------|-------|
 | Signup | Remote auth server | Handled by remote Better Auth server. Personal org creation happens via webhooks or remote server hooks. |
 | Session creation | Remote auth server | Session management handled by remote Better Auth server. Worker validates tokens via remote API. |
-| Upgrade | Checkout flow → Stripe webhook (`/api/stripe/webhook`) | `usePaymentUpgrade` seeds the organization ID via `subscription_data.metadata` before launching Checkout, ensuring webhooks can resolve the org without guessing. The webhook then moves the org to business, updates seats, flips `is_personal` to `0`, and persists subscription metadata in D1. |
+| Upgrade | Checkout flow → Remote API Stripe webhook | `usePaymentUpgrade` calls remote API at staging-api.blawby.com for checkout/billing portal. Remote API handles Stripe webhooks and updates organization subscription status. Worker fetches subscription status via `RemoteApiService` for entitlement checks. |
 | Entitlements | Feature guards (`worker/middleware/featureGuard.ts`) | Checks `tier`, `isPersonal`, and `subscriptionStatus` before allowing access to APIs (tokens, invitations, etc.). |
 | Onboarding | `BusinessOnboardingPage` | Accessible only for business orgs with subscription status `active`, `trialing`, or `paused`. |
 
@@ -34,10 +34,10 @@ Field | Description
 
 Component | Responsibility
 ----------|----------------
-`worker/routes/organizations.ts` | CRUD, invitations, ensure-personal endpoint. Protects business features behind owner checks + entitlement gates.
-`worker/middleware/featureGuard.ts` | Centralized entitlement logic (min tier, `requireNonPersonal`, quota enforcement).
-`worker/routes/subscription.ts` | Admin reconciliation + cancellation endpoints (owner-only).
-`worker/routes/stripeWebhook.ts` | Persists subscription lifecycle events and updates organization metadata.
+`worker/routes/organizations.ts` | Workspace endpoints only (`/api/organizations/:id/workspace/*`). Organization CRUD is handled by remote API at staging-api.blawby.com.
+`worker/middleware/featureGuard.ts` | Centralized entitlement logic (min tier, `requireNonPersonal`, quota enforcement). Fetches organization metadata from remote API.
+`worker/services/RemoteApiService.ts` | Fetches organization and subscription data from remote API for entitlement checks.
+Remote API (`staging-api.blawby.com`) | Handles organization CRUD, invitations, subscriptions, Stripe webhooks, and user management.
 
 ## 5. Frontend Consumption
 
@@ -49,9 +49,9 @@ Component | Responsibility
 | `PricingModal`, `Settings` | React to the entitlement model so personal orgs see upgrade CTAs while business orgs get management actions. |
 
 ## 6. Testing
-- **Worker integration**: `tests/integration/api/subscription.sync.test.ts` (reconciliation), `tests/integration/api/stripe.webhook.test.ts` (webhook effects). Auth testing now requires remote auth server.
-- **Playwright**: `tests/e2e/auth.spec.ts`, onboarding/cart flows ensure UI mirrors entitlements.
-- **Unit**: entitlement utilities (`src/utils/subscription.ts`) can be unit-tested directly.
+- **Worker integration**: Tests for workspace endpoints and chatbot functionality. Organization/subscription management tests removed (handled by remote API).
+- **Playwright**: Chatbot workflow tests. Auth/organization management tests removed (handled by remote API).
+- **Unit**: Entitlement utilities (`src/utils/subscription.ts`) can be unit-tested directly.
 
 ## 7. Known Gaps / Future Ideas
 1. Add integration coverage for invitation routes to confirm personal orgs can’t invite members.

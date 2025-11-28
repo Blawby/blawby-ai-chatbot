@@ -1,6 +1,6 @@
 # Stripe Billing Simplification Plan
 
-> **Note:** Architecture and operational guidance now live in `docs/stripe-architecture.md`. This document is retained as historical context for the implementation plan.
+> **Note:** Architecture and operational guidance have been archived to `docs/archive/stripe/stripe-architecture-archived.md` (Stripe functionality is now handled by remote API). This document is retained as historical context for the implementation plan.
 
 ## Objectives
 - Trust the Better Auth + Stripe webhook integration as the single subscription source of truth.

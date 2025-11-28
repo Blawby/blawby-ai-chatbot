@@ -17,4 +17,5 @@ Every user should have a personal org. Business features must unlock when a paid
 
 ## Links
 - Canonical: ../organization-architecture.md
-- Related: worker/middleware/featureGuard.ts, worker/routes/stripeWebhook.ts, worker/routes/organizations.ts
+- Related: worker/middleware/featureGuard.ts, worker/services/RemoteApiService.ts, worker/routes/organizations.ts
+- Note: Stripe webhook handling moved to remote API (staging-api.blawby.com) as of 2025-11-28
