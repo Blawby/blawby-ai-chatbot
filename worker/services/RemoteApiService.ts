@@ -5,11 +5,20 @@ import { HttpErrors } from '../errorHandler.js';
 /**
  * Service for fetching organization and subscription data from the remote API
  * (staging-api.blawby.com)
+ * 
+ * @note Cache Limitation: The static caches (orgCache, configCache, subscriptionCache)
+ * are per-V8-isolate and do not persist across different Cloudflare Worker isolates.
+ * Each isolate starts with an empty cache, so these caches provide warm-up optimization
+ * within a single isolate's lifetime only. For cross-isolate consistency, consider
+ * migrating to Workers KV or Durable Objects in the future if needed.
  */
 export class RemoteApiService {
   private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  /** Per-isolate cache for organization data - resets when isolate is evicted */
   private static orgCache = new Map<string, { data: Organization; timestamp: number }>();
+  /** Per-isolate cache for organization config - resets when isolate is evicted */
   private static configCache = new Map<string, { data: OrganizationConfig; timestamp: number }>();
+  /** Per-isolate cache for subscription status - resets when isolate is evicted */
   private static subscriptionCache = new Map<string, { status: SubscriptionLifecycleStatus; timestamp: number }>();
 
   /**
@@ -97,11 +106,24 @@ export class RemoteApiService {
 
     try {
       // Try by ID first
-      let response = await this.fetchFromRemoteApi(env, `/api/organizations/${organizationId}`, request);
-      
-      // If 404, try by slug
-      if (response.status === 404) {
-        response = await this.fetchFromRemoteApi(env, `/api/organizations?slug=${encodeURIComponent(organizationId)}`, request);
+      let response: Response;
+      try {
+        response = await this.fetchFromRemoteApi(env, `/api/organizations/${organizationId}`, request);
+      } catch (error) {
+        // If 404, try by slug
+        if (error instanceof HttpError && error.status === 404) {
+          try {
+            response = await this.fetchFromRemoteApi(env, `/api/organizations?slug=${encodeURIComponent(organizationId)}`, request);
+          } catch (slugError) {
+            // If slug lookup also fails, return null
+            if (slugError instanceof HttpError && slugError.status === 404) {
+              return null;
+            }
+            throw slugError;
+          }
+        } else {
+          throw error;
+        }
       }
 
       const data = await response.json() as { data?: Organization; organization?: Organization };
@@ -116,11 +138,20 @@ export class RemoteApiService {
       
       return organization;
     } catch (error) {
-      Logger.warn('Failed to fetch organization from remote API', {
+      // Distinguish between 404 (not found) and other errors (API down, network failures)
+      if (error instanceof HttpError && error.status === 404) {
+        // Organization genuinely not found
+        Logger.debug('Organization not found in remote API', { organizationId });
+        return null;
+      }
+      
+      // Re-throw connectivity/server errors instead of swallowing them
+      Logger.error('Failed to fetch organization from remote API', {
         organizationId,
         error: error instanceof Error ? error.message : String(error),
+        status: error instanceof HttpError ? error.status : undefined,
       });
-      return null;
+      throw error;
     }
   }
 
@@ -178,6 +209,9 @@ export class RemoteApiService {
 
   /**
    * Get organization metadata (tier, kind, subscription status) for usage/quota purposes
+   * 
+   * @throws {HttpError} If organization is not found or remote API is unavailable
+   * @throws {Error} If organization data is invalid
    */
   static async getOrganizationMetadata(
     env: Env,
@@ -193,14 +227,8 @@ export class RemoteApiService {
     const organization = await this.getOrganization(env, organizationId, request);
     
     if (!organization) {
-      // Return default metadata if organization not found
-      return {
-        id: organizationId,
-        slug: null,
-        tier: 'free',
-        kind: 'personal',
-        subscriptionStatus: 'none',
-      };
+      // Throw error instead of returning defaults to prevent unauthorized access during API outages
+      throw HttpErrors.notFound(`Organization not found: ${organizationId}`);
     }
 
     return {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { z } from 'zod';
 import type { OrganizationConfig } from '../../worker/types';
 import { useSessionContext } from '../contexts/SessionContext.js';
+import { useSession } from '../lib/authClient.js';
 import { DEFAULT_ORGANIZATION_ID } from '../utils/constants.js';
 
 // API endpoints - moved inline since api.ts was removed
@@ -39,6 +40,8 @@ interface UseOrganizationConfigOptions {
 
 export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }: UseOrganizationConfigOptions = {}) => {
   const { activeOrganizationId } = useSessionContext();
+  const { data: session } = useSession();
+  const isAuthenticated = Boolean(session?.user);
   const [organizationId, setOrganizationId] = useState<string>('');
   const [organizationNotFound, setOrganizationNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -142,24 +145,17 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
         return;
       }
 
-      // Check if we're on the root domain with no parameters - redirect to Blawby AI
-      if (hostname === 'ai.blawby.com' &&
-        window.location.pathname === '/' &&
-        !organizationIdParam) {
-        // Redirect to Blawby AI
-        window.location.href = 'https://ai.blawby.com/?organizationId=blawby-ai';
-        return;
-      }
-
-      // Priority: URL param > explicit param > active org > constant
+      // Priority: URL param > explicit param > active org > constant (only if authenticated)
       if (organizationIdParam) {
         setOrganizationId(organizationIdParam);
       } else {
-        const resolved = (explicitOrgId ?? activeOrganizationId ?? DEFAULT_ORGANIZATION_ID);
+        // Only default to DEFAULT_ORGANIZATION_ID if user is authenticated
+        // Unauthenticated users should have empty organizationId (will show auth page)
+        const resolved = (explicitOrgId ?? activeOrganizationId ?? (isAuthenticated ? DEFAULT_ORGANIZATION_ID : ''));
         setOrganizationId(resolved);
       }
     }
-  }, [explicitOrgId, activeOrganizationId]);
+  }, [explicitOrgId, activeOrganizationId, isAuthenticated]);
 
   // Fetch organization configuration
   const fetchOrganizationConfig = useCallback(async (currentOrganizationId: string) => {
@@ -309,12 +305,12 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
   }, [parseUrlParams]);
 
   // Fetch organization config when organizationId changes
+  // Only fetch if authenticated and organizationId is not empty
   useEffect(() => {
-    // Only fetch if organizationId is not empty
-    if (organizationId) {
+    if (isAuthenticated && organizationId) {
       fetchOrganizationConfig(organizationId);
     }
-  }, [organizationId, fetchOrganizationConfig]);
+  }, [organizationId, isAuthenticated, fetchOrganizationConfig]);
 
   return {
     organizationId,

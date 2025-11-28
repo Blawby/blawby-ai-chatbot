@@ -1,5 +1,5 @@
 -- Migration: Remove auth tables (migrated to remote API)
--- Date: 2025-02-11
+-- Date: 2025-11-28
 -- Description: Drop auth-related tables that are now managed by remote API at staging-api.blawby.com
 -- 
 -- Tables being removed:

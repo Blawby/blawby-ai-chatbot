@@ -183,23 +183,9 @@ function buildSubscriptionCacheFromRow(
 }
 
 async function getLatestSubscriptionRow(env: Env, organizationId: string): Promise<SubscriptionRow | null> {
-  return env.DB.prepare(
-    `SELECT
-       stripe_subscription_id,
-       stripe_customer_id,
-       status,
-       plan,
-       seats,
-       period_end,
-       cancel_at_period_end,
-       updated_at
-     FROM subscriptions
-     WHERE reference_id = ?
-     ORDER BY updated_at DESC
-     LIMIT 1`
-  )
-    .bind(organizationId)
-    .first<SubscriptionRow>();
+  // Subscriptions are now managed by remote API - this function returns null
+  // Subscription data should be fetched from RemoteApiService instead
+  return null;
 }
 
 export async function resolveOrganizationForStripeIdentifiers(
@@ -216,17 +202,9 @@ export async function resolveOrganizationForStripeIdentifiers(
     return organizationIdFromMetadata.trim();
   }
 
-  if (subscriptionId) {
-    const bySubscription = await env.DB.prepare(
-      `SELECT reference_id FROM subscriptions WHERE stripe_subscription_id = ? LIMIT 1`
-    )
-      .bind(subscriptionId)
-      .first<{ reference_id: string | null }>();
-
-    if (bySubscription?.reference_id) {
-      return bySubscription.reference_id;
-    }
-  }
+  // Subscription lookup removed - subscriptions are now managed by remote API
+  // If subscriptionId is provided, we can't resolve it locally anymore
+  // The remote API should handle subscription-to-organization mapping
 
   if (customerId) {
     const byCustomer = await env.DB.prepare(
@@ -258,65 +236,32 @@ interface UpsertSubscriptionRecordArgs {
 }
 
 async function upsertSubscriptionRecord(args: UpsertSubscriptionRecordArgs): Promise<StripeSubscriptionCache> {
+  // Subscriptions are now managed by remote API - this function is deprecated
+  // Return a cache object based on the args without writing to local DB
   const {
-    env,
     organizationId,
     subscriptionId,
     stripeCustomerId,
     plan,
     status,
     seats,
-    periodStart,
     periodEnd,
     cancelAtPeriodEnd,
-    priceId,
   } = args;
 
-  const nowSeconds = Math.floor(Date.now() / 1000);
-
-  await env.DB.prepare(
-    `INSERT INTO subscriptions (
-       id,
-       plan,
-       reference_id,
-       stripe_subscription_id,
-       stripe_customer_id,
-       status,
-       period_start,
-       period_end,
-       seats,
-       cancel_at_period_end,
-       created_at,
-       updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(stripe_subscription_id) DO UPDATE SET
-       plan = excluded.plan,
-       status = excluded.status,
-       seats = excluded.seats,
-       period_start = excluded.period_start,
-       period_end = excluded.period_end,
-       cancel_at_period_end = excluded.cancel_at_period_end,
-       stripe_customer_id = excluded.stripe_customer_id,
-       reference_id = COALESCE(subscriptions.reference_id, excluded.reference_id),
-       updated_at = excluded.updated_at`
-  )
-    .bind(
-      subscriptionId,
-      plan ?? "business",
-      organizationId,
-      subscriptionId,
-      stripeCustomerId,
-      status,
-      periodStart ?? null,
-      periodEnd ?? null,
-      seats ?? 1,
-      cancelAtPeriodEnd ? 1 : 0,
-      nowSeconds,
-      nowSeconds
-    )
-    .run();
-
-  return (
+  // Return cache object without writing to subscriptions table
+  return {
+    subscriptionId,
+    stripeCustomerId: stripeCustomerId ?? null,
+    status,
+    priceId: plan ?? "business",
+    seats: seats ?? null,
+    currentPeriodEnd: periodEnd ? periodEnd * 1000 : null, // Convert to milliseconds
+    cancelAtPeriodEnd,
+    limits: defaultLimits(),
+    cachedAt: Date.now(),
+    expiresAt: undefined,
+  };
     buildSubscriptionCacheFromRow(
       {
         stripe_subscription_id: subscriptionId,
@@ -461,18 +406,8 @@ export async function applyStripeSubscriptionUpdate(args: {
 }
 
 export async function clearStripeSubscriptionCache(env: Env, organizationId: string): Promise<void> {
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  await env.DB.prepare(
-    `UPDATE subscriptions
-       SET status = 'canceled',
-           cancel_at_period_end = 1,
-           period_end = COALESCE(period_end, ?),
-           updated_at = ?
-     WHERE reference_id = ?`
-  )
-    .bind(nowSeconds, nowSeconds, organizationId)
-    .run();
-
+  // Subscriptions are now managed by remote API - no local DB update needed
+  // Only update local organization state
   await persistOrganizationSubscriptionState({
     env,
     organizationId,

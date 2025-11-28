@@ -10,18 +10,31 @@ const AUTH_BASE_URL = import.meta.env.VITE_AUTH_SERVER_URL;
 
 // Fallback to ngrok URL only in development (for local testing)
 const FALLBACK_AUTH_URL = "https://adapted-humbly-lynx.ngrok-free.app";
-const finalAuthUrl = AUTH_BASE_URL || (isDevelopment() ? FALLBACK_AUTH_URL : null);
 
-// Runtime check - will fail when auth client is actually used if URL is missing
-if (!finalAuthUrl) {
-  throw new Error(
-    'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
-  );
+// Get auth URL - use placeholder during build, validate at runtime
+function getAuthBaseUrl(): string {
+  const finalAuthUrl = AUTH_BASE_URL || (isDevelopment() ? FALLBACK_AUTH_URL : null);
+  
+  // During build (SSR), Vite may not have the env var - use placeholder
+  // At runtime in browser, this will be validated when auth is actually used
+  if (typeof window === 'undefined') {
+    // SSR/build context - use placeholder to avoid build errors
+    return finalAuthUrl || 'https://placeholder-auth-server.com';
+  }
+  
+  // Browser runtime - validate and throw if missing
+  if (!finalAuthUrl) {
+    throw new Error(
+      'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
+    );
+  }
+  
+  return finalAuthUrl;
 }
 
 export const authClient = createAuthClient({
   plugins: [organizationClient()],
-  baseURL: finalAuthUrl,
+  baseURL: getAuthBaseUrl(),
   fetchOptions: {
     auth: {
       type: "Bearer",

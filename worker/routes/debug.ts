@@ -97,61 +97,9 @@ async function convertOrgToBusiness(request: Request, env: Env): Promise<Respons
       throw e;
     }
 
-    // Create a subscription record so subscription_status resolves to 'active'
-    // This is required for the business onboarding guard to pass
-    const now = Math.floor(Date.now() / 1000);
-    const periodEnd = now + (30 * 24 * 60 * 60); // 30 days from now
-    const subscriptionId = `sub_test_${organizationId}`;
-    
-    // Check if subscription already exists
-    const existingSub = await env.DB.prepare(
-      `SELECT id FROM subscriptions WHERE reference_id = ?`
-    ).bind(organizationId).first<{ id: string }>();
-    
-    let subResult;
-    try {
-      if (existingSub) {
-        // Update existing subscription
-        subResult = await env.DB.prepare(
-          `UPDATE subscriptions 
-           SET status = 'active',
-               period_end = ?,
-               updated_at = ?
-           WHERE reference_id = ?`
-        )
-          .bind(periodEnd, now, organizationId)
-          .run();
-      } else {
-        // Insert new subscription
-        subResult = await env.DB.prepare(
-          `INSERT INTO subscriptions (
-            id, plan, reference_id, stripe_subscription_id, stripe_customer_id,
-            status, period_start, period_end, seats, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-          .bind(
-            subscriptionId,
-            'business',
-            organizationId,
-            subscriptionId,
-            null, // stripe_customer_id
-            'active',
-            now,
-            periodEnd,
-            1,
-            now,
-            now
-          )
-          .run();
-      }
-
-      if (!subResult?.success) {
-        throw new Error('Failed to create/update subscription');
-      }
-    } catch (e) {
-      console.error('[TEST] Subscription operation failed:', e);
-      throw e;
-    }
+    // Subscription creation removed - subscriptions are now managed by remote API
+    // The remote API should handle subscription status for business onboarding
+    // This test endpoint no longer creates local subscription records
 
     console.log(`[TEST] Converted organization ${organizationId} to business:`, {
       changes: result.meta?.changes ?? 0,

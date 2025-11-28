@@ -56,7 +56,11 @@ const criticalCssPlugin = (): Plugin => {
 	return {
 		name: 'critical-css-inline',
 		apply: 'build',
+		enforce: 'post', // Ensure this runs after all other plugins
 		async closeBundle() {
+			// Wait a bit to ensure all files are written
+			await new Promise(resolve => setTimeout(resolve, 100));
+			
 			const Critters = (await import('critters')).default;
 			const critters = new Critters({
 				// Critters options
@@ -70,6 +74,14 @@ const criticalCssPlugin = (): Plugin => {
 			});
 
 			try {
+				// Check if index.html exists before processing
+				try {
+					await fs.access('dist/index.html');
+				} catch {
+					console.warn('⚠️ dist/index.html not found, skipping critical CSS extraction');
+					return;
+				}
+				
 				// Process the main HTML file
 				const html = await fs.readFile('dist/index.html', 'utf8');
 				const processed = await critters.process(html, { path: 'dist/index.html' });
@@ -77,6 +89,7 @@ const criticalCssPlugin = (): Plugin => {
 				console.log('✅ Critical CSS inlined successfully');
 			} catch (e) {
 				console.error('Error processing critical CSS:', e);
+				// Don't fail the build if critical CSS extraction fails
 			}
 		}
 	};
@@ -226,39 +239,79 @@ export default defineConfig({
 	server: {
 		// Proxy API calls to local backend for chatbot endpoints only
 		// Management endpoints (auth, organizations CRUD, payment, subscription) are handled by remote API
+		// and will bypass the proxy entirely, using remote API via frontend helpers
 		proxy: {
-			'/api': {
+			'/api/agent': {
 				target: 'http://localhost:8787',
 				changeOrigin: true,
 				secure: false,
-				// Exclude management endpoints from proxy - these should call remote API directly
-				bypass: (req) => {
-					const path = req.url || '';
-					// Exclude management endpoints - frontend will call remote API directly
-					if (path.includes('/api/auth/') ||
-					    (path.includes('/api/organizations') && !path.includes('/workspace') && !path.includes('/events')) ||
-					    path.includes('/api/payment/') ||
-					    path.includes('/api/subscription/') ||
-					    path.includes('/api/users/') ||
-					    path.includes('/api/onboarding/') ||
-					    path.includes('/api/stripe/')) {
-						return path; // Return path to bypass proxy
-					}
-					return null; // Proxy chatbot endpoints
-				},
-				configure: (proxy, _options) => {
-					proxy.on('error', (err, _req, _res) => {
+				configure: (proxy: any, _options: any) => {
+					proxy.on('error', (err: Error, _req: any, _res: any) => {
 						console.log('proxy error', err);
 					});
-					proxy.on('proxyReq', (_proxyReq, req, _res) => {
+					proxy.on('proxyReq', (_proxyReq: any, req: any, _res: any) => {
 						console.log('Sending Request to the Target:', req.method, req.url);
 					});
-					proxy.on('proxyRes', (proxyRes, req, _res) => {
+					proxy.on('proxyRes', (proxyRes: any, req: any, _res: any) => {
 						console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
 					});
 				},
-
-			}
+			},
+			'/api/sessions': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/files': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/activity': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/analyze': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/review': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/pdf': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/debug': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/status': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/config': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/usage': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
+			'/api/health': {
+				target: 'http://localhost:8787',
+				changeOrigin: true,
+				secure: false,
+			},
 		}
 	},
 	// Environment variables for development
