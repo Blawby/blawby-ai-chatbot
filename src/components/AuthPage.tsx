@@ -7,7 +7,7 @@ import { Logo } from './ui/Logo';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from './ui/form';
 import { Input, EmailInput, PasswordInput } from './ui/input';
 import { handleError } from '../utils/errorHandler';
-import { authClient, signUp } from '../lib/authClient';
+import { authClient, signUp, signIn } from '../lib/authClient';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -124,7 +124,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         setShowOnboarding(true);
       } else {
         // Use Better Auth for sign-in
-        const result = await authClient.signIn.email({
+        const result = await signIn.email({
           email: formData.email,
           password: formData.password,
         });

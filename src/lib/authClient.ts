@@ -103,13 +103,25 @@ export const authClient = new Proxy({} as AuthClientType, {
 // These access the lazy-initialized client via the proxy
 export const signIn = new Proxy({} as AuthClientType['signIn'], {
   get(_target, prop) {
-    return (getAuthClient().signIn as any)[prop];
+    const client = getAuthClient();
+    const value = (client.signIn as any)[prop];
+    // If it's a function, bind it to preserve 'this' context
+    if (typeof value === 'function') {
+      return value.bind(client.signIn);
+    }
+    return value;
   }
 }) as AuthClientType['signIn'];
 
 export const signUp = new Proxy({} as AuthClientType['signUp'], {
   get(_target, prop) {
-    return (getAuthClient().signUp as any)[prop];
+    const client = getAuthClient();
+    const value = (client.signUp as any)[prop];
+    // If it's a function, bind it to preserve 'this' context
+    if (typeof value === 'function') {
+      return value.bind(client.signUp);
+    }
+    return value;
   }
 }) as AuthClientType['signUp'];
 
