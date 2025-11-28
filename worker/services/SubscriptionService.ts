@@ -262,31 +262,6 @@ async function upsertSubscriptionRecord(args: UpsertSubscriptionRecordArgs): Pro
     cachedAt: Date.now(),
     expiresAt: undefined,
   };
-    buildSubscriptionCacheFromRow(
-      {
-        stripe_subscription_id: subscriptionId,
-        stripe_customer_id: stripeCustomerId,
-        status,
-        plan: plan ?? null,
-        seats: seats ?? 1,
-        period_end: periodEnd ?? null,
-        cancel_at_period_end: cancelAtPeriodEnd ? 1 : 0,
-        updated_at: nowSeconds,
-      },
-      priceId ?? plan
-    ) ?? {
-      subscriptionId,
-      stripeCustomerId,
-      status,
-      priceId: priceId ?? plan ?? "unknown",
-      seats: seats ?? 1,
-      currentPeriodEnd: periodEnd ?? 0,
-      cancelAtPeriodEnd,
-      limits: defaultLimits(),
-      cachedAt: Date.now(),
-      expiresAt: undefined,
-    }
-  );
 }
 
 function resolveSubscriptionTier(args: {
