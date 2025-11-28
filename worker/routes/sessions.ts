@@ -4,9 +4,10 @@ import type { Env } from '../types.js';
 import { SessionService } from '../services/SessionService.js';
 import { sessionRequestBodySchema } from '../schemas/validation.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 import { DEFAULT_ORGANIZATION_ID } from '../../src/utils/constants.js';
 
-async function normalizeOrganizationId(env: Env, organizationId?: string | null): Promise<string> {
+async function normalizeOrganizationId(env: Env, organizationId?: string | null, request?: Request): Promise<string> {
   if (!organizationId) {
     return DEFAULT_ORGANIZATION_ID; // Use default instead of throwing error
   }
@@ -15,23 +16,15 @@ async function normalizeOrganizationId(env: Env, organizationId?: string | null)
     return DEFAULT_ORGANIZATION_ID; // Use default instead of throwing error
   }
 
-  // Try to find organization by ID (ULID) first, then by slug
-  let organizationRow = await env.DB.prepare(
-    'SELECT id FROM organizations WHERE id = ?'
-  ).bind(trimmed).first();
+  // Validate organization exists via remote API
+  const organization = await RemoteApiService.getOrganization(env, trimmed, request);
   
-  if (!organizationRow) {
-    organizationRow = await env.DB.prepare(
-      'SELECT id FROM organizations WHERE slug = ?'
-    ).bind(trimmed).first();
-  }
-  
-  if (organizationRow) {
-    return organizationRow.id as string;
+  if (organization) {
+    return organization.id;
   }
   
   // If no organization found, return the original trimmed value
-  // This will cause a foreign key constraint error, but that's better than silent failure
+  // This will cause validation errors downstream, but that's better than silent failure
   return trimmed;
 }
 
@@ -88,7 +81,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     let organizationId: string;
     if (body.organizationId) {
       // Use organization from request body
-      organizationId = await normalizeOrganizationId(env, body.organizationId);
+      organizationId = await normalizeOrganizationId(env, body.organizationId, request);
     } else {
       // Use organization context middleware to extract from URL/cookies
       const requestWithContext = await withOrganizationContext(request, env, {
@@ -97,7 +90,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
         defaultOrganizationId: DEFAULT_ORGANIZATION_ID
       });
       const contextOrgId = getOrganizationId(requestWithContext) || DEFAULT_ORGANIZATION_ID;
-      organizationId = await normalizeOrganizationId(env, contextOrgId);
+      organizationId = await normalizeOrganizationId(env, contextOrgId, request);
     }
 
     const resolution = await SessionService.resolveSession(env, {
@@ -153,7 +146,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     }
 
     if (!session) {
-      const fallbackOrganizationId = await normalizeOrganizationId(env, getOrganizationId(requestWithContext));
+      const fallbackOrganizationId = await normalizeOrganizationId(env, getOrganizationId(requestWithContext), request);
       const fallback = {
         sessionId,
         organizationId: fallbackOrganizationId,
@@ -172,7 +165,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     // Validate organization access using context
     const contextOrganizationId = getOrganizationId(requestWithContext);
     if (contextOrganizationId !== 'public') {
-      const requestedOrganization = await normalizeOrganizationId(env, contextOrganizationId);
+      const requestedOrganization = await normalizeOrganizationId(env, contextOrganizationId, request);
       if (requestedOrganization !== session.organizationId) {
         throw HttpErrors.notFound('Session not found for requested organization');
       }

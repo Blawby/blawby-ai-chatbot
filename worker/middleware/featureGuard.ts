@@ -47,7 +47,7 @@ export async function requireFeature(
     await requireOrgMember(request, env, options.organizationId);
   }
 
-  const organization = await UsageService.getOrganizationMetadata(env, options.organizationId);
+  const organization = await UsageService.getOrganizationMetadata(env, options.organizationId, request);
 
   if (config.requireNonPersonal && organization.kind === 'personal') {
     throw HttpErrors.forbidden("This feature is unavailable for personal organizations");

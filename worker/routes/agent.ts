@@ -361,7 +361,7 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
         await ensureActiveSubscription(env, {
           organizationId: resolvedOrganizationId,
           refreshIfMissing: false,
-        });
+        }, request);
       } catch (subscriptionError) {
         console.warn('Subscription check failed; allowing request to proceed for now', {
           error: subscriptionError instanceof Error ? subscriptionError.message : String(subscriptionError),
@@ -467,7 +467,7 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
       try {
         const { AIService } = await import('../services/AIService.js');
         const aiService = new AIService(env.AI, env);
-        const rawOrganizationConfig = await aiService.getOrganizationConfig(effectiveOrganizationId);
+        const rawOrganizationConfig = await aiService.getOrganizationConfig(effectiveOrganizationId, request);
         organizationConfig = rawOrganizationConfig;
       } catch (error) {
         console.warn('Failed to get organization config:', error);

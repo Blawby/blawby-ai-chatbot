@@ -37,6 +37,8 @@ migrations_dir = "worker/migrations"
 [vars]
 BLAWBY_API_URL = "https://staging.blawby.com"
 BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
+# Remote API URL for organization/subscription management
+REMOTE_API_URL = "https://staging-api.blawby.com"
 # BETTER_AUTH_URL should be set per environment (not in base vars to avoid localhost leaking to production)
 DOMAIN = "localhost"
 # Stripe price configuration for all environments (test mode IDs)

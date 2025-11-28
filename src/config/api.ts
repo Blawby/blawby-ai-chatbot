@@ -3,7 +3,7 @@
 // and explicit URLs in development
 
 /**
- * Get the base URL for API requests
+ * Get the base URL for chatbot API requests (local worker)
  * - In development: Uses localhost:8787 for local development
  * - In production: Uses hardcoded ai.blawby.com to avoid CORS issues
  * - Supports VITE_API_URL override for custom development setups
@@ -24,6 +24,18 @@ function getBaseUrl(): string {
 
   // Default to production domain when not running in a browser (SSR/build) or when on a custom domain.
   return 'https://ai.blawby.com';
+}
+
+/**
+ * Get the base URL for remote API requests (organization/subscription management)
+ * - Uses staging-api.blawby.com for management endpoints
+ * - Can be overridden with VITE_REMOTE_API_URL environment variable
+ */
+function getRemoteApiUrl(): string {
+  if (import.meta.env.VITE_REMOTE_API_URL) {
+    return import.meta.env.VITE_REMOTE_API_URL;
+  }
+  return 'https://staging-api.blawby.com';
 }
 
 const API_CONFIG = {
@@ -53,6 +65,7 @@ export const getFeedbackEndpoint = () => {
   return `${config.baseUrl}/api/feedback`;
 };
 
+// Organization workspace endpoints (chatbot data) - still local
 export const getOrganizationsEndpoint = () => {
   const config = getApiConfig();
   return `${config.baseUrl}${config.organizationsEndpoint}`;
@@ -68,35 +81,40 @@ export const getMatterCreationEndpoint = () => {
   return `${config.baseUrl}${config.matterCreationEndpoint}`;
 };
 
+// Payment endpoints - now handled by remote API
 export const getPaymentUpgradeEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/payment/upgrade`;
+  return `${getRemoteApiUrl()}/api/payment/upgrade`;
 };
 
 export const getPaymentStatusEndpoint = (paymentId: string) => {
-  const config = getApiConfig();
   const encodedId = encodeURIComponent(paymentId);
-  return `${config.baseUrl}/api/payment/status/${encodedId}`;
+  return `${getRemoteApiUrl()}/api/payment/status/${encodedId}`;
 };
 
+// Subscription endpoints - now handled by remote API
 export const getSubscriptionUpgradeEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/auth/subscription/upgrade`;
+  return `${getRemoteApiUrl()}/api/auth/subscription/upgrade`;
 };
 
 export const getSubscriptionBillingPortalEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/auth/subscription/billing-portal`;
+  return `${getRemoteApiUrl()}/api/auth/subscription/billing-portal`;
 };
 
 export const getSubscriptionSyncEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/subscription/sync`;
+  return `${getRemoteApiUrl()}/api/subscription/sync`;
 };
 
 export const getSubscriptionCancelEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/subscription/cancel`;
+  return `${getRemoteApiUrl()}/api/subscription/cancel`;
+};
+
+// Organization management endpoints - now handled by remote API
+export const getOrganizationsManagementEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/organizations`;
+};
+
+export const getOrganizationManagementEndpoint = (orgId: string) => {
+  return `${getRemoteApiUrl()}/api/organizations/${encodeURIComponent(orgId)}`;
 };
 
 export const getOrganizationWorkspaceEndpoint = (orgId: string, resource: string) => {

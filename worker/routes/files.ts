@@ -10,6 +10,7 @@ import type { DocumentEvent, AutoAnalysisEvent } from '../types/events.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
 import { requireFeature } from '../middleware/featureGuard.js';
 import { UsageService } from '../services/UsageService.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 
 /**
  * Updates status with retry logic and exponential backoff
@@ -162,8 +163,7 @@ async function storeFile(file: File, organizationId: string, sessionId: string, 
 
   // Check if the organization exists - this is required for file operations
   // This check MUST happen before any R2 upload to prevent orphaned files
-  const organizationCheckStmt = env.DB.prepare('SELECT id FROM organizations WHERE id = ? OR slug = ?');
-  const existingOrganization = await organizationCheckStmt.bind(organizationId, organizationId).first();
+  const existingOrganization = await RemoteApiService.validateOrganization(env, organizationId);
   
   if (!existingOrganization) {
     // Log anomaly for monitoring and alerting

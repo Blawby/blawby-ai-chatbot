@@ -1,16 +1,11 @@
-import { OrganizationService } from '../services/OrganizationService.js';
-import { DefaultOrganizationService } from '../services/DefaultOrganizationService.js';
-import { DEFAULT_ORGANIZATION_ID } from '../../src/utils/constants.js';
 import { MatterService } from '../services/MatterService.js';
 import { Env } from '../types.js';
 import { ValidationError } from '../utils/validationErrors.js';
-import { requireAuth, requireOrgOwner, requireOrgMember } from '../middleware/auth.js';
+import { requireAuth, requireOrgMember } from '../middleware/auth.js';
 import { handleError, HttpErrors } from '../errorHandler.js';
-import type { Organization } from '../services/OrganizationService.js';
-import { organizationCreateSchema, organizationUpdateSchema } from '../schemas/validation.js';
-import { requireFeature, type FeatureName } from '../middleware/featureGuard.js';
 import { parseJsonBody } from '../utils.js';
 import { NotificationService } from '../services/NotificationService.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 
 /**
  * Helper function to create standardized error responses
@@ -248,247 +243,19 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     const path = url.pathname.replace('/api/organizations', '');
     const pathSegments = path.split('/').filter(segment => segment.length > 0);
     
-    const organizationService = new OrganizationService(env);
-    const defaultOrgService = new DefaultOrganizationService(env);
-
-    // Public org endpoint (stub for Phase 1)
-    if ((path === '/public' || path === '/public/') && request.method === 'GET') {
-      try {
-        const org = await defaultOrgService.getPublicOrg();
-        if (!org) {
-          return new Response(JSON.stringify({ success: false, error: 'Public organization not configured', data: null }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-        }
-        return new Response(JSON.stringify({ success: true, data: org }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      } catch (error) {
-        return createErrorResponse(error, 'Get public organization', 'Failed to load public organization');
-      }
-    }
-
-    // Default org endpoint (user-aware when authenticated)
-    if ((path === '/default' || path === '/default/') && request.method === 'GET') {
-      // Try to get authenticated user ID (optional - anonymous users get public org)
-      let userId: string | undefined;
-      try {
-        const authContext = await requireAuth(request, env);
-        userId = authContext.user.id;
-      } catch {
-        // Anonymous user - will get public org
-      }
-
-      const organizationId = await defaultOrgService
-        .resolveDefaultOrg(userId, false)
-        .catch(() => DEFAULT_ORGANIZATION_ID);
-      return new Response(
-        JSON.stringify({ success: true, data: { organizationId } }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Handle pending invitations
-    if ((path === '/me/invitations' || path === '/me/invitations/') && request.method === 'GET') {
-      const { user } = await requireAuth(request, env);
-
-      const invitations = await env.DB.prepare(
-        `SELECT i.id,
-                i.organization_id as organizationId,
-                o.name as organizationName,
-                i.email,
-                i.role,
-                i.status,
-                i.invited_by as invitedBy,
-                i.expires_at as expiresAt,
-                i.created_at as createdAt
-           FROM invitations i
-           LEFT JOIN organizations o ON i.organization_id = o.id
-          WHERE i.email = ? AND i.status = 'pending'
-          ORDER BY i.created_at DESC`
-      ).bind(user.email).all();
-
-      // Preact usage note: call this to populate "pending invites" in the settings dashboard.
-      return new Response(
-        JSON.stringify({
-          success: true,
-          data: invitations.results ?? []
-        }),
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Authenticated user organizations route
-    if ((path === '/me' || path === '/me/') && request.method === 'GET') {
-      const authContext = await requireAuth(request, env);
-      
-      const organizations = await organizationService.listOrganizations(authContext.user.id);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          data: organizations.map(sanitizeOrganizationResponse),
-        }),
-        {
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    if ((path === '/me/ensure-personal' || path === '/me/ensure-personal/') && request.method === 'POST') {
-      const authContext = await requireAuth(request, env);
-      const organization = await organizationService.ensurePersonalOrganization(
-        authContext.user.id,
-        authContext.user.name ?? authContext.user.email
-      );
-
-      return createSuccessResponse({
-        organization: organization ? sanitizeOrganizationResponse(organization) : null,
+    // Only handle workspace endpoints - all other organization management is handled by remote API
+    const isWorkspaceEndpoint = path.includes('/workspace');
+    const isEventsEndpoint = pathSegments.length === 2 && pathSegments[1] === 'events' && request.method === 'GET';
+    
+    if (!isWorkspaceEndpoint && !isEventsEndpoint) {
+      // Return 404 for all non-workspace endpoints (management is handled by remote API)
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Organization management endpoints are handled by remote API. Use /api/organizations/:id/workspace/* for chatbot data.' 
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
       });
-    }
-
-    if (pathSegments.length === 2 && pathSegments[1] === 'member') {
-      const organizationIdentifier = pathSegments[0];
-      const organization = await organizationService.getOrganization(organizationIdentifier);
-
-      if (!organization) {
-        throw HttpErrors.notFound('Organization not found');
-      }
-
-      if (request.method === 'GET') {
-          await requireOrgMember(request, env, organization.id, 'admin');
-
-          const members = await env.DB.prepare(
-            `SELECT m.user_id as userId,
-                    m.role,
-                    m.created_at as createdAt,
-                    u.email,
-                    u.name,
-                    u.image
-               FROM members m
-               LEFT JOIN users u ON u.id = m.user_id
-              WHERE m.organization_id = ?
-              ORDER BY m.role DESC, m.created_at ASC`
-          ).bind(organization.id).all();
-
-        // Preact usage: fetch to populate org settings > member list.
-        return createSuccessResponse({
-          members: members.results ?? []
-        });
-      }
-
-      if (request.method === 'PATCH') {
-        const { user } = await requireOrgOwner(request, env, organization.id);
-        const body = await request.json() as {
-          userId: string;
-          role: 'owner' | 'admin' | 'attorney' | 'paralegal';
-        };
-
-        if (!body.userId || !body.role) {
-          throw HttpErrors.badRequest('userId and role are required');
-        }
-
-        const validRoles = new Set(['owner', 'admin', 'attorney', 'paralegal']);
-        if (!validRoles.has(body.role)) {
-          throw HttpErrors.badRequest('Invalid role specified');
-        }
-
-        const existingMember = await env.DB.prepare(
-          `SELECT role FROM members WHERE organization_id = ? AND user_id = ?`
-        ).bind(organization.id, body.userId).first<{ role: string }>();
-
-        if (!existingMember) {
-          throw HttpErrors.notFound('Member not found');
-        }
-
-        if (existingMember.role === 'owner' && body.role !== 'owner') {
-          const ownerCountRow = await env.DB.prepare(
-            `SELECT COUNT(*) as ownerCount 
-               FROM members 
-              WHERE organization_id = ? AND role = 'owner'`
-          ).bind(organization.id).first<{ ownerCount: number }>();
-
-          const ownerCount = Number(ownerCountRow?.ownerCount ?? 0);
-
-          if (ownerCount <= 1) {
-            throw HttpErrors.forbidden('Cannot change role: organization must have at least one owner');
-          }
-        }
-
-        if (existingMember.role !== body.role) {
-          const updateResult = await env.DB.prepare(
-            `UPDATE members
-                SET role = ?
-              WHERE organization_id = ? AND user_id = ?`
-          ).bind(body.role, organization.id, body.userId).run();
-
-          if ((updateResult.meta?.changes ?? 0) === 0) {
-            throw HttpErrors.internalServerError('Failed to update member role');
-          }
-
-        await recordOrganizationEvent(env, organization.id, {
-          type: 'member.role_updated',
-          actorId: user.id,
-          metadata: {
-            targetUserId: body.userId,
-            previousRole: existingMember.role,
-            newRole: body.role
-          }
-        });
-      }
-
-        return createSuccessResponse({
-          userId: body.userId,
-          role: body.role
-        });
-      }
-
-      if (request.method === 'DELETE') {
-        const ownerContext = await requireOrgOwner(request, env, organization.id);
-        const userId = url.searchParams.get('userId');
-
-        if (!userId) {
-          throw HttpErrors.badRequest('userId query parameter is required');
-        }
-
-        const memberRecord = await env.DB.prepare(
-          `SELECT role FROM members WHERE organization_id = ? AND user_id = ?`
-        ).bind(organization.id, userId).first<{ role: string }>();
-
-        if (!memberRecord) {
-          throw HttpErrors.notFound('Member not found');
-        }
-
-        if (memberRecord.role === 'owner') {
-          const ownerCountRow = await env.DB.prepare(
-            `SELECT COUNT(*) as ownerCount 
-               FROM members 
-              WHERE organization_id = ? AND role = 'owner'`
-          ).bind(organization.id).first<{ ownerCount: number }>();
-
-          const ownerCount = Number(ownerCountRow?.ownerCount ?? 0);
-
-          if (ownerCount <= 1) {
-            throw HttpErrors.forbidden('Cannot remove the last owner from the organization');
-          }
-        }
-
-        const removal = await env.DB.prepare(
-          `DELETE FROM members WHERE organization_id = ? AND user_id = ?`
-        ).bind(organization.id, userId).run();
-
-        if ((removal.meta?.changes ?? 0) === 0) {
-          throw HttpErrors.notFound('Member not found');
-        }
-
-        await recordOrganizationEvent(env, organization.id, {
-          type: 'member.removed',
-          actorId: ownerContext.user.id,
-          metadata: {
-            targetUserId: userId,
-            previousRole: memberRecord.role
-          }
-        });
-
-        // Preact usage: call DELETE when admin removes a teammate.
-        return createSuccessResponse({ removed: true });
-      }
     }
 
     // Organization workspace analytics + data feeds
@@ -497,7 +264,8 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
       if (pathParts.length >= 3 && pathParts[1] === 'workspace') {
         const organizationIdentifier = pathParts[0];
         const resource = pathParts[2];
-        const organization = await organizationService.getOrganization(organizationIdentifier);
+        // Fetch organization from remote API
+        const organization = await RemoteApiService.getOrganization(env, organizationIdentifier, request);
 
         if (!organization) {
           throw HttpErrors.notFound('Organization not found');
@@ -1280,7 +1048,8 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     // Handle organization events route
     if (pathSegments.length === 2 && pathSegments[1] === 'events' && request.method === 'GET') {
       const organizationIdentifier = pathSegments[0];
-      const organization = await organizationService.getOrganization(organizationIdentifier);
+      // Fetch organization from remote API
+      const organization = await RemoteApiService.getOrganization(env, organizationIdentifier, request);
 
       if (!organization) {
         throw HttpErrors.notFound('Organization not found');

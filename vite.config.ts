@@ -224,12 +224,28 @@ export default defineConfig({
 		}
 	},
 	server: {
-		// Proxy API calls to local backend, but exclude file endpoints
+		// Proxy API calls to local backend for chatbot endpoints only
+		// Management endpoints (auth, organizations CRUD, payment, subscription) are handled by remote API
 		proxy: {
 			'/api': {
 				target: 'http://localhost:8787',
 				changeOrigin: true,
 				secure: false,
+				// Exclude management endpoints from proxy - these should call remote API directly
+				bypass: (req) => {
+					const path = req.url || '';
+					// Exclude management endpoints - frontend will call remote API directly
+					if (path.includes('/api/auth/') ||
+					    (path.includes('/api/organizations') && !path.includes('/workspace') && !path.includes('/events')) ||
+					    path.includes('/api/payment/') ||
+					    path.includes('/api/subscription/') ||
+					    path.includes('/api/users/') ||
+					    path.includes('/api/onboarding/') ||
+					    path.includes('/api/stripe/')) {
+						return path; // Return path to bypass proxy
+					}
+					return null; // Proxy chatbot endpoints
+				},
 				configure: (proxy, _options) => {
 					proxy.on('error', (err, _req, _res) => {
 						console.log('proxy error', err);

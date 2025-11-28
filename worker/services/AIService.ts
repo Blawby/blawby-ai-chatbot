@@ -1,5 +1,6 @@
 // Import OrganizationConfig helpers from OrganizationService instead of defining it here
 import { OrganizationConfig, buildDefaultOrganizationConfig } from './OrganizationService.js';
+import { RemoteApiService } from './RemoteApiService.js';
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
 import type { Ai } from '@cloudflare/workers-types';
@@ -40,7 +41,7 @@ export class AIService {
     }
   }
   
-  async getOrganizationConfig(organizationId: string): Promise<OrganizationConfig> {
+  async getOrganizationConfig(organizationId: string, request?: Request): Promise<OrganizationConfig> {
     Logger.debug('AIService.getOrganizationConfig called with organizationId:', organizationId);
     const cached = this.organizationConfigCache.get(organizationId);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
@@ -49,23 +50,18 @@ export class AIService {
     }
 
     try {
-      // Use OrganizationService to get full organization object
-      const { OrganizationService } = await import('./OrganizationService.js');
-      const organizationService = new OrganizationService(this.env);
-      const organization = await organizationService.getOrganization(organizationId);
+      // Fetch organization config from remote API
+      const config = await RemoteApiService.getOrganizationConfig(this.env, organizationId, request);
       
-      if (organization) {
-        Logger.logOrganizationConfig(organization as unknown as Record<string, unknown>, true); // Include sanitized config in debug mode
-        this.organizationConfigCache.set(organizationId, { config: organization.config, timestamp: Date.now() });
-        return organization.config;
+      if (config) {
+        Logger.debug('Fetched organization config from remote API');
+        this.organizationConfigCache.set(organizationId, { config, timestamp: Date.now() });
+        return config;
       } else {
-        Logger.info('No organization found in database');
-        Logger.debug('Available organizations:');
-        const allOrganizations = await organizationService.listOrganizations();
-        Logger.debug('All organizations:', allOrganizations.map(t => ({ id: t.id, slug: t.slug })));
+        Logger.info('No organization found in remote API');
       }
     } catch (error) {
-      Logger.warn('Failed to fetch organization config:', error);
+      Logger.warn('Failed to fetch organization config from remote API:', error);
     }
     Logger.info('Returning default organization config');
     return buildDefaultOrganizationConfig(this.env);
