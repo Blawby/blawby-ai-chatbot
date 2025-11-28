@@ -7,7 +7,7 @@ import { withAIRetry } from '../../utils/retry.js';
 import { ToolUsageMonitor } from '../../utils/toolUsageMonitor.js';
 import { safeIncludes } from '../../utils/safeStringUtils.js';
 import { ValidationService } from '../../services/ValidationService.js';
-import { PaymentServiceFactory } from '../../services/PaymentServiceFactory.js';
+// PaymentServiceFactory removed - payment processing is now handled by remote API
 import { ContactIntakeOrchestrator } from '../../services/ContactIntakeOrchestrator.js';
 import { createValidationError, createSuccessResponse } from '../../utils/responseUtils.js';
 import { chunkResponseText } from '../../utils/streaming.js';
@@ -1829,11 +1829,18 @@ async function handleCreateMatter(
     throw new Error('Organization ID not configured - cannot process payment');
   }
 
-  const { invoiceUrl, paymentId } = await PaymentServiceFactory.processPayment(
-    env, 
-    paymentRequest, 
-    organization
-  );
+  // TODO: Payment processing is now handled by remote API at staging-api.blawby.com
+  // Need to implement remote API call for payment processing
+  // For now, throw error to indicate payment functionality needs to be implemented
+  throw new Error('Payment processing is not yet implemented via remote API. Please contact support.');
+  
+  // Placeholder for future implementation:
+  // const response = await fetch(`${env.REMOTE_API_URL}/api/payment/process`, {
+  //   method: 'POST',
+  //   headers: { 'Authorization': request.headers.get('Authorization') || '', 'Content-Type': 'application/json' },
+  //   body: JSON.stringify(paymentRequest)
+  // });
+  // const { invoiceUrl, paymentId } = await response.json();
 
   const orchestrationResult = await ContactIntakeOrchestrator.finalizeSubmission({
     env,
@@ -2068,29 +2075,40 @@ async function handleCreatePaymentInvoice(
   };
 
   try {
-    const paymentService = PaymentServiceFactory.createPaymentService(env);
-
-    const paymentRequest = {
-      customerInfo: {
-        name: recipient?.name || '',
-        email: recipient?.email || '',
-        phone: '',
-        location: ''
-      },
-      matterInfo: {
-        type: 'consultation',
-        description: description as string,
-        urgency: 'normal',
-        opposingParty: ''
-      },
-      organizationId: organization.id,
-      sessionId,
-      invoiceId: invoice_id as string,
-      currency: currency as string,
-      dueDate: due_date as string
+    // TODO: Invoice creation is now handled by remote API at staging-api.blawby.com
+    // Need to implement remote API call for invoice creation
+    // For now, return error to indicate invoice functionality needs to be implemented
+    return {
+      success: false,
+      error: 'Invoice creation is not yet implemented via remote API. Please contact support.'
     };
-
-    const result = await paymentService.createInvoice(paymentRequest);
+    
+    // Placeholder for future implementation:
+    // const paymentRequest = {
+    //   customerInfo: {
+    //     name: recipient?.name || '',
+    //     email: recipient?.email || '',
+    //     phone: '',
+    //     location: ''
+    //   },
+    //   matterInfo: {
+    //     type: 'consultation',
+    //     description: description as string,
+    //     urgency: 'normal',
+    //     opposingParty: ''
+    //   },
+    //   organizationId: organization.id,
+    //   sessionId,
+    //   invoiceId: invoice_id as string,
+    //   currency: currency as string,
+    //   dueDate: due_date as string
+    // };
+    // const response = await fetch(`${env.REMOTE_API_URL}/api/payment/invoice`, {
+    //   method: 'POST',
+    //   headers: { 'Authorization': request.headers.get('Authorization') || '', 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(paymentRequest)
+    // });
+    // const result = await response.json();
 
     if (result.success) {
       return {
