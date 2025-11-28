@@ -26,6 +26,11 @@ async function validateTokenWithRemoteServer(
   env: Env
 ): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }> {
   const authServerUrl = env.AUTH_SERVER_URL || 'https://staging-api.blawby.com';
+  const AUTH_TIMEOUT_MS = 3000; // 3 second timeout for auth validation
+  
+  // Create AbortController for timeout handling
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
   
   try {
     const response = await fetch(`${authServerUrl}/api/session`, {
@@ -34,7 +39,11 @@ async function validateTokenWithRemoteServer(
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      signal: controller.signal,
     });
+    
+    // Clear timeout on successful fetch start
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -77,9 +86,21 @@ async function validateTokenWithRemoteServer(
       },
     };
   } catch (error) {
+    // Clear timeout in case of error
+    clearTimeout(timeoutId);
+    
+    // Handle timeout/abort errors specifically
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Auth validation timeout after 3s:', authServerUrl);
+      throw HttpErrors.gatewayTimeout("Authentication server timeout - please try again");
+    }
+    
+    // Handle HTTP errors
     if (error instanceof HttpError) {
       throw error;
     }
+    
+    // Handle other errors
     console.error('Error validating token with remote server:', error);
     throw HttpErrors.unauthorized("Failed to validate authentication token");
   }
