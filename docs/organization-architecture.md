@@ -9,8 +9,8 @@
 
 | Stage | Component | Notes |
 |-------|-----------|-------|
-| Signup | `worker/auth/hooks.ts` | Ensures a personal org exists. Active-organization state is now managed by Better Auth's organization plugin. |
-| Session creation | `worker/auth/index.ts` | Re-checks personal org existence and guarantees an owner membership. Active org selection persists via the Better Auth plugin. |
+| Signup | Remote auth server | Handled by remote Better Auth server. Personal org creation happens via webhooks or remote server hooks. |
+| Session creation | Remote auth server | Session management handled by remote Better Auth server. Worker validates tokens via remote API. |
 | Upgrade | Checkout flow → Stripe webhook (`/api/stripe/webhook`) | `usePaymentUpgrade` seeds the organization ID via `subscription_data.metadata` before launching Checkout, ensuring webhooks can resolve the org without guessing. The webhook then moves the org to business, updates seats, flips `is_personal` to `0`, and persists subscription metadata in D1. |
 | Entitlements | Feature guards (`worker/middleware/featureGuard.ts`) | Checks `tier`, `isPersonal`, and `subscriptionStatus` before allowing access to APIs (tokens, invitations, etc.). |
 | Onboarding | `BusinessOnboardingPage` | Accessible only for business orgs with subscription status `active`, `trialing`, or `paused`. |
@@ -49,7 +49,7 @@ Component | Responsibility
 | `PricingModal`, `Settings` | React to the entitlement model so personal orgs see upgrade CTAs while business orgs get management actions. |
 
 ## 6. Testing
-- **Worker integration**: `tests/integration/api/auth.signup.test.ts` (personal org provisioning), `tests/integration/api/subscription.sync.test.ts` (reconciliation), `tests/integration/api/stripe.webhook.test.ts` (webhook effects). Requires `BETTER_AUTH_SECRET` for D1-backed auth.
+- **Worker integration**: `tests/integration/api/subscription.sync.test.ts` (reconciliation), `tests/integration/api/stripe.webhook.test.ts` (webhook effects). Auth testing now requires remote auth server.
 - **Playwright**: `tests/e2e/auth.spec.ts`, onboarding/cart flows ensure UI mirrors entitlements.
 - **Unit**: entitlement utilities (`src/utils/subscription.ts`) can be unit-tested directly.
 

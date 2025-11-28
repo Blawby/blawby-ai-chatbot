@@ -5,7 +5,7 @@ export { handleForms } from './forms';
 export { handleOrganizations } from './organizations';
 export { handleSessions } from './sessions';
 export { handleActivity } from './activity';
-export { handleAuth } from './auth';
+// Auth is now handled by remote server - removed handleAuth
 export { handleConfig } from './config';
 
 export { handleFiles } from './files';

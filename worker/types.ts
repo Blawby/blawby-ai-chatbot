@@ -23,7 +23,10 @@ export interface Env {
   ENABLE_ADOBE_EXTRACT?: string | boolean;
   ADOBE_EXTRACTOR_SERVICE?: import('./services/AdobeDocumentService.js').IAdobeExtractor; // Optional mock extractor for testing
   
-  // Better Auth Configuration
+  // Remote Auth Server Configuration
+  AUTH_SERVER_URL?: string; // URL of remote Better Auth server (e.g., https://staging-api.blawby.com)
+  
+  // Legacy Better Auth Configuration (deprecated - kept for migration)
   BETTER_AUTH_SECRET?: string;
   BETTER_AUTH_URL?: string;
   GOOGLE_CLIENT_ID?: string;

@@ -5,21 +5,18 @@ import { isDevelopment } from '../utils/environment';
 
 // Remote better-auth server URL
 // REQUIRED in production - must be set via VITE_AUTH_SERVER_URL environment variable
+// For Cloudflare Pages deployments, set this in the Pages dashboard under Environment Variables
 const AUTH_BASE_URL = import.meta.env.VITE_AUTH_SERVER_URL;
-
-// Fail fast in production if AUTH_SERVER_URL is not configured
-if (!AUTH_BASE_URL && import.meta.env.MODE === 'production') {
-  throw new Error(
-    'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable to your Better Auth server URL.'
-  );
-}
 
 // Fallback to ngrok URL only in development (for local testing)
 const FALLBACK_AUTH_URL = "https://adapted-humbly-lynx.ngrok-free.app";
 const finalAuthUrl = AUTH_BASE_URL || (isDevelopment() ? FALLBACK_AUTH_URL : null);
 
+// Runtime check - will fail when auth client is actually used if URL is missing
 if (!finalAuthUrl) {
-  throw new Error('VITE_AUTH_SERVER_URL must be configured');
+  throw new Error(
+    'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
+  );
 }
 
 export const authClient = createAuthClient({
@@ -38,7 +35,8 @@ export const authClient = createAuthClient({
       }
     },
     onSuccess: async (ctx) => {
-      const authToken = ctx.response.headers.get("Set-Auth-Token");
+      // Better Auth Bearer plugin sends token in lowercase header name
+      const authToken = ctx.response.headers.get("set-auth-token");
       if (authToken) {
         await setToken(authToken);
         if (isDevelopment()) {
