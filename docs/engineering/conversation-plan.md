@@ -637,7 +637,7 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 **Type:** Enhancement  
 **Priority:** Medium  
 **Files:**
-- `worker/auth/index.ts` (session hooks)
+- Remote auth server (session management)
 - Update `worker/services/SessionMigrationService.ts`
 
 **Tasks:**
@@ -778,7 +778,7 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 - [ ] Update special case checks to use config instead of slug:
   - `worker/middleware/skipToLawyerMiddleware.ts:194` - Check org config, not slug
   - `worker/agents/legal-intake/index.ts:70` - Check org config
-  - `worker/auth/index.ts:277` - Check `is_personal = 0` + config
+  - Remote auth server - Check `is_personal = 0` + config
 - [ ] Remove unnecessary slug checks where org config is available
 
 **Acceptance Criteria:**

@@ -1,146 +1,72 @@
-import { createAuthClient } from "better-auth/react";
-import { cloudflareClient } from "better-auth-cloudflare/client";
-import { stripeClient } from "@better-auth/stripe/client";
+import { createAuthClient } from 'better-auth/react';
+import { organizationClient } from 'better-auth/client/plugins';
+import { setToken, getTokenAsync } from './tokenStorage';
+import { isDevelopment } from '../utils/environment';
 
-// Safe baseURL computation that prefers the current origin in local dev
-const getBaseURL = () => {
-  // In the browser, always use current origin for localhost to keep auth and APIs on the same host
-  if (typeof window !== "undefined") {
-    const origin = window.location.origin;
-    try {
-      const { hostname } = new URL(origin);
-      const normalizedHostname =
-        hostname.startsWith("[") && hostname.endsWith("]")
-          ? hostname.slice(1, -1)
-          : hostname;
-      const localHostnames = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
-      const isLocal = localHostnames.has(normalizedHostname);
-      if (isLocal) return origin;
-    } catch {
-      // Treat invalid URLs as non-local
-    }
-  }
+// Remote better-auth server URL
+// REQUIRED in production - must be set via VITE_AUTH_SERVER_URL environment variable
+// For Cloudflare Pages deployments, set this in the Pages dashboard under Environment Variables
+const AUTH_BASE_URL = import.meta.env.VITE_AUTH_SERVER_URL;
 
-  // Otherwise allow explicit override (e.g., production, preview)
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
+// Fallback to ngrok URL only in development (for local testing)
+const FALLBACK_AUTH_URL = "https://adapted-humbly-lynx.ngrok-free.app";
+const finalAuthUrl = AUTH_BASE_URL || (isDevelopment() ? FALLBACK_AUTH_URL : null);
 
-  // Fallback to current origin if available
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-
-  return "";
-};
+// Runtime check - will fail when auth client is actually used if URL is missing
+if (!finalAuthUrl) {
+  throw new Error(
+    'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
+  );
+}
 
 export const authClient = createAuthClient({
-  baseURL: getBaseURL(),
-  plugins: [cloudflareClient(), stripeClient({ subscription: true })],
+  plugins: [organizationClient()],
+  baseURL: finalAuthUrl,
   fetchOptions: {
-    credentials: "include", // Important for CORS
-  },
-  endpoints: {
-    session: {
-      get: "/get-session"  // Override client default to match server endpoint
+    auth: {
+      type: "Bearer",
+      token: async () => {
+        // Wait for token to be available from IndexedDB on first call
+        const token = await getTokenAsync();
+        if (isDevelopment()) {
+          console.debug('[Auth] Token retrieved:', token ? '***' : 'null');
+        }
+        return token || "";
+      }
+    },
+    onSuccess: async (ctx) => {
+      // Better Auth Bearer plugin sends token in lowercase header name
+      const authToken = ctx.response.headers.get("set-auth-token");
+      if (authToken) {
+        await setToken(authToken);
+        if (isDevelopment()) {
+          console.debug('[Auth] Token saved from response header');
+        }
+      }
     }
   }
 });
 
+// Export all auth methods directly - use these, no manual API calls
+export const {
+  signIn,
+  signUp,
+  signOut,
+  useSession,
+  getSession,
+  updateUser,
+  deleteUser,
+} = authClient;
+
+// Keep type export for compatibility
 export type AuthClient = typeof authClient;
 
-/**
- * Interface for Better Auth twoFactor plugin client methods
- */
-export interface TwoFactorClient {
-  enable: (options: { code: string }) => Promise<void>;
-  disable: () => Promise<void>;
-}
-
-/**
- * Type guard to check if authClient has twoFactor plugin available
- */
-export function hasTwoFactorPlugin(
-  client: AuthClient
-): client is AuthClient & { twoFactor: TwoFactorClient } {
-  return (
-    typeof client === 'object' &&
-    client !== null &&
-    'twoFactor' in client &&
-    typeof (client as { twoFactor?: unknown }).twoFactor === 'object' &&
-    (client as { twoFactor?: { enable?: unknown; disable?: unknown } }).twoFactor !== null &&
-    typeof (client as { twoFactor?: { enable?: unknown } }).twoFactor?.enable === 'function' &&
-    typeof (client as { twoFactor?: { disable?: unknown } }).twoFactor?.disable === 'function'
-  );
-}
-
-// Export individual methods for easier use
-export const signIn = authClient.signIn;
-export const signOut = authClient.signOut;
-export const signUp = authClient.signUp;
-export const updateUser = authClient.updateUser;
-export const deleteUser = authClient.deleteUser;
-
-// Export Better Auth's reactive hooks (primary method for components)
-export const useSession = authClient.useSession;
-
-// Export getSession for one-time checks (secondary method)
-export const getSession = authClient.getSession;
-
-/**
- * Custom helper to switch the active organization via our session endpoint.
- * Mirrors the previous Better Auth plugin behavior without requiring the plugin.
- */
-export async function setActiveOrganization(organizationId: string): Promise<void> {
-  const url = new URL('/api/sessions/organization', getBaseURL());
-  const response = await fetch(url.toString(), {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ organizationId })
-  });
-
-  if (!response.ok) {
-    let message = 'Failed to switch organization';
-    try {
-      const errorJson = await response.json() as { error?: string };
-      if (errorJson?.error) {
-        message = errorJson.error;
-      }
-    } catch {
-      // ignore parse issues
-    }
-    throw new Error(message);
-  }
-
-  try {
-    // Ensure session reflects the new active organization
-    await authClient.getSession();
-  } catch (err) {
-    console.error('[setActiveOrganization] Session refresh failed, retrying with backoff', err);
-    const maxAttempts = 3;
-    let attempt = 1;
-    let lastErr: unknown = err;
-    while (attempt < maxAttempts) {
-      const delayMs = 200 * Math.pow(2, attempt - 1); // 200ms, 400ms
-      await new Promise((r) => setTimeout(r, delayMs));
-      try {
-        await authClient.getSession();
-        lastErr = null;
-        break;
-      } catch (e) {
-        lastErr = e;
-        attempt += 1;
-      }
-    }
-    if (lastErr) {
-      try {
-        authClient.$store?.notify?.('$sessionSignal');
-      } catch (notifyErr) {
-        console.warn('[setActiveOrganization] Failed to notify authClient store', notifyErr);
-      }
-      // Callers must handle this rejection to ensure session validity
-      throw lastErr instanceof Error ? lastErr : new Error('Failed to refresh session after organization switch');
-    }
-  }
-}
+// Organization plugin methods available on authClient.organization:
+// - authClient.organization.setActive({ organizationId: string }) - Set active organization
+// - authClient.organization.create({ name, slug, logo?, metadata? }) - Create organization
+// - authClient.organization.list() - List user's organizations
+// - authClient.organization.listMembers({ organizationId?, limit?, offset? }) - List members
+// - authClient.organization.getFullOrganization({ organizationId?, organizationSlug? }) - Get full org details
+// - authClient.useActiveOrganization() - React hook for active organization
+// - authClient.organization.getActiveMemberRole() - Get user's role in active org
+// See: https://better-auth.com/docs/plugins/organization

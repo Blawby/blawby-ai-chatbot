@@ -1681,6 +1681,7 @@ async function createOrganizationToken(organizationService: OrganizationService,
 
 async function getAuthenticatedUserId(request: Request, env: Env): Promise<string | null> {
   try {
+    // Use requireAuth which now validates tokens via remote server
     const authContext = await requireAuth(request, env);
     return authContext.user.id;
   } catch {

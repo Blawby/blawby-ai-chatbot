@@ -1,5 +1,4 @@
 import { Env, HttpError } from "../types";
-import { getAuth } from "../auth/index";
 import { HttpErrors } from "../errorHandler";
 import { organizationMembershipSchema } from "../schemas/validation";
 
@@ -19,30 +18,111 @@ export interface AuthContext {
   };
 }
 
+/**
+ * Validate Bearer token by calling remote auth server
+ */
+async function validateTokenWithRemoteServer(
+  token: string,
+  env: Env
+): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }> {
+  const authServerUrl = env.AUTH_SERVER_URL || 'https://staging-api.blawby.com';
+  const AUTH_TIMEOUT_MS = 3000; // 3 second timeout for auth validation
+  
+  // Create AbortController for timeout handling
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+  
+  try {
+    const response = await fetch(`${authServerUrl}/api/session`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+    
+    // Clear timeout on successful fetch start
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw HttpErrors.unauthorized("Invalid or expired token");
+      }
+      throw HttpErrors.unauthorized(`Authentication failed: ${response.status}`);
+    }
+
+    const sessionData = await response.json() as {
+      user?: {
+        id: string;
+        email: string;
+        name: string;
+        emailVerified: boolean;
+        image?: string;
+      };
+      session?: {
+        id: string;
+        expiresAt: string | number;
+      };
+    };
+
+    if (!sessionData?.user) {
+      throw HttpErrors.unauthorized("Invalid session data");
+    }
+
+    return {
+      user: {
+        id: sessionData.user.id,
+        email: sessionData.user.email,
+        name: sessionData.user.name,
+        emailVerified: sessionData.user.emailVerified ?? false,
+        image: sessionData.user.image,
+      },
+      session: {
+        id: sessionData.session?.id || sessionData.user.id,
+        expiresAt: sessionData.session?.expiresAt 
+          ? new Date(sessionData.session.expiresAt)
+          : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days
+      },
+    };
+  } catch (error) {
+    // Clear timeout in case of error
+    clearTimeout(timeoutId);
+    
+    // Handle timeout/abort errors specifically
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Auth validation timeout after 3s:', authServerUrl);
+      throw HttpErrors.gatewayTimeout("Authentication server timeout - please try again");
+    }
+    
+    // Handle HTTP errors
+    if (error instanceof HttpError) {
+      throw error;
+    }
+    
+    // Handle other errors
+    console.error('Error validating token with remote server:', error);
+    throw HttpErrors.unauthorized("Failed to validate authentication token");
+  }
+}
+
 export async function requireAuth(
   request: Request,
   env: Env
 ): Promise<AuthContext> {
-  const auth = await getAuth(env, request);
-  const session = await auth.api.getSession({ headers: request.headers });
-
-  if (!session || !session.user) {
-    throw HttpErrors.unauthorized("Authentication required");
+  // Extract Bearer token from Authorization header
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw HttpErrors.unauthorized("Authentication required - Bearer token missing");
   }
 
-  return {
-    user: {
-      id: session.user.id,
-      email: session.user.email,
-      name: session.user.name,
-      emailVerified: session.user.emailVerified,
-      image: session.user.image,
-    },
-    session: {
-      id: session.session.id,
-      expiresAt: new Date(session.session.expiresAt),
-    },
-  };
+  const token = authHeader.replace('Bearer ', '').trim();
+  if (!token) {
+    throw HttpErrors.unauthorized("Authentication required - invalid token format");
+  }
+
+  // Validate token with remote auth server
+  return await validateTokenWithRemoteServer(token, env);
 }
 
 export async function requireOrganizationMember(

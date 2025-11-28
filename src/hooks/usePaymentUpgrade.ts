@@ -6,7 +6,8 @@ import {
   getSubscriptionCancelEndpoint,
 } from '../config/api';
 import { useToastContext } from '../contexts/ToastContext';
-import { setActiveOrganization } from '../lib/authClient';
+import { authClient } from '../lib/authClient';
+import { getToken } from '../lib/tokenStorage';
 
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
@@ -15,19 +16,19 @@ function extractUrl(result: unknown): string | undefined {
     if ('url' in result && typeof result.url === 'string') {
       return result.url;
     }
-    
+
     // Check for url in data property
     if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
       if ('url' in result.data && typeof result.data.url === 'string') {
         return result.data.url;
       }
     }
-    
+
     // Better Auth Stripe plugin might return it directly in the response body
     if ('billingPortalUrl' in result && typeof result.billingPortalUrl === 'string') {
       return result.billingPortalUrl;
     }
-    
+
     // Check nested in data.billingPortalUrl
     if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
       if ('billingPortalUrl' in result.data && typeof result.data.billingPortalUrl === 'string') {
@@ -44,7 +45,7 @@ function extractErrorMessage(result: unknown, fallback: string): string {
     if ('error' in result && typeof result.error === 'string') {
       return result.error;
     }
-    
+
     // Check for error in data property
     if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
       if ('error' in result.data && typeof result.data.error === 'string') {
@@ -61,7 +62,7 @@ function extractSubscription(result: unknown): unknown {
     if ('subscription' in result) {
       return result.subscription;
     }
-    
+
     // Check for subscription in data property
     if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
       if ('subscription' in result.data) {
@@ -151,7 +152,7 @@ export const usePaymentUpgrade = () => {
 
   const ensureActiveOrganization = useCallback(async (organizationId: string) => {
     try {
-      await setActiveOrganization(organizationId);
+      await authClient.organization.setActive({ organizationId });
     } catch (activeErr) {
       const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active organization.';
       console.warn('[UPGRADE] Active organization setup error:', activeErr instanceof Error ? activeErr : message);
@@ -176,10 +177,13 @@ export const usePaymentUpgrade = () => {
   const openBillingPortal = useCallback(
     async ({ organizationId, returnUrl }: BillingPortalRequest) => {
       try {
+        const token = await getToken();
         const response = await fetch(getSubscriptionBillingPortalEndpoint(), {
           method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({
             referenceId: organizationId,
             returnUrl: returnUrl ?? `/business-onboarding?sync=1&organizationId=${encodeURIComponent(organizationId)}`,
@@ -187,17 +191,17 @@ export const usePaymentUpgrade = () => {
         });
 
         const result = await response.json().catch(() => ({}));
-        
+
         const url = extractUrl(result);
         if (!url) {
           console.error('Invalid response structure: missing or invalid url property', result);
         }
         if (!response.ok || !url) {
           // Handle specific error codes (Better Auth uses 'code', our API uses 'errorCode')
-          const errorCode = result && typeof result === 'object' 
+          const errorCode = result && typeof result === 'object'
             ? (('code' in result && result.code) || ('errorCode' in result && result.errorCode))
             : null;
-          
+
           // Map Better Auth error codes to our error codes
           let mappedErrorCode: SubscriptionErrorCode | null = null;
           if (typeof errorCode === 'string' && errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
@@ -209,7 +213,7 @@ export const usePaymentUpgrade = () => {
               mappedErrorCode = upperCode as SubscriptionErrorCode;
             }
           }
-          
+
           if (mappedErrorCode || errorCode) {
             throw new Error(JSON.stringify({
               errorCode: mappedErrorCode || errorCode,
@@ -217,7 +221,7 @@ export const usePaymentUpgrade = () => {
               details: (result && typeof result === 'object' && 'details' in result) ? result.details : undefined
             }));
           }
-          
+
           const message = extractErrorMessage(result, 'Unable to open billing portal');
           throw new Error(message);
         }
@@ -225,11 +229,11 @@ export const usePaymentUpgrade = () => {
         window.location.href = url;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unable to open billing portal';
-        
+
         // Try to parse structured error response
         let errorCode: SubscriptionErrorCode | null = null;
         let errorMessage = message;
-        
+
         try {
           const parsedError = JSON.parse(message);
           if (parsedError.errorCode && Object.values(SubscriptionErrorCode).includes(parsedError.errorCode)) {
@@ -241,7 +245,7 @@ export const usePaymentUpgrade = () => {
         }
 
         const title = errorCode ? getErrorTitle(errorCode) : 'Billing Portal Error';
-        
+
         // Provide helpful message for missing Stripe customer
         if (errorCode === SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND) {
           showError(title, 'No billing account found. Please upgrade to a paid plan first to access billing management.');
@@ -290,14 +294,17 @@ export const usePaymentUpgrade = () => {
         if (seats > 1) {
           requestBody.seats = seats;
         }
-        
+
         if (import.meta.env.DEV) {
           console.debug('[UPGRADE] POST', getSubscriptionUpgradeEndpoint(), 'body:', requestBody);
         }
+        const token = await getToken();
         const response = await fetch(getSubscriptionUpgradeEndpoint(), {
           method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify(requestBody),
         });
 
@@ -328,7 +335,7 @@ export const usePaymentUpgrade = () => {
             };
             console.error('❌ Subscription upgrade failed with response:', sanitizedResult);
           }
-          
+
           // Handle specific error codes
           const errorCode = extractProperty<string>(result, 'errorCode');
           if (errorCode) {
@@ -338,7 +345,7 @@ export const usePaymentUpgrade = () => {
               details: extractProperty<unknown>(result, 'details')
             }));
           }
-          
+
           const message = extractErrorMessage(result, 'Unable to initiate Stripe checkout');
           throw new Error(message);
         }
@@ -346,7 +353,7 @@ export const usePaymentUpgrade = () => {
         window.location.href = checkoutUrl;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upgrade failed';
-        
+
         // Try to parse structured error response; if detected, rethrow to bubble up
         {
           try {
@@ -390,10 +397,13 @@ export const usePaymentUpgrade = () => {
   const syncSubscription = useCallback(
     async (organizationId: string) => {
       try {
+        const token = await getToken();
         const response = await fetch(getSubscriptionSyncEndpoint(), {
           method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ organizationId }),
         });
 
@@ -409,7 +419,7 @@ export const usePaymentUpgrade = () => {
               details: extractProperty<unknown>(result, 'details')
             }));
           }
-          
+
           const message = extractErrorMessage(result, 'Failed to refresh subscription status');
           throw new Error(message);
         }
@@ -418,11 +428,11 @@ export const usePaymentUpgrade = () => {
         return extractSubscription(result);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to refresh subscription status';
-        
+
         // Try to parse structured error response
         let errorCode: SubscriptionErrorCode | null = null;
         let errorMessage = message;
-        
+
         try {
           const parsedError = JSON.parse(message);
           if (parsedError.errorCode && Object.values(SubscriptionErrorCode).includes(parsedError.errorCode)) {
@@ -444,10 +454,13 @@ export const usePaymentUpgrade = () => {
   const cancelSubscription = useCallback(
     async (organizationId: string) => {
       try {
+        const token = await getToken();
         const response = await fetch(getSubscriptionCancelEndpoint(), {
           method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ organizationId }),
         });
 
@@ -462,7 +475,7 @@ export const usePaymentUpgrade = () => {
               details: extractProperty<unknown>(result, 'details')
             }));
           }
-          
+
           const message = extractErrorMessage(result, 'Failed to cancel subscription');
           throw new Error(message);
         }
@@ -471,10 +484,10 @@ export const usePaymentUpgrade = () => {
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to cancel subscription';
-        
+
         let errorCode: SubscriptionErrorCode | null = null;
         let errorMessage = message;
-        
+
         try {
           const parsedError = JSON.parse(message);
           if (parsedError.errorCode && Object.values(SubscriptionErrorCode).includes(parsedError.errorCode)) {

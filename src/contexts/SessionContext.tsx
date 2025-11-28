@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { authClient } from '../lib/authClient';
 import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
 import { DEFAULT_ORGANIZATION_ID, DEFAULT_PUBLIC_ORG_SLUG } from '../utils/constants';
+import { getToken } from '../lib/tokenStorage';
 
 // Zod schema for runtime validation of QuotaCounter
 const quotaCounterSchema = z.object({
@@ -106,9 +107,13 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
       const quotaUrl = new URL('/api/usage/quota', window.location.origin);
       quotaUrl.searchParams.set('organizationId', resolvedOrgIdentifier);
 
+      const token = await getToken();
       const response = await fetch(quotaUrl.toString(), {
         method: 'GET',
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         signal: controller.signal,
       });
 

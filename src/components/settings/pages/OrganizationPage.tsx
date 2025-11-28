@@ -17,8 +17,7 @@ import { Select } from '../../ui/input/Select';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { formatDate } from '../../../utils/dateTime';
 import { useNavigation } from '../../../utils/navigation';
-import { useSession } from '../../../lib/authClient';
-import { setActiveOrganization } from '../../../lib/authClient';
+import { authClient } from '../../../lib/authClient';
 import { useSessionContext } from '../../../contexts/SessionContext';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { normalizeSeats } from '../../../utils/subscription';
@@ -32,7 +31,7 @@ interface OrganizationPageProps {
 }
 
 export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
-  const { data: session } = useSession();
+  const { data: session } = authClient.useSession();
   const { activeOrganizationId } = useSessionContext();
   const { 
     organizations,
@@ -340,7 +339,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     setIsSwitchingOrg(true);
     setIsOrgDropdownOpen(false);
     try {
-      await setActiveOrganization(orgId);
+      await authClient.organization.setActive({ organizationId: orgId });
       await refetch();
       showSuccess('Organization switched successfully');
     } catch (err) {

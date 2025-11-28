@@ -116,6 +116,8 @@ npm run lint:i18n          # Validate locale files stay in sync
 ## 🔧 **Configuration**
 
 ### Environment Variables
+
+#### Worker Secrets (`.dev.vars`)
 Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
 - `BLAWBY_API_TOKEN` - Blawby services API key
 - `LAWYER_SEARCH_API_KEY` - Lawyer search API key
@@ -123,6 +125,29 @@ Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
 - `RESEND_API_KEY` - Email notifications API key
 
 **Note:** Wrangler automatically loads `.dev.vars` during local development - no additional setup required.
+
+#### Frontend Environment Variables
+
+**For Local Development:**
+Create a `.env` file in the project root for frontend environment variables:
+
+- `VITE_AUTH_SERVER_URL` - URL of your Better Auth server
+  - Example: `http://localhost:8787` for local development
+  - Optional in development - will fall back to a default ngrok URL for testing if not set
+
+**For Production (Cloudflare Pages):**
+Set `VITE_AUTH_SERVER_URL` in Cloudflare Pages environment variables:
+
+1. Go to your Cloudflare Pages project dashboard
+2. Navigate to **Settings > Environment Variables**
+3. Add `VITE_AUTH_SERVER_URL` with your production Better Auth server URL
+4. Example: `https://auth.yourdomain.com`
+
+**Important:** 
+- Frontend environment variables (prefixed with `VITE_`) are bundled into the frontend code at build time
+- Cloudflare Pages automatically injects environment variables during the build process
+- The application will fail at runtime (when auth is used) if `VITE_AUTH_SERVER_URL` is not set in production
+- This variable should NOT be set in `.dev.vars` (that's for Worker secrets only)
 
 ### Internationalization
 
@@ -163,9 +188,11 @@ curl -X POST http://localhost:8787/api/organizations \
 ```
 
 ### Authentication & User Management
-User authentication and organization membership is handled by Better Auth:
-- Users sign up/sign in through the `/auth` page
-- Organization membership and roles are managed through Better Auth
+User authentication is handled by a remote Better Auth server:
+- Frontend uses Better Auth React client (`better-auth/react`) to connect to remote auth server
+- Authentication tokens are stored in IndexedDB and sent as Bearer tokens
+- Worker validates tokens by calling the remote auth server API (`/api/session`)
+- Organization membership and roles are managed through the remote Better Auth server
 - Access the application with `?organizationId=<org-slug>` parameter
 
 ## 🔒 **Security**

@@ -16,7 +16,6 @@ import {
   handlePayment,
   handlePDF,
   handleDebug,
-  handleAuth,
   handleConfig,
   handleUsage,
   handleStripeWebhook,
@@ -85,7 +84,12 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
     } else if (path.startsWith('/api/forms')) {
       response = await handleForms(request, env);
     } else if (path.startsWith('/api/auth')) {
-      response = await handleAuth(request, env);
+      // Auth requests are handled by remote auth server
+      // Return 404 to indicate this endpoint is not available on this worker
+      response = new Response(JSON.stringify({ error: 'Auth endpoints are handled by remote auth server' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path.startsWith('/api/sessions')) {
       response = await handleSessions(request, env);
     } else if (path.startsWith('/api/activity')) {

@@ -74,6 +74,7 @@ export const HttpErrors = {
   conflict: (message: string, details?: unknown) => createHttpError(409, message, details),
   unprocessableEntity: (message: string, details?: unknown) => createHttpError(422, message, details),
   tooManyRequests: (message: string = 'Too many requests', details?: unknown) => createHttpError(429, message, details),
+  gatewayTimeout: (message: string = 'Gateway timeout', details?: unknown) => createHttpError(504, message, details),
   internalServerError: (message: string = 'Internal server error', details?: unknown) => createHttpError(500, message, details),
   serviceUnavailable: (message: string = 'Service unavailable', details?: unknown) => createHttpError(503, message, details)
 };

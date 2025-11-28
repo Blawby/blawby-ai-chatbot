@@ -1,7 +1,7 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { SessionService } from '../services/SessionService.js';
-import { optionalAuth } from './auth.js';
+import { optionalAuth } from './auth.js'; // Uses remote auth validation
 
 export interface OrganizationContext {
   organizationId: string;

@@ -2,7 +2,6 @@ import { Env } from '../types.js';
 import { ValidationService } from './ValidationService.js';
 import { ValidationError } from '../utils/validationErrors.js';
 import { getConfiguredDomain } from '../utils/domain.js';
-// import { getAuth } from '../auth/index.js'; // Unused import
 
 export type OrganizationVoiceProvider = 'cloudflare' | 'elevenlabs' | 'custom';
 

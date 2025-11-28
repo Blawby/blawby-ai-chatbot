@@ -13,7 +13,7 @@ import {
   hasManagedSubscription,
 } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
-import { setActiveOrganization } from '../../lib/authClient';
+import { authClient } from '../../lib/authClient';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -324,7 +324,7 @@ export const CartPage = () => {
     try {
       const authOrgId = betterAuthOrgId ?? organizationId;
       if (authOrgId) {
-        await setActiveOrganization(authOrgId);
+        await authClient.organization.setActive({ organizationId: authOrgId });
         console.debug('[CART][UPGRADE] Active organization set via auth client:', authOrgId);
       }
     } catch (e) {

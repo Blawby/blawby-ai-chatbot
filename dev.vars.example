@@ -26,9 +26,21 @@ ADOBE_TECHNICAL_ACCOUNT_ID=your_technical_account_id@techacct.adobe.com
 ADOBE_TECHNICAL_ACCOUNT_EMAIL=your_technical_account_email@techacct.adobe.com
 ADOBE_ORGANIZATION_ID=your_organization_id@AdobeOrg
 
-# Better Auth Configuration (SENSITIVE)
+# Remote Auth Server Configuration (SENSITIVE)
+# Note: Auth is now handled by remote server. These are kept for legacy compatibility.
+AUTH_SERVER_URL=https://staging-api.blawby.com
+# Legacy Better Auth config (deprecated - kept for migration period)
 BETTER_AUTH_SECRET=your_better_auth_secret_here
 BETTER_AUTH_URL=http://localhost:8787
+
+# Frontend Environment Variables (Vite)
+# These should be set in your .env file or build environment, not in .dev.vars
+# .dev.vars is for Worker secrets only, but documented here for reference:
+# 
+# VITE_AUTH_SERVER_URL: URL of your Better Auth server
+#   - Required in production
+#   - Optional in development (falls back to ngrok URL for local testing)
+#   - Example: https://auth.yourdomain.com or http://localhost:8787
 
 # Better Auth Feature Flags (NON-SENSITIVE)
 # Set to 'true' to enable geolocation and IP detection features
