@@ -1,5 +1,10 @@
-import axios from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import { getTokenAsync, clearToken } from './tokenStorage';
+import {
+  getSubscriptionUpgradeEndpoint,
+  getSubscriptionBillingPortalEndpoint,
+  getSubscriptionCancelEndpoint
+} from '../config/api';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -30,6 +35,549 @@ apiClient.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+type PracticeMetadata = Record<string, unknown> | null | undefined;
+
+export interface Practice {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  metadata?: PracticeMetadata;
+  businessPhone?: string | null;
+  businessEmail?: string | null;
+  consultationFee?: number | null;
+  paymentUrl?: string | null;
+  calendlyUrl?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface CreatePracticeRequest {
+  name: string;
+  slug: string;
+  logo?: string;
+  metadata?: PracticeMetadata;
+  businessPhone?: string;
+  businessEmail?: string;
+  consultationFee?: number;
+  paymentUrl?: string;
+  calendlyUrl?: string;
+}
+
+export type UpdatePracticeRequest = Partial<CreatePracticeRequest>;
+
+export interface ConnectedAccountRequest {
+  practiceEmail: string;
+  practiceUuid: string;
+}
+
+export interface ConnectedAccountResponse {
+  practiceUuid: string;
+  stripeAccountId: string;
+  clientSecret: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+}
+
+export interface OnboardingStatus {
+  practiceUuid: string;
+  stripeAccountId: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  completed?: boolean;
+}
+
+export interface SubscriptionSyncResponse {
+  synced: boolean;
+  subscription?: unknown;
+  updatedAt?: string | null;
+}
+
+export interface SaveOnboardingProgressRequest {
+  organizationId: string;
+  data: Record<string, unknown>;
+}
+
+export interface SubscriptionUpgradePayload {
+  referenceId: string;
+  successUrl: string;
+  cancelUrl: string;
+  returnUrl: string;
+  plan?: string;
+  annual?: boolean;
+  seats?: number;
+}
+
+export interface BillingPortalPayload {
+  organizationId: string;
+  returnUrl?: string;
+}
+
+export interface SubscriptionEndpointResult {
+  ok: boolean;
+  status: number;
+  data: unknown;
+}
+
+export interface UserPreferences {
+  theme: string;
+  accentColor: string;
+  fontSize: string;
+  language: string;
+  timezone: string;
+  dateFormat: string;
+  timeFormat: string;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  smsNotifications: boolean;
+  notificationFrequency: string;
+  autoSaveConversations: boolean;
+  typingIndicators: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function unwrapApiData(payload: unknown): unknown {
+  let current = payload;
+  const visited = new Set<unknown>();
+
+  while (isRecord(current) && 'data' in current && !visited.has(current)) {
+    visited.add(current);
+    current = (current as Record<string, unknown>).data;
+  }
+
+  return current;
+}
+
+function extractApiData<T>(payload: unknown): T | null {
+  const normalized = unwrapApiData(payload);
+
+  if (isRecord(normalized) && 'success' in normalized) {
+    if (!normalized.success) {
+      const message =
+        typeof normalized.error === 'string'
+          ? normalized.error
+          : 'Request failed';
+      throw new Error(message);
+    }
+    return (normalized.data ?? null) as T | null;
+  }
+
+  return normalized as T;
+}
+
+async function postSubscriptionEndpoint(
+  url: string,
+  body: Record<string, unknown>
+): Promise<SubscriptionEndpointResult> {
+  try {
+    const response = await apiClient.post(url, body, {
+      baseURL: undefined
+    });
+    return {
+      ok: true,
+      status: response.status,
+      data: response.data ?? null
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return {
+        ok: false,
+        status: error.response?.status ?? 0,
+        data: error.response?.data ?? null
+      };
+    }
+    return {
+      ok: false,
+      status: 0,
+      data: null
+    };
+  }
+}
+
+function toNullableString(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  return null;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function normalizePracticePayload(payload: unknown): Practice {
+  if (!isRecord(payload)) {
+    throw new Error('Invalid practice payload');
+  }
+
+  const id = String(payload.id ?? payload.practice_id ?? payload.organization_id ?? '');
+  const name = String(payload.name ?? 'Practice');
+  const slug = toNullableString(payload.slug) ?? id;
+
+  return {
+    id,
+    name,
+    slug,
+    logo: toNullableString(payload.logo),
+    metadata: isRecord(payload.metadata) ? payload.metadata : undefined,
+    businessPhone: toNullableString(payload.businessPhone ?? payload.business_phone),
+    businessEmail: toNullableString(payload.businessEmail ?? payload.business_email),
+    consultationFee: toNullableNumber(payload.consultationFee ?? payload.consultation_fee),
+    paymentUrl: toNullableString(payload.paymentUrl ?? payload.payment_url),
+    calendlyUrl: toNullableString(payload.calendlyUrl ?? payload.calendly_url),
+    createdAt: toNullableString(payload.createdAt ?? payload.created_at),
+    updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at)
+  };
+}
+
+function unwrapPracticeResponse(data: unknown): Practice {
+  if (Array.isArray(data)) {
+    throw new Error('Expected a single practice object');
+  }
+
+  if (isRecord(data) && 'practice' in data) {
+    return normalizePracticePayload((data as Record<string, unknown>).practice);
+  }
+
+  if (isRecord(data) && 'data' in data && isRecord(data.data)) {
+    return normalizePracticePayload(data.data);
+  }
+
+  return normalizePracticePayload(data);
+}
+
+function unwrapPracticeListResponse(data: unknown): Practice[] {
+  if (Array.isArray(data)) {
+    return data.map(normalizePracticePayload);
+  }
+
+  if (isRecord(data)) {
+    if (Array.isArray(data.practices)) {
+      return data.practices.map(normalizePracticePayload);
+    }
+    if (Array.isArray(data.data)) {
+      return data.data.map(normalizePracticePayload);
+    }
+  }
+
+  return [];
+}
+
+function normalizeConnectedAccountResponse(payload: unknown): ConnectedAccountResponse {
+  if (!isRecord(payload)) {
+    throw new Error('Invalid connected account payload');
+  }
+
+  return {
+    practiceUuid: String(payload.practice_uuid ?? payload.practiceUuid ?? ''),
+    stripeAccountId: String(payload.stripe_account_id ?? payload.stripeAccountId ?? ''),
+    clientSecret: toNullableString(payload.client_secret ?? payload.clientSecret),
+    chargesEnabled: Boolean(payload.charges_enabled ?? payload.chargesEnabled),
+    payoutsEnabled: Boolean(payload.payouts_enabled ?? payload.payoutsEnabled),
+    detailsSubmitted: Boolean(payload.details_submitted ?? payload.detailsSubmitted)
+  };
+}
+
+function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
+  const normalized = unwrapApiData(payload);
+  if (!isRecord(normalized)) {
+    throw new Error('Invalid onboarding status payload');
+  }
+
+  return {
+    practiceUuid: String(normalized.practice_uuid ?? normalized.practiceUuid ?? ''),
+    stripeAccountId: toNullableString(normalized.stripe_account_id ?? normalized.stripeAccountId),
+    chargesEnabled: Boolean(normalized.charges_enabled ?? normalized.chargesEnabled),
+    payoutsEnabled: Boolean(normalized.payouts_enabled ?? normalized.payoutsEnabled),
+    detailsSubmitted: Boolean(normalized.details_submitted ?? normalized.detailsSubmitted),
+    completed: 'completed' in normalized ? Boolean(normalized.completed) : undefined
+  };
+}
+
+export async function listPractices(config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice[]> {
+  const response = await apiClient.get('/api/practice/list', {
+    signal: config?.signal
+  });
+  return unwrapPracticeListResponse(response.data);
+}
+
+export async function getPractice(practiceId: string, config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`, {
+    signal: config?.signal
+  });
+  return unwrapPracticeResponse(response.data);
+}
+
+export async function createPractice(
+  payload: CreatePracticeRequest,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<Practice> {
+  const response = await apiClient.post('/api/practice', payload, {
+    signal: config?.signal
+  });
+  return unwrapPracticeResponse(response.data);
+}
+
+export async function updatePractice(
+  practiceId: string,
+  payload: UpdatePracticeRequest,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<Practice> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.put(`/api/practice/${encodeURIComponent(practiceId)}`, payload, {
+    signal: config?.signal
+  });
+  return unwrapPracticeResponse(response.data);
+}
+
+export async function deletePractice(
+  practiceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<void> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  await apiClient.delete(`/api/practice/${encodeURIComponent(practiceId)}`, {
+    signal: config?.signal
+  });
+}
+
+export async function setActivePractice(practiceId: string): Promise<void> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  await apiClient.put(`/api/practice/${encodeURIComponent(practiceId)}/active`);
+}
+
+export async function listPracticeInvitations(): Promise<unknown[]> {
+  const response = await apiClient.get('/api/practice/invitations');
+  const payload = unwrapApiData(response.data);
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (isRecord(payload) && Array.isArray(payload.invitations)) {
+    return payload.invitations as unknown[];
+  }
+  return [];
+}
+
+export async function createPracticeInvitation(
+  organizationId: string,
+  payload: { email: string; role: string }
+): Promise<void> {
+  await apiClient.post(
+    `/api/practice/${encodeURIComponent(organizationId)}/invitations`,
+    payload
+  );
+}
+
+export async function respondToPracticeInvitation(
+  invitationId: string,
+  action: 'accept' | 'decline'
+): Promise<void> {
+  await apiClient.post(
+    `/api/practice/invitations/${encodeURIComponent(invitationId)}/${action}`
+  );
+}
+
+export async function listPracticeMembers(organizationId: string): Promise<unknown[]> {
+  const response = await apiClient.get(`/api/practice/${encodeURIComponent(organizationId)}/members`);
+  const payload = unwrapApiData(response.data);
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (isRecord(payload) && Array.isArray(payload.members)) {
+    return payload.members as unknown[];
+  }
+  return [];
+}
+
+export async function updatePracticeMemberRole(
+  organizationId: string,
+  payload: { userId: string; role: string }
+): Promise<void> {
+  await apiClient.patch(`/api/practice/${encodeURIComponent(organizationId)}/members`, payload);
+}
+
+export async function deletePracticeMember(
+  organizationId: string,
+  userId: string
+): Promise<void> {
+  await apiClient.delete(
+    `/api/practice/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(userId)}`
+  );
+}
+
+export async function listPracticeTokens(organizationId: string): Promise<unknown[]> {
+  const response = await apiClient.get(`/api/practice/${encodeURIComponent(organizationId)}/tokens`);
+  const payload = unwrapApiData(response.data);
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (isRecord(payload) && Array.isArray(payload.tokens)) {
+    return payload.tokens as unknown[];
+  }
+  return [];
+}
+
+export async function createPracticeToken(
+  organizationId: string,
+  payload: { tokenName: string }
+): Promise<unknown> {
+  const response = await apiClient.post(
+    `/api/practice/${encodeURIComponent(organizationId)}/tokens`,
+    payload
+  );
+  return unwrapApiData(response.data);
+}
+
+export async function deletePracticeToken(
+  organizationId: string,
+  tokenId: string
+): Promise<void> {
+  await apiClient.delete(
+    `/api/practice/${encodeURIComponent(organizationId)}/tokens/${encodeURIComponent(tokenId)}`
+  );
+}
+
+export async function getOnboardingStatus(organizationId: string): Promise<OnboardingStatus> {
+  if (!organizationId) {
+    throw new Error('organizationId is required');
+  }
+  const response = await apiClient.get(`/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`);
+  return normalizeOnboardingStatus(response.data);
+}
+
+export async function getOnboardingStatusPayload(
+  organizationId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<unknown> {
+  if (!organizationId) {
+    throw new Error('organizationId is required');
+  }
+  const response = await apiClient.get(
+    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
+    { signal: config?.signal }
+  );
+  return response.data;
+}
+
+export async function createConnectedAccount(
+  payload: ConnectedAccountRequest
+): Promise<ConnectedAccountResponse> {
+  if (!payload.practiceEmail || !payload.practiceUuid) {
+    throw new Error('practiceEmail and practiceUuid are required');
+  }
+
+  const response = await apiClient.post('/api/onboarding/connected-accounts', {
+    practice_email: payload.practiceEmail,
+    practice_uuid: payload.practiceUuid
+  });
+
+  return normalizeConnectedAccountResponse(response.data);
+}
+
+export async function completeOnboarding(organizationId: string): Promise<void> {
+  if (!organizationId) {
+    throw new Error('organizationId is required');
+  }
+  await apiClient.post('/api/onboarding/complete', { organizationId });
+}
+
+export async function saveOnboardingProgress(payload: SaveOnboardingProgressRequest): Promise<void> {
+  if (!payload.organizationId) {
+    throw new Error('organizationId is required');
+  }
+  await apiClient.post('/api/onboarding/save', payload);
+}
+
+export async function skipOnboarding(organizationId: string): Promise<void> {
+  if (!organizationId) {
+    throw new Error('organizationId is required');
+  }
+  await apiClient.post('/api/onboarding/skip', { organizationId });
+}
+
+export async function syncSubscription(
+  organizationId: string,
+  options?: { headers?: Record<string, string> }
+): Promise<SubscriptionSyncResponse> {
+  if (!organizationId) {
+    throw new Error('organizationId is required');
+  }
+  const response = await apiClient.post(
+    '/api/subscription/sync',
+    { organizationId },
+    {
+      headers: options?.headers
+    }
+  );
+  const data = isRecord(response.data) ? response.data : {};
+  return {
+    synced: Boolean('synced' in data ? data.synced : data.success ?? false),
+    subscription: 'subscription' in data ? data.subscription : undefined,
+    updatedAt: toNullableString(data.updatedAt ?? data.updated_at)
+  };
+}
+
+export async function getUserPreferences(
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<UserPreferences | null> {
+  const response = await apiClient.get('/api/user/preferences', {
+    signal: config?.signal
+  });
+  return extractApiData<UserPreferences>(response.data);
+}
+
+export async function updateUserPreferences(
+  preferences: Partial<UserPreferences>,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<UserPreferences | null> {
+  const response = await apiClient.put('/api/user/preferences', preferences, {
+    signal: config?.signal
+  });
+  return extractApiData<UserPreferences>(response.data);
+}
+
+export async function requestSubscriptionUpgrade(
+  payload: SubscriptionUpgradePayload
+): Promise<SubscriptionEndpointResult> {
+  return postSubscriptionEndpoint(getSubscriptionUpgradeEndpoint(), payload);
+}
+
+export async function requestBillingPortalSession(
+  payload: BillingPortalPayload
+): Promise<SubscriptionEndpointResult> {
+  return postSubscriptionEndpoint(getSubscriptionBillingPortalEndpoint(), {
+    referenceId: payload.organizationId,
+    returnUrl: payload.returnUrl
+  });
+}
+
+export async function requestSubscriptionCancellation(
+  organizationId: string
+): Promise<SubscriptionEndpointResult> {
+  return postSubscriptionEndpoint(getSubscriptionCancelEndpoint(), { organizationId });
+}
 
 apiClient.interceptors.response.use(
   (response) => response,

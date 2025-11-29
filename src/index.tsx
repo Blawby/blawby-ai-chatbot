@@ -33,7 +33,7 @@ import { useOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
 import QuotaBanner from './components/QuotaBanner';
 import { DEFAULT_ORGANIZATION_ID } from './utils/constants';
-import { apiClient } from './lib/apiClient';
+import { listPractices, createPractice } from './lib/apiClient';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -84,7 +84,7 @@ function MainApp({
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug: _activeOrganizationSlug, activeOrganizationId } = useSessionContext();
+	const { quota, refreshQuota, activeOrganizationSlug: _activeOrganizationSlug, activeOrganizationId } = useSessionContext();
 	const { currentOrganization, refetch: refetchOrganizations, acceptMatter, rejectMatter, updateMatterStatus } = useOrganizationManagement();
 	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
 
@@ -94,10 +94,9 @@ function MainApp({
 
 	const isQuotaRestricted = Boolean(
 		quota &&
-		!quota.messages.unlimited &&
-		quota.messages.limit > 0 &&
-		quota.messages.remaining !== null &&
-		quota.messages.remaining <= 0
+		!quota.unlimited &&
+		quota.limit > 0 &&
+		quota.used >= quota.limit
 	);
 
 	const quotaUsageMessage = isQuotaRestricted
@@ -181,14 +180,8 @@ function MainApp({
                         
                         // Check if practices exist
                         try {
-                            const listResp = await apiClient.get('/api/practice/list', { signal: controller.signal });
-                            const practices = Array.isArray(listResp.data) 
-                                ? listResp.data 
-                                : Array.isArray(listResp.data?.practices) 
-                                    ? listResp.data.practices 
-                                    : [];
-                            
-                            // If no practices exist, create a default one
+                            const practices = await listPractices({ signal: controller.signal });
+
                             if (practices.length === 0) {
                                 const userName = session.user.name || session.user.email?.split('@')[0] || 'User';
                                 const practiceName = `${userName}'s Practice`;
@@ -212,16 +205,16 @@ function MainApp({
                                     Number.isFinite(DEFAULT_CONSULTATION_FEE) && DEFAULT_CONSULTATION_FEE > 0
                                         ? DEFAULT_CONSULTATION_FEE
                                         : undefined;
-                                
-                                await apiClient.post('/api/practice', {
+
+                                await createPractice({
                                     name: practiceName,
                                     slug: practiceSlug,
-                                    business_email: session.user.email || '',
-                                    ...(businessPhone ? { business_phone: businessPhone } : {}),
-                                    ...(consultationFee ? { consultation_fee: consultationFee } : {}),
+                                    businessEmail: session.user.email || undefined,
+                                    ...(businessPhone ? { businessPhone } : {}),
+                                    ...(consultationFee ? { consultationFee } : {})
                                 }, { signal: controller.signal });
                             }
-                            
+
                             clearTimeout(timeoutId);
                             sessionStorage.setItem(key, '1');
                         } catch (e) {
@@ -557,11 +550,10 @@ function MainApp({
 						rejectMatter={rejectMatter}
 						updateMatterStatus={updateMatterStatus}
 					/>
-					{(quota && !quota.messages.unlimited) && (
+					{(quota && !quota.unlimited) && (
 						<div className="px-4 pt-4">
 							<QuotaBanner
 								quota={quota}
-								loading={quotaLoading}
 								onUpgrade={() => navigate('/pricing')}
 							/>
 						</div>
@@ -844,7 +836,7 @@ function AppWithProviders() {
 	);
 }
 
-if (typeof window !== 'undefined') {
+async function mountClientApp() {
 	// Initialize theme from localStorage with fallback to system preference
 	const savedTheme = localStorage.getItem('theme');
 	const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -863,6 +855,18 @@ if (typeof window !== 'undefined') {
 			console.error('Failed to initialize i18n:', _error);
 			hydrate(<AppWithProviders />, document.getElementById('app'));
 		});
+}
+
+if (typeof window !== 'undefined') {
+	const bootstrap = () => mountClientApp();
+	if (import.meta.env.DEV) {
+		import('./mocks')
+			.then(({ setupMocks }) => setupMocks())
+			.catch(() => {})
+			.finally(bootstrap);
+	} else {
+		bootstrap();
+	}
 }
 
 

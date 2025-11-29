@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'preact/hooks';
-import {
-  getSubscriptionUpgradeEndpoint,
-  getSubscriptionBillingPortalEndpoint,
-  getSubscriptionSyncEndpoint,
-  getSubscriptionCancelEndpoint,
-} from '../config/api';
 import { useToastContext } from '../contexts/ToastContext';
 import { authClient } from '../lib/authClient';
-import { getToken } from '../lib/tokenStorage';
+import {
+  requestSubscriptionUpgrade,
+  requestBillingPortalSession,
+  requestSubscriptionCancellation,
+  syncSubscription as syncSubscriptionRequest,
+  type SubscriptionUpgradePayload
+} from '../lib/apiClient';
 
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
@@ -56,23 +56,6 @@ function extractErrorMessage(result: unknown, fallback: string): string {
   return fallback;
 }
 
-function extractSubscription(result: unknown): unknown {
-  if (result && typeof result === 'object' && result !== null) {
-    // Check for direct subscription property
-    if ('subscription' in result) {
-      return result.subscription;
-    }
-
-    // Check for subscription in data property
-    if ('data' in result && result.data && typeof result.data === 'object' && result.data !== null) {
-      if ('subscription' in result.data) {
-        return result.data.subscription;
-      }
-    }
-  }
-  return null;
-}
-
 function extractProperty<T>(result: unknown, property: string): T | undefined {
   if (result && typeof result === 'object' && result !== null) {
     const obj = result as Record<string, unknown>;
@@ -98,15 +81,6 @@ enum SubscriptionErrorCode {
   INVALID_PLAN_TYPE = 'INVALID_PLAN_TYPE',
   SUBSCRIPTION_SYNC_FAILED = 'SUBSCRIPTION_SYNC_FAILED',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
-}
-
-// Enhanced API response interface
-interface SubscriptionApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  errorCode?: SubscriptionErrorCode;
-  details?: unknown;
 }
 
 // Error titles for UI display
@@ -177,37 +151,24 @@ export const usePaymentUpgrade = () => {
   const openBillingPortal = useCallback(
     async ({ organizationId, returnUrl }: BillingPortalRequest) => {
       try {
-        const token = await getToken();
-        const response = await fetch(getSubscriptionBillingPortalEndpoint(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            referenceId: organizationId,
-            returnUrl: returnUrl ?? `/business-onboarding?sync=1&organizationId=${encodeURIComponent(organizationId)}`,
-          }),
+        const result = await requestBillingPortalSession({
+          organizationId,
+          returnUrl: returnUrl ?? `/business-onboarding?sync=1&organizationId=${encodeURIComponent(organizationId)}`
         });
 
-        const result = await response.json().catch(() => ({}));
-
-        const url = extractUrl(result);
+        const url = extractUrl(result.data);
         if (!url) {
-          console.error('Invalid response structure: missing or invalid url property', result);
+          console.error('Invalid response structure: missing or invalid url property', result.data);
         }
-        if (!response.ok || !url) {
-          // Handle specific error codes (Better Auth uses 'code', our API uses 'errorCode')
-          const errorCode = result && typeof result === 'object'
-            ? (('code' in result && result.code) || ('errorCode' in result && result.errorCode))
-            : null;
+        if (!result.ok || !url) {
+          const errorCode =
+            extractProperty<string>(result.data, 'code') ||
+            extractProperty<string>(result.data, 'errorCode');
 
-          // Map Better Auth error codes to our error codes
           let mappedErrorCode: SubscriptionErrorCode | null = null;
           if (typeof errorCode === 'string' && errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
             mappedErrorCode = SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND;
           } else if (typeof errorCode === 'string') {
-            // Try to map to existing error codes
             const upperCode = errorCode.toUpperCase();
             if (Object.values(SubscriptionErrorCode).includes(upperCode as SubscriptionErrorCode)) {
               mappedErrorCode = upperCode as SubscriptionErrorCode;
@@ -217,12 +178,12 @@ export const usePaymentUpgrade = () => {
           if (mappedErrorCode || errorCode) {
             throw new Error(JSON.stringify({
               errorCode: mappedErrorCode || errorCode,
-              message: extractErrorMessage(result, 'Unable to open billing portal'),
-              details: (result && typeof result === 'object' && 'details' in result) ? result.details : undefined
+              message: extractErrorMessage(result.data, 'Unable to open billing portal'),
+              details: extractProperty<unknown>(result.data, 'details')
             }));
           }
 
-          const message = extractErrorMessage(result, 'Unable to open billing portal');
+          const message = extractErrorMessage(result.data, 'Unable to open billing portal');
           throw new Error(message);
         }
 
@@ -230,7 +191,6 @@ export const usePaymentUpgrade = () => {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unable to open billing portal';
 
-        // Try to parse structured error response
         let errorCode: SubscriptionErrorCode | null = null;
         let errorMessage = message;
 
@@ -245,17 +205,12 @@ export const usePaymentUpgrade = () => {
         }
 
         const title = errorCode ? getErrorTitle(errorCode) : 'Billing Portal Error';
-
-        // Provide helpful message for missing Stripe customer
-        if (errorCode === SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND) {
-          showError(title, 'No billing account found. Please upgrade to a paid plan first to access billing management.');
-        } else {
-          showError(title, errorMessage);
-        }
+        showError(title, errorMessage);
       }
     },
     [showError]
   );
+
 
   const handleAlreadySubscribed = useCallback(
     async (organizationId: string, returnUrl: string) => {
@@ -295,30 +250,17 @@ export const usePaymentUpgrade = () => {
           requestBody.seats = seats;
         }
 
-        if (import.meta.env.DEV) {
-          console.debug('[UPGRADE] POST', getSubscriptionUpgradeEndpoint(), 'body:', requestBody);
-        }
-        const token = await getToken();
-        const response = await fetch(getSubscriptionUpgradeEndpoint(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify(requestBody),
-        });
+        const result = await requestSubscriptionUpgrade(requestBody);
 
-        const result = await response.json().catch(() => ({}));
-        // Always log status; only log body in development to avoid leaking sensitive data in production
-        console.debug('[UPGRADE] Response status:', response.status);
+        console.debug('[UPGRADE] Response status:', result.status);
         if (import.meta.env.DEV) {
-          console.debug('[UPGRADE] Response body:', result);
+          console.debug('[UPGRADE] Response body:', result.data);
         }
-        const checkoutUrl = extractUrl(result);
+        const checkoutUrl = extractUrl(result.data);
 
-        if (!response.ok || !checkoutUrl) {
+        if (!result.ok || !checkoutUrl) {
           // Handle Better Auth raw code: YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN
-          const rawCode = extractProperty<string>(result, 'code');
+          const rawCode = extractProperty<string>(result.data, 'code');
           if (rawCode && rawCode.toUpperCase() === 'YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN') {
             await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
             return;
@@ -327,26 +269,26 @@ export const usePaymentUpgrade = () => {
           if (import.meta.env.DEV) {
             // Only log in development, and sanitize sensitive data
             const sanitizedResult = {
-              error: extractProperty<string>(result, 'error'),
-              success: extractProperty<boolean>(result, 'success'),
-              errorCode: extractProperty<string>(result, 'errorCode'),
-              code: extractProperty<string>(result, 'code'),
+              error: extractProperty<string>(result.data, 'error'),
+              success: extractProperty<boolean>(result.data, 'success'),
+              errorCode: extractProperty<string>(result.data, 'errorCode'),
+              code: extractProperty<string>(result.data, 'code'),
               // Exclude sensitive fields like organizationId, subscription details, etc.
             };
             console.error('❌ Subscription upgrade failed with response:', sanitizedResult);
           }
 
           // Handle specific error codes
-          const errorCode = extractProperty<string>(result, 'errorCode');
+          const errorCode = extractProperty<string>(result.data, 'errorCode');
           if (errorCode) {
             throw new Error(JSON.stringify({
               errorCode,
-              message: extractErrorMessage(result, 'Subscription upgrade failed'),
-              details: extractProperty<unknown>(result, 'details')
+              message: extractErrorMessage(result.data, 'Subscription upgrade failed'),
+              details: extractProperty<unknown>(result.data, 'details')
             }));
           }
 
-          const message = extractErrorMessage(result, 'Unable to initiate Stripe checkout');
+          const message = extractErrorMessage(result.data, 'Unable to initiate Stripe checkout');
           throw new Error(message);
         }
 
@@ -397,47 +339,28 @@ export const usePaymentUpgrade = () => {
   const syncSubscription = useCallback(
     async (organizationId: string) => {
       try {
-        const token = await getToken();
-        const response = await fetch(getSubscriptionSyncEndpoint(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ organizationId }),
-        });
+        const result = await syncSubscriptionRequest(organizationId);
 
-        const result = await response.json().catch(() => ({})) as SubscriptionApiResponse<{ subscription: unknown }>;
-        const success = extractProperty<boolean>(result, 'success');
-        if (!response.ok || success === false) {
-          // Handle specific error codes
-          const errorCode = extractProperty<string>(result, 'errorCode');
-          if (errorCode) {
-            throw new Error(JSON.stringify({
-              errorCode,
-              message: extractErrorMessage(result, 'Failed to refresh subscription status'),
-              details: extractProperty<unknown>(result, 'details')
-            }));
-          }
-
-          const message = extractErrorMessage(result, 'Failed to refresh subscription status');
-          throw new Error(message);
+        if (!result.synced) {
+          throw new Error('Failed to refresh subscription status');
         }
 
         showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        return extractSubscription(result);
+        return result.subscription ?? null;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to refresh subscription status';
 
-        // Try to parse structured error response
         let errorCode: SubscriptionErrorCode | null = null;
         let errorMessage = message;
 
         try {
           const parsedError = JSON.parse(message);
-          if (parsedError.errorCode && Object.values(SubscriptionErrorCode).includes(parsedError.errorCode)) {
-            errorCode = parsedError.errorCode as SubscriptionErrorCode;
-            errorMessage = parsedError.message || message;
+          if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
+            const parsedCode = (parsedError as { errorCode?: string }).errorCode;
+            if (parsedCode && Object.values(SubscriptionErrorCode).includes(parsedCode as SubscriptionErrorCode)) {
+              errorCode = parsedCode as SubscriptionErrorCode;
+              errorMessage = (parsedError as { message?: string }).message || message;
+            }
           }
         } catch {
           // Not a structured error, use original message
@@ -451,32 +374,23 @@ export const usePaymentUpgrade = () => {
     [showError, showSuccess]
   );
 
+
   const cancelSubscription = useCallback(
     async (organizationId: string) => {
       try {
-        const token = await getToken();
-        const response = await fetch(getSubscriptionCancelEndpoint(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ organizationId }),
-        });
+        const result = await requestSubscriptionCancellation(organizationId);
 
-        const result = await response.json().catch(() => ({})) as SubscriptionApiResponse;
-        const success = extractProperty<boolean>(result, 'success');
-        if (!response.ok || success === false) {
-          const errorCode = extractProperty<string>(result, 'errorCode');
+        if (!result.ok) {
+          const errorCode = extractProperty<string>(result.data, 'errorCode');
           if (errorCode) {
             throw new Error(JSON.stringify({
               errorCode,
-              message: extractErrorMessage(result, 'Failed to cancel subscription'),
-              details: extractProperty<unknown>(result, 'details')
+              message: extractErrorMessage(result.data, 'Failed to cancel subscription'),
+              details: extractProperty<unknown>(result.data, 'details')
             }));
           }
 
-          const message = extractErrorMessage(result, 'Failed to cancel subscription');
+          const message = extractErrorMessage(result.data, 'Failed to cancel subscription');
           throw new Error(message);
         }
 
@@ -505,6 +419,7 @@ export const usePaymentUpgrade = () => {
     },
     [showError, showSuccess]
   );
+
 
   return {
     submitting,

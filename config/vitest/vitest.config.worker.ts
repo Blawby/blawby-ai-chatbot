@@ -11,8 +11,7 @@ export default defineWorkersConfig({
           envPath: '.dev.vars',
           d1Databases: ['DB'],
           kvNamespaces: {
-            CHAT_SESSIONS: 'kv-chat-sessions',
-            USAGE_QUOTAS: 'kv-usage-quotas'
+            CHAT_SESSIONS: 'kv-chat-sessions'
           },
           compatibilityDate: '2024-12-01'
         }

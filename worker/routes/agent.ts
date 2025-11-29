@@ -19,8 +19,174 @@ import { StatusService } from '../services/StatusService.js';
 import { chunkResponseText } from '../utils/streaming.js';
 import { Logger } from '../utils/logger.js';
 import { ensureActiveSubscription } from '../middleware/subscription.js';
-import { UsageService } from '../services/UsageService.js';
 import { requireFeature } from '../middleware/featureGuard.js';
+
+// Simplified quota helper functions
+const getQuotaLimit = (tier?: string): number => {
+  switch (tier) {
+    case 'free': return 100;
+    case 'plus': return 500;
+    case 'business': return 1000;
+    case 'enterprise': return -1; // unlimited
+    default: return 100;
+  }
+};
+
+const shouldResetQuota = (lastResetDate?: string | null): boolean => {
+  if (!lastResetDate) return true;
+  
+  const lastReset = new Date(lastResetDate);
+  const now = new Date();
+  
+  return lastReset.getMonth() !== now.getMonth() || 
+         lastReset.getFullYear() !== now.getFullYear();
+};
+
+const getQuota = async (env: Env, organizationId: string) => {
+  const org = await env.DB.prepare(
+    `SELECT id, subscription_tier, config FROM organizations WHERE id = ?`
+  ).bind(organizationId).first<{ id: string; subscription_tier?: string; config?: string | null }>();
+
+  if (!org) {
+    throw HttpErrors.notFound(`Organization not found: ${organizationId}`);
+  }
+
+  let config: Record<string, unknown> = {};
+  if (org.config) {
+    try {
+      config = JSON.parse(org.config);
+    } catch (error) {
+      Logger.warn('Failed to parse organization config', { organizationId, error });
+    }
+  }
+
+  const tier = org.subscription_tier ?? 'free';
+  const quotaLimit = getQuotaLimit(tier);
+  let quotaUsed =
+    typeof (config as Record<string, unknown>).quotaUsed === 'number'
+      ? (config as Record<string, unknown>).quotaUsed as number
+      : 0;
+  let quotaResetDate =
+    typeof (config as Record<string, unknown>).quotaResetDate === 'string'
+      ? (config as Record<string, unknown>).quotaResetDate as string
+      : null;
+
+  if (shouldResetQuota(quotaResetDate)) {
+    quotaUsed = 0;
+    const newResetDate = new Date().toISOString();
+    const resetConfig = {
+      ...config,
+      quotaUsed,
+      quotaResetDate: newResetDate
+    };
+    const result = await env.DB.prepare(
+      `UPDATE organizations
+         SET config = ?
+       WHERE id = ?
+         AND json_extract(config, '$.quotaResetDate') IS ?
+    `
+    ).bind(JSON.stringify(resetConfig), organizationId, quotaResetDate).run();
+
+    if (result.success && result.meta.changes === 1) {
+      quotaResetDate = newResetDate;
+    } else {
+      const refreshedOrg = await env.DB.prepare(
+        `SELECT config FROM organizations WHERE id = ?`
+      ).bind(organizationId).first<{ config?: string | null }>();
+      if (refreshedOrg?.config) {
+        try {
+          config = JSON.parse(refreshedOrg.config);
+          quotaUsed =
+            typeof (config as Record<string, unknown>).quotaUsed === 'number'
+              ? (config as Record<string, unknown>).quotaUsed as number
+              : quotaUsed;
+          quotaResetDate =
+            typeof (config as Record<string, unknown>).quotaResetDate === 'string'
+              ? (config as Record<string, unknown>).quotaResetDate as string
+              : quotaResetDate;
+        } catch (error) {
+          Logger.warn('Failed to refresh organization config after reset collision', {
+            organizationId,
+            error
+          });
+        }
+      }
+    }
+  }
+
+  return { used: quotaUsed, limit: quotaLimit, unlimited: quotaLimit < 0 };
+};
+
+const incrementUsage = async (env: Env, organizationId: string) => {
+  const maxAttempts = 3;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const org = await env.DB.prepare(
+      `SELECT subscription_tier, config FROM organizations WHERE id = ?`
+    ).bind(organizationId).first<{ subscription_tier?: string; config?: string | null }>();
+
+    if (!org) {
+      return { success: false, quota: { used: 0, limit: 0, unlimited: false } };
+    }
+
+    let config: Record<string, unknown> = {};
+    if (org.config) {
+      try {
+        config = JSON.parse(org.config);
+      } catch (error) {
+        Logger.warn('Failed to parse organization config during increment', { organizationId, error });
+      }
+    }
+
+    const tier = org.subscription_tier ?? 'free';
+    const quotaLimit = getQuotaLimit(tier);
+    let quotaUsed =
+      typeof (config as Record<string, unknown>).quotaUsed === 'number'
+        ? (config as Record<string, unknown>).quotaUsed as number
+        : 0;
+    let quotaResetDate =
+      typeof (config as Record<string, unknown>).quotaResetDate === 'string'
+        ? (config as Record<string, unknown>).quotaResetDate as string
+        : null;
+
+    if (shouldResetQuota(quotaResetDate)) {
+      quotaUsed = 0;
+      quotaResetDate = new Date().toISOString();
+    }
+
+    if (quotaLimit >= 0 && quotaUsed >= quotaLimit) {
+      return {
+        success: false,
+        quota: { used: quotaUsed, limit: quotaLimit, unlimited: false }
+      };
+    }
+
+    const nextQuotaUsed = quotaUsed + 1;
+    const updatedConfig = {
+      ...config,
+      quotaUsed: nextQuotaUsed,
+      quotaResetDate: quotaResetDate ?? new Date().toISOString()
+    };
+
+    const result = await env.DB.prepare(
+      `UPDATE organizations
+         SET config = ?
+       WHERE id = ?
+         AND COALESCE(CAST(json_extract(config, '$.quotaUsed') AS INTEGER), 0) = ?`
+    ).bind(JSON.stringify(updatedConfig), organizationId, quotaUsed).run();
+
+    if (result.success && result.meta.changes === 1) {
+      return {
+        success: true,
+        quota: { used: nextQuotaUsed, limit: quotaLimit, unlimited: quotaLimit < 0 }
+      };
+    }
+  }
+
+  Logger.warn('Quota increment failed due to concurrent updates', { organizationId });
+  const fallbackQuota = await getQuota(env, organizationId);
+  return { success: false, quota: fallbackQuota };
+};
 
 // Interface for the request body
 interface RouteBody {
@@ -387,8 +553,8 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
 
     // Increment usage atomically before processing to prevent TOCTOU races
     try {
-      const incrementResult = await UsageService.incrementUsageAtomic(env, resolvedOrganizationId, 'messages');
-      if (incrementResult === null) {
+      const incrementResult = await incrementUsage(env, resolvedOrganizationId);
+      if (!incrementResult.success) {
         console.warn('Message processing blocked: quota limit reached', {
           organizationId: resolvedOrganizationId,
           sessionId: resolvedSessionId,

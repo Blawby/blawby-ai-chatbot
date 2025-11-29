@@ -7,7 +7,12 @@ import { useToastContext } from '../../contexts/ToastContext';
 import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
-import { apiClient } from '../../lib/apiClient';
+import {
+  completeOnboarding as completeOnboardingRequest,
+  getOnboardingStatusPayload,
+  skipOnboarding,
+  syncSubscription as syncSubscriptionRequest
+} from '../../lib/apiClient';
 import { extractProgressFromPayload } from '../onboarding/utils';
 
 export const BusinessOnboardingPage = () => {
@@ -90,19 +95,13 @@ export const BusinessOnboardingPage = () => {
       inFlightRef.current = true;
       setSyncing(true);
       try {
-        const response = await apiClient.post('/api/subscription/sync', {
-          organizationId: targetOrganizationId
-        }, {
-          headers: {
-            ...(devForcePaid ? { 'x-test-force-paid': '1' } : {})
-          }
+        const result = await syncSubscriptionRequest(targetOrganizationId, {
+          headers: devForcePaid ? { 'x-test-force-paid': '1' } : undefined
         });
-
-        const result = response.data;
 
         await refetch();
 
-        if (typeof result === 'object' && result !== null && 'synced' in result && (result as Record<string, unknown>).synced === true) {
+        if (result.synced) {
           showSuccess('Payment Successful', 'Your subscription has been activated!');
         }
       } catch (error) {
@@ -155,9 +154,7 @@ export const BusinessOnboardingPage = () => {
     if (!ready || !targetOrganizationId) return;
     const checkCompletion = async () => {
       try {
-        const encodedId = encodeURIComponent(targetOrganizationId);
-        const response = await apiClient.get(`/api/onboarding/organization/${encodedId}/status`);
-        const payload = response.data;
+        const payload = await getOnboardingStatusPayload(targetOrganizationId);
         const progress = extractProgressFromPayload(payload);
         let completed = Boolean(progress?.completed);
 
@@ -182,9 +179,7 @@ export const BusinessOnboardingPage = () => {
 
     try {
       console.debug('[ONBOARDING][COMPLETE] Marking onboarding complete for org:', targetOrganizationId);
-      await apiClient.post('/api/onboarding/complete', {
-        organizationId: targetOrganizationId
-      });
+      await completeOnboardingRequest(targetOrganizationId);
 
       showSuccess('Setup Complete!', 'Your business profile is ready.');
       navigate('/');
@@ -202,9 +197,7 @@ export const BusinessOnboardingPage = () => {
 
     try {
       console.debug('[ONBOARDING][SKIP] Marking onboarding skipped for org:', targetOrganizationId);
-      await apiClient.post('/api/onboarding/skip', {
-        organizationId: targetOrganizationId
-      });
+      await skipOnboarding(targetOrganizationId);
     } catch (error) {
       console.error('Failed to mark onboarding skipped:', error);
     }

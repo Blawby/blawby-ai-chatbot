@@ -1,7 +1,42 @@
 import { HttpErrors } from "../errorHandler.js";
 import type { Env } from "../types.js";
 import { optionalAuth, requireOrgMember } from "./auth.js";
-import { UsageService, type OrganizationUsageMetadata } from "../services/UsageService.js";
+
+// Simplified quota helper functions
+const getQuotaLimit = (tier?: string): number => {
+  switch (tier) {
+    case 'free': return 100;
+    case 'plus': return 500;
+    case 'business': return 1000;
+    case 'enterprise': return -1; // unlimited
+    default: return 100;
+  }
+};
+
+const getQuota = async (env: Env, organizationId: string) => {
+  const org = await env.DB.prepare(
+    `SELECT id, subscription_tier, config FROM organizations WHERE id = ?`
+  ).bind(organizationId).first<{ id: string; subscription_tier?: string; config?: string | null }>();
+
+  if (!org) {
+    throw new Error(`Organization not found: ${organizationId}`);
+  }
+
+  let config = {};
+  if (org.config) {
+    try {
+      config = JSON.parse(org.config);
+    } catch (error) {
+      console.warn('Failed to parse organization config', { organizationId, error });
+    }
+  }
+
+  const tier = org.subscription_tier ?? 'free';
+  const quotaLimit = getQuotaLimit(tier);
+  const quotaUsed = (config as any).quotaUsed ?? 0;
+
+  return { used: quotaUsed, limit: quotaLimit, unlimited: quotaLimit < 0 };
+};
 
 export type FeatureName = "chat" | "files" | "api" | "team";
 
@@ -22,11 +57,11 @@ export interface FeatureGuardContext {
   organizationId: string;
   sessionId?: string;
   userId?: string;
-  tier: "free" | "plus" | "business" | "enterprise";
-  kind: OrganizationUsageMetadata["kind"];
-  subscriptionStatus: OrganizationUsageMetadata["subscriptionStatus"];
+  tier?: string;
+  kind?: string;
+  subscriptionStatus?: string | null;
   isAnonymous: boolean;
-  organization: OrganizationUsageMetadata;
+  organization?: any;
 }
 
 export async function requireFeature(
@@ -47,26 +82,12 @@ export async function requireFeature(
     await requireOrgMember(request, env, options.organizationId);
   }
 
-  let organization: OrganizationUsageMetadata;
-  try {
-    organization = await UsageService.getOrganizationMetadata(env, options.organizationId, request);
-  } catch (error) {
-    // Handle errors from remote API (not found, API down, etc.)
-    if (
-      error instanceof Error &&
-      'status' in error &&
-      typeof (error as any).status === 'number'
-    ) {
-      const httpError = error as { status: number };
-      if (httpError.status === 404) {
-        throw HttpErrors.notFound(`Organization not found: ${options.organizationId}`);
-      }
-      if (httpError.status >= 500) {
-        throw HttpErrors.serviceUnavailable('Organization service temporarily unavailable');
-      }
-    }
-    // Re-throw other errors
-    throw error;
+  const organization = await env.DB.prepare(
+    `SELECT id, subscription_tier, kind, config FROM organizations WHERE id = ?`
+  ).bind(options.organizationId).first();
+
+  if (!organization) {
+    throw HttpErrors.notFound("Organization not found");
   }
 
   if (config.requireNonPersonal && organization.kind === 'personal') {
@@ -74,36 +95,42 @@ export async function requireFeature(
   }
 
   if (config.minTier && config.minTier.length > 0) {
-    if (!config.minTier.includes(organization.tier)) {
-      throw HttpErrors.paymentRequired(
-        `This feature requires a ${config.minTier.join(" or ")} plan`,
-        {
-          feature: config.feature,
-          requiredTiers: config.minTier,
-          currentTier: organization.tier,
-        }
-      );
+    const tier = organization.subscription_tier ?? 'free';
+    if (!config.minTier.includes(tier as any)) {
+      throw HttpErrors.forbidden("This feature requires a higher subscription tier", {
+        feature: config.feature,
+        requiredTiers: config.minTier,
+        currentTier: tier,
+      });
     }
   }
 
   if (config.quotaMetric) {
-    const overQuota = await UsageService.isOverQuota(env, options.organizationId, config.quotaMetric);
-    if (overQuota) {
-      const quota = await UsageService.getRemainingQuota(env, options.organizationId, request);
-      throw HttpErrors.paymentRequired("Usage limit reached for this feature", {
-        feature: config.feature,
-        quota,
-      });
+    // Only check quota for messages in simplified system
+    if (config.quotaMetric === 'messages') {
+      const quota = await getQuota(env, options.organizationId);
+      if (!quota.unlimited && quota.used >= quota.limit) {
+        throw HttpErrors.paymentRequired("Message limit reached. Please upgrade your plan.", {
+          feature: config.feature,
+          quota: {
+            used: quota.used,
+            limit: quota.limit,
+            remaining: quota.unlimited ? null : Math.max(0, quota.limit - quota.used),
+            unlimited: quota.unlimited
+          }
+        });
+      }
     }
+    // Files are no longer quota-limited in simplified system
   }
 
   return {
     organizationId: options.organizationId,
     sessionId: options.sessionId,
     userId: authContext?.user.id,
-    tier: organization.tier,
+    tier: organization.subscription_tier,
     kind: organization.kind,
-    subscriptionStatus: organization.subscriptionStatus,
+    subscriptionStatus: null, // Not stored in DB in simplified system
     isAnonymous,
     organization,
   };

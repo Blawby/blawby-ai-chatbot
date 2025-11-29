@@ -7,7 +7,6 @@ declare module 'cloudflare:test' {
   export interface ProvidedEnv {
     DB?: D1Database;
     CHAT_SESSIONS?: KVNamespace;
-    USAGE_QUOTAS?: KVNamespace;
     FILES_BUCKET?: R2Bucket;
     [key: string]: unknown;
   }

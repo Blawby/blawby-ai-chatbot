@@ -1,10 +1,25 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { getOrganizationWorkspaceEndpoint } from '../config/api';
 import { useSession } from '../lib/authClient';
-import { apiClient } from '../lib/apiClient';
-import { 
+import {
+  listPractices,
+  createPractice as apiCreatePractice,
+  updatePractice as apiUpdatePractice,
+  deletePractice as apiDeletePractice,
+  listPracticeInvitations,
+  createPracticeInvitation,
+  respondToPracticeInvitation,
+  listPracticeMembers,
+  updatePracticeMemberRole as apiUpdatePracticeMemberRole,
+  deletePracticeMember as apiDeletePracticeMember,
+  listPracticeTokens,
+  createPracticeToken as apiCreatePracticeToken,
+  deletePracticeToken as apiDeletePracticeToken,
+  type Practice,
+  type UpdatePracticeRequest
+} from '../lib/apiClient';
+import {
   organizationInvitationSchema,
-  organizationSchema,
   membersResponseSchema,
   organizationApiTokenSchema,
   createTokenResponseSchema
@@ -94,23 +109,18 @@ export interface UpdateOrgData {
 }
 
 interface UseOrganizationManagementOptions {
+  /**
+   * When true (default), the hook will automatically fetch organizations
+   * once the session is available. Tests and advanced callers can disable
+   * this to take full control over when loading happens via `refetch()`.
+   */
+  autoFetchOrganizations?: boolean;
+  /**
+   * When true (default), the hook will fetch pending invitations for the
+   * current user. Disable this if you don't need invitations for a given
+   * screen or test.
+   */
   fetchInvitations?: boolean;
-}
-
-const PRACTICE_BASE_PATH = '/api/practice';
-const PRACTICE_LIST_PATH = `${PRACTICE_BASE_PATH}/list`;
-const PRACTICE_INVITATIONS_PATH = `${PRACTICE_BASE_PATH}/invitations`;
-
-const practicePath = (orgId: string) => `${PRACTICE_BASE_PATH}/${encodeURIComponent(orgId)}`;
-const practiceMembersPath = (orgId: string) => `${practicePath(orgId)}/members`;
-const practiceOrgInvitationsPath = (orgId: string) => `${practicePath(orgId)}/invitations`;
-const practiceTokensPath = (orgId: string) => `${practicePath(orgId)}/tokens`;
-const practiceInvitationActionPath = (invitationId: string, action: 'accept' | 'decline') =>
-  `${PRACTICE_BASE_PATH}/invitations/${encodeURIComponent(invitationId)}/${action}`;
-
-async function practiceRequest<T>(request: Promise<{ data: T }>): Promise<T> {
-  const response = await request;
-  return response.data;
 }
 
 interface UseOrganizationManagementReturn {
@@ -211,6 +221,12 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     const c = (raw as Record<string, unknown>).config as unknown;
     if (c && typeof c === 'object' && !Array.isArray(c)) {
       return c as Organization['config'] & { description?: string };
+    }
+    const metadata = (raw as Record<string, unknown>).metadata;
+    if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+      return {
+        metadata: metadata as Record<string, unknown>
+      } as Organization['config'] & { description?: string };
     }
     return undefined as Organization['config'] & { description?: string } | undefined;
   })();
@@ -381,8 +397,39 @@ function _generateUniqueSlug(): string {
   return `org-${timestamp}-${randomSuffix}`;
 }
 
+function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-')
+    .slice(0, 64);
+}
+
+function deriveSlug(preferred?: string, fallback?: string): string {
+  if (preferred && preferred.trim().length > 0) {
+    const normalized = slugify(preferred);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  if (fallback && fallback.trim().length > 0) {
+    const normalized = slugify(fallback);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  return slugify(_generateUniqueSlug());
+}
+
 export function useOrganizationManagement(options: UseOrganizationManagementOptions = {}): UseOrganizationManagementReturn {
-  const { fetchInvitations: shouldFetchInvitations = true } = options;
+  const {
+    autoFetchOrganizations = true,
+    fetchInvitations: shouldFetchInvitations = true,
+  } = options;
   const { data: session, isPending: sessionLoading } = useSession();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
@@ -480,19 +527,11 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
         return;
       }
 
-      const response = await practiceRequest<{ practices?: unknown[] } | unknown[]>(
-        apiClient.get(PRACTICE_LIST_PATH, { signal: controller.signal })
-      );
-
-      const rawOrgList = Array.isArray(response)
-        ? response
-        : Array.isArray((response as { practices?: unknown[] }).practices)
-          ? ((response as { practices?: unknown[] }).practices ?? [])
-          : [];
+      const rawOrgList = await listPractices({ signal: controller.signal });
 
       const normalizedList = rawOrgList
-        .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item))
-        .map((org) => normalizeOrganizationRecord(org))
+        .filter((item): item is Practice => typeof item === 'object' && item !== null)
+        .map((org) => normalizeOrganizationRecord(org as unknown as Record<string, unknown>))
         .filter((org) => org.id.length > 0);
 
       const personalOrg = normalizedList.find(org => org.kind === 'personal');
@@ -522,17 +561,9 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
         return;
       }
 
-      const data = await practiceRequest<{ invitations?: unknown[] } | unknown[]>(
-        apiClient.get(PRACTICE_INVITATIONS_PATH)
-      );
+      const rawInvitations = await listPracticeInvitations();
 
-      const list = Array.isArray(data)
-        ? data
-        : Array.isArray((data as { invitations?: unknown[] }).invitations)
-          ? ((data as { invitations?: unknown[] }).invitations ?? [])
-          : [];
-
-      const validatedInvitations = list
+      const validatedInvitations = rawInvitations
         .map(invitation => {
           try {
             return organizationInvitationSchema.parse(invitation);
@@ -552,51 +583,76 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Create organization
   const createOrganization = useCallback(async (data: CreateOrgData): Promise<Organization> => {
-    const result = await practiceRequest<Record<string, unknown>>(
-      apiClient.post(PRACTICE_BASE_PATH, data)
-    );
-
-    try {
-      const resultRecord = result as Record<string, unknown>;
-      
-      // Generate slug: prefer provided slug, fallback to id, or generate unique slug if both missing
-      // This ensures we never use 'unknown' which could cause duplicate slugs
-      const slug = typeof resultRecord.slug === 'string' && resultRecord.slug.trim().length > 0
-        ? resultRecord.slug
-        : typeof resultRecord.id === 'string' && resultRecord.id.trim().length > 0
-          ? resultRecord.id
-          : _generateUniqueSlug();
-      
-      const resultWithSlug = {
-        ...result,
-        slug,
-      };
-      const validatedResult = organizationSchema.parse(resultWithSlug);
-      organizationsFetchedRef.current = false;
-      await fetchOrganizations();
-      if (shouldFetchInvitations) {
-        await fetchInvitations();
-      }
-      return normalizeOrganizationRecord(validatedResult as unknown as Record<string, unknown>);
-    } catch (error) {
-      console.error('Invalid organization data:', result, error);
-      throw new Error('Invalid organization response format');
+    if (!data?.name || data.name.trim().length === 0) {
+      throw new Error('Organization name is required');
     }
-  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
-  // Update organization
-  const updateOrganization = useCallback(async (id: string, data: UpdateOrgData): Promise<void> => {
-    await apiClient.put(practicePath(id), data);
+    const slug = deriveSlug(data.slug, data.name);
+    const metadata = data.description
+      ? { description: data.description }
+      : undefined;
+
+    const practice = await apiCreatePractice({
+      name: data.name,
+      slug,
+      ...(metadata ? { metadata } : {})
+    });
+
+    const normalized = normalizeOrganizationRecord(practice as unknown as Record<string, unknown>);
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
       await fetchInvitations();
     }
+    return normalized;
   }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
+
+  // Update organization
+  const updateOrganization = useCallback(async (id: string, data: UpdateOrgData): Promise<void> => {
+    if (!id) {
+      throw new Error('Organization id is required for update');
+    }
+
+    const payload: Parameters<typeof apiUpdatePractice>[1] = {};
+
+    if (typeof data.name === 'string' && data.name.trim().length > 0) {
+      payload.name = data.name.trim();
+    }
+
+    if (typeof data.slug === 'string' && data.slug.trim().length > 0) {
+      payload.slug = deriveSlug(data.slug, data.name ?? data.slug);
+    }
+
+    if (typeof data.description === 'string') {
+      const existingOrg = organizations.find(org => org.id === id);
+      const existingMetadata = existingOrg?.config?.metadata;
+      const metadataBase = existingMetadata && typeof existingMetadata === 'object' && !Array.isArray(existingMetadata)
+        ? existingMetadata
+        : {};
+      payload.metadata = {
+        ...metadataBase,
+        description: data.description
+      };
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    await apiUpdatePractice(id, payload);
+    organizationsFetchedRef.current = false;
+    await fetchOrganizations();
+    if (shouldFetchInvitations) {
+      await fetchInvitations();
+    }
+  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations, organizations]);
 
   // Delete organization
   const deleteOrganization = useCallback(async (id: string): Promise<void> => {
-    await apiClient.delete(practicePath(id));
+    if (!id) {
+      throw new Error('Organization id is required for deletion');
+    }
+    await apiDeletePractice(id);
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
@@ -607,57 +663,44 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   // Fetch members
   const fetchMembers = useCallback(async (orgId: string): Promise<void> => {
     try {
-      const data = await practiceRequest<Record<string, unknown>>(
-        apiClient.get(practiceMembersPath(orgId))
-      );
-
-      if (typeof data !== 'object' || data === null) {
-        console.error('Invalid members response: expected object, got', typeof data);
-        setMembers(prev => ({ ...prev, [orgId]: [] }));
-        return;
-      }
-
-      try {
-        const validatedData = membersResponseSchema.parse(data);
-        const normalizedMembers: Member[] = (validatedData.members || []).map(m => ({
-          userId: m.userId,
-          role: m.role,
-          email: m.email ?? '',
-          name: m.name ?? undefined,
-          image: m.image ?? undefined,
-          createdAt: m.createdAt,
-        }));
-        setMembers(prev => ({ ...prev, [orgId]: normalizedMembers }));
-      } catch (error) {
-        console.error('Invalid members data:', data, error);
-        setMembers(prev => ({ ...prev, [orgId]: [] }));
-      }
+      const data = await listPracticeMembers(orgId);
+      const validatedData = membersResponseSchema.parse({ members: data });
+      const normalizedMembers: Member[] = (validatedData.members || []).map(m => ({
+        userId: m.userId,
+        role: m.role,
+        email: m.email ?? '',
+        name: m.name ?? undefined,
+        image: m.image ?? undefined,
+        createdAt: m.createdAt,
+      }));
+      setMembers(prev => ({ ...prev, [orgId]: normalizedMembers }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');
+      setMembers(prev => ({ ...prev, [orgId]: [] }));
     }
   }, []);
 
   // Update member role
   const updateMemberRole = useCallback(async (orgId: string, userId: string, role: Role): Promise<void> => {
-    await apiClient.patch(practiceMembersPath(orgId), { userId, role });
+    await apiUpdatePracticeMemberRole(orgId, { userId, role });
     await fetchMembers(orgId);
   }, [fetchMembers]);
 
   // Remove member
   const removeMember = useCallback(async (orgId: string, userId: string): Promise<void> => {
-    await apiClient.delete(`${practiceMembersPath(orgId)}/${encodeURIComponent(userId)}`);
+    await apiDeletePracticeMember(orgId, userId);
     await fetchMembers(orgId);
   }, [fetchMembers]);
 
   // Send invitation
   const sendInvitation = useCallback(async (orgId: string, email: string, role: Role): Promise<void> => {
-    await apiClient.post(practiceOrgInvitationsPath(orgId), { email, role });
+    await createPracticeInvitation(orgId, { email, role });
     await fetchInvitations();
   }, [fetchInvitations]);
 
   // Accept invitation
   const acceptInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await apiClient.post(practiceInvitationActionPath(invitationId, 'accept'));
+    await respondToPracticeInvitation(invitationId, 'accept');
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
@@ -666,22 +709,14 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   const declineInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await apiClient.post(practiceInvitationActionPath(invitationId, 'decline'));
+    await respondToPracticeInvitation(invitationId, 'decline');
     await fetchInvitations();
   }, [fetchInvitations]);
 
   // Fetch API tokens
   const fetchTokens = useCallback(async (orgId: string): Promise<void> => {
     try {
-      const data = await practiceRequest<unknown[]>(
-        apiClient.get(practiceTokensPath(orgId))
-      );
-
-      if (!Array.isArray(data)) {
-        console.error('Invalid tokens response: expected array, got', typeof data);
-        setTokens(prev => ({ ...prev, [orgId]: [] }));
-        return;
-      }
+      const data = await listPracticeTokens(orgId);
 
       const validatedTokens: ApiToken[] = data
         .map((token: unknown) => {
@@ -709,15 +744,8 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Create API token
   const createToken = useCallback(async (orgId: string, name: string): Promise<{ token: string; tokenId: string }> => {
-    const result = await practiceRequest<Record<string, unknown>>(
-      apiClient.post(practiceTokensPath(orgId), { tokenName: name })
-    );
-
-    if (typeof result !== 'object' || result === null) {
-      throw new Error(`Invalid create token response: expected object, got ${typeof result}`);
-    }
-
     try {
+      const result = await createPracticeToken(orgId, { tokenName: name });
       const validatedResult = createTokenResponseSchema.parse(result);
       await fetchTokens(orgId);
       return { token: validatedResult.token, tokenId: validatedResult.tokenId };
@@ -729,7 +757,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Revoke API token
   const revokeToken = useCallback(async (orgId: string, tokenId: string): Promise<void> => {
-    await apiClient.delete(`${practiceTokensPath(orgId)}/${encodeURIComponent(tokenId)}`);
+    await apiDeletePracticeToken(orgId, tokenId);
     await fetchTokens(orgId);
   }, [fetchTokens]);
 
@@ -830,11 +858,14 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Refetch when session changes
   useEffect(() => {
+    if (!autoFetchOrganizations) {
+      return;
+    }
     if (!sessionLoading && session?.user?.id && !refetchTriggeredRef.current) {
       refetchTriggeredRef.current = true;
       fetchOrganizations();
     }
-  }, [session?.user?.id, sessionLoading, fetchOrganizations]);
+  }, [autoFetchOrganizations, session?.user?.id, sessionLoading, fetchOrganizations]);
 
   // Clear fetched flag and abort in-flight requests when session changes
   useEffect(() => {

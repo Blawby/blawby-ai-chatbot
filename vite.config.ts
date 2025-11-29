@@ -106,7 +106,6 @@ const proxyEndpoints = [
 	'debug',
 	'status',
 	'config',
-	'usage',
 	'health',
 ];
 

@@ -1,10 +1,6 @@
-/**
- * Stripe Onboarding Step Component
- */
-
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { ConnectAccountOnboarding, ConnectComponentsProvider } from '@stripe/react-connect-js';
-import { loadConnectAndInitialize, type ConnectInstance } from '@stripe/connect-js';
+import { loadConnectAndInitialize, type StripeConnectInstance } from '@stripe/connect-js';
 import { InfoCard } from '../atoms/InfoCard';
 import { OnboardingActions } from '../molecules/OnboardingActions';
 import type { StripeConnectStatus } from '../types';
@@ -28,17 +24,17 @@ export function StripeOnboardingStep({
   loading = false,
   clientSecret
 }: StripeOnboardingStepProps) {
-  const [connectInstance, setConnectInstance] = useState<ConnectInstance | null>(null);
+  const [connectInstance, setConnectInstance] = useState<StripeConnectInstance | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connectLoading, setConnectLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    let instance: ConnectInstance | null = null;
+    let instance: StripeConnectInstance | null = null;
 
     if (typeof window === 'undefined') {
       return () => {
-        instance?.destroy?.();
+        (instance as { destroy?: () => void } | null)?.destroy?.();
       };
     }
 
@@ -48,7 +44,7 @@ export function StripeOnboardingStep({
       // Don't set connectError when publishable key is missing - we show a dedicated warning instead
       setConnectError(null);
       return () => {
-        instance?.destroy?.();
+        (instance as { destroy?: () => void } | null)?.destroy?.();
       };
     }
 
@@ -56,13 +52,15 @@ export function StripeOnboardingStep({
     setConnectLoading(true);
     setConnectInstance(null);
 
-    loadConnectAndInitialize({
-      publishableKey: STRIPE_PUBLISHABLE_KEY,
-      fetchClientSecret: async () => clientSecret,
-    })
+    Promise.resolve(
+      loadConnectAndInitialize({
+        publishableKey: STRIPE_PUBLISHABLE_KEY,
+        fetchClientSecret: async () => clientSecret,
+      })
+    )
       .then((connect) => {
         if (cancelled) {
-          connect.destroy();
+          (connect as { destroy?: () => void }).destroy?.();
           return;
         }
         instance = connect;
@@ -82,7 +80,7 @@ export function StripeOnboardingStep({
 
     return () => {
       cancelled = true;
-      instance?.destroy?.();
+      (instance as { destroy?: () => void } | null)?.destroy?.();
     };
   }, [clientSecret]);
 
@@ -157,7 +155,12 @@ export function StripeOnboardingStep({
       {showConnectEmbed && connectInstance && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4">
           <ConnectComponentsProvider connectInstance={connectInstance}>
-            <ConnectAccountOnboarding />
+            <ConnectAccountOnboarding
+              // Required by Stripe typings; we rely on the user closing the embed via Stripe UI
+              onExit={() => {
+                // No-op for now – parent flow handles continuation
+              }}
+            />
           </ConnectComponentsProvider>
         </div>
       )}

@@ -1,21 +1,9 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
-import type { ApiResponse } from '../../../../worker/types';
-
-export interface UserPreferences {
-  theme: string;
-  accentColor: string;
-  fontSize: string;
-  language: string;
-  timezone: string;
-  dateFormat: string;
-  timeFormat: string;
-  emailNotifications: boolean;
-  pushNotifications: boolean;
-  smsNotifications: boolean;
-  notificationFrequency: string;
-  autoSaveConversations: boolean;
-  typingIndicators: boolean;
-}
+import {
+  getUserPreferences,
+  updateUserPreferences,
+  type UserPreferences
+} from '../../../lib/apiClient';
 
 
 export interface UseSettingsDataReturn {
@@ -36,24 +24,8 @@ export const useSettingsData = (): UseSettingsDataReturn => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/user/preferences', {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch preferences: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json() as ApiResponse<UserPreferences>;
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch preferences');
-      }
-
-      setPreferences(result.data || null);
+      const prefs = await getUserPreferences();
+      setPreferences(prefs ?? null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch preferences';
       setError(errorMessage);
@@ -67,25 +39,8 @@ export const useSettingsData = (): UseSettingsDataReturn => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/user/preferences', {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update preferences: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json() as ApiResponse<UserPreferences>;
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update preferences');
-      }
-
-      setPreferences(result.data || null);
+      const updated = await updateUserPreferences(data);
+      setPreferences(updated ?? null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update preferences';
       setError(errorMessage);

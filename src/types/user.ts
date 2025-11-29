@@ -13,6 +13,10 @@ export interface OrganizationConfig {
 	profileImage?: string | null;
 	description?: string;
 	introMessage?: string;
+	// Simplified quota fields
+	quotaUsed?: number;
+	quotaLimit?: number;
+	quotaResetDate?: string; // ISO timestamp for monthly reset
 }
 
 // Language type for internationalization
