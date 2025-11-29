@@ -6,7 +6,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ["./tests/setup-real-api.ts", "./tests/setup-node.ts"],
+    setupFiles: [
+      resolve(__dirname, '../../tests/setup-real-api.ts'),
+      resolve(__dirname, '../../tests/setup-node.ts')
+    ],
     testTimeout: 60000, // 60 seconds for real API tests
     hookTimeout: 60000, // 60 seconds for hooks (beforeAll/afterAll)
     fileParallelism: false, // Force single-file execution to prevent file-level parallelism
@@ -39,12 +42,12 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src'),
-      '~': resolve(__dirname, './'),
-      '@tests': resolve(__dirname, './tests'),
-      '@fixtures': resolve(__dirname, './tests/fixtures'),
-      '@i18n': resolve(__dirname, './src/i18n/index.ts'),
-      '@locales': resolve(__dirname, './src/locales')
+      '@': resolve(__dirname, '../../src'),
+      '~': resolve(__dirname, '../../'),
+      '@tests': resolve(__dirname, '../../tests'),
+      '@fixtures': resolve(__dirname, '../../tests/fixtures'),
+      '@i18n': resolve(__dirname, '../../src/i18n/index.ts'),
+      '@locales': resolve(__dirname, '../../src/locales')
     }
   }
 }); 

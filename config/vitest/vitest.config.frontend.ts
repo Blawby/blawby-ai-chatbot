@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ["./tests/setup.ts"],
+    setupFiles: [resolve(__dirname, '../../tests/setup.ts')],
     testTimeout: 10000,
     hookTimeout: 10000,
     include: [
@@ -40,12 +40,12 @@ export default defineConfig({
       'react-dom': 'preact/compat',
       'react/jsx-runtime': 'preact/jsx-runtime',
       'react-dom/client': 'preact/compat',
-      '@': resolve(__dirname, './src'),
-      '~': resolve(__dirname, './'),
-      '@tests': resolve(__dirname, './tests'),
-      '@fixtures': resolve(__dirname, './tests/fixtures'),
-      '@i18n': resolve(__dirname, './src/i18n/index.ts'),
-      '@locales': resolve(__dirname, './src/locales')
+      '@': resolve(__dirname, '../../src'),
+      '~': resolve(__dirname, '../../'),
+      '@tests': resolve(__dirname, '../../tests'),
+      '@fixtures': resolve(__dirname, '../../tests/fixtures'),
+      '@i18n': resolve(__dirname, '../../src/i18n/index.ts'),
+      '@locales': resolve(__dirname, '../../src/locales')
     }
   }
 });

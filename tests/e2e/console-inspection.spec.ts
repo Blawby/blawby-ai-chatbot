@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 
 test.describe('Console and Network Inspection', () => {
@@ -292,8 +293,10 @@ test.describe('Console and Network Inspection', () => {
     console.log('='.repeat(80));
 
     // Take a screenshot
-    await page.screenshot({ path: 'playwright/results/console-inspection.png', fullPage: true });
-    console.log('\n📸 Screenshot saved to playwright/results/console-inspection.png');
+    const outDir = path.join('playwright', 'results');
+    await fsPromises.mkdir(outDir, { recursive: true });
+    await page.screenshot({ path: path.join(outDir, 'console-inspection.png'), fullPage: true });
+    console.log(`\n📸 Screenshot saved to ${path.join(outDir, 'console-inspection.png')}`);
 
     // Save detailed logs to a file (optional, for later review)
     const report = {
