@@ -77,7 +77,7 @@ async function handleStreamingResponse(response: Response, timeoutMs: number = 3
  */
 async function uploadTestPdfFile(organizationId: string, sessionId: string): Promise<{ fileId: string; url: string; size: number }> {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  const pdfPath = path.join(currentDir, '../../../Ai-native-vs-platform-revenue.pdf');
+  const pdfPath = path.join(currentDir, '../../../docs/reference/Ai-native-vs-platform-revenue.pdf');
   const pdfBuffer = fs.readFileSync(pdfPath);
   const pdfBlob = new Blob([pdfBuffer], { type: 'application/pdf' });
   

@@ -51,8 +51,8 @@
 	"exclude": [
 		"node_modules",
 		"dist",
-		"test-results",
-		"playwright-report",
+		"playwright/results",
+		"playwright/reports",
 		"public/sw.js",
 		"**/*.stories.tsx",
 		"**/*.stories.ts"

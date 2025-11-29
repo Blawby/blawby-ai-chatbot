@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   retries: 2,
+  outputDir: './playwright/results',
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
@@ -11,6 +12,10 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   globalSetup: './tests/e2e/global-setup.ts',
+  reporter: [
+    ['html', { outputFolder: './playwright/reports' }],
+    ['list']
+  ],
   webServer: [
     { 
       command: 'npm run dev:worker:clean', 

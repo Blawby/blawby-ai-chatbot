@@ -171,7 +171,7 @@ test('API calls include Bearer token automatically', async ({ page }) => {
 - ❌ Pure functions with no dependencies (use unit tests)
 
 **Setup**:
-- Environment variables configured via `vitest.config.worker.ts` bindings
+- Environment variables configured via `config/vitest/vitest.config.worker.ts` bindings
 - Per-spec fixtures seed D1/KV with test data
 - No external Wrangler process required (uses Miniflare)
 
@@ -535,7 +535,7 @@ Add unit tests for:
 **Solutions**:
 1. Check if test should be E2E instead (tests HTTP endpoint?)
 2. If testing internal function, ensure using Miniflare bindings correctly
-3. Verify environment variables in `vitest.config.worker.ts`
+3. Verify environment variables in `config/vitest/vitest.config.worker.ts`
 4. Consider moving to E2E if testing auth-related functionality
 
 ### Unit Tests Failing

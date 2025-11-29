@@ -17,7 +17,8 @@ export default [
       'node_modules/**',
       'worker/node_modules/**',
       'coverage/**',
-      'test-results/**',
+      'playwright/results/**',
+      'playwright/reports/**',
       'test-logs-*/**',
       '*.min.js',
       '*.bundle.js',
@@ -220,7 +221,7 @@ export default [
 
   // Root config files (Node environment)
   {
-    files: ['*.config.{js,ts,mjs}', 'vite.config.ts', 'vitest.config.ts', 'tailwind.config.js', 'postcss.config.js'],
+    files: ['*.config.{js,ts,mjs}', 'vite.config.ts', 'config/vitest/*.ts', 'tailwind.config.js', 'postcss.config.js'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },

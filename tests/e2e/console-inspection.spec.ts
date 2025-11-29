@@ -292,8 +292,8 @@ test.describe('Console and Network Inspection', () => {
     console.log('='.repeat(80));
 
     // Take a screenshot
-    await page.screenshot({ path: 'test-results/console-inspection.png', fullPage: true });
-    console.log('\n📸 Screenshot saved to test-results/console-inspection.png');
+    await page.screenshot({ path: 'playwright/results/console-inspection.png', fullPage: true });
+    console.log('\n📸 Screenshot saved to playwright/results/console-inspection.png');
 
     // Save detailed logs to a file (optional, for later review)
     const report = {
@@ -316,7 +316,7 @@ test.describe('Console and Network Inspection', () => {
     };
 
     // Write report to file
-    const reportPath = path.join(process.cwd(), 'test-results', 'console-inspection-report.json');
+    const reportPath = path.join(process.cwd(), 'playwright', 'results', 'console-inspection-report.json');
     fs.mkdirSync(path.dirname(reportPath), { recursive: true });
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
     console.log(`📄 Detailed report saved to ${reportPath}`);
