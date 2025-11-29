@@ -308,7 +308,10 @@ export const CartPage = () => {
           
           if (createdPractice?.id) {
             organizationId = createdPractice.id;
-            betterAuthOrgId = createdPractice.id;
+            betterAuthOrgId =
+              'betterAuthOrgId' in createdPractice && typeof (createdPractice as any).betterAuthOrgId === 'string'
+                ? (createdPractice as any).betterAuthOrgId
+                : createdPractice.id;
           }
         } else {
           // Use first practice or find personal one

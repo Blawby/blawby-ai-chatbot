@@ -7,6 +7,17 @@ import { Logger } from '../utils/logger.js';
 import { HttpErrors } from '../errorHandler.js';
 import { HttpError } from '../types.js';
 
+// Helper functions for simplified quota
+const getQuotaLimit = (tier?: string): number => {
+  switch (tier) {
+    case 'free': return 100;
+    case 'plus': return 500;
+    case 'business': return 1000;
+    case 'enterprise': return -1; // unlimited
+    default: return 100;
+  }
+};
+
 export type OrganizationVoiceProvider = 'cloudflare' | 'elevenlabs' | 'custom';
 
 export interface OrganizationVoiceConfig {
@@ -1735,6 +1746,89 @@ export class OrganizationService {
       data,
     };
 
+  }
+
+  /**
+   * Migrate quota data from usage_quotas table to organization config
+   * This should be run once during the migration to simplified quota system
+   */
+  async migrateQuotaToOrganizationConfig(): Promise<{ migrated: number; errors: string[] }> {
+    const errors: string[] = [];
+    let migrated = 0;
+
+    try {
+      // Get all organizations
+      const organizations = await this.env.DB.prepare(
+        `SELECT id, subscription_tier, config FROM organizations`
+      ).all<{ id: string; subscription_tier?: string; config?: string | null }>();
+
+      Logger.info(`Starting quota migration for ${organizations.results.length} organizations`);
+
+      for (const org of organizations.results) {
+        try {
+          // Get current quota from usage_quotas table
+          const currentPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM format
+          const quotaRow = await this.env.DB.prepare(
+            `SELECT messages_used, messages_limit, last_updated 
+             FROM usage_quotas 
+             WHERE organization_id = ? AND period = ?`
+          ).bind(org.id, currentPeriod).first<{ messages_used: number; messages_limit: number; last_updated: number }>();
+
+          if (!quotaRow) {
+            // No quota data found, skip
+            continue;
+          }
+
+          // Parse existing config
+          let config = {};
+          if (org.config) {
+            try {
+              config = JSON.parse(org.config);
+            } catch (error) {
+              Logger.warn('Failed to parse organization config during migration', { 
+                organizationId: org.id, 
+                error 
+              });
+              config = {};
+            }
+          }
+
+          // Update config with quota data
+          const updatedConfig = {
+            ...config,
+            quotaUsed: quotaRow.messages_used,
+            quotaLimit: getQuotaLimit(org.subscription_tier),
+            quotaResetDate: new Date().toISOString()
+          };
+
+          // Save updated config
+          await this.env.DB.prepare(
+            `UPDATE organizations SET config = ? WHERE id = ?`
+          ).bind(JSON.stringify(updatedConfig), org.id).run();
+
+          migrated++;
+          Logger.info('Migrated quota data for organization', { 
+            organizationId: org.id,
+            messagesUsed: quotaRow.messages_used,
+            messagesLimit: quotaRow.messages_limit
+          });
+
+        } catch (error) {
+          const errorMsg = `Failed to migrate organization ${org.id}: ${error instanceof Error ? error.message : String(error)}`;
+          Logger.error(errorMsg);
+          errors.push(errorMsg);
+        }
+      }
+
+      Logger.info(`Quota migration completed: ${migrated} organizations migrated, ${errors.length} errors`);
+
+    } catch (error) {
+      const errorMsg = `Migration failed: ${error instanceof Error ? error.message : String(error)}`;
+      Logger.error(errorMsg);
+      errors.push(errorMsg);
+    }
+
+    return { migrated, errors };
   }
 
   clearCache(organizationId?: string): void {

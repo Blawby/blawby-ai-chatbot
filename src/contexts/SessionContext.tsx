@@ -1,46 +1,14 @@
-import { createContext } from 'preact';
-import { useContext } from 'preact/hooks';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { FunctionComponent, createContext, useContext, useEffect, useState, useMemo, useCallback } from 'preact/compat';
 import { ComponentChildren } from 'preact';
-import { z } from 'zod';
 import { authClient } from '../lib/authClient';
 import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
 import { DEFAULT_ORGANIZATION_ID, DEFAULT_PUBLIC_ORG_SLUG } from '../utils/constants';
-import { getToken } from '../lib/tokenStorage';
 
-// Zod schema for runtime validation of QuotaCounter
-const quotaCounterSchema = z.object({
-  used: z.number().int().min(0),
-  limit: z.number().int().min(-1), // Allow -1 for unlimited
-  remaining: z.number().int().min(0).nullable(),
-  unlimited: z.boolean(),
-}).refine(
-  (data) => data.unlimited === (data.limit === -1),
-  {
-    message: "unlimited must be true when limit is -1, and false otherwise",
-    path: ["unlimited"]
-  }
-);
-
-// Zod schema for runtime validation of QuotaSnapshot with strengthened resetDate validation
-const quotaSnapshotSchema = z.object({
-  messages: quotaCounterSchema,
-  files: quotaCounterSchema,
-  resetDate: z.string().datetime({
-    message: "resetDate must be a valid ISO datetime string (e.g., '2024-01-01T00:00:00.000Z')"
-  }),
-  tier: z.string().min(1),
-});
-
-// Export TypeScript types derived from Zod schemas to prevent type drift
-export type QuotaCounter = z.infer<typeof quotaCounterSchema>;
-export type QuotaSnapshot = z.infer<typeof quotaSnapshotSchema>;
-
-// Type for API response
-interface QuotaApiResponse {
-  success: boolean;
-  data?: unknown;
-  error?: string;
+// Simplified quota types
+export interface SimpleQuota {
+  used: number;
+  limit: number;
+  unlimited: boolean;
 }
 
 interface SessionContextValue {
@@ -48,9 +16,7 @@ interface SessionContextValue {
   isAnonymous: boolean;
   activeOrganizationId: string | null;
   activeOrganizationSlug: string | null;
-  quota: QuotaSnapshot | null;
-  quotaLoading: boolean;
-  quotaError: string | null;
+  quota: SimpleQuota | null;
   refreshQuota: () => Promise<void>;
 }
 
@@ -58,107 +24,59 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData } = authClient.useSession();
+  const [quota, setQuota] = useState<SimpleQuota | null>(null);
 
-  const [quota, setQuota] = useState<QuotaSnapshot | null>(null);
-  const [quotaLoading, setQuotaLoading] = useState(false);
-  const [quotaError, setQuotaError] = useState<string | null>(null);
-
-  const abortRef = useRef<AbortController | null>(null);
   const isAnonymous = !sessionData?.user;
+  const { organizations, currentOrganization } = useOrganizationManagement();
 
   const activeOrganizationIdFromSession =
-    ((sessionData?.session as { activeOrganizationId?: string } | undefined)?.activeOrganizationId) ??
-    ((sessionData?.user as { activeOrganizationId?: string } | undefined)?.activeOrganizationId) ??
-    null;
+    sessionData?.user?.organizationId ?? sessionData?.user?.activeOrganizationId ?? null;
 
-  const activeOrganizationId: string | null =
-    activeOrganizationIdFromSession ?? (isAnonymous ? DEFAULT_ORGANIZATION_ID : null);
+  const activeOrganizationId = currentOrganization?.id ?? activeOrganizationIdFromSession ?? null;
 
-  const { organizations } = useOrganizationManagement({ fetchInvitations: false });
-
-  const activeOrganizationSlug: string | null = useMemo(() => {
-    if (!activeOrganizationId) return null;
-    if (activeOrganizationId === DEFAULT_ORGANIZATION_ID) return DEFAULT_PUBLIC_ORG_SLUG;
-    const org = organizations.find((o) => o.id === activeOrganizationId);
+  const activeOrganizationSlug = useMemo(() => {
+    if (activeOrganizationId === DEFAULT_ORGANIZATION_ID) {
+      return DEFAULT_PUBLIC_ORG_SLUG;
+    }
+    const org = organizations.find(o => o.id === activeOrganizationId);
     return org?.slug ?? null;
   }, [activeOrganizationId, organizations]);
 
-  const resolvedOrgIdentifier = activeOrganizationId;
-
-  const fetchQuota = useCallback(async () => {
-    if (typeof window === 'undefined') {
+  // Simplified quota logic - derive from organization config
+  const refreshQuota = useCallback(async () => {
+    if (!currentOrganization) {
+      setQuota(null);
       return;
     }
 
-    if (!resolvedOrgIdentifier) {
-      setQuota(null);
-      setQuotaError(null);
-      return;
-    }
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setQuotaLoading(true);
-    setQuotaError(null);
-
-    try {
-      const quotaUrl = new URL('/api/usage/quota', window.location.origin);
-      quotaUrl.searchParams.set('organizationId', resolvedOrgIdentifier);
-
-      const token = await getToken();
-      const response = await fetch(quotaUrl.toString(), {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        let errorMessage = `Failed to load usage quota (${response.status})`;
-        try {
-          const errorJson = await response.json() as { error?: string };
-          errorMessage = errorJson?.error ?? errorMessage;
-        } catch {
-          // ignore parse failure
-        }
-        throw new Error(errorMessage);
+    // Get quota from organization config
+    const config = currentOrganization.config as any;
+    const quotaUsed = config?.quotaUsed ?? 0;
+    const tier = currentOrganization.subscriptionTier ?? 'free';
+    
+    // Simple tier-based limits
+    const getQuotaLimit = (tier: string) => {
+      switch (tier) {
+        case 'free': return 100;
+        case 'business': return 1000;
+        case 'enterprise': return -1; // unlimited
+        default: return 100;
       }
+    };
 
-      const json = await response.json() as QuotaApiResponse;
-      if (!json?.success) {
-        throw new Error(json?.error || 'Failed to load usage quota');
-      }
+    const quotaLimit = getQuotaLimit(tier);
+    
+    setQuota({
+      used: quotaUsed,
+      limit: quotaLimit,
+      unlimited: quotaLimit < 0
+    });
+  }, [currentOrganization]);
 
-      // Validate the quota data before setting it
-      const validationResult = quotaSnapshotSchema.safeParse(json.data);
-      if (validationResult.success) {
-        setQuota(validationResult.data);
-      } else {
-        console.error('Invalid quota data received:', validationResult.error.issues);
-        throw new Error('Invalid quota data format received from server');
-      }
-    } catch (error) {
-      if ((error as DOMException)?.name === 'AbortError') {
-        return;
-      }
-      setQuotaError(error instanceof Error ? error.message : String(error));
-      setQuota(null);
-    } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-      }
-      setQuotaLoading(false);
-    }
-  }, [resolvedOrgIdentifier]);
-
+  // Update quota when organization changes
   useEffect(() => {
-    fetchQuota();
-    return () => abortRef.current?.abort();
-  }, [fetchQuota]);
+    refreshQuota();
+  }, [refreshQuota]);
 
   const value = useMemo<SessionContextValue>(() => ({
     session: sessionData ?? null,
@@ -166,10 +84,8 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     activeOrganizationId,
     activeOrganizationSlug,
     quota,
-    quotaLoading,
-    quotaError,
-    refreshQuota: fetchQuota,
-  }), [sessionData, isAnonymous, activeOrganizationId, activeOrganizationSlug, quota, quotaLoading, quotaError, fetchQuota]);
+    refreshQuota,
+  }), [sessionData, isAnonymous, activeOrganizationId, activeOrganizationSlug, quota, refreshQuota]);
 
   return (
     <SessionContext.Provider value={value}>
@@ -178,9 +94,9 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   );
 }
 
-export function useSessionContext(): SessionContextValue {
+export function useSessionContext() {
   const context = useContext(SessionContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useSessionContext must be used within a SessionProvider');
   }
   return context;

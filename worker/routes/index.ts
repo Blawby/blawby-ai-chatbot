@@ -16,5 +16,4 @@ export { handleReview } from './review';
 // Payment, subscription, onboarding, and user management are handled by remote API
 export { handlePDF } from './pdf';
 export { handleDebug } from './debug';
-export { handleUsage } from './usage';
 // Stripe webhooks are handled by remote API

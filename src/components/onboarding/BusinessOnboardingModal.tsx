@@ -9,7 +9,12 @@ import { useStepNavigation } from './hooks/useStepNavigation';
 import { useToastContext } from '../../contexts/ToastContext';
 import type { OnboardingFormData } from './hooks/useOnboardingState';
 import type { OnboardingStep } from './hooks/useStepValidation';
-import { apiClient } from '../../lib/apiClient';
+import {
+  completeOnboarding as completeOnboardingRequest,
+  createConnectedAccount,
+  getOnboardingStatusPayload,
+  saveOnboardingProgress
+} from '../../lib/apiClient';
 import type { StripeConnectStatus } from './types';
 import {
   extractProgressFromPayload,
@@ -81,9 +86,7 @@ const BusinessOnboardingModal = ({
     }
 
     try {
-      const encodedId = encodeURIComponent(organizationId);
-      const response = await apiClient.get(`/api/onboarding/organization/${encodedId}/status`);
-      const payload = response.data;
+      const payload = await getOnboardingStatusPayload(organizationId);
       const status = extractStripeStatusFromPayload(payload);
       if (status) {
         setStripeStatus(status);
@@ -106,9 +109,9 @@ const BusinessOnboardingModal = ({
         }
       };
 
-      await apiClient.post('/api/onboarding/save', {
+      await saveOnboardingProgress({
         organizationId,
-        data: payload
+        data: payload as Record<string, unknown>
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save onboarding progress';
@@ -152,12 +155,12 @@ const BusinessOnboardingModal = ({
 
     setStripeRequestPending(true);
     try {
-      const { data } = await apiClient.post('/api/onboarding/connected-accounts', {
-        practice_email: email,
-        practice_uuid: organizationId
+      const connectedAccount = await createConnectedAccount({
+        practiceEmail: email,
+        practiceUuid: organizationId
       });
 
-      const secret = typeof data?.client_secret === 'string' ? data.client_secret.trim() : '';
+      const secret = connectedAccount.clientSecret ?? '';
       setStripeClientSecret(secret.length > 0 ? secret : null);
 
       await fetchStripeStatus();
@@ -177,9 +180,7 @@ const BusinessOnboardingModal = ({
 
   const completeOnboarding = useCallback(async () => {
     try {
-      await apiClient.post('/api/onboarding/complete', {
-        organizationId
-      });
+      await completeOnboardingRequest(organizationId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to finalize onboarding';
       showError('Completion Failed', message);

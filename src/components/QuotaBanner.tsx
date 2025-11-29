@@ -1,22 +1,21 @@
 import { FunctionComponent } from 'preact';
-import { QuotaSnapshot } from '../contexts/SessionContext';
+import { SimpleQuota } from '../contexts/SessionContext';
 
 interface QuotaBannerProps {
-  quota: QuotaSnapshot | null;
-  loading: boolean;
+  quota: SimpleQuota | null;
   onUpgrade?: () => void;
 }
 
-const QuotaBanner: FunctionComponent<QuotaBannerProps> = ({ quota, loading, onUpgrade }) => {
-  if (loading || !quota) {
+const QuotaBanner: FunctionComponent<QuotaBannerProps> = ({ quota, onUpgrade }) => {
+  if (!quota) {
     return null;
   }
 
-  if (quota.messages.unlimited || quota.messages.limit <= 0) {
+  if (quota.unlimited || quota.limit <= 0) {
     return null;
   }
 
-  const percentUsed = Math.min(100, Math.round((quota.messages.used / quota.messages.limit) * 100));
+  const percentUsed = Math.min(100, Math.round((quota.used / quota.limit) * 100));
   const showWarning = percentUsed >= 80;
 
   if (!showWarning) {
@@ -26,16 +25,16 @@ const QuotaBanner: FunctionComponent<QuotaBannerProps> = ({ quota, loading, onUp
   return (
     <div className="bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 px-4 py-2 text-sm flex items-center justify-between gap-4">
       <span>
-        You&apos;ve used {quota.messages.used} of {quota.messages.limit} messages this month.{" "}
+        You&apos;ve used {quota.used} of {quota.limit} messages this month.{" "}
         {percentUsed >= 100 ? 'Upgrade to keep the conversation going.' : 'Consider upgrading to avoid interruptions.'}
       </span>
       {onUpgrade && (
         <button
           type="button"
           onClick={onUpgrade}
-          className="inline-flex items-center rounded-md bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 text-sm transition-colors"
+          className="bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 dark:hover:bg-amber-700 px-3 py-1 rounded text-xs font-medium transition-colors"
         >
-          View plans
+          Upgrade
         </button>
       )}
     </div>

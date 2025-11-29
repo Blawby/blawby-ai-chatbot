@@ -46,6 +46,15 @@ const { mockApiClient, mockPracticeApi } = vi.hoisted(() => ({
     createPractice: vi.fn(),
     updatePractice: vi.fn(),
     deletePractice: vi.fn(),
+    listPracticeInvitations: vi.fn(),
+    createPracticeInvitation: vi.fn(),
+    respondToPracticeInvitation: vi.fn(),
+    listPracticeMembers: vi.fn(),
+    updatePracticeMemberRole: vi.fn(),
+    deletePracticeMember: vi.fn(),
+    listPracticeTokens: vi.fn(),
+    createPracticeToken: vi.fn(),
+    deletePracticeToken: vi.fn(),
   }
 }));
 
@@ -55,6 +64,15 @@ vi.mock('../../lib/apiClient', () => ({
   createPractice: mockPracticeApi.createPractice,
   updatePractice: mockPracticeApi.updatePractice,
   deletePractice: mockPracticeApi.deletePractice,
+  listPracticeInvitations: mockPracticeApi.listPracticeInvitations,
+  createPracticeInvitation: mockPracticeApi.createPracticeInvitation,
+  respondToPracticeInvitation: mockPracticeApi.respondToPracticeInvitation,
+  listPracticeMembers: mockPracticeApi.listPracticeMembers,
+  updatePracticeMemberRole: mockPracticeApi.updatePracticeMemberRole,
+  deletePracticeMember: mockPracticeApi.deletePracticeMember,
+  listPracticeTokens: mockPracticeApi.listPracticeTokens,
+  createPracticeToken: mockPracticeApi.createPracticeToken,
+  deletePracticeToken: mockPracticeApi.deletePracticeToken,
 }));
 
 vi.mock('../../lib/authClient', () => ({
@@ -80,6 +98,9 @@ describe('useOrganizationManagement', () => {
     Object.values(mockApiClient).forEach(fn => fn.mockReset());
     Object.values(mockPracticeApi).forEach(fn => fn.mockReset());
     mockPracticeApi.listPractices.mockResolvedValue([]);
+    mockPracticeApi.listPracticeInvitations.mockResolvedValue([]);
+    mockPracticeApi.listPracticeMembers.mockResolvedValue([]);
+    mockPracticeApi.listPracticeTokens.mockResolvedValue([]);
   });
 
   it('loads organizations via listPractices helper', async () => {
@@ -107,11 +128,9 @@ describe('useOrganizationManagement', () => {
   });
 
   it('creates an organization through the practice helper API', async () => {
-    mockPracticeApi.listPractices
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        { id: 'org-new', name: 'New Organization', slug: 'new-organization' }
-      ]);
+    mockPracticeApi.listPractices.mockResolvedValueOnce([
+      { id: 'org-new', name: 'New Organization', slug: 'new-organization' }
+    ]);
 
     mockPracticeApi.createPractice.mockResolvedValueOnce({
       id: 'org-new',

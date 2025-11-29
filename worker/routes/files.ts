@@ -9,7 +9,6 @@ import type { MessageBatch } from '@cloudflare/workers-types';
 import type { DocumentEvent, AutoAnalysisEvent } from '../types/events.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
 import { requireFeature } from '../middleware/featureGuard.js';
-import { UsageService } from '../services/UsageService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 
 /**
@@ -329,7 +328,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
     // Declare variables in outer scope for rollback capability
     let resolvedOrganizationId: string;
     let resolvedSessionId: string;
-    let usageIncremented = false;
 
     try {
       // Parse form data
@@ -418,35 +416,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         }
       );
 
-      // CRITICAL: Increment usage BEFORE storing the file to prevent quota drift
-      // This ensures that if quota is exceeded, the upload fails before any resources are created
-      try {
-        const incrementResult = await UsageService.incrementUsageAtomic(env, resolvedOrganizationId, 'files');
-        if (incrementResult === null) {
-          // Quota limit reached - fail the upload before storing any resources
-          throw HttpErrors.paymentRequired('File upload quota limit reached. Please upgrade your plan or wait for the next billing period.');
-        }
-        usageIncremented = true;
-        Logger.info('Usage quota incremented successfully before file upload', {
-          organizationId: resolvedOrganizationId,
-          sessionId: resolvedSessionId,
-          actualIncrement: incrementResult.actualIncrement
-        });
-      } catch (usageError) {
-        if (usageError instanceof Error && usageError.message.includes('quota limit reached')) {
-          // Re-throw quota errors as-is
-          throw usageError;
-        }
-        // For other usage tracking errors, fail the upload to prevent quota drift
-        Logger.error('Usage tracking failed before file upload - failing upload to prevent quota drift', {
-          error: usageError instanceof Error ? usageError.message : String(usageError),
-          organizationId: resolvedOrganizationId,
-          sessionId: resolvedSessionId,
-        });
-        throw HttpErrors.internalServerError('Unable to track file upload usage. Please try again.');
-      }
-
-      // Create initial status update for file processing
+      // Update status to indicate file stored
       let statusId: string | null = null;
       let statusCreatedAt: number | null = null;
       try {
@@ -467,7 +437,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         // Continue without status tracking if status creation fails
       }
 
-      // Store file with error handling and rollback capability
+      // Store file with error handling
       let fileId: string, url: string, storageKey: string;
       try {
         const result = await storeFile(file, resolvedOrganizationId, resolvedSessionId, env);
@@ -475,45 +445,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         url = result.url;
         storageKey = result.storageKey;
       } catch (storeError) {
-        // CRITICAL: Rollback usage increment if file storage fails
-        if (usageIncremented) {
-          try {
-            // Decrement usage to rollback the increment
-            await UsageService.incrementUsage(env, resolvedOrganizationId, 'files', -1);
-            Logger.info('Rolled back usage increment due to file storage failure', {
-              organizationId: resolvedOrganizationId,
-              sessionId: resolvedSessionId,
-              fileId: 'unknown'
-            });
-          } catch (rollbackError) {
-            Logger.error('CRITICAL: Failed to rollback usage increment after file storage failure', {
-              organizationId: resolvedOrganizationId,
-              sessionId: resolvedSessionId,
-              originalError: storeError.message,
-              rollbackError: rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
-            });
-            // This is a critical data integrity issue - log for manual intervention
-          }
-        }
-
-        // Update status to failed if we have a statusId
-        if (statusId) {
-          try {
-            await updateStatusWithRetry(env, {
-              id: statusId,
-              sessionId: resolvedSessionId,
-              organizationId: resolvedOrganizationId,
-              type: 'file_processing',
-              status: 'failed',
-              message: `File ${file.name} upload failed: ${storeError.message}`,
-              progress: 0,
-              data: { fileName: file.name, error: storeError.message }
-            }, 3, 1000, statusCreatedAt ?? undefined);
-          } catch (_statusUpdateError) {
-            // Error is already logged by updateStatusWithRetry, just continue
-            Logger.warn('Continuing despite status update failure for upload failure');
-          }
-        }
         throw storeError; // Re-throw the original error
       }
 
@@ -664,31 +595,9 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       });
 
     } catch (error) {
-      // CRITICAL: If usage was incremented but the upload failed, rollback the usage
-      // This prevents quota drift when errors occur after usage tracking
-      if (usageIncremented && resolvedOrganizationId) {
-        try {
-          // Decrement usage to rollback the increment
-          await UsageService.incrementUsage(env, resolvedOrganizationId, 'files', -1);
-          Logger.info('Rolled back usage increment due to upload failure', {
-            organizationId: resolvedOrganizationId,
-            sessionId: resolvedSessionId || 'unknown',
-            error: error instanceof Error ? error.message : String(error)
-          });
-        } catch (rollbackError) {
-          Logger.error('CRITICAL: Failed to rollback usage increment after upload failure', {
-            organizationId: resolvedOrganizationId,
-            sessionId: resolvedSessionId || 'unknown',
-            originalError: error instanceof Error ? error.message : String(error),
-            rollbackError: rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
-          });
-          // This is a critical data integrity issue - log for manual intervention
-        }
-      }
-      
+      // Handle upload failure - no usage tracking to rollback in simplified system
       return handleError(error);
     }
-  }
 
   // File download endpoint
   if (path.startsWith('/api/files/') && request.method === 'GET') {
@@ -820,4 +729,5 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
   }
 
   throw HttpErrors.notFound('Invalid file endpoint');
+}
 } 

@@ -222,7 +222,7 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
 
         organization = practices.find(
           (t) => t.slug === currentOrganizationId || t.id === currentOrganizationId
-        ) as z.infer<typeof OrganizationSchema> | undefined;
+        ) as unknown as z.infer<typeof OrganizationSchema> | undefined;
       }
 
       // Check again before processing organization data

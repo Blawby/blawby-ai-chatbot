@@ -84,7 +84,7 @@ function MainApp({
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { quota, quotaLoading, refreshQuota, activeOrganizationSlug: _activeOrganizationSlug, activeOrganizationId } = useSessionContext();
+	const { quota, refreshQuota, activeOrganizationSlug: _activeOrganizationSlug, activeOrganizationId } = useSessionContext();
 	const { currentOrganization, refetch: refetchOrganizations, acceptMatter, rejectMatter, updateMatterStatus } = useOrganizationManagement();
 	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
 
@@ -94,10 +94,9 @@ function MainApp({
 
 	const isQuotaRestricted = Boolean(
 		quota &&
-		!quota.messages.unlimited &&
-		quota.messages.limit > 0 &&
-		quota.messages.remaining !== null &&
-		quota.messages.remaining <= 0
+		!quota.unlimited &&
+		quota.limit > 0 &&
+		quota.used >= quota.limit
 	);
 
 	const quotaUsageMessage = isQuotaRestricted
@@ -551,11 +550,10 @@ function MainApp({
 						rejectMatter={rejectMatter}
 						updateMatterStatus={updateMatterStatus}
 					/>
-					{(quota && !quota.messages.unlimited) && (
+					{(quota && !quota.unlimited) && (
 						<div className="px-4 pt-4">
 							<QuotaBanner
 								quota={quota}
-								loading={quotaLoading}
 								onUpgrade={() => navigate('/pricing')}
 							/>
 						</div>
@@ -838,7 +836,7 @@ function AppWithProviders() {
 	);
 }
 
-if (typeof window !== 'undefined') {
+async function mountClientApp() {
 	// Initialize theme from localStorage with fallback to system preference
 	const savedTheme = localStorage.getItem('theme');
 	const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -857,6 +855,18 @@ if (typeof window !== 'undefined') {
 			console.error('Failed to initialize i18n:', _error);
 			hydrate(<AppWithProviders />, document.getElementById('app'));
 		});
+}
+
+if (typeof window !== 'undefined') {
+	const bootstrap = () => mountClientApp();
+	if (import.meta.env.DEV) {
+		import('./mocks')
+			.then(({ setupMocks }) => setupMocks())
+			.catch(() => {})
+			.finally(bootstrap);
+	} else {
+		bootstrap();
+	}
 }
 
 

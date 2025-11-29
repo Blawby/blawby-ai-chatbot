@@ -2,11 +2,19 @@ import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { getOrganizationWorkspaceEndpoint } from '../config/api';
 import { useSession } from '../lib/authClient';
 import {
-  apiClient,
   listPractices,
   createPractice as apiCreatePractice,
   updatePractice as apiUpdatePractice,
   deletePractice as apiDeletePractice,
+  listPracticeInvitations,
+  createPracticeInvitation,
+  respondToPracticeInvitation,
+  listPracticeMembers,
+  updatePracticeMemberRole as apiUpdatePracticeMemberRole,
+  deletePracticeMember as apiDeletePracticeMember,
+  listPracticeTokens,
+  createPracticeToken as apiCreatePracticeToken,
+  deletePracticeToken as apiDeletePracticeToken,
   type Practice,
   type UpdatePracticeRequest
 } from '../lib/apiClient';
@@ -113,21 +121,6 @@ interface UseOrganizationManagementOptions {
    * screen or test.
    */
   fetchInvitations?: boolean;
-}
-
-const PRACTICE_BASE_PATH = '/api/practice';
-const PRACTICE_INVITATIONS_PATH = `${PRACTICE_BASE_PATH}/invitations`;
-
-const practicePath = (orgId: string) => `${PRACTICE_BASE_PATH}/${encodeURIComponent(orgId)}`;
-const practiceMembersPath = (orgId: string) => `${practicePath(orgId)}/members`;
-const practiceOrgInvitationsPath = (orgId: string) => `${practicePath(orgId)}/invitations`;
-const practiceTokensPath = (orgId: string) => `${practicePath(orgId)}/tokens`;
-const practiceInvitationActionPath = (invitationId: string, action: 'accept' | 'decline') =>
-  `${PRACTICE_BASE_PATH}/invitations/${encodeURIComponent(invitationId)}/${action}`;
-
-async function practiceRequest<T>(request: Promise<{ data: T }>): Promise<T> {
-  const response = await request;
-  return response.data;
 }
 
 interface UseOrganizationManagementReturn {
@@ -568,17 +561,9 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
         return;
       }
 
-      const data = await practiceRequest<{ invitations?: unknown[] } | unknown[]>(
-        apiClient.get(PRACTICE_INVITATIONS_PATH)
-      );
+      const rawInvitations = await listPracticeInvitations();
 
-      const list = Array.isArray(data)
-        ? data
-        : Array.isArray((data as { invitations?: unknown[] }).invitations)
-          ? ((data as { invitations?: unknown[] }).invitations ?? [])
-          : [];
-
-      const validatedInvitations = list
+      const validatedInvitations = rawInvitations
         .map(invitation => {
           try {
             return organizationInvitationSchema.parse(invitation);
@@ -678,57 +663,44 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   // Fetch members
   const fetchMembers = useCallback(async (orgId: string): Promise<void> => {
     try {
-      const data = await practiceRequest<Record<string, unknown>>(
-        apiClient.get(practiceMembersPath(orgId))
-      );
-
-      if (typeof data !== 'object' || data === null) {
-        console.error('Invalid members response: expected object, got', typeof data);
-        setMembers(prev => ({ ...prev, [orgId]: [] }));
-        return;
-      }
-
-      try {
-        const validatedData = membersResponseSchema.parse(data);
-        const normalizedMembers: Member[] = (validatedData.members || []).map(m => ({
-          userId: m.userId,
-          role: m.role,
-          email: m.email ?? '',
-          name: m.name ?? undefined,
-          image: m.image ?? undefined,
-          createdAt: m.createdAt,
-        }));
-        setMembers(prev => ({ ...prev, [orgId]: normalizedMembers }));
-      } catch (error) {
-        console.error('Invalid members data:', data, error);
-        setMembers(prev => ({ ...prev, [orgId]: [] }));
-      }
+      const data = await listPracticeMembers(orgId);
+      const validatedData = membersResponseSchema.parse({ members: data });
+      const normalizedMembers: Member[] = (validatedData.members || []).map(m => ({
+        userId: m.userId,
+        role: m.role,
+        email: m.email ?? '',
+        name: m.name ?? undefined,
+        image: m.image ?? undefined,
+        createdAt: m.createdAt,
+      }));
+      setMembers(prev => ({ ...prev, [orgId]: normalizedMembers }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');
+      setMembers(prev => ({ ...prev, [orgId]: [] }));
     }
   }, []);
 
   // Update member role
   const updateMemberRole = useCallback(async (orgId: string, userId: string, role: Role): Promise<void> => {
-    await apiClient.patch(practiceMembersPath(orgId), { userId, role });
+    await apiUpdatePracticeMemberRole(orgId, { userId, role });
     await fetchMembers(orgId);
   }, [fetchMembers]);
 
   // Remove member
   const removeMember = useCallback(async (orgId: string, userId: string): Promise<void> => {
-    await apiClient.delete(`${practiceMembersPath(orgId)}/${encodeURIComponent(userId)}`);
+    await apiDeletePracticeMember(orgId, userId);
     await fetchMembers(orgId);
   }, [fetchMembers]);
 
   // Send invitation
   const sendInvitation = useCallback(async (orgId: string, email: string, role: Role): Promise<void> => {
-    await apiClient.post(practiceOrgInvitationsPath(orgId), { email, role });
+    await createPracticeInvitation(orgId, { email, role });
     await fetchInvitations();
   }, [fetchInvitations]);
 
   // Accept invitation
   const acceptInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await apiClient.post(practiceInvitationActionPath(invitationId, 'accept'));
+    await respondToPracticeInvitation(invitationId, 'accept');
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
@@ -737,22 +709,14 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   const declineInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await apiClient.post(practiceInvitationActionPath(invitationId, 'decline'));
+    await respondToPracticeInvitation(invitationId, 'decline');
     await fetchInvitations();
   }, [fetchInvitations]);
 
   // Fetch API tokens
   const fetchTokens = useCallback(async (orgId: string): Promise<void> => {
     try {
-      const data = await practiceRequest<unknown[]>(
-        apiClient.get(practiceTokensPath(orgId))
-      );
-
-      if (!Array.isArray(data)) {
-        console.error('Invalid tokens response: expected array, got', typeof data);
-        setTokens(prev => ({ ...prev, [orgId]: [] }));
-        return;
-      }
+      const data = await listPracticeTokens(orgId);
 
       const validatedTokens: ApiToken[] = data
         .map((token: unknown) => {
@@ -780,15 +744,8 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Create API token
   const createToken = useCallback(async (orgId: string, name: string): Promise<{ token: string; tokenId: string }> => {
-    const result = await practiceRequest<Record<string, unknown>>(
-      apiClient.post(practiceTokensPath(orgId), { tokenName: name })
-    );
-
-    if (typeof result !== 'object' || result === null) {
-      throw new Error(`Invalid create token response: expected object, got ${typeof result}`);
-    }
-
     try {
+      const result = await createPracticeToken(orgId, { tokenName: name });
       const validatedResult = createTokenResponseSchema.parse(result);
       await fetchTokens(orgId);
       return { token: validatedResult.token, tokenId: validatedResult.tokenId };
@@ -800,7 +757,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Revoke API token
   const revokeToken = useCallback(async (orgId: string, tokenId: string): Promise<void> => {
-    await apiClient.delete(`${practiceTokensPath(orgId)}/${encodeURIComponent(tokenId)}`);
+    await apiDeletePracticeToken(orgId, tokenId);
     await fetchTokens(orgId);
   }, [fetchTokens]);
 
