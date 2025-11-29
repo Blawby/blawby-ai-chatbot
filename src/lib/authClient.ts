@@ -86,6 +86,11 @@ function getAuthClient(): AuthClientType {
   return cachedAuthClient;
 }
 
+// Helper to get the actual client (for cases where proxy doesn't work)
+export function getClient(): AuthClientType {
+  return getAuthClient();
+}
+
 // Export the auth client getter
 export const authClient = new Proxy({} as AuthClientType, {
   get(_target, prop) {
@@ -94,6 +99,30 @@ export const authClient = new Proxy({} as AuthClientType, {
     // If it's a function, bind it to the client to preserve 'this' context
     if (typeof value === 'function') {
       return value.bind(client);
+    }
+    // If it's an object (like signUp, signIn which have nested methods), return a proxy for it
+    if (value && typeof value === 'object') {
+      return new Proxy(value, {
+        get(_target, subProp) {
+          const subValue = value[subProp];
+          if (typeof subValue === 'function') {
+            return subValue.bind(value);
+          }
+          // Handle further nesting (e.g., signUp.email)
+          if (subValue && typeof subValue === 'object') {
+            return new Proxy(subValue, {
+              get(_target, subSubProp) {
+                const subSubValue = subValue[subSubProp];
+                if (typeof subSubValue === 'function') {
+                  return subSubValue.bind(subValue);
+                }
+                return subSubValue;
+              }
+            });
+          }
+          return subValue;
+        }
+      });
     }
     return value;
   }
