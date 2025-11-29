@@ -3,6 +3,9 @@ import { ValidationService } from './ValidationService.js';
 import { ValidationError } from '../utils/validationErrors.js';
 import { getConfiguredDomain } from '../utils/domain.js';
 import { RemoteApiService } from './RemoteApiService.js';
+import { Logger } from '../utils/logger.js';
+import { HttpErrors } from '../errorHandler.js';
+import { HttpError } from '../types.js';
 
 export type OrganizationVoiceProvider = 'cloudflare' | 'elevenlabs' | 'custom';
 
@@ -259,7 +262,73 @@ const parseOnboardingData = (value: unknown): Record<string, unknown> | null => 
 };
 
 export class OrganizationService {
-  private organizationCache = new Map<string, { organization: Organization; timestamp: number }>();
+  private orgCache = new Map<string, { data: Organization; timestamp: number }>();
+
+  /**
+   * Validate user exists in remote API before creating member records
+   */
+  private async validateUserExists(userId: string, request?: Request): Promise<void> {
+    try {
+      // Prepare headers with authentication
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Use incoming request headers for authentication if available
+      if (request?.headers) {
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          headers['Authorization'] = authHeader;
+        }
+        // Forward other relevant headers if needed
+        const userAgent = request.headers.get('User-Agent');
+        if (userAgent) {
+          headers['User-Agent'] = userAgent;
+        }
+      }
+
+      // Fallback to service-to-service token if no auth headers provided
+      if (!headers['Authorization'] && this.env.BLAWBY_API_TOKEN) {
+        headers['Authorization'] = `Bearer ${this.env.BLAWBY_API_TOKEN}`;
+      }
+
+      // Since there's no direct user validation endpoint, we'll use a proxy approach
+      // by attempting to fetch user-specific data that should exist if user is valid
+      // Note: This is a temporary solution - ideally there should be a dedicated user validation endpoint
+      const response = await fetch(`${this.env.REMOTE_API_URL}/api/users/${userId}/validate`, {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(5000), // 5 second timeout for validation
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw HttpErrors.notFound(`User not found: ${userId}`);
+        }
+        throw HttpErrors.serviceUnavailable('Failed to validate user existence');
+      }
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+      // If remote validation fails, log but allow operation to proceed
+      // (this maintains availability while still attempting validation)
+      Logger.warn('User validation failed, proceeding with member creation', {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Validate invitedBy user exists before creating invitation records
+   * Note: Invitations are handled by remote API, but this method is available
+   * for any local invitation handling that might be added
+   */
+  async validateInvitedByUser(invitedByUserId: string, request?: Request): Promise<void> {
+    return this.validateUserExists(invitedByUserId, request);
+  }
+
   private configCache = new Map<string, { config: OrganizationConfig; timestamp: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -346,6 +415,9 @@ export class OrganizationService {
     }
 
     try {
+      // Validate user exists before creating member record
+      await this.validateUserExists(userId);
+      
       await this.env.DB.prepare(
         `INSERT INTO members (id, organization_id, user_id, role, created_at)
          VALUES (?, ?, ?, 'owner', ?)
@@ -402,6 +474,9 @@ export class OrganizationService {
             `SELECT role FROM members WHERE organization_id = ? AND user_id = ?`
           ).bind(existing.id, userId).first<{ role: string }>();
           if (!membership) {
+            // Validate user exists before creating member record
+            await this.validateUserExists(userId);
+            
             await this.env.DB.prepare(
               `INSERT INTO members (id, organization_id, user_id, role, created_at)
                VALUES (?, ?, ?, 'owner', ?)
@@ -462,6 +537,9 @@ export class OrganizationService {
         return;
       }
 
+      // Validate user exists before creating member record
+      await this.validateUserExists(userId);
+      
       await this.env.DB.prepare(
         `INSERT INTO members (id, organization_id, user_id, role, created_at)
          VALUES (?, ?, ?, 'owner', ?)`
@@ -691,10 +769,10 @@ export class OrganizationService {
     console.log('OrganizationService.getOrganization called with organizationId:', organizationId);
     
     // Check cache first
-    const cached = this.organizationCache.get(organizationId);
+    const cached = this.orgCache.get(organizationId);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
       console.log('Returning cached organization');
-      return cached.organization;
+      return cached.data;
     }
 
     try {
@@ -784,7 +862,7 @@ export class OrganizationService {
         };
         
         console.log('Found organization:', { id: organization.id, slug: organization.slug, name: organization.name });
-        this.organizationCache.set(organizationId, { organization, timestamp: Date.now() });
+        this.orgCache.set(organizationId, { data: organization, timestamp: Date.now() });
         return organization;
       } else {
         console.log('No organization found in database');
@@ -846,7 +924,7 @@ export class OrganizationService {
 
   async listOrganizations(userId?: string, options?: { limit?: number; offset?: number }): Promise<Organization[]> {
     try {
-      const limit = options?.limit ?? (userId ? undefined : 100); // Default limit of 100 for admin, no limit for user's own orgs
+      const limit = options?.limit ?? 100; // Default limit of 100 for both admin and user queries
       const offset = options?.offset ?? 0;
       const maxLimit = 500; // Maximum limit to prevent abuse
       const effectiveLimit = limit ? Math.min(limit, maxLimit) : undefined;
@@ -1661,10 +1739,10 @@ export class OrganizationService {
 
   clearCache(organizationId?: string): void {
     if (organizationId) {
-      this.organizationCache.delete(organizationId);
+      this.orgCache.delete(organizationId);
       this.configCache.delete(organizationId);
     } else {
-      this.organizationCache.clear();
+      this.orgCache.clear();
       this.configCache.clear();
     }
   }

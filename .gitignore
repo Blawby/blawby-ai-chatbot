@@ -35,7 +35,7 @@ coverage
 .nyc_output
 
 # Test results
-test-results/
+playwright/results/
 
 # Test logs
 test-logs-*/
@@ -87,3 +87,6 @@ cookies.txt
 
 # Playwright auth state (contains session tokens and PII)
 playwright/.auth/
+
+# Playwright reports
+playwright/reports/

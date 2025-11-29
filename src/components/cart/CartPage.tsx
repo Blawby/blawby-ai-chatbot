@@ -305,8 +305,8 @@ export const CartPage = () => {
             name: practiceName,
             slug: practiceSlug,
             business_email: session?.data?.user?.email || '',
-            business_phone: '+1-555-0100',
-            consultation_fee: 100.00,
+            // Remove hardcoded placeholder values - let backend handle defaults
+            // business_phone and consultation_fee should be optional or set by user later
           });
           
           const createdPractice = createRes.data?.practice || createRes.data;

@@ -5,11 +5,15 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./tests/setup.ts'],
+    setupFiles: [resolve(__dirname, '../../tests/setup.ts')],
     testTimeout: 10000,
     hookTimeout: 10000,
     include: [
-      'src/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'src/components/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'src/__tests__/components/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'src/__tests__/lib/tokenStorage.test.ts',
+      'src/__tests__/RTLSupport.test.tsx',
+      'src/components/settings/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
       'tests/component/**/*.{test,spec}.{js,ts,jsx,tsx}'
     ],
     exclude: [
@@ -40,12 +44,12 @@ export default defineConfig({
       'react-dom': 'preact/compat',
       'react/jsx-runtime': 'preact/jsx-runtime',
       'react-dom/client': 'preact/compat',
-      '@': resolve(__dirname, './src'),
-      '~': resolve(__dirname, './'),
-      '@tests': resolve(__dirname, './tests'),
-      '@fixtures': resolve(__dirname, './tests/fixtures'),
-      '@i18n': resolve(__dirname, './src/i18n/index.ts'),
-      '@locales': resolve(__dirname, './src/locales')
+      '@': resolve(__dirname, '../../src'),
+      '~': resolve(__dirname, '../../'),
+      '@tests': resolve(__dirname, '../../tests'),
+      '@fixtures': resolve(__dirname, '../../tests/fixtures'),
+      '@i18n': resolve(__dirname, '../../src/i18n/index.ts'),
+      '@locales': resolve(__dirname, '../../src/locales')
     }
   }
 });

@@ -34,8 +34,8 @@ function getAuthBaseUrl(): string {
   return finalAuthUrl;
 }
 
-// Cached auth client instance (created lazily on first access)
-let cachedAuthClient: AuthClientType | null = null;
+// Cached auth client instance with context tracking (created lazily on first access)
+let cachedAuthClient: { client: AuthClientType; context: 'ssr' | 'browser' } | null = null;
 
 /**
  * Get or create the auth client instance.
@@ -47,16 +47,18 @@ let cachedAuthClient: AuthClientType | null = null;
  * @throws {Error} If VITE_AUTH_SERVER_URL is missing in production (browser context)
  */
 function getAuthClient(): AuthClientType {
-  // If already created and cached, return it
-  if (cachedAuthClient) {
-    return cachedAuthClient;
+  const currentContext = typeof window === 'undefined' ? 'ssr' : 'browser';
+  
+  // If already created and cached for the same context, return it
+  if (cachedAuthClient && cachedAuthClient.context === currentContext) {
+    return cachedAuthClient.client;
   }
   
   // During SSR/build, create a placeholder client that won't be used
   // This prevents build errors while still allowing the code to be analyzed
-  if (typeof window === 'undefined') {
+  if (currentContext === 'ssr') {
     const placeholderBaseURL = getAuthBaseUrl(); // Returns placeholder during SSR
-    cachedAuthClient = createAuthClient({
+    const client = createAuthClient({
       plugins: [organizationClient()],
       baseURL: placeholderBaseURL,
       fetchOptions: {
@@ -67,14 +69,15 @@ function getAuthClient(): AuthClientType {
         onSuccess: async () => {},
       }
     });
-    return cachedAuthClient;
+    cachedAuthClient = { client, context: 'ssr' };
+    return client;
   }
   
   // Browser context - validate baseURL before creating client
   const baseURL = getAuthBaseUrl();
   
   // Create and cache the client
-  cachedAuthClient = createAuthClient({
+  const client = createAuthClient({
     plugins: [organizationClient()],
     baseURL,
     fetchOptions: {
@@ -102,7 +105,8 @@ function getAuthClient(): AuthClientType {
     }
   });
   
-  return cachedAuthClient;
+  cachedAuthClient = { client, context: 'browser' };
+  return client;
 }
 
 // Helper to get the actual client (for cases where proxy doesn't work)

@@ -155,4 +155,100 @@ describe('useOrganizationManagement', () => {
     });
     expect(result.current.organizations.some(org => org.id === 'org-new')).toBe(true);
   });
+
+  it('uses id as slug when slug is missing from API response', async () => {
+    mockApiClient.post.mockResolvedValueOnce({
+      data: {
+        id: 'org-fallback',
+        name: 'Organization Without Slug',
+      },
+    });
+    mockApiClient.get.mockResolvedValue({
+      data: {
+        practices: [
+          {
+            id: 'org-fallback',
+            name: 'Organization Without Slug',
+            // No slug field - should fall back to id
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() => useOrganizationManagement());
+
+    await act(async () => {
+      const org = await result.current.createOrganization({ name: 'Organization Without Slug' });
+      expect(org.slug).toBe('org-fallback'); // Should use id as slug
+    });
+
+    expect(result.current.organizations.some(org => org.id === 'org-fallback')).toBe(true);
+  });
+
+  it('generates unique slug for special character IDs', async () => {
+    // Test scenario: POST returns ID with special characters, GET response lacks slug
+    mockApiClient.post.mockResolvedValueOnce({
+      data: {
+        id: 'org-123@#$%', // Special characters that need sanitization
+        name: 'Special Org',
+      },
+    });
+    mockApiClient.get.mockResolvedValue({
+      data: {
+        practices: [
+          {
+            id: 'org-123@#$%',
+            name: 'Special Org',
+            // No slug field - frontend should generate sanitized slug
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() => useOrganizationManagement());
+
+    await act(async () => {
+      const org = await result.current.createOrganization({ name: 'Special Org' });
+      // Should generate a sanitized slug from the ID
+      expect(org.slug).toMatch(/^[a-z0-9-]+$/); // Only alphanumeric and hyphens
+      expect(org.slug).not.toBe('unknown');
+      expect(org.slug).not.toContain('@');
+      expect(org.slug).not.toContain('#');
+      expect(org.slug).not.toContain('$');
+      expect(org.slug).not.toContain('%');
+    });
+  });
+
+  it('ensures slug is never "unknown" even when validation fails', async () => {
+    // Capture the API call payload to inspect the slug value
+    let capturedPayload: any = null;
+    mockApiClient.post.mockImplementationOnce((url, payload) => {
+      capturedPayload = payload;
+      return Promise.resolve({
+        data: {
+          name: 'Organization Without ID or Slug',
+        },
+      });
+    });
+    mockApiClient.get.mockResolvedValue({
+      data: {
+        practices: [],
+      },
+    });
+
+    const { result } = renderHook(() => useOrganizationManagement());
+
+    await act(async () => {
+      // Should throw validation error since id is required, but we check slug first
+      await expect(
+        result.current.createOrganization({ name: 'Organization Without ID or Slug' })
+      ).rejects.toThrow();
+    });
+    
+    // Assert that slug was never set to 'unknown' in the API call
+    expect(capturedPayload).toBeTruthy();
+    expect(capturedPayload.slug).not.toBe('unknown');
+    // Slug should be either undefined or a generated value, but never 'unknown'
+    expect(capturedPayload.slug === undefined || typeof capturedPayload.slug === 'string').toBe(true);
+  });
 });

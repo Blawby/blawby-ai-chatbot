@@ -371,6 +371,16 @@ function _generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function _generateUniqueSlug(): string {
+  // Generate a guaranteed unique slug using timestamp + random suffix
+  // Format: org-{timestamp}-{random}
+  const timestamp = Date.now();
+  const randomSuffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+    : Math.random().toString(36).slice(2, 10);
+  return `org-${timestamp}-${randomSuffix}`;
+}
+
 export function useOrganizationManagement(options: UseOrganizationManagementOptions = {}): UseOrganizationManagementReturn {
   const { fetchInvitations: shouldFetchInvitations = true } = options;
   const { data: session, isPending: sessionLoading } = useSession();
@@ -547,9 +557,19 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     );
 
     try {
+      const resultRecord = result as Record<string, unknown>;
+      
+      // Generate slug: prefer provided slug, fallback to id, or generate unique slug if both missing
+      // This ensures we never use 'unknown' which could cause duplicate slugs
+      const slug = typeof resultRecord.slug === 'string' && resultRecord.slug.trim().length > 0
+        ? resultRecord.slug
+        : typeof resultRecord.id === 'string' && resultRecord.id.trim().length > 0
+          ? resultRecord.id
+          : _generateUniqueSlug();
+      
       const resultWithSlug = {
         ...result,
-        slug: (result as Record<string, unknown>).slug || (result as Record<string, unknown>).id || 'unknown',
+        slug,
       };
       const validatedResult = organizationSchema.parse(resultWithSlug);
       organizationsFetchedRef.current = false;

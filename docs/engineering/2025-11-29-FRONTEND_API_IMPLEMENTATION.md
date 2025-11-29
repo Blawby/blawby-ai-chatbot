@@ -1,6 +1,17 @@
 # Better Auth Client Setup Guide
 
-This guide explains how the Better Auth client library is configured in this application, including Bearer token authentication, IndexedDB token storage, and organization management.
+✅ **IMPLEMENTED** - This guide explains how the Better Auth client library is configured in this application, including Bearer token authentication, IndexedDB token storage, and organization management.
+
+## Implementation Status
+
+**All major components are implemented and working:**
+- ✅ Better Auth Client with Proxy pattern for lazy initialization
+- ✅ API Client with Axios and automatic Bearer token injection
+- ✅ Development Practice Seeding script
+- ✅ Practice Management APIs (all endpoints)
+- ✅ Onboarding APIs (status, connected accounts, complete)
+
+**Note**: The SSR handling in the actual implementation returns a placeholder URL during build/SSR instead of throwing an error, which is more robust than the original documentation suggested.
 
 ## Overview
 
@@ -23,7 +34,7 @@ Set the following environment variable in your `.env` or `dev.vars`:
 VITE_AUTH_SERVER_URL=https://your-auth-server.com
 ```
 
-**Note**: If `VITE_AUTH_SERVER_URL` is not set, the client will not work. Always provide this variable.
+**Note**: `VITE_AUTH_SERVER_URL` is required in production. In development, the client falls back to `https://staging-api.blawby.com` if not set.
 
 ### Auth Client Configuration
 
@@ -42,7 +53,9 @@ const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
 // Get auth URL - validate in browser context only
 function getAuthBaseUrl(): string {
   if (typeof window === 'undefined') {
-    throw new Error('Auth client cannot be instantiated during server-side rendering');
+    // During SSR/build, return a placeholder that won't be used
+    // The actual client creation is guarded in getAuthClient()
+    return 'https://placeholder-auth-server.com';
   }
   
   // Browser runtime - validate and throw if missing
@@ -50,7 +63,7 @@ function getAuthBaseUrl(): string {
   
   if (!finalAuthUrl) {
     throw new Error(
-      'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable.'
+      'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
     );
   }
   
@@ -117,22 +130,15 @@ export const authClient = new Proxy({} as AuthClientType, {
 
 ### Key Configuration Points
 
-1. **Lazy Initialization with Proxy**: The `authClient` is exported as a Proxy that creates the actual client on first access. This prevents build-time errors when `VITE_AUTH_SERVER_URL` is not set during SSR/build, but note that `getAuthBaseUrl()` now throws if it runs during SSR—guard access with `typeof window !== 'undefined'` when calling client helpers in shared modules.
-2. **Import from `better-auth/react`**: Required for React/Preact hooks like `useSession()`
-3. **Organization Plugin**: `organizationClient()` enables organization management features
-4. **Bearer Token Type**: Uses Bearer token authentication instead of cookies
-5. **Token Storage**: Tokens are automatically captured from `set-auth-token` response header (lowercase)
-6. **Async Token Function**: The token function is async to wait for IndexedDB initialization
-7. **Development Fallback**: In development, falls back to `https://staging-api.blawby.com` if `VITE_AUTH_SERVER_URL` is not set
-8. **Nested Method Support**: The Proxy handles nested methods like `authClient.signUp.email()` correctly by recursively proxying objects
-
-Example guard to avoid SSR errors:
-
-```ts
-if (typeof window !== 'undefined') {
-  const session = await authClient.getSession();
-}
-```
+1. **Lazy Initialization with Proxy**: ✅ **IMPLEMENTED** - The `authClient` is exported as a Proxy that creates the actual client on first access. During SSR/build, `getAuthBaseUrl()` returns a placeholder URL, and a placeholder client is created to prevent build errors. The real client is only created in browser context.
+2. **Import from `better-auth/react`**: ✅ **IMPLEMENTED** - Required for React/Preact hooks like `useSession()`
+3. **Organization Plugin**: ✅ **IMPLEMENTED** - `organizationClient()` enables organization management features
+4. **Bearer Token Type**: ✅ **IMPLEMENTED** - Uses Bearer token authentication instead of cookies
+5. **Token Storage**: ✅ **IMPLEMENTED** - Tokens are automatically captured from `set-auth-token` response header (lowercase)
+6. **Async Token Function**: ✅ **IMPLEMENTED** - The token function is async to wait for IndexedDB initialization
+7. **Development Fallback**: ✅ **IMPLEMENTED** - In development, falls back to `https://staging-api.blawby.com` if `VITE_AUTH_SERVER_URL` is not set
+8. **Nested Method Support**: ✅ **IMPLEMENTED** - The Proxy handles nested methods like `authClient.signUp.email()` correctly by recursively proxying objects
+9. **SSR Safety**: ✅ **IMPLEMENTED** - The implementation handles SSR gracefully by creating placeholder clients during build/SSR, so no manual guards are needed in most cases
 
 ## Token Storage
 
@@ -310,7 +316,7 @@ if (result.error) {
 
 ## Important Notes
 
-1. **Always set `VITE_AUTH_SERVER_URL`**: The client will not work without this environment variable
+1. **Set `VITE_AUTH_SERVER_URL` for production**: Required in production; in development, the client falls back to `https://staging-api.blawby.com` if not set
 2. **IndexedDB is async**: The token function waits for IndexedDB, so the first call may take a moment
 3. **Use Better Auth methods only**: Don't make manual API calls for auth operations - use the provided methods
 4. **Organization plugin required**: Organization features require the `organizationClient()` plugin
@@ -364,7 +370,7 @@ Check that:
 
 # API Configuration with Axios
 
-This section shows how to configure axios to automatically include the Bearer token in all API requests.
+✅ **IMPLEMENTED** - This section shows how to configure axios to automatically include the Bearer token in all API requests.
 
 ## Environment Variables
 
@@ -506,7 +512,7 @@ The Bearer token is automatically included in all requests - no need to manually
 
 # Development Practice Seeding
 
-For local development, you can automatically create a default practice for your test account using the dev seed script.
+✅ **IMPLEMENTED** - For local development, you can automatically create a default practice for your test account using the dev seed script.
 
 ## Setup
 
@@ -572,7 +578,7 @@ The script will output:
 
 # Practice Management APIs
 
-This section covers the Practice Management APIs for creating, managing, and switching between law practices.
+✅ **IMPLEMENTED** - This section covers the Practice Management APIs for creating, managing, and switching between law practices. All endpoints are implemented and used throughout the codebase.
 
 ## Base URL
 
@@ -959,7 +965,7 @@ Practice API errors follow standard HTTP status codes:
 
 # Onboarding APIs
 
-This section covers the Onboarding APIs for Stripe Connect integration and practice setup.
+✅ **IMPLEMENTED** - This section covers the Onboarding APIs for Stripe Connect integration and practice setup. All documented endpoints are implemented and used in the onboarding flow.
 
 ## Base URL
 
@@ -1023,6 +1029,8 @@ const status = response.data;
 
 ### Create Connected Account
 
+✅ **IMPLEMENTED** - Used in `BusinessOnboardingModal.tsx`
+
 Create a Stripe Connect account and onboarding session for a practice.
 
 **Endpoint**: `POST /api/onboarding/connected-accounts`
@@ -1077,9 +1085,43 @@ const result = response.data;
 - `403 Forbidden`: User doesn't have permission for this organization
 - `500 Internal Server Error`: Failed to create Stripe account
 
+### Complete Onboarding
+
+✅ **IMPLEMENTED** - Mark onboarding as complete for a practice.
+
+**Endpoint**: `POST /api/onboarding/complete`
+
+**Request Body**:
+
+```typescript
+type CompleteOnboardingRequest = {
+  organizationId: string;  // Practice/Organization UUID (required)
+};
+```
+
+**Example**:
+
+```typescript
+import { apiClient } from '@/lib/apiClient';
+
+await apiClient.post('/api/onboarding/complete', {
+  organizationId: "practice-uuid-here"
+});
+```
+
+**Response**: `200 OK` on success.
+
+**Status Codes**:
+- `200 OK`: Successfully marked onboarding as complete
+- `400 Bad Request`: Invalid request data
+- `401 Unauthorized`: Missing or invalid authentication token
+- `403 Forbidden`: User doesn't have permission for this organization
+
+**Note**: This endpoint is used in `BusinessOnboardingModal.tsx` and `BusinessOnboardingPage.tsx` to finalize the onboarding process.
+
 ## Using the Client Secret for Stripe Connect Onboarding
 
-The `client_secret` returned from creating a connected account is used to initialize the Stripe Connect embedded onboarding component. Use it with Stripe's `@stripe/react-connect-js` library and the `ConnectAccountOnboarding` component.
+✅ **IMPLEMENTED** - The `client_secret` returned from creating a connected account is used to initialize the Stripe Connect embedded onboarding component. Use it with Stripe's `@stripe/react-connect-js` library and the `ConnectAccountOnboarding` component. See `StripeOnboardingStep.tsx` for implementation.
 
 ## Validation Rules
 
@@ -1149,3 +1191,259 @@ Onboarding API errors follow standard HTTP status codes:
 3. **Client Secret Expiry**: The `client_secret` expires after a period. If expired, create a new session.
 4. **Webhook Updates**: Onboarding status is automatically updated via Stripe webhooks
 5. **Permission Required**: Only practice admins/owners can create connected accounts
+
+---
+
+# Backend API Improvement Suggestions
+
+**Date**: November 29, 2025
+
+This section contains suggestions for the backend API team to improve developer experience and reduce the need for proxy workarounds. These recommendations are based on pain points encountered during frontend implementation.
+
+## Priority Summary
+
+**Must Have:**
+1. Response format consistency
+2. CORS support for direct frontend access
+3. OpenAPI/Schema documentation
+4. Standardized error responses with error codes
+
+**Should Have:**
+5. Environment-aware configuration
+6. Request ID/tracing support
+7. Better pagination
+8. Rate limiting headers
+
+**Nice to Have:**
+9. WebSocket/SSE for real-time
+10. Field selection/filtering
+11. Batch operations
+12. Health check endpoints
+
+---
+
+## 1. Response Format Consistency (High Priority)
+
+**Problem**: APIs return inconsistent formats, requiring defensive checks everywhere.
+
+**Current Workaround**:
+```typescript
+const practices = Array.isArray(response.data)
+  ? response.data
+  : Array.isArray(response.data?.practices)
+    ? response.data.practices
+    : [];
+```
+
+**Recommendation**:
+- Standardize on a consistent response wrapper:
+```typescript
+// Always return this format:
+{
+  success: boolean;
+  data: T;  // Direct data, not wrapped
+  error?: string;
+  errorCode?: string;
+  details?: unknown;
+}
+```
+- For list endpoints, always return `data: T[]` (not `{ practices: T[] }`)
+- For single-item endpoints, always return `data: T` (not `{ practice: T }`)
+
+---
+
+## 2. OpenAPI/Schema Documentation (High Priority)
+
+**Problem**: No schema means manual type checking and guessing.
+
+**Recommendations**:
+- Provide OpenAPI 3.0 spec (Swagger)
+- Include TypeScript types or JSON Schema
+- Document all endpoints, request/response formats, error codes
+- Add schema validation endpoint for dev/testing
+
+---
+
+## 3. CORS and Direct Frontend Access (High Priority)
+
+**Problem**: Frontend needs a Worker proxy to handle CORS and auth.
+
+**Current Workaround**: Proxy layer in `worker/index.ts` forwarding to `staging-api.blawby.com`
+
+**Recommendations**:
+- Add proper CORS headers to all endpoints
+- Support direct frontend access (not just via Worker proxy)
+- Add `Access-Control-Allow-Credentials: true` for auth requests
+- Whitelist `ai.blawby.com` and `localhost:5173` for development
+
+---
+
+## 4. Error Response Standardization (High Priority)
+
+**Problem**: Inconsistent error formats make handling difficult.
+
+**Recommendations**:
+- Always include `errorCode` in error responses:
+```typescript
+{
+  success: false,
+  error: "Human-readable message",
+  errorCode: "PRACTICE_NOT_FOUND", // Machine-readable code
+  details?: { /* field-specific errors */ }
+}
+```
+- Use consistent HTTP status codes
+- Provide error code enum/constants for frontend
+
+---
+
+## 5. Environment-Aware Base URLs
+
+**Problem**: Hardcoded `staging-api.blawby.com` requires code changes per environment.
+
+**Recommendations**:
+- Provide environment detection endpoint: `GET /api/env` returning:
+```typescript
+{
+  environment: "staging" | "production" | "development",
+  apiVersion: "v1",
+  features: { /* feature flags */ }
+}
+```
+- Or use subdomain-based routing: `api-staging.blawby.com`, `api.blawby.com`
+
+---
+
+## 6. Missing or Incomplete Endpoints
+
+Based on code review, these would help:
+
+**Batch Operations**:
+- `POST /api/practice/batch` - Create/update multiple practices
+- `GET /api/practice/search?q=...` - Search practices
+
+**Better Pagination**:
+- All list endpoints should support `?limit=10&offset=0&cursor=...`
+- Return pagination metadata:
+```typescript
+{
+  data: T[],
+  pagination: {
+    total: number,
+    limit: number,
+    offset: number,
+    hasMore: boolean,
+    nextCursor?: string
+  }
+}
+```
+
+**Webhooks/Events**:
+- `GET /api/events` - Stream practice/organization changes
+- Webhook support for real-time updates
+
+---
+
+## 7. Request ID and Tracing
+
+**Problem**: Hard to debug issues across proxy → API.
+
+**Recommendations**:
+- Support `X-Request-ID` header (generate if missing)
+- Return `X-Request-ID` in all responses
+- Include request ID in error responses
+- Add correlation logging
+
+---
+
+## 8. Rate Limiting Headers
+
+**Recommendations**:
+- Include rate limit info in response headers:
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1640995200
+```
+- Return `429 Too Many Requests` with retry-after
+
+---
+
+## 9. Health Check and Status Endpoints
+
+**Recommendations**:
+- `GET /api/health` - Basic health check
+- `GET /api/status` - Detailed status with dependencies
+- `GET /api/version` - API version info
+
+---
+
+## 10. Field Selection and Filtering
+
+**Recommendations**:
+- Support field selection: `GET /api/practice/list?fields=id,name,slug`
+- Support filtering: `GET /api/practice/list?filter[status]=active`
+- Support sorting: `GET /api/practice/list?sort=name&order=asc`
+
+---
+
+## 11. WebSocket/SSE for Real-Time Updates
+
+**Problem**: Frontend polls for updates.
+
+**Recommendations**:
+- WebSocket endpoint for practice/organization updates
+- Or Server-Sent Events (SSE) for simpler implementation
+
+---
+
+## 12. Request/Response Examples
+
+**Recommendations**:
+- Include example requests/responses in docs
+- Provide Postman collection or curl examples
+- Add example responses for all error codes
+
+---
+
+## 13. Development Mode Features
+
+**Recommendations**:
+- `X-Debug-Mode` header to return additional debug info
+- Mock/test data endpoints for development
+- Request/response logging endpoint (with auth)
+
+---
+
+## 14. Validation Error Details
+
+**Problem**: Validation errors are hard to parse.
+
+**Recommendations**:
+- Return detailed validation errors:
+```typescript
+{
+  success: false,
+  error: "Validation failed",
+  errorCode: "VALIDATION_ERROR",
+  details: {
+    fields: {
+      "slug": ["Slug must be 3-50 characters", "Slug already exists"],
+      "email": ["Invalid email format"]
+    }
+  }
+}
+```
+
+---
+
+## 15. API Versioning
+
+**Recommendations**:
+- Version all endpoints: `/api/v1/practice/...`
+- Support multiple versions simultaneously
+- Clear deprecation policy with migration guides
+
+---
+
+These improvements would significantly reduce proxy complexity, improve type safety, and simplify frontend development.

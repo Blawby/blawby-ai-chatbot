@@ -55,9 +55,10 @@ export const extractProgressFromPayload = (
     (typeof candidate.completedAt === 'number' || candidate.completedAt === null) &&
     (typeof candidate.lastSavedAt === 'number' || candidate.lastSavedAt === null) &&
     typeof candidate.hasDraft === 'boolean' &&
-    'data' in candidate;
+    'data' in candidate &&
+    (candidate.data === null || typeof candidate.data === 'object');
 
-  if (hasRequiredFields && candidate.data !== undefined) {
+  if (hasRequiredFields) {
     return candidate as BusinessOnboardingStatusResponse;
   }
 

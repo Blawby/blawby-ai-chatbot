@@ -19,7 +19,7 @@ const CONSULTATION_FEE = Number.parseFloat(
   process.env.DEV_SEED_CONSULTATION_FEE ?? '150'
 );
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?[0-9]{7,15}$/;
+const PHONE_REGEX = /^\+[0-9]{7,15}$/;
 
 if (!EMAIL || !PASSWORD) {
   console.error(
@@ -115,8 +115,8 @@ async function listPractices(token: string): Promise<any[]> {
   if (Array.isArray(json)) {
     return json;
   }
-  if (json && typeof json === 'object' && Array.isArray(json.practices)) {
-    return json.practices;
+  if (json && typeof json === 'object' && Array.isArray((json as Record<string, unknown>).practices)) {
+    return (json as Record<string, unknown>).practices as any[];
   }
   return [];
 }

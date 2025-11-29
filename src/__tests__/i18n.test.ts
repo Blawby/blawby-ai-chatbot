@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SUPPORTED_LOCALES, AVAILABLE_LOCALES, DEFAULT_LOCALE, isRTLLocale, RTL_LOCALES } from '../i18n/index';
 
-// Mock localStorage
+// Mock localStorage for node environment
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -18,9 +18,15 @@ const localStorageMock = (() => {
   };
 })();
 
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock
-});
+// Set up localStorage mock for both node and jsdom environments
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock
+  });
+}
+if (typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage === 'undefined') {
+  (globalThis as any).localStorage = localStorageMock;
+}
 
 describe('i18n Configuration', () => {
   it('should have all supported locales defined', () => {

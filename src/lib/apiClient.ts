@@ -2,6 +2,7 @@ import axios from 'axios';
 import { getTokenAsync, clearToken } from './tokenStorage';
 
 let cachedBaseUrl: string | null = null;
+let isHandling401: Promise<void> | null = null;
 
 function ensureApiBaseUrl(): string {
   if (cachedBaseUrl) {
@@ -34,15 +35,35 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await clearToken().catch((err) => {
-        console.error('Failed to clear token on 401:', err);
-      });
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-        if (window.location.pathname !== '/auth') {
-          window.location.href = '/auth';
-        }
+      // Guard against concurrent 401s - only handle once
+      if (!isHandling401) {
+        // Create the handler promise immediately and assign it
+        const handle401 = async () => {
+          try {
+            try {
+              await clearToken();
+            } catch (err) {
+              console.error('Failed to clear token on 401:', err);
+            }
+            if (typeof window !== 'undefined') {
+              try {
+                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+              } catch (eventErr) {
+                console.error('Error dispatching auth:unauthorized event:', eventErr);
+                // Don't rethrow - let the original 401 error be the main error
+              }
+            }
+          } finally {
+            // Reset guard after handling completes, regardless of errors
+            isHandling401 = null;
+          }
+        };
+        
+        // Assign the promise immediately before any async work
+        isHandling401 = handle401();
       }
+      // Wait for the handling to complete (or already in progress)
+      await isHandling401;
     }
     return Promise.reject(error);
   }

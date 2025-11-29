@@ -66,10 +66,16 @@ export class RemoteApiService {
     }
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -82,6 +88,13 @@ export class RemoteApiService {
       }
 
       return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw HttpErrors.gatewayTimeout('Request timeout: Remote API did not respond within 10 seconds');
+        }
+        throw error;
+      }
     } catch (error) {
       if (error instanceof Error && 'status' in error) {
         throw error;
