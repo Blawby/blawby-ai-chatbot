@@ -4,7 +4,7 @@ This index lists superseded documents for historical context. Each page includes
 
 - **Canonical**
   - Stripe: ./stripe/stripe-architecture-archived.md (⚠️ Archived - Stripe now handled by remote API)
-  - Organization: ../organization-architecture.md
+  - Organization: ./organization/organization-architecture.md
 
 ## Stripe
 - stripe-connect-architecture.md

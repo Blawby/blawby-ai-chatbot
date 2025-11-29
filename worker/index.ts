@@ -20,6 +20,7 @@ import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
 import docProcessor from './consumers/doc-processor';
+import { optionalAuth } from './middleware/auth.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 
 // Basic request validation
@@ -165,12 +166,26 @@ export default {
 };
 
 async function proxyPracticeRequest(request: Request, env: Env, path: string, search: string): Promise<Response> {
+  const authContext = await optionalAuth(request, env);
+  if (!authContext?.user) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const baseUrl = env.REMOTE_API_URL || 'https://staging-api.blawby.com';
-  // Use URL API to handle base URLs with paths or trailing slashes correctly
   const targetUrl = new URL(path + search, baseUrl).toString();
   const method = request.method.toUpperCase();
-  const headers = new Headers(request.headers);
-  headers.delete('host');
+  const headers = new Headers();
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    headers.set('Authorization', authHeader);
+  }
+  const contentType = request.headers.get('content-type');
+  if (contentType) {
+    headers.set('Content-Type', contentType);
+  }
 
   const init: RequestInit = {
     method,
@@ -187,17 +202,10 @@ async function proxyPracticeRequest(request: Request, env: Env, path: string, se
 
   if (!response.ok) {
     const body = await response.text();
-    // Log safe truncated snippet instead of full body to avoid storing sensitive data
-    const bodyLength = body.length;
-    const bodySnippet = bodyLength > 0 
-      ? body.substring(0, Math.min(200, bodyLength)) + (bodyLength > 200 ? '...' : '')
-      : '(empty)';
     console.error('[PracticeProxy] Remote API error', {
       path,
       status: response.status,
       statusText: response.statusText,
-      bodyLength,
-      bodySnippet,
     });
     return new Response(body || 'Remote API error', {
       status: response.status,

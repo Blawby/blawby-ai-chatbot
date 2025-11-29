@@ -27,43 +27,105 @@ VITE_AUTH_SERVER_URL=https://your-auth-server.com
 
 ### Auth Client Configuration
 
-The auth client is configured in `src/lib/authClient.ts`:
+The auth client is configured in `src/lib/authClient.ts` with lazy initialization using a Proxy pattern to avoid build-time errors:
 
 ```typescript
 import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { setToken, getTokenAsync } from './tokenStorage';
+import { isDevelopment } from '../utils/environment';
 
+// Remote better-auth server URL
 const AUTH_BASE_URL = import.meta.env.VITE_AUTH_SERVER_URL;
+const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
 
-export const authClient = createAuthClient({
-  plugins: [organizationClient()],
-  baseURL: AUTH_BASE_URL,
-  fetchOptions: {
-    auth: {
-      type: "Bearer",
-      token: async () => {
-        const token = await getTokenAsync();
-        return token || "";
-      }
-    },
-    onSuccess: async (ctx) => {
-      const authToken = ctx.response.headers.get("Set-Auth-Token");
-      if (authToken) {
-        await setToken(authToken);
+// Get auth URL - validate in browser context only
+function getAuthBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    // During build/SSR, return placeholder to avoid build errors
+    return 'https://placeholder-auth-server.com';
+  }
+  
+  // Browser runtime - validate and throw if missing
+  const finalAuthUrl = AUTH_BASE_URL || (isDevelopment() ? FALLBACK_AUTH_URL : null);
+  
+  if (!finalAuthUrl) {
+    throw new Error(
+      'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable.'
+    );
+  }
+  
+  return finalAuthUrl;
+}
+
+// Cached auth client instance (created lazily on first access)
+let cachedAuthClient: AuthClientType | null = null;
+
+function getAuthClient(): AuthClientType {
+  if (cachedAuthClient) {
+    return cachedAuthClient;
+  }
+  
+  const baseURL = getAuthBaseUrl();
+  
+  cachedAuthClient = createAuthClient({
+    plugins: [organizationClient()],
+    baseURL,
+    fetchOptions: {
+      auth: {
+        type: "Bearer",
+        token: async () => {
+          const token = await getTokenAsync();
+          return token || "";
+        }
+      },
+      onSuccess: async (ctx) => {
+        const authToken = ctx.response.headers.get("set-auth-token");
+        if (authToken) {
+          await setToken(authToken);
+        }
       }
     }
+  });
+  
+  return cachedAuthClient;
+}
+
+// Export the auth client as a Proxy for lazy initialization
+export const authClient = new Proxy({} as AuthClientType, {
+  get(_target, prop) {
+    const client = getAuthClient();
+    const value = (client as any)[prop];
+    // Handle functions, objects, and nested properties (e.g., signUp.email)
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    if (value && typeof value === 'object') {
+      return new Proxy(value, {
+        get(_target, subProp) {
+          const subValue = value[subProp];
+          if (typeof subValue === 'function') {
+            return subValue.bind(value);
+          }
+          return subValue;
+        }
+      });
+    }
+    return value;
   }
-});
+}) as AuthClientType;
 ```
 
 ### Key Configuration Points
 
-1. **Import from `better-auth/react`**: Required for React/Preact hooks like `useSession()`
-2. **Organization Plugin**: `organizationClient()` enables organization management features
-3. **Bearer Token Type**: Uses Bearer token authentication instead of cookies
-4. **Token Storage**: Tokens are automatically captured from `Set-Auth-Token` response header
-5. **Async Token Function**: The token function is async to wait for IndexedDB initialization
+1. **Lazy Initialization with Proxy**: The `authClient` is exported as a Proxy that creates the actual client on first access. This prevents build-time errors when `VITE_AUTH_SERVER_URL` is not set during SSR/build.
+2. **Import from `better-auth/react`**: Required for React/Preact hooks like `useSession()`
+3. **Organization Plugin**: `organizationClient()` enables organization management features
+4. **Bearer Token Type**: Uses Bearer token authentication instead of cookies
+5. **Token Storage**: Tokens are automatically captured from `set-auth-token` response header (lowercase)
+6. **Async Token Function**: The token function is async to wait for IndexedDB initialization
+7. **Development Fallback**: In development, falls back to `https://staging-api.blawby.com` if `VITE_AUTH_SERVER_URL` is not set
+8. **Nested Method Support**: The Proxy handles nested methods like `authClient.signUp.email()` correctly by recursively proxying objects
 
 ## Token Storage
 
@@ -299,57 +361,110 @@ This section shows how to configure axios to automatically include the Bearer to
 
 ## Environment Variables
 
-Set your API base URL in `.env`:
+The API client supports two environment variables for flexibility:
+
+- **`VITE_API_BASE_URL`**: Explicit API base URL (recommended for production)
+- **`VITE_API_URL`**: Alternative variable name (automatically set in development)
+
+### Variable Priority and Purpose
+
+The client checks for environment variables in this order:
+1. `VITE_API_BASE_URL` (checked first)
+2. `VITE_API_URL` (checked second, fallback)
+
+**Why two variables?**
+- `VITE_API_URL` is automatically set by `vite.config.ts` in development mode to `http://localhost:8787`
+- `VITE_API_BASE_URL` is the preferred variable name for explicit configuration
+- This dual-variable approach allows automatic development setup while providing explicit control when needed
+
+### Development Setup
+
+In development, `VITE_API_URL` is automatically set to `http://localhost:8787` by `vite.config.ts`. You typically don't need to set either variable manually.
+
+**Optional Override**: If you need to override the default development URL, set `VITE_API_BASE_URL` in your `.env` file:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8787
+```
+
+### Production Setup
+
+For production, set `VITE_API_BASE_URL` in your deployment environment (e.g., Cloudflare Pages):
 
 ```bash
 VITE_API_BASE_URL=https://your-api-server.com
 ```
 
+**Important**: If neither variable is set, the application will throw an error at runtime. Always ensure at least one is configured.
+
 ## Axios Configuration File
 
-Create `src/lib/apiClient.ts` to configure axios with automatic token inclusion:
+The actual implementation in `src/lib/apiClient.ts` uses dynamic base URL resolution:
 
 ```typescript
 // src/lib/apiClient.ts
 import axios from 'axios';
-import { getTokenAsync } from '@/lib/tokenStorage';
+import { getTokenAsync, clearToken } from './tokenStorage';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+let cachedBaseUrl: string | null = null;
 
-// Create axios instance with base configuration
-export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+function ensureApiBaseUrl(): string {
+  if (cachedBaseUrl) {
+    return cachedBaseUrl;
+  }
+  // Check both VITE_API_BASE_URL and VITE_API_URL for flexibility
+  const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+  if (!explicit) {
+    throw new Error('API base URL not configured. Please set VITE_API_BASE_URL or VITE_API_URL.');
+  }
+  cachedBaseUrl = explicit;
+  return cachedBaseUrl;
+}
 
-// Request interceptor to add Bearer token to all requests
+// Create axios instance (baseURL set dynamically in interceptor)
+export const apiClient = axios.create();
+
+// Request interceptor to add Bearer token and set baseURL
 apiClient.interceptors.request.use(
   async (config) => {
+    // Set baseURL dynamically (allows override per-request if needed)
+    config.baseURL = config.baseURL ?? ensureApiBaseUrl();
     const token = await getTokenAsync();
     if (token) {
+      config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized - redirect to login or refresh token
-      console.error('Unauthorized - please log in again');
+      // Clear token and redirect to login on unauthorized
+      await clearToken().catch(() => {});
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        if (window.location.pathname !== '/auth') {
+          window.location.href = '/auth';
+        }
+      }
     }
     return Promise.reject(error);
   }
 );
 ```
+
+### Key Implementation Details
+
+1. **Dynamic Base URL**: Base URL is resolved at request time, not at axios instance creation, allowing for environment-specific configuration
+2. **Caching**: The resolved base URL is cached to avoid repeated environment variable lookups
+3. **Automatic Token Injection**: Bearer token is automatically added to all requests from IndexedDB
+4. **401 Handling**: Unauthorized responses automatically clear the token and redirect to login
+5. **Flexible Variable Names**: Supports both `VITE_API_BASE_URL` and `VITE_API_URL` for compatibility
 
 ## Usage
 
@@ -382,6 +497,72 @@ The Bearer token is automatically included in all requests - no need to manually
 
 ---
 
+# Development Practice Seeding
+
+For local development, you can automatically create a default practice for your test account using the dev seed script.
+
+## Setup
+
+The script is located at `scripts/dev-seed-practice.ts` and can be run via:
+
+```bash
+npm run dev:seed
+```
+
+## Environment Variables
+
+Set these environment variables before running the script:
+
+```bash
+# Required
+DEV_SEED_USER_EMAIL=your-dev-email@example.com
+DEV_SEED_USER_PASSWORD=your-dev-password
+
+# Optional (with defaults)
+DEV_SEED_BASE_URL=http://localhost:8787  # Worker URL for practice API calls
+DEV_SEED_AUTH_URL=https://staging-api.blawby.com  # Remote auth server URL for sign-in
+DEV_SEED_PRACTICE_NAME=Dev Practice  # Name for the practice (default: "Dev Practice")
+DEV_SEED_PRACTICE_SLUG=dev-practice  # Slug for the practice (default: auto-generated)
+```
+
+## How It Works
+
+1. **Sign In**: The script signs in to the remote auth server (`DEV_SEED_AUTH_URL`) using the provided credentials
+2. **Check Existing**: Lists practices via `GET /api/practice/list` on the Worker (`DEV_SEED_BASE_URL`)
+3. **Create if Needed**: If no practices exist, creates a default practice via `POST /api/practice` with:
+   - Name: `DEV_SEED_PRACTICE_NAME` or "Dev Practice"
+   - Slug: `DEV_SEED_PRACTICE_SLUG` or auto-generated
+   - Business email: The user's email
+   - Business phone: `+1-555-0100` (valid format required)
+   - Consultation fee: `100.00` (must be > 0)
+
+## Example Usage
+
+```bash
+DEV_SEED_USER_EMAIL=test@example.com \
+DEV_SEED_USER_PASSWORD=TestPassword123! \
+DEV_SEED_AUTH_URL=https://staging-api.blawby.com \
+npm run dev:seed
+```
+
+## Output
+
+The script will output:
+- `🔐 Signing in as ...` - Sign-in attempt
+- `✅ Auth token acquired` - Successful authentication
+- `✅ Practice already exists (...)` - If practices are found
+- `ℹ️  No practices found. Creating default practice...` - If creating new practice
+- `🎉 Practice created: ...` - Success message with practice name/slug/id
+
+## Notes
+
+- The script is idempotent - it won't create duplicate practices if one already exists
+- It uses the remote auth server for sign-in (not the local Worker proxy)
+- It uses the local Worker for practice API calls (which proxies to the remote API)
+- The created practice will be available immediately in the frontend after sign-in
+
+---
+
 # Practice Management APIs
 
 This section covers the Practice Management APIs for creating, managing, and switching between law practices.
@@ -410,11 +591,25 @@ Get all practices for the authenticated user.
 import { apiClient } from '@/lib/apiClient';
 
 const response = await apiClient.get('/api/practice/list');
-const { practices } = response.data;
 ```
 
-**Response**:
+**Response Format**:
 
+The API may return practices in one of two formats:
+
+1. **Array format** (direct array):
+```typescript
+[
+  {
+    id: "org-uuid",
+    name: "Smith & Associates Law Firm",
+    slug: "smith-associates",
+    // ... other fields
+  }
+]
+```
+
+2. **Object format** (wrapped in `practices` property):
 ```typescript
 {
   practices: [
@@ -422,19 +617,42 @@ const { practices } = response.data;
       id: "org-uuid",
       name: "Smith & Associates Law Firm",
       slug: "smith-associates",
-      logo: "https://example.com/logo.png",
-      metadata: {
-        industry: "Legal"
-      },
-      business_phone: "+1-555-0123",
-      business_email: "contact@smithlaw.com",
-      consultation_fee: 250.00,
-      payment_url: "https://payment.example.com",
-      calendly_url: "https://calendly.com/smith-law",
-      created_at: "2024-01-01T00:00:00Z",
-      updated_at: "2024-01-15T12:00:00Z"
+      // ... other fields
     }
   ]
+}
+```
+
+**Recommended Handling**:
+
+```typescript
+const response = await apiClient.get('/api/practice/list');
+const practices = Array.isArray(response.data)
+  ? response.data
+  : Array.isArray(response.data?.practices)
+    ? response.data.practices
+    : [];
+```
+
+**Practice Object Structure**:
+
+```typescript
+{
+  id: "org-uuid",                    // Practice/organization UUID
+  name: "Smith & Associates Law Firm",
+  slug: "smith-associates",
+  logo: "https://example.com/logo.png",  // Optional
+  metadata: {                        // Optional custom metadata
+    industry: "Legal",
+    practice_areas: ["Family Law"]
+  },
+  business_phone: "+1-555-0123",     // Optional
+  business_email: "contact@smithlaw.com",  // Optional
+  consultation_fee: 250.00,          // Optional, must be > 0 if provided
+  payment_url: "https://payment.example.com",  // Optional
+  calendly_url: "https://calendly.com/smith-law",  // Optional
+  created_at: "2024-01-01T00:00:00Z",  // ISO 8601 timestamp
+  updated_at: "2024-01-15T12:00:00Z"   // ISO 8601 timestamp
 }
 ```
 
@@ -484,8 +702,37 @@ const response = await apiClient.post('/api/practice', {
     practice_areas: ["Family Law", "Estate Planning"]
   }
 });
+```
 
-const { practice } = response.data;
+**Response Format**:
+
+The API may return the created practice in one of two formats:
+
+1. **Direct object**:
+```typescript
+{
+  id: "practice-uuid-here",
+  name: "Smith & Associates Law Firm",
+  // ... other fields
+}
+```
+
+2. **Wrapped in `practice` property**:
+```typescript
+{
+  practice: {
+    id: "practice-uuid-here",
+    name: "Smith & Associates Law Firm",
+    // ... other fields
+  }
+}
+```
+
+**Recommended Handling**:
+
+```typescript
+const response = await apiClient.post('/api/practice', { /* ... */ });
+const practice = response.data?.practice || response.data;
 ```
 
 **Response**: Returns the created practice with the same structure as List Practices.
@@ -506,10 +753,40 @@ import { apiClient } from '@/lib/apiClient';
 
 const practiceId = "practice-uuid-here";
 const response = await apiClient.get(`/api/practice/${practiceId}`);
-const { practice } = response.data;
 ```
 
-**Response**: Returns a single practice object.
+**Response Format**:
+
+The API may return the practice in one of two formats:
+
+1. **Direct object**:
+```typescript
+{
+  id: "practice-uuid-here",
+  name: "Smith & Associates Law Firm",
+  // ... other fields
+}
+```
+
+2. **Wrapped in `practice` property**:
+```typescript
+{
+  practice: {
+    id: "practice-uuid-here",
+    name: "Smith & Associates Law Firm",
+    // ... other fields
+  }
+}
+```
+
+**Recommended Handling**:
+
+```typescript
+const response = await apiClient.get(`/api/practice/${practiceId}`);
+const practice = response.data?.practice || response.data;
+```
+
+**Response**: Returns a single practice object with the same structure as List Practices.
 
 ### Update Practice
 
@@ -549,11 +826,17 @@ const response = await apiClient.put(`/api/practice/${practiceId}`, {
   consultation_fee: 300.00,
   business_phone: "+1-555-0124"
 });
-
-const { practice } = response.data;
 ```
 
-**Response**: Returns the updated practice object.
+**Response Format**:
+
+Same as Create Practice - may return the practice directly or wrapped in a `practice` property:
+
+```typescript
+const practice = response.data?.practice || response.data;
+```
+
+**Response**: Returns the updated practice object with the same structure as List Practices.
 
 ### Delete Practice
 

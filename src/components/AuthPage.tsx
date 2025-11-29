@@ -176,7 +176,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
     try {
       // Use Better Auth for Google OAuth
-      const result = await authClient.signIn.social({
+      const client = getClient();
+      const result = await client.signIn.social({
         provider: 'google',
         callbackURL: `${window.location.origin}/`,
       });

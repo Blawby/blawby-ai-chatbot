@@ -39,7 +39,7 @@ export async function handleUsage(request: Request, env: Env): Promise<Response>
     }
 
     const organizationId = await resolveOrganizationId(env, orgContext.organizationId, request);
-    const quota = await UsageService.getRemainingQuota(env, organizationId);
+    const quota = await UsageService.getRemainingQuota(env, organizationId, request);
     return createSuccessResponse(quota);
   }
 

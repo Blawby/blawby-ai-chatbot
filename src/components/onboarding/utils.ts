@@ -40,6 +40,7 @@ const unwrapOnboardingPayload = (payload: unknown): unknown => {
 export const extractProgressFromPayload = (
   payload: unknown
 ): BusinessOnboardingStatusResponse | null => {
+  const STATUS_VALUES = new Set(['completed', 'skipped', 'pending', 'not_required']);
   const normalized = unwrapOnboardingPayload(payload);
   if (!normalized || typeof normalized !== 'object') {
     return null;
@@ -48,8 +49,12 @@ export const extractProgressFromPayload = (
   const candidate = normalized as Partial<BusinessOnboardingStatusResponse>;
   const hasRequiredFields =
     typeof candidate.status === 'string' &&
+    STATUS_VALUES.has(candidate.status) &&
     typeof candidate.completed === 'boolean' &&
     typeof candidate.skipped === 'boolean' &&
+    (typeof candidate.completedAt === 'number' || candidate.completedAt === null) &&
+    (typeof candidate.lastSavedAt === 'number' || candidate.lastSavedAt === null) &&
+    typeof candidate.hasDraft === 'boolean' &&
     'data' in candidate;
 
   if (hasRequiredFields && candidate.data !== undefined) {

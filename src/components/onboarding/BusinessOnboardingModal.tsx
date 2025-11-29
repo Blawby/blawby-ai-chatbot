@@ -271,12 +271,16 @@ const BusinessOnboardingModal = ({
     }
 
     if (currentStep === 'stripe-onboarding' && !stripeClientSecret) {
-      try {
-        await startStripeOnboarding();
-      } finally {
-        setLoading(false);
+      if (stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled) {
+        // Already connected – allow navigation to continue
+      } else {
+        try {
+          await startStripeOnboarding();
+        } finally {
+          setLoading(false);
+        }
+        return;
       }
-      return;
     }
 
     const resumeStep = isLastStep ? currentStep : getAdjacentStep(currentStep, 1);

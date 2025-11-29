@@ -1,6 +1,7 @@
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
+import { HttpError } from '../types.js';
 import { SessionService } from '../services/SessionService.js';
 import { sessionRequestBodySchema } from '../schemas/validation.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
@@ -17,15 +18,22 @@ async function normalizeOrganizationId(env: Env, organizationId?: string | null,
   }
 
   // Validate organization exists via remote API
-  const organization = await RemoteApiService.getOrganization(env, trimmed, request);
-  
-  if (organization) {
-    return organization.id;
+  try {
+    const organization = await RemoteApiService.getOrganization(env, trimmed, request);
+    if (organization) {
+      return organization.id;
+    }
+    throw HttpErrors.notFound(`Organization not found: ${trimmed}`);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) {
+      throw error;
+    }
+    console.error('[normalizeOrganizationId] Remote API call failed', {
+      organizationId: trimmed,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw HttpErrors.serviceUnavailable('Failed to validate organization');
   }
-  
-  // If no organization found, return the original trimmed value
-  // This will cause validation errors downstream, but that's better than silent failure
-  return trimmed;
 }
 
 function createJsonResponse(data: unknown, setCookie?: string[]): Response {

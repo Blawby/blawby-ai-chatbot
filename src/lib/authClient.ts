@@ -16,11 +16,8 @@ const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
 
 // Get auth URL - validate in browser context only
 function getAuthBaseUrl(): string {
-  // Only validate in browser context (not during build/SSR)
   if (typeof window === 'undefined') {
-    // During build/SSR, return placeholder to avoid build errors
-    // This will never be used at runtime since client is created lazily
-    return 'https://placeholder-auth-server.com';
+    throw new Error('Auth client cannot be instantiated during server-side rendering');
   }
   
   // Browser runtime - validate and throw if missing
@@ -127,58 +124,6 @@ export const authClient = new Proxy({} as AuthClientType, {
     return value;
   }
 }) as AuthClientType;
-
-// Export all auth methods directly - use these, no manual API calls
-// These access the lazy-initialized client via the proxy
-export const signIn = new Proxy({} as AuthClientType['signIn'], {
-  get(_target, prop) {
-    const client = getAuthClient();
-    const signInObj = client.signIn as any;
-    const value = signInObj[prop];
-    // If it's a function, bind it to preserve 'this' context
-    if (typeof value === 'function') {
-      return value.bind(signInObj);
-    }
-    // If it's an object (like signIn.email which might be an object with methods), return a proxy for it
-    if (value && typeof value === 'object') {
-      return new Proxy(value, {
-        get(_target, subProp) {
-          const subValue = value[subProp];
-          if (typeof subValue === 'function') {
-            return subValue.bind(value);
-          }
-          return subValue;
-        }
-      });
-    }
-    return value;
-  }
-}) as AuthClientType['signIn'];
-
-export const signUp = new Proxy({} as AuthClientType['signUp'], {
-  get(_target, prop) {
-    const client = getAuthClient();
-    const signUpObj = client.signUp as any;
-    const value = signUpObj[prop];
-    // If it's a function, bind it to preserve 'this' context
-    if (typeof value === 'function') {
-      return value.bind(signUpObj);
-    }
-    // If it's an object (like signUp.email which might be an object with methods), return a proxy for it
-    if (value && typeof value === 'object') {
-      return new Proxy(value, {
-        get(_target, subProp) {
-          const subValue = value[subProp];
-          if (typeof subValue === 'function') {
-            return subValue.bind(value);
-          }
-          return subValue;
-        }
-      });
-    }
-    return value;
-  }
-}) as AuthClientType['signUp'];
 
 export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAuthClient().signOut(...args);
 

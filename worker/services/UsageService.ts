@@ -226,9 +226,9 @@ export class UsageService {
   /**
    * Calculate remaining quota metadata for UI or API responses.
    */
-  static async getRemainingQuota(env: Env, organizationId: string): Promise<QuotaInfo> {
+  static async getRemainingQuota(env: Env, organizationId: string, request?: Request): Promise<QuotaInfo> {
     const snapshot = await this.getUsage(env, organizationId);
-    const metadata = await this.getOrganizationMetadata(env, organizationId);
+    const metadata = await this.getOrganizationMetadata(env, organizationId, request);
     const resetDate = this.getPeriodResetDate(snapshot.period);
 
     const messagesUnlimited = snapshot.messagesLimit < 0;
@@ -411,9 +411,10 @@ export class UsageService {
 
   private static async resolveLimits(
     env: Env,
-    organizationId: string
+    organizationId: string,
+    request?: Request
   ): Promise<{ messagesPerMonth: number; filesPerMonth: number; tier: TierName }> {
-    const org = await this.getOrganizationMetadata(env, organizationId);
+    const org = await this.getOrganizationMetadata(env, organizationId, request);
 
     if (org.slug && org.slug === PUBLIC_ORG_SLUG) {
       return { ...PUBLIC_ORGANIZATION_LIMITS, tier: "free" };

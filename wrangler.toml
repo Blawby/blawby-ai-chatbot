@@ -189,6 +189,8 @@ CLOUDFLARE_PUBLIC_URL = "https://ai.blawby.com"
 DOMAIN = "ai.blawby.com"
 ENABLE_STRIPE_SUBSCRIPTIONS = true
 REQUIRE_EMAIL_VERIFICATION = "false"
+BLAWBY_API_URL = "https://production-api.blawby.com"
+REMOTE_API_URL = "https://production-api.blawby.com"
 
 # Updated to use modern nested producers syntax
 ANALYSIS_TIMEOUT_MS = "60000"
