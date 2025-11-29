@@ -21,7 +21,7 @@
 Field | Description
 ------|-----------
 `is_personal` | `1` for personal orgs. Set to `0` after a paid upgrade via the webhook.
-`subscription_tier` | Used for display (`free`, `business`, `enterprise`), derived from subscription status. Note: Enterprise is future/disabled; only Free and Business tiers are currently live in the UI.
+`subscription_tier` | Used for display (`free`, `business`, `enterprise`), derived from subscription status. Note: Enterprise is future/disabled; only Free and Business tiers are currently live in the UI (as of Q4 2024).
 `kind` | In code we derive `business` vs `personal`; fallbacks for legacy rows use `is_personal`.
 `stripe_customer_id` | Set after upgrade; allows Stripe → org resolution.
 `config` | Stores workspace settings, notifications, etc.
@@ -29,6 +29,11 @@ Field | Description
 ### `members`
 - Owner membership is provisioned automatically for personal orgs.
 - Invitations and role changes require a business org and pass through feature guards.
+
+### `sessions` (managed by remote API)
+- The `sessions` table includes `active_organization_id` field to track which organization a user's session is currently active in.
+- This field is managed by the remote Better Auth server at staging-api.blawby.com.
+- Used by `DefaultOrganizationService` to determine the active organization for a user session.
 
 ## 4. API & Middleware
 
@@ -54,7 +59,7 @@ Remote API (`staging-api.blawby.com`) | Handles organization CRUD, invitations, 
 - **Unit**: Entitlement utilities (`src/utils/subscription.ts`) can be unit-tested directly.
 
 ## 7. Known Gaps / Future Ideas
-1. Add integration coverage for invitation routes to confirm personal orgs can’t invite members.
-2. Provide admin tooling to reassign `active_organization_id` if a user is stuck on the wrong org.
+1. Add integration coverage for invitation routes to confirm personal orgs can't invite members.
+2. Provide admin tooling to reassign `active_organization_id` (in the `sessions` table, managed by remote API) if a user is stuck on the wrong org.
 3. Document operational runbooks (personal org provisioning, Stripe reconciliation) for on-call engineers.
 4. Consider lifecycle clean-up for abandoned personal orgs (optional background task).

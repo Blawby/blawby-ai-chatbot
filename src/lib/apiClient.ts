@@ -2,6 +2,7 @@ import axios from 'axios';
 import { getTokenAsync, clearToken } from './tokenStorage';
 
 let cachedBaseUrl: string | null = null;
+let isHandling401: Promise<void> | null = null;
 
 function ensureApiBaseUrl(): string {
   if (cachedBaseUrl) {
@@ -34,15 +35,23 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await clearToken().catch((err) => {
-        console.error('Failed to clear token on 401:', err);
-      });
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-        if (window.location.pathname !== '/auth') {
-          window.location.href = '/auth';
-        }
+      // Guard against concurrent 401s - only handle once
+      if (!isHandling401) {
+        isHandling401 = (async () => {
+          try {
+            await clearToken();
+          } catch (err) {
+            console.error('Failed to clear token on 401:', err);
+          }
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+          }
+          // Reset guard after handling completes
+          isHandling401 = null;
+        })();
       }
+      // Wait for the handling to complete (or already in progress)
+      await isHandling401;
     }
     return Promise.reject(error);
   }

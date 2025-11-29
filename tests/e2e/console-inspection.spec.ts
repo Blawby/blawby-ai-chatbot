@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
-import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 
 test.describe('Console and Network Inspection', () => {
@@ -292,11 +291,15 @@ test.describe('Console and Network Inspection', () => {
     console.log(`Potential CORS Issues: ${corsIssues.length}`);
     console.log('='.repeat(80));
 
+    // Ensure output directory exists
+    const screenshotDir = 'playwright/results';
+    if (!fs.existsSync(screenshotDir)) {
+      fs.mkdirSync(screenshotDir, { recursive: true });
+    }
+
     // Take a screenshot
-    const outDir = path.join('playwright', 'results');
-    await fsPromises.mkdir(outDir, { recursive: true });
-    await page.screenshot({ path: path.join(outDir, 'console-inspection.png'), fullPage: true });
-    console.log(`\n📸 Screenshot saved to ${path.join(outDir, 'console-inspection.png')}`);
+    await page.screenshot({ path: path.join(screenshotDir, 'console-inspection.png'), fullPage: true });
+    console.log(`\n📸 Screenshot saved to ${path.join(screenshotDir, 'console-inspection.png')}`);
 
     // Save detailed logs to a file (optional, for later review)
     const report = {

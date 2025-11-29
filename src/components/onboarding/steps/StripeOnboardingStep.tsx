@@ -45,11 +45,8 @@ export function StripeOnboardingStep({
     if (!clientSecret || !STRIPE_PUBLISHABLE_KEY) {
       setConnectInstance(null);
       setConnectLoading(false);
-      if (!STRIPE_PUBLISHABLE_KEY) {
-        setConnectError('Stripe publishable key is not configured.');
-      } else {
-        setConnectError(null);
-      }
+      // Don't set connectError when publishable key is missing - we show a dedicated warning instead
+      setConnectError(null);
       return () => {
         instance?.destroy?.();
       };

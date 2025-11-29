@@ -34,7 +34,7 @@ Set the following environment variable in your `.env` or `dev.vars`:
 VITE_AUTH_SERVER_URL=https://your-auth-server.com
 ```
 
-**Note**: If `VITE_AUTH_SERVER_URL` is not set, the client will not work. Always provide this variable.
+**Note**: `VITE_AUTH_SERVER_URL` is required in production. In development, the client falls back to `https://staging-api.blawby.com` if not set.
 
 ### Auth Client Configuration
 
@@ -316,7 +316,7 @@ if (result.error) {
 
 ## Important Notes
 
-1. **Always set `VITE_AUTH_SERVER_URL`**: The client will not work without this environment variable
+1. **Set `VITE_AUTH_SERVER_URL` for production**: Required in production; in development, the client falls back to `https://staging-api.blawby.com` if not set
 2. **IndexedDB is async**: The token function waits for IndexedDB, so the first call may take a moment
 3. **Use Better Auth methods only**: Don't make manual API calls for auth operations - use the provided methods
 4. **Organization plugin required**: Organization features require the `organizationClient()` plugin

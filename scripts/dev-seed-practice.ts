@@ -19,7 +19,7 @@ const CONSULTATION_FEE = Number.parseFloat(
   process.env.DEV_SEED_CONSULTATION_FEE ?? '150'
 );
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?[0-9]{7,15}$/;
+const PHONE_REGEX = /^\+[0-9]{1,15}$/;
 
 if (!EMAIL || !PASSWORD) {
   console.error(

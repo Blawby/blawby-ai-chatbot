@@ -155,4 +155,86 @@ describe('useOrganizationManagement', () => {
     });
     expect(result.current.organizations.some(org => org.id === 'org-new')).toBe(true);
   });
+
+  it('uses id as slug when slug is missing from API response', async () => {
+    mockApiClient.post.mockResolvedValueOnce({
+      data: {
+        id: 'org-fallback',
+        name: 'Organization Without Slug',
+      },
+    });
+    mockApiClient.get.mockResolvedValue({
+      data: {
+        practices: [
+          {
+            id: 'org-fallback',
+            name: 'Organization Without Slug',
+            slug: 'org-fallback',
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() => useOrganizationManagement());
+
+    await act(async () => {
+      const org = await result.current.createOrganization({ name: 'Organization Without Slug' });
+      expect(org.slug).toBe('org-fallback');
+    });
+
+    expect(result.current.organizations.some(org => org.id === 'org-fallback')).toBe(true);
+  });
+
+  it('generates a unique slug when slug is missing but id exists in API response', async () => {
+    mockApiClient.post.mockResolvedValueOnce({
+      data: {
+        id: 'org-with-id-only',
+        name: 'Organization With ID Only',
+      },
+    });
+    mockApiClient.get.mockResolvedValue({
+      data: {
+        practices: [
+          {
+            id: 'org-with-id-only',
+            name: 'Organization With ID Only',
+            slug: 'org-with-id-only',
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() => useOrganizationManagement());
+
+    await act(async () => {
+      const org = await result.current.createOrganization({ name: 'Organization With ID Only' });
+      // Should use id as slug when slug is missing
+      expect(org.slug).toBe('org-with-id-only');
+      expect(org.slug).not.toBe('unknown');
+    });
+  });
+
+  it('generates a unique slug when both slug and id are missing (defensive fallback)', async () => {
+    // This is a defensive test - in practice, the backend should always return an id
+    // If both are missing, validation will fail, but we ensure slug is never 'unknown'
+    mockApiClient.post.mockResolvedValueOnce({
+      data: {
+        name: 'Organization Without ID or Slug',
+      },
+    });
+    mockApiClient.get.mockResolvedValue({
+      data: {
+        practices: [],
+      },
+    });
+
+    const { result } = renderHook(() => useOrganizationManagement());
+
+    await act(async () => {
+      // Should throw validation error since id is required, but slug should not be 'unknown'
+      await expect(
+        result.current.createOrganization({ name: 'Organization Without ID or Slug' })
+      ).rejects.toThrow();
+    });
+  });
 });

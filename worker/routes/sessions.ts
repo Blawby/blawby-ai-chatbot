@@ -17,13 +17,18 @@ async function normalizeOrganizationId(env: Env, organizationId?: string | null,
     return DEFAULT_ORGANIZATION_ID; // Use default instead of throwing error
   }
 
+  // Skip remote validation for special sentinel values
+  if (trimmed === DEFAULT_ORGANIZATION_ID || trimmed === 'public') {
+    return trimmed;
+  }
+
   // Validate organization exists via remote API
   try {
     const organization = await RemoteApiService.getOrganization(env, trimmed, request);
-    if (organization) {
-      return organization.id;
+    if (!organization || !organization.id) {
+      throw HttpErrors.notFound(`Organization not found: ${trimmed}`);
     }
-    throw HttpErrors.notFound(`Organization not found: ${trimmed}`);
+    return organization.id;
   } catch (error) {
     if (error instanceof HttpError && error.status === 404) {
       throw error;
