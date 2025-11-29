@@ -18,6 +18,7 @@
 ## 3. Data Model
 
 ### `organizations`
+
 | Field | Description |
 |-------|-------------|
 | `is_personal` | `1` for personal orgs. Set to `0` after a paid upgrade via the webhook. |

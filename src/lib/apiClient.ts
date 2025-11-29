@@ -40,15 +40,18 @@ apiClient.interceptors.response.use(
         // Create the handler promise immediately and assign it
         const handle401 = async () => {
           try {
-            await clearToken();
-          } catch (err) {
-            console.error('Failed to clear token on 401:', err);
+            try {
+              await clearToken();
+            } catch (err) {
+              console.error('Failed to clear token on 401:', err);
+            }
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            }
+          } finally {
+            // Reset guard after handling completes, regardless of errors
+            isHandling401 = null;
           }
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-          }
-          // Reset guard after handling completes
-          isHandling401 = null;
         };
         
         // Assign the promise immediately before any async work
