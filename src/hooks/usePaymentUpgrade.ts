@@ -353,25 +353,17 @@ export const usePaymentUpgrade = () => {
         let errorCode: SubscriptionErrorCode | null = null;
         let errorMessage = message;
 
-        const axiosData = (err as { response?: { data?: unknown } })?.response?.data;
-        if (axiosData && typeof axiosData === 'object') {
-          const data = axiosData as Record<string, unknown>;
-          if (typeof data.errorCode === 'string' && Object.values(SubscriptionErrorCode).includes(data.errorCode as SubscriptionErrorCode)) {
-            errorCode = data.errorCode as SubscriptionErrorCode;
-          }
-          if (typeof data.error === 'string') {
-            errorMessage = data.error;
-          }
-        } else {
-          try {
-            const parsedError = JSON.parse(message);
-            if (parsedError.errorCode && Object.values(SubscriptionErrorCode).includes(parsedError.errorCode)) {
-              errorCode = parsedError.errorCode as SubscriptionErrorCode;
-              errorMessage = parsedError.message || message;
+        try {
+          const parsedError = JSON.parse(message);
+          if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
+            const parsedCode = (parsedError as { errorCode?: string }).errorCode;
+            if (parsedCode && Object.values(SubscriptionErrorCode).includes(parsedCode as SubscriptionErrorCode)) {
+              errorCode = parsedCode as SubscriptionErrorCode;
+              errorMessage = (parsedError as { message?: string }).message || message;
             }
-          } catch {
-            // Not a structured error, use original message
           }
+        } catch {
+          // Not a structured error, use original message
         }
 
         const title = errorCode ? getErrorTitle(errorCode) : 'Subscription Sync Error';

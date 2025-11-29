@@ -1,5 +1,8 @@
 import { http, HttpResponse } from 'msw';
 import { mockDb, ensureOrgCollections, randomId } from './mockData';
+import type { MockPractice, MockInvitation } from './mockData';
+
+type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
 
 function findPractice(practiceId: string) {
   return mockDb.practices.find((practice) => practice.id === practiceId || practice.slug === practiceId);
@@ -22,7 +25,7 @@ export const handlers = [
         ? body.slug
         : `${body.name || 'practice'}-${randomId('slug')}`;
 
-    const practice = {
+    const practice: MockPractice = {
       id,
       slug,
       name: String(body.name ?? 'New Practice'),
@@ -38,7 +41,7 @@ export const handlers = [
           planStatus: 'trialing'
         }
       },
-      metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : undefined
+      metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata as Record<string, unknown> : undefined
     };
 
     mockDb.practices.push(practice);
@@ -123,9 +126,10 @@ export const handlers = [
       return HttpResponse.json({ error: 'userId and role are required' }, { status: 400 });
     }
     const target = mockDb.members[id].find((member) => member.userId === body.userId);
-    if (target) {
-      target.role = body.role;
+    if (!target) {
+      return HttpResponse.json({ error: 'Member not found' }, { status: 404 });
     }
+    target.role = body.role;
     return HttpResponse.json({ success: true });
   }),
 
@@ -148,13 +152,13 @@ export const handlers = [
       return HttpResponse.json({ error: 'email and role are required' }, { status: 400 });
     }
     ensureOrgCollections(orgId);
-    const invitation = {
+    const invitation: MockInvitation = {
       id: randomId('invite'),
       organizationId: orgId,
       organizationName: findPractice(orgId)?.name,
       email: body.email,
       role: body.role,
-      status: 'pending',
+      status: 'pending' as const,
       invitedBy: 'user-1',
       expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 7,
       createdAt: Date.now()
@@ -182,6 +186,8 @@ export const handlers = [
       });
     } else if (action === 'decline') {
       invitation.status = 'declined';
+    } else {
+      return HttpResponse.json({ error: 'Invalid invitation action' }, { status: 400 });
     }
     return HttpResponse.json({ success: true });
   }),

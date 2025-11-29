@@ -20,6 +20,10 @@ interface SessionContextValue {
   refreshQuota: () => Promise<void>;
 }
 
+interface OrgConfig extends Record<string, unknown> {
+  quotaUsed?: number;
+}
+
 const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
@@ -49,9 +53,11 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
       return;
     }
 
-    // Get quota from organization config
-    const config = currentOrganization.config as any;
-    const quotaUsed = config?.quotaUsed ?? 0;
+    const config = (currentOrganization.config ?? undefined) as OrgConfig | undefined;
+    const quotaUsed =
+      typeof config?.quotaUsed === 'number' && Number.isFinite(config.quotaUsed)
+        ? config.quotaUsed
+        : 0;
     const tier = currentOrganization.subscriptionTier ?? 'free';
     
     // Simple tier-based limits

@@ -118,7 +118,7 @@ export function getClient(): AuthClientType {
 export const authClient = new Proxy({} as AuthClientType, {
   get(_target, prop) {
     const client = getAuthClient();
-    const value = (client as any)[prop];
+    const value = (client as Record<PropertyKey, unknown>)[prop];
     // If it's a function, bind it to the client to preserve 'this' context
     if (typeof value === 'function') {
       return value.bind(client);

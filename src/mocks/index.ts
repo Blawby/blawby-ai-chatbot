@@ -1,13 +1,24 @@
 let mocksStarted = false;
+let mocksStartedPromise: Promise<void> | null = null;
 
 export async function setupMocks(): Promise<void> {
-  if (mocksStarted || typeof window === 'undefined') {
+  if (typeof window === 'undefined' || mocksStarted) {
     return;
   }
 
-  const { worker } = await import('./browser');
-  await worker.start({
-    onUnhandledRequest: 'bypass'
-  });
-  mocksStarted = true;
+  if (mocksStartedPromise) {
+    await mocksStartedPromise;
+    return;
+  }
+
+  mocksStartedPromise = (async () => {
+    const { worker } = await import('./browser');
+    await worker.start({
+      onUnhandledRequest: 'bypass'
+    });
+    mocksStarted = true;
+    mocksStartedPromise = null;
+  })();
+
+  await mocksStartedPromise;
 }

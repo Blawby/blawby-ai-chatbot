@@ -1806,6 +1806,9 @@ export class OrganizationService {
             `UPDATE organizations SET config = ? WHERE id = ?`
           ).bind(JSON.stringify(updatedConfig), org.id).run();
 
+          // Clear cache to prevent stale config/quota data
+          this.clearCache(org.id);
+
           migrated++;
           Logger.info('Migrated quota data for organization', { 
             organizationId: org.id,

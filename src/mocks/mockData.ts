@@ -44,7 +44,7 @@ export interface MockToken {
   lastUsedAt?: number;
 }
 
-interface OnboardingState {
+export interface OnboardingState {
   status: 'completed' | 'skipped' | 'pending' | 'not_required';
   completed: boolean;
   skipped: boolean;
@@ -192,7 +192,8 @@ export const mockDb = {
     [personalOrgId]: []
   } as Record<string, MockToken[]>,
   onboarding: {
-    [businessOrgId]: { ...defaultOnboarding }
+    [businessOrgId]: { ...defaultOnboarding },
+    [personalOrgId]: { ...defaultOnboarding }
   } as Record<string, OnboardingState>,
   userPreferences: { ...defaultPreferences }
 };

@@ -18,7 +18,6 @@ interface SessionData {
 describe('Organization Context Integration', () => {
   beforeEach(async () => {
     await (env as { DB: D1Database }).DB.prepare('DELETE FROM chat_sessions').run();
-    await (env as { DB: D1Database }).DB.prepare('DELETE FROM usage_quotas').run();
     await (env as { DB: D1Database }).DB.prepare('DELETE FROM organizations').run();
 
     const now = Date.now();

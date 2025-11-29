@@ -84,20 +84,15 @@ export async function requireFeature(
 
   let organization: any;
   try {
-    // Get organization data directly from database
     organization = await env.DB.prepare(
       `SELECT id, subscription_tier, kind, config FROM organizations WHERE id = ?`
     ).bind(options.organizationId).first();
   } catch (error) {
-    // Handle errors from database
-    if (
-      error instanceof Error &&
-      (error.message.includes('not found') || error.message.includes('404'))
-    ) {
-      throw HttpErrors.notFound("Organization not found");
-    }
-    // Re-throw other errors
     throw error;
+  }
+
+  if (!organization) {
+    throw HttpErrors.notFound("Organization not found");
   }
 
   if (config.requireNonPersonal && organization.kind === 'personal') {

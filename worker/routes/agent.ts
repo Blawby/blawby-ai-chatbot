@@ -48,10 +48,10 @@ const getQuota = async (env: Env, organizationId: string) => {
   ).bind(organizationId).first<{ id: string; subscription_tier?: string; config?: string | null }>();
 
   if (!org) {
-    throw new Error(`Organization not found: ${organizationId}`);
+    throw HttpErrors.notFound(`Organization not found: ${organizationId}`);
   }
 
-  let config = {};
+  let config: Record<string, unknown> = {};
   if (org.config) {
     try {
       config = JSON.parse(org.config);
@@ -62,26 +62,46 @@ const getQuota = async (env: Env, organizationId: string) => {
 
   const tier = org.subscription_tier ?? 'free';
   const quotaLimit = getQuotaLimit(tier);
-  const quotaUsed = (config as any).quotaUsed ?? 0;
-  const lastResetDate = (config as any).quotaResetDate;
+  let quotaUsed =
+    typeof (config as Record<string, unknown>).quotaUsed === 'number'
+      ? (config as Record<string, unknown>).quotaUsed as number
+      : 0;
+  let quotaResetDate =
+    typeof (config as Record<string, unknown>).quotaResetDate === 'string'
+      ? (config as Record<string, unknown>).quotaResetDate as string
+      : null;
 
-  if (shouldResetQuota(lastResetDate)) {
-    return { used: 0, limit: quotaLimit, unlimited: quotaLimit < 0 };
+  if (shouldResetQuota(quotaResetDate)) {
+    quotaUsed = 0;
+    quotaResetDate = new Date().toISOString();
+    const resetConfig = {
+      ...config,
+      quotaUsed,
+      quotaResetDate
+    };
+    await env.DB.prepare(
+      `UPDATE organizations SET config = ? WHERE id = ?`
+    ).bind(JSON.stringify(resetConfig), organizationId).run();
+    config = resetConfig;
   }
 
   return { used: quotaUsed, limit: quotaLimit, unlimited: quotaLimit < 0 };
 };
 
 const incrementUsage = async (env: Env, organizationId: string) => {
-  const currentQuota = await getQuota(env, organizationId);
-  
-  if (currentQuota.unlimited || currentQuota.used < currentQuota.limit) {
-    const org = await env.DB.prepare(
-      `SELECT config FROM organizations WHERE id = ?`
-    ).bind(organizationId).first<{ config?: string | null }>();
+  const maxAttempts = 3;
 
-    let config = {};
-    if (org?.config) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const org = await env.DB.prepare(
+      `SELECT subscription_tier, config FROM organizations WHERE id = ?`
+    ).bind(organizationId).first<{ subscription_tier?: string; config?: string | null }>();
+
+    if (!org) {
+      return { success: false, quota: { used: 0, limit: 0, unlimited: false } };
+    }
+
+    let config: Record<string, unknown> = {};
+    if (org.config) {
       try {
         config = JSON.parse(org.config);
       } catch (error) {
@@ -89,20 +109,54 @@ const incrementUsage = async (env: Env, organizationId: string) => {
       }
     }
 
+    const tier = org.subscription_tier ?? 'free';
+    const quotaLimit = getQuotaLimit(tier);
+    let quotaUsed =
+      typeof (config as Record<string, unknown>).quotaUsed === 'number'
+        ? (config as Record<string, unknown>).quotaUsed as number
+        : 0;
+    let quotaResetDate =
+      typeof (config as Record<string, unknown>).quotaResetDate === 'string'
+        ? (config as Record<string, unknown>).quotaResetDate as string
+        : null;
+
+    if (shouldResetQuota(quotaResetDate)) {
+      quotaUsed = 0;
+      quotaResetDate = new Date().toISOString();
+    }
+
+    if (quotaLimit >= 0 && quotaUsed >= quotaLimit) {
+      return {
+        success: false,
+        quota: { used: quotaUsed, limit: quotaLimit, unlimited: false }
+      };
+    }
+
+    const nextQuotaUsed = quotaUsed + 1;
     const updatedConfig = {
       ...config,
-      quotaUsed: currentQuota.used + 1,
-      quotaResetDate: new Date().toISOString()
+      quotaUsed: nextQuotaUsed,
+      quotaResetDate: quotaResetDate ?? new Date().toISOString()
     };
 
-    await env.DB.prepare(
-      `UPDATE organizations SET config = ? WHERE id = ?`
-    ).bind(JSON.stringify(updatedConfig), organizationId).run();
+    const result = await env.DB.prepare(
+      `UPDATE organizations
+         SET config = ?
+       WHERE id = ?
+         AND COALESCE(CAST(json_extract(config, '$.quotaUsed') AS INTEGER), 0) = ?`
+    ).bind(JSON.stringify(updatedConfig), organizationId, quotaUsed).run();
 
-    return { success: true, quota: { ...currentQuota, used: currentQuota.used + 1 } };
+    if (result.success && result.meta.changes === 1) {
+      return {
+        success: true,
+        quota: { used: nextQuotaUsed, limit: quotaLimit, unlimited: quotaLimit < 0 }
+      };
+    }
   }
 
-  return { success: false, quota: currentQuota };
+  Logger.warn('Quota increment failed due to concurrent updates', { organizationId });
+  const fallbackQuota = await getQuota(env, organizationId);
+  return { success: false, quota: fallbackQuota };
 };
 
 // Interface for the request body

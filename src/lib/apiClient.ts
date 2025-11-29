@@ -175,28 +175,29 @@ async function postSubscriptionEndpoint(
   url: string,
   body: Record<string, unknown>
 ): Promise<SubscriptionEndpointResult> {
-  const token = await getTokenAsync();
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    body: JSON.stringify(body)
-  });
-
-  let data: unknown = null;
   try {
-    data = await response.json();
-  } catch {
-    data = null;
+    const response = await apiClient.post(url, body, {
+      baseURL: undefined
+    });
+    return {
+      ok: true,
+      status: response.status,
+      data: response.data ?? null
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      return {
+        ok: false,
+        status: error.response?.status ?? 0,
+        data: error.response?.data ?? null
+      };
+    }
+    return {
+      ok: false,
+      status: 0,
+      data: null
+    };
   }
-
-  return {
-    ok: response.ok,
-    status: response.status,
-    data
-  };
 }
 
 function toNullableString(value: unknown): string | null {
