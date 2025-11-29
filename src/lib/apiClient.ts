@@ -46,7 +46,12 @@ apiClient.interceptors.response.use(
               console.error('Failed to clear token on 401:', err);
             }
             if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+              try {
+                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+              } catch (eventErr) {
+                console.error('Error dispatching auth:unauthorized event:', eventErr);
+                // Don't rethrow - let the original 401 error be the main error
+              }
             }
           } finally {
             // Reset guard after handling completes, regardless of errors
