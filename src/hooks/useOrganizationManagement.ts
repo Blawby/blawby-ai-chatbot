@@ -1,10 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { getOrganizationWorkspaceEndpoint } from '../config/api';
 import { useSession } from '../lib/authClient';
-import { apiClient } from '../lib/apiClient';
-import { 
+import {
+  apiClient,
+  listPractices,
+  createPractice as apiCreatePractice,
+  updatePractice as apiUpdatePractice,
+  deletePractice as apiDeletePractice,
+  type Practice,
+  type UpdatePracticeRequest
+} from '../lib/apiClient';
+import {
   organizationInvitationSchema,
-  organizationSchema,
   membersResponseSchema,
   organizationApiTokenSchema,
   createTokenResponseSchema
@@ -94,11 +101,21 @@ export interface UpdateOrgData {
 }
 
 interface UseOrganizationManagementOptions {
+  /**
+   * When true (default), the hook will automatically fetch organizations
+   * once the session is available. Tests and advanced callers can disable
+   * this to take full control over when loading happens via `refetch()`.
+   */
+  autoFetchOrganizations?: boolean;
+  /**
+   * When true (default), the hook will fetch pending invitations for the
+   * current user. Disable this if you don't need invitations for a given
+   * screen or test.
+   */
   fetchInvitations?: boolean;
 }
 
 const PRACTICE_BASE_PATH = '/api/practice';
-const PRACTICE_LIST_PATH = `${PRACTICE_BASE_PATH}/list`;
 const PRACTICE_INVITATIONS_PATH = `${PRACTICE_BASE_PATH}/invitations`;
 
 const practicePath = (orgId: string) => `${PRACTICE_BASE_PATH}/${encodeURIComponent(orgId)}`;
@@ -211,6 +228,12 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     const c = (raw as Record<string, unknown>).config as unknown;
     if (c && typeof c === 'object' && !Array.isArray(c)) {
       return c as Organization['config'] & { description?: string };
+    }
+    const metadata = (raw as Record<string, unknown>).metadata;
+    if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+      return {
+        metadata: metadata as Record<string, unknown>
+      } as Organization['config'] & { description?: string };
     }
     return undefined as Organization['config'] & { description?: string } | undefined;
   })();
@@ -381,8 +404,39 @@ function _generateUniqueSlug(): string {
   return `org-${timestamp}-${randomSuffix}`;
 }
 
+function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-')
+    .slice(0, 64);
+}
+
+function deriveSlug(preferred?: string, fallback?: string): string {
+  if (preferred && preferred.trim().length > 0) {
+    const normalized = slugify(preferred);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  if (fallback && fallback.trim().length > 0) {
+    const normalized = slugify(fallback);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  return slugify(_generateUniqueSlug());
+}
+
 export function useOrganizationManagement(options: UseOrganizationManagementOptions = {}): UseOrganizationManagementReturn {
-  const { fetchInvitations: shouldFetchInvitations = true } = options;
+  const {
+    autoFetchOrganizations = true,
+    fetchInvitations: shouldFetchInvitations = true,
+  } = options;
   const { data: session, isPending: sessionLoading } = useSession();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
@@ -480,19 +534,11 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
         return;
       }
 
-      const response = await practiceRequest<{ practices?: unknown[] } | unknown[]>(
-        apiClient.get(PRACTICE_LIST_PATH, { signal: controller.signal })
-      );
-
-      const rawOrgList = Array.isArray(response)
-        ? response
-        : Array.isArray((response as { practices?: unknown[] }).practices)
-          ? ((response as { practices?: unknown[] }).practices ?? [])
-          : [];
+      const rawOrgList = await listPractices({ signal: controller.signal });
 
       const normalizedList = rawOrgList
-        .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item))
-        .map((org) => normalizeOrganizationRecord(org))
+        .filter((item): item is Practice => typeof item === 'object' && item !== null)
+        .map((org) => normalizeOrganizationRecord(org as unknown as Record<string, unknown>))
         .filter((org) => org.id.length > 0);
 
       const personalOrg = normalizedList.find(org => org.kind === 'personal');
@@ -552,51 +598,76 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Create organization
   const createOrganization = useCallback(async (data: CreateOrgData): Promise<Organization> => {
-    const result = await practiceRequest<Record<string, unknown>>(
-      apiClient.post(PRACTICE_BASE_PATH, data)
-    );
-
-    try {
-      const resultRecord = result as Record<string, unknown>;
-      
-      // Generate slug: prefer provided slug, fallback to id, or generate unique slug if both missing
-      // This ensures we never use 'unknown' which could cause duplicate slugs
-      const slug = typeof resultRecord.slug === 'string' && resultRecord.slug.trim().length > 0
-        ? resultRecord.slug
-        : typeof resultRecord.id === 'string' && resultRecord.id.trim().length > 0
-          ? resultRecord.id
-          : _generateUniqueSlug();
-      
-      const resultWithSlug = {
-        ...result,
-        slug,
-      };
-      const validatedResult = organizationSchema.parse(resultWithSlug);
-      organizationsFetchedRef.current = false;
-      await fetchOrganizations();
-      if (shouldFetchInvitations) {
-        await fetchInvitations();
-      }
-      return normalizeOrganizationRecord(validatedResult as unknown as Record<string, unknown>);
-    } catch (error) {
-      console.error('Invalid organization data:', result, error);
-      throw new Error('Invalid organization response format');
+    if (!data?.name || data.name.trim().length === 0) {
+      throw new Error('Organization name is required');
     }
-  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
-  // Update organization
-  const updateOrganization = useCallback(async (id: string, data: UpdateOrgData): Promise<void> => {
-    await apiClient.put(practicePath(id), data);
+    const slug = deriveSlug(data.slug, data.name);
+    const metadata = data.description
+      ? { description: data.description }
+      : undefined;
+
+    const practice = await apiCreatePractice({
+      name: data.name,
+      slug,
+      ...(metadata ? { metadata } : {})
+    });
+
+    const normalized = normalizeOrganizationRecord(practice as unknown as Record<string, unknown>);
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
       await fetchInvitations();
     }
+    return normalized;
   }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
+
+  // Update organization
+  const updateOrganization = useCallback(async (id: string, data: UpdateOrgData): Promise<void> => {
+    if (!id) {
+      throw new Error('Organization id is required for update');
+    }
+
+    const payload: Parameters<typeof apiUpdatePractice>[1] = {};
+
+    if (typeof data.name === 'string' && data.name.trim().length > 0) {
+      payload.name = data.name.trim();
+    }
+
+    if (typeof data.slug === 'string' && data.slug.trim().length > 0) {
+      payload.slug = deriveSlug(data.slug, data.name ?? data.slug);
+    }
+
+    if (typeof data.description === 'string') {
+      const existingOrg = organizations.find(org => org.id === id);
+      const existingMetadata = existingOrg?.config?.metadata;
+      const metadataBase = existingMetadata && typeof existingMetadata === 'object' && !Array.isArray(existingMetadata)
+        ? existingMetadata
+        : {};
+      payload.metadata = {
+        ...metadataBase,
+        description: data.description
+      };
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    await apiUpdatePractice(id, payload);
+    organizationsFetchedRef.current = false;
+    await fetchOrganizations();
+    if (shouldFetchInvitations) {
+      await fetchInvitations();
+    }
+  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations, organizations]);
 
   // Delete organization
   const deleteOrganization = useCallback(async (id: string): Promise<void> => {
-    await apiClient.delete(practicePath(id));
+    if (!id) {
+      throw new Error('Organization id is required for deletion');
+    }
+    await apiDeletePractice(id);
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
@@ -830,11 +901,14 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
 
   // Refetch when session changes
   useEffect(() => {
+    if (!autoFetchOrganizations) {
+      return;
+    }
     if (!sessionLoading && session?.user?.id && !refetchTriggeredRef.current) {
       refetchTriggeredRef.current = true;
       fetchOrganizations();
     }
-  }, [session?.user?.id, sessionLoading, fetchOrganizations]);
+  }, [autoFetchOrganizations, session?.user?.id, sessionLoading, fetchOrganizations]);
 
   // Clear fetched flag and abort in-flight requests when session changes
   useEffect(() => {

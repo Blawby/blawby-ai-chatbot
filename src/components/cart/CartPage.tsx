@@ -14,7 +14,7 @@ import {
 } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import { authClient } from '../../lib/authClient';
-import { apiClient } from '../../lib/apiClient';
+import { listPractices, createPractice } from '../../lib/apiClient';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -284,14 +284,8 @@ export const CartPage = () => {
     let betterAuthOrgId = currentOrganization?.betterAuthOrgId ?? currentOrganization?.id;
     if (!organizationId) {
       try {
-        console.debug('[CART][UPGRADE] Checking for practices via /api/practice/list');
-        // Fetch practices directly to avoid state race
-        const practicesRes = await apiClient.get('/api/practice/list');
-        const practices = Array.isArray(practicesRes.data)
-          ? practicesRes.data
-          : Array.isArray(practicesRes.data?.practices)
-            ? practicesRes.data.practices
-            : [];
+        console.debug('[CART][UPGRADE] Checking for practices via practice API helpers');
+        const practices = await listPractices();
         
         // If no practices exist, create a default one
         if (practices.length === 0) {
@@ -299,20 +293,22 @@ export const CartPage = () => {
           const session = await authClient.getSession();
           const userName = session?.data?.user?.name || session?.data?.user?.email?.split('@')[0] || 'User';
           const practiceName = `${userName}'s Practice`;
-          const practiceSlug = `practice-${session?.data?.user?.id?.slice(0, 8) || Date.now().toString()}`;
+          const practiceSlug = `practice-${(session?.data?.user?.id ?? Date.now().toString())
+            .toString()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 64)}`;
           
-          const createRes = await apiClient.post('/api/practice', {
+          const createdPractice = await createPractice({
             name: practiceName,
             slug: practiceSlug,
-            business_email: session?.data?.user?.email || '',
-            // Remove hardcoded placeholder values - let backend handle defaults
-            // business_phone and consultation_fee should be optional or set by user later
+            businessEmail: session?.data?.user?.email || undefined,
           });
           
-          const createdPractice = createRes.data?.practice || createRes.data;
           if (createdPractice?.id) {
             organizationId = createdPractice.id;
-            betterAuthOrgId = createdPractice.betterAuthOrgId || createdPractice.id;
+            betterAuthOrgId = createdPractice.id;
           }
         } else {
           // Use first practice or find personal one
@@ -320,7 +316,9 @@ export const CartPage = () => {
           const practice = personal || practices[0];
           if (practice?.id) {
             organizationId = practice.id;
-            betterAuthOrgId = practice.betterAuthOrgId || practice.id;
+            betterAuthOrgId = ('betterAuthOrgId' in practice && typeof (practice as any).betterAuthOrgId === 'string')
+              ? (practice as any).betterAuthOrgId
+              : practice.id;
           }
         }
         console.debug('[CART][UPGRADE] Ensured/loaded practices. Resolved organizationId:', organizationId);

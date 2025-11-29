@@ -4,7 +4,7 @@ import type { OrganizationConfig } from '../../worker/types';
 import { useSessionContext } from '../contexts/SessionContext.js';
 import { useSession } from '../lib/authClient.js';
 import { DEFAULT_ORGANIZATION_ID } from '../utils/constants.js';
-import { apiClient } from '../lib/apiClient.js';
+import { listPractices, getPractice } from '../lib/apiClient.js';
 
 // Zod schema for API response validation
 const OrganizationSchema = z.object({
@@ -20,10 +20,6 @@ const OrganizationSchema = z.object({
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
-});
-
-const OrganizationsResponseSchema = z.object({
-  data: z.array(OrganizationSchema)
 });
 
 // Extended config with name for UI convenience (name comes from Organization, not config)
@@ -203,13 +199,12 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       
       if (isUuid) {
         try {
-          const response = await apiClient.get(`/api/practice/${encodeURIComponent(currentOrganizationId)}`, { signal: controller.signal });
+          const practice = await getPractice(currentOrganizationId, { signal: controller.signal });
           if (isStaleRequest()) {
             return;
           }
-          const practice = response.data?.practice || response.data;
           if (practice) {
-            organization = OrganizationSchema.parse(practice);
+            organization = OrganizationSchema.parse(practice as unknown as Record<string, unknown>);
           }
         } catch (e) {
           // If direct fetch fails, fall through to list approach
@@ -219,20 +214,15 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       
       // If we don't have the organization yet, list all practices and find the matching one
       if (!organization) {
-        const response = await apiClient.get('/api/practice/list', { signal: controller.signal });
+        const practices = await listPractices({ signal: controller.signal });
         
-        // Check if this request is still current before processing response
         if (isStaleRequest()) {
-          return; // Request is stale or aborted, don't update state
+          return;
         }
 
-        const practices = Array.isArray(response.data)
-          ? response.data
-          : Array.isArray(response.data?.practices)
-            ? response.data.practices
-            : [];
-        
-        organization = practices.find((t: any) => t.slug === currentOrganizationId || t.id === currentOrganizationId);
+        organization = practices.find(
+          (t) => t.slug === currentOrganizationId || t.id === currentOrganizationId
+        ) as z.infer<typeof OrganizationSchema> | undefined;
       }
 
       // Check again before processing organization data

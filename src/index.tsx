@@ -33,7 +33,7 @@ import { useOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
 import QuotaBanner from './components/QuotaBanner';
 import { DEFAULT_ORGANIZATION_ID } from './utils/constants';
-import { apiClient } from './lib/apiClient';
+import { apiClient, listPractices, createPractice } from './lib/apiClient';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -181,14 +181,8 @@ function MainApp({
                         
                         // Check if practices exist
                         try {
-                            const listResp = await apiClient.get('/api/practice/list', { signal: controller.signal });
-                            const practices = Array.isArray(listResp.data) 
-                                ? listResp.data 
-                                : Array.isArray(listResp.data?.practices) 
-                                    ? listResp.data.practices 
-                                    : [];
-                            
-                            // If no practices exist, create a default one
+                            const practices = await listPractices({ signal: controller.signal });
+
                             if (practices.length === 0) {
                                 const userName = session.user.name || session.user.email?.split('@')[0] || 'User';
                                 const practiceName = `${userName}'s Practice`;
@@ -212,16 +206,16 @@ function MainApp({
                                     Number.isFinite(DEFAULT_CONSULTATION_FEE) && DEFAULT_CONSULTATION_FEE > 0
                                         ? DEFAULT_CONSULTATION_FEE
                                         : undefined;
-                                
-                                await apiClient.post('/api/practice', {
+
+                                await createPractice({
                                     name: practiceName,
                                     slug: practiceSlug,
-                                    business_email: session.user.email || '',
-                                    ...(businessPhone ? { business_phone: businessPhone } : {}),
-                                    ...(consultationFee ? { consultation_fee: consultationFee } : {}),
+                                    businessEmail: session.user.email || undefined,
+                                    ...(businessPhone ? { businessPhone } : {}),
+                                    ...(consultationFee ? { consultationFee } : {})
                                 }, { signal: controller.signal });
                             }
-                            
+
                             clearTimeout(timeoutId);
                             sessionStorage.setItem(key, '1');
                         } catch (e) {
