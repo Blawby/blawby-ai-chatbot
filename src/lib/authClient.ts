@@ -17,7 +17,9 @@ const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
 // Get auth URL - validate in browser context only
 function getAuthBaseUrl(): string {
   if (typeof window === 'undefined') {
-    throw new Error('Auth client cannot be instantiated during server-side rendering');
+    // During SSR/build, return a placeholder that won't be used
+    // The actual client creation is guarded in getAuthClient()
+    return 'https://placeholder-auth-server.com';
   }
   
   // Browser runtime - validate and throw if missing
@@ -40,6 +42,8 @@ let cachedAuthClient: AuthClientType | null = null;
  * The client is created lazily on first access and cached for subsequent calls.
  * Validation of VITE_AUTH_SERVER_URL happens in browser context before client creation.
  * 
+ * During SSR/build, returns a placeholder client that will never be used at runtime.
+ * 
  * @throws {Error} If VITE_AUTH_SERVER_URL is missing in production (browser context)
  */
 function getAuthClient(): AuthClientType {
@@ -48,7 +52,25 @@ function getAuthClient(): AuthClientType {
     return cachedAuthClient;
   }
   
-  // Validate baseURL in browser context before creating client
+  // During SSR/build, create a placeholder client that won't be used
+  // This prevents build errors while still allowing the code to be analyzed
+  if (typeof window === 'undefined') {
+    const placeholderBaseURL = getAuthBaseUrl(); // Returns placeholder during SSR
+    cachedAuthClient = createAuthClient({
+      plugins: [organizationClient()],
+      baseURL: placeholderBaseURL,
+      fetchOptions: {
+        auth: {
+          type: "Bearer",
+          token: async () => "",
+        },
+        onSuccess: async () => {},
+      }
+    });
+    return cachedAuthClient;
+  }
+  
+  // Browser context - validate baseURL before creating client
   const baseURL = getAuthBaseUrl();
   
   // Create and cache the client
