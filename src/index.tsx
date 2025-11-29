@@ -33,7 +33,7 @@ import { useOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
 import QuotaBanner from './components/QuotaBanner';
 import { DEFAULT_ORGANIZATION_ID } from './utils/constants';
-import { apiClient, listPractices, createPractice } from './lib/apiClient';
+import { listPractices, createPractice } from './lib/apiClient';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 

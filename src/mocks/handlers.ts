@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { mockDb, ensureOrgCollections, randomId } from './mockData';
+import type { MockPractice, MockInvitation } from './mockData';
 
 const ALLOWED_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal'] as const);
 type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -7,9 +8,6 @@ type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
 function isValidRole(role: unknown): role is Role {
   return typeof role === 'string' && ALLOWED_ROLES.has(role as Role);
 }
-import type { MockPractice, MockInvitation } from './mockData';
-
-type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
 
 function findPractice(practiceId: string) {
   return mockDb.practices.find((practice) => practice.id === practiceId || practice.slug === practiceId);

@@ -721,13 +721,12 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         status: 200,
         headers
       });
-
-          } catch (error) {
-        Logger.error('File download error:', error);
-        return handleError(error);
-      }
+    } catch (error) {
+      Logger.error('File download error:', error);
+      return handleError(error);
+    }
   }
 
   throw HttpErrors.notFound('Invalid file endpoint');
 }
-} 
+}
