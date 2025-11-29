@@ -120,15 +120,27 @@ test('API calls include Bearer token automatically', async ({ page }) => {
   await page.goto('/auth');
   // ... login actions
   
-  // Verify API calls include token
-  const response = await page.evaluate(async () => {
-    const response = await fetch('/api/practice/list', {
-      headers: { 'Content-Type': 'application/json' }
-    });
-    return response.headers.get('authorization');
+  // Capture outgoing request and verify Authorization header
+  let capturedRequest: Request | undefined;
+  page.on('request', request => {
+    if (request.url().includes('/api/practice/list')) {
+      capturedRequest = request;
+    }
   });
   
-  expect(response).toMatch(/^Bearer /);
+  // Trigger API call
+  await page.evaluate(async () => {
+    await fetch('/api/practice/list', {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  });
+  
+  // Wait for request to be captured
+  await page.waitForTimeout(100);
+  
+  // Verify the Authorization header on the outgoing request
+  expect(capturedRequest).toBeDefined();
+  expect(capturedRequest?.headers()['authorization']).toMatch(/^Bearer /);
 });
 ```
 

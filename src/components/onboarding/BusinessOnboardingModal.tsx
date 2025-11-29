@@ -11,6 +11,11 @@ import type { OnboardingFormData } from './hooks/useOnboardingState';
 import type { OnboardingStep } from './hooks/useStepValidation';
 import { apiClient } from '../../lib/apiClient';
 import type { StripeConnectStatus } from './types';
+import {
+  extractProgressFromPayload,
+  extractStripeStatusFromPayload,
+  type PersistedOnboardingSnapshot,
+} from './utils';
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
   welcome: 'Welcome to Blawby',
@@ -41,65 +46,6 @@ const STEP_SEQUENCE: OnboardingStep[] = [
   'services',
   'review-and-launch'
 ];
-
-type PersistedOnboardingSnapshot = OnboardingFormData & {
-  __meta?: {
-    resumeStep?: OnboardingStep;
-    savedAt?: string;
-  };
-};
-
-interface BusinessOnboardingStatusResponse {
-  status: 'completed' | 'skipped' | 'pending' | 'not_required';
-  completed: boolean;
-  skipped: boolean;
-  completedAt: number | null;
-  lastSavedAt: number | null;
-  hasDraft: boolean;
-  data: PersistedOnboardingSnapshot | null;
-}
-
-const extractProgressFromPayload = (payload: unknown): BusinessOnboardingStatusResponse | null => {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  const candidate = payload as Record<string, unknown>;
-
-  if ('data' in candidate && candidate.data && typeof candidate.data === 'object') {
-    return candidate.data as BusinessOnboardingStatusResponse;
-  }
-
-  if (typeof candidate.status === 'string' && ('completed' in candidate || 'skipped' in candidate)) {
-    return candidate as BusinessOnboardingStatusResponse;
-  }
-
-  return null;
-};
-
-const extractStripeStatusFromPayload = (payload: unknown): StripeConnectStatus | null => {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  const candidate = payload as Record<string, unknown>;
-
-  if ('stripe_status' in candidate && typeof candidate.stripe_status === 'object') {
-    return candidate.stripe_status as StripeConnectStatus;
-  }
-
-  if (
-    'practice_uuid' in candidate ||
-    'stripe_account_id' in candidate ||
-    'charges_enabled' in candidate ||
-    'payouts_enabled' in candidate ||
-    'details_submitted' in candidate
-  ) {
-    return candidate as StripeConnectStatus;
-  }
-
-  return null;
-};
 
 interface BusinessOnboardingModalProps {
   isOpen: boolean;
@@ -135,7 +81,8 @@ const BusinessOnboardingModal = ({
     }
 
     try {
-      const response = await apiClient.get(`/api/onboarding/organization/${organizationId}/status`);
+      const encodedId = encodeURIComponent(organizationId);
+      const response = await apiClient.get(`/api/onboarding/organization/${encodedId}/status`);
       const payload = response.data;
       const status = extractStripeStatusFromPayload(payload);
       if (status) {
@@ -210,9 +157,8 @@ const BusinessOnboardingModal = ({
         practice_uuid: organizationId
       });
 
-      if (typeof data?.client_secret === 'string') {
-        setStripeClientSecret(data.client_secret);
-      }
+      const secret = typeof data?.client_secret === 'string' ? data.client_secret.trim() : '';
+      setStripeClientSecret(secret.length > 0 ? secret : null);
 
       await fetchStripeStatus();
 
@@ -324,13 +270,13 @@ const BusinessOnboardingModal = ({
       return;
     }
 
-    if (currentStep === 'stripe-onboarding') {
+    if (currentStep === 'stripe-onboarding' && !stripeClientSecret) {
       try {
         await startStripeOnboarding();
-      } catch {
+      } finally {
         setLoading(false);
-        return;
       }
+      return;
     }
 
     const resumeStep = isLastStep ? currentStep : getAdjacentStep(currentStep, 1);

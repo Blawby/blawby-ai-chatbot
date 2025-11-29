@@ -40,6 +40,8 @@
 	"dependencies": {
 		"@heroicons/react": "^2.2.0",
 		"@nanostores/preact": "^1.0.0",
+		"@stripe/connect-js": "^3.3.31",
+		"@stripe/react-connect-js": "^3.3.31",
 		"@tailwindcss/typography": "^0.5.16",
 		"@types/dompurify": "^3.0.5",
 		"axios": "^1.13.2",

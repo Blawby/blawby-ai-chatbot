@@ -2,6 +2,55 @@ import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import { renderHook, act } from '@testing-library/preact';
 import { useOrganizationManagement } from '../useOrganizationManagement';
 
+// Set up jsdom environment for this test
+import { JSDOM } from 'jsdom';
+
+const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
+  url: 'http://localhost',
+  pretendToBeVisual: true,
+  resources: 'usable'
+});
+
+// Use Object.defineProperty to set read-only properties
+Object.defineProperty(global, 'window', {
+  value: dom.window,
+  writable: true
+});
+
+Object.defineProperty(global, 'document', {
+  value: dom.window.document,
+  writable: true
+});
+
+Object.defineProperty(global, 'navigator', {
+  value: dom.window.navigator,
+  writable: true
+});
+
+// Set other globals
+global.HTMLElement = dom.window.HTMLElement;
+global.HTMLAnchorElement = dom.window.HTMLAnchorElement;
+global.HTMLButtonElement = dom.window.HTMLButtonElement;
+global.HTMLDivElement = dom.window.HTMLDivElement;
+global.HTMLSpanElement = dom.window.HTMLSpanElement;
+global.HTMLInputElement = dom.window.HTMLInputElement;
+global.HTMLFormElement = dom.window.HTMLFormElement;
+global.Event = dom.window.Event;
+global.EventTarget = dom.window.EventTarget;
+global.MessageEvent = dom.window.MessageEvent;
+global.DragEvent = dom.window.DragEvent;
+global.KeyboardEvent = dom.window.KeyboardEvent;
+global.MouseEvent = dom.window.MouseEvent;
+global.PointerEvent = dom.window.PointerEvent;
+global.TouchEvent = dom.window.TouchEvent;
+global.WheelEvent = dom.window.WheelEvent;
+global.AnimationEvent = dom.window.AnimationEvent;
+global.TransitionEvent = dom.window.TransitionEvent;
+global.UIEvent = dom.window.UIEvent;
+global.FocusEvent = dom.window.FocusEvent;
+global.CompositionEvent = dom.window.CompositionEvent;
+global.StorageEvent = dom.window.StorageEvent;
+
 const { mockApiClient } = vi.hoisted(() => ({
   mockApiClient: {
     get: vi.fn(),
@@ -32,10 +81,8 @@ vi.mock('../../config/api', async () => {
   };
 });
 
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
 
-describe('useOrganizationManagement (practice API)', () => {
+describe('useOrganizationManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiClient.get.mockReset();
@@ -44,27 +91,17 @@ describe('useOrganizationManagement (practice API)', () => {
     mockApiClient.patch.mockReset();
     mockApiClient.delete.mockReset();
     mockApiClient.get.mockResolvedValue({ data: { practices: [] } });
-    mockFetch.mockReset();
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({}),
-    } as Response);
   });
 
-  afterAll(() => {
-    vi.unstubAllGlobals();
-  });
 
-  it('loads practices via the axios client', async () => {
+  it('loads organizations via the axios client', async () => {
     const practicePayload = {
       data: {
         practices: [
           {
             id: 'org-1',
-            name: 'Test Practice',
-            slug: 'test-practice',
+            name: 'Test Organization',
+            slug: 'test-organization',
           },
         ],
       },
@@ -82,16 +119,16 @@ describe('useOrganizationManagement (practice API)', () => {
     expect(result.current.organizations).toHaveLength(1);
     expect(result.current.organizations[0]).toMatchObject({
       id: 'org-1',
-      name: 'Test Practice',
+      name: 'Test Organization',
     });
   });
 
-  it('creates a practice via POST /api/practice', async () => {
+  it('creates an organization via POST /api/practice', async () => {
     mockApiClient.post.mockResolvedValueOnce({
       data: {
         id: 'org-new',
-        name: 'New Practice',
-        slug: 'new-practice',
+        name: 'New Organization',
+        slug: 'new-organization',
       },
     });
     mockApiClient.get.mockResolvedValue({
@@ -99,8 +136,8 @@ describe('useOrganizationManagement (practice API)', () => {
         practices: [
           {
             id: 'org-new',
-            name: 'New Practice',
-            slug: 'new-practice',
+            name: 'New Organization',
+            slug: 'new-organization',
           },
         ],
       },
@@ -109,12 +146,12 @@ describe('useOrganizationManagement (practice API)', () => {
     const { result } = renderHook(() => useOrganizationManagement());
 
     await act(async () => {
-      await result.current.createOrganization({ name: 'New Practice', slug: 'new-practice' });
+      await result.current.createOrganization({ name: 'New Organization', slug: 'new-organization' });
     });
 
     expect(mockApiClient.post).toHaveBeenCalledWith('/api/practice', {
-      name: 'New Practice',
-      slug: 'new-practice',
+      name: 'New Organization',
+      slug: 'new-organization',
     });
     expect(result.current.organizations.some(org => org.id === 'org-new')).toBe(true);
   });

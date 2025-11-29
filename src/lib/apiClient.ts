@@ -1,16 +1,16 @@
 import axios from 'axios';
-import { getTokenAsync } from './tokenStorage';
+import { getTokenAsync, clearToken } from './tokenStorage';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  'https://staging-api.blawby.com';
+const API_BASE_URL = (() => {
+  const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+  if (!explicit) {
+    throw new Error('API base URL not configured. Please set VITE_API_BASE_URL or VITE_API_URL.');
+  }
+  return explicit;
+})();
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 apiClient.interceptors.request.use(
@@ -27,9 +27,15 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      console.error('Unauthorized - please log in again');
+      await clearToken().catch(() => {});
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        if (window.location.pathname !== '/auth') {
+          window.location.href = '/auth';
+        }
+      }
     }
     return Promise.reject(error);
   }

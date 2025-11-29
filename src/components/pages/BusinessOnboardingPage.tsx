@@ -8,6 +8,7 @@ import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../util
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
 import { apiClient } from '../../lib/apiClient';
+import { extractProgressFromPayload } from '../onboarding/utils';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
@@ -175,16 +176,14 @@ export const BusinessOnboardingPage = () => {
     if (!ready || !targetOrganizationId) return;
     const checkCompletion = async () => {
       try {
-        const response = await apiClient.get(`/api/onboarding/organization/${targetOrganizationId}/status`);
+        const encodedId = encodeURIComponent(targetOrganizationId);
+        const response = await apiClient.get(`/api/onboarding/organization/${encodedId}/status`);
         const payload = response.data;
-        let completed = false;
+        const progress = extractProgressFromPayload(payload);
+        let completed = Boolean(progress?.completed);
 
-        if (payload && typeof payload === 'object') {
-          if ('data' in payload && payload.data && typeof payload.data === 'object' && 'completed' in payload.data) {
-            completed = Boolean((payload.data as { completed?: boolean }).completed);
-          } else if ('completed' in payload) {
-            completed = Boolean((payload as { completed?: boolean }).completed);
-          }
+        if (!completed && payload && typeof payload === 'object' && 'completed' in payload) {
+          completed = Boolean((payload as { completed?: boolean }).completed);
         }
 
         if (completed) {

@@ -188,6 +188,10 @@ async function getLatestSubscriptionRow(env: Env, organizationId: string): Promi
   return null;
 }
 
+/**
+ * @deprecated This function no longer performs local database lookups.
+ * Use RemoteApiService to resolve organization from Stripe identifiers.
+ */
 export async function resolveOrganizationForStripeIdentifiers(
   env: Env,
   identifiers: {
@@ -210,12 +214,16 @@ export async function resolveOrganizationForStripeIdentifiers(
   // If customerId is provided, the remote API should handle customer-to-organization mapping
   // This method is deprecated and should not be used for new code
   if (customerId) {
-    // TODO: If needed, implement remote API call to resolve organization by Stripe customer ID
-    // For now, return null as organizations are managed remotely
-    return null;
+    throw new Error(
+      'Organization resolution by Stripe customer ID is no longer supported locally. ' +
+      'Use RemoteApiService.resolveOrganizationByCustomerId() instead.'
+    );
   }
 
-  return null;
+  throw new Error(
+    'Organization resolution via SubscriptionService has been deprecated. ' +
+    'Use the remote API to resolve Stripe identifiers.'
+  );
 }
 
 interface UpsertSubscriptionRecordArgs {

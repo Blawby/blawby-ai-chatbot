@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_BETTER_AUTH_URL?: string;
   readonly VITE_AUTH_SERVER_URL?: string;
   readonly VITE_API_BASE_URL?: string;
+  readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
   readonly [key: string]: string | undefined;
 }
 

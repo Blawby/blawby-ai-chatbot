@@ -75,12 +75,84 @@ export default {
 All notification endpoints and SSE connections must use the new Bearer token authentication:
 
 **SSE Authentication**:
+
+Option A: Fetch-based streaming (recommended - no polyfill needed):
 ```typescript
 // Client: src/hooks/useMessageHandling.ts
-const eventSource = new EventSource('/api/agent/stream', {
+async function createAuthenticatedStream(endpoint: string, token: string) {
+  const response = await fetch(endpoint, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Stream failed: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+
+  return {
+    async *[Symbol.asyncIterator]() {
+      if (!reader) return;
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') return;
+              try {
+                yield JSON.parse(data);
+              } catch (e) {
+                console.warn('Failed to parse SSE data:', data);
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    },
+    
+    // Abort support
+    abort() {
+      reader?.cancel();
+    }
+  };
+}
+
+// Usage
+const token = await getTokenAsync();
+const stream = createAuthenticatedStream('/api/agent/stream', token);
+
+for await (const event of stream) {
+  if (event.type === 'notification') {
+    // Handle notification
+  }
+}
+```
+
+Option B: EventSource with polyfill (if you prefer EventSource API):
+```typescript
+// Requires: npm install eventsource-polyfill
+import { EventSourcePolyfill } from 'eventsource-polyfill';
+
+// Client: src/hooks/useMessageHandling.ts
+const eventSource = new EventSourcePolyfill('/api/agent/stream', {
   headers: {
     'Authorization': `Bearer ${await getTokenAsync()}`
-  }
+  },
+  withCredentials: false // Not needed with Bearer token
 });
 
 // Worker: worker/routes/agent.ts
