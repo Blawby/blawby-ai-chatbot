@@ -95,6 +95,46 @@ const criticalCssPlugin = (): Plugin => {
 	};
 };
 
+const proxyEndpoints = [
+	'agent',
+	'sessions',
+	'files',
+	'activity',
+	'analyze',
+	'review',
+	'pdf',
+	'debug',
+	'status',
+	'config',
+	'usage',
+	'health',
+];
+
+const createProxyConfig = () => ({
+	target: 'http://localhost:8787',
+	changeOrigin: true,
+	secure: false,
+	configure: (proxy: any, _options: any) => {
+		proxy.on('error', (err: Error) => {
+			console.log('proxy error', err);
+		});
+		proxy.on('proxyReq', (_proxyReq: any, req: any) => {
+			console.log('Sending Request to the Target:', req.method, req.url);
+		});
+		proxy.on('proxyRes', (proxyRes: any, req: any) => {
+			console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+		});
+	},
+});
+
+const buildProxyEntries = () => {
+	const entries: Record<string, any> = {};
+	proxyEndpoints.forEach((endpoint) => {
+		entries[`/api/${endpoint}`] = createProxyConfig();
+	});
+	return entries;
+};
+
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [
@@ -240,79 +280,7 @@ export default defineConfig({
 		// Proxy API calls to local backend for chatbot endpoints only
 		// Management endpoints (auth, organizations CRUD, payment, subscription) are handled by remote API
 		// and will bypass the proxy entirely, using remote API via frontend helpers
-		proxy: {
-			'/api/agent': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-				configure: (proxy: any, _options: any) => {
-					proxy.on('error', (err: Error, _req: any, _res: any) => {
-						console.log('proxy error', err);
-					});
-					proxy.on('proxyReq', (_proxyReq: any, req: any, _res: any) => {
-						console.log('Sending Request to the Target:', req.method, req.url);
-					});
-					proxy.on('proxyRes', (proxyRes: any, req: any, _res: any) => {
-						console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
-					});
-				},
-			},
-			'/api/sessions': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/files': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/activity': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/analyze': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/review': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/pdf': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/debug': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/status': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/config': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/usage': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-			'/api/health': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				secure: false,
-			},
-		}
+		proxy: buildProxyEntries()
 	},
 	// Environment variables for development
 	define: {

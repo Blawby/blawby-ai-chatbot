@@ -61,3 +61,7 @@ STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret_here
 STRIPE_CONNECT_WEBHOOK_SECRET=your_stripe_connect_webhook_secret_here
 STRIPE_PRICE_ID=your_price_id_here
 STRIPE_ANNUAL_PRICE_ID=your_annual_price_id_here
+
+# Development Practice Seeding
+# NOTE: Dev seed environment variables are NOT Worker secrets.
+#       Set them in .env (see .env.example) or export them in your shell before running npm run dev:seed.

@@ -52,8 +52,12 @@ export async function requireFeature(
     organization = await UsageService.getOrganizationMetadata(env, options.organizationId, request);
   } catch (error) {
     // Handle errors from remote API (not found, API down, etc.)
-    if (error instanceof Error && 'status' in error) {
-      const httpError = error as { status: number; message: string };
+    if (
+      error instanceof Error &&
+      'status' in error &&
+      typeof (error as any).status === 'number'
+    ) {
+      const httpError = error as { status: number };
       if (httpError.status === 404) {
         throw HttpErrors.notFound(`Organization not found: ${options.organizationId}`);
       }
@@ -85,7 +89,7 @@ export async function requireFeature(
   if (config.quotaMetric) {
     const overQuota = await UsageService.isOverQuota(env, options.organizationId, config.quotaMetric);
     if (overQuota) {
-      const quota = await UsageService.getRemainingQuota(env, options.organizationId);
+      const quota = await UsageService.getRemainingQuota(env, options.organizationId, request);
       throw HttpErrors.paymentRequired("Usage limit reached for this feature", {
         feature: config.feature,
         quota,

@@ -135,6 +135,19 @@ Create a `.env` file in the project root for frontend environment variables:
   - Example: `http://localhost:8787` for local development
   - Optional in development - will fall back to a default ngrok URL for testing if not set
 
+##### Development Practice Seeding
+
+When running the app locally you can automatically provision a default practice for your dev account via the remote API:
+
+1. Set these env vars (e.g. in `.env.local` before running the script):
+   - `DEV_SEED_BASE_URL` (defaults to `http://localhost:8787`)
+   - `DEV_SEED_USER_EMAIL`
+   - `DEV_SEED_USER_PASSWORD`
+   - optional `DEV_SEED_PRACTICE_NAME` / `DEV_SEED_PRACTICE_SLUG`
+2. Run `npm run dev:seed`
+
+The script signs in through the Worker (which proxies to Better Auth), checks `/api/practice/list`, and creates a default practice via `/api/practice` if none exist.
+
 **For Production (Cloudflare Pages):**
 Set `VITE_AUTH_SERVER_URL` in Cloudflare Pages environment variables:
 

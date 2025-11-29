@@ -673,7 +673,8 @@ export async function handleAgentStreamV2(request: Request, env: Env): Promise<R
             {
               provider: providerOverride,
               model: modelOverride
-            }
+            },
+            request
           );
           
         } catch (error) {

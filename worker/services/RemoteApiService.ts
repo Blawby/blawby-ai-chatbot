@@ -26,6 +26,9 @@ export class RemoteApiService {
    * Get the base URL for the remote API
    */
   private static getRemoteApiUrl(env: Env): string {
+    if (!env.REMOTE_API_URL) {
+      Logger.warn('REMOTE_API_URL not configured, falling back to staging endpoint');
+    }
     return env.REMOTE_API_URL || 'https://staging-api.blawby.com';
   }
 
@@ -268,4 +271,3 @@ export class RemoteApiService {
     }
   }
 }
-

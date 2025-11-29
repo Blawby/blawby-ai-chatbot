@@ -22,7 +22,14 @@ export async function ensureActiveSubscription(
   const { organizationId } = options;
 
   // Fetch subscription status from remote API
-  const subscriptionStatus = await RemoteApiService.getSubscriptionStatus(env, organizationId, request);
+  let subscriptionStatus: string;
+  try {
+    subscriptionStatus = await RemoteApiService.getSubscriptionStatus(env, organizationId, request);
+  } catch (error) {
+    throw HttpErrors.serviceUnavailable(
+      "Unable to retrieve subscription status. Please try again later."
+    );
+  }
 
   const isActive = subscriptionStatus === "active";
   const isTrialing = subscriptionStatus === "trialing";

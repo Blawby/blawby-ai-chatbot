@@ -7,7 +7,7 @@ import { Logo } from './ui/Logo';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from './ui/form';
 import { Input, EmailInput, PasswordInput } from './ui/input';
 import { handleError } from '../utils/errorHandler';
-import { authClient, signUp, signIn } from '../lib/authClient';
+import { authClient, getClient } from '../lib/authClient';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -100,7 +100,9 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         }
 
         // Use Better Auth for sign-up
-        const result = await signUp.email({
+        // Get client directly to avoid proxy issues with nested methods
+        const client = getClient();
+        const result = await client.signUp.email({
           email: formData.email,
           password: formData.password,
           name: formData.name || formData.email.split('@')[0] || t('defaults.demoUserName'),
@@ -124,7 +126,9 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         setShowOnboarding(true);
       } else {
         // Use Better Auth for sign-in
-        const result = await signIn.email({
+        // Get client directly to avoid proxy issues with nested methods
+        const client = getClient();
+        const result = await client.signIn.email({
           email: formData.email,
           password: formData.password,
         });
@@ -172,7 +176,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
     try {
       // Use Better Auth for Google OAuth
-      const result = await authClient.signIn.social({
+      const client = getClient();
+      const result = await client.signIn.social({
         provider: 'google',
         callbackURL: `${window.location.origin}/`,
       });

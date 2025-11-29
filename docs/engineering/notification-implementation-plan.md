@@ -15,6 +15,7 @@
 - **Implementation**: Server-Sent Events for chat streaming
 - **Headers**: `Content-Type: text/event-stream` (line 48)
 - **Client**: `src/hooks/useMessageHandling.ts` (lines 55-582)
+- **Authentication**: Bearer token authentication via `src/lib/authClient.ts`
 
 **PWA & Service Worker**
 - **File**: `public/sw.js` (lines 1-18) - Basic implementation
@@ -65,6 +66,124 @@ export default {
     }
   }
 }
+```
+
+## Authentication Integration
+
+### Bearer Token Authentication for Notifications
+
+All notification endpoints and SSE connections must use the new Bearer token authentication:
+
+**SSE Authentication**:
+
+Option A: Fetch-based streaming (recommended - no polyfill needed):
+```typescript
+// Client: src/hooks/useMessageHandling.ts
+async function createAuthenticatedStream(endpoint: string, token: string) {
+  const response = await fetch(endpoint, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Stream failed: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+
+  return {
+    async *[Symbol.asyncIterator]() {
+      if (!reader) return;
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') return;
+              try {
+                yield JSON.parse(data);
+              } catch (e) {
+                console.warn('Failed to parse SSE data:', data);
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    },
+    
+    // Abort support
+    abort() {
+      reader?.cancel();
+    }
+  };
+}
+
+// Usage
+const token = await getTokenAsync();
+const stream = createAuthenticatedStream('/api/agent/stream', token);
+
+for await (const event of stream) {
+  if (event.type === 'notification') {
+    // Handle notification
+  }
+}
+```
+
+Option B: EventSource with polyfill (if you prefer EventSource API):
+```typescript
+// Requires: npm install eventsource-polyfill
+import { EventSourcePolyfill } from 'eventsource-polyfill';
+
+// Client: src/hooks/useMessageHandling.ts
+const eventSource = new EventSourcePolyfill('/api/agent/stream', {
+  headers: {
+    'Authorization': `Bearer ${await getTokenAsync()}`
+  },
+  withCredentials: false // Not needed with Bearer token
+});
+
+// Worker: worker/routes/agent.ts
+// Verify Bearer token before establishing SSE
+const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+const session = await verifyToken(token);
+```
+
+**API Notification Endpoints**:
+```typescript
+// All notification API calls use the configured apiClient
+import { apiClient } from '@/lib/apiClient';
+
+// Get notifications
+const notifications = await apiClient.get('/api/notifications');
+
+// Mark as read
+await apiClient.post(`/api/notifications/${id}/read`);
+```
+
+**Queue Events Include Organization Context**:
+```typescript
+// Queue messages must include organizationId for proper routing
+await env.NOTIFICATION_QUEUE.send({
+  type: 'email',
+  notificationType: 'matter_created',
+  recipient: ownerEmail,
+  organizationId, // Required for multi-tenant isolation
+  userId, // Required for user-specific notifications
+  data: { matterInfo, clientInfo }
+});
 ```
 
 ## Implementation Strategy

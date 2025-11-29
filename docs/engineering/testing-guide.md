@@ -42,6 +42,7 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 - Include `Content-Type: application/json` header for POST requests to Better Auth
 - Use `waitForSessionState` helper to poll for async session changes
 - Verify outcomes through API endpoints (`/api/organizations/me`), not direct DB queries
+- For Bearer token tests, test token storage in IndexedDB and automatic inclusion in headers
 
 **Personal Organization Validation**:
 After signup or authentication, tests must verify personal org metadata:
@@ -67,6 +68,79 @@ test('user can sign up and create account', async ({ page }) => {
   
   expect(orgs).toHaveLength(1);
   expect(orgs[0].kind).toBe('personal');
+});
+```
+
+### Testing Better Auth Client & API Configuration
+
+**Purpose**: Test the new Bearer token authentication and automatic API client setup
+
+**Location**: `tests/e2e/auth-client.test.ts`
+
+**Environment**: Playwright with IndexedDB access
+
+**What to test**:
+- ✅ Token storage in IndexedDB after successful authentication
+- ✅ Automatic Bearer token inclusion in API requests via axios interceptors
+- ✅ Token retrieval and refresh mechanisms
+- ✅ Organization switching with token updates
+- ✅ Session management with `useSession()` hook
+- ✅ Error handling for expired/invalid tokens
+
+**Key Patterns**:
+```typescript
+// Test token storage in IndexedDB
+test('auth token is stored in IndexedDB after login', async ({ page }) => {
+  await page.goto('/auth');
+  // ... login actions
+  
+  // Verify token in IndexedDB
+  const token = await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('blawby_auth');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    
+    const token = await new Promise((resolve) => {
+      const transaction = db.transaction(['tokens'], 'readonly');
+      const store = transaction.objectStore('tokens');
+      const request = store.get('bearer_token');
+      request.onsuccess = () => resolve(request.result);
+    });
+    
+    return token;
+  });
+  
+  expect(token).toBeTruthy();
+});
+
+// Test automatic Bearer token inclusion
+test('API calls include Bearer token automatically', async ({ page }) => {
+  await page.goto('/auth');
+  // ... login actions
+  
+  // Capture outgoing request and verify Authorization header
+  let capturedRequest: Request | undefined;
+  page.on('request', request => {
+    if (request.url().includes('/api/practice/list')) {
+      capturedRequest = request;
+    }
+  });
+  
+  // Trigger API call
+  await page.evaluate(async () => {
+    await fetch('/api/practice/list', {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  });
+  
+  // Wait for request to be captured
+  await page.waitForTimeout(100);
+  
+  // Verify the Authorization header on the outgoing request
+  expect(capturedRequest).toBeDefined();
+  expect(capturedRequest?.headers()['authorization']).toMatch(/^Bearer /);
 });
 ```
 

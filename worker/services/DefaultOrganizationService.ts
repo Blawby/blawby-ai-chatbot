@@ -1,16 +1,13 @@
 import { Env } from '../types.js';
 import { DEFAULT_PUBLIC_ORG_SLUG } from '../../src/utils/constants.js';
-import type { Organization } from './OrganizationService.js';
-import { OrganizationService } from './OrganizationService.js';
+import type { Organization } from '../types.js';
+import { RemoteApiService } from './RemoteApiService.js';
 
 export class DefaultOrganizationService {
   private publicOrgCache: { org: Organization | null; timestamp: number } | null = null;
   private readonly CACHE_TTL = 5 * 60 * 1000;
-  private readonly orgService: OrganizationService;
 
-  constructor(private env: Env) {
-    this.orgService = new OrganizationService(env);
-  }
+  constructor(private env: Env) {}
 
   /**
    * Resolve the default organization for a user.
@@ -18,12 +15,12 @@ export class DefaultOrganizationService {
    * When validateMembership is true and an active org exists, verify the user is a member of that org.
    * If validation fails or user is not a member, fall back to the public organization.
    */
-  async resolveDefaultOrg(userId?: string, validateMembership = false): Promise<string> {
+  async resolveDefaultOrg(userId?: string, validateMembership = false, request?: Request): Promise<string> {
     if (userId) {
       try {
         const activeOrgId = await this.getActiveOrgFromSession(userId);
         if (activeOrgId) {
-          const exists = await this.validateOrgExists(activeOrgId);
+          const exists = await this.validateOrgExists(activeOrgId, request);
           if (exists) {
             if (validateMembership) {
               const isMember = await this.isUserMember(activeOrgId, userId);
@@ -41,20 +38,20 @@ export class DefaultOrganizationService {
       }
     }
 
-    const publicOrg = await this.getPublicOrg();
+    const publicOrg = await this.getPublicOrg(request);
     if (!publicOrg) {
       throw new Error('No public organization configured. Set DEFAULT_PUBLIC_ORG_SLUG or configure an organization with isPublic: true');
     }
     return publicOrg.id;
   }
 
-  async getPublicOrg(): Promise<Organization | null> {
+  async getPublicOrg(request?: Request): Promise<Organization | null> {
     if (this.publicOrgCache && Date.now() - this.publicOrgCache.timestamp < this.CACHE_TTL) {
       return this.publicOrgCache.org;
     }
 
     const slug = this.env.DEFAULT_PUBLIC_ORG_SLUG || DEFAULT_PUBLIC_ORG_SLUG;
-    const org = await this.orgService.getOrganization(slug);
+    const org = await RemoteApiService.getOrganization(this.env, slug, request);
     const valid = !!org && org.kind !== 'personal' && Boolean(org.config?.isPublic);
 
     const result = valid ? org : null;
@@ -74,8 +71,8 @@ export class DefaultOrganizationService {
     return row?.activeOrgId ?? null;
   }
 
-  private async validateOrgExists(orgId: string): Promise<boolean> {
-    const org = await this.orgService.getOrganization(orgId);
+  private async validateOrgExists(orgId: string, request?: Request): Promise<boolean> {
+    const org = await RemoteApiService.getOrganization(this.env, orgId, request);
     return org != null;
   }
 

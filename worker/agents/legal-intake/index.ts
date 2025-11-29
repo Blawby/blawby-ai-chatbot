@@ -1,5 +1,6 @@
-import type { Env, AgentMessage, AgentResponse, FileAttachment } from '../../types.js';
-import { OrganizationService, type Organization, buildDefaultOrganizationConfig } from '../../services/OrganizationService.js';
+import type { Env, AgentMessage, AgentResponse, FileAttachment, Organization } from '../../types.js';
+import { RemoteApiService } from '../../services/RemoteApiService.js';
+import { buildDefaultOrganizationConfig } from '../../services/OrganizationService.js';
 import { ConversationContextManager } from '../../middleware/conversationContextManager.js';
 import { Logger } from '../../utils/logger.js';
 import { ToolCallParser } from '../../utils/toolCallParser.js';
@@ -680,15 +681,14 @@ function hasPlaceholderValue(value: string | undefined | null): boolean {
 class OrganizationCache {
   private cache = new Map<string, { organization: Organization; timestamp: number }>();
 
-  async get(organizationId: string, env: Env): Promise<Organization | null> {
+  async get(organizationId: string, env: Env, request?: Request): Promise<Organization | null> {
     const cached = this.cache.get(organizationId);
     if (cached && Date.now() - cached.timestamp < CACHE_CONFIG.TTL_MS) {
       return cached.organization;
     }
 
     try {
-      const organizationService = new OrganizationService(env);
-      const organization = await organizationService.getOrganization(organizationId);
+      const organization = await RemoteApiService.getOrganization(env, organizationId, request);
       
       if (organization) {
         this.cache.set(organizationId, { organization, timestamp: Date.now() });
@@ -2288,7 +2288,8 @@ export async function runLegalIntakeAgentStream(
   cloudflareLocation?: CloudflareLocation,
   controller?: ReadableStreamDefaultController<Uint8Array>,
   attachments: readonly FileAttachment[] = [],
-  executionOverrides: AIExecutionOverrides = {}
+  executionOverrides: AIExecutionOverrides = {},
+  request?: Request
 ): Promise<AgentResponse | void> {
   Logger.initialize({ DEBUG: env.DEBUG, NODE_ENV: env.NODE_ENV });
   
@@ -2298,7 +2299,7 @@ export async function runLegalIntakeAgentStream(
   try {
     await sse.emit({ type: 'connected' });
 
-    const organization = organizationId ? await organizationCache.get(organizationId, env) : null;
+    const organization = organizationId ? await organizationCache.get(organizationId, env, request) : null;
     const executionPlan = resolveAIExecutionPlan(env, organization, executionOverrides);
     const executor = new ToolExecutor(env, organization, sse, correlationId, sessionId, organizationId);
 

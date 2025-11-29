@@ -16,10 +16,9 @@ const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
 
 // Get auth URL - validate in browser context only
 function getAuthBaseUrl(): string {
-  // Only validate in browser context (not during build/SSR)
   if (typeof window === 'undefined') {
-    // During build/SSR, return placeholder to avoid build errors
-    // This will never be used at runtime since client is created lazily
+    // During SSR/build, return a placeholder that won't be used
+    // The actual client creation is guarded in getAuthClient()
     return 'https://placeholder-auth-server.com';
   }
   
@@ -43,6 +42,8 @@ let cachedAuthClient: AuthClientType | null = null;
  * The client is created lazily on first access and cached for subsequent calls.
  * Validation of VITE_AUTH_SERVER_URL happens in browser context before client creation.
  * 
+ * During SSR/build, returns a placeholder client that will never be used at runtime.
+ * 
  * @throws {Error} If VITE_AUTH_SERVER_URL is missing in production (browser context)
  */
 function getAuthClient(): AuthClientType {
@@ -51,7 +52,25 @@ function getAuthClient(): AuthClientType {
     return cachedAuthClient;
   }
   
-  // Validate baseURL in browser context before creating client
+  // During SSR/build, create a placeholder client that won't be used
+  // This prevents build errors while still allowing the code to be analyzed
+  if (typeof window === 'undefined') {
+    const placeholderBaseURL = getAuthBaseUrl(); // Returns placeholder during SSR
+    cachedAuthClient = createAuthClient({
+      plugins: [organizationClient()],
+      baseURL: placeholderBaseURL,
+      fetchOptions: {
+        auth: {
+          type: "Bearer",
+          token: async () => "",
+        },
+        onSuccess: async () => {},
+      }
+    });
+    return cachedAuthClient;
+  }
+  
+  // Browser context - validate baseURL before creating client
   const baseURL = getAuthBaseUrl();
   
   // Create and cache the client
@@ -86,6 +105,11 @@ function getAuthClient(): AuthClientType {
   return cachedAuthClient;
 }
 
+// Helper to get the actual client (for cases where proxy doesn't work)
+export function getClient(): AuthClientType {
+  return getAuthClient();
+}
+
 // Export the auth client getter
 export const authClient = new Proxy({} as AuthClientType, {
   get(_target, prop) {
@@ -95,35 +119,33 @@ export const authClient = new Proxy({} as AuthClientType, {
     if (typeof value === 'function') {
       return value.bind(client);
     }
+    // If it's an object (like signUp, signIn which have nested methods), return a proxy for it
+    if (value && typeof value === 'object') {
+      return new Proxy(value, {
+        get(_target, subProp) {
+          const subValue = value[subProp];
+          if (typeof subValue === 'function') {
+            return subValue.bind(value);
+          }
+          // Handle further nesting (e.g., signUp.email)
+          if (subValue && typeof subValue === 'object') {
+            return new Proxy(subValue, {
+              get(_target, subSubProp) {
+                const subSubValue = subValue[subSubProp];
+                if (typeof subSubValue === 'function') {
+                  return subSubValue.bind(subValue);
+                }
+                return subSubValue;
+              }
+            });
+          }
+          return subValue;
+        }
+      });
+    }
     return value;
   }
 }) as AuthClientType;
-
-// Export all auth methods directly - use these, no manual API calls
-// These access the lazy-initialized client via the proxy
-export const signIn = new Proxy({} as AuthClientType['signIn'], {
-  get(_target, prop) {
-    const client = getAuthClient();
-    const value = (client.signIn as any)[prop];
-    // If it's a function, bind it to preserve 'this' context
-    if (typeof value === 'function') {
-      return value.bind(client.signIn);
-    }
-    return value;
-  }
-}) as AuthClientType['signIn'];
-
-export const signUp = new Proxy({} as AuthClientType['signUp'], {
-  get(_target, prop) {
-    const client = getAuthClient();
-    const value = (client.signUp as any)[prop];
-    // If it's a function, bind it to preserve 'this' context
-    if (typeof value === 'function') {
-      return value.bind(client.signUp);
-    }
-    return value;
-  }
-}) as AuthClientType['signUp'];
 
 export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAuthClient().signOut(...args);
 

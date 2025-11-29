@@ -1,9 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
-import { 
-  getOrganizationsEndpoint, 
-  getOrganizationWorkspaceEndpoint 
-} from '../config/api';
+import { getOrganizationWorkspaceEndpoint } from '../config/api';
 import { useSession } from '../lib/authClient';
+import { apiClient } from '../lib/apiClient';
 import { 
   organizationInvitationSchema,
   organizationSchema,
@@ -12,17 +10,6 @@ import {
   createTokenResponseSchema
 } from '../../worker/schemas/validation';
 import { resolveOrganizationKind as resolveOrgKind, normalizeSubscriptionStatus as normalizeOrgStatus } from '../utils/subscription';
-
-// API Response interfaces
-interface ApiErrorResponse {
-  error?: string;
-}
-
-interface ApiSuccessResponse {
-  success?: boolean;
-  data?: unknown;
-  error?: string;
-}
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -108,6 +95,22 @@ export interface UpdateOrgData {
 
 interface UseOrganizationManagementOptions {
   fetchInvitations?: boolean;
+}
+
+const PRACTICE_BASE_PATH = '/api/practice';
+const PRACTICE_LIST_PATH = `${PRACTICE_BASE_PATH}/list`;
+const PRACTICE_INVITATIONS_PATH = `${PRACTICE_BASE_PATH}/invitations`;
+
+const practicePath = (orgId: string) => `${PRACTICE_BASE_PATH}/${encodeURIComponent(orgId)}`;
+const practiceMembersPath = (orgId: string) => `${practicePath(orgId)}/members`;
+const practiceOrgInvitationsPath = (orgId: string) => `${practicePath(orgId)}/invitations`;
+const practiceTokensPath = (orgId: string) => `${practicePath(orgId)}/tokens`;
+const practiceInvitationActionPath = (invitationId: string, action: 'accept' | 'decline') =>
+  `${PRACTICE_BASE_PATH}/invitations/${encodeURIComponent(invitationId)}/${action}`;
+
+async function practiceRequest<T>(request: Promise<{ data: T }>): Promise<T> {
+  const response = await request;
+  return response.data;
 }
 
 interface UseOrganizationManagementReturn {
@@ -379,21 +382,16 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const personalOrgEnsuredRef = useRef(false);
-  const personalOrgEnsurePromiseRef = useRef<Promise<void> | null>(null);
   
   // Track if we've already fetched organizations to prevent duplicate calls
   const organizationsFetchedRef = useRef(false);
   const currentRequestRef = useRef<AbortController | null>(null);
   const refetchTriggeredRef = useRef(false);
 
-  // Helper function to make API calls
-  const apiCall = useCallback(async (url: string, options: RequestInit = {}, timeoutMs: number = 15000) => {
-    // Create AbortController for timeout handling
+  // Helper for workspace/local endpoints still served by the Worker
+  const workspaceCall = useCallback(async (url: string, options: RequestInit = {}, timeoutMs: number = 15000) => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, timeoutMs);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const response = await fetch(url, {
@@ -401,81 +399,35 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...options.headers,
+          ...(options.headers || {}),
         },
         signal: controller.signal,
       });
-
-      // Clear timeout since request completed
       clearTimeout(timeoutId);
-
-      // Helper function to safely parse JSON response
-      const safeJsonParse = async (response: Response) => {
-        // Check for no-content responses
-        if (response.status === 204 || response.headers.get('content-length') === '0') {
-          return { success: true, data: null };
-        }
-        
-        // Check content-type for JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          return { success: true, data: null };
-        }
-        
-        // Safe JSON parsing with fallback
-        try {
-          return await response.json();
-        } catch {
-          return { success: true, data: null };
-        }
-      };
 
       if (!response.ok) {
-        const errorData = await safeJsonParse(response);
-        
-        // Runtime guard: verify errorData is a non-null object
-        if (typeof errorData === 'object' && errorData !== null && !Array.isArray(errorData)) {
-          const errorResponse = errorData as ApiErrorResponse;
-          const errorMessage = typeof errorResponse.error === 'string' ? errorResponse.error : `HTTP ${response.status}`;
-          throw new Error(errorMessage);
-        } else {
-          // If parsed data is not an object, include raw value for debugging
-          throw new Error(`HTTP ${response.status} - Invalid error response format: ${JSON.stringify(errorData)}`);
-        }
+        throw new Error(response.statusText || `HTTP ${response.status}`);
       }
 
-      const data = await safeJsonParse(response);
-
-      // Support both wrapped ({ success, data }) and raw array/object payloads
-      if (Array.isArray(data)) {
-        // Raw array response (e.g., organizations list)
-        return data as unknown;
+      if (response.status === 204) {
+        return {};
       }
 
-      if (typeof data === 'object' && data !== null) {
-        const successResponse = data as ApiSuccessResponse;
-        // If success is explicitly false, treat as error
-        if (typeof successResponse.success === 'boolean' && !successResponse.success) {
-          const errorMessage = typeof successResponse.error === 'string' ? successResponse.error : 'API call failed';
-          throw new Error(errorMessage);
-        }
-
-        // If it has a data field, return it; otherwise return the object itself
-        return (successResponse.data !== undefined ? successResponse.data : data) as unknown;
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        return {};
       }
 
-      // Any other shape is invalid
-      throw new Error(`Invalid response format: ${JSON.stringify(data)}`);
+      try {
+        return await response.json();
+      } catch {
+        return {};
+      }
     } catch (error) {
-      // Clear timeout in case of error
       clearTimeout(timeoutId);
-      
-      // Handle AbortError (timeout)
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Request timed out');
       }
-      
-      // Re-throw other errors (preserve existing error handling)
       throw error;
     }
   }, []);
@@ -493,114 +445,84 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     return workspaceData[orgId]?.[resource] || [];
   }, [workspaceData]);
 
-  const _ensurePersonalOrganization = useCallback(async () => {
-    if (personalOrgEnsuredRef.current) {
-      return;
-    }
-
-    if (!personalOrgEnsurePromiseRef.current) {
-      personalOrgEnsurePromiseRef.current = (async () => {
-        try {
-          await apiCall(`${getOrganizationsEndpoint()}/me/ensure-personal`, {
-            method: 'POST',
-          });
-          personalOrgEnsuredRef.current = true;
-        } catch (error) {
-          personalOrgEnsuredRef.current = false;
-          throw error;
-        } finally {
-          personalOrgEnsurePromiseRef.current = null;
-        }
-      })();
-    }
-
-    return personalOrgEnsurePromiseRef.current;
-  }, [apiCall]);
-
   // Fetch user's organizations
   const fetchOrganizations = useCallback(async () => {
     try {
-      // Check if we've already fetched organizations for this session
       if (organizationsFetchedRef.current && session?.user) {
-        return; // Skip if already fetched
+        return;
       }
 
-      // Abort any existing request
       if (currentRequestRef.current) {
         currentRequestRef.current.abort();
       }
 
-      // Create new request controller
       const controller = new AbortController();
       currentRequestRef.current = controller;
 
       setLoading(true);
       setError(null);
-      
-      
-      // Check authentication status first
+
       if (!session?.user) {
-        // User is not authenticated - skip organization fetch
         setOrganizations([]);
         setCurrentOrganization(null);
         setLoading(false);
         organizationsFetchedRef.current = false;
         return;
       }
-      
-      // Only fetch user orgs if authenticated
-      const data = await apiCall(`${getOrganizationsEndpoint()}/me`);
 
-      const rawOrgList = Array.isArray(data) ? data : [];
+      const response = await practiceRequest<{ practices?: unknown[] } | unknown[]>(
+        apiClient.get(PRACTICE_LIST_PATH, { signal: controller.signal })
+      );
+
+      const rawOrgList = Array.isArray(response)
+        ? response
+        : Array.isArray((response as { practices?: unknown[] }).practices)
+          ? ((response as { practices?: unknown[] }).practices ?? [])
+          : [];
+
       const normalizedList = rawOrgList
         .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null && !Array.isArray(item))
         .map((org) => normalizeOrganizationRecord(org))
         .filter((org) => org.id.length > 0);
 
-      if (normalizedList.some(org => org.kind === 'personal')) {
-        personalOrgEnsuredRef.current = true;
-      }
       const personalOrg = normalizedList.find(org => org.kind === 'personal');
 
       setOrganizations(normalizedList);
       setCurrentOrganization(personalOrg || normalizedList[0] || null);
-      
-      // Mark as fetched
       organizationsFetchedRef.current = true;
     } catch (err) {
+      if (err instanceof Error && err.name === 'CanceledError') {
+        return;
+      }
       console.error('Error in fetchOrganizations:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch organizations');
-      // Set currentOrganization to null (not undefined) so components know loading is done
       setCurrentOrganization(null);
       setOrganizations([]);
     } finally {
       setLoading(false);
       currentRequestRef.current = null;
     }
-  }, [apiCall, session]);
+  }, [session]);
 
   // Fetch pending invitations
   const fetchInvitations = useCallback(async () => {
     try {
-      // Check authentication status first
       if (!session?.user) {
-        // User is not authenticated - skip invitations fetch
         setInvitations([]);
         return;
       }
-      
-      // Only fetch invitations if authenticated
-      const data = await apiCall(`${getOrganizationsEndpoint()}/me/invitations`);
-      
-      // Validate response with runtime checks
-      if (!Array.isArray(data)) {
-        console.error('Invalid invitations response: expected array, got', typeof data);
-        setInvitations([]);
-        return;
-      }
-      
-      // Validate each invitation with Zod schema
-      const validatedInvitations = data
+
+      const data = await practiceRequest<{ invitations?: unknown[] } | unknown[]>(
+        apiClient.get(PRACTICE_INVITATIONS_PATH)
+      );
+
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray((data as { invitations?: unknown[] }).invitations)
+          ? ((data as { invitations?: unknown[] }).invitations ?? [])
+          : [];
+
+      const validatedInvitations = list
         .map(invitation => {
           try {
             return organizationInvitationSchema.parse(invitation);
@@ -610,35 +532,26 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
           }
         })
         .filter((invitation): invitation is Invitation => invitation !== null);
-      
+
       setInvitations(validatedInvitations);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch invitations');
       setInvitations([]);
     }
-  }, [apiCall, session]);
+  }, [session]);
 
   // Create organization
   const createOrganization = useCallback(async (data: CreateOrgData): Promise<Organization> => {
-    const result = await apiCall(getOrganizationsEndpoint(), {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    
-    // Validate response with runtime checks
-    if (typeof result !== 'object' || result === null) {
-      throw new Error(`Invalid organization response: expected object, got ${typeof result}`);
-    }
-    
-    // Validate with Zod schema
+    const result = await practiceRequest<Record<string, unknown>>(
+      apiClient.post(PRACTICE_BASE_PATH, data)
+    );
+
     try {
-      // Ensure slug is present, use id as fallback if missing
       const resultWithSlug = {
         ...result,
-        slug: (result as Record<string, unknown>).slug || (result as Record<string, unknown>).id || 'unknown'
+        slug: (result as Record<string, unknown>).slug || (result as Record<string, unknown>).id || 'unknown',
       };
       const validatedResult = organizationSchema.parse(resultWithSlug);
-      // Force refetch without relying on refetch() to avoid TDZ issues
       organizationsFetchedRef.current = false;
       await fetchOrganizations();
       if (shouldFetchInvitations) {
@@ -649,48 +562,41 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       console.error('Invalid organization data:', result, error);
       throw new Error('Invalid organization response format');
     }
-  }, [apiCall, fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
+  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   // Update organization
   const updateOrganization = useCallback(async (id: string, data: UpdateOrgData): Promise<void> => {
-    await apiCall(`${getOrganizationsEndpoint()}/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-    // Force refetch without relying on refetch() to avoid TDZ issues
+    await apiClient.put(practicePath(id), data);
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
       await fetchInvitations();
     }
-  }, [apiCall, fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
+  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   // Delete organization
   const deleteOrganization = useCallback(async (id: string): Promise<void> => {
-    await apiCall(`${getOrganizationsEndpoint()}/${id}`, {
-      method: 'DELETE',
-    });
-    // Force refetch without relying on refetch() to avoid TDZ issues
+    await apiClient.delete(practicePath(id));
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
       await fetchInvitations();
     }
-  }, [apiCall, fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
+  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   // Fetch members
   const fetchMembers = useCallback(async (orgId: string): Promise<void> => {
     try {
-      const data = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/member`);
-      
-      // Validate response with runtime checks
+      const data = await practiceRequest<Record<string, unknown>>(
+        apiClient.get(practiceMembersPath(orgId))
+      );
+
       if (typeof data !== 'object' || data === null) {
         console.error('Invalid members response: expected object, got', typeof data);
         setMembers(prev => ({ ...prev, [orgId]: [] }));
         return;
       }
-      
-      // Validate with Zod schema
+
       try {
         const validatedData = membersResponseSchema.parse(data);
         const normalizedMembers: Member[] = (validatedData.members || []).map(m => ({
@@ -709,139 +615,119 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');
     }
-  }, [apiCall]);
+  }, []);
 
   // Update member role
   const updateMemberRole = useCallback(async (orgId: string, userId: string, role: Role): Promise<void> => {
-    await apiCall(`${getOrganizationsEndpoint()}/${orgId}/member`, {
-      method: 'PATCH',
-      body: JSON.stringify({ userId, role }),
-    });
-    await fetchMembers(orgId); // Refresh members
-  }, [apiCall, fetchMembers]);
+    await apiClient.patch(practiceMembersPath(orgId), { userId, role });
+    await fetchMembers(orgId);
+  }, [fetchMembers]);
 
   // Remove member
   const removeMember = useCallback(async (orgId: string, userId: string): Promise<void> => {
-    await apiCall(`${getOrganizationsEndpoint()}/${orgId}/member?userId=${encodeURIComponent(userId)}`, {
-      method: 'DELETE',
-    });
-    await fetchMembers(orgId); // Refresh members
-  }, [apiCall, fetchMembers]);
+    await apiClient.delete(`${practiceMembersPath(orgId)}/${encodeURIComponent(userId)}`);
+    await fetchMembers(orgId);
+  }, [fetchMembers]);
 
   // Send invitation
   const sendInvitation = useCallback(async (orgId: string, email: string, role: Role): Promise<void> => {
-    await apiCall(`${getOrganizationsEndpoint()}/invitations`, {
-      method: 'POST',
-      body: JSON.stringify({ organizationId: orgId, email, role }),
-    });
-    await fetchInvitations(); // Refresh invitations
-  }, [apiCall, fetchInvitations]);
+    await apiClient.post(practiceOrgInvitationsPath(orgId), { email, role });
+    await fetchInvitations();
+  }, [fetchInvitations]);
 
   // Accept invitation
   const acceptInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await apiCall(`${getOrganizationsEndpoint()}/${invitationId}/accept-invitation`, {
-      method: 'POST',
-    });
-    // Force refetch without relying on refetch() to avoid TDZ issues
+    await apiClient.post(practiceInvitationActionPath(invitationId, 'accept'));
     organizationsFetchedRef.current = false;
     await fetchOrganizations();
     if (shouldFetchInvitations) {
       await fetchInvitations();
     }
-  }, [apiCall, fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
+  }, [fetchOrganizations, fetchInvitations, shouldFetchInvitations]);
 
   const declineInvitation = useCallback(async (invitationId: string): Promise<void> => {
-    await apiCall(`${getOrganizationsEndpoint()}/${invitationId}/decline-invitation`, {
-      method: 'POST',
-    });
-    await fetchInvitations(); // Refresh invitations
-  }, [apiCall, fetchInvitations]);
+    await apiClient.post(practiceInvitationActionPath(invitationId, 'decline'));
+    await fetchInvitations();
+  }, [fetchInvitations]);
 
   // Fetch API tokens
   const fetchTokens = useCallback(async (orgId: string): Promise<void> => {
     try {
-      const data = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/tokens`);
-      
-      // Validate response with runtime checks
+      const data = await practiceRequest<unknown[]>(
+        apiClient.get(practiceTokensPath(orgId))
+      );
+
       if (!Array.isArray(data)) {
         console.error('Invalid tokens response: expected array, got', typeof data);
         setTokens(prev => ({ ...prev, [orgId]: [] }));
         return;
       }
-      
-      // Validate each token with Zod schema and map to ApiToken shape
+
       const validatedTokens: ApiToken[] = data
         .map((token: unknown) => {
           try {
             const validatedToken = organizationApiTokenSchema.parse(token);
-            // Create a clean ApiToken object with only the required fields
-            const apiToken: ApiToken = {
+            return {
               id: validatedToken.id,
               name: validatedToken.tokenName,
               permissions: validatedToken.permissions,
               createdAt: validatedToken.createdAt,
               lastUsed: validatedToken.lastUsedAt,
             };
-            return apiToken;
           } catch (error) {
             console.error('Invalid token data:', token, error);
             return null;
           }
         })
         .filter((token): token is ApiToken => token !== null);
-      
+
       setTokens(prev => ({ ...prev, [orgId]: validatedTokens }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch tokens');
     }
-  }, [apiCall]);
+  }, []);
 
   // Create API token
   const createToken = useCallback(async (orgId: string, name: string): Promise<{ token: string; tokenId: string }> => {
-    const result = await apiCall(`${getOrganizationsEndpoint()}/${orgId}/tokens`, {
-      method: 'POST',
-      body: JSON.stringify({ tokenName: name }),
-    });
-    
-    // Validate response with runtime checks
+    const result = await practiceRequest<Record<string, unknown>>(
+      apiClient.post(practiceTokensPath(orgId), { tokenName: name })
+    );
+
     if (typeof result !== 'object' || result === null) {
       throw new Error(`Invalid create token response: expected object, got ${typeof result}`);
     }
-    
-    // Validate with Zod schema
+
     try {
       const validatedResult = createTokenResponseSchema.parse(result);
-      await fetchTokens(orgId); // Refresh tokens
+      await fetchTokens(orgId);
       return { token: validatedResult.token, tokenId: validatedResult.tokenId };
     } catch (error) {
       console.error('Invalid create token data:', result, error);
       throw new Error('Invalid create token response format');
     }
-  }, [apiCall, fetchTokens]);
+  }, [fetchTokens]);
 
   // Revoke API token
   const revokeToken = useCallback(async (orgId: string, tokenId: string): Promise<void> => {
-    await apiCall(`${getOrganizationsEndpoint()}/${orgId}/tokens/${tokenId}`, {
-      method: 'DELETE',
-    });
-    await fetchTokens(orgId); // Refresh tokens
-  }, [apiCall, fetchTokens]);
+    await apiClient.delete(`${practiceTokensPath(orgId)}/${encodeURIComponent(tokenId)}`);
+    await fetchTokens(orgId);
+  }, [fetchTokens]);
 
   // Fetch workspace data
   const fetchWorkspaceData = useCallback(async (orgId: string, resource: string): Promise<void> => {
     try {
-      const data = await apiCall(getOrganizationWorkspaceEndpoint(orgId, resource));
+      const data = await workspaceCall(getOrganizationWorkspaceEndpoint(orgId, resource));
       setWorkspaceData(prev => ({
         ...prev,
         [orgId]: {
           ...prev[orgId],
-          [resource]: data[resource] || []
+          [resource]: (data && data[resource]) || []
         }
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch workspace data');
     }
-  }, [apiCall]);
+  }, [workspaceCall]);
 
   const acceptMatter = useCallback(async (orgId: string, matterId: string): Promise<MatterTransitionResult> => {
     if (!orgId || !matterId) {
@@ -851,7 +737,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     // Deterministic idempotency key derived from operation params
     const idempotencyKey = `matter:${orgId}:${matterId}:accept`;
     const endpoint = `${getOrganizationWorkspaceEndpoint(orgId, 'matters')}/${encodeURIComponent(matterId)}/accept`;
-    const response = await apiCall(endpoint, {
+    const response = await workspaceCall(endpoint, {
       method: 'POST',
       headers: {
         'Idempotency-Key': idempotencyKey
@@ -859,7 +745,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     });
 
     return normalizeMatterTransitionResult(response);
-  }, [apiCall]);
+  }, [workspaceCall]);
 
   const rejectMatter = useCallback(async (orgId: string, matterId: string, reason?: string): Promise<MatterTransitionResult> => {
     if (!orgId || !matterId) {
@@ -872,7 +758,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       payload.reason = reason.trim();
     }
 
-    const response = await apiCall(endpoint, {
+    const response = await workspaceCall(endpoint, {
       method: 'POST',
       body: JSON.stringify(payload),
       headers: {
@@ -882,7 +768,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     });
 
     return normalizeMatterTransitionResult(response);
-  }, [apiCall]);
+  }, [workspaceCall]);
 
   const updateMatterStatus = useCallback(async (orgId: string, matterId: string, status: MatterWorkflowStatus, reason?: string): Promise<MatterTransitionResult> => {
     if (!orgId || !matterId) {
@@ -895,7 +781,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
       payload.reason = reason.trim();
     }
 
-    const response = await apiCall(endpoint, {
+    const response = await workspaceCall(endpoint, {
       method: 'PATCH',
       body: JSON.stringify(payload),
       headers: {
@@ -905,7 +791,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     });
 
     return normalizeMatterTransitionResult(response);
-  }, [apiCall]);
+  }, [workspaceCall]);
 
   // Refetch all data
   const refetch = useCallback(async () => {

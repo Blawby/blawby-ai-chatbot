@@ -7,6 +7,8 @@ import { useToastContext } from '../../contexts/ToastContext';
 import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
+import { apiClient } from '../../lib/apiClient';
+import { extractProgressFromPayload } from '../onboarding/utils';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
@@ -39,37 +41,17 @@ export const BusinessOnboardingPage = () => {
     return (validSteps as string[]).includes(stepCandidate) ? stepCandidate : 'welcome';
   }, [location.path, validSteps]);
 
-  // Extract query params
-  const sessionId = location.query?.session_id;
-  void sessionId; // currently unused, reserved for future use
-  const organizationId = (Array.isArray(location.query?.organizationId) ? location.query?.organizationId[0] : location.query?.organizationId) || currentOrganization?.id;
+  const organizationId = currentOrganization?.id ?? organizations?.[0]?.id ?? null;
   
-  // Prefer the upgraded business/enterprise org when available to ensure we mark the correct org
   const targetOrganization = useMemo(() => {
-    const fromUrl = organizations?.find(org => org.id === organizationId);
-    if (fromUrl) return fromUrl;
-    const upgraded = organizations?.find(org => resolveOrganizationKind(org.kind, org.isPersonal ?? null) === 'business');
-    return upgraded ?? currentOrganization ?? organizations?.[0] ?? null;
-  }, [organizations, organizationId, currentOrganization]);
-  
-  const targetOrganizationId = targetOrganization?.id || organizationId;
-
-  // Normalize URL to use the resolved target organization to avoid completing onboarding on the wrong org
-  useEffect(() => {
-    if (!targetOrganizationId) return;
-    try {
-      console.debug('[ONBOARDING][RESOLVE_ORG] Using targetOrganizationId:', targetOrganizationId);
-      const url = new URL(window.location.href);
-      const current = url.searchParams.get('organizationId');
-      if (current !== targetOrganizationId) {
-        console.debug('[ONBOARDING][RESOLVE_ORG] Normalizing URL organizationId from', current, 'to', targetOrganizationId);
-        url.searchParams.set('organizationId', targetOrganizationId);
-        window.history.replaceState({}, '', url.toString());
-      }
-    } catch {
-      // noop
+    if (currentOrganization) {
+      return currentOrganization;
     }
-  }, [targetOrganizationId]);
+    const upgraded = organizations?.find(org => resolveOrganizationKind(org.kind, org.isPersonal ?? null) === 'business');
+    return upgraded ?? organizations?.[0] ?? null;
+  }, [organizations, currentOrganization]);
+  
+  const targetOrganizationId = targetOrganization?.id ?? organizationId;
   const shouldSync = (Array.isArray(location.query?.sync) ? location.query?.sync[0] : location.query?.sync) === '1';
 
   // Local timeout to avoid indefinite spinner when organizations loading takes too long
@@ -108,21 +90,15 @@ export const BusinessOnboardingPage = () => {
       inFlightRef.current = true;
       setSyncing(true);
       try {
-        // Dev/test-only header to force paid tier during E2E flows
-        const response = await fetch('/api/subscription/sync', {
-          method: 'POST',
-          credentials: 'include',
+        const response = await apiClient.post('/api/subscription/sync', {
+          organizationId: targetOrganizationId
+        }, {
           headers: {
-            'Content-Type': 'application/json',
             ...(devForcePaid ? { 'x-test-force-paid': '1' } : {})
-          },
-          body: JSON.stringify({ organizationId: targetOrganizationId })
+          }
         });
 
-        const result = await response.json().catch(() => ({} as Record<string, unknown>));
-        if (!response.ok) {
-          throw new Error('Failed to sync subscription');
-        }
+        const result = response.data;
 
         await refetch();
 
@@ -139,7 +115,6 @@ export const BusinessOnboardingPage = () => {
         try {
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.delete('sync');
-          newUrl.searchParams.delete('session_id');
           window.history.replaceState({}, '', newUrl.toString());
           console.debug('[ONBOARDING][SYNC] Sync done. Cleaned URL.');
         } catch (_e) {
@@ -180,14 +155,20 @@ export const BusinessOnboardingPage = () => {
     if (!ready || !targetOrganizationId) return;
     const checkCompletion = async () => {
       try {
-        const response = await fetch(`/api/onboarding/status?organizationId=${targetOrganizationId}`, { credentials: 'include' });
-        if (response.ok) {
-          const status = await response.json() as { completed?: boolean } | null;
-          if (status?.completed) {
-            console.log('✅ Onboarding already completed, redirecting');
-            showSuccess('Setup Complete', 'Your business profile is already configured.');
-            navigate('/');
-          }
+        const encodedId = encodeURIComponent(targetOrganizationId);
+        const response = await apiClient.get(`/api/onboarding/organization/${encodedId}/status`);
+        const payload = response.data;
+        const progress = extractProgressFromPayload(payload);
+        let completed = Boolean(progress?.completed);
+
+        if (!completed && payload && typeof payload === 'object' && 'completed' in payload) {
+          completed = Boolean((payload as { completed?: boolean }).completed);
+        }
+
+        if (completed) {
+          console.log('✅ Onboarding already completed, redirecting');
+          showSuccess('Setup Complete', 'Your business profile is already configured.');
+          navigate('/');
         }
       } catch (e) {
         console.warn('Failed to check onboarding status:', e);
@@ -201,16 +182,9 @@ export const BusinessOnboardingPage = () => {
 
     try {
       console.debug('[ONBOARDING][COMPLETE] Marking onboarding complete for org:', targetOrganizationId);
-      const response = await fetch('/api/onboarding/complete', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: targetOrganizationId })
+      await apiClient.post('/api/onboarding/complete', {
+        organizationId: targetOrganizationId
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to mark onboarding complete');
-      }
 
       showSuccess('Setup Complete!', 'Your business profile is ready.');
       navigate('/');
@@ -228,11 +202,8 @@ export const BusinessOnboardingPage = () => {
 
     try {
       console.debug('[ONBOARDING][SKIP] Marking onboarding skipped for org:', targetOrganizationId);
-      await fetch('/api/onboarding/skip', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: targetOrganizationId })
+      await apiClient.post('/api/onboarding/skip', {
+        organizationId: targetOrganizationId
       });
     } catch (error) {
       console.error('Failed to mark onboarding skipped:', error);

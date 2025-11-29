@@ -14,6 +14,7 @@ import {
 } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import { authClient } from '../../lib/authClient';
+import { apiClient } from '../../lib/apiClient';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -278,40 +279,53 @@ export const CartPage = () => {
       }
     }
     
-    // Ensure personal organization exists server-side to avoid race conditions
+    // Ensure practice exists server-side to avoid race conditions
     let organizationId = currentOrganization?.id;
     let betterAuthOrgId = currentOrganization?.betterAuthOrgId ?? currentOrganization?.id;
     if (!organizationId) {
       try {
-        console.debug('[CART][UPGRADE] Ensuring personal organization via /api/organizations/me/ensure-personal');
-        await fetch('/api/organizations/me/ensure-personal', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        // Fetch orgs directly to avoid state race
-        const orgsRes = await fetch('/api/organizations/me', {
-          method: 'GET',
-          credentials: 'include',
-          headers: { 'Accept': 'application/json' },
-        });
-        type Org = { id?: string; kind?: 'personal' | 'business' };
-        let orgs: Org[] = [];
-        try {
-          const data = await orgsRes.json();
-          orgs = Array.isArray(data) ? (data as Org[]) : [];
-        } catch (parseError) {
-          console.error('[CART][UPGRADE] Failed to parse organizations response:', parseError);
-          orgs = [];
+        console.debug('[CART][UPGRADE] Checking for practices via /api/practice/list');
+        // Fetch practices directly to avoid state race
+        const practicesRes = await apiClient.get('/api/practice/list');
+        const practices = Array.isArray(practicesRes.data)
+          ? practicesRes.data
+          : Array.isArray(practicesRes.data?.practices)
+            ? practicesRes.data.practices
+            : [];
+        
+        // If no practices exist, create a default one
+        if (practices.length === 0) {
+          console.debug('[CART][UPGRADE] No practices found, creating default practice');
+          const session = await authClient.getSession();
+          const userName = session?.data?.user?.name || session?.data?.user?.email?.split('@')[0] || 'User';
+          const practiceName = `${userName}'s Practice`;
+          const practiceSlug = `practice-${session?.data?.user?.id?.slice(0, 8) || Date.now().toString()}`;
+          
+          const createRes = await apiClient.post('/api/practice', {
+            name: practiceName,
+            slug: practiceSlug,
+            business_email: session?.data?.user?.email || '',
+            business_phone: '+1-555-0100',
+            consultation_fee: 100.00,
+          });
+          
+          const createdPractice = createRes.data?.practice || createRes.data;
+          if (createdPractice?.id) {
+            organizationId = createdPractice.id;
+            betterAuthOrgId = createdPractice.betterAuthOrgId || createdPractice.id;
+          }
+        } else {
+          // Use first practice or find personal one
+          const personal = practices.find((p: any) => p.kind === 'personal' || p.metadata?.kind === 'personal');
+          const practice = personal || practices[0];
+          if (practice?.id) {
+            organizationId = practice.id;
+            betterAuthOrgId = practice.betterAuthOrgId || practice.id;
+          }
         }
-        if (orgs.length > 0) {
-          const personal = orgs.find(o => o.kind === 'personal') as { id?: string; betterAuthOrgId?: string } | undefined;
-          organizationId = personal?.id ?? orgs[0]?.id ?? null;
-          betterAuthOrgId = personal?.betterAuthOrgId ?? organizationId ?? null;
-        }
-        console.debug('[CART][UPGRADE] Ensured/loaded orgs. Resolved organizationId:', organizationId);
+        console.debug('[CART][UPGRADE] Ensured/loaded practices. Resolved organizationId:', organizationId);
       } catch (e) {
-        console.error('[CART][UPGRADE] Failed to ensure/fetch organizations before checkout:', e);
+        console.error('[CART][UPGRADE] Failed to ensure/fetch practices before checkout:', e);
       }
     }
 
