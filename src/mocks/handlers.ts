@@ -1,5 +1,12 @@
 import { http, HttpResponse } from 'msw';
 import { mockDb, ensureOrgCollections, randomId } from './mockData';
+
+const ALLOWED_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal'] as const);
+type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
+
+function isValidRole(role: unknown): role is Role {
+  return typeof role === 'string' && ALLOWED_ROLES.has(role as Role);
+}
 import type { MockPractice, MockInvitation } from './mockData';
 
 type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -121,9 +128,12 @@ export const handlers = [
   http.patch('/api/practice/:practiceId/members', async ({ params, request }) => {
     const id = String(params.practiceId);
     ensureOrgCollections(id);
-    const body = (await request.json().catch(() => ({}))) as { userId?: string; role?: Role };
+    const body = (await request.json().catch(() => ({}))) as { userId?: string; role?: unknown };
     if (!body.userId || !body.role) {
       return HttpResponse.json({ error: 'userId and role are required' }, { status: 400 });
+    }
+    if (!isValidRole(body.role)) {
+      return HttpResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
     const target = mockDb.members[id].find((member) => member.userId === body.userId);
     if (!target) {
@@ -147,9 +157,12 @@ export const handlers = [
 
   http.post('/api/practice/:practiceId/invitations', async ({ params, request }) => {
     const orgId = String(params.practiceId);
-    const body = (await request.json().catch(() => ({}))) as { email?: string; role?: Role };
+    const body = (await request.json().catch(() => ({}))) as { email?: string; role?: unknown };
     if (!body.email || !body.role) {
       return HttpResponse.json({ error: 'email and role are required' }, { status: 400 });
+    }
+    if (!isValidRole(body.role)) {
+      return HttpResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
     ensureOrgCollections(orgId);
     const invitation: MockInvitation = {

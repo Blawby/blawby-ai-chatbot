@@ -82,14 +82,9 @@ export async function requireFeature(
     await requireOrgMember(request, env, options.organizationId);
   }
 
-  let organization: any;
-  try {
-    organization = await env.DB.prepare(
-      `SELECT id, subscription_tier, kind, config FROM organizations WHERE id = ?`
-    ).bind(options.organizationId).first();
-  } catch (error) {
-    throw error;
-  }
+  const organization = await env.DB.prepare(
+    `SELECT id, subscription_tier, kind, config FROM organizations WHERE id = ?`
+  ).bind(options.organizationId).first();
 
   if (!organization) {
     throw HttpErrors.notFound("Organization not found");

@@ -888,11 +888,13 @@ class PromptBuilder {
   static build(context: ConversationContext, organization: Organization | null, _organizationId?: string | null): string {
     const organizationName = organization?.name || 'our law firm';
     const publicMode = isPublicMode(organization);
+    const jurisdiction = (organization?.config as Record<string, unknown> | undefined)?.jurisdiction;
     const requiresLocation =
-      (organization?.config as Record<string, unknown> | undefined)?.jurisdiction &&
-      (organization?.config as Record<string, unknown> & {
-        jurisdiction?: { type?: string };
-      }).jurisdiction?.type === 'state';
+      jurisdiction &&
+      typeof jurisdiction === 'object' &&
+      jurisdiction !== null &&
+      'type' in jurisdiction &&
+      jurisdiction.type === 'state';
     
     const locationRequirement = requiresLocation ? 
       `\nIMPORTANT: This organization requires location information (city and state) before proceeding with contact forms or matter creation. Always ask for location first if not provided.` : '';
@@ -1585,11 +1587,13 @@ class ToolExecutor {
       ? toolResult.data as ContactFormResponse
       : null;
 
+    const jurisdiction = (this.organization?.config as Record<string, unknown> | undefined)?.jurisdiction;
     const requiresLocation =
-      (this.organization?.config as Record<string, unknown> | undefined)?.jurisdiction &&
-      (this.organization?.config as Record<string, unknown> & {
-        jurisdiction?: { type?: string };
-      }).jurisdiction?.type === 'state';
+      jurisdiction &&
+      typeof jurisdiction === 'object' &&
+      jurisdiction !== null &&
+      'type' in jurisdiction &&
+      jurisdiction.type === 'state';
     
     const requiredFields = ['name', 'email', 'phone'];
     if (requiresLocation) {

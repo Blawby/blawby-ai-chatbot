@@ -73,16 +73,45 @@ const getQuota = async (env: Env, organizationId: string) => {
 
   if (shouldResetQuota(quotaResetDate)) {
     quotaUsed = 0;
-    quotaResetDate = new Date().toISOString();
+    const newResetDate = new Date().toISOString();
     const resetConfig = {
       ...config,
       quotaUsed,
-      quotaResetDate
+      quotaResetDate: newResetDate
     };
-    await env.DB.prepare(
-      `UPDATE organizations SET config = ? WHERE id = ?`
-    ).bind(JSON.stringify(resetConfig), organizationId).run();
-    config = resetConfig;
+    const result = await env.DB.prepare(
+      `UPDATE organizations
+         SET config = ?
+       WHERE id = ?
+         AND json_extract(config, '$.quotaResetDate') IS ?
+    `
+    ).bind(JSON.stringify(resetConfig), organizationId, quotaResetDate).run();
+
+    if (result.success && result.meta.changes === 1) {
+      quotaResetDate = newResetDate;
+    } else {
+      const refreshedOrg = await env.DB.prepare(
+        `SELECT config FROM organizations WHERE id = ?`
+      ).bind(organizationId).first<{ config?: string | null }>();
+      if (refreshedOrg?.config) {
+        try {
+          config = JSON.parse(refreshedOrg.config);
+          quotaUsed =
+            typeof (config as Record<string, unknown>).quotaUsed === 'number'
+              ? (config as Record<string, unknown>).quotaUsed as number
+              : quotaUsed;
+          quotaResetDate =
+            typeof (config as Record<string, unknown>).quotaResetDate === 'string'
+              ? (config as Record<string, unknown>).quotaResetDate as string
+              : quotaResetDate;
+        } catch (error) {
+          Logger.warn('Failed to refresh organization config after reset collision', {
+            organizationId,
+            error
+          });
+        }
+      }
+    }
   }
 
   return { used: quotaUsed, limit: quotaLimit, unlimited: quotaLimit < 0 };
