@@ -1,20 +1,25 @@
 import axios from 'axios';
 import { getTokenAsync, clearToken } from './tokenStorage';
 
-const API_BASE_URL = (() => {
+let cachedBaseUrl: string | null = null;
+
+function ensureApiBaseUrl(): string {
+  if (cachedBaseUrl) {
+    return cachedBaseUrl;
+  }
   const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
   if (!explicit) {
     throw new Error('API base URL not configured. Please set VITE_API_BASE_URL or VITE_API_URL.');
   }
-  return explicit;
-})();
+  cachedBaseUrl = explicit;
+  return cachedBaseUrl;
+}
 
-export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-});
+export const apiClient = axios.create();
 
 apiClient.interceptors.request.use(
   async (config) => {
+    config.baseURL = config.baseURL ?? ensureApiBaseUrl();
     const token = await getTokenAsync();
     if (token) {
       config.headers = config.headers ?? {};

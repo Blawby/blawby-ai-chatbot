@@ -41,37 +41,17 @@ export const BusinessOnboardingPage = () => {
     return (validSteps as string[]).includes(stepCandidate) ? stepCandidate : 'welcome';
   }, [location.path, validSteps]);
 
-  // Extract query params
-  const sessionId = location.query?.session_id;
-  void sessionId; // currently unused, reserved for future use
-  const organizationId = (Array.isArray(location.query?.organizationId) ? location.query?.organizationId[0] : location.query?.organizationId) || currentOrganization?.id;
+  const organizationId = currentOrganization?.id ?? organizations?.[0]?.id ?? null;
   
-  // Prefer the upgraded business/enterprise org when available to ensure we mark the correct org
   const targetOrganization = useMemo(() => {
-    const fromUrl = organizations?.find(org => org.id === organizationId);
-    if (fromUrl) return fromUrl;
-    const upgraded = organizations?.find(org => resolveOrganizationKind(org.kind, org.isPersonal ?? null) === 'business');
-    return upgraded ?? currentOrganization ?? organizations?.[0] ?? null;
-  }, [organizations, organizationId, currentOrganization]);
-  
-  const targetOrganizationId = targetOrganization?.id || organizationId;
-
-  // Normalize URL to use the resolved target organization to avoid completing onboarding on the wrong org
-  useEffect(() => {
-    if (!targetOrganizationId) return;
-    try {
-      console.debug('[ONBOARDING][RESOLVE_ORG] Using targetOrganizationId:', targetOrganizationId);
-      const url = new URL(window.location.href);
-      const current = url.searchParams.get('organizationId');
-      if (current !== targetOrganizationId) {
-        console.debug('[ONBOARDING][RESOLVE_ORG] Normalizing URL organizationId from', current, 'to', targetOrganizationId);
-        url.searchParams.set('organizationId', targetOrganizationId);
-        window.history.replaceState({}, '', url.toString());
-      }
-    } catch {
-      // noop
+    if (currentOrganization) {
+      return currentOrganization;
     }
-  }, [targetOrganizationId]);
+    const upgraded = organizations?.find(org => resolveOrganizationKind(org.kind, org.isPersonal ?? null) === 'business');
+    return upgraded ?? organizations?.[0] ?? null;
+  }, [organizations, currentOrganization]);
+  
+  const targetOrganizationId = targetOrganization?.id ?? organizationId;
   const shouldSync = (Array.isArray(location.query?.sync) ? location.query?.sync[0] : location.query?.sync) === '1';
 
   // Local timeout to avoid indefinite spinner when organizations loading takes too long
@@ -135,7 +115,6 @@ export const BusinessOnboardingPage = () => {
         try {
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.delete('sync');
-          newUrl.searchParams.delete('session_id');
           window.history.replaceState({}, '', newUrl.toString());
           console.debug('[ONBOARDING][SYNC] Sync done. Cleaned URL.');
         } catch (_e) {

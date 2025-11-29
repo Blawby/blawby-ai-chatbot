@@ -80,6 +80,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
+    } else if (path.startsWith('/api/practice')) {
+      response = await proxyPracticeRequest(request, env, path, url.search);
     } else if (path.startsWith('/api/forms')) {
       response = await handleForms(request, env);
     } else if (path.startsWith('/api/auth')) {
@@ -161,6 +163,43 @@ export default {
   fetch: handleRequest,
   queue: docProcessor.queue
 };
+
+async function proxyPracticeRequest(request: Request, env: Env, path: string, search: string): Promise<Response> {
+  const baseUrl = env.REMOTE_API_URL || 'https://staging-api.blawby.com';
+  const targetUrl = `${baseUrl}${path}${search}`;
+  const method = request.method.toUpperCase();
+  const headers = new Headers(request.headers);
+  headers.delete('host');
+
+  const init: RequestInit = {
+    method,
+    headers,
+    redirect: 'manual',
+  };
+
+  if (method !== 'GET' && method !== 'HEAD') {
+    init.body = request.body;
+  }
+
+  const proxiedRequest = new Request(targetUrl, init);
+  const response = await fetch(proxiedRequest);
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error('[PracticeProxy] Remote API error', {
+      path,
+      status: response.status,
+      statusText: response.statusText,
+      body,
+    });
+    return new Response(body || 'Remote API error', {
+      status: response.status,
+      headers: response.headers,
+    });
+  }
+
+  return response;
+}
 
 // Scheduled event for cleanup (runs daily)
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
