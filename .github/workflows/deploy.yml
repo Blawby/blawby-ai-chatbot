@@ -9,6 +9,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      VITE_AUTH_SERVER_URL: ${{ secrets.VITE_AUTH_SERVER_URL || 'https://staging-api.blawby.com' }}
     
     steps:
     - name: Checkout repository
