@@ -42,8 +42,7 @@ const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
 // Get auth URL - validate in browser context only
 function getAuthBaseUrl(): string {
   if (typeof window === 'undefined') {
-    // During build/SSR, return placeholder to avoid build errors
-    return 'https://placeholder-auth-server.com';
+    throw new Error('Auth client cannot be instantiated during server-side rendering');
   }
   
   // Browser runtime - validate and throw if missing
@@ -118,7 +117,7 @@ export const authClient = new Proxy({} as AuthClientType, {
 
 ### Key Configuration Points
 
-1. **Lazy Initialization with Proxy**: The `authClient` is exported as a Proxy that creates the actual client on first access. This prevents build-time errors when `VITE_AUTH_SERVER_URL` is not set during SSR/build.
+1. **Lazy Initialization with Proxy**: The `authClient` is exported as a Proxy that creates the actual client on first access. This prevents build-time errors when `VITE_AUTH_SERVER_URL` is not set during SSR/build, but note that `getAuthBaseUrl()` now throws if it runs during SSR—guard access with `typeof window !== 'undefined'` when calling client helpers in shared modules.
 2. **Import from `better-auth/react`**: Required for React/Preact hooks like `useSession()`
 3. **Organization Plugin**: `organizationClient()` enables organization management features
 4. **Bearer Token Type**: Uses Bearer token authentication instead of cookies
@@ -126,6 +125,14 @@ export const authClient = new Proxy({} as AuthClientType, {
 6. **Async Token Function**: The token function is async to wait for IndexedDB initialization
 7. **Development Fallback**: In development, falls back to `https://staging-api.blawby.com` if `VITE_AUTH_SERVER_URL` is not set
 8. **Nested Method Support**: The Proxy handles nested methods like `authClient.signUp.email()` correctly by recursively proxying objects
+
+Example guard to avoid SSR errors:
+
+```ts
+if (typeof window !== 'undefined') {
+  const session = await authClient.getSession();
+}
+```
 
 ## Token Storage
 
@@ -1142,4 +1149,3 @@ Onboarding API errors follow standard HTTP status codes:
 3. **Client Secret Expiry**: The `client_secret` expires after a period. If expired, create a new session.
 4. **Webhook Updates**: Onboarding status is automatically updated via Stripe webhooks
 5. **Permission Required**: Only practice admins/owners can create connected accounts
-

@@ -37,6 +37,12 @@ import { apiClient } from './lib/apiClient';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
+const DEFAULT_PRACTICE_PHONE =
+	(import.meta.env.VITE_DEFAULT_PRACTICE_PHONE ?? '+17025550123').trim();
+const DEFAULT_CONSULTATION_FEE = Number.parseFloat(
+	import.meta.env.VITE_DEFAULT_CONSULTATION_FEE ?? '150'
+);
+
 
 
 // Main application component (non-auth pages)
@@ -186,14 +192,33 @@ function MainApp({
                             if (practices.length === 0) {
                                 const userName = session.user.name || session.user.email?.split('@')[0] || 'User';
                                 const practiceName = `${userName}'s Practice`;
-                                const practiceSlug = `practice-${session.user.id.slice(0, 8)}`;
+                                const sanitizedUserId = (session.user.id ?? '')
+                                    .toString()
+                                    .toLowerCase()
+                                    .replace(/[^a-z0-9]/g, '');
+                                const randomSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+                                    ? crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+                                    : Math.random().toString(36).slice(2, 10);
+                                const slugSource = sanitizedUserId && sanitizedUserId.length >= 12
+                                    ? sanitizedUserId
+                                    : `${sanitizedUserId}-${randomSuffix}`;
+                                const practiceSlug = `practice-${slugSource}`
+                                    .replace(/--+/g, '-')
+                                    .slice(0, 64);
+                                const businessPhone = DEFAULT_PRACTICE_PHONE.length
+                                    ? DEFAULT_PRACTICE_PHONE
+                                    : undefined;
+                                const consultationFee =
+                                    Number.isFinite(DEFAULT_CONSULTATION_FEE) && DEFAULT_CONSULTATION_FEE > 0
+                                        ? DEFAULT_CONSULTATION_FEE
+                                        : undefined;
                                 
                                 await apiClient.post('/api/practice', {
                                     name: practiceName,
                                     slug: practiceSlug,
                                     business_email: session.user.email || '',
-                                    business_phone: '+1-555-0100',
-                                    consultation_fee: 100.00,
+                                    ...(businessPhone ? { business_phone: businessPhone } : {}),
+                                    ...(consultationFee ? { consultation_fee: consultationFee } : {}),
                                 }, { signal: controller.signal });
                             }
                             

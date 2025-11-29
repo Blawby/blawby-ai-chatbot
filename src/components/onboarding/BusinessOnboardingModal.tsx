@@ -276,6 +276,9 @@ const BusinessOnboardingModal = ({
       } else {
         try {
           await startStripeOnboarding();
+        } catch (error) {
+          console.error('[ONBOARDING][STRIPE] Failed to start onboarding session:', error);
+          setSubmitError('Unable to start Stripe onboarding. Please try again.');
         } finally {
           setLoading(false);
         }

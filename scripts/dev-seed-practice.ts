@@ -11,10 +11,40 @@ const PRACTICE_NAME = process.env.DEV_SEED_PRACTICE_NAME ?? 'Dev Practice';
 const PRACTICE_SLUG =
   process.env.DEV_SEED_PRACTICE_SLUG ??
   `dev-practice-${randomUUID().slice(0, 8)}`;
+const BUSINESS_EMAIL =
+  process.env.DEV_SEED_BUSINESS_EMAIL ?? 'test+practice@example.com';
+const BUSINESS_PHONE =
+  process.env.DEV_SEED_BUSINESS_PHONE ?? '+17025550123';
+const CONSULTATION_FEE = Number.parseFloat(
+  process.env.DEV_SEED_CONSULTATION_FEE ?? '150'
+);
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\+?[0-9]{7,15}$/;
 
 if (!EMAIL || !PASSWORD) {
   console.error(
     'DEV_SEED_USER_EMAIL and DEV_SEED_USER_PASSWORD must be set in your environment.'
+  );
+  process.exit(1);
+}
+
+if (!EMAIL_REGEX.test(BUSINESS_EMAIL)) {
+  console.error(
+    `DEV_SEED_BUSINESS_EMAIL must be a valid email address. Received: ${BUSINESS_EMAIL}`
+  );
+  process.exit(1);
+}
+
+if (!PHONE_REGEX.test(BUSINESS_PHONE)) {
+  console.error(
+    `DEV_SEED_BUSINESS_PHONE must be an E.164 phone number (e.g. +15551234567). Received: ${BUSINESS_PHONE}`
+  );
+  process.exit(1);
+}
+
+if (!Number.isFinite(CONSULTATION_FEE) || CONSULTATION_FEE <= 0) {
+  console.error(
+    'DEV_SEED_CONSULTATION_FEE must be a positive number representing USD.'
   );
   process.exit(1);
 }
@@ -95,9 +125,9 @@ async function createPractice(token: string): Promise<any> {
   const payload = {
     name: PRACTICE_NAME,
     slug: PRACTICE_SLUG,
-    business_email: EMAIL,
-    business_phone: '+1-555-0100', // Valid phone format required
-    consultation_fee: 100.00, // Must be greater than 0
+    business_email: BUSINESS_EMAIL,
+    business_phone: BUSINESS_PHONE,
+    consultation_fee: CONSULTATION_FEE,
     metadata: {
       createdBy: 'dev-seed-script',
     },

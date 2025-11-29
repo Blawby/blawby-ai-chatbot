@@ -20,7 +20,7 @@ import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
 import docProcessor from './consumers/doc-processor';
-import { optionalAuth } from './middleware/auth.js';
+import { requireAuth } from './middleware/auth.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 
 // Basic request validation
@@ -166,15 +166,15 @@ export default {
 };
 
 async function proxyPracticeRequest(request: Request, env: Env, path: string, search: string): Promise<Response> {
-  const authContext = await optionalAuth(request, env);
-  if (!authContext?.user) {
-    return new Response(JSON.stringify({ error: 'Authentication required' }), {
-      status: 401,
+  await requireAuth(request, env);
+  if (!env.REMOTE_API_URL) {
+    return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+      status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  const baseUrl = env.REMOTE_API_URL || 'https://staging-api.blawby.com';
+  const baseUrl = env.REMOTE_API_URL;
   const targetUrl = new URL(path + search, baseUrl).toString();
   const method = request.method.toUpperCase();
   const headers = new Headers();

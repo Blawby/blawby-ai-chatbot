@@ -157,6 +157,7 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
 
   // Fetch organization configuration
   const fetchOrganizationConfig = useCallback(async (currentOrganizationId: string) => {
+    const requestedOrganizationId = currentOrganizationId;
     // Always fetch the specified organization configuration
     // No need for personal organization fallback since we default to blawby-ai
     
@@ -181,6 +182,17 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
 
     setIsLoading(true);
 
+    const isStaleRequest = (): boolean => {
+      const isStale =
+        !currentRequestRef.current ||
+        currentRequestRef.current.organizationId !== requestedOrganizationId ||
+        controller.signal.aborted;
+      if (isStale) {
+        fetchedOrganizationIds.current.delete(currentOrganizationId);
+      }
+      return isStale;
+    };
+
     try {
       // Try to get specific practice by ID first, then fall back to listing all practices
       let organization: z.infer<typeof OrganizationSchema> | undefined;
@@ -192,6 +204,9 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       if (isUuid) {
         try {
           const response = await apiClient.get(`/api/practice/${encodeURIComponent(currentOrganizationId)}`, { signal: controller.signal });
+          if (isStaleRequest()) {
+            return;
+          }
           const practice = response.data?.practice || response.data;
           if (practice) {
             organization = OrganizationSchema.parse(practice);
@@ -207,9 +222,7 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
         const response = await apiClient.get('/api/practice/list', { signal: controller.signal });
         
         // Check if this request is still current before processing response
-        if (!currentRequestRef.current || 
-            currentRequestRef.current.organizationId !== currentOrganizationId ||
-            controller.signal.aborted) {
+        if (isStaleRequest()) {
           return; // Request is stale or aborted, don't update state
         }
 
@@ -223,9 +236,7 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       }
 
       // Check again before processing organization data
-      if (!currentRequestRef.current || 
-          currentRequestRef.current.organizationId !== currentOrganizationId ||
-          controller.signal.aborted) {
+      if (isStaleRequest()) {
         return; // Request is stale or aborted, don't update state
       }
 
