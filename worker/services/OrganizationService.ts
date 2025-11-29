@@ -262,7 +262,6 @@ const parseOnboardingData = (value: unknown): Record<string, unknown> | null => 
 };
 
 export class OrganizationService {
-  private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private orgCache = new Map<string, { data: Organization; timestamp: number }>();
 
   /**

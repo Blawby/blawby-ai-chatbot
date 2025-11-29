@@ -18,13 +18,13 @@
 ## 3. Data Model
 
 ### `organizations`
-Field | Description
-------|-----------
-`is_personal` | `1` for personal orgs. Set to `0` after a paid upgrade via the webhook.
-`subscription_tier` | Used for display (`free`, `business`, `enterprise`), derived from subscription status. Note: Enterprise is future/disabled; only Free and Business tiers are currently live in the UI (as of Q4 2024).
-`kind` | In code we derive `business` vs `personal`; fallbacks for legacy rows use `is_personal`.
-`stripe_customer_id` | Set after upgrade; allows Stripe → org resolution.
-`config` | Stores workspace settings, notifications, etc.
+| Field | Description |
+|-------|-------------|
+| `is_personal` | `1` for personal orgs. Set to `0` after a paid upgrade via the webhook. |
+| `subscription_tier` | Used for display (`free`, `business`, `enterprise`), derived from subscription status. Note: Enterprise is future/disabled; only Free and Business tiers are currently live in the UI (as of Q4 2024). |
+| `kind` | In code we derive `business` vs `personal`; fallbacks for legacy rows use `is_personal`. |
+| `stripe_customer_id` | Set after upgrade; allows Stripe → org resolution. |
+| `config` | Stores workspace settings, notifications, etc. |
 
 ### `members`
 - Owner membership is provisioned automatically for personal orgs.

@@ -9,7 +9,11 @@ export default defineConfig({
     testTimeout: 10000,
     hookTimeout: 10000,
     include: [
-      'src/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'src/components/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'src/__tests__/components/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'src/__tests__/lib/tokenStorage.test.ts',
+      'src/__tests__/RTLSupport.test.tsx',
+      'src/components/settings/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
       'tests/component/**/*.{test,spec}.{js,ts,jsx,tsx}'
     ],
     exclude: [

@@ -20,6 +20,42 @@ vi.mock("@/i18n/hooks", async () => {
   };
 });
 
+// Mock usePaymentUpgrade hook
+vi.mock("../../hooks/usePaymentUpgrade", () => ({
+  usePaymentUpgrade: () => ({
+    openBillingPortal: vi.fn(),
+    upgradeSubscription: vi.fn(),
+    syncSubscription: vi.fn(),
+    cancelSubscription: vi.fn(),
+  }),
+}));
+
+// Mock useOrganizationManagement hook
+vi.mock("../../hooks/useOrganizationManagement", () => ({
+  useOrganizationManagement: () => ({
+    currentOrganization: { id: "org-1", subscriptionTier: "free" },
+    organizations: [],
+    loading: false,
+    error: null,
+  }),
+}));
+
+// Mock useToastContext
+vi.mock("../../contexts/ToastContext", () => ({
+  useToastContext: () => ({
+    showSuccess: vi.fn(),
+    showError: vi.fn(),
+  }),
+}));
+
+// Mock SessionContext
+vi.mock("../../contexts/SessionContext", () => ({
+  useSessionContext: () => ({
+    activeOrganizationId: "org-1",
+    activeOrganizationSlug: "test-org",
+  }),
+}));
+
 describe("Pricing Internationalization", () => {
   describe("i18n Configuration", () => {
     it("should have pricing namespace configured", () => {
@@ -38,7 +74,9 @@ describe("Pricing Internationalization", () => {
     });
 
     it("should default to English", () => {
-      expect(i18n.options.fallbackLng).toBe("en");
+      // i18next can return fallbackLng as string or array
+      const fallbackLng = i18n.options.fallbackLng;
+      expect(fallbackLng === "en" || (Array.isArray(fallbackLng) && fallbackLng.includes("en"))).toBe(true);
     });
   });
 

@@ -9,13 +9,22 @@ export default defineConfig({
     include: [
       'tests/unit/**/*.test.{ts,tsx,js,jsx}',
       'tests/unit/**/*.spec.{ts,tsx,js,jsx}',
-      'src/**/__tests__/**/*.{test,spec}.{ts,tsx,js,jsx}'
+      'src/hooks/__tests__/useMattersSidebar.test.ts',
+      'src/hooks/__tests__/useOrganizationManagement.test.ts',
+      'src/utils/__tests__/deepEqual.test.ts',
+      'src/utils/__tests__/errorHandler.test.ts',
+      'src/__tests__/i18n.test.ts'
     ],
     exclude: [
       'node_modules/**',
       'dist/**',
       'tests/e2e/**',
-      'tests/integration/**'
+      'tests/integration/**',
+      'src/components/**/__tests__/**',
+      'src/__tests__/lib/tokenStorage.test.ts',
+      'src/__tests__/components/**',
+      'src/__tests__/RTLSupport.test.tsx',
+      'src/components/settings/**/__tests__/**'
     ],
     coverage: {
       provider: 'v8',
@@ -27,6 +36,16 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*'
       ]
+    }
+  },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, '../../src'),
+      '~': resolve(__dirname, '../../'),
+      '@tests': resolve(__dirname, '../../tests'),
+      '@fixtures': resolve(__dirname, '../../tests/fixtures'),
+      '@i18n': resolve(__dirname, '../../src/i18n/index.ts'),
+      '@locales': resolve(__dirname, '../../src/locales')
     }
   }
 });

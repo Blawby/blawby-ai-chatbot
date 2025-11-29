@@ -15,7 +15,7 @@ function getBaseUrl(): string {
   }
   
   // In browser environment, check for localhost
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const origin = window.location.origin;
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       return 'http://localhost:8787';

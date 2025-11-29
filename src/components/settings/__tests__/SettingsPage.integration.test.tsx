@@ -153,6 +153,10 @@ vi.mock('../../../lib/authClient', async () => {
     ...actual,
     authClient: {
       ...actual.authClient,
+      useSession: () => ({
+        data: { user: { id: 'user-1', email: 'test@example.com' } },
+        isPending: false,
+      }),
       signOut: vi.fn().mockResolvedValue(undefined),
     },
   };

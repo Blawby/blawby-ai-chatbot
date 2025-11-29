@@ -1,4 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Mock authClient BEFORE importing anything that uses it
+const mockUseSession = vi.fn(() => ({
+  data: { user: { id: 'user-1', email: 'test@example.com' } },
+  isPending: false,
+}));
+
+vi.mock('../../../../lib/authClient', () => ({
+  authClient: {
+    useSession: mockUseSession,
+  },
+  useSession: mockUseSession,
+}));
+
 import { render, screen, fireEvent, waitFor } from '../../../../__tests__/test-utils';
 import { OrganizationPage } from '../OrganizationPage';
 import { useOrganizationManagement } from '../../../../hooks/useOrganizationManagement';
@@ -92,6 +106,14 @@ vi.mock('../../../../config/features', () => ({
   features: {
     enableMultipleOrganizations: true,
   },
+}));
+
+// Mock SessionContext
+vi.mock('../../../../contexts/SessionContext', () => ({
+  useSessionContext: () => ({
+    activeOrganizationId: 'org-1',
+    activeOrganizationSlug: 'test-org',
+  }),
 }));
 
 // Mock framer-motion to avoid React/Preact compatibility issues
