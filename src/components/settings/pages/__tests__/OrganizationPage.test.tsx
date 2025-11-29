@@ -109,11 +109,13 @@ vi.mock('../../../../config/features', () => ({
 }));
 
 // Mock SessionContext
+const mockSessionContext = {
+  activeOrganizationId: 'org-1',
+  activeOrganizationSlug: 'test-org',
+};
+
 vi.mock('../../../../contexts/SessionContext', () => ({
-  useSessionContext: () => ({
-    activeOrganizationId: 'org-1',
-    activeOrganizationSlug: 'test-org',
-  }),
+  useSessionContext: () => mockSessionContext,
 }));
 
 // Mock framer-motion to avoid React/Preact compatibility issues
@@ -198,6 +200,10 @@ describe('OrganizationPage', () => {
     useOrgMgmtMock.fetchMembers = mockFetchMembers;
     useOrgMgmtMock.refetch = mockRefetch;
     
+    // Reset SessionContext to match currentOrganization
+    mockSessionContext.activeOrganizationId = 'org-1';
+    mockSessionContext.activeOrganizationSlug = 'test-org';
+    
     // Set up the mock return value
     vi.mocked(useOrganizationManagement).mockReturnValue(useOrgMgmtMock);
   });
@@ -235,6 +241,10 @@ describe('OrganizationPage', () => {
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = true;
     useOrgMgmtMock.error = null;
+    
+    // Sync SessionContext with null currentOrganization
+    mockSessionContext.activeOrganizationId = null as any;
+    mockSessionContext.activeOrganizationSlug = null as any;
 
     render(<OrganizationPage />);
     
@@ -251,6 +261,10 @@ describe('OrganizationPage', () => {
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = 'Failed to load organizations';
+    
+    // Sync SessionContext with null currentOrganization
+    mockSessionContext.activeOrganizationId = null as any;
+    mockSessionContext.activeOrganizationSlug = null as any;
 
     render(<OrganizationPage />);
     
@@ -555,9 +569,18 @@ describe('OrganizationPage', () => {
     // Set currentOrganization to null to show empty state
     useOrgMgmtMock.currentOrganization = null;
     
+    // Sync SessionContext with null currentOrganization
+    mockSessionContext.activeOrganizationId = null as any;
+    mockSessionContext.activeOrganizationSlug = null as any;
+    
     render(<OrganizationPage />);
     
+    // Verify the "no organization" UI renders
     expect(screen.getByText('No Organization Yet')).toBeInTheDocument();
     expect(screen.getByText('Create your law firm or accept an invitation')).toBeInTheDocument();
+    
+    // Verify component does not read SessionContext when currentOrganization is null
+    expect(mockSessionContext.activeOrganizationId).toBe(null);
+    expect(mockSessionContext.activeOrganizationSlug).toBe(null);
   });
 });

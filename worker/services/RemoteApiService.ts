@@ -91,7 +91,7 @@ export class RemoteApiService {
       } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
-          throw HttpErrors.internalServerError('Request timeout: Remote API did not respond within 10 seconds');
+          throw HttpErrors.gatewayTimeout('Request timeout: Remote API did not respond within 10 seconds');
         }
         throw error;
       }

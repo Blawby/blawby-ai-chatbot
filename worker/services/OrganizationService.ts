@@ -269,14 +269,35 @@ export class OrganizationService {
    */
   private async validateUserExists(userId: string, request?: Request): Promise<void> {
     try {
+      // Prepare headers with authentication
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Use incoming request headers for authentication if available
+      if (request?.headers) {
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader) {
+          headers['Authorization'] = authHeader;
+        }
+        // Forward other relevant headers if needed
+        const userAgent = request.headers.get('User-Agent');
+        if (userAgent) {
+          headers['User-Agent'] = userAgent;
+        }
+      }
+
+      // Fallback to service-to-service token if no auth headers provided
+      if (!headers['Authorization'] && this.env.BLAWBY_API_TOKEN) {
+        headers['Authorization'] = `Bearer ${this.env.BLAWBY_API_TOKEN}`;
+      }
+
       // Since there's no direct user validation endpoint, we'll use a proxy approach
       // by attempting to fetch user-specific data that should exist if user is valid
       // Note: This is a temporary solution - ideally there should be a dedicated user validation endpoint
       const response = await fetch(`${this.env.REMOTE_API_URL}/api/users/${userId}/validate`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         signal: AbortSignal.timeout(5000), // 5 second timeout for validation
       });
       

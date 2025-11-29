@@ -37,7 +37,8 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Guard against concurrent 401s - only handle once
       if (!isHandling401) {
-        isHandling401 = (async () => {
+        // Create the handler promise immediately and assign it
+        const handle401 = async () => {
           try {
             await clearToken();
           } catch (err) {
@@ -48,7 +49,10 @@ apiClient.interceptors.response.use(
           }
           // Reset guard after handling completes
           isHandling401 = null;
-        })();
+        };
+        
+        // Assign the promise immediately before any async work
+        isHandling401 = handle401();
       }
       // Wait for the handling to complete (or already in progress)
       await isHandling401;
