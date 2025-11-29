@@ -166,7 +166,8 @@ export default {
 
 async function proxyPracticeRequest(request: Request, env: Env, path: string, search: string): Promise<Response> {
   const baseUrl = env.REMOTE_API_URL || 'https://staging-api.blawby.com';
-  const targetUrl = `${baseUrl}${path}${search}`;
+  // Use URL API to handle base URLs with paths or trailing slashes correctly
+  const targetUrl = new URL(path + search, baseUrl).toString();
   const method = request.method.toUpperCase();
   const headers = new Headers(request.headers);
   headers.delete('host');
@@ -186,11 +187,17 @@ async function proxyPracticeRequest(request: Request, env: Env, path: string, se
 
   if (!response.ok) {
     const body = await response.text();
+    // Log safe truncated snippet instead of full body to avoid storing sensitive data
+    const bodyLength = body.length;
+    const bodySnippet = bodyLength > 0 
+      ? body.substring(0, Math.min(200, bodyLength)) + (bodyLength > 200 ? '...' : '')
+      : '(empty)';
     console.error('[PracticeProxy] Remote API error', {
       path,
       status: response.status,
       statusText: response.statusText,
-      body,
+      bodyLength,
+      bodySnippet,
     });
     return new Response(body || 'Remote API error', {
       status: response.status,

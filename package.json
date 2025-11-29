@@ -6,6 +6,7 @@
 	},
 	"scripts": {
 		"dev": "vite",
+		"dev:seed": "tsx scripts/dev-seed-practice.ts",
 		"dev:worker": "wrangler dev --port 8787",
 		"dev:worker:clean": "lsof -ti:8787 | xargs kill -9 2>/dev/null || true && wrangler dev --port 8787",
 		"dev:full": "concurrently \"npm run dev\" \"npm run dev:worker\"",

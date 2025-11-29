@@ -4,9 +4,7 @@ import type { OrganizationConfig } from '../../worker/types';
 import { useSessionContext } from '../contexts/SessionContext.js';
 import { useSession } from '../lib/authClient.js';
 import { DEFAULT_ORGANIZATION_ID } from '../utils/constants.js';
-
-// API endpoints - moved inline since api.ts was removed
-const getOrganizationsEndpoint = () => '/api/organizations';
+import { apiClient } from '../lib/apiClient.js';
 
 // Zod schema for API response validation
 const OrganizationSchema = z.object({
@@ -184,83 +182,85 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
     setIsLoading(true);
 
     try {
-      const response = await fetch(getOrganizationsEndpoint(), { signal: controller.signal });
+      // Try to get specific practice by ID first, then fall back to listing all practices
+      let organization: z.infer<typeof OrganizationSchema> | undefined;
+      
+      // If organizationId looks like a UUID, try to fetch it directly
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentOrganizationId) ||
+                     /^[A-Z0-9]{26}$/i.test(currentOrganizationId); // Also support shorter IDs
+      
+      if (isUuid) {
+        try {
+          const response = await apiClient.get(`/api/practice/${encodeURIComponent(currentOrganizationId)}`, { signal: controller.signal });
+          const practice = response.data?.practice || response.data;
+          if (practice) {
+            organization = OrganizationSchema.parse(practice);
+          }
+        } catch (e) {
+          // If direct fetch fails, fall through to list approach
+          console.debug('[useOrganizationConfig] Direct practice fetch failed, falling back to list', e);
+        }
+      }
+      
+      // If we don't have the organization yet, list all practices and find the matching one
+      if (!organization) {
+        const response = await apiClient.get('/api/practice/list', { signal: controller.signal });
+        
+        // Check if this request is still current before processing response
+        if (!currentRequestRef.current || 
+            currentRequestRef.current.organizationId !== currentOrganizationId ||
+            controller.signal.aborted) {
+          return; // Request is stale or aborted, don't update state
+        }
 
-      // Check if this request is still current before processing response
+        const practices = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response.data?.practices)
+            ? response.data.practices
+            : [];
+        
+        organization = practices.find((t: any) => t.slug === currentOrganizationId || t.id === currentOrganizationId);
+      }
+
+      // Check again before processing organization data
       if (!currentRequestRef.current || 
           currentRequestRef.current.organizationId !== currentOrganizationId ||
           controller.signal.aborted) {
         return; // Request is stale or aborted, don't update state
       }
 
-      if (response.ok) {
-        try {
-          const rawResponse = await response.json();
-          const organizationsResponse = OrganizationsResponseSchema.parse(rawResponse);
-          const organization = organizationsResponse.data.find((t) => t.slug === currentOrganizationId || t.id === currentOrganizationId);
+      if (organization) {
+        // Organization exists, use its config or defaults
+        // Parse config safely - config is Record<string, unknown> from API
+        const cfg = organization.config as Partial<OrganizationConfig> || {};
+        const normalizedJurisdiction: OrganizationConfig['jurisdiction'] = {
+          type: cfg.jurisdiction?.type ?? 'national',
+          description: cfg.jurisdiction?.description ?? 'Available nationwide',
+          supportedStates: cfg.jurisdiction?.supportedStates ?? ['all'],
+          supportedCountries: cfg.jurisdiction?.supportedCountries ?? ['US'],
+          primaryState: cfg.jurisdiction?.primaryState
+        };
 
-          // Check again before processing organization data
-          if (!currentRequestRef.current || 
-              currentRequestRef.current.organizationId !== currentOrganizationId ||
-              controller.signal.aborted) {
-            return; // Request is stale or aborted, don't update state
+        const config: UIOrganizationConfig = {
+          name: organization.name || 'Blawby AI',
+          profileImage: cfg.profileImage ?? '/blawby-favicon-iframe.png',
+          introMessage: cfg.introMessage ?? null,
+          description: cfg.description ?? null,
+          availableServices: cfg.availableServices ?? [],
+          serviceQuestions: cfg.serviceQuestions ?? {},
+          jurisdiction: normalizedJurisdiction,
+          voice: {
+            enabled: Boolean(cfg.voice?.enabled),
+            provider: cfg.voice?.provider ?? 'cloudflare',
+            voiceId: cfg.voice?.voiceId ?? null,
+            displayName: cfg.voice?.displayName ?? null,
+            previewUrl: cfg.voice?.previewUrl ?? null
           }
-
-          if (organization) {
-            // Organization exists, use its config or defaults
-            // Parse config safely - config is Record<string, unknown> from API
-            const cfg = organization.config as Partial<OrganizationConfig> || {};
-            const normalizedJurisdiction: OrganizationConfig['jurisdiction'] = {
-              type: cfg.jurisdiction?.type ?? 'national',
-              description: cfg.jurisdiction?.description ?? 'Available nationwide',
-              supportedStates: cfg.jurisdiction?.supportedStates ?? ['all'],
-              supportedCountries: cfg.jurisdiction?.supportedCountries ?? ['US'],
-              primaryState: cfg.jurisdiction?.primaryState
-            };
-
-            const config: UIOrganizationConfig = {
-              name: organization.name || 'Blawby AI',
-              profileImage: cfg.profileImage ?? '/blawby-favicon-iframe.png',
-              introMessage: cfg.introMessage ?? null,
-              description: cfg.description ?? null,
-              availableServices: cfg.availableServices ?? [],
-              serviceQuestions: cfg.serviceQuestions ?? {},
-              jurisdiction: normalizedJurisdiction,
-              voice: {
-                enabled: Boolean(cfg.voice?.enabled),
-                provider: cfg.voice?.provider ?? 'cloudflare',
-                voiceId: cfg.voice?.voiceId ?? null,
-                displayName: cfg.voice?.displayName ?? null,
-                previewUrl: cfg.voice?.previewUrl ?? null
-              }
-            };
-            setOrganizationConfig(config);
-            setOrganizationNotFound(false);
-          } else {
-            // Organization not found in the list - this indicates a 404-like scenario
-            // Remove from fetched set so it can be retried
-            fetchedOrganizationIds.current.delete(currentOrganizationId);
-            setOrganizationNotFound(true);
-          }
-        } catch (parseError) {
-          // If the request was aborted while parsing, allow retry by removing fetched marker and exit quietly
-          if (parseError instanceof Error && parseError.name === 'AbortError') {
-            fetchedOrganizationIds.current.delete(currentOrganizationId);
-            return;
-          }
-          // Remove from fetched set so it can be retried
-          fetchedOrganizationIds.current.delete(currentOrganizationId);
-          console.error('Failed to parse organizations response:', parseError);
-          setOrganizationNotFound(true);
-          onError?.('Invalid organization configuration data received');
-        }
-      } else if (response.status === 404) {
-        // Only set organization not found for actual 404 responses
-        // Remove from fetched set so it can be retried
-        fetchedOrganizationIds.current.delete(currentOrganizationId);
-        setOrganizationNotFound(true);
+        };
+        setOrganizationConfig(config);
+        setOrganizationNotFound(false);
       } else {
-        // For other HTTP errors, set organization not found as well
+        // Organization not found in the list - this indicates a 404-like scenario
         // Remove from fetched set so it can be retried
         fetchedOrganizationIds.current.delete(currentOrganizationId);
         setOrganizationNotFound(true);

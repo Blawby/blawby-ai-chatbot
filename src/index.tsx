@@ -33,6 +33,7 @@ import { useOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
 import QuotaBanner from './components/QuotaBanner';
 import { DEFAULT_ORGANIZATION_ID } from './utils/constants';
+import { apiClient } from './lib/apiClient';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -163,32 +164,61 @@ function MainApp({
 
     // Check if OAuth user needs onboarding (one-time check after auth)
     useEffect(() => {
-        // Ensure personal organization once per session if user is present
+        // Ensure practice exists once per session if user is present
         (async () => {
             try {
                 if (session?.user && typeof window !== 'undefined') {
-                    const key = `ensuredPersonalOrg_v1_${session.user.id}`;
+                    const key = `ensuredPractice_v1_${session.user.id}`;
                     if (!sessionStorage.getItem(key)) {
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 10000);
-                        const resp = await fetch('/api/organizations/me/ensure-personal', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            signal: controller.signal,
-                        });
-                        clearTimeout(timeoutId);
-                        if (!resp.ok) {
-                            console.warn('Failed to ensure personal organization (non-OK response)', { status: resp.status });
-                            showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
+                        
+                        // Check if practices exist
+                        try {
+                            const listResp = await apiClient.get('/api/practice/list', { signal: controller.signal });
+                            const practices = Array.isArray(listResp.data) 
+                                ? listResp.data 
+                                : Array.isArray(listResp.data?.practices) 
+                                    ? listResp.data.practices 
+                                    : [];
+                            
+                            // If no practices exist, create a default one
+                            if (practices.length === 0) {
+                                const userName = session.user.name || session.user.email?.split('@')[0] || 'User';
+                                const practiceName = `${userName}'s Practice`;
+                                const practiceSlug = `practice-${session.user.id.slice(0, 8)}`;
+                                
+                                await apiClient.post('/api/practice', {
+                                    name: practiceName,
+                                    slug: practiceSlug,
+                                    business_email: session.user.email || '',
+                                    business_phone: '+1-555-0100',
+                                    consultation_fee: 100.00,
+                                }, { signal: controller.signal });
+                            }
+                            
+                            clearTimeout(timeoutId);
+                            sessionStorage.setItem(key, '1');
+                        } catch (e) {
+                            clearTimeout(timeoutId);
+                            if (e instanceof Error && e.name === 'CanceledError') {
+                                return;
+                            }
+                            console.warn('Failed to ensure practice (non-OK response):', e);
+                            // Don't show error for 404s - practice might not be needed yet
+                            if (e && typeof e === 'object' && 'response' in e && (e as any).response?.status !== 404) {
+                                showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
+                            }
                             return;
                         }
-                        sessionStorage.setItem(key, '1');
                     }
                 }
             } catch (e) {
-                console.warn('Failed to ensure personal organization (client fallback):', e);
-                showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
+                console.warn('Failed to ensure practice (client fallback):', e);
+                // Don't show error for expected failures
+                if (e && typeof e === 'object' && 'response' in e && (e as any).response?.status !== 404) {
+                    showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
+                }
             }
         })();
     }, [session?.user, sessionIsPending]);

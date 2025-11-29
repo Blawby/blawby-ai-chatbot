@@ -61,3 +61,14 @@ STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret_here
 STRIPE_CONNECT_WEBHOOK_SECRET=your_stripe_connect_webhook_secret_here
 STRIPE_PRICE_ID=your_price_id_here
 STRIPE_ANNUAL_PRICE_ID=your_annual_price_id_here
+
+# Development Practice Seeding (for npm run dev:seed script)
+# These are used by the dev-seed-practice.ts script to automatically create a practice
+# Note: These are Node.js environment variables, not Worker secrets
+# Set these in your shell or .env file, or export them before running npm run dev:seed
+# DEV_SEED_BASE_URL=http://localhost:8787  # Worker URL for practice API calls
+# DEV_SEED_AUTH_URL=https://staging-api.blawby.com  # Remote auth server URL for sign-in
+# DEV_SEED_USER_EMAIL=your-dev-email@example.com
+# DEV_SEED_USER_PASSWORD=your-dev-password
+# DEV_SEED_PRACTICE_NAME=Dev Practice
+# DEV_SEED_PRACTICE_SLUG=dev-practice
