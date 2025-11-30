@@ -444,7 +444,12 @@ export class PracticeService {
       return practice;
     } catch (error) {
       console.error('Failed to fetch practice:', error);
-      return null;
+      // Only return null for 404/not-found responses (practice not found)
+      // Re-throw all other errors (connectivity, server errors, etc.)
+      if (error instanceof HttpError && error.status === 404) {
+        return null;
+      }
+      throw error;
     }
   }
 

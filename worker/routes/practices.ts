@@ -5,6 +5,7 @@ import { handleError, HttpErrors } from '../errorHandler.js';
 import { parseJsonBody } from '../utils.js';
 import { NotificationService } from '../services/NotificationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
+import { Buffer } from 'buffer';
 
 /**
  * Helper function to create standardized success responses
@@ -70,7 +71,10 @@ type MattersCursor = { createdAt: string; id: string };
 
 function encodeMattersCursor(cursor: MattersCursor): string {
   const payload = JSON.stringify(cursor);
-  const base64 = Buffer.from(payload, 'utf8').toString('base64');
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(payload);
+  const binaryString = String.fromCharCode(...bytes);
+  const base64 = btoa(binaryString);
 
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/u, '');
 }
@@ -419,7 +423,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
           const statusFilterRaw = url.searchParams.get('status');
           const statusFilter = statusFilterRaw ? normalizeMatterStatus(statusFilterRaw) : null;
           const searchTerm = url.searchParams.get('q');
-          const limitWithBuffer = Math.min(limit, 50);
+          const limitWithBuffer = limit;
           const cursorParam = url.searchParams.get('cursor');
 
           const cursor = cursorParam ? decodeMattersCursor(cursorParam) : null;

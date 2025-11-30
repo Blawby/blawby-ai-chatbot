@@ -1,6 +1,6 @@
 # Stripe Architecture Overview
 
-> **⚠️ ARCHIVED**: This document describes the previous local Stripe integration architecture. As of December 2025, all Stripe functionality (webhooks, subscriptions, payments) has been removed from the Worker and is now handled by the remote API at `staging-api.blawby.com`. This document is kept for historical reference only.
+> **⚠️ ARCHIVED**: This document describes the previous local Stripe integration architecture. As of November 2025, all Stripe functionality (webhooks, subscriptions, payments) has been removed from the Worker and is now handled by the remote API at `staging-api.blawby.com`. This document is kept for historical reference only.
 
 ## Migration Status
 
