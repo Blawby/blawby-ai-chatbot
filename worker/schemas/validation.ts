@@ -6,10 +6,10 @@ export const emailSchema = z.string().email();
 export const phoneSchema = z.string().optional();
 export const timestampSchema = z.number().int().positive();
 
-// Organization role schema
+// Practice role schema (formerly organizationRoleSchema)
 export const organizationRoleSchema = z.enum(['owner', 'admin', 'attorney', 'paralegal']);
 
-// Organization subscription and billing schemas
+// Subscription and billing schemas (handled by remote API)
 export const subscriptionTierSchema = z.enum(['free', 'plus', 'business', 'enterprise']);
 export const seatsSchema = z.number().int().positive().default(1);
 export const stripeCustomerIdSchema = z.string().min(1).optional();
@@ -28,7 +28,7 @@ export const chatRequestSchema = z.object({
     content: z.string().min(1)
   })).min(1),
   sessionId: idSchema.optional(),
-  organizationId: idSchema.optional(),
+  practiceId: idSchema.optional(),
   context: z.record(z.string(), z.any()).optional()
 });
 
@@ -40,7 +40,7 @@ export const chatResponseSchema = z.object({
 
 // Matter creation schemas
 export const matterCreationSchema = z.object({
-  organizationId: idSchema,
+  practiceId: idSchema,
   title: z.string().min(1).max(255),
   description: z.string().min(1),
   status: z.enum(['draft', 'active', 'closed']).default('draft'),
@@ -54,9 +54,9 @@ export const matterUpdateSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional()
 });
 
-// Organization schemas
-export const organizationConfigSchema = z.object({
-  aiModel: z.string().min(1).optional(),
+// Conversation config schemas (formerly organizationConfigSchema)
+export const conversationConfigSchema = z.object({
+  // AI fields removed - no longer used
   consultationFee: z.number().min(0).optional(),
   requiresPayment: z.boolean().optional(),
   ownerEmail: emailSchema.optional(),
@@ -93,7 +93,11 @@ export const organizationConfigSchema = z.object({
 }).passthrough();
 
 
-// Organization database schema with constraints
+// Legacy organization schemas - kept for backward compatibility but deprecated
+// All organization management is now handled by remote API
+export const organizationConfigSchema = conversationConfigSchema; // Alias for backward compatibility
+
+// Organization database schema - DEPRECATED (organizations table removed)
 export const organizationDbSchema = z.object({
   id: idSchema,
   name: z.string().min(1),
@@ -105,11 +109,11 @@ export const organizationDbSchema = z.object({
   updatedAt: timestampSchema
 });
 
-// Organization creation/update schemas
+// Organization creation/update schemas - DEPRECATED (use remote API)
 export const organizationCreateSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
-  config: organizationConfigSchema,
+  config: conversationConfigSchema,
   stripeCustomerId: stripeCustomerIdSchema,
   subscriptionTier: subscriptionTierSchema.default('free'),
   seats: seatsSchema
@@ -118,16 +122,15 @@ export const organizationCreateSchema = z.object({
 export const organizationUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().min(1).optional(),
-  config: organizationConfigSchema.optional(),
+  config: conversationConfigSchema.optional(),
   stripeCustomerId: stripeCustomerIdSchema.optional(),
   subscriptionTier: subscriptionTierSchema.optional(),
-  // seats: optional() means "no change" when missing; service handles fallback to existing/default
   seats: seatsSchema.optional()
 });
 
 // Form schemas
 export const contactFormSchema = z.object({
-  organizationId: idSchema,
+  practiceId: idSchema,
   email: emailSchema,
   phoneNumber: z.string().min(1),
   matterDetails: z.string().min(1),
@@ -138,7 +141,7 @@ export const contactFormSchema = z.object({
 
 // File upload schemas
 export const fileUploadSchema = z.object({
-  organizationId: idSchema,
+  practiceId: idSchema,
   filename: z.string().min(1),
   contentType: z.string().min(1),
   size: z.number().int().positive(),
@@ -147,7 +150,7 @@ export const fileUploadSchema = z.object({
 
 // Feedback schemas
 export const feedbackSchema = z.object({
-  organizationId: idSchema,
+  practiceId: idSchema,
   sessionId: idSchema,
   rating: z.number().int().min(1).max(5),
   comment: z.string().max(500).optional()
@@ -167,7 +170,7 @@ export const sessionSchema = z.object({
 
 // Export schemas
 export const exportRequestSchema = z.object({
-  organizationId: idSchema,
+  practiceId: idSchema,
   sessionId: idSchema.optional(),
   format: z.enum(['json', 'csv', 'pdf']).default('json'),
   dateRange: z.object({
@@ -182,13 +185,16 @@ export const paginationSchema = z.object({
   limit: z.string().transform(val => parseInt(val, 10)).pipe(z.number().int().min(1).max(100)).default(20)
 });
 
-export const organizationIdQuerySchema = z.object({
-  organizationId: idSchema
+export const practiceIdQuerySchema = z.object({
+  practiceId: idSchema
 });
+
+// Legacy alias for backward compatibility
+export const organizationIdQuerySchema = practiceIdQuerySchema;
 
 // Session request body schema
 export const sessionRequestBodySchema = z.object({
-  organizationId: z.string().min(1).optional(),
+  practiceId: z.string().min(1).optional(),
   sessionId: z.string().min(1).optional(),
   sessionToken: z.string().min(1).optional(),
   retentionHorizonDays: z.number().int().positive().optional()
@@ -208,7 +214,7 @@ export const multipartHeadersSchema = z.object({
   'content-type': z.string().includes('multipart/form-data')
 });
 
-// Organization Management API Response Schemas
+// Practice Management API Response Schemas (DEPRECATED - handled by remote API)
 export const organizationMemberSchema = z.object({
   userId: z.string().min(1),
   role: organizationRoleSchema,
@@ -230,7 +236,7 @@ export const organizationInvitationSchema = z.object({
   createdAt: timestampSchema
 });
 
-export const organizationSchema = z.object({
+export const practiceSchema = z.object({
   id: z.string().min(1),
   slug: z.string().min(1),
   name: z.string().min(1),
@@ -238,14 +244,17 @@ export const organizationSchema = z.object({
   stripeCustomerId: z.string().nullable().optional(),
   subscriptionTier: subscriptionTierSchema.nullable().optional(),
   seats: z.number().int().positive().nullable().optional(),
-  config: z.object({
-    metadata: z.object({
-      subscriptionPlan: z.string().optional(),
-      planStatus: z.string().optional()
-    }).optional()
+  conversationConfig: conversationConfigSchema.optional(),
+  metadata: z.object({
+    subscriptionPlan: z.string().optional(),
+    planStatus: z.string().optional(),
+    conversationConfig: conversationConfigSchema.optional()
   }).optional(),
-  kind: z.enum(['personal', 'business']).optional()
+  kind: z.enum(['workspace', 'practice']).optional()
 });
+
+// Legacy alias for backward compatibility
+export const organizationSchema = practiceSchema;
 
 // API Response schemas
 export const membersResponseSchema = z.object({

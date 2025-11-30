@@ -5,7 +5,7 @@ import { SessionService } from '../services/SessionService.js';
 import { ActivityService } from '../services/ActivityService';
 import { StatusService, type StatusUpdate } from '../services/StatusService.js';
 import { Logger } from '../utils/logger';
-import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
+import { withPracticeContext, getPracticeId, withOrganizationContext, getOrganizationId } from '../middleware/practiceContext.js';
 import { requireFeature } from '../middleware/featureGuard.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 
@@ -52,7 +52,7 @@ async function updateStatusWithRetry(
         Logger.error('ALERT: Critical status update failure', {
           statusId: statusUpdate.id,
           sessionId: statusUpdate.sessionId,
-          organizationId: statusUpdate.organizationId,
+          practiceId: statusUpdate.practiceId,
           status: statusUpdate.status,
           message: statusUpdate.message,
           error: lastError.message
@@ -81,7 +81,7 @@ async function updateStatusWithRetry(
 // File upload validation schema
 const fileUploadValidationSchema = z.object({
   file: z.instanceof(File, { message: 'File is required' }),
-  organizationId: z.string().optional(), // Make organizationId optional to allow organization-context fallback
+  practiceId: z.string().optional(), // Make practiceId optional to allow practice-context fallback
   sessionId: z.string().min(1, 'Session ID is required')
 });
 
@@ -148,24 +148,24 @@ function validateFile(file: File): { isValid: boolean; error?: string } {
   return { isValid: true };
 }
 
-async function storeFile(file: File, organizationId: string, sessionId: string, env: Env): Promise<{ fileId: string; url: string; storageKey: string }> {
+async function storeFile(file: File, practiceId: string, sessionId: string, env: Env): Promise<{ fileId: string; url: string; storageKey: string }> {
   if (!env.FILES_BUCKET) {
     throw HttpErrors.internalServerError('File storage is not configured');
   }
 
   // Generate unique file ID
-  const fileId = `${organizationId}-${sessionId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const fileId = `${practiceId}-${sessionId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const fileExtension = file.name.split('.').pop() || '';
-  const storageKey = `uploads/${organizationId}/${sessionId}/${fileId}.${fileExtension}`;
+  const storageKey = `uploads/${practiceId}/${sessionId}/${fileId}.${fileExtension}`;
 
-  // Check if the organization exists - this is required for file operations
+  // Check if the practice exists - this is required for file operations
   // This check MUST happen before any R2 upload to prevent orphaned files
-  const existingOrganization = await RemoteApiService.validateOrganization(env, organizationId);
+  const existingPractice = await RemoteApiService.validateOrganization(env, practiceId);
   
-  if (!existingOrganization) {
+  if (!existingPractice) {
     // Log anomaly for monitoring and alerting
-    Logger.error('Organization not found during file upload - this indicates a data integrity issue', {
-      organizationId,
+    Logger.error('Practice not found during file upload - this indicates a data integrity issue', {
+      practiceId,
       sessionId,
       fileId,
       fileName: file.name,
@@ -178,8 +178,8 @@ async function storeFile(file: File, organizationId: string, sessionId: string, 
 
     // Emit monitoring metric/alert
     // In production, this would integrate with your monitoring system (e.g., DataDog, New Relic, etc.)
-    console.error('🚨 MONITORING ALERT: Missing organization during file upload', {
-      organizationId,
+    console.error('🚨 MONITORING ALERT: Missing practice during file upload', {
+      practiceId,
       sessionId,
       fileId,
       alertType: 'missing_organization',
@@ -188,13 +188,13 @@ async function storeFile(file: File, organizationId: string, sessionId: string, 
     });
 
     // Return clear error response
-    throw new Error(`Organization '${organizationId}' not found. Please ensure the organization exists before uploading files. Use the proper organization creation flow via POST /api/organizations or contact your system administrator.`);
+    throw new Error(`Practice '${practiceId}' not found. Please ensure the practice exists before uploading files. Contact your system administrator.`);
   }
 
   Logger.info('Storing file:', {
     fileId,
     storageKey,
-    organizationId,
+    practiceId,
     sessionId,
     fileName: file.name,
     fileSize: file.size,
@@ -211,7 +211,7 @@ async function storeFile(file: File, organizationId: string, sessionId: string, 
     },
     customMetadata: {
       originalName: file.name,
-      organizationId,
+      practiceId,
       sessionId,
       uploadedAt: new Date().toISOString()
     }
@@ -232,7 +232,7 @@ async function storeFile(file: File, organizationId: string, sessionId: string, 
 
     await stmt.bind(
       fileId,
-      organizationId,
+      practiceId,
       sessionId,
       file.name,
       `${fileId}.${fileExtension}`,
@@ -269,14 +269,14 @@ async function storeFile(file: File, organizationId: string, sessionId: string, 
         actorId: undefined, // Don't populate created_by_lawyer_id with sessionId
         metadata: {
           sessionId,
-          organizationId,
+          practiceId,
           fileId,
           fileName: file.name,
           fileSize: file.size,
           fileType: file.type,
           storageKey
         }
-      }, organizationId);
+      }, practiceId);
       
       Logger.info('Activity event created for file upload:', { fileId, fileName: file.name });
     } catch (error) {
@@ -308,7 +308,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
   // File upload endpoint
   if (path === '/api/files/upload' && request.method === 'POST') {
     // Declare variables in outer scope for rollback capability
-    let resolvedOrganizationId: string;
+    let resolvedPracticeId: string;
     let resolvedSessionId: string;
 
     try {
@@ -317,7 +317,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       
       // Extract and validate required fields
       const file = formData.get('file') as File;
-      const organizationId = formData.get('organizationId') as string;
+      const practiceId = formData.get('practiceId') as string;
       const sessionId = formData.get('sessionId') as string;
       
       // Extract optional metadata fields
@@ -325,7 +325,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       const category = formData.get('category') as string | null;
 
       // Validate input
-      const validationResult = fileUploadValidationSchema.safeParse({ file, organizationId, sessionId });
+      const validationResult = fileUploadValidationSchema.safeParse({ file, practiceId, sessionId });
       if (!validationResult.success) {
         throw HttpErrors.badRequest('Invalid upload data', validationResult.error.issues);
       }
@@ -336,10 +336,10 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         throw HttpErrors.badRequest(fileValidation.error!);
       }
 
-      // Create a simple request for middleware with organizationId in URL
+      // Create a simple request for middleware with practiceId in URL
       const middlewareUrl = new URL(request.url);
-      if (organizationId) {
-        middlewareUrl.searchParams.set('organizationId', organizationId);
+      if (practiceId) {
+        middlewareUrl.searchParams.set('practiceId', practiceId);
       }
 
       // Create a lightweight request for middleware (no body needed)
@@ -348,25 +348,25 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         headers: request.headers
       });
 
-      // Always use organization context middleware to get authoritative organization ID
-      const requestWithContext = await withOrganizationContext(middlewareRequest, env, {
-        requireOrganization: true,
+      // Always use practice context middleware to get authoritative practice ID
+      const requestWithContext = await withPracticeContext(middlewareRequest, env, {
+        requirePractice: true,
         allowUrlOverride: true
       });
-      const contextOrganizationId = getOrganizationId(requestWithContext);
+      const contextPracticeId = getPracticeId(requestWithContext);
       
-      // Compare submitted organizationId with context-derived ID and reject if they differ
-      if (organizationId?.trim() && organizationId.trim() !== contextOrganizationId) {
-        throw HttpErrors.badRequest('Submitted organizationId does not match authenticated organization context');
+      // Compare submitted practiceId with context-derived ID and reject if they differ
+      if (practiceId?.trim() && practiceId.trim() !== contextPracticeId) {
+        throw HttpErrors.badRequest('Submitted practiceId does not match authenticated practice context');
       }
       
-      const normalizedOrganizationId = contextOrganizationId;
+      const normalizedPracticeId = contextPracticeId;
       
       const normalizedSessionId = sessionId.trim();
 
       // Validate that trimmed IDs are not empty
-      if (!normalizedOrganizationId) {
-        throw HttpErrors.badRequest('organizationId cannot be empty after trimming');
+      if (!normalizedPracticeId) {
+        throw HttpErrors.badRequest('practiceId cannot be empty after trimming');
       }
       if (!normalizedSessionId) {
         throw HttpErrors.badRequest('sessionId cannot be empty after trimming');
@@ -375,11 +375,11 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       const sessionResolution = await SessionService.resolveSession(env, {
         request,
         sessionId: normalizedSessionId,
-        organizationId: normalizedOrganizationId,
+        practiceId: normalizedPracticeId,
         createIfMissing: true
       });
 
-      resolvedOrganizationId = sessionResolution.session.organizationId;
+      resolvedPracticeId = sessionResolution.session.practiceId;
       resolvedSessionId = sessionResolution.session.id;
 
       await requireFeature(
@@ -390,10 +390,10 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
           allowAnonymous: false,
           quotaMetric: 'files',
           minTier: ['business', 'enterprise'],
-          requireNonPersonal: true,
+          requirePractice: true,
         },
         {
-          organizationId: resolvedOrganizationId,
+          practiceId: resolvedPracticeId,
           sessionId: resolvedSessionId,
         }
       );
@@ -405,7 +405,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         statusId = await StatusService.createFileProcessingStatus(
           env,
           resolvedSessionId,
-          resolvedOrganizationId,
+          resolvedPracticeId,
           file.name,
           'processing',
           10
@@ -421,7 +421,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
 
       // Store file with error handling
       let fileId: string, url: string, storageKey: string;
-      const result = await storeFile(file, resolvedOrganizationId, resolvedSessionId, env);
+      const result = await storeFile(file, resolvedPracticeId, resolvedSessionId, env);
       fileId = result.fileId;
       url = result.url;
       storageKey = result.storageKey;
@@ -432,7 +432,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
           await updateStatusWithRetry(env, {
             id: statusId,
             sessionId: resolvedSessionId,
-            organizationId: resolvedOrganizationId,
+            practiceId: resolvedPracticeId,
             type: 'file_processing',
             status: 'processing',
             message: `File ${file.name} uploaded successfully, starting analysis...`,
@@ -450,7 +450,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,
-        organizationId: resolvedOrganizationId,
+        practiceId: resolvedPracticeId,
         sessionId: resolvedSessionId,
         url,
         statusId
@@ -529,13 +529,13 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       // Try to construct the file path from the fileId if we don't have database metadata
       let filePath = fileRecord?.file_path;
       if (!filePath) {
-        // Extract organizationId and sessionId from fileId format: organizationId-sessionId-timestamp-random
-        // The organizationId can contain hyphens, so we need to be more careful about parsing
+        // Extract practiceId and sessionId from fileId format: practiceId-sessionId-timestamp-random
+        // The practiceId can contain hyphens, so we need to be more careful about parsing
         const lastHyphenIndex = fileId.lastIndexOf('-');
         const secondLastHyphenIndex = fileId.lastIndexOf('-', lastHyphenIndex - 1);
         
         if (lastHyphenIndex !== -1 && secondLastHyphenIndex !== -1) {
-          // The format is: organizationId-sessionId-timestamp-random
+          // The format is: practiceId-sessionId-timestamp-random
           // We need to find where the sessionId ends and timestamp begins
           const parts = fileId.split('-');
           if (parts.length >= 4) {
@@ -543,20 +543,20 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
             const timestamp = parts[parts.length - 2];
             const randomString = parts[parts.length - 1];
             
-            // Everything before the timestamp is organizationId-sessionId
-            const organizationIdAndSessionId = parts.slice(0, -2).join('-');
+            // Everything before the timestamp is practiceId-sessionId
+            const practiceIdAndSessionId = parts.slice(0, -2).join('-');
             
             // Find the sessionId (it's a UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-            const sessionIdMatch = organizationIdAndSessionId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+            const sessionIdMatch = practiceIdAndSessionId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
             
             if (sessionIdMatch) {
               const sessionId = sessionIdMatch[0];
-              const organizationId = organizationIdAndSessionId.substring(0, organizationIdAndSessionId.length - sessionId.length - 1); // -1 for the hyphen
+              const practiceId = practiceIdAndSessionId.substring(0, practiceIdAndSessionId.length - sessionId.length - 1); // -1 for the hyphen
               
-              console.log('Parsed fileId:', { organizationId, sessionId, timestamp, randomString });
+              console.log('Parsed fileId:', { practiceId, sessionId, timestamp, randomString });
               
               // Try to find the file in R2 with a pattern match
-              const prefix = `uploads/${organizationId}/${sessionId}/${fileId}`;
+              const prefix = `uploads/${practiceId}/${sessionId}/${fileId}`;
               console.log('Looking for file with prefix:', prefix);
               // List objects with this prefix
               const objects = await env.FILES_BUCKET.list({ prefix });

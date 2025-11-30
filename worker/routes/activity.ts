@@ -71,10 +71,10 @@ export async function handleActivity(request: Request, env: Env): Promise<Respon
 
 async function handleGetActivity(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const organizationId = url.searchParams.get('organizationId');
+  const practiceId = url.searchParams.get('practiceId');
   
-  if (!organizationId) {
-    throw HttpErrors.badRequest('organizationId parameter is required');
+  if (!practiceId) {
+    throw HttpErrors.badRequest('practiceId parameter is required');
   }
 
   // Resolve session for tenant scoping (no auth required)
@@ -82,7 +82,7 @@ async function handleGetActivity(request: Request, env: Env): Promise<Response> 
   try {
     sessionResolution = await SessionService.resolveSession(env, {
       request,
-      organizationId,
+      organizationId: practiceId, // TODO: Update SessionService to use practiceId
       createIfMissing: true // Allow creating session if missing
     });
   } catch (error) {
@@ -90,11 +90,11 @@ async function handleGetActivity(request: Request, env: Env): Promise<Response> 
     throw HttpErrors.badRequest('Failed to resolve session');
   }
 
-  const resolvedOrganizationId = sessionResolution.session.organizationId;
+  const resolvedPracticeId = sessionResolution.session.organizationId; // TODO: Update SessionService to use practiceId
   
-  // Security check: ensure session belongs to the requested organization
-  if (resolvedOrganizationId !== organizationId) {
-    throw HttpErrors.forbidden('Session does not belong to the specified organization');
+  // Security check: ensure session belongs to the requested practice
+  if (resolvedPracticeId !== practiceId) {
+    throw HttpErrors.forbidden('Session does not belong to the specified practice');
   }
 
   // Parse query parameters
@@ -123,7 +123,7 @@ async function handleGetActivity(request: Request, env: Env): Promise<Response> 
   let result;
   try {
     result = await activityService.queryActivity({
-      organizationId: resolvedOrganizationId,
+      practiceId: resolvedPracticeId,
       matterId,
       sessionId,
       limit,
@@ -206,12 +206,12 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
     throw HttpErrors.badRequest('sessionId is required when type is session_event');
   }
 
-  // Extract organization ID from request (could be in body or query params)
+  // Extract practice ID from request (could be in body or query params)
   const url = new URL(request.url);
-  const organizationId = (body.metadata?.organizationId as string) || url.searchParams.get('organizationId');
+  const practiceId = (body.metadata?.practiceId as string) || url.searchParams.get('practiceId');
   
-  if (!organizationId) {
-    throw HttpErrors.badRequest('organizationId is required');
+  if (!practiceId) {
+    throw HttpErrors.badRequest('practiceId is required');
   }
 
   // Resolve session for tenant scoping (no auth required)
@@ -219,7 +219,7 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
   try {
     sessionResolution = await SessionService.resolveSession(env, {
       request,
-      organizationId,
+      organizationId: practiceId, // TODO: Update SessionService to use practiceId
       createIfMissing: true // Allow creating session if missing
     });
   } catch (error) {
@@ -227,17 +227,17 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
     throw HttpErrors.badRequest('Failed to resolve session');
   }
 
-  const resolvedOrganizationId = sessionResolution.session.organizationId;
+  const resolvedPracticeId = sessionResolution.session.organizationId; // TODO: Update SessionService to use practiceId
   
-  // Security check: ensure session belongs to the requested organization
-  if (resolvedOrganizationId !== organizationId) {
-    throw HttpErrors.forbidden('Session does not belong to the specified organization');
+  // Security check: ensure session belongs to the requested practice
+  if (resolvedPracticeId !== practiceId) {
+    throw HttpErrors.forbidden('Session does not belong to the specified practice');
   }
 
   // Check for idempotency
   const idempotencyKey = request.headers.get('Idempotency-Key') || body.idempotencyKey;
   if (idempotencyKey) {
-    const existingEvent = await checkIdempotency(env, idempotencyKey, resolvedOrganizationId);
+    const existingEvent = await checkIdempotency(env, idempotencyKey, resolvedPracticeId);
     if (existingEvent) {
       return new Response(JSON.stringify({
         success: true,
@@ -276,15 +276,15 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
     actorId,
     metadata: {
       ...body.metadata,
-      organizationId: resolvedOrganizationId,
+      practiceId: resolvedPracticeId,
       ...(body.matterId ? { matterId: body.matterId } : {}),
       ...(body.sessionId ? { sessionId: body.sessionId } : {})
     }
-  }, resolvedOrganizationId);
+  }, resolvedPracticeId);
 
   // Store idempotency key if provided
   if (idempotencyKey) {
-    await storeIdempotencyKey(env, idempotencyKey, resolvedOrganizationId, eventId);
+    await storeIdempotencyKey(env, idempotencyKey, resolvedPracticeId, eventId);
   }
 
   // Fetch the created event to return
@@ -309,10 +309,10 @@ function generateETag(data: unknown): string {
   return `"${base64.slice(0, 16)}"`;
 }
 
-async function checkIdempotency(env: Env, key: string, organizationId: string): Promise<ActivityEvent | null> {
+async function checkIdempotency(env: Env, key: string, practiceId: string): Promise<ActivityEvent | null> {
   if (!env.CHAT_SESSIONS) return null;
   
-  const idempotencyKey = `idempotency:${organizationId}:${key}`;
+  const idempotencyKey = `idempotency:${practiceId}:${key}`;
   const existing = await env.CHAT_SESSIONS.get(idempotencyKey);
   
   if (existing) {
@@ -325,10 +325,10 @@ async function checkIdempotency(env: Env, key: string, organizationId: string): 
   return null;
 }
 
-async function storeIdempotencyKey(env: Env, key: string, organizationId: string, eventId: string): Promise<void> {
+async function storeIdempotencyKey(env: Env, key: string, practiceId: string, eventId: string): Promise<void> {
   if (!env.CHAT_SESSIONS) return;
   
-  const idempotencyKey = `idempotency:${organizationId}:${key}`;
+  const idempotencyKey = `idempotency:${practiceId}:${key}`;
   await env.CHAT_SESSIONS.put(idempotencyKey, eventId, { expirationTtl: 86400 }); // 24 hours
 }
 

@@ -4,15 +4,15 @@ import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
 import { SessionService } from '../services/SessionService.js';
 import { sessionRequestBodySchema } from '../schemas/validation.js';
-import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
+import { withPracticeContext, getPracticeId, withOrganizationContext, getOrganizationId } from '../middleware/practiceContext.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { PLATFORM_ORGANIZATION_ID } from '../../src/utils/constants.js';
 
-async function normalizeOrganizationId(env: Env, organizationId?: string | null, request?: Request): Promise<string> {
-  if (!organizationId) {
+async function normalizePracticeId(env: Env, practiceId?: string | null, request?: Request): Promise<string> {
+  if (!practiceId) {
     return PLATFORM_ORGANIZATION_ID; // Use default instead of throwing error
   }
-  const trimmed = organizationId.trim();
+  const trimmed = practiceId.trim();
   if (!trimmed) {
     return PLATFORM_ORGANIZATION_ID; // Use default instead of throwing error
   }
@@ -22,22 +22,22 @@ async function normalizeOrganizationId(env: Env, organizationId?: string | null,
     return trimmed;
   }
 
-  // Validate organization exists via remote API
+  // Validate practice exists via remote API
   try {
-    const organization = await RemoteApiService.getOrganization(env, trimmed, request);
-    if (!organization || !organization.id) {
-      throw HttpErrors.notFound(`Organization not found: ${trimmed}`);
+    const practice = await RemoteApiService.getOrganization(env, trimmed, request);
+    if (!practice || !practice.id) {
+      throw HttpErrors.notFound(`Practice not found: ${trimmed}`);
     }
-    return organization.id;
+    return practice.id;
   } catch (error) {
     if (error instanceof HttpError && error.status === 404) {
       throw error;
     }
-    console.error('[normalizeOrganizationId] Remote API call failed', {
-      organizationId: trimmed,
+    console.error('[normalizePracticeId] Remote API call failed', {
+      practiceId: trimmed,
       error: error instanceof Error ? error.message : String(error),
     });
-    throw HttpErrors.serviceUnavailable('Failed to validate organization');
+    throw HttpErrors.serviceUnavailable('Failed to validate practice');
   }
 }
 
@@ -62,11 +62,11 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     throw HttpErrors.notFound('Session route not found');
   }
 
-  // PATCH /api/sessions/organization (Phase 1 stub)
-  if (segments.length === 3 && segments[2] === 'organization' && request.method === 'PATCH') {
-    const body = await parseJsonBody(request) as { organizationId?: string };
-    if (!body?.organizationId || typeof body.organizationId !== 'string') {
-      throw HttpErrors.badRequest('organizationId is required');
+  // PATCH /api/sessions/practice (Phase 1 stub)
+  if (segments.length === 3 && (segments[2] === 'practice' || segments[2] === 'organization') && request.method === 'PATCH') {
+    const body = await parseJsonBody(request) as { practiceId?: string };
+    if (!body?.practiceId || typeof body.practiceId !== 'string') {
+      throw HttpErrors.badRequest('practiceId is required');
     }
     // Phase 1: Do not persist. Just acknowledge.
     return new Response(JSON.stringify({ success: true }), {
@@ -90,27 +90,28 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     
     const body = validationResult.data;
     
-    // Determine organization ID: body takes precedence over URL param
-    let organizationId: string;
-    if (body.organizationId) {
-      // Use organization from request body
-      organizationId = await normalizeOrganizationId(env, body.organizationId, request);
+    // Determine practice ID: body takes precedence over URL param
+    let practiceId: string;
+    const bodyPracticeId = (body as any).practiceId;
+    if (bodyPracticeId) {
+      // Use practice from request body
+      practiceId = await normalizePracticeId(env, bodyPracticeId, request);
     } else {
-      // Use organization context middleware to extract from URL/cookies
-      const requestWithContext = await withOrganizationContext(request, env, {
-        requireOrganization: false,  // Allow fallback to default
+      // Use practice context middleware to extract from URL/cookies
+      const requestWithContext = await withPracticeContext(request, env, {
+        requirePractice: false,  // Allow fallback to default
         allowUrlOverride: true,
-        defaultOrganizationId: PLATFORM_ORGANIZATION_ID
+        defaultPracticeId: PLATFORM_ORGANIZATION_ID
       });
-      const contextOrgId = getOrganizationId(requestWithContext) || PLATFORM_ORGANIZATION_ID;
-      organizationId = await normalizeOrganizationId(env, contextOrgId, request);
+      const contextPracticeId = getPracticeId(requestWithContext) || PLATFORM_ORGANIZATION_ID;
+      practiceId = await normalizePracticeId(env, contextPracticeId, request);
     }
 
     const resolution = await SessionService.resolveSession(env, {
       request,
       sessionId: body.sessionId,
       sessionToken: body.sessionToken,
-      organizationId,
+      practiceId,
       retentionHorizonDays: body.retentionHorizonDays,
       createIfMissing: true
     });
@@ -120,7 +121,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
 
     return createJsonResponse({
       sessionId: resolution.session.id,
-      organizationId: resolution.session.organizationId,
+      practiceId: resolution.session.practiceId,
       state: resolution.session.state,
       lastActive: resolution.session.lastActive,
       createdAt: resolution.session.createdAt,
@@ -141,10 +142,10 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
       throw HttpErrors.badRequest('Session ID is required');
     }
     
-    // Use organization context middleware
-    const requestWithContext = await withOrganizationContext(request, env, {
-      requireOrganization: false, // Allow fallback for GET requests
-      defaultOrganizationId: 'public'
+    // Use practice context middleware
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: false, // Allow fallback for GET requests
+      defaultPracticeId: 'public'
     });
     
     let session: Awaited<ReturnType<typeof SessionService.getSessionById>>;
@@ -159,10 +160,10 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     }
 
     if (!session) {
-      const fallbackOrganizationId = await normalizeOrganizationId(env, getOrganizationId(requestWithContext), request);
+      const fallbackPracticeId = await normalizePracticeId(env, getPracticeId(requestWithContext), request);
       const fallback = {
         sessionId,
-        organizationId: fallbackOrganizationId,
+        practiceId: fallbackPracticeId,
         state: 'active' as const,
         statusReason: 'ephemeral_fallback',
         retentionHorizonDays: 180,
@@ -175,18 +176,18 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
       return createJsonResponse(fallback);
     }
 
-    // Validate organization access using context
-    const contextOrganizationId = getOrganizationId(requestWithContext);
-    if (contextOrganizationId !== 'public') {
-      const requestedOrganization = await normalizeOrganizationId(env, contextOrganizationId, request);
-      if (requestedOrganization !== session.organizationId) {
-        throw HttpErrors.notFound('Session not found for requested organization');
+    // Validate practice access using context
+    const contextPracticeId = getPracticeId(requestWithContext);
+    if (contextPracticeId !== 'public') {
+      const requestedPractice = await normalizePracticeId(env, contextPracticeId, request);
+      if (requestedPractice !== session.practiceId) {
+        throw HttpErrors.notFound('Session not found for requested practice');
       }
     }
 
     const data = {
       sessionId: session.id,
-      organizationId: session.organizationId,
+      practiceId: session.practiceId,
       state: session.state,
       statusReason: session.statusReason,
       retentionHorizonDays: session.retentionHorizonDays,

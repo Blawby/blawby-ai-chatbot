@@ -2,7 +2,7 @@ import type { Env } from '../types.js';
 
 export interface SessionRecord {
   id: string;
-  organizationId: string;
+  practiceId: string;
   state: 'active' | 'closed' | 'archived';
   statusReason?: string | null;
   retentionHorizonDays: number;
@@ -24,7 +24,7 @@ export interface SessionResolution {
 
 export interface PersistedMessageInput {
   sessionId: string;
-  organizationId: string;
+  practiceId: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   metadata?: unknown;
@@ -65,7 +65,7 @@ async function hashToken(token: string): Promise<string> {
 function mapSessionRow(row: Record<string, unknown>): SessionRecord {
   return {
     id: String(row.id),
-    organizationId: String(row.organization_id),
+    practiceId: String(row.organization_id), // DB column still named organization_id until migration
     state: (row.state as SessionRecord['state']) ?? 'active',
     statusReason: (row.status_reason as string) ?? null,
     retentionHorizonDays: typeof row.retention_horizon_days === 'number'
@@ -126,7 +126,7 @@ export class SessionService {
     return mapSessionRow(row);
   }
 
-  static async getSessionByToken(env: Env, rawToken: string, organizationId: string): Promise<SessionRecord | null> {
+  static async getSessionByToken(env: Env, rawToken: string, practiceId: string): Promise<SessionRecord | null> {
     const tokenHashValue = await hashToken(rawToken);
     const stmt = env.DB.prepare(`
       SELECT id, organization_id, state, status_reason, retention_horizon_days, is_hold,
@@ -135,7 +135,7 @@ export class SessionService {
        WHERE token_hash = ? AND organization_id = ?
        LIMIT 1
     `);
-    const row = await stmt.bind(tokenHashValue, organizationId).first<Record<string, unknown>>();
+    const row = await stmt.bind(tokenHashValue, practiceId).first<Record<string, unknown>>();
     if (!row) return null;
     return mapSessionRow(row);
   }
@@ -162,12 +162,12 @@ export class SessionService {
   }
 
   static async createSession(env: Env, options: {
-    organizationId: string;
+    practiceId: string;
     sessionId?: string;
     sessionToken?: string;
     retentionHorizonDays?: number;
   }): Promise<SessionResolution> {
-    const organizationId = options.organizationId.trim();
+    const practiceId = options.practiceId.trim();
     const sessionId = options.sessionId?.trim() ?? crypto.randomUUID();
     const providedToken = options.sessionToken?.trim() ?? null;
     const initialToken = providedToken ?? crypto.randomUUID();
@@ -185,7 +185,7 @@ export class SessionService {
 
     const insertResult = await insertStmt.bind(
       sessionId,
-      organizationId,
+      practiceId,
       initialTokenHash,
       retention,
       nowIso,
@@ -203,8 +203,8 @@ export class SessionService {
       throw new Error('Failed to persist session');
     }
 
-    if (session.organizationId !== organizationId) {
-      throw new Error(`Session ${sessionId} belongs to organization ${session.organizationId}, cannot be accessed by organization ${organizationId}`);
+    if (session.practiceId !== practiceId) {
+      throw new Error(`Session ${sessionId} belongs to practice ${session.practiceId}, cannot be accessed by practice ${practiceId}`);
     }
 
     if (isNew) {
@@ -253,7 +253,7 @@ export class SessionService {
         nowIso,
         nowIso,
         sessionId,
-        organizationId
+        practiceId
       ).run();
     }
 
@@ -296,7 +296,7 @@ export class SessionService {
           request: options.request,
           sessionId: options.sessionId,
           sessionToken: providedToken,
-          organizationId: session.organizationId,
+          practiceId: session.practiceId,
           retentionHorizonDays: options.retentionHorizonDays,
           createIfMissing: false
         });
@@ -319,12 +319,12 @@ export class SessionService {
     request?: Request;
     sessionId?: string;
     sessionToken?: string | null;
-    organizationId: string;
+    practiceId: string;
     retentionHorizonDays?: number;
     createIfMissing?: boolean;
   }): Promise<SessionResolution> {
     try {
-      const normalizedOrganization = options.organizationId.trim();
+      const normalizedPractice = options.practiceId.trim();
       let providedToken = options.sessionToken ?? null;
       if (!providedToken && options.request) {
         providedToken = this.getSessionTokenFromCookie(options.request);
@@ -334,13 +334,13 @@ export class SessionService {
 
       if (options.sessionId) {
         session = await this.getSessionById(env, options.sessionId);
-        if (session && session.organizationId !== normalizedOrganization) {
+        if (session && session.practiceId !== normalizedPractice) {
           session = null;
         }
       }
 
       if (!session && providedToken) {
-        session = await this.getSessionByToken(env, providedToken, normalizedOrganization);
+        session = await this.getSessionByToken(env, providedToken, normalizedPractice);
       }
 
       if (!session) {
@@ -348,7 +348,7 @@ export class SessionService {
           throw new Error('Session not found and creation disabled');
         }
         const created = await this.createSession(env, {
-          organizationId: normalizedOrganization,
+          practiceId: normalizedPractice,
           sessionId: options.sessionId,
           sessionToken: providedToken ?? undefined,
           retentionHorizonDays: options.retentionHorizonDays
@@ -385,11 +385,11 @@ export class SessionService {
       };
     } catch (error) {
       console.warn('[SessionService] Falling back to ephemeral session', {
-        organizationId: options.organizationId,
+        practiceId: options.practiceId,
         sessionId: options.sessionId,
         message: error instanceof Error ? error.message : String(error)
       });
-      return this.createEphemeralSession(options.organizationId, {
+      return this.createEphemeralSession(options.practiceId, {
         sessionId: options.sessionId,
         sessionToken: options.sessionToken ?? undefined
       });
@@ -398,8 +398,8 @@ export class SessionService {
 
   static async persistMessage(env: Env, input: PersistedMessageInput): Promise<void> {
     const session = await this.getSessionById(env, input.sessionId);
-    if (!session || session.organizationId !== input.organizationId) {
-      throw new Error('Cannot persist message: session not found or organization mismatch');
+    if (!session || session.practiceId !== input.practiceId) {
+      throw new Error('Cannot persist message: session not found or practice mismatch');
     }
 
     const messageId = input.messageId ?? crypto.randomUUID();
@@ -421,7 +421,7 @@ export class SessionService {
     await stmt.bind(
       messageId,
       input.sessionId,
-      input.organizationId,
+      input.practiceId,
       input.role,
       input.content,
       metadata,
@@ -431,7 +431,7 @@ export class SessionService {
   }
 
   private static createEphemeralSession(
-    organizationId: string,
+    practiceId: string,
     options: { sessionId?: string | null; sessionToken?: string }
   ): SessionResolution {
     const sessionId = options.sessionId && options.sessionId.trim().length > 0
@@ -444,7 +444,7 @@ export class SessionService {
 
     const session: SessionRecord = {
       id: sessionId,
-      organizationId: organizationId.trim(),
+      practiceId: practiceId.trim(),
       state: 'active',
       statusReason: 'ephemeral_fallback',
       retentionHorizonDays: DEFAULT_RETENTION_DAYS,

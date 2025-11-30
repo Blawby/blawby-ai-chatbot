@@ -41,35 +41,7 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 - Use `credentials: 'include'` in fetch calls to ensure cookies are sent
 - Include `Content-Type: application/json` header for POST requests to Better Auth
 - Use `waitForSessionState` helper to poll for async session changes
-- Verify outcomes through API endpoints (`/api/organizations/me`), not direct DB queries
 - For Bearer token tests, test token storage in IndexedDB and automatic inclusion in headers
-
-**Personal Organization Validation**:
-After signup or authentication, tests must verify personal org metadata:
-- Call remote API endpoint for organizations (organization management is handled by remote API)
-- Assert exactly one organization exists with `kind: 'personal'` and `subscriptionStatus: 'none'`
-- Note: Auth/organization management E2E tests removed (handled by remote API)
-- Use remote API test helpers for reusable test user creation
-
-**Examples**:
-```typescript
-// Good: E2E test for user workflow
-test('user can sign up and create account', async ({ page }) => {
-  await page.goto('/auth');
-  await page.fill('[data-testid="signup-email-input"]', 'test@example.com');
-  await page.fill('[data-testid="signup-password-input"]', 'password123');
-  await page.click('[data-testid="signup-submit-button"]');
-  
-  // Verify personal org was created
-  const orgs = await page.evaluate(async () => {
-    const res = await fetch('/api/organizations/me', { credentials: 'include' });
-    return res.json();
-  });
-  
-  expect(orgs).toHaveLength(1);
-  expect(orgs[0].kind).toBe('personal');
-});
-```
 
 ### Testing Better Auth Client & API Configuration
 
@@ -431,7 +403,7 @@ test('signup form validates email', async () => {
 
 ### Assertions
 
-- **E2E**: Assert through API endpoints (`/api/organizations/me`), not direct DB queries
+- **E2E**: Assert via user-facing behavior or remote API helpers rather than direct DB queries
 - **Integration**: Can query DB directly for internal logic verification
 - **Unit**: Assert on return values and function behavior
 

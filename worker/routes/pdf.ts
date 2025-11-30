@@ -10,7 +10,7 @@ interface PDFDownloadRequest {
   matterType: string;
   generatedAt: string;
   sessionId?: string;
-  organizationId?: string;
+  practiceId?: string;
 }
 
 /**
@@ -80,14 +80,14 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
         throw HttpErrors.badRequest('Invalid JSON body');
       }
 
-      const { sessionId, organizationId, matterType: _matterType } = body as {
+      const { sessionId, practiceId, matterType: _matterType } = body as {
         sessionId: string;
-        organizationId: string;
+        practiceId: string;
         matterType?: string;
       };
 
-      if (!sessionId || !organizationId) {
-        throw HttpErrors.badRequest('Missing session ID or organization ID');
+      if (!sessionId || !practiceId) {
+        throw HttpErrors.badRequest('Missing session ID or practice ID');
       }
 
       // REMOVED: ConversationContextManager - case draft must be provided in request body
@@ -113,9 +113,9 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
       // clientName is optional - PDF generation service handles empty/missing values gracefully
       // If clientName is provided, it will be used in the PDF; otherwise, it will be omitted
 
-      // Load organization config for PDF generation
-      const organization = await RemoteApiService.getOrganization(env, organizationId, request);
-      const organizationConfig = organization?.config;
+      // Load practice config for PDF generation
+      const practice = await RemoteApiService.getOrganization(env, practiceId, request);
+      const conversationConfig = practice?.conversationConfig;
 
       // Generate PDF - ensure all required CaseDraft fields are provided
       const now = new Date().toISOString();
@@ -152,8 +152,8 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
       const pdfResult = await PDFGenerationService.generateCaseSummaryPDF({
         caseDraft: pdfCaseDraft,
         clientName: clientName,
-        organizationName: organization?.name || organizationConfig?.description || 'Legal Services',
-        organizationBrandColor: organizationConfig?.brandColor || '#2563eb'
+        organizationName: practice?.name || conversationConfig?.description || 'Legal Services',
+        organizationBrandColor: conversationConfig?.brandColor || '#2563eb'
       }, env);
 
       if (pdfResult.success && pdfResult.pdfBuffer) {

@@ -13,7 +13,7 @@ interface MatterRecord {
 }
 
 interface CreateLeadInput {
-  organizationId: string;
+  practiceId: string;
   sessionId?: string | null;
   name?: string | null;
   email: string;
@@ -64,7 +64,7 @@ export class MatterService {
       submittedAt: createdAt
     };
     // Atomically allocate next matter number using DB-backed counter
-    const matterNumber = await this.generateMatterNumber(input.organizationId);
+    const matterNumber = await this.generateMatterNumber(input.practiceId);
 
     await this.env.DB.prepare(
       `INSERT INTO matters (
@@ -86,7 +86,7 @@ export class MatterService {
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'normal', ?, ?, ?, ?, ?)`
     ).bind(
       matterId,
-      input.organizationId,
+      input.practiceId,
       clientName,
       input.email.trim(),
       input.phoneNumber.trim(),
@@ -109,11 +109,11 @@ export class MatterService {
       actorType: 'system',
       metadata: {
         matterId,
-        organizationId: input.organizationId,
+        practiceId: input.practiceId,
         source: leadSource,
         sessionId: input.sessionId ?? null
       }
-    }, input.organizationId);
+    }, input.practiceId);
 
     return {
       matterId,
@@ -122,11 +122,11 @@ export class MatterService {
     };
   }
 
-  async acceptLead(options: { organizationId: string; matterId: string; actorUserId: string }): Promise<StatusTransitionResult> {
+  async acceptLead(options: { practiceId: string; matterId: string; actorUserId: string }): Promise<StatusTransitionResult> {
     const eventDate = new Date().toISOString();
-    const { matter, previousStatus } = await this.assertMatterForLeadAction(options.organizationId, options.matterId, 'accept');
+    const { matter, previousStatus } = await this.assertMatterForLeadAction(options.practiceId, options.matterId, 'accept');
 
-    await this.updateMatterStatusInternal(options.organizationId, options.matterId, 'open');
+    await this.updateMatterStatusInternal(options.practiceId, options.matterId, 'open');
 
     await this.activityService.createEvent({
       type: 'matter_event',
@@ -138,11 +138,11 @@ export class MatterService {
       actorId: options.actorUserId,
       metadata: {
         matterId: options.matterId,
-        organizationId: options.organizationId,
+        practiceId: options.practiceId,
         fromStatus: previousStatus,
         toStatus: 'open'
       }
-    }, options.organizationId);
+    }, options.practiceId);
 
     return {
       matterId: options.matterId,
@@ -156,11 +156,11 @@ export class MatterService {
     };
   }
 
-  async rejectLead(options: { organizationId: string; matterId: string; actorUserId: string; reason?: string | null }): Promise<StatusTransitionResult> {
+  async rejectLead(options: { practiceId: string; matterId: string; actorUserId: string; reason?: string | null }): Promise<StatusTransitionResult> {
     const eventDate = new Date().toISOString();
-    const { matter, previousStatus } = await this.assertMatterForLeadAction(options.organizationId, options.matterId, 'reject');
+    const { matter, previousStatus } = await this.assertMatterForLeadAction(options.practiceId, options.matterId, 'reject');
 
-    await this.updateMatterStatusInternal(options.organizationId, options.matterId, 'archived');
+    await this.updateMatterStatusInternal(options.practiceId, options.matterId, 'archived');
 
     await this.activityService.createEvent({
       type: 'matter_event',
@@ -172,12 +172,12 @@ export class MatterService {
       actorId: options.actorUserId,
       metadata: {
         matterId: options.matterId,
-        organizationId: options.organizationId,
+        practiceId: options.practiceId,
         fromStatus: previousStatus,
         toStatus: 'archived',
         reason: options.reason?.trim() ?? null
       }
-    }, options.organizationId);
+    }, options.practiceId);
 
     return {
       matterId: options.matterId,
@@ -188,14 +188,14 @@ export class MatterService {
   }
 
   async transitionStatus(options: {
-    organizationId: string;
+    practiceId: string;
     matterId: string;
     targetStatus: MatterStatus;
     actorUserId: string;
     reason?: string | null;
   }): Promise<StatusTransitionResult> {
     const eventDate = new Date().toISOString();
-    const matter = await this.getMatter(options.organizationId, options.matterId);
+    const matter = await this.getMatter(options.practiceId, options.matterId);
     const previousStatus = this.normalizeStatus(matter.status);
 
     if (previousStatus === options.targetStatus) {
@@ -207,7 +207,7 @@ export class MatterService {
       throw HttpErrors.badRequest(`Cannot transition matter from ${previousStatus} to ${options.targetStatus}`);
     }
 
-    await this.updateMatterStatusInternal(options.organizationId, options.matterId, options.targetStatus);
+    await this.updateMatterStatusInternal(options.practiceId, options.matterId, options.targetStatus);
 
     await this.activityService.createEvent({
       type: 'matter_event',
@@ -219,12 +219,12 @@ export class MatterService {
       actorId: options.actorUserId,
       metadata: {
         matterId: options.matterId,
-        organizationId: options.organizationId,
+        practiceId: options.practiceId,
         fromStatus: previousStatus,
         toStatus: options.targetStatus,
         reason: options.reason?.trim() ?? null
       }
-    }, options.organizationId);
+    }, options.practiceId);
 
     return {
       matterId: options.matterId,
@@ -234,7 +234,7 @@ export class MatterService {
     };
   }
 
-  private async getMatter(organizationId: string, matterId: string): Promise<MatterRecord> {
+  private async getMatter(practiceId: string, matterId: string): Promise<MatterRecord> {
     const record = await this.env.DB.prepare(
       `SELECT id, organization_id, status, title, client_name
          FROM matters
@@ -245,15 +245,15 @@ export class MatterService {
       throw HttpErrors.notFound('Matter not found');
     }
 
-    if (record.organization_id !== organizationId) {
-      throw HttpErrors.forbidden('Matter does not belong to this organization');
+    if (record.organization_id !== practiceId) {
+      throw HttpErrors.forbidden('Matter does not belong to this practice');
     }
 
     return record;
   }
 
-  private async assertMatterForLeadAction(organizationId: string, matterId: string, action: 'accept' | 'reject'): Promise<{ matter: MatterRecord; previousStatus: MatterStatus }> {
-    const matter = await this.getMatter(organizationId, matterId);
+  private async assertMatterForLeadAction(practiceId: string, matterId: string, action: 'accept' | 'reject'): Promise<{ matter: MatterRecord; previousStatus: MatterStatus }> {
+    const matter = await this.getMatter(practiceId, matterId);
     const previousStatus = this.normalizeStatus(matter.status);
 
     if (previousStatus !== 'lead') {
@@ -263,7 +263,7 @@ export class MatterService {
     return { matter, previousStatus };
   }
 
-  private async updateMatterStatusInternal(organizationId: string, matterId: string, nextStatus: MatterStatus): Promise<void> {
+  private async updateMatterStatusInternal(practiceId: string, matterId: string, nextStatus: MatterStatus): Promise<void> {
     const now = new Date().toISOString();
     const closedAtValue = CLOSED_STATUSES.has(nextStatus) ? now : null;
 
@@ -279,11 +279,11 @@ export class MatterService {
       now,
       closedAtValue,
       matterId,
-      organizationId
+      practiceId
     ).run();
   }
 
-  private async generateMatterNumber(organizationId: string): Promise<string> {
+  private async generateMatterNumber(practiceId: string): Promise<string> {
     const year = new Date().getFullYear().toString();
     const counterName = `matter_number_${year}`;
     // Use SQLite UPSERT with RETURNING to atomically increment and fetch value
@@ -293,7 +293,7 @@ export class MatterService {
          ON CONFLICT(organization_id, name)
          DO UPDATE SET next_value = counters.next_value + 1
          RETURNING next_value`
-    ).bind(organizationId, counterName).first<{ next_value?: number } | null>();
+    ).bind(practiceId, counterName).first<{ next_value?: number } | null>();
 
     const seq = Number(row?.next_value ?? 1);
     return `MAT-${year}-${seq.toString().padStart(3, '0')}`;

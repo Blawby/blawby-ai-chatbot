@@ -81,7 +81,7 @@ export interface ChatMessage {
 
 export interface ChatSession {
   id: string;
-  organizationId: string;
+  practiceId: string; // Practice ID (workspaces are ephemeral practices)
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
@@ -91,7 +91,7 @@ export interface ChatSession {
 // Matter types
 export interface Matter {
   id: string;
-  organizationId: string;
+  practiceId: string; // Practice ID (workspaces are ephemeral practices)
   title: string;
   description: string;
   status: 'draft' | 'active' | 'closed';
@@ -99,8 +99,6 @@ export interface Matter {
   updatedAt: number;
   metadata?: Record<string, unknown>;
 }
-
-export type OrganizationKind = 'personal' | 'business';
 
 export type SubscriptionLifecycleStatus =
   | 'none'
@@ -113,45 +111,100 @@ export type SubscriptionLifecycleStatus =
   | 'unpaid'
   | 'paused';
 
-// Organization types (Better Auth compatible)
-export interface Organization {
+// Conversation configuration (conversation/messaging settings, not chatbot)
+export interface ConversationConfig {
+  consultationFee: number;
+  requiresPayment: boolean;
+  ownerEmail?: string;
+  availableServices: string[];
+  serviceQuestions: Record<string, string[]>;
+  domain: string;
+  description: string;
+  paymentLink?: string;
+  brandColor: string;
+  accentColor: string;
+  introMessage: string;
+  profileImage?: string;
+  voice: {
+    enabled: boolean;
+    provider: 'cloudflare' | 'elevenlabs' | 'custom';
+    voiceId?: string | null;
+    displayName?: string | null;
+    previewUrl?: string | null;
+  };
+  blawbyApi?: {
+    enabled: boolean;
+    apiKey?: string | null;
+    apiKeyHash?: string;
+    organizationUlid?: string;
+    apiUrl?: string;
+  };
+  testMode?: boolean;
+  metadata?: Record<string, unknown>;
+  betterAuthOrgId?: string;
+  tools?: {
+    [toolName: string]: {
+      enabled: boolean;
+      quotaMetric?: 'messages' | 'files' | null;
+      requiredRole?: 'owner' | 'admin' | 'attorney' | 'paralegal' | null;
+      allowAnonymous?: boolean;
+    };
+  };
+  agentMember?: {
+    enabled: boolean;
+    userId?: string;
+    autoInvoke?: boolean;
+    tagRequired?: boolean;
+  };
+  isPublic?: boolean;
+}
+
+// Practice type (business organization - law firm)
+export interface Practice {
   id: string;
   name: string;
   slug: string;
   domain?: string;
   metadata?: Record<string, unknown>;
-  config: {
-    aiProvider?: string;
-    aiModel: string;
-    aiModelFallback?: string[];
-    consultationFee: number;
-    requiresPayment: boolean;
-    ownerEmail?: string;
-    availableServices: string[];
-    serviceQuestions: Record<string, string[]>;
-    domain: string;
-    description: string;
-    paymentLink?: string;
-    brandColor: string;
-    accentColor: string;
-    introMessage: string;
-    profileImage?: string;
-    voice: {
-      enabled: boolean;
-      provider: 'cloudflare' | 'elevenlabs' | 'custom';
-      voiceId?: string | null;
-      displayName?: string | null;
-      previewUrl?: string | null;
-    };
-  };
+  conversationConfig: ConversationConfig; // Extracted from practice.metadata.conversationConfig in remote API
+  betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
-  kind: OrganizationKind;
+  kind: 'practice';
   subscriptionStatus: SubscriptionLifecycleStatus;
+  subscriptionPeriodEnd?: number | null;
   createdAt: number;
   updatedAt: number;
+  businessOnboardingCompletedAt?: number | null;
+  businessOnboardingSkipped?: boolean;
+  businessOnboardingData?: Record<string, unknown> | null;
 }
+
+// Workspace type (personal/ephemeral - no storage needed)
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  domain?: string;
+  metadata?: Record<string, unknown>;
+  conversationConfig: ConversationConfig; // Hardcoded defaults
+  betterAuthOrgId?: string;
+  stripeCustomerId: null;
+  subscriptionTier: 'free';
+  seats: 1;
+  kind: 'workspace';
+  subscriptionStatus: 'none';
+  subscriptionPeriodEnd: null;
+  createdAt: number;
+  updatedAt: number;
+  businessOnboardingCompletedAt: null;
+  businessOnboardingSkipped: false;
+  businessOnboardingData: null;
+}
+
+// Union type for practice or workspace
+export type PracticeOrWorkspace = Practice | Workspace;
 
 // Form types
 export interface ContactForm {
@@ -210,7 +263,7 @@ export interface ValidatedRequest<T = unknown> {
   env: Env;
 }
 
-// Organization context types
+// Legacy organization context types - DEPRECATED (use PracticeContext from practiceContext.ts)
 export interface OrganizationContext {
   organizationId: string;
   source: 'auth' | 'session' | 'url' | 'default';
@@ -224,8 +277,8 @@ export interface RequestWithOrganizationContext extends Request {
 }
 
 // UI-specific types that extend base types
-// Re-export OrganizationConfig from OrganizationService for convenience
-export type { OrganizationConfig } from './services/OrganizationService.js';
+// Re-export ConversationConfig from PracticeService for convenience
+export type { ConversationConfig } from './services/PracticeService.js';
 
 export interface FileAttachment {
   id: string;

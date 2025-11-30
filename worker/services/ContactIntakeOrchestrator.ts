@@ -2,7 +2,7 @@
 // Define types locally
 export interface ConversationContext {
   sessionId?: string;
-  organizationId?: string;
+  practiceId?: string;
   establishedMatters?: unknown[];
   userIntent?: string;
   caseDraft?: ContextCaseDraft;
@@ -35,7 +35,7 @@ import { PDFGenerationService } from './PDFGenerationService.js';
 import { NotificationService } from './NotificationService.js';
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
-import type { Organization } from './OrganizationService.js';
+import type { PracticeOrWorkspace } from '../types.js';
 
 interface MatterSubmissionInput {
   matterType: string;
@@ -50,9 +50,9 @@ interface MatterSubmissionInput {
 
 interface OrchestrationOptions {
   env: Env;
-  organizationConfig?: Organization | null;
+  practiceConfig?: PracticeOrWorkspace | null;
   sessionId?: string;
-  organizationId?: string;
+  practiceId?: string;
   correlationId?: string;
   matter: MatterSubmissionInput;
 }
@@ -106,23 +106,23 @@ function buildFallbackCaseDraft(
   };
 }
 
-function buildStorageKey(organizationId: string | undefined, sessionId: string | undefined, filename: string): string {
-  const safeOrganization = organizationId ? organizationId.replace(/[^a-zA-Z0-9-_]/g, '') : 'public';
+function buildStorageKey(practiceId: string | undefined, sessionId: string | undefined, filename: string): string {
+  const safePractice = practiceId ? practiceId.replace(/[^a-zA-Z0-9-_]/g, '') : 'public';
   const safeSession = sessionId ? sessionId.replace(/[^a-zA-Z0-9-_]/g, '') : 'anonymous';
-  return `case-submissions/${safeOrganization}/${safeSession}/${filename}`;
+  return `case-submissions/${safePractice}/${safeSession}/${filename}`;
 }
 
 export class ContactIntakeOrchestrator {
   static async finalizeSubmission(options: OrchestrationOptions): Promise<OrchestrationResult> {
-    const { env, organizationConfig, sessionId, organizationId, matter, correlationId } = options;
+    const { env, practiceConfig, sessionId, practiceId, matter, correlationId } = options;
 
     // REMOVED: ConversationContextManager - using simple context object instead
     let context: ConversationContext | null = null;
-    if (sessionId && organizationId) {
+    if (sessionId && practiceId) {
       // Create a simple context object (no AI conversation context needed)
       context = {
         sessionId,
-        organizationId,
+        practiceId,
         establishedMatters: [],
         userIntent: 'intake'
       };
@@ -153,25 +153,25 @@ export class ContactIntakeOrchestrator {
       context.lastUpdated = Date.now();
     }
 
-    // Safely extract organization metadata with runtime validation
-    const organizationMeta: Record<string, unknown> = (organizationConfig?.config && typeof organizationConfig.config === 'object' && organizationConfig.config !== null)
-      ? (organizationConfig.config as unknown as Record<string, unknown>)
+    // Safely extract practice metadata with runtime validation
+    const practiceMeta: Record<string, unknown> = (practiceConfig?.conversationConfig && typeof practiceConfig.conversationConfig === 'object' && practiceConfig.conversationConfig !== null)
+      ? (practiceConfig.conversationConfig as unknown as Record<string, unknown>)
       : {};
 
-    // Safely extract organization name: check config fields first, then organizationConfig.name, then fallback
-    let organizationName = 'Legal Services';
-    if (organizationMeta.name && typeof organizationMeta.name === 'string' && organizationMeta.name.trim().length > 0) {
-      organizationName = organizationMeta.name.trim();
-    } else if (organizationMeta.description && typeof organizationMeta.description === 'string' && organizationMeta.description.trim().length > 0) {
-      organizationName = organizationMeta.description.trim();
-    } else if (organizationConfig?.name && typeof organizationConfig.name === 'string' && organizationConfig.name.trim().length > 0) {
-      organizationName = organizationConfig.name.trim();
+    // Safely extract practice name: check config fields first, then practiceConfig.name, then fallback
+    let practiceName = 'Legal Services';
+    if (practiceMeta.name && typeof practiceMeta.name === 'string' && practiceMeta.name.trim().length > 0) {
+      practiceName = practiceMeta.name.trim();
+    } else if (practiceMeta.description && typeof practiceMeta.description === 'string' && practiceMeta.description.trim().length > 0) {
+      practiceName = practiceMeta.description.trim();
+    } else if (practiceConfig?.name && typeof practiceConfig.name === 'string' && practiceConfig.name.trim().length > 0) {
+      practiceName = practiceConfig.name.trim();
     }
 
     // Safely extract brand color with validation (must be non-empty string, optionally validate hex format)
     let brandColor = '#334e68';
-    if (organizationMeta.brandColor && typeof organizationMeta.brandColor === 'string') {
-      const colorValue = organizationMeta.brandColor.trim();
+    if (practiceMeta.brandColor && typeof practiceMeta.brandColor === 'string') {
+      const colorValue = practiceMeta.brandColor.trim();
       if (colorValue.length > 0) {
         // Accept if it matches hex color format (e.g., #334e68) or is any non-empty string
         brandColor = colorValue;
@@ -217,7 +217,7 @@ export class ContactIntakeOrchestrator {
         caseDraft: pdfCaseDraft,
         clientName: matter.name,
         clientEmail: matter.email,
-        organizationName,
+        organizationName: practiceName,
         organizationBrandColor: brandColor
       }, env);
 
@@ -230,7 +230,7 @@ export class ContactIntakeOrchestrator {
 
         if (env.FILES_BUCKET) {
           try {
-            storageKey = buildStorageKey(organizationId, sessionId, filename);
+            storageKey = buildStorageKey(practiceId, sessionId, filename);
             await env.FILES_BUCKET.put(storageKey, pdfResponse.pdfBuffer, {
               httpMetadata: {
                 contentType: 'application/pdf'
@@ -240,7 +240,7 @@ export class ContactIntakeOrchestrator {
           } catch (storageError) {
             Logger.warn('[ContactIntakeOrchestrator] Failed to persist PDF to R2', {
               sessionId,
-              organizationId,
+              practiceId,
               error: storageError instanceof Error ? storageError.message : String(storageError)
             });
           }
@@ -261,7 +261,7 @@ export class ContactIntakeOrchestrator {
     } catch (error) {
       Logger.warn('[ContactIntakeOrchestrator] PDF generation failed', {
         sessionId,
-        organizationId,
+        practiceId,
         error: error instanceof Error ? error.message : String(error)
       });
     }
@@ -271,13 +271,13 @@ export class ContactIntakeOrchestrator {
       paymentSent: false
     };
 
-    if (organizationConfig) {
+    if (practiceConfig) {
       try {
         const notificationService = new NotificationService(env);
 
         await notificationService.sendMatterCreatedNotification({
           type: 'matter_created',
-          organizationConfig,
+          practiceConfig,
           matterInfo: {
             type: matter.matterType,
             urgency: matter.urgency,
@@ -291,10 +291,10 @@ export class ContactIntakeOrchestrator {
         });
         notifications.matterCreatedSent = true;
 
-        if (organizationConfig.config?.requiresPayment) {
+        if (practiceConfig.conversationConfig?.requiresPayment) {
           await notificationService.sendPaymentRequiredNotification({
             type: 'payment_required',
-            organizationConfig,
+            practiceConfig,
             matterInfo: {
               type: matter.matterType,
               description: matter.description
@@ -310,7 +310,7 @@ export class ContactIntakeOrchestrator {
       } catch (error) {
         Logger.warn('[ContactIntakeOrchestrator] Notification dispatch failed', {
           sessionId,
-          organizationId,
+          practiceId,
           correlationId,
           error: error instanceof Error ? error.message : String(error)
         });

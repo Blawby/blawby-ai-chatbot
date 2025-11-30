@@ -2,7 +2,7 @@ export { handleHealth } from './health';
 export { handleRoot } from './root';
 export { handleForms } from './forms';
 // Organization management is handled by remote API, but workspace endpoints remain for chatbot data
-export { handleOrganizations } from './organizations';
+export { handlePractices } from './practices';
 export { handleSessions } from './sessions';
 export { handleActivity } from './activity';
 // Auth is now handled by remote server - removed handleAuth

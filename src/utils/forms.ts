@@ -1,7 +1,7 @@
+import { listPractices } from '../lib/apiClient.js';
+
 // API endpoints - moved inline since api.ts was removed
 const getFormsEndpoint = () => '/api/forms';
-const getOrganizationsEndpoint = () => '/api/organizations';
-// import { ChatMessageUI } from '../../worker/types'; // Unused
 
 // Type definitions for organization data
 interface Organization {
@@ -55,16 +55,15 @@ export async function submitContactForm(
       const result = await response.json();
       console.log('Form submitted successfully:', result);
       
-      // Fetch organization configuration to check payment requirements
-      let organizationConfig = null;
+      // Fetch practice configuration to check payment requirements
+      let practiceConfig: Organization | undefined;
       try {
-        const organizationsResponse = await fetch(getOrganizationsEndpoint());
-        if (organizationsResponse.ok) {
-          const organizationsJson = await organizationsResponse.json() as OrganizationsResponse;
-          organizationConfig = organizationsJson.data.find((organization) => organization.slug === organizationId || organization.id === organizationId);
-        }
+        const practices = await listPractices({ scope: 'all' });
+        practiceConfig = practices.find(
+          (practice) => practice.slug === organizationId || practice.id === organizationId
+        );
       } catch (error) {
-        console.warn('Failed to fetch organization config:', error);
+        console.warn('Failed to fetch practice config:', error);
       }
       
       // Create confirmation message for matter vs lead first
@@ -79,10 +78,11 @@ export async function submitContactForm(
       }
 
       // Independently append payment block if required by organization config
-      if (organizationConfig?.config?.requiresPayment) {
-        const fee = organizationConfig.config?.consultationFee ?? 0;
-        const paymentLink = organizationConfig.config?.paymentLink ?? '';
-        const organizationName = organizationConfig.name ?? 'our firm';
+      const config = practiceConfig?.config ?? (practiceConfig?.metadata as Record<string, any> | undefined);
+      if (config?.requiresPayment) {
+        const fee = config.consultationFee ?? 0;
+        const paymentLink = config.paymentLink ?? '';
+        const organizationName = practiceConfig?.name ?? 'our firm';
 
         let paymentText = '';
         if (fee <= 0 || !paymentLink) {

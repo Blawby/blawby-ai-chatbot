@@ -36,7 +36,7 @@ export interface ActivityQueryResult {
 export class ActivityService {
   constructor(private env: Env) {}
 
-  async getMatterEvents(matterId: string, organizationId: string): Promise<ActivityEvent[]> {
+  async getMatterEvents(matterId: string, practiceId: string): Promise<ActivityEvent[]> {
     const stmt = this.env.DB.prepare(`
       SELECT 
         id,
@@ -54,7 +54,7 @@ export class ActivityService {
       ORDER BY event_date DESC, created_at DESC
     `);
     
-    const result = await stmt.bind(matterId, organizationId).all();
+    const result = await stmt.bind(matterId, practiceId).all();
     const rows = result.results as Record<string, unknown>[];
     
     return rows.map(row => ({
@@ -72,7 +72,7 @@ export class ActivityService {
     }));
   }
 
-  async getSessionEvents(sessionId: string, organizationId: string): Promise<ActivityEvent[]> {
+  async getSessionEvents(sessionId: string, practiceId: string): Promise<ActivityEvent[]> {
     const stmt = this.env.DB.prepare(`
       SELECT 
         id,
@@ -88,7 +88,7 @@ export class ActivityService {
       ORDER BY created_at DESC
     `);
     
-    const result = await stmt.bind(sessionId, organizationId).all();
+    const result = await stmt.bind(sessionId, practiceId).all();
     const rows = result.results as Record<string, unknown>[];
     
     return rows.map(row => ({
@@ -106,21 +106,21 @@ export class ActivityService {
     }));
   }
 
-  async getCombinedActivity(matterId?: string, sessionId?: string, organizationId?: string): Promise<ActivityEvent[]> {
-    if (!organizationId) {
-      throw new Error('Organization ID is required for activity queries');
+  async getCombinedActivity(matterId?: string, sessionId?: string, practiceId?: string): Promise<ActivityEvent[]> {
+    if (!practiceId) {
+      throw new Error('Practice ID is required for activity queries');
     }
 
-    const matterEvents = matterId ? await this.getMatterEvents(matterId, organizationId) : [];
-    const sessionEvents = sessionId ? await this.getSessionEvents(sessionId, organizationId) : [];
+    const matterEvents = matterId ? await this.getMatterEvents(matterId, practiceId) : [];
+    const sessionEvents = sessionId ? await this.getSessionEvents(sessionId, practiceId) : [];
     
     const combined = [...matterEvents, ...sessionEvents];
     return combined.sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
   }
 
-  async queryActivity(options: ActivityQueryOptions & { organizationId: string }): Promise<ActivityQueryResult> {
+  async queryActivity(options: ActivityQueryOptions & { practiceId: string }): Promise<ActivityQueryResult> {
     const {
-      organizationId,
+      practiceId,
       matterId,
       sessionId,
       limit = 25,
@@ -200,9 +200,9 @@ export class ActivityService {
     const typeFilter = type ? JSON.stringify(type) : null;
     const params = [
       // Matter events filters - convert undefined to null for D1 compatibility
-      matterId ?? null, matterId ?? null, organizationId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
+      matterId ?? null, matterId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
       // Session events filters - convert undefined to null for D1 compatibility
-      sessionId ?? null, sessionId ?? null, organizationId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
+      sessionId ?? null, sessionId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
       // Cursor pagination - ensure null instead of undefined
       cursorData?.lastEventDate || null, cursorData?.lastEventDate || null, cursorData?.lastEventDate || null, 
       cursorData?.lastCreatedAt || null, cursorData?.lastCreatedAt || null, cursorData?.lastId || null,
@@ -267,8 +267,8 @@ export class ActivityService {
       
       const countStmt = this.env.DB.prepare(countQuery);
       const countResult = await countStmt.bind(
-        matterId ?? null, matterId ?? null, organizationId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
-        sessionId ?? null, sessionId ?? null, organizationId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null
+        matterId ?? null, matterId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
+        sessionId ?? null, sessionId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null
       ).first() as Record<string, unknown> | null;
       
       total = Number(countResult?.total) || 0;
@@ -285,7 +285,7 @@ export class ActivityService {
     };
   }
 
-  async createEvent(event: Omit<ActivityEvent, 'id' | 'createdAt' | 'uid'>, _organizationId: string): Promise<string> {
+  async createEvent(event: Omit<ActivityEvent, 'id' | 'createdAt' | 'uid'>, _practiceId: string): Promise<string> {
     const eventId = crypto.randomUUID();
     const now = new Date().toISOString();
     

@@ -1,6 +1,8 @@
 import { HttpErrors } from "../errorHandler.js";
 import type { Env } from "../types.js";
 import { optionalAuth, requireOrgMember } from "./auth.js";
+import { RemoteApiService } from "../services/RemoteApiService.js";
+import { PracticeService } from "../services/PracticeService.js";
 
 // Simplified quota helper functions
 const getQuotaLimit = (tier?: string): number => {
@@ -13,25 +15,26 @@ const getQuotaLimit = (tier?: string): number => {
   }
 };
 
-const getQuota = async (env: Env, organizationId: string) => {
-  const org = await env.DB.prepare(
-    `SELECT id, subscription_tier, config FROM organizations WHERE id = ?`
-  ).bind(organizationId).first<{ id: string; subscription_tier?: string; config?: string | null }>();
-
-  if (!org) {
-    throw new Error(`Organization not found: ${organizationId}`);
+const getQuota = async (env: Env, practiceId: string, request?: Request) => {
+  // Fetch practice metadata from remote API
+  let metadata;
+  try {
+    metadata = await RemoteApiService.getOrganizationMetadata(env, practiceId, request);
+  } catch (error) {
+    // If not found in remote API, might be a workspace - use defaults
+    const tier = 'free';
+    const quotaLimit = getQuotaLimit(tier);
+    return { used: 0, limit: quotaLimit, unlimited: quotaLimit < 0 };
   }
 
-  let config = {};
-  if (org.config) {
-    try {
-      config = JSON.parse(org.config);
-    } catch (error) {
-      console.warn('Failed to parse organization config', { organizationId, error });
-    }
-  }
+  // Fetch conversation config to get quotaUsed
+  const config = await PracticeService.prototype.getConversationConfig.call(
+    new PracticeService(env),
+    practiceId,
+    request
+  ) || {};
 
-  const tier = org.subscription_tier ?? 'free';
+  const tier = metadata.tier ?? 'free';
   const quotaLimit = getQuotaLimit(tier);
   const quotaUsed = (config as any).quotaUsed ?? 0;
 
@@ -45,23 +48,23 @@ export interface FeatureGuardConfig {
   allowAnonymous: boolean;
   quotaMetric?: "messages" | "files";
   minTier?: Array<"free" | "plus" | "business" | "enterprise">;
-  requireNonPersonal?: boolean;
+  requirePractice?: boolean; // If true, requires a practice (not a workspace)
 }
 
 export interface FeatureGuardOptions {
-  organizationId: string;
+  practiceId: string;
   sessionId?: string;
 }
 
 export interface FeatureGuardContext {
-  organizationId: string;
+  practiceId: string;
   sessionId?: string;
   userId?: string;
   tier?: string;
-  kind?: string;
+  kind?: 'practice' | 'workspace';
   subscriptionStatus?: string | null;
   isAnonymous: boolean;
-  organization?: any;
+  practice?: any;
 }
 
 export async function requireFeature(
@@ -77,26 +80,37 @@ export async function requireFeature(
     throw HttpErrors.unauthorized("Authentication required to access this feature");
   }
 
-  // Validate organization membership for authenticated users
+  // Validate practice membership for authenticated users
   if (!isAnonymous) {
-    await requireOrgMember(request, env, options.organizationId);
+    await requireOrgMember(request, env, options.practiceId);
   }
 
-  const organization = await env.DB.prepare(
-    `SELECT id, subscription_tier, kind, config FROM organizations WHERE id = ?`
-  ).bind(options.organizationId).first<{ id: string; subscription_tier?: string | null; kind?: string | null; config?: string | null }>();
-
-  if (!organization) {
-    throw HttpErrors.notFound("Organization not found");
+  // Fetch practice metadata from remote API
+  let metadata;
+  try {
+    metadata = await RemoteApiService.getOrganizationMetadata(env, options.practiceId, request);
+  } catch (error) {
+    // If not found in remote API, might be a workspace - use defaults
+    if (config.requirePractice) {
+      throw HttpErrors.forbidden("This feature is unavailable for workspaces");
+    }
+    // For workspaces, allow access with free tier defaults
+    metadata = {
+      id: options.practiceId,
+      slug: null,
+      tier: 'free' as const,
+      kind: 'workspace' as const,
+      subscriptionStatus: 'none' as const,
+    };
   }
 
-  if (config.requireNonPersonal && organization.kind === 'personal') {
-    throw HttpErrors.forbidden("This feature is unavailable for personal organizations");
+  if (config.requirePractice && metadata.kind === 'workspace') {
+    throw HttpErrors.forbidden("This feature is unavailable for workspaces");
   }
 
   if (config.minTier && config.minTier.length > 0) {
-    const tier = (organization.subscription_tier ?? 'free') as string;
-    if (!config.minTier.includes(tier as any)) {
+    const tier = metadata.tier ?? 'free';
+    if (!config.minTier.includes(tier)) {
       throw HttpErrors.forbidden("This feature requires a higher subscription tier", {
         feature: config.feature,
         requiredTiers: config.minTier,
@@ -108,7 +122,7 @@ export async function requireFeature(
   if (config.quotaMetric) {
     // Only check quota for messages in simplified system
     if (config.quotaMetric === 'messages') {
-      const quota = await getQuota(env, options.organizationId);
+      const quota = await getQuota(env, options.practiceId, request);
       if (!quota.unlimited && quota.used >= quota.limit) {
         throw HttpErrors.paymentRequired("Message limit reached. Please upgrade your plan.", {
           feature: config.feature,
@@ -125,13 +139,13 @@ export async function requireFeature(
   }
 
   return {
-    organizationId: options.organizationId,
+    practiceId: options.practiceId,
     sessionId: options.sessionId,
     userId: authContext?.user.id,
-    tier: (organization.subscription_tier ?? undefined) as string | undefined,
-    kind: (organization.kind ?? undefined) as string | undefined,
-    subscriptionStatus: null, // Not stored in DB in simplified system
+    tier: metadata.tier,
+    kind: metadata.kind,
+    subscriptionStatus: metadata.subscriptionStatus,
     isAnonymous,
-    organization,
+    practice: metadata,
   };
 }

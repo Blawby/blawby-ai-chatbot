@@ -1,22 +1,13 @@
--- Blawby AI Chatbot Database Schema
+-- Blawby Conversation System Database Schema
 
 -- Enable foreign key constraints
 PRAGMA foreign_keys = ON;
 
--- Organizations table
-CREATE TABLE IF NOT EXISTS organizations (
-  id TEXT PRIMARY KEY, -- This will be the ULID
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE, -- Human-readable identifier (e.g., "north-carolina-legal-services")
-  domain TEXT,
-  config JSON,
-  stripe_customer_id TEXT UNIQUE,
-  subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'plus', 'business', 'enterprise')),
-  seats INTEGER DEFAULT 1 CHECK (seats > 0),
-  is_personal INTEGER DEFAULT 0 NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+-- Organizations table removed
+-- All practice data is now managed by remote API (staging-api.blawby.com)
+-- Conversation config for practices is stored in practice.metadata.conversationConfig
+-- Workspaces use hardcoded defaults with no storage needed
+-- Conversation tables (conversations, messages, contact_forms, files, etc.) use organization_id as TEXT reference only (no FK constraint)
 
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
@@ -70,9 +61,9 @@ CREATE TABLE IF NOT EXISTS services (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Lawyers table for lawyer profiles within organizations
+-- Lawyers table for lawyer profiles within practices
 -- NOTE: This is NOT a replacement for the members table. The members table was for
--- organization membership (user_id, organization_id, role) and is now handled by remote API.
+-- practice membership (user_id, organization_id, role) and is now handled by remote API.
 -- This lawyers table is for lawyer profiles (specialties, bar numbers, hourly rates, etc.)
 -- used for matter assignment and lawyer search functionality.
 CREATE TABLE IF NOT EXISTS lawyers (
@@ -315,8 +306,8 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_eve
 -- Only chatbot-related tables remain below
 
 -- Note: The users table has been removed - user management is handled by remote API
--- The organizations table is kept for chatbot functionality:
--- - organizations: For FK references in chatbot data
+-- The organizations table has been removed - all organization data is managed by remote API
+-- Chatbot tables use organization_id as TEXT reference only (no FK constraint)
 
 -- Stripe subscription table removed - subscription management is handled by remote API
 
@@ -351,13 +342,6 @@ CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id);
 
 -- Auth table triggers removed - user management is handled by remote API
 
--- Trigger for organizations table
-CREATE TRIGGER IF NOT EXISTS trigger_organizations_updated_at
-  AFTER UPDATE ON organizations
-  FOR EACH ROW
-  WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE organizations SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
-END;
+-- Organizations table trigger removed - organizations table no longer exists (managed by remote API)
 
 -- Subscription table trigger removed - subscription management is handled by remote API

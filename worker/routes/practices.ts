@@ -101,12 +101,12 @@ async function validateIdempotencyKeyLength(key: string): Promise<void> {
   }
 }
 
-function buildMatterIdempotencyKey(organizationId: string, key: string): string {
-  return `idempotency:matters:${organizationId}:${key}`;
+function buildMatterIdempotencyKey(practiceId: string, key: string): string {
+  return `idempotency:matters:${practiceId}:${key}`;
 }
 
-async function getMatterMutationResult(env: Env, organizationId: string, key: string): Promise<Record<string, unknown> | null> {
-  const storageKey = buildMatterIdempotencyKey(organizationId, key);
+async function getMatterMutationResult(env: Env, practiceId: string, key: string): Promise<Record<string, unknown> | null> {
+  const storageKey = buildMatterIdempotencyKey(practiceId, key);
   const raw = await env.CHAT_SESSIONS.get(storageKey);
   if (!raw) return null;
   try {
@@ -116,12 +116,12 @@ async function getMatterMutationResult(env: Env, organizationId: string, key: st
   }
 }
 
-async function storeMatterMutationResult(env: Env, organizationId: string, key: string, value: Record<string, unknown>): Promise<void> {
-  const storageKey = buildMatterIdempotencyKey(organizationId, key);
+async function storeMatterMutationResult(env: Env, practiceId: string, key: string, value: Record<string, unknown>): Promise<void> {
+  const storageKey = buildMatterIdempotencyKey(practiceId, key);
   await env.CHAT_SESSIONS.put(storageKey, JSON.stringify(value), { expirationTtl: 60 * 60 * 24 });
 }
 
-export async function handleOrganizations(request: Request, env: Env): Promise<Response> {
+export async function handlePractices(request: Request, env: Env): Promise<Response> {
   try {
     const url = new URL(request.url);
     const path = url.pathname.replace('/api/organizations', '');
@@ -146,17 +146,17 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     if (path.includes('/workspace')) {
       const pathParts = path.split('/').filter(Boolean);
       if (pathParts.length >= 3 && pathParts[1] === 'workspace') {
-        const organizationIdentifier = pathParts[0];
+        const practiceIdentifier = pathParts[0];
         const resource = pathParts[2];
-        // Fetch organization from remote API
-        const organization = await RemoteApiService.getOrganization(env, organizationIdentifier, request);
+        // Fetch practice from remote API
+        const practice = await RemoteApiService.getOrganization(env, practiceIdentifier, request);
 
-        if (!organization) {
-          throw HttpErrors.notFound('Organization not found');
+        if (!practice) {
+          throw HttpErrors.notFound('Practice not found');
         }
 
         // Require at least admin access for dashboard data
-        await requireOrgMember(request, env, organization.id, 'admin');
+        await requireOrgMember(request, env, practice.id, 'admin');
 
         const limit = parseLimit(url.searchParams.get('limit'));
 
@@ -179,8 +179,8 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
              LIMIT ?`;
 
           const bindings = stateFilter
-            ? [organization.id, stateFilter, limit]
-            : [organization.id, limit];
+            ? [practice.id, stateFilter, limit]
+            : [practice.id, limit];
 
           const sessions = await env.DB.prepare(baseQuery).bind(...bindings).all();
 
@@ -233,7 +233,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
                    FROM matters
                   WHERE organization_id = ?
                     AND id = ?`
-              ).bind(organization.id, matterId).first<WorkspaceMatterRow | null>();
+              ).bind(practice.id, matterId).first<WorkspaceMatterRow | null>();
 
               if (!record) {
                 throw HttpErrors.notFound('Matter not found');
@@ -262,36 +262,36 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           // Handle matter actions
           if (action === 'accept' && request.method === 'POST') {
             const authContext = await requireAuth(request, env);
-            await requireOrgMember(request, env, organization.id, 'attorney');
+            await requireOrgMember(request, env, practice.id, 'attorney');
 
             let idempotencyKey = request.headers.get('Idempotency-Key');
             if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
 
             if (idempotencyKey) {
-              const existing = await getMatterMutationResult(env, organization.id, idempotencyKey);
-              if (existing) {
-                return createSuccessResponse(existing);
-              }
+            const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
+            if (existing) {
+              return createSuccessResponse(existing);
             }
+          }
 
-            const result = await matterService.acceptLead({
-              organizationId: organization.id,
-              matterId,
-              actorUserId: authContext.user.id
-            });
+          const result = await matterService.acceptLead({
+            practiceId: practice.id,
+            matterId,
+            actorUserId: authContext.user.id
+          });
 
-            if (idempotencyKey) {
-              await storeMatterMutationResult(env, organization.id, idempotencyKey, result as unknown as Record<string, unknown>);
-            }
+          if (idempotencyKey) {
+            await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
+          }
 
-            // Fire notification (best-effort)
-            try {
-              const notifier = new NotificationService(env);
-              const prevStatusCandidate = (result as unknown as { previousStatus?: unknown }).previousStatus;
-              const prevStatus = typeof prevStatusCandidate === 'string' ? prevStatusCandidate : undefined;
-              await notifier.sendMatterUpdateNotification({
-                type: 'matter_update',
-                organizationConfig: organization,
+          // Fire notification (best-effort)
+          try {
+            const notifier = new NotificationService(env);
+            const prevStatusCandidate = (result as unknown as { previousStatus?: unknown }).previousStatus;
+            const prevStatus = typeof prevStatusCandidate === 'string' ? prevStatusCandidate : undefined;
+            await notifier.sendMatterUpdateNotification({
+              type: 'matter_update',
+              practiceConfig: practice,
                 matterInfo: { type: 'Lead' },
                 update: {
                   action: 'accept',
@@ -307,7 +307,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
 
           if (action === 'reject' && request.method === 'POST') {
             const authContext = await requireAuth(request, env);
-            await requireOrgMember(request, env, organization.id, 'attorney');
+            await requireOrgMember(request, env, practice.id, 'attorney');
 
             let idempotencyKey = request.headers.get('Idempotency-Key');
             if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -316,21 +316,21 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
             const reason = typeof body.reason === 'string' && body.reason.trim().length > 0 ? (body.reason as string).trim() : null;
 
             if (idempotencyKey) {
-              const existing = await getMatterMutationResult(env, organization.id, idempotencyKey);
+              const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
               if (existing) {
                 return createSuccessResponse(existing);
               }
             }
 
             const result = await matterService.rejectLead({
-              organizationId: organization.id,
+              practiceId: practice.id,
               matterId,
               actorUserId: authContext.user.id,
               reason
             });
 
             if (idempotencyKey) {
-              await storeMatterMutationResult(env, organization.id, idempotencyKey, result as unknown as Record<string, unknown>);
+              await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
             }
 
             // Fire notification (best-effort)
@@ -340,7 +340,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
               const prevStatus = typeof prevStatusCandidate2 === 'string' ? prevStatusCandidate2 : undefined;
               await notifier.sendMatterUpdateNotification({
                 type: 'matter_update',
-                organizationConfig: organization,
+                practiceConfig: practice,
                 matterInfo: { type: 'Lead' },
                 update: {
                   action: 'reject',
@@ -356,7 +356,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
 
           if (action === 'status' && request.method === 'PATCH') {
             const authContext = await requireAuth(request, env);
-            await requireOrgMember(request, env, organization.id, 'attorney');
+            await requireOrgMember(request, env, practice.id, 'attorney');
 
             let idempotencyKey = request.headers.get('Idempotency-Key');
             if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -372,14 +372,14 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
               : null;
 
             if (idempotencyKey) {
-              const existing = await getMatterMutationResult(env, organization.id, idempotencyKey);
+              const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
               if (existing) {
                 return createSuccessResponse(existing);
               }
             }
 
             const result = await matterService.transitionStatus({
-              organizationId: organization.id,
+              practiceId: practice.id,
               matterId,
               targetStatus,
               actorUserId: authContext.user.id,
@@ -387,7 +387,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
             });
 
             if (idempotencyKey) {
-              await storeMatterMutationResult(env, organization.id, idempotencyKey, result as unknown as Record<string, unknown>);
+              await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
             }
 
             // Fire notification (best-effort)
@@ -397,7 +397,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
               const prevStatus = typeof prevStatusCandidate3 === 'string' ? prevStatusCandidate3 : undefined;
               await notifier.sendMatterUpdateNotification({
                 type: 'matter_update',
-                organizationConfig: organization,
+                practiceConfig: practice,
                 matterInfo: { type: 'Lead' },
                 update: {
                   action: 'status_change',
@@ -426,7 +426,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           const cursor = cursorParam ? decodeMattersCursor(cursorParam) : null;
 
           const conditions: string[] = ['organization_id = ?'];
-          const bindings: unknown[] = [organization.id];
+          const bindings: unknown[] = [practice.id];
 
           if (statusFilter) {
             conditions.push('status = ?');
@@ -535,8 +535,8 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
              LIMIT ?`;
 
           const bindings = statusFilter
-            ? [organization.id, statusFilter, limit]
-            : [organization.id, limit];
+            ? [practice.id, statusFilter, limit]
+            : [practice.id, limit];
 
           const payments = await env.DB.prepare(baseQuery).bind(...bindings).all();
 
@@ -552,15 +552,15 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
 
     // Handle organization events route
     if (isEventsEndpoint) {
-      const organizationIdentifier = pathSegments[0];
-      // Fetch organization from remote API
-      const organization = await RemoteApiService.getOrganization(env, organizationIdentifier, request);
+      const practiceIdentifier = pathSegments[0];
+      // Fetch practice from remote API
+      const practice = await RemoteApiService.getOrganization(env, practiceIdentifier, request);
 
-      if (!organization) {
-        throw HttpErrors.notFound('Organization not found');
+      if (!practice) {
+        throw HttpErrors.notFound('Practice not found');
       }
 
-      await requireOrgMember(request, env, organization.id, 'admin');
+      await requireOrgMember(request, env, practice.id, 'admin');
 
       const limit = parseLimit(url.searchParams.get('limit'), 50);
       const eventTypeFilter = url.searchParams.get('eventType');
@@ -578,8 +578,8 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
           LIMIT ?`
       ).bind(
         ...(eventTypeFilter
-          ? [organization.id, eventTypeFilter, limit]
-          : [organization.id, limit])
+          ? [practice.id, eventTypeFilter, limit]
+          : [practice.id, limit])
       ).all();
 
       // Preact usage: fetch to show an activity feed in the organization workspace.
