@@ -253,14 +253,6 @@ export const organizationInvitationSchema = z.object({
   createdAt: timestampSchema
 });
 
-export const organizationApiTokenSchema = z.object({
-  id: z.string().min(1),
-  tokenName: z.string().min(1),
-  permissions: z.array(z.string()),
-  createdAt: timestampSchema,
-  lastUsedAt: timestampSchema.optional()
-});
-
 export const organizationSchema = z.object({
   id: z.string().min(1),
   slug: z.string().min(1),
@@ -281,9 +273,4 @@ export const organizationSchema = z.object({
 // API Response schemas
 export const membersResponseSchema = z.object({
   members: z.array(organizationMemberSchema)
-});
-
-export const createTokenResponseSchema = z.object({
-  token: z.string().min(1),
-  tokenId: z.string().min(1)
 });

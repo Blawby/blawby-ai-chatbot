@@ -3,7 +3,6 @@ import {
   BuildingOfficeIcon, 
   PlusIcon, 
   UserPlusIcon,
-  KeyIcon,
   TrashIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
@@ -37,7 +36,6 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     organizations,
     currentOrganization, 
     getMembers,
-    getTokens,
     invitations, 
     loading, 
     error,
@@ -50,9 +48,6 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     updateMemberRole,
     removeMember,
     sendInvitation,
-    fetchTokens,
-    createToken,
-    revokeToken,
     refetch 
   } = useOrganizationManagement();
   
@@ -87,24 +82,17 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     role: 'attorney' as Role
   });
   
-  const [tokenForm, setTokenForm] = useState({
-    name: ''
-  });
-  
   // Inline form states (like SecurityPage pattern)
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [isInvitingMember, setIsInvitingMember] = useState(false);
   const [isEditingMember, setIsEditingMember] = useState(false);
-  const [showTokenModal, setShowTokenModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [newToken, setNewToken] = useState<{ token: string; tokenId: string } | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [editMemberData, setEditMemberData] = useState<{ userId: string; email: string; name?: string; role: Role } | null>(null);
 
   const hasOrganization = !!currentOrganization;
   const members = useMemo(() => currentOrganization ? getMembers(currentOrganization.id) : [], [currentOrganization, getMembers]);
   const _memberCount = members.length;
-  const tokens = currentOrganization ? getTokens(currentOrganization.id) : [];
   
   // Better approach - get role directly from current org context
   const currentMember = useMemo(() => {
@@ -157,9 +145,8 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       };
       
       fetchMembersData();
-      fetchTokens(currentOrganization.id);
     }
-  }, [currentOrganization, fetchMembers, fetchTokens, showError]);
+  }, [currentOrganization, fetchMembers, showError]);
 
   // Auto-sync on return from portal
   useEffect(() => {
@@ -261,33 +248,6 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
   };
 
-  const handleCreateToken = async () => {
-    if (!currentOrganization || !tokenForm.name.trim()) {
-      showError('Token name is required');
-      return;
-    }
-
-    try {
-      const result = await createToken(currentOrganization.id, tokenForm.name);
-      setNewToken(result);
-      showSuccess('API token created successfully!');
-      setShowTokenModal(false);
-      setTokenForm({ name: '' });
-		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to create token');
-    }
-  };
-
-  const handleRevokeToken = async (tokenId: string) => {
-    if (!currentOrganization) return;
-
-    try {
-      await revokeToken(currentOrganization.id, tokenId);
-      showSuccess('Token revoked successfully!');
-		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to revoke token');
-    }
-  };
 
   const handleDeleteOrganization = async () => {
     if (!currentOrganization) return;
@@ -918,59 +878,6 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
         </div>
       </Modal>
 
-
-      {/* Create API Token Modal */}
-      <Modal
-        isOpen={showTokenModal}
-        onClose={() => setShowTokenModal(false)}
-        title="Create API Token"
-      >
-        <div className="space-y-4">
-          <div>
-            <FormLabel htmlFor="token-name">Token Name</FormLabel>
-            <Input
-              id="token-name"
-              value={tokenForm.name}
-              onChange={(value) => setTokenForm(prev => ({ ...prev, name: value }))}
-              placeholder="My Integration Token"
-            />
-          </div>
-          
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setShowTokenModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateToken}>
-              Create Token
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* New Token Display Modal */}
-      <Modal
-        isOpen={!!newToken}
-        onClose={() => setNewToken(null)}
-        title="API Token Created"
-      >
-        <div className="space-y-4">
-          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-sm font-medium mb-2">Your new API token:</p>
-            <code className="text-xs bg-white dark:bg-gray-900 p-2 rounded border block break-all">
-              {newToken?.token}
-            </code>
-            <p className="text-xs text-gray-500 mt-2">
-              ⚠️ Copy this token now. You won&apos;t be able to see it again.
-            </p>
-          </div>
-          
-          <div className="flex justify-end">
-            <Button onClick={() => setNewToken(null)}>
-              I&apos;ve Copied It
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Delete Organization Modal */}
       <Modal

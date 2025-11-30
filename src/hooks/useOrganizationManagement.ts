@@ -12,17 +12,12 @@ import {
   listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
   deletePracticeMember as apiDeletePracticeMember,
-  listPracticeTokens,
-  createPracticeToken as apiCreatePracticeToken,
-  deletePracticeToken as apiDeletePracticeToken,
   type Practice,
   type UpdatePracticeRequest
 } from '../lib/apiClient';
 import {
   organizationInvitationSchema,
-  membersResponseSchema,
-  organizationApiTokenSchema,
-  createTokenResponseSchema
+  membersResponseSchema
 } from '../../worker/schemas/validation';
 import { resolveOrganizationKind as resolveOrgKind, normalizeSubscriptionStatus as normalizeOrgStatus } from '../utils/subscription';
 import { extractPracticeOnboardingMetadata } from '../utils/practiceOnboarding';
@@ -90,14 +85,6 @@ export interface Invitation {
   createdAt: number;
 }
 
-export interface ApiToken {
-  id: string;
-  name: string;
-  permissions: string[];
-  createdAt: number;
-  lastUsed?: number;
-}
-
 export interface CreateOrgData {
   name: string;
   slug?: string;
@@ -148,12 +135,6 @@ interface UseOrganizationManagementReturn {
   sendInvitation: (orgId: string, email: string, role: Role) => Promise<void>;
   acceptInvitation: (invitationId: string) => Promise<void>;
   declineInvitation: (invitationId: string) => Promise<void>;
-  
-  // API Tokens
-  getTokens: (orgId: string) => ApiToken[];
-  fetchTokens: (orgId: string) => Promise<void>;
-  createToken: (orgId: string, name: string) => Promise<{ token: string; tokenId: string }>;
-  revokeToken: (orgId: string, tokenId: string) => Promise<void>;
   
   // Workspace data
   getWorkspaceData: (orgId: string, resource: string) => Record<string, unknown>[];
@@ -461,7 +442,6 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<Record<string, Member[]>>({});
   const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [tokens, setTokens] = useState<Record<string, ApiToken[]>>({});
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -520,9 +500,6 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     return members[orgId] || [];
   }, [members]);
 
-  const getTokens = useCallback((orgId: string): ApiToken[] => {
-    return tokens[orgId] || [];
-  }, [tokens]);
 
   const getWorkspaceData = useCallback((orgId: string, resource: string): Record<string, unknown>[] => {
     return workspaceData[orgId]?.[resource] || [];
@@ -739,54 +716,6 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     await fetchInvitations();
   }, [fetchInvitations]);
 
-  // Fetch API tokens
-  const fetchTokens = useCallback(async (orgId: string): Promise<void> => {
-    try {
-      const data = await listPracticeTokens(orgId);
-
-      const validatedTokens: ApiToken[] = data
-        .map((token: unknown) => {
-          try {
-            const validatedToken = organizationApiTokenSchema.parse(token);
-            return {
-              id: validatedToken.id,
-              name: validatedToken.tokenName,
-              permissions: validatedToken.permissions,
-              createdAt: validatedToken.createdAt,
-              lastUsed: validatedToken.lastUsedAt,
-            };
-          } catch (error) {
-            console.error('Invalid token data:', token, error);
-            return null;
-          }
-        })
-        .filter((token): token is NonNullable<typeof token> => token !== null);
-
-      setTokens(prev => ({ ...prev, [orgId]: validatedTokens }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch tokens');
-    }
-  }, []);
-
-  // Create API token
-  const createToken = useCallback(async (orgId: string, name: string): Promise<{ token: string; tokenId: string }> => {
-    try {
-      const result = await apiCreatePracticeToken(orgId, { tokenName: name });
-      const validatedResult = createTokenResponseSchema.parse(result);
-      await fetchTokens(orgId);
-      return { token: validatedResult.token, tokenId: validatedResult.tokenId };
-    } catch (error) {
-      console.error('Failed to create token:', error);
-      throw new Error('Failed to create token');
-    }
-  }, [fetchTokens]);
-
-  // Revoke API token
-  const revokeToken = useCallback(async (orgId: string, tokenId: string): Promise<void> => {
-    await apiDeletePracticeToken(orgId, tokenId);
-    await fetchTokens(orgId);
-  }, [fetchTokens]);
-
   // Fetch workspace data
   const fetchWorkspaceData = useCallback(async (orgId: string, resource: string): Promise<void> => {
     try {
@@ -922,10 +851,6 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
     sendInvitation,
     acceptInvitation,
     declineInvitation,
-    getTokens,
-    fetchTokens,
-    createToken,
-    revokeToken,
     getWorkspaceData,
     fetchWorkspaceData,
     acceptMatter,

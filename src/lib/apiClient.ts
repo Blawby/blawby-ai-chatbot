@@ -439,38 +439,6 @@ export async function deletePracticeMember(
   );
 }
 
-export async function listPracticeTokens(organizationId: string): Promise<unknown[]> {
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(organizationId)}/tokens`);
-  const payload = unwrapApiData(response.data);
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (isRecord(payload) && Array.isArray(payload.tokens)) {
-    return payload.tokens as unknown[];
-  }
-  return [];
-}
-
-export async function createPracticeToken(
-  organizationId: string,
-  payload: { tokenName: string }
-): Promise<unknown> {
-  const response = await apiClient.post(
-    `/api/practice/${encodeURIComponent(organizationId)}/tokens`,
-    payload
-  );
-  return unwrapApiData(response.data);
-}
-
-export async function deletePracticeToken(
-  organizationId: string,
-  tokenId: string
-): Promise<void> {
-  await apiClient.delete(
-    `/api/practice/${encodeURIComponent(organizationId)}/tokens/${encodeURIComponent(tokenId)}`
-  );
-}
-
 export async function getOnboardingStatus(organizationId: string): Promise<OnboardingStatus> {
   if (!organizationId) {
     throw new Error('organizationId is required');

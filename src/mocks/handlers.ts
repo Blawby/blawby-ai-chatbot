@@ -203,38 +203,6 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
-  http.get('/api/practice/:practiceId/tokens', ({ params }) => {
-    const id = String(params.practiceId);
-    ensureOrgCollections(id);
-    return HttpResponse.json({ tokens: mockDb.tokens[id] ?? [] });
-  }),
-
-  http.post('/api/practice/:practiceId/tokens', async ({ params, request }) => {
-    const id = String(params.practiceId);
-    ensureOrgCollections(id);
-    const body = (await request.json().catch(() => ({}))) as { tokenName?: string };
-    if (!body.tokenName) {
-      return HttpResponse.json({ error: 'tokenName is required' }, { status: 400 });
-    }
-    const tokenId = randomId('token');
-    const tokenValue = `tok_${tokenId}`;
-    mockDb.tokens[id].push({
-      id: tokenId,
-      tokenName: body.tokenName,
-      permissions: ['chat:read', 'chat:write'],
-      createdAt: Date.now()
-    });
-    return HttpResponse.json({ token: tokenValue, tokenId });
-  }),
-
-  http.delete('/api/practice/:practiceId/tokens/:tokenId', ({ params }) => {
-    const orgId = String(params.practiceId);
-    const tokenId = String(params.tokenId);
-    ensureOrgCollections(orgId);
-    mockDb.tokens[orgId] = mockDb.tokens[orgId].filter((token) => token.id !== tokenId);
-    return HttpResponse.json({ success: true });
-  }),
-
   http.get('/api/user/preferences', () => {
     return HttpResponse.json({ success: true, data: mockDb.userPreferences });
   }),

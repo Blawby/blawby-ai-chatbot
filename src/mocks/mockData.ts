@@ -36,13 +36,6 @@ export interface MockInvitation {
   createdAt: number;
 }
 
-export interface MockToken {
-  id: string;
-  tokenName: string;
-  permissions: string[];
-  createdAt: number;
-  lastUsedAt?: number;
-}
 
 export interface OnboardingState {
   status: 'completed' | 'skipped' | 'pending' | 'not_required';
@@ -145,13 +138,6 @@ const defaultInvitation: MockInvitation = {
   createdAt: now - 1000 * 60 * 15
 };
 
-const defaultToken: MockToken = {
-  id: 'token-1',
-  tokenName: 'Production API',
-  permissions: ['chat:read', 'chat:write'],
-  createdAt: now - 1000 * 60 * 60 * 5,
-  lastUsedAt: now - 1000 * 60 * 10
-};
 
 const defaultOnboarding: OnboardingState = {
   status: 'pending',
@@ -187,10 +173,6 @@ export const mockDb = {
   practices: [personalPractice, businessPractice],
   members: { ...defaultMembers } as Record<string, MockMember[]>,
   invitations: [defaultInvitation] as MockInvitation[],
-  tokens: {
-    [businessOrgId]: [defaultToken],
-    [personalOrgId]: []
-  } as Record<string, MockToken[]>,
   onboarding: {
     [businessOrgId]: { ...defaultOnboarding },
     [personalOrgId]: { ...defaultOnboarding }
@@ -211,9 +193,6 @@ export function randomId(prefix = 'mock'): string {
 export function ensureOrgCollections(orgId: string): void {
   if (!mockDb.members[orgId]) {
     mockDb.members[orgId] = [];
-  }
-  if (!mockDb.tokens[orgId]) {
-    mockDb.tokens[orgId] = [];
   }
   if (!mockDb.onboarding[orgId]) {
     mockDb.onboarding[orgId] = { ...defaultOnboarding };
