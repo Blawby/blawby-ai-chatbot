@@ -105,7 +105,8 @@ describe('OrganizationContext Middleware', () => {
         session: {
           id: 'session-123',
           expiresAt: new Date(Date.now() + 3600000)
-        }
+        },
+        token: 'test-token'
       };
 
       const mockSessionResolution = {
@@ -156,7 +157,8 @@ describe('OrganizationContext Middleware', () => {
         session: {
           id: 'session-123',
           expiresAt: new Date(Date.now() + 3600000)
-        }
+        },
+        token: 'test-token'
       };
 
       // Mock authenticated request but no session token
@@ -184,7 +186,8 @@ describe('OrganizationContext Middleware', () => {
         session: {
           id: 'session-123',
           expiresAt: new Date(Date.now() + 3600000)
-        }
+        },
+        token: 'test-token'
       };
 
       // Mock authenticated request but no session token
@@ -215,7 +218,8 @@ describe('OrganizationContext Middleware', () => {
         session: {
           id: 'session-123',
           expiresAt: new Date(Date.now() + 3600000)
-        }
+        },
+        token: 'test-token'
       };
 
       const mockSessionResolution = {

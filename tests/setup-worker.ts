@@ -185,18 +185,6 @@ beforeAll(async () => {
       )
     `).run();
 
-    // Create members table (if not already exists)
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS members (
-        id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-        UNIQUE(organization_id, user_id)
-      )
-    `).run();
-
     // Create subscriptions table (if not already exists)
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS subscriptions (

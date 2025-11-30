@@ -31,7 +31,7 @@ function getBaseUrl(): string {
  * - Uses staging-api.blawby.com for management endpoints
  * - Can be overridden with VITE_REMOTE_API_URL environment variable
  */
-function getRemoteApiUrl(): string {
+export function getRemoteApiUrl(): string {
   if (import.meta.env.VITE_REMOTE_API_URL) {
     return import.meta.env.VITE_REMOTE_API_URL;
   }

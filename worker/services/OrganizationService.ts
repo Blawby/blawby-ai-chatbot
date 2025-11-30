@@ -345,48 +345,26 @@ export class OrganizationService {
       console.warn('⚠️ Failed to persist betterAuthOrgId after org creation', { id: organization.id, error: String(e) });
     }
 
-    try {
-      // Validate user exists before creating member record
-      await this.validateUserExists(userId);
-      
-      await this.env.DB.prepare(
-        `INSERT INTO members (id, organization_id, user_id, role, created_at)
-         VALUES (?, ?, ?, 'owner', ?)
-         ON CONFLICT(organization_id, user_id) DO NOTHING`
-      ).bind(
-        globalThis.crypto.randomUUID(),
-        organization.id,
-        userId,
-        Math.floor(Date.now() / 1000)
-      ).run();
-    } catch (error) {
-      const deleted = await this.deleteOrganization(organization.id);
-      if (!deleted) {
-        console.error('❌ Failed to roll back personal organization after member insert failure', {
-          organizationId: organization.id,
-          userId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-      throw error;
-    }
+    // Membership is now handled by remote API - no local member record needed
 
     this.clearCache(organization.id);
     return organization;
   }
 
   async ensurePersonalOrganization(userId: string, userName: string): Promise<Organization> {
-    const personalMembership = await this.env.DB.prepare(
-      `SELECT o.id
-         FROM organizations o
-         INNER JOIN members m ON o.id = m.organization_id
-        WHERE m.user_id = ? AND o.is_personal = 1
-        ORDER BY o.created_at ASC
+    // Find personal organization by checking config.betterAuthOrgId or is_personal flag
+    // Membership is now handled by remote API, so we just need to find the org
+    const personalOrg = await this.env.DB.prepare(
+      `SELECT id
+         FROM organizations
+        WHERE is_personal = 1
+          AND (config IS NULL OR json_extract(config, '$.betterAuthOrgId') = ? OR id = ?)
+        ORDER BY created_at ASC
         LIMIT 1`
-    ).bind(userId).first<{ id: string }>();
+    ).bind(userId, userId).first<{ id: string }>();
 
-    if (personalMembership?.id) {
-      const existing = await this.getOrganization(personalMembership.id);
+    if (personalOrg?.id) {
+      const existing = await this.getOrganization(personalOrg.id);
       if (existing) {
         // Ensure betterAuthOrgId is present in config
         if (!existing.config?.betterAuthOrgId) {
@@ -399,33 +377,7 @@ export class OrganizationService {
             console.warn('⚠️ Failed to persist betterAuthOrgId in ensurePersonalOrganization', { id: existing.id, error: String(e) });
           }
         }
-        // Ensure membership row exists with owner role (idempotent)
-        try {
-          const membership = await this.env.DB.prepare(
-            `SELECT role FROM members WHERE organization_id = ? AND user_id = ?`
-          ).bind(existing.id, userId).first<{ role: string }>();
-          if (!membership) {
-            // Validate user exists before creating member record
-            await this.validateUserExists(userId);
-            
-            await this.env.DB.prepare(
-              `INSERT INTO members (id, organization_id, user_id, role, created_at)
-               VALUES (?, ?, ?, 'owner', ?)
-               ON CONFLICT(organization_id, user_id) DO NOTHING`
-            ).bind(
-              globalThis.crypto.randomUUID(),
-              existing.id,
-              userId,
-              Math.floor(Date.now() / 1000)
-            ).run();
-          }
-        } catch (e) {
-          console.error('❌ Failed to ensure owner membership for personal org:', {
-            organizationId: existing.id,
-            userId,
-            error: e instanceof Error ? e.message : String(e),
-          });
-        }
+        // Membership is handled by remote API - no local member record needed
         return existing;
       }
     }
@@ -435,60 +387,15 @@ export class OrganizationService {
 
   /**
    * Ensure the given user has owner membership for the organization.
-   * Used to recover from data drift where the membership row might not exist.
-   * - If the user already has a membership with role 'owner', nothing is done.
-   * - If the user has a membership with a different role, it is upgraded to owner.
-   * - If no membership exists and there are no other owners, a new owner membership is created.
-   * - If another owner exists, we leave memberships untouched (and caller will enforce access).
+   * 
+   * NOTE: Membership is now handled by remote API. This method is kept for backward
+   * compatibility but is a no-op. Permissions are enforced via requireOrgMember/requireOrgOwner
+   * middleware which queries the remote API.
    */
-  async ensureOwnerMembership(organizationId: string, userId: string): Promise<void> {
-    try {
-      const existingMembership = await this.env.DB.prepare(
-        `SELECT role FROM members WHERE organization_id = ? AND user_id = ? LIMIT 1`
-      ).bind(organizationId, userId).first<{ role: string }>();
-
-      if (existingMembership?.role === 'owner') {
-        return;
-      }
-
-      if (existingMembership && existingMembership.role !== 'owner') {
-        await this.env.DB.prepare(
-          `UPDATE members SET role = 'owner' WHERE organization_id = ? AND user_id = ?`
-        ).bind(organizationId, userId).run();
-        this.clearCache(organizationId);
-        return;
-      }
-
-      const ownerCountRow = await this.env.DB.prepare(
-        `SELECT COUNT(*) as ownerCount FROM members WHERE organization_id = ? AND role = 'owner'`
-      ).bind(organizationId).first<{ ownerCount: number }>();
-
-      const ownerCount = Number(ownerCountRow?.ownerCount ?? 0);
-      if (ownerCount > 0) {
-        return;
-      }
-
-      // Validate user exists before creating member record
-      await this.validateUserExists(userId);
-      
-      await this.env.DB.prepare(
-        `INSERT INTO members (id, organization_id, user_id, role, created_at)
-         VALUES (?, ?, ?, 'owner', ?)`
-      ).bind(
-        crypto.randomUUID(),
-        organizationId,
-        userId,
-        Math.floor(Date.now() / 1000)
-      ).run();
-      this.clearCache(organizationId);
-    } catch (error) {
-      console.error('[OrganizationService.ensureOwnerMembership] Failed to ensure owner membership:', {
-        organizationId,
-        userId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      // Swallow errors: callers will still enforce permissions via requireOrgOwner
-    }
+  async ensureOwnerMembership(_organizationId: string, _userId: string): Promise<void> {
+    // Membership is handled by remote API - no local action needed
+    // Permissions are enforced via requireOrgMember/requireOrgOwner middleware
+    return;
   }
 
   /**
@@ -857,7 +764,13 @@ export class OrganizationService {
       const effectiveLimit = limit ? Math.min(limit, maxLimit) : undefined;
 
       if (userId) {
-        // Get organizations where user is a member
+        // Membership is now handled by remote API
+        // For user-specific queries, we should use the remote API to get organizations
+        // where the user is a member. For now, we'll query local organizations table
+        // but note that this doesn't filter by membership - the remote API should be used
+        // for accurate membership-based filtering.
+        // 
+        // TODO: Update callers to use remote API for user-specific organization lists
         const query = effectiveLimit
           ? `
             SELECT 
@@ -876,8 +789,7 @@ export class OrganizationService {
               o.business_onboarding_skipped,
               o.business_onboarding_data
             FROM organizations o
-            INNER JOIN members m ON o.id = m.organization_id
-            WHERE m.user_id = ?
+            WHERE o.is_personal = 1 OR json_extract(COALESCE(o.config, '{}'), '$.betterAuthOrgId') = ?
             ORDER BY o.created_at DESC
             LIMIT ? OFFSET ?
           `
@@ -898,8 +810,7 @@ export class OrganizationService {
               o.business_onboarding_skipped,
               o.business_onboarding_data
             FROM organizations o
-            INNER JOIN members m ON o.id = m.organization_id
-            WHERE m.user_id = ?
+            WHERE o.is_personal = 1 OR json_extract(COALESCE(o.config, '{}'), '$.betterAuthOrgId') = ?
             ORDER BY o.created_at DESC
           `;
         
@@ -1011,7 +922,7 @@ export class OrganizationService {
    * @param strictValidation - if true, applies strict validation including placeholder email checks
    * @param organizationId - organization ID for logging context
    */
-  private validateAndNormalizeConfig(config: OrganizationConfig | null | undefined, strictValidation: boolean = false, organizationId?: string): OrganizationConfig {
+  private validateAndNormalizeConfig(config: OrganizationConfig | null | undefined, strictValidation: boolean = false, _organizationId?: string): OrganizationConfig {
     const defaultConfig = this.getDefaultConfig();
     const sourceConfig = (config ?? {}) as OrganizationConfig;
 

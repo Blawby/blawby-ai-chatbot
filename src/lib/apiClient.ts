@@ -3,7 +3,8 @@ import { getTokenAsync, clearToken } from './tokenStorage';
 import {
   getSubscriptionUpgradeEndpoint,
   getSubscriptionBillingPortalEndpoint,
-  getSubscriptionCancelEndpoint
+  getSubscriptionCancelEndpoint,
+  getRemoteApiUrl
 } from '../config/api';
 import { isPlatformOrganization } from '../utils/organization';
 
@@ -15,10 +16,7 @@ function ensureApiBaseUrl(): string {
     return cachedBaseUrl;
   }
   const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
-  if (!explicit) {
-    throw new Error('API base URL not configured. Please set VITE_API_BASE_URL or VITE_API_URL.');
-  }
-  cachedBaseUrl = explicit;
+  cachedBaseUrl = explicit || getRemoteApiUrl();
   return cachedBaseUrl;
 }
 

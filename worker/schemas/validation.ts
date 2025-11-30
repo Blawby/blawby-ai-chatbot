@@ -14,11 +14,6 @@ export const subscriptionTierSchema = z.enum(['free', 'plus', 'business', 'enter
 export const seatsSchema = z.number().int().positive().default(1);
 export const stripeCustomerIdSchema = z.string().min(1).optional();
 
-// Organization membership result schema
-export const organizationMembershipSchema = z.object({
-  role: organizationRoleSchema
-});
-
 // Chat schemas
 export const chatMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),

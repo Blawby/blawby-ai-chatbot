@@ -311,38 +311,8 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_eve
 -- Only chatbot-related tables remain below
 
 -- Note: The users table has been removed - user management is handled by remote API
--- The following tables are kept for chatbot functionality:
+-- The organizations table is kept for chatbot functionality:
 -- - organizations: For FK references in chatbot data
--- - members: For organization membership (used by workspace endpoints)
--- - invitations: For organization invitations (used by workspace endpoints)
-
--- ========================================
--- ORGANIZATION MEMBERSHIP TABLES (for workspace endpoints)
--- ========================================
--- Note: These tables are kept for workspace endpoints that need membership data
--- User management is handled by remote API, but membership data may still be needed locally
-
--- Organization members for Better Auth multi-tenancy
-CREATE TABLE IF NOT EXISTS members (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  role TEXT NOT NULL, -- 'owner', 'admin', 'attorney', 'paralegal'
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  UNIQUE(organization_id, user_id)
-);
-
--- Invitations for organization member onboarding
-CREATE TABLE IF NOT EXISTS invitations (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  email TEXT NOT NULL,
-  role TEXT NOT NULL,
-  status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'declined', 'expired'
-  invited_by TEXT NOT NULL,
-  expires_at INTEGER NOT NULL,
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL
-);
 
 -- Stripe subscription table removed - subscription management is handled by remote API
 
@@ -358,11 +328,6 @@ CREATE TABLE IF NOT EXISTS organization_events (
 
 -- Auth tables (sessions, accounts, verifications) removed - managed by remote API
 
--- Create indexes for organization membership tables
-CREATE INDEX IF NOT EXISTS idx_member_org ON members(organization_id);
-CREATE INDEX IF NOT EXISTS idx_member_user ON members(user_id);
-CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email);
-CREATE INDEX IF NOT EXISTS idx_invitations_organization ON invitations(organization_id);
 CREATE INDEX IF NOT EXISTS idx_org_events_org_created ON organization_events(organization_id, created_at DESC);
 
 -- Create indexes for user_id columns

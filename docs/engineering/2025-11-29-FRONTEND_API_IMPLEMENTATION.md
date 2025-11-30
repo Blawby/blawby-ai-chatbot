@@ -419,7 +419,7 @@ For production, set `VITE_API_BASE_URL` in your deployment environment (e.g., Cl
 VITE_API_BASE_URL=https://your-api-server.com
 ```
 
-**Important**: If neither variable is set, the application will throw an error at runtime. Always ensure at least one is configured.
+If neither variable is set, the client automatically falls back to the remote management API (`https://staging-api.blawby.com`). This keeps development environments working out of the box, but you should still configure `VITE_API_BASE_URL` explicitly for production deployments.
 
 ## Axios Configuration File
 
@@ -429,6 +429,7 @@ The actual implementation in `src/lib/apiClient.ts` uses dynamic base URL resolu
 // src/lib/apiClient.ts
 import axios from 'axios';
 import { getTokenAsync, clearToken } from './tokenStorage';
+import { getRemoteApiUrl } from '../config/api';
 
 let cachedBaseUrl: string | null = null;
 
@@ -436,12 +437,9 @@ function ensureApiBaseUrl(): string {
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
-  // Check both VITE_API_BASE_URL and VITE_API_URL for flexibility
+  // Check both VITE_API_BASE_URL and VITE_API_URL for flexibility, then fall back to staging API
   const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
-  if (!explicit) {
-    throw new Error('API base URL not configured. Please set VITE_API_BASE_URL or VITE_API_URL.');
-  }
-  cachedBaseUrl = explicit;
+  cachedBaseUrl = explicit || getRemoteApiUrl(); // Defaults to https://staging-api.blawby.com
   return cachedBaseUrl;
 }
 
