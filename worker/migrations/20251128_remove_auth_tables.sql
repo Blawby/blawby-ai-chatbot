@@ -10,7 +10,8 @@
 -- - subscriptions (subscription management now handled by remote API)
 -- - pii_access_audit (PII audit logging now handled by remote API)
 --
--- Note: organizations, members, and invitations tables are kept for workspace endpoints
+-- Note: organizations table is kept for workspace endpoints
+-- Note: members and invitations tables were later removed in migration 20251130_remove_members_invitations_tables.sql
 
 PRAGMA foreign_keys = OFF;
 

@@ -70,7 +70,11 @@ CREATE TABLE IF NOT EXISTS services (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Lawyers table for organization member management
+-- Lawyers table for lawyer profiles within organizations
+-- NOTE: This is NOT a replacement for the members table. The members table was for
+-- organization membership (user_id, organization_id, role) and is now handled by remote API.
+-- This lawyers table is for lawyer profiles (specialties, bar numbers, hourly rates, etc.)
+-- used for matter assignment and lawyer search functionality.
 CREATE TABLE IF NOT EXISTS lawyers (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL,

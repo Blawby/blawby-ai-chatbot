@@ -385,18 +385,6 @@ export class OrganizationService {
     return this.createPersonalOrganizationForUser(userId, userName);
   }
 
-  /**
-   * Ensure the given user has owner membership for the organization.
-   * 
-   * NOTE: Membership is now handled by remote API. This method is kept for backward
-   * compatibility but is a no-op. Permissions are enforced via requireOrgMember/requireOrgOwner
-   * middleware which queries the remote API.
-   */
-  async ensureOwnerMembership(_organizationId: string, _userId: string): Promise<void> {
-    // Membership is handled by remote API - no local action needed
-    // Permissions are enforced via requireOrgMember/requireOrgOwner middleware
-    return;
-  }
 
   /**
    * Resolves environment variable placeholders in organization configuration
