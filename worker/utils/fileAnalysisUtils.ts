@@ -8,7 +8,6 @@ export type FileAnalysisEnv = Pick<
   Env,
   | 'FILES_BUCKET'
   | 'DB'
-  | 'AI'
   | 'ENABLE_ADOBE_EXTRACT'
   | 'ADOBE_CLIENT_ID'
   | 'ADOBE_CLIENT_SECRET'
@@ -18,14 +17,6 @@ export type FileAnalysisEnv = Pick<
   | 'ADOBE_IMS_BASE_URL'
   | 'ADOBE_PDF_SERVICES_BASE_URL'
   | 'ADOBE_SCOPE'
-  | 'CLOUDFLARE_ACCOUNT_ID'
-  | 'CLOUDFLARE_API_TOKEN'
-  | 'CLOUDFLARE_PUBLIC_URL'
-  | 'AI_MODEL_DEFAULT'
-  | 'AI_MAX_TEXT_LENGTH'
-  | 'AI_MAX_TABLES'
-  | 'AI_MAX_ELEMENTS'
-  | 'AI_MAX_STRUCTURED_PAYLOAD_LENGTH'
   | 'DEBUG'
 >;
 
@@ -37,10 +28,8 @@ export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question
   console.log('File ID:', fileId);
   console.log('Question:', question);
   
-  // Determine the appropriate question based on file type or use default
-  const defaultQuestion = "Analyze this document and provide a comprehensive summary with key facts, entities, and actionable insights. Focus on information relevant for legal intake or professional services.";
-  
-  const analysisQuestion = question || defaultQuestion;
+  // Question parameter is kept for API compatibility but not used (Adobe extraction doesn't need it)
+  const _analysisQuestion = question || "Extract document content";
   
   try {
     // Get file from R2 storage
@@ -102,33 +91,12 @@ export async function analyzeFile(env: FileAnalysisEnv, fileId: string, question
     // Only log buffer size, not content
     console.log('File buffer size:', fileBuffer.byteLength);
 
-    // Create a File object for the analyze endpoint
-    const file = new File([fileBuffer], fileRecord?.original_name || fileId, {
-      type: fileRecord?.mime_type || fileObject.httpMetadata?.contentType || 'application/octet-stream'
-    });
-
-    // Call the analyze function directly
-    const { analyzeWithCloudflareAI } = await import('../routes/analyze.js');
-    
-    try {
-      console.log('Calling analyzeWithCloudflareAI with file:', {
-        name: file.name,
-        type: file.type,
-        size: file.size
-      });
-      
-      const analysis = await analyzeWithCloudflareAI(file, analysisQuestion, env as Env);
-      console.log('Analysis completed successfully:', {
-        confidence: analysis.confidence,
-        keyFactsCount: analysis.key_facts?.length || 0
-      });
-      return analysis as unknown as Record<string, unknown>;
-    } catch (error) {
-      console.error('Analysis error:', error);
-      return createAnalysisErrorResponse(
-        "The file analysis failed due to a technical error. The AI service may be temporarily unavailable."
-      ) as unknown as Record<string, unknown>;
-    }
+    // File analysis is now handled by the /api/analyze endpoint
+    // This utility function is kept for backward compatibility but should not be used directly
+    // Return an error directing users to use the analyze endpoint instead
+    return createAnalysisErrorResponse(
+      "File analysis should be performed through the /api/analyze endpoint. This utility function is deprecated."
+    ) as unknown as Record<string, unknown>;
 
   } catch (error) {
     console.error('File analysis error:', error);
@@ -227,26 +195,12 @@ async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<s
 
 /**
  * Determines the appropriate analysis question based on document type
+ * NOTE: This function is kept for API compatibility but questions are not used with Adobe extraction
  */
 export function getAnalysisQuestion(analysisType: string, specificQuestion?: string): string {
   if (specificQuestion) {
     return specificQuestion;
   }
-
-  switch (analysisType) {
-    case 'legal_document':
-      return "Analyze this legal document and identify: 1) Document type/form name (e.g., 'IRS Form 501(c)(3) application', 'Employment contract', 'Lease agreement'), 2) Key parties involved, 3) Important dates and deadlines, 4) Critical terms or obligations, 5) Potential legal issues or concerns, 6) Required next steps. Focus on information needed for legal intake and matter creation.";
-    case 'contract':
-      return "Analyze this contract and identify: 1) Contract type (employment, lease, service agreement, etc.), 2) Parties involved, 3) Key terms and obligations, 4) Important dates and deadlines, 5) Potential issues or unfair terms, 6) Termination clauses, 7) Dispute resolution methods. Focus on legal implications and potential concerns.";
-    case 'government_form':
-      return "Analyze this government form and identify: 1) Form name and number, 2) Purpose of the form, 3) Filing deadlines, 4) Required information or documentation, 5) Potential legal implications, 6) Next steps or actions required. Focus on compliance and legal requirements.";
-    case 'medical_document':
-      return "Analyze this medical document and identify: 1) Document type (medical bill, diagnosis, treatment plan, etc.), 2) Medical condition or injury, 3) Treatment received, 4) Dates of service, 5) Costs or insurance information, 6) Potential legal implications (personal injury, medical malpractice, insurance disputes). Focus on legal relevance.";
-    case 'image':
-      return "Analyze this image and identify: 1) What the image shows (accident scene, injury, property damage, document, etc.), 2) Key details relevant to legal matters, 3) Potential legal implications, 4) Type of legal case this might support (personal injury, property damage, evidence, etc.), 5) Additional documentation that might be needed.";
-    case 'resume':
-      return "Analyze this resume and identify: 1) Professional background and experience, 2) Skills and qualifications, 3) Employment history, 4) Education and certifications, 5) Potential legal matters this person might need help with (employment disputes, contract negotiations, business formation, etc.). Focus on legal service needs.";
-    default:
-      return "Analyze this document and identify: 1) Document type and purpose, 2) Key parties and dates, 3) Important terms or requirements, 4) Potential legal implications, 5) Required actions or next steps. Focus on information needed for legal intake and matter creation.";
-  }
+  // Return a generic message since Adobe extraction doesn't use questions
+  return "Extract document content";
 }

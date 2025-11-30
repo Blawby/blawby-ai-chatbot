@@ -2,11 +2,10 @@ import type { Env } from '../types';
 import { HttpErrors, createSuccessResponse } from '../errorHandler';
 import { rateLimit, getClientId } from '../middleware/rateLimit.js';
 import { AdobeDocumentService, type AdobeExtractSuccess, type IAdobeExtractor } from '../services/AdobeDocumentService.js';
-import { type AnalysisResult } from '../services/SessionService.js';
+import { type AnalysisResult } from '../types.js';
 import { 
   log, 
   logRequestStart, 
-  logAIProcessing, 
   logError, 
   logWarning 
 } from '../utils/logging.js';
@@ -245,21 +244,30 @@ async function attemptAdobeExtract(
     }
 
     log('info', 'adobe_extraction_success', { fileName: file.name, requestId });
-    log('debug', 'adobe_extraction_success_details', { message: 'Adobe extraction successful, calling summarizeAdobeExtract', requestId });
-    const result = await summarizeAdobeExtract(extractResult.details, question, env, requestId || 'unknown');
-    // Ensure the result has the extended fields
+    log('debug', 'adobe_extraction_success_details', { message: 'Adobe extraction successful, returning raw extraction', requestId });
+    
+    // Return raw Adobe extraction results (no AI summarization)
+    const rawExtract = extractResult.details;
     return {
-      ...result,
-      adobeExtractTextLength: result.adobeExtractTextLength || extractResult.details.text?.length || 0,
-      adobeExtractTextPreview: result.adobeExtractTextPreview || extractResult.details.text?.substring(0, 200) || 'No text',
-      debug: {
-        ...result.debug,
-        adobeExtractTextLength: result.adobeExtractTextLength || extractResult.details.text?.length || 0,
-        adobeExtractTextPreview: result.adobeExtractTextPreview || extractResult.details.text?.substring(0, 200) || 'No text'
+      summary: 'Document extracted successfully',
+      key_facts: [],
+      entities: { people: [], orgs: [], dates: [] },
+      action_items: [],
+      confidence: 1.0, // 1.0 indicates successful extraction (no AI analysis performed)
+      extraction_state: 'extracted',
+      extraction_only: true,
+      adobeExtractTextLength: rawExtract.text?.length || 0,
+      adobeExtractTextPreview: rawExtract.text?.substring(0, 200) || 'No text',
+      extraction_method: 'adobe_extract',
+      // Include raw Adobe extraction data
+      adobeExtract: {
+        text: rawExtract.text,
+        tables: rawExtract.tables,
+        elements: rawExtract.elements
       }
-    };
+    } as ExtendedAnalysisResult;
   } catch (error) {
-    logWarning('analyze', 'adobe_extract_failed', 'Adobe extract failed, falling back to generic AI analysis', {
+    logWarning('analyze', 'adobe_extract_failed', 'Adobe extract failed', {
       fileName: file.name,
       fileType: file.type,
       error: error instanceof Error ? error.message : String(error),
@@ -269,283 +277,18 @@ async function attemptAdobeExtract(
         adobeClientIdSet: !!env.ADOBE_CLIENT_ID,
         adobeClientSecretSet: !!env.ADOBE_CLIENT_SECRET,
         fileTypeEligible: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type),
-        analysisMethod: 'fallback_to_generic_ai',
+        analysisMethod: 'adobe_extract_failed',
         debugTimestamp: new Date().toISOString(),
         codeVersion: 'v2.3-debug'
       }
     });
     
-    // Return null to allow the caller to fall back to generic AI analysis
+    // Return null - no fallback to AI
     return null;
   }
 }
 
-async function summarizeAdobeExtract(
-  extract: AdobeExtractSuccess,
-  question: string,
-  env: Env,
-  requestId: string
-): Promise<ExtendedAnalysisResult> {
-  log('debug', 'summarize_adobe_extract_called', {
-    textLength: extract.text?.length || 0,
-    textPreview: extract.text?.substring(0, 200) || 'NO TEXT',
-    tablesCount: extract.tables?.length || 0,
-    elementsCount: extract.elements?.length || 0,
-    requestId
-  });
-  
-  const rawText = extract.text ?? '';
-  
-  // If no text was extracted, return a meaningful error response
-  if (!rawText || rawText.trim().length === 0) {
-    log('warn', 'adobe_extract_no_text', {
-      message: 'Adobe extraction returned no text content',
-      hasElements: (extract.elements?.length || 0) > 0,
-      hasTables: (extract.tables?.length || 0) > 0,
-      requestId
-    });
-    
-    return {
-      summary: "Adobe PDF extraction was unable to extract readable text from this document. This could be due to the document being image-based, having text in non-standard formats, or other extraction limitations.",
-      key_facts: [
-        "Document appears to be a PDF but text extraction failed",
-        "Adobe PDF Services was unable to extract readable content",
-        "Document may contain images, scanned content, or non-standard text formats"
-      ],
-      entities: {
-        people: [],
-        orgs: [],
-        dates: []
-      },
-      action_items: [
-        "Try uploading a different PDF with standard text content",
-        "Consider converting the document to a text format",
-        "Verify the PDF contains selectable text (not just images)"
-      ],
-      confidence: 0.1,
-      adobeExtractTextLength: 0,
-      adobeExtractTextPreview: 'No text extracted'
-    };
-  }
-  
-  // Helper function to safely parse integer environment variables
-  const parseEnvInt = (value: string | undefined, defaultValue: number, minValue: number = 1, maxValue: number = Number.MAX_SAFE_INTEGER): number => {
-    const parsed = parseInt(value || defaultValue.toString(), 10);
-    if (Number.isNaN(parsed) || !Number.isFinite(parsed)) {
-      return defaultValue;
-    }
-    // Clamp to sensible bounds
-    return Math.max(minValue, Math.min(maxValue, parsed));
-  };
-
-  // Reduce text size to avoid Cloudflare AI token/character limits
-  // Make the limit configurable and increase from 10k to 20k characters
-  const maxTextLength = parseEnvInt(env.AI_MAX_TEXT_LENGTH, 20000, 1000, 100000);
-  const truncatedText = rawText.length > maxTextLength
-    ? `${rawText.slice(0, maxTextLength)}...`
-    : rawText;
-    
-  // Log truncation events for monitoring
-  if (rawText.length > maxTextLength) {
-    log('warn', 'text_truncation_applied', {
-      originalLength: rawText.length,
-      truncatedLength: maxTextLength,
-      contextId: requestId,
-      truncationRatio: (maxTextLength / rawText.length).toFixed(3)
-    });
-  }
-    
-  log('debug', 'truncated_text_details', {
-    truncatedTextLength: truncatedText.length,
-    truncatedTextPreview: truncatedText.substring(0, 200),
-    requestId
-  });
-
-  // Reduce structured payload size to avoid Cloudflare AI limits
-  // Make limits configurable and implement prioritization
-  const maxTables = parseEnvInt(env.AI_MAX_TABLES, 5, 1, 100);
-  const maxElements = parseEnvInt(env.AI_MAX_ELEMENTS, 20, 1, 1000);
-  const maxStructuredPayloadLength = parseEnvInt(env.AI_MAX_STRUCTURED_PAYLOAD_LENGTH, 6000, 1000, 50000);
-  
-  // Prioritize tables and elements by relevance/importance
-  const prioritizedTables = (extract.tables ?? [])
-    .map((table, index) => ({
-      ...(typeof table === 'object' && table !== null ? table : {}),
-      relevanceScore: calculateTableRelevance(table as { rows?: unknown[]; [key: string]: unknown }, rawText),
-      originalIndex: index
-    }))
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, maxTables);
-    
-  const prioritizedElements = (extract.elements ?? [])
-    .map((element, index) => ({
-      ...(typeof element === 'object' && element !== null ? element : {}),
-      relevanceScore: calculateElementRelevance(element as { text?: string; [key: string]: unknown }, rawText),
-      originalIndex: index
-    }))
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, maxElements);
-  
-  // Build structured payload with proper truncation to ensure valid JSON
-  const buildTruncatedStructuredPayload = (tables: unknown[], elements: unknown[], maxLength: number): { payload: string; truncationFailed: boolean } => {
-    let currentTables = [...tables];
-    let currentElements = [...elements];
-    let payload = '';
-    let attempts = 0;
-    let truncationFailed = false;
-    const maxAttempts = 10; // Prevent infinite loops
-    
-    do {
-      const structuredObject = {
-        tables: currentTables,
-        elements: currentElements
-      };
-      
-      payload = JSON.stringify(structuredObject);
-      attempts++;
-      
-      if (payload.length <= maxLength || attempts >= maxAttempts) {
-        break;
-      }
-      
-      // Truncation strategy: reduce arrays first, then trim string fields
-      if (currentTables.length > 1) {
-        // Remove least relevant tables (they're already sorted by relevance)
-        currentTables = currentTables.slice(0, Math.max(1, Math.floor(currentTables.length * 0.8)));
-      } else if (currentElements.length > 1) {
-        // Remove least relevant elements
-        currentElements = currentElements.slice(0, Math.max(1, Math.floor(currentElements.length * 0.8)));
-      } else {
-        // If we're down to 1 table and 1 element, try trimming string fields
-        if (currentTables.length > 0 && currentElements.length > 0) {
-          // Trim string fields in the remaining table and element
-          currentTables = currentTables.map(table => {
-            if (typeof table === 'object' && table !== null) {
-              const trimmedTable = { ...table };
-              Object.keys(trimmedTable).forEach(key => {
-                if (typeof trimmedTable[key] === 'string' && trimmedTable[key].length > 100) {
-                  trimmedTable[key] = trimmedTable[key].substring(0, 100) + '...';
-                }
-              });
-              return trimmedTable;
-            }
-            return table;
-          });
-          
-          currentElements = currentElements.map(element => {
-            if (typeof element === 'object' && element !== null) {
-              const trimmedElement = { ...element };
-              Object.keys(trimmedElement).forEach(key => {
-                if (typeof trimmedElement[key] === 'string' && trimmedElement[key].length > 100) {
-                  trimmedElement[key] = trimmedElement[key].substring(0, 100) + '...';
-                }
-              });
-              return trimmedElement;
-            }
-            return element;
-          });
-        }
-        break; // Exit if we can't reduce further
-      }
-    } while (payload.length > maxLength && attempts < maxAttempts);
-    
-    // Post-loop check: detect if truncation failed due to max attempts reached
-    // This function uses best-effort semantics - it tries to fit within limits but may exceed them
-    if (payload.length > maxLength) {
-      truncationFailed = true;
-      const warningMsg = `Payload truncation failed: finalLength=${payload.length}, maxLength=${maxLength}, attempts=${attempts}`;
-      logWarning(requestId, 'analyze.payload.truncation_failed', warningMsg, {
-        finalLength: payload.length,
-        maxLength,
-        attempts
-      });
-      // Return the oversized payload with a note that truncation failed
-      // The caller should handle this gracefully
-    }
-    
-    return { payload, truncationFailed };
-  };
-  
-  // Calculate original structured length from prioritized data (before truncation)
-  const originalStructuredLength = JSON.stringify({ tables: prioritizedTables, elements: prioritizedElements }).length;
-  
-  const { payload: structuredPayload, truncationFailed } = buildTruncatedStructuredPayload(prioritizedTables, prioritizedElements, maxStructuredPayloadLength);
-  
-  // Log when limits are hit for telemetry
-  const originalTablesCount = (extract.tables ?? []).length;
-  const originalElementsCount = (extract.elements ?? []).length;
-
-  if (originalTablesCount > maxTables) {
-    log('warn', 'table_limit_hit', {
-      originalCount: originalTablesCount,
-      limitedCount: maxTables,
-      contextId: requestId,
-      dataLoss: true
-    });
-  }
-  
-  if (originalElementsCount > maxElements) {
-    log('warn', 'element_limit_hit', {
-      originalCount: originalElementsCount,
-      limitedCount: maxElements,
-      contextId: requestId,
-      dataLoss: true
-    });
-  }
-  
-  // Log structured payload truncation events
-  if (originalStructuredLength > maxStructuredPayloadLength) {
-    log('warn', 'structured_payload_truncation_applied', {
-      originalLength: originalStructuredLength,
-      truncatedLength: structuredPayload.length,
-      limitedLength: maxStructuredPayloadLength,
-      contextId: requestId,
-      truncationRatio: (structuredPayload.length / originalStructuredLength).toFixed(3),
-      dataLoss: true
-    });
-  }
-
-  const systemPrompt = [
-    'You are a legal intake analyst receiving structured output from Adobe PDF Services.',
-    'Use the provided document text and structured data to answer the intake question.',
-    'Return STRICT JSON: { "summary": string, "key_facts": string[], "entities": { "people": string[], "orgs": string[], "dates": string[] }, "action_items": string[], "confidence": number }',
-    'Highlight parties, obligations, important dates, dollar amounts, and recommended next steps.'
-  ].join('\n');
-
-  const userPrompt = [
-    `Intake question: ${question}`,
-    truncatedText ? `Extracted text:\n${truncatedText}` : '',
-    structuredPayload ? `Structured data:\n${structuredPayload}` : ''
-  ].filter(Boolean).join('\n\n');
-
-  // Use the correct format for Cloudflare AI
-  const res = await (env.AI as { run: (model: string, params: Record<string, unknown>) => Promise<unknown> }).run('@cf/openai/gpt-oss-20b', {
-    input: `${systemPrompt}\n\n${userPrompt}`,
-    max_tokens: 800,
-    temperature: 0.1
-  });
-
-  logAIProcessing('analyze', 'response.meta', {
-    type: typeof res,
-    keys: typeof res === 'object' && res !== null ? Object.keys(res as Record<string, unknown>).slice(0, 10) : [],
-    requestId: requestId || 'unknown'
-  });
-  const result = safeJson(res as Record<string, unknown>);
-  logAIProcessing('analyze', 'safe_json', { result, requestId: requestId || 'unknown' });
-  
-  // Add Adobe extraction details to the result for debugging
-  const extendedResult = result as ExtendedAnalysisResult;
-  extendedResult.adobeExtractTextLength = rawText.length;
-  extendedResult.adobeExtractTextPreview = rawText.substring(0, 200);
-  
-  // Add truncation failure information if applicable
-  if (truncationFailed) {
-    extendedResult.truncationFailed = true;
-    extendedResult.truncationNote = "Payload truncation failed - some data may be incomplete due to size limits";
-  }
-  
-  return extendedResult;
-}
+// REMOVED: summarizeAdobeExtract function - AI summarization removed, returning raw Adobe extraction instead
 
 // Helper function to safely parse JSON responses with hardened truncation handling
 function safeJson(response: unknown): AnalysisResult {
@@ -718,101 +461,17 @@ function extractFirstJsonObject(text: string): string | null {
 }
 
 
-// MIME types allowed for analysis (tighter than file upload)
+// MIME types allowed for analysis - only Adobe-supported types since AI analysis was removed
+// Adobe PDF Services only supports: PDF, DOC, DOCX
 const ALLOWED_ANALYSIS_MIME_TYPES = [
-  'image/jpeg',
-  'image/jpg', 
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/tiff',
-  'image/tif',
-  'image/heic',
-  'image/heif',
   'application/pdf',
   'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain'
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ];
 
 const MAX_ANALYSIS_FILE_SIZE = 8 * 1024 * 1024; // 8MB for inline analysis
 
-async function analyzeWithGenericAI(
-  file: File,
-  question: string,
-  env: Env,
-  requestId?: string
-): Promise<AnalysisResult> {
-  try {
-    log('info', 'generic_ai_analysis_start', {
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      requestId
-    });
-
-    let content = '';
-    
-    if (file.type === 'text/plain') {
-      // Check file size before reading into memory
-      if (file.size > MAX_ANALYSIS_FILE_SIZE) {
-        throw new Error(`File size exceeds maximum limit of ${MAX_ANALYSIS_FILE_SIZE / (1024 * 1024)}MB for analysis`);
-      }
-      // Read text content directly
-      content = await file.text();
-    } else {
-      // For other types, produce a concise intake description
-      content = `Document: ${file.name}\nType: ${file.type}\nSize: ${file.size} bytes\nQuestion: ${question}`;
-    }
-
-    const systemPrompt = [
-      'You are a legal intake analyst. Analyze the provided content and answer the intake question.',
-      'Return STRICT JSON: { "summary": string, "key_facts": string[], "entities": { "people": string[], "orgs": string[], "dates": string[] }, "action_items": string[], "confidence": number }',
-      'Focus on legal parties, obligations, deadlines, amounts, and recommended next steps.'
-    ].join('\n');
-
-    const userPrompt = `Intake question: ${question}\n\nContent:\n${content}`;
-
-    // Use the default AI model or fallback
-    const model = env.AI_MODEL_DEFAULT || '@cf/openai/gpt-oss-20b';
-    
-    const res = await (env.AI as { run: (model: string, params: Record<string, unknown>) => Promise<unknown> }).run(model, {
-      input: `${systemPrompt}\n\n${userPrompt}`,
-      max_tokens: 800,
-      temperature: 0.1
-    });
-
-    logAIProcessing('analyze', 'generic_ai_response.meta', {
-      type: typeof res,
-      keys: typeof res === 'object' && res !== null ? Object.keys(res as Record<string, unknown>).slice(0, 10) : []
-    });
-
-    const result = safeJson(res as Record<string, unknown>);
-    
-    log('info', 'generic_ai_analysis_completed', {
-      fileName: file.name,
-      confidence: result.confidence,
-      summaryLength: result.summary?.length || 0,
-      requestId
-    });
-
-    return result;
-  } catch (error) {
-    logError('analyze', 'generic_ai_analysis_failed', error as Error, {
-      fileName: file.name,
-      fileType: file.type
-    });
-
-    return {
-      summary: "Analysis failed due to an internal error. Please try again or contact support.",
-      key_facts: ["Document analysis encountered an error"],
-      entities: { people: [], orgs: [], dates: [] },
-      action_items: ["Retry the analysis", "Contact support if the issue persists"],
-      confidence: 0.0,
-      error: error instanceof Error ? error.message : String(error)
-    };
-  }
-}
+// REMOVED: analyzeWithGenericAI function - AI analysis removed, only Adobe extraction supported
 
 function validateAnalysisFile(file: File): { isValid: boolean; error?: string } {
   // Check file size
@@ -854,22 +513,24 @@ export async function analyzeWithCloudflareAI(
     return adobeAnalysis;
   }
   
-  // Adobe extraction failed or ineligible - use generic AI fallback
-  log('debug', 'adobe_extraction_failed_fallback', { message: 'Adobe extraction failed, using generic AI fallback', requestId });
-  log('info', 'adobe_extract_fallback', {
+  // Adobe extraction failed or ineligible - return error (no AI fallback)
+  log('debug', 'adobe_extraction_failed', { message: 'Adobe extraction failed, no fallback available', requestId });
+  log('info', 'adobe_extract_failed', {
     fileName: file.name,
     fileType: file.type,
     reason: 'adobe_extraction_failed_or_ineligible',
     requestId
   });
   
-  const fallbackResult = await analyzeWithGenericAI(file, question, env, requestId);
-  
-  // Add extraction_failed flag to indicate Adobe extraction didn't work
+  // Return error response - no AI fallback
   return {
-    ...fallbackResult,
+    summary: "Document extraction failed. Adobe PDF Services extraction is not available for this file type or is not configured.",
+    key_facts: ["Adobe extraction failed or file type not supported"],
+    entities: { people: [], orgs: [], dates: [] },
+    action_items: ["Ensure Adobe PDF Services is configured", "Try a different file format (PDF, DOC, DOCX)"],
+    confidence: 0.0,
     extraction_failed: true,
-    extraction_method: 'generic_ai_fallback'
+    extraction_method: 'adobe_extract_failed'
   } as ExtendedAnalysisResult;
 }
 

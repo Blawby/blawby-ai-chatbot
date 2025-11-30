@@ -1,7 +1,6 @@
 import { HttpErrors, handleError, createSuccessResponse } from '../errorHandler';
 import { parseJsonBody } from '../utils.js';
 import { PDFGenerationService } from '../services/PDFGenerationService';
-import { ConversationContextManager } from '../middleware/conversationContextManager';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 
 import type { Env } from '../types';
@@ -59,46 +58,9 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
         throw HttpErrors.badRequest('Missing required PDF information');
       }
 
-      // Get session and organization context if provided
-      let context = null;
-      if (body.sessionId && body.organizationId) {
-        context = await ConversationContextManager.load(body.sessionId, body.organizationId, env);
-      }
-
-      // If we have context and case draft, generate fresh PDF
-      if (context?.caseDraft) {
-        const pdfResult = await PDFGenerationService.generateCaseSummaryPDF({
-          caseDraft: {
-            ...context.caseDraft,
-            jurisdiction: context.caseDraft.jurisdiction || 'Unknown',
-            urgency: context.caseDraft.urgency || 'normal'
-          },
-          clientName: context.contactInfo?.name,
-          organizationName: context.organizationConfig?.description || 'Legal Services',
-          organizationBrandColor: context.organizationConfig?.brandColor || '#2563eb'
-        }, env);
-
-        if (pdfResult.success && pdfResult.pdfBuffer) {
-          // Sanitize filename to prevent header injection
-          const sanitizedFilename = sanitizeFilename(body.filename);
-          
-          return new Response(pdfResult.pdfBuffer, {
-            headers: {
-              'Content-Type': 'application/pdf',
-              'Content-Disposition': `attachment; filename="${sanitizedFilename}"`,
-              'Content-Length': pdfResult.pdfBuffer.byteLength.toString(),
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0'
-            }
-          });
-        } else {
-          throw HttpErrors.internalServerError(pdfResult.error || 'Failed to generate PDF');
-        }
-      } else {
-        // No context available - return error
-        throw HttpErrors.notFound('PDF not found. Please regenerate your case summary.');
-      }
+      // REMOVED: ConversationContextManager - PDF download requires case draft data in request body
+      // For now, return error indicating PDF must be regenerated with case draft data
+      throw HttpErrors.notFound('PDF not found. Please regenerate your case summary with case draft data.');
 
     } catch (error) {
       return handleError(error);
@@ -128,57 +90,82 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
         throw HttpErrors.badRequest('Missing session ID or organization ID');
       }
 
-      // Load conversation context
-      const context = await ConversationContextManager.load(sessionId, organizationId, env);
-      
-      if (!context?.caseDraft) {
-        throw HttpErrors.badRequest('No case draft found. Please create a case draft first.');
+      // REMOVED: ConversationContextManager - case draft must be provided in request body
+      const { caseDraft, clientName } = body as {
+        caseDraft?: {
+          matter_type?: string;
+          key_facts?: string[];
+          timeline?: string;
+          parties?: string[];
+          documents?: string[];
+          evidence?: string[];
+          jurisdiction?: string;
+          urgency?: string;
+          [key: string]: unknown;
+        };
+        clientName?: string;
+      };
+
+      if (!caseDraft) {
+        throw HttpErrors.badRequest('Case draft data is required in request body.');
       }
+
+      // clientName is optional - PDF generation service handles empty/missing values gracefully
+      // If clientName is provided, it will be used in the PDF; otherwise, it will be omitted
 
       // Load organization config for PDF generation
       const organization = await RemoteApiService.getOrganization(env, organizationId, request);
       const organizationConfig = organization?.config;
 
-      // Generate PDF
+      // Generate PDF - ensure all required CaseDraft fields are provided
+      const now = new Date().toISOString();
+      
+      // Normalize parties array - must be array of objects with role property
+      const normalizedParties = Array.isArray(caseDraft.parties) 
+        ? caseDraft.parties.map((p: unknown) => {
+            if (typeof p === 'object' && p !== null && 'role' in p) {
+              return p as { role: string; name?: string; relationship?: string };
+            }
+            // If it's a string or invalid format, convert to object
+            return { role: typeof p === 'string' ? p : 'Unknown' };
+          })
+        : [];
+
+      const pdfCaseDraft = {
+        matter_type: caseDraft.matter_type || 'General Consultation',
+        key_facts: Array.isArray(caseDraft.key_facts) ? caseDraft.key_facts : [],
+        timeline: typeof caseDraft.timeline === 'string' ? caseDraft.timeline : undefined,
+        parties: normalizedParties,
+        documents: Array.isArray(caseDraft.documents) 
+          ? caseDraft.documents.filter((d): d is string => typeof d === 'string')
+          : [],
+        evidence: Array.isArray(caseDraft.evidence)
+          ? caseDraft.evidence.filter((e): e is string => typeof e === 'string')
+          : [],
+        jurisdiction: caseDraft.jurisdiction || 'Unknown',
+        urgency: caseDraft.urgency || 'normal',
+        created_at: typeof caseDraft.created_at === 'string' ? caseDraft.created_at : now,
+        updated_at: now,
+        status: ((caseDraft.status === 'draft' || caseDraft.status === 'ready') ? caseDraft.status : 'ready') as 'draft' | 'ready'
+      };
+
       const pdfResult = await PDFGenerationService.generateCaseSummaryPDF({
-        caseDraft: {
-          ...context.caseDraft,
-          jurisdiction: context.caseDraft.jurisdiction || 'Unknown',
-          urgency: context.caseDraft.urgency || 'normal'
-        },
-        clientName: context.contactInfo?.name,
+        caseDraft: pdfCaseDraft,
+        clientName: clientName,
         organizationName: organization?.name || organizationConfig?.description || 'Legal Services',
         organizationBrandColor: organizationConfig?.brandColor || '#2563eb'
       }, env);
 
       if (pdfResult.success && pdfResult.pdfBuffer) {
-        const filename = PDFGenerationService.generateFilename({
-          ...context.caseDraft,
-          jurisdiction: context.caseDraft.jurisdiction || 'Unknown',
-          urgency: context.caseDraft.urgency || 'normal'
-        }, context.contactInfo?.name);
+        const filename = PDFGenerationService.generateFilename(pdfCaseDraft, clientName);
         
-        // Update context with new PDF information
-        const updatedContext = {
-          ...context,
-          generatedPDF: {
-            filename,
-            size: pdfResult.pdfBuffer.byteLength,
-            generatedAt: new Date().toISOString(),
-            matterType: context.caseDraft.matter_type
-          }
-        };
-
-        // Save updated context
-        await ConversationContextManager.save(updatedContext, env);
-
         return createSuccessResponse({
           success: true,
           pdf: {
             filename,
             size: pdfResult.pdfBuffer.byteLength,
             generatedAt: new Date().toISOString(),
-            matterType: context.caseDraft.matter_type
+            matterType: caseDraft.matter_type || 'General'
           }
         });
       } else {

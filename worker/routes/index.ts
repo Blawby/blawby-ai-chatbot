@@ -1,6 +1,5 @@
 export { handleHealth } from './health';
 export { handleRoot } from './root';
-export { handleAgentStreamV2 as handleAgentStream } from './agent';
 export { handleForms } from './forms';
 // Organization management is handled by remote API, but workspace endpoints remain for chatbot data
 export { handleOrganizations } from './organizations';

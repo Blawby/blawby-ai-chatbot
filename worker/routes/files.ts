@@ -5,8 +5,6 @@ import { SessionService } from '../services/SessionService.js';
 import { ActivityService } from '../services/ActivityService';
 import { StatusService, type StatusUpdate } from '../services/StatusService.js';
 import { Logger } from '../utils/logger';
-import type { MessageBatch } from '@cloudflare/workers-types';
-import type { DocumentEvent, AutoAnalysisEvent } from '../types/events.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
 import { requireFeature } from '../middleware/featureGuard.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
@@ -219,23 +217,7 @@ async function storeFile(file: File, organizationId: string, sessionId: string, 
     }
   });
 
-  // Enqueue for background processing if it's an analyzable file type
-  const analyzableTypes = ['application/pdf', 'text/plain', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (analyzableTypes.includes(file.type)) {
-    try {
-      await env.DOC_EVENTS.send({
-        key: storageKey,
-        organizationId,
-        sessionId,
-        mime: file.type,
-        size: file.size
-      });
-      Logger.info('Enqueued file for background processing:', storageKey);
-    } catch (queueError) {
-      Logger.warn('Failed to enqueue file for background processing:', queueError);
-      // Don't fail the upload if queue fails
-    }
-  }
+  // Document analysis has been removed - files are stored but not processed
 
   Logger.info('File stored in R2 successfully:', storageKey);
 
@@ -474,87 +456,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         statusId
       });
 
-      // Auto-analysis enqueue is handled inside storeFile to avoid double-processing
-
-      // Inline processing for local development only (bypass queue)
-      // Only run inline processing in development to avoid duplicate processing in production
-      if (env.NODE_ENV === 'development') {
-        try {
-        const { default: docProcessor } = await import('../consumers/doc-processor.js');
-        const mockBatch: MessageBatch<DocumentEvent | AutoAnalysisEvent> = {
-          messages: [{
-            id: 'inline-process',
-            body: {
-              type: "analyze_uploaded_document",
-              sessionId: resolvedSessionId,
-              organizationId: resolvedOrganizationId,
-              statusId: statusId ?? undefined,
-              file: {
-                key: storageKey,
-                name: file.name,
-                mime: file.type,
-                size: file.size
-              }
-            } as AutoAnalysisEvent,
-            timestamp: new Date(),
-            attempts: 0,
-            retry: () => {},
-            ack: () => {}
-          }],
-          queue: '',
-          retryAll: () => {},
-          ackAll: () => {}
-        };
-        
-        // Process inline (don't await to avoid blocking the response)
-        docProcessor.queue(mockBatch, env).then(async () => {
-          // Update status to completed
-          if (statusId) {
-            try {
-              await updateStatusWithRetry(env, {
-                id: statusId,
-                sessionId: resolvedSessionId,
-                organizationId: resolvedOrganizationId,
-                type: 'file_processing',
-                status: 'completed',
-                message: `Analysis of ${file.name} completed successfully`,
-                progress: 100,
-                data: { fileName: file.name, fileId, url, analysisComplete: true }
-              }, 3, 1000, statusCreatedAt ?? undefined);
-            } catch (_error) {
-              // Error is already logged by updateStatusWithRetry, just continue
-              Logger.warn('Continuing despite status update failure for completed analysis');
-            }
-          }
-        }).catch(async (error) => {
-          console.error('Inline processing failed:', error);
-          // Update status to failed
-          if (statusId) {
-            try {
-              await updateStatusWithRetry(env, {
-                id: statusId,
-                sessionId: resolvedSessionId,
-                organizationId: resolvedOrganizationId,
-                type: 'file_processing',
-                status: 'failed',
-                message: `Analysis of ${file.name} failed: ${error.message}`,
-                progress: 0,
-                data: { fileName: file.name, fileId, url, error: error.message }
-              }, 3, 1000, statusCreatedAt ?? undefined);
-            } catch (_statusError) {
-              // Error is already logged by updateStatusWithRetry, just continue
-              Logger.warn('Continuing despite status update failure for failed analysis');
-            }
-          }
-        });
-        
-          Logger.info('🚀 Started inline auto-analysis processing');
-        } catch (inlineError) {
-          Logger.warn('Failed to start inline processing:', inlineError);
-        }
-      } else {
-        Logger.info('Skipping inline processing - using queue-based processing only');
-      }
+      // Document analysis has been removed - files are stored but not processed
 
       // Usage tracking is now handled BEFORE file storage to prevent quota drift
       // No additional usage tracking needed here since it was done atomically before upload

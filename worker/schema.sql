@@ -188,7 +188,7 @@ CREATE TABLE IF NOT EXISTS matter_questions (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- AI generated summaries table for markdown matter summaries
+-- AI generated summaries table (deprecated - AI features removed, table kept for existing data)
 CREATE TABLE IF NOT EXISTS ai_generated_summaries (
   id TEXT PRIMARY KEY,
   matter_id TEXT,
@@ -278,7 +278,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created ON chat_messages(se
 CREATE INDEX IF NOT EXISTS idx_chat_messages_organization ON chat_messages(organization_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
 
--- Session summaries table for AI-generated summaries
+-- Session summaries table (deprecated - AI features removed, table kept for existing data)
 CREATE TABLE IF NOT EXISTS session_summaries (
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL,

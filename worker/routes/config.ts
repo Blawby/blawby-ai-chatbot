@@ -11,13 +11,7 @@ export async function handleConfig(request: Request, env: Env): Promise<Response
   try {
     // Only expose non-sensitive configuration to frontend
     const config = {
-      stripe: {
-        priceId: env.STRIPE_PRICE_ID,
-        annualPriceId: env.STRIPE_ANNUAL_PRICE_ID,
-        subscriptionsEnabled: env.ENABLE_STRIPE_SUBSCRIPTIONS === 'true' || env.ENABLE_STRIPE_SUBSCRIPTIONS === true
-      },
       features: {
-        stripeSubscriptions: env.ENABLE_STRIPE_SUBSCRIPTIONS === 'true' || env.ENABLE_STRIPE_SUBSCRIPTIONS === true,
         emailVerification: env.REQUIRE_EMAIL_VERIFICATION === 'true'
       }
     };

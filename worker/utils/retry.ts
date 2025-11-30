@@ -85,29 +85,3 @@ export async function withRetry<T>(
   
   throw lastError ?? new Error(`${operationName} failed after all attempts`);
 }
-
-/**
- * Specific retry wrapper for AI calls with optimized settings
- */
-export async function withAIRetry<T>(
-  fn: () => Promise<T>,
-  options: {
-    attempts?: number;
-    baseDelay?: number;
-    operationName?: string;
-  } = {}
-): Promise<T> {
-  const {
-    attempts = 4,
-    baseDelay = 400,
-    operationName = 'AI call'
-  } = options;
-  
-  return withRetry(fn, {
-    attempts,
-    baseDelay,
-    maxDelay: 3000, // Shorter max delay for AI calls
-    multiplier: 2,
-    operationName
-  });
-}

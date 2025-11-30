@@ -63,9 +63,6 @@ export interface Organization {
 }
 
 export interface OrganizationConfig {
-  aiProvider?: string;
-  aiModel?: string;
-  aiModelFallback?: string[];
   consultationFee?: number;
   requiresPayment?: boolean;
   ownerEmail?: string;
@@ -114,10 +111,6 @@ export interface OrganizationConfig {
   isPublic?: boolean;
 }
 
-const LEGACY_AI_PROVIDER = 'workers-ai';
-const DEFAULT_GPT_MODEL = '@cf/openai/gpt-oss-20b';
-
-
 const DEFAULT_AVAILABLE_SERVICES = [
   'Family Law',
   'Employment Law',
@@ -134,82 +127,9 @@ const DEFAULT_AVAILABLE_SERVICES = [
   'General Consultation'
 ] as const;
 
-function normalizeProvider(input?: string | null): string {
-  if (!input) {
-    return LEGACY_AI_PROVIDER;
-  }
-  const trimmed = input.trim();
-  return trimmed.length > 0 ? trimmed : LEGACY_AI_PROVIDER;
-}
-
-function sanitizeModel(model?: string | null, _organizationId?: string): string | undefined {
-  if (!model) {
-    return undefined;
-  }
-  const trimmed = model.trim();
-  if (!trimmed.length) {
-    return undefined;
-  }
-
-  return trimmed;
-}
-
-function sanitizeFallbackList(value: unknown): string[] {
-  if (!value) {
-    return [];
-  }
-
-  const values = Array.isArray(value)
-    ? value.filter(item => typeof item === 'string')
-    : typeof value === 'string'
-      ? value.split(',')
-      : [];
-
-  return Array.from(new Set(values.map(v => v.trim()).filter(v => v.length > 0)));
-}
-
-function buildFallbackList(baseModel: string, preferred?: string[], useDefaults: boolean = true): string[] {
-  const normalized = sanitizeFallbackList(preferred);
-  
-  // If preferred was explicitly provided but is empty, return empty array
-  if (preferred !== undefined && normalized.length === 0) {
-    return [];
-  }
-  
-  // If normalized is empty and defaults are allowed, return DEFAULT_GPT_MODEL filtered against baseModel
-  if (!normalized.length && useDefaults) {
-    return [DEFAULT_GPT_MODEL].filter(model => model !== baseModel);
-  }
-  
-  // If normalized is empty and defaults are disabled, return empty array
-  if (!normalized.length && !useDefaults) {
-    return [];
-  }
-
-  const unique = new Set<string>();
-  normalized.forEach(model => {
-    if (model !== baseModel) {
-      unique.add(model);
-    }
-  });
-
-  if (!unique.size && baseModel !== DEFAULT_GPT_MODEL && useDefaults) {
-    unique.add(DEFAULT_GPT_MODEL);
-  }
-
-  return Array.from(unique);
-}
-
-export function buildDefaultOrganizationConfig(env: Env): OrganizationConfig {
-  const defaultProvider = normalizeProvider(env.AI_PROVIDER_DEFAULT);
-  const defaultModel = sanitizeModel(env.AI_MODEL_DEFAULT) ?? DEFAULT_GPT_MODEL;
-  const fallbackFromEnv = sanitizeFallbackList(env.AI_MODEL_FALLBACK);
-  const fallbackList = buildFallbackList(defaultModel, fallbackFromEnv);
-
+export function buildDefaultOrganizationConfig(_env: Env): OrganizationConfig {
+  // AI configuration removed - subscriptions and AI are handled by remote API
   return {
-    aiProvider: defaultProvider,
-    aiModel: defaultModel,
-    aiModelFallback: fallbackList,
     consultationFee: 0,
     requiresPayment: false,
     ownerEmail: undefined,
@@ -702,10 +622,6 @@ export class OrganizationService {
       }
     }
 
-    if (normalized.aiModelFallback !== undefined) {
-      normalized.aiModelFallback = sanitizeFallbackList(normalized.aiModelFallback);
-    }
-
     normalized.voice = this.normalizeVoiceConfig(normalized.voice);
 
     return normalized as OrganizationConfig;
@@ -1099,13 +1015,6 @@ export class OrganizationService {
     const defaultConfig = this.getDefaultConfig();
     const sourceConfig = (config ?? {}) as OrganizationConfig;
 
-    const aiProvider = normalizeProvider(sourceConfig.aiProvider ?? defaultConfig.aiProvider);
-    const aiModel = sanitizeModel(sourceConfig.aiModel, organizationId) ?? defaultConfig.aiModel ?? DEFAULT_GPT_MODEL;
-    const providedFallback = sourceConfig.aiModelFallback !== undefined
-      ? sanitizeFallbackList(sourceConfig.aiModelFallback)
-      : undefined;
-    const fallbackList = buildFallbackList(aiModel, providedFallback ?? defaultConfig.aiModelFallback ?? []);
-
     // Validate ownerEmail if provided
     let ownerEmail = sourceConfig.ownerEmail ?? defaultConfig.ownerEmail;
     if (ownerEmail && strictValidation) {
@@ -1124,9 +1033,6 @@ export class OrganizationService {
     const merged: OrganizationConfig = {
       ...defaultConfig,
       ...sourceConfig,
-      aiProvider,
-      aiModel,
-      aiModelFallback: fallbackList,
       ownerEmail,
       jurisdiction: {
         ...defaultConfig.jurisdiction,

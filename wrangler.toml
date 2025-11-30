@@ -95,21 +95,7 @@ RATE_LIMIT_BURST_SIZE = "10"
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
 
-# Queue producers for background processing
-[[queues.producers]]
-queue = "doc-events"
-binding = "DOC_EVENTS"
-
-[[queues.producers]]
-queue = "paralegal-tasks"
-binding = "PARALEGAL_TASKS"
-
-# Queue consumers
-[[queues.consumers]]
-queue = "doc-events"
-
-[[queues.consumers]]
-queue = "paralegal-tasks"
+# Queue producers removed - no queues are used
 
 # Development environment
 [env.dev]
@@ -121,12 +107,6 @@ kv_namespaces = [
 d1_databases = [
   { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf", migrations_dir = "worker/migrations" }
 ]
-[[env.dev.queues.producers]]
-queue = "doc-events"
-binding = "DOC_EVENTS"
-[[env.dev.queues.producers]]
-queue = "paralegal-tasks"
-binding = "PARALEGAL_TASKS"
 [[env.dev.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
@@ -189,12 +169,6 @@ REMOTE_API_URL = "https://production-api.blawby.com"
 ANALYSIS_TIMEOUT_MS = "60000"
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
-[[env.production.queues.producers]]
-queue = "doc-events"
-binding = "DOC_EVENTS"
-[[env.production.queues.producers]]
-queue = "paralegal-tasks"
-binding = "PARALEGAL_TASKS"
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"

@@ -3,7 +3,6 @@
 import {
   handleHealth,
   handleRoot,
-  handleAgentStream,
   handleForms,
   handleSessions,
   handleActivity,
@@ -21,7 +20,6 @@ import { withCORS, getCorsConfig } from './middleware/cors';
 
 // Add RequestInit type for TypeScript
 type RequestInit = globalThis.RequestInit;
-import docProcessor from './consumers/doc-processor';
 import { requireAuth } from './middleware/auth.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 
@@ -73,10 +71,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 
     console.log('🔍 Route matching for path:', path);
 
-    if (path === '/api/agent/stream') {
-      console.log('✅ Matched agent route');
-      response = await handleAgentStream(request, env);
-    } else if (path.startsWith('/api/organizations')) {
+    if (path.startsWith('/api/organizations')) {
       // Organization management is handled by remote API
       // Only workspace endpoints (for chatbot data) remain local
       response = new Response(JSON.stringify({ error: 'Organization management endpoints are handled by remote API. Use /api/organizations/:id/workspace/* for chatbot data.' }), {
@@ -161,8 +156,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 
 export default { 
-  fetch: handleRequest,
-  queue: docProcessor.queue
+  fetch: handleRequest
 };
 
 async function proxyPracticeRequest(request: Request, env: Env, path: string, search: string): Promise<Response> {

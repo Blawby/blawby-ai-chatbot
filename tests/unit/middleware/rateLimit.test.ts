@@ -7,15 +7,12 @@ const createMockEnv = (): Env => {
   const mockGet = vi.fn();
   const mockPut = vi.fn();
   return {
-    AI: {} as any, // Mock AI instance
     DB: {} as any,
     CHAT_SESSIONS: {
       get: mockGet,
       put: mockPut
     } as any, // Use any to avoid KVNamespace type conflicts
     RESEND_API_KEY: 'test-key',
-    DOC_EVENTS: {} as any,
-    PARALEGAL_TASKS: {} as any
   } as Env;
 };
 
