@@ -249,11 +249,11 @@ async function attemptAdobeExtract(
     // Return raw Adobe extraction results (no AI summarization)
     const rawExtract = extractResult.details;
     return {
-      summary: 'Raw extraction — no analysis performed: ' + (rawExtract.text?.substring(0, 500) || 'Document extracted successfully'),
-      key_facts: null,
-      entities: null,
-      action_items: null,
-      confidence: 0.5,
+      summary: 'Document extracted successfully',
+      key_facts: [],
+      entities: { people: [], orgs: [], dates: [] },
+      action_items: [],
+      confidence: 1.0, // 1.0 indicates successful extraction (no AI analysis performed)
       extraction_state: 'extracted',
       extraction_only: true,
       adobeExtractTextLength: rawExtract.text?.length || 0,

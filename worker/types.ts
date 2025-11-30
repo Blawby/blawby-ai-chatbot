@@ -285,18 +285,19 @@ export interface PaymentEmbedData {
 
 /**
  * Analysis result from document processing
- * Can represent either raw extraction (extraction_only: true) or AI analysis (extraction_only: false)
+ * Currently only supports raw extraction (extraction_only: true)
+ * AI analysis has been removed - this interface is kept for backward compatibility
  */
 export interface AnalysisResult {
   summary: string;
-  key_facts: string[] | null;
+  key_facts: string[]; // Empty array for extraction-only results
   entities: {
     people: string[];
     orgs: string[];
     dates: string[];
-  } | null;
-  action_items: string[] | null;
-  confidence: number;
+  }; // Empty object for extraction-only results
+  action_items: string[]; // Empty array for extraction-only results
+  confidence: number; // 1.0 for successful extraction, 0 for failures
   error?: string;
   // Raw Adobe extraction data (optional)
   adobeExtract?: {

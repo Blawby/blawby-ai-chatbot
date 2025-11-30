@@ -46,9 +46,6 @@ export default {
             }, statusCreatedAt ?? undefined);
           }
           
-          // Send initial status message
-          await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "📄 Analyzing document...");
-          
           // Step 2: Check storage (25%)
           if (statusId) {
             await StatusService.setStatus(env, {
@@ -77,18 +74,6 @@ export default {
                 data: { fileName: file.name }
               }, statusCreatedAt ?? undefined);
             }
-            await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "❌ Document storage is not configured");
-            const failureAnalysis: AnalysisResult = {
-              summary: "Storage not configured",
-              entities: null,
-              key_facts: null,
-              action_items: null,
-              confidence: 0,
-              extraction_only: true,
-              extraction_state: 'extracted',
-              error: "FILES_BUCKET is not available"
-            };
-            await SessionService.sendAnalysisComplete(env, sessionId, organizationId, failureAnalysis);
             await msg.ack();
             continue;
           }
@@ -122,21 +107,6 @@ export default {
                 data: { fileName: file.name }
               }, statusCreatedAt ?? undefined);
             }
-            await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "❌ Document not found for analysis");
-            
-            // Send analysis complete with failure payload
-            const failureAnalysis: AnalysisResult = {
-              summary: "Document not found for analysis",
-              entities: null,
-              key_facts: null,
-              action_items: null,
-              confidence: 0,
-              extraction_only: true,
-              extraction_state: 'extracted',
-              error: "Document not found for analysis"
-            };
-            
-            await SessionService.sendAnalysisComplete(env, sessionId, organizationId, failureAnalysis);
             await msg.ack();
             continue;
           }
@@ -230,9 +200,6 @@ export default {
               console.error('Failed to store extraction data in files.metadata:', error);
             }
           }
-          
-          // Send final analysis result
-          await SessionService.sendAnalysisComplete(env, sessionId, organizationId, analysis);
           
           // Update file_processing status to completed
           if (statusId) {
@@ -353,10 +320,6 @@ async function performDocumentAnalysis(
       }, statusCreatedAt ?? undefined);
     }
     
-    if (sessionId && organizationId) {
-      await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "🔍 Extracting document content...");
-    }
-    
     const adobeResult = await adobeService.extractFromBuffer(
       key.split('/').pop() ?? key,
       mime,
@@ -378,18 +341,14 @@ async function performDocumentAnalysis(
         }, statusCreatedAt ?? undefined);
       }
       
-      if (sessionId && organizationId) {
-        await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "✅ Document extraction complete");
-      }
-      
       // Return raw Adobe extraction as AnalysisResult
       const rawExtract = adobeResult.details;
       analysis = {
-        summary: 'Raw extraction — no analysis performed: ' + (rawExtract.text?.substring(0, 500) || 'Document extracted successfully'),
-        entities: null,
-        key_facts: null,
-        action_items: null,
-        confidence: 0.5,
+        summary: 'Document extracted successfully',
+        entities: { people: [], orgs: [], dates: [] },
+        key_facts: [],
+        action_items: [],
+        confidence: 1.0, // 1.0 indicates successful extraction (no AI analysis performed)
         extraction_only: true,
         extraction_state: 'extracted',
         // Include raw Adobe extraction data
@@ -421,14 +380,11 @@ async function performDocumentAnalysis(
 
   if (!analysis) {
     // No Adobe extraction available - return error (no AI fallback)
-    if (sessionId && organizationId) {
-      await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "❌ Document extraction not available for this file type");
-    }
     analysis = {
       summary: "Document extraction is not available for this file type. Adobe PDF Services extraction is only available for PDF, DOC, and DOCX files.",
-      entities: null,
-      key_facts: null,
-      action_items: null,
+      entities: { people: [], orgs: [], dates: [] },
+      key_facts: [],
+      action_items: [],
       confidence: 0,
       extraction_only: true,
       extraction_state: 'extracted',

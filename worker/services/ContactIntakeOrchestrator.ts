@@ -10,6 +10,18 @@ export interface ConversationContext {
 }
 
 export interface ContextCaseDraft {
+  matter_type?: string;
+  key_facts?: string[];
+  timeline?: unknown;
+  parties?: unknown[];
+  documents?: unknown[];
+  evidence?: unknown[];
+  jurisdiction?: string;
+  urgency?: string;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+  // Legacy camelCase fields (kept for backward compatibility)
   matterType?: string;
   description?: string;
   name?: string;
@@ -17,7 +29,6 @@ export interface ContextCaseDraft {
   phone?: string;
   location?: string;
   opposingParty?: string;
-  urgency?: string;
   [key: string]: unknown;
 }
 import { PDFGenerationService } from './PDFGenerationService.js';
@@ -119,12 +130,15 @@ export class ContactIntakeOrchestrator {
 
     // Ensure contact info is captured in context for downstream features
     if (context) {
+      const existingContactInfo = (context.contactInfo && typeof context.contactInfo === 'object') 
+        ? context.contactInfo as Record<string, unknown>
+        : {};
       context.contactInfo = {
-        ...context.contactInfo,
+        ...existingContactInfo,
         name: matter.name,
-        email: matter.email || context.contactInfo?.email,
-        phone: matter.phone || context.contactInfo?.phone,
-        location: matter.location || context.contactInfo?.location
+        email: matter.email || (existingContactInfo.email as string | undefined),
+        phone: matter.phone || (existingContactInfo.phone as string | undefined),
+        location: matter.location || (existingContactInfo.location as string | undefined)
       };
       context.conversationPhase = 'completed';
       context.userIntent = 'intake';
@@ -167,12 +181,40 @@ export class ContactIntakeOrchestrator {
     let pdfResult: OrchestrationResult['pdf'];
 
     try {
+      // Ensure all required CaseDraft fields are provided for PDF generation
+      const now = new Date().toISOString();
+      
+      // Normalize parties array - must be array of objects with role property
+      const normalizedParties = Array.isArray(caseDraft.parties) 
+        ? caseDraft.parties.map((p: unknown) => {
+            if (typeof p === 'object' && p !== null && 'role' in p) {
+              return p as { role: string; name?: string; relationship?: string };
+            }
+            // If it's a string or invalid format, convert to object
+            return { role: typeof p === 'string' ? p : 'Unknown' };
+          })
+        : [];
+
+      const pdfCaseDraft = {
+        matter_type: caseDraft.matter_type || 'General Consultation',
+        key_facts: Array.isArray(caseDraft.key_facts) ? caseDraft.key_facts : [],
+        timeline: typeof caseDraft.timeline === 'string' ? caseDraft.timeline : undefined,
+        parties: normalizedParties,
+        documents: Array.isArray(caseDraft.documents)
+          ? caseDraft.documents.filter((d): d is string => typeof d === 'string')
+          : [],
+        evidence: Array.isArray(caseDraft.evidence)
+          ? caseDraft.evidence.filter((e): e is string => typeof e === 'string')
+          : [],
+        jurisdiction: caseDraft.jurisdiction || 'Unknown',
+        urgency: caseDraft.urgency || 'normal',
+        created_at: typeof caseDraft.created_at === 'string' ? caseDraft.created_at : now,
+        updated_at: now,
+        status: ((caseDraft.status === 'draft' || caseDraft.status === 'ready') ? caseDraft.status : 'ready') as 'draft' | 'ready'
+      };
+
       const pdfResponse = await PDFGenerationService.generateCaseSummaryPDF({
-        caseDraft: {
-          ...caseDraft,
-          jurisdiction: caseDraft.jurisdiction || 'Unknown',
-          urgency: caseDraft.urgency || 'normal'
-        },
+        caseDraft: pdfCaseDraft,
         clientName: matter.name,
         clientEmail: matter.email,
         organizationName,
@@ -180,12 +222,6 @@ export class ContactIntakeOrchestrator {
       }, env);
 
       if (pdfResponse.success && pdfResponse.pdfBuffer) {
-        // Adapt ContextCaseDraft to PDFGenerationService.CaseDraft format
-        const pdfCaseDraft = {
-          ...caseDraft,
-          jurisdiction: caseDraft.jurisdiction || 'Unknown',
-          urgency: caseDraft.urgency || 'normal'
-        };
         const filename = PDFGenerationService.generateFilename(pdfCaseDraft, matter.name);
         const generatedAt = new Date().toISOString();
         const size = pdfResponse.pdfBuffer.byteLength;

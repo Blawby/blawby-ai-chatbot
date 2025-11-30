@@ -110,28 +110,54 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
         throw HttpErrors.badRequest('Case draft data is required in request body.');
       }
 
+      // clientName is optional - PDF generation service handles empty/missing values gracefully
+      // If clientName is provided, it will be used in the PDF; otherwise, it will be omitted
+
       // Load organization config for PDF generation
       const organization = await RemoteApiService.getOrganization(env, organizationId, request);
       const organizationConfig = organization?.config;
 
-      // Generate PDF
+      // Generate PDF - ensure all required CaseDraft fields are provided
+      const now = new Date().toISOString();
+      
+      // Normalize parties array - must be array of objects with role property
+      const normalizedParties = Array.isArray(caseDraft.parties) 
+        ? caseDraft.parties.map((p: unknown) => {
+            if (typeof p === 'object' && p !== null && 'role' in p) {
+              return p as { role: string; name?: string; relationship?: string };
+            }
+            // If it's a string or invalid format, convert to object
+            return { role: typeof p === 'string' ? p : 'Unknown' };
+          })
+        : [];
+
+      const pdfCaseDraft = {
+        matter_type: caseDraft.matter_type || 'General Consultation',
+        key_facts: Array.isArray(caseDraft.key_facts) ? caseDraft.key_facts : [],
+        timeline: typeof caseDraft.timeline === 'string' ? caseDraft.timeline : undefined,
+        parties: normalizedParties,
+        documents: Array.isArray(caseDraft.documents) 
+          ? caseDraft.documents.filter((d): d is string => typeof d === 'string')
+          : [],
+        evidence: Array.isArray(caseDraft.evidence)
+          ? caseDraft.evidence.filter((e): e is string => typeof e === 'string')
+          : [],
+        jurisdiction: caseDraft.jurisdiction || 'Unknown',
+        urgency: caseDraft.urgency || 'normal',
+        created_at: typeof caseDraft.created_at === 'string' ? caseDraft.created_at : now,
+        updated_at: now,
+        status: ((caseDraft.status === 'draft' || caseDraft.status === 'ready') ? caseDraft.status : 'ready') as 'draft' | 'ready'
+      };
+
       const pdfResult = await PDFGenerationService.generateCaseSummaryPDF({
-        caseDraft: {
-          ...caseDraft,
-          jurisdiction: caseDraft.jurisdiction || 'Unknown',
-          urgency: caseDraft.urgency || 'normal'
-        },
+        caseDraft: pdfCaseDraft,
         clientName: clientName,
         organizationName: organization?.name || organizationConfig?.description || 'Legal Services',
         organizationBrandColor: organizationConfig?.brandColor || '#2563eb'
       }, env);
 
       if (pdfResult.success && pdfResult.pdfBuffer) {
-        const filename = PDFGenerationService.generateFilename({
-          ...caseDraft,
-          jurisdiction: caseDraft.jurisdiction || 'Unknown',
-          urgency: caseDraft.urgency || 'normal'
-        }, clientName);
+        const filename = PDFGenerationService.generateFilename(pdfCaseDraft, clientName);
         
         return createSuccessResponse({
           success: true,
