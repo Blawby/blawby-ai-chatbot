@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, mockNavigate, resetMockPath, mockRoute } from '../../../__tests__/test-utils';
 import { SettingsPage } from '../SettingsPage';
-import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
+import { usePracticeManagement } from '../../../hooks/usePracticeManagement';
 import { i18n } from '../../../i18n';
 
 // Mock react-i18next to use the real i18n instance but avoid React provider issues
@@ -75,11 +75,11 @@ const mockLoadInvitations = vi.fn();
 
 // Create mutable mock object
 const useOrgMgmtMock = {
-  organizations: [],
+  practices: [],
   invitations: [],
   loading: false,
   error: null,
-  currentOrganization: null,
+  currentPractice: null,
   loadOrganizations: mockLoadOrganizations,
   loadInvitations: mockLoadInvitations,
   acceptMatter: vi.fn(),
@@ -112,8 +112,8 @@ const useOrgMgmtMock = {
   refetch: vi.fn(),
 };
 
-vi.mock('../../../hooks/useOrganizationManagement', () => ({
-  useOrganizationManagement: vi.fn(),
+vi.mock('../../../hooks/usePracticeManagement', () => ({
+  usePracticeManagement: vi.fn(),
 }));
 
 // Mock the toast context
@@ -140,7 +140,7 @@ vi.mock('../../../hooks/useNavigation', () => ({
 // Mock the feature flags
 vi.mock('../../../config/features', () => ({
   features: {
-    enableMultipleOrganizations: false,
+    enableMultiplePractices: false,
   },
 }));
 
@@ -175,11 +175,11 @@ describe('SettingsPage Integration Tests', () => {
     mockOnClose.mockClear();
     
     // Reset the mutable mock object to default values
-    useOrgMgmtMock.organizations = [];
+    useOrgMgmtMock.practices = [];
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.loadOrganizations = mockLoadOrganizations;
     useOrgMgmtMock.loadInvitations = mockLoadInvitations;
     useOrgMgmtMock.acceptMatter = vi.fn();
@@ -212,7 +212,7 @@ describe('SettingsPage Integration Tests', () => {
     useOrgMgmtMock.refetch = vi.fn();
     
     // Set up the mock return value
-    vi.mocked(useOrganizationManagement).mockReturnValue(useOrgMgmtMock);
+    vi.mocked(usePracticeManagement).mockReturnValue(useOrgMgmtMock);
     // Reset mocked path to base settings route
     resetMockPath();
   });

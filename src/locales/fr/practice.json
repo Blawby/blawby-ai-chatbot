@@ -1,0 +1,30 @@
+{
+  "notFound": {
+    "title": "Organisation introuvable",
+    "description": {
+      "prefix": "Nous n'avons pas trouvé l'organisation",
+      "suffix": "Cela peut être dû à :"
+    },
+    "reasons": {
+      "incorrectId": "L'identifiant de l'organisation pourrait être incorrect",
+      "movedOrRemoved": "L'organisation a peut-être été déplacée ou supprimée",
+      "outdatedLink": "Vous pourriez avoir un lien obsolète"
+    },
+    "helpText": {
+      "prefix": "Veuillez vérifier l'URL ou réessayer. Si vous continuez à avoir des problèmes, veuillez visiter",
+      "middle": "ou nous contacter sur",
+      "suffix": "pour obtenir de l'aide."
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "Réessayer",
+      "goToHome": "Retour à l'accueil"
+    }
+  },
+  "profile": {
+    "logoAlt": "Logo de {{name}}",
+    "verified": "Cabinet vérifié",
+    "slug": "Identifiant de cabinet : @{{slug}}"
+  }
+}

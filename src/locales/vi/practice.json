@@ -1,0 +1,30 @@
+{
+  "notFound": {
+    "title": "Practice Not Found",
+    "description": {
+      "prefix": "We couldn't find the practice",
+      "suffix": "This could be because:"
+    },
+    "reasons": {
+      "incorrectId": "The practice ID might be incorrect",
+      "movedOrRemoved": "The practice may have been moved or removed",
+      "outdatedLink": "You might have an outdated link"
+    },
+    "helpText": {
+      "prefix": "Please check the URL or try again. If you continue to have issues, please visit",
+      "middle": "or contact us on",
+      "suffix": "for support."
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "Try Again",
+      "goToHome": "Go to Home"
+    }
+  },
+  "profile": {
+    "logoAlt": "Logo {{name}}",
+    "verified": "Văn phòng đã xác minh",
+    "slug": "Slug văn phòng: @{{slug}}"
+  }
+}

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { PRODUCTS, PRICES, getStripePriceIds } from '../../utils/stripe-products';
 import { usePaymentUpgrade } from '../../hooks/usePaymentUpgrade';
-import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
+import { usePracticeManagement } from '../../hooks/usePracticeManagement';
 import { useToastContext } from '../../contexts/ToastContext';
 import { useLocation } from 'preact-iso';
 import { useNavigation } from '../../utils/navigation';
@@ -20,7 +20,7 @@ export const CartPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
-  const { currentOrganization } = useOrganizationManagement();
+  const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
   const { i18n, t } = useTranslation(['settings']);
 
@@ -62,32 +62,32 @@ export const CartPage = () => {
   // Dev/test-only override to force paid UI in deterministic E2E runs
   const devForcePaid = isForcePaidEnabled();
   const managedSubscription = hasManagedSubscription(
-    currentOrganization?.kind,
-    currentOrganization?.subscriptionStatus,
-    currentOrganization?.isPersonal ?? null
+    currentPractice?.kind,
+    currentPractice?.subscriptionStatus,
+    currentPractice?.isPersonal ?? null
   );
   const isPaidTier = devForcePaid || managedSubscription;
 
   const planLabel = describeSubscriptionPlan(
-    currentOrganization?.kind,
-    currentOrganization?.subscriptionStatus,
-    currentOrganization?.subscriptionTier,
-    currentOrganization?.isPersonal ?? null
+    currentPractice?.kind,
+    currentPractice?.subscriptionStatus,
+    currentPractice?.subscriptionTier,
+    currentPractice?.isPersonal ?? null
   );
   const displayPlanLabel = devForcePaid ? 'Paid Plan (dev)' : planLabel;
 
   const handleManageBilling = useCallback(async () => {
-    if (!currentOrganization?.id) return;
+    if (!currentPractice?.id) return;
     try {
-      await openBillingPortal({ organizationId: currentOrganization.id });
+      await openBillingPortal({ practiceId: currentPractice.id });
     } catch (error) {
       console.error('[CART][BILLING_PORTAL] Failed to open billing portal', {
-        organizationId: currentOrganization?.id,
+        practiceId: currentPractice?.id,
         error
       });
       showError('Error', 'Could not open billing portal');
     }
-  }, [currentOrganization?.id, openBillingPortal, showError]);
+  }, [currentPractice?.id, openBillingPortal, showError]);
 
   // All hooks must be called before any conditional returns
   useEffect(() => {
@@ -97,16 +97,16 @@ export const CartPage = () => {
           path: typeof window !== 'undefined' ? window.location.pathname : 'n/a',
           search: typeof window !== 'undefined' ? window.location.search : 'n/a',
           devForcePaid,
-          tier: currentOrganization?.subscriptionTier,
-          status: currentOrganization?.subscriptionStatus,
-          orgId: currentOrganization?.id,
+          tier: currentPractice?.subscriptionTier,
+          status: currentPractice?.subscriptionStatus,
+          practiceId: currentPractice?.id,
         });
       } catch (e) {
         // no-op: debug logging failed
         console.warn('[CART][DEBUG] log failed:', e);
       }
     }
-  }, [devForcePaid, currentOrganization?.subscriptionTier, currentOrganization?.subscriptionStatus, currentOrganization?.id]);
+  }, [devForcePaid, currentPractice?.subscriptionTier, currentPractice?.subscriptionStatus, currentPractice?.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -157,7 +157,7 @@ export const CartPage = () => {
               </svg>
             </div>
             <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {displayPlanLabel} Plan</h2>
-            <p className="text-gray-300 mb-6">Your organization &quot;{currentOrganization?.name}&quot; is currently subscribed{typeof currentOrganization?.seats === 'number' ? ` with ${currentOrganization?.seats} seat(s)` : ''}.</p>
+            <p className="text-gray-300 mb-6">Your practice &quot;{currentPractice?.name}&quot; is currently subscribed{typeof currentPractice?.seats === 'number' ? ` with ${currentPractice?.seats} seat(s)` : ''}.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">{t('settings:account.plan.manage')}</button>
               <button onClick={() => navigate('/')} className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium">Go to Dashboard</button>
@@ -280,9 +280,8 @@ export const CartPage = () => {
     }
     
     // Ensure practice exists server-side to avoid race conditions
-    let organizationId = currentOrganization?.id;
-    let betterAuthOrgId = currentOrganization?.betterAuthOrgId ?? currentOrganization?.id;
-    if (!organizationId) {
+    let practiceId = currentPractice?.id;
+    if (!practiceId) {
       try {
         console.debug('[CART][UPGRADE] Checking for practices via practice API helpers');
         const practices = await listPractices({ scope: 'all' });
@@ -293,61 +292,45 @@ export const CartPage = () => {
           const session = await authClient.getSession();
           const userName = session?.data?.user?.name || session?.data?.user?.email?.split('@')[0] || 'User';
           const practiceName = `${userName}'s Practice`;
-          const practiceSlug = `practice-${(session?.data?.user?.id ?? Date.now().toString())
-            .toString()
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '')
-            .slice(0, 64)}`;
           
           const createdPractice = await createPractice({
             name: practiceName,
-            slug: practiceSlug,
             businessEmail: session?.data?.user?.email || undefined,
           });
           
           if (createdPractice?.id) {
-            organizationId = createdPractice.id;
-            betterAuthOrgId =
-              'betterAuthOrgId' in createdPractice && typeof (createdPractice as any).betterAuthOrgId === 'string'
-                ? (createdPractice as any).betterAuthOrgId
-                : createdPractice.id;
+            practiceId = createdPractice.id;
           }
         } else {
           // Use first practice or find personal one
           const personal = practices.find((p: any) => p.kind === 'personal' || p.metadata?.kind === 'personal');
           const practice = personal || practices[0];
           if (practice?.id) {
-            organizationId = practice.id;
-            betterAuthOrgId = ('betterAuthOrgId' in practice && typeof (practice as any).betterAuthOrgId === 'string')
-              ? (practice as any).betterAuthOrgId
-              : practice.id;
+            practiceId = practice.id;
           }
         }
-        console.debug('[CART][UPGRADE] Ensured/loaded practices. Resolved organizationId:', organizationId);
+        console.debug('[CART][UPGRADE] Ensured/loaded practices. Resolved practiceId:', practiceId);
       } catch (e) {
         console.error('[CART][UPGRADE] Failed to ensure/fetch practices before checkout:', e);
       }
     }
 
-    if (!organizationId) {
+    if (!practiceId) {
       showError('Setup Required', 'We are preparing your workspace. Please try again in a moment.');
       return;
     }
 
-    // Align active organization using Better Auth client helpers before checkout (use Better Auth org id if available)
+    // Align active practice using Better Auth client helpers before checkout
+    // Note: Better Auth API uses "organizationId" parameter name
     try {
-      const authOrgId = betterAuthOrgId ?? organizationId;
-      if (authOrgId) {
-        await authClient.organization.setActive({ organizationId: authOrgId });
-        console.debug('[CART][UPGRADE] Active organization set via auth client:', authOrgId);
-      }
+      await authClient.organization.setActive({ organizationId: practiceId });
+      console.debug('[CART][UPGRADE] Active practice set via auth client:', practiceId);
     } catch (e) {
-      console.warn('[CART][UPGRADE] Failed to set active organization with auth client (continuing anyway):', e);
+      console.warn('[CART][UPGRADE] Failed to set active practice with auth client (continuing anyway):', e);
     }
 
     const upgradeParams = {
-      organizationId, // our DB org id as referenceId for backend
+      practiceId, // our DB practice id as referenceId for backend
       seats: quantity,
       annual: isAnnual,
       cancelUrl: typeof window !== 'undefined' ? window.location.href : undefined,
@@ -356,7 +339,7 @@ export const CartPage = () => {
 
     try {
       console.debug('[CART][UPGRADE] Calling submitUpgrade with params:', {
-        organizationId,
+        practiceId,
         seats: quantity,
         annual: isAnnual
       });

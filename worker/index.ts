@@ -71,10 +71,10 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 
     console.log('🔍 Route matching for path:', path);
 
-    if (path.startsWith('/api/organizations')) {
-      // Organization management is handled by remote API
+    if (path.startsWith('/api/practices')) {
+      // Practice management is handled by remote API
       // Only workspace endpoints (for chatbot data) remain local
-      response = new Response(JSON.stringify({ error: 'Organization management endpoints are handled by remote API. Use /api/organizations/:id/workspace/* for chatbot data.' }), {
+      response = new Response(JSON.stringify({ error: 'Practice management endpoints are handled by remote API. Use /api/practices/:id/workspace/* for chatbot data.' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });

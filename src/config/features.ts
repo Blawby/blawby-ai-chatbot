@@ -75,11 +75,11 @@ interface FeatureFlags {
     enableLeadQualification: boolean;
 
     /**
-     * Enable multiple organizations feature
-     * When false, users can only have one organization
-     * When true, users can create and manage multiple organizations
+     * Enable multiple practices feature
+     * When false, users can only have one practice
+     * When true, users can create and manage multiple practices
      */
-    enableMultipleOrganizations: boolean;
+    enableMultiplePractices: boolean;
 
     /**
      * Enable paralegal agent feature
@@ -108,7 +108,7 @@ const baseFeatureConfig: FeatureFlags = {
     enableMobileBottomNav: false, // Temporarily hide mobile bottom nav
     enablePaymentIframe: false, // Disable payment iframe/drawer - only show "Open in Browser" button
     enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
-    enableMultipleOrganizations: true, // Enable multiple organizations feature
+    enableMultiplePractices: true, // Enable multiple practices feature
     enableParalegalAgent: false, // Disable paralegal agent features by default
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)
 };

@@ -37,23 +37,6 @@ beforeAll(async () => {
   try {
     const db = (env as { DB: D1Database }).DB;
     
-    // Create organizations table
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS organizations (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        slug TEXT UNIQUE,
-        domain TEXT,
-        config JSON,
-        stripe_customer_id TEXT UNIQUE,
-        subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'plus', 'business', 'enterprise')),
-        seats INTEGER DEFAULT 1 CHECK (seats > 0),
-        is_personal INTEGER DEFAULT 0 NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `).run();
-
     // Create chat_sessions table
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS chat_sessions (
@@ -182,18 +165,6 @@ beforeAll(async () => {
         expires_at INTEGER NOT NULL,
         created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
         updated_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL
-      )
-    `).run();
-
-    // Create members table (if not already exists)
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS members (
-        id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-        UNIQUE(organization_id, user_id)
       )
     `).run();
 

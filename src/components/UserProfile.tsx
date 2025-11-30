@@ -4,17 +4,17 @@ import { UserProfileDisplay } from './ui/profile/organisms/UserProfileDisplay';
 interface UserProfileProps {
   isCollapsed?: boolean;
   isMobile?: boolean;
-  currentOrganization?: {
+  currentPractice?: {
     id: string;
     subscriptionTier?: string;
   } | null;
 }
 
-const UserProfile = ({ isCollapsed = false, currentOrganization }: UserProfileProps) => {
+const UserProfile = ({ isCollapsed = false, currentPractice }: UserProfileProps) => {
   return (
     <UserProfileDisplay 
       isCollapsed={isCollapsed} 
-      currentOrganization={currentOrganization} 
+      currentPractice={currentPractice} 
     />
   );
 };

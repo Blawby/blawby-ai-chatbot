@@ -11,7 +11,7 @@ import { MatterData, MatterStatus } from '../types/matter';
 import { getDefaultDocumentSuggestions } from '../hooks/useMatterState';
 import type { DocumentIconAttachment } from '../../worker/types';
 import { MatterStatusBadge } from './matters/StatusBadge';
-import type { MatterWorkflowStatus } from '../hooks/useOrganizationManagement';
+import type { MatterWorkflowStatus } from '../hooks/usePracticeManagement';
 
 interface MatterTabProps {
   matter: MatterData | null;

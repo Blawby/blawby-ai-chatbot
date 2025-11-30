@@ -1,8 +1,8 @@
 import { useEffect } from 'preact/hooks';
-import type { UIOrganizationConfig } from '../hooks/useOrganizationConfig';
+import type { UIPracticeConfig } from '../hooks/usePracticeConfig';
 
 interface SEOHeadProps {
-  organizationConfig?: UIOrganizationConfig;
+  practiceConfig?: UIPracticeConfig;
   pageTitle?: string;
   pageDescription?: string;
   pageImage?: string;
@@ -45,7 +45,7 @@ function truncateToWordBoundary(text: string, maxLength: number): string {
  */
 function generatePageTitle(
   pageTitle?: string,
-  organizationConfig?: UIOrganizationConfig
+  practiceConfig?: UIPracticeConfig
 ): string {
   // If explicit page title is provided, use it
   if (pageTitle) {
@@ -53,14 +53,14 @@ function generatePageTitle(
   }
   
   // Priority 1: Use organization name if available
-  if (organizationConfig?.name) {
-    const orgName = organizationConfig.name.trim();
+  if (practiceConfig?.name) {
+    const orgName = practiceConfig.name.trim();
     return `${orgName} - AI Legal Assistant`;
   }
   
   // Priority 2: Use introMessage with word-aware truncation
-  if (organizationConfig?.introMessage) {
-    const truncated = truncateToWordBoundary(organizationConfig.introMessage, 50);
+  if (practiceConfig?.introMessage) {
+    const truncated = truncateToWordBoundary(practiceConfig.introMessage, 50);
     return `${truncated} - AI Legal Assistant`;
   }
   
@@ -69,7 +69,7 @@ function generatePageTitle(
 }
 
 export function SEOHead({ 
-  organizationConfig, 
+  practiceConfig, 
   pageTitle, 
   pageDescription, 
   pageImage, 
@@ -78,7 +78,7 @@ export function SEOHead({
   
   useEffect(() => {
     // Update document title
-    const title = generatePageTitle(pageTitle, organizationConfig);
+    const title = generatePageTitle(pageTitle, practiceConfig);
     document.title = title;
 
     // Update meta tags dynamically
@@ -105,26 +105,26 @@ export function SEOHead({
     // Update Open Graph tags
     updateMetaTag('og:title', title);
     updateMetaTag('og:description', pageDescription || 
-      (organizationConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
     updateMetaTag('og:url', currentUrl || window.location.href);
     updateMetaTag('og:image', pageImage || 
-      (organizationConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
-    // Use organization name for og:site_name, fallback to default site name
-    const siteName = organizationConfig?.name 
-      ? organizationConfig.name.trim()
+      (practiceConfig?.profileImage || '/team-profile-demo.png'));
+    // Use practice name for og:site_name, fallback to default site name
+    const siteName = practiceConfig?.name 
+      ? practiceConfig.name.trim()
       : 'Blawby AI';
     updateMetaTag('og:site_name', siteName);
 
     // Update Twitter tags
     updateMetaName('twitter:title', title);
     updateMetaName('twitter:description', pageDescription || 
-      (organizationConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
     updateMetaName('twitter:image', pageImage || 
-      (organizationConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
+      (practiceConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
 
     // Update standard meta tags
     updateMetaName('description', pageDescription || 
-      (organizationConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
 
     // Update canonical URL
     let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
@@ -135,7 +135,7 @@ export function SEOHead({
     }
     canonical.setAttribute('href', currentUrl || window.location.href);
 
-  }, [organizationConfig, pageTitle, pageDescription, pageImage, currentUrl]);
+  }, [practiceConfig, pageTitle, pageDescription, pageImage, currentUrl]);
 
   return null; // This component doesn't render anything
 }

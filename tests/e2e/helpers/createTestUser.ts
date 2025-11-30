@@ -4,7 +4,6 @@ export interface TestUser {
   email: string;
   password: string;
   name: string;
-  organizationId?: string; // Included when upgradeToBusiness is true
 }
 
 /**
@@ -20,7 +19,6 @@ export async function createTestUser(
     email?: string;
     password?: string;
     name?: string;
-    upgradeToBusiness?: boolean;
   } = {}
 ): Promise<TestUser> {
   const timestamp = Date.now();
@@ -105,114 +103,5 @@ export async function createTestUser(
     // Welcome modal might not appear, that's okay
   }
 
-  // Optionally upgrade organization to business tier
-  if (options.upgradeToBusiness) {
-    try {
-      // Get user's personal organization
-      const orgsData: any = await page.evaluate(async () => {
-        const res = await fetch('/api/organizations/me', { credentials: 'include' });
-        if (!res.ok) return null;
-        return await res.json();
-      });
-
-      const personalOrg = orgsData?.data?.find(
-        (org: { kind?: string; isPersonal?: boolean }) =>
-          org.kind === 'personal' || org.isPersonal === true
-      );
-
-      if (personalOrg?.id) {
-        // Convert organization to business tier via test endpoint
-        const convertResponse: any = await page.evaluate(async (orgId: string) => {
-          const res = await fetch('/api/test/convert-org-to-business', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ organizationId: orgId }),
-          });
-          if (!res.ok) {
-            const errorText = await res.text();
-            return { success: false, error: errorText, status: res.status };
-          }
-          return await res.json();
-        }, personalOrg.id);
-
-        if (convertResponse?.success) {
-          user.organizationId = personalOrg.id;
-          // Reload the page to force hooks to refetch organization data
-          await page.reload({ waitUntil: 'networkidle' });
-          
-          // Wait for the organization to be fetched and verified as business tier
-          // Poll until the API returns business tier (up to 5 seconds)
-          let verified = false;
-          for (let i = 0; i < 10; i++) {
-            const orgsCheck: any = await page.evaluate(async () => {
-              const res = await fetch('/api/organizations/me', { credentials: 'include' });
-              if (!res.ok) return null;
-              return await res.json();
-            });
-            
-            const upgradedOrg = orgsCheck?.data?.find((org: { id: string }) => org.id === personalOrg.id);
-            if (upgradedOrg?.kind === 'business' && upgradedOrg?.subscriptionStatus === 'active') {
-              verified = true;
-              break;
-            }
-            await page.waitForTimeout(500);
-          }
-          
-          if (!verified) {
-            console.warn('[TEST] Organization upgrade verified but status may not be fully propagated');
-          }
-        } else {
-          console.warn('[TEST] Failed to upgrade org to business:', convertResponse?.error || convertResponse?.status);
-        }
-      }
-    } catch (error) {
-      console.warn('[TEST] Error upgrading org to business:', error);
-    }
-  }
-
   return user;
-}
-
-/**
- * Ensures the page is authenticated by creating a test user if not already authenticated
- */
-export async function ensureAuthenticated(page: Page): Promise<void> {
-  // Check if already authenticated by checking session
-  const sessionCheck: any = await page.evaluate(async () => {
-    try {
-      const res = await fetch('/api/auth/get-session', { credentials: 'include' });
-      if (!res.ok) return null;
-      const data: any = await res.json();
-      return data?.session ?? null;
-    } catch {
-      return null;
-    }
-  });
-
-  // If not authenticated, create a test user
-  if (!sessionCheck) {
-    await createTestUser(page);
-  }
-}
-
-/**
- * Verifies that a user has a personal organization
- */
-export async function verifyPersonalOrg(page: Page): Promise<void> {
-  const orgsData: any = await page.evaluate(async () => {
-    const res = await fetch('/api/organizations/me', { credentials: 'include' });
-    if (!res.ok) return null;
-    return await res.json();
-  });
-
-  expect(orgsData).toBeDefined();
-  expect(orgsData?.success).toBe(true);
-  expect(Array.isArray(orgsData?.data)).toBe(true);
-  expect(orgsData?.data?.length).toBeGreaterThan(0);
-
-  const personalOrg = orgsData?.data?.find((org: { kind?: string }) => org.kind === 'personal');
-  expect(personalOrg).toBeDefined();
-  expect(personalOrg?.kind).toBe('personal');
-  expect(personalOrg?.subscriptionStatus).toBe('none');
 }

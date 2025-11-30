@@ -1,25 +1,46 @@
 # Archived Documentation
 
-This index lists superseded documents for historical context. Each page includes a banner pointing to the canonical docs.
+This directory contains archived documentation for features that have been removed or significantly changed.
 
-- **Canonical**
-  - Stripe: ./stripe/stripe-architecture-archived.md (⚠️ Archived - Stripe now handled by remote API)
-  - Organization: ./organization/organization-architecture.md
+## Archive Categories
 
-## Stripe
-- stripe-connect-architecture.md
-- stripe-onboarding-findings.md
-- stripe-simplify-plan.md
-- subscription-change-cancel-plan.md
-- subscription-error-handling-improvements.md
+### AI Features (Removed December 2025)
+- AI agent streaming (`/api/agent/stream`) - Removed
+- AI summarization and analysis - Removed
+- AI conversation context - Removed
+- AI tool calls - Removed
+- **Note**: Adobe PDF Services extraction remains (not AI, just document parsing)
 
-## Organization
-- organization-system-fix.md
-- organization-display-bug-fix.md
-- better-auth-organization-integration.md
+### Subscription Management (Migrated December 2025)
+- Stripe subscription management - Migrated to remote API
+- Subscription middleware - Removed
+- Subscription service - Removed
+- See: `docs/archive/stripe/` for Stripe-related docs
 
-## Misc
-- design-system-plan.md
-- coderabbit-fixes-summary.md
-- i18n.md (superseded by internationalization.md)
-- i18n-plan.md (planning notes; superseded by internationalization.md)
+### Organization Management (Migrated December 2025)
+- Local `members` table - Removed (handled by remote API)
+- Local `invitations` table - Removed (handled by remote API)
+- API token management - Removed entirely
+- See: `docs/archive/organization/` for organization-related docs
+
+### Current Status
+
+**Active Documentation:**
+- `docs/engineering/2025-11-29-FRONTEND_API_IMPLEMENTATION.md` - Frontend API guide
+
+**Archived Documentation:**
+- `docs/archive/stripe/` - Stripe/Subscription architecture (migrated to remote API)
+- `docs/archive/organization/` - Organization architecture (migrated to remote API)
+- `docs/archive/i18n/` - Internationalization planning docs
+- `docs/archive/misc/` - Miscellaneous archived docs
+
+## Migration Notes
+
+### December 2025 - Major Simplification
+- Removed all AI features (agent, summarization, analysis)
+- Migrated subscription management to remote API
+- Migrated organization/member management to remote API
+- Removed API token functionality
+- Worker now focuses on chatbot-specific functionality only
+
+Current Worker responsibilities are described inline within each active document (primarily the Frontend API guide).

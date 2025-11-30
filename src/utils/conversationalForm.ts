@@ -81,7 +81,7 @@ export function processFormStep(
         if (currentState.data.matterDescription && currentState.data.matterDescription !== '') {
           // Skip matter details collection if we already have comprehensive matter info
           newState.step = 'complete';
-          response = `Perfect! I have your phone: ${extractedInfo.phone}. I have all your contact information now. Let me update your matter summary with your contact details and submit everything to our legal organization.`;
+          response = `Perfect! I have your phone: ${extractedInfo.phone}. I have all your contact information now. Let me update your matter summary with your contact details and submit everything to our legal practice.`;
           shouldSubmit = true;
         } else {
           // No existing matter details, collect them
@@ -99,7 +99,7 @@ export function processFormStep(
       if (validateMatterDetails(userMessage)) {
         newState.data.matterDetails = userMessage;
         newState.step = 'complete';
-        response = `Thank you! I have all the information I need. Here's what I'll send to our organization:\n\n` +
+        response = `Thank you! I have all the information I need. Here's what I'll send to our practice:\n\n` +
           `📧 Email: ${newState.data.email}\n` +
           `📞 Phone: ${newState.data.phone}\n` +
           `📋 Matter Details: ${userMessage}\n\n` +
@@ -135,9 +135,9 @@ export function getFormStartPrompt(): string {
 
 
 // Format form data for submission
-export function formatFormData(formData: FormData, organizationId: string, conversationId?: string) {
+export function formatFormData(formData: FormData, practiceId: string, conversationId?: string) {
   return {
-    organizationId,
+    practiceId,
     conversationId,
     phoneNumber: formData.phone,
     email: formData.email,

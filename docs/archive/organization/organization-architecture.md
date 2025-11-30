@@ -1,5 +1,8 @@
 # Organization Architecture Overview
 
+> **⚠️ ARCHIVED**: This document describes the previous local organization/member management architecture. As of December 2025, organization CRUD, member management, and invitations have been migrated to the remote API. The `members` and `invitations` tables have been removed from the Worker's D1 database.
+>
+
 ## 1. Goals
 - Provision a personal organization for every new user automatically via authentication hooks.
 - Flip organizations to `kind='business'` (and unlock team features) once Stripe reports an active/trial/paused subscription.

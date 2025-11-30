@@ -1,8 +1,5 @@
 import type { Env } from '../types.js';
 import { AdobeDocumentService } from '../services/AdobeDocumentService.js';
-import { requireAuth, requireOrgMember } from '../middleware/auth.js';
-import { parseJsonBody } from '../utils.js';
-import { createSuccessResponse, handleError } from '../errorHandler.js';
 
 /**
  * Debug endpoint to test Adobe extraction and capture request details
@@ -17,114 +14,10 @@ export async function handleDebug(request: Request, env: Env): Promise<Response>
     return await testAdobeExtraction(request, env);
   }
 
-  // Test helper endpoint: convert organization to business
-  // Updates subscription_tier directly (subscription management is handled by remote API)
-  // Only available in test/dev environments
-  if (path === '/api/test/convert-org-to-business' && request.method === 'POST') {
-    // Only allow in test/dev
-    if (env.NODE_ENV !== 'test' && env.NODE_ENV !== 'development') {
-      return new Response('Not available in production', { status: 403 });
-    }
-    return await convertOrgToBusiness(request, env);
-  }
+  // Note: Test endpoint /api/test/convert-org-to-business removed
+  // Organizations table has been removed - all organization management is handled by remote API
 
   return new Response('Debug endpoint not found', { status: 404 });
-}
-
-/**
- * Test helper: Convert organization to business by directly updating is_personal = 0
- * Updates subscription_tier directly in local DB (subscription management is handled by remote API)
- */
-async function convertOrgToBusiness(request: Request, env: Env): Promise<Response> {
-  try {
-    const authContext = await requireAuth(request, env);
-    
-    const body = await parseJsonBody(request) as { organizationId: string };
-    const organizationId = body?.organizationId;
-
-    if (!organizationId || typeof organizationId !== 'string') {
-      return new Response(JSON.stringify({ success: false, error: 'organizationId is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Check if organization exists first
-    const existing = await env.DB.prepare(
-      `SELECT id, is_personal, subscription_tier FROM organizations WHERE id = ?`
-    ).bind(organizationId).first<{ id: string; is_personal: number; subscription_tier: string }>();
-
-    if (!existing) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `Organization ${organizationId} not found` 
-      }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    console.log(`[TEST] Converting organization ${organizationId} from is_personal=${existing.is_personal} to business`);
-
-    // Ensure user is owner (same as onboarding endpoints do)
-    // Note: This test endpoint directly manipulates local DB for testing purposes
-    await requireOrgMember(request, env, organizationId, 'owner');
-
-    // Direct SQL update to set organization to business tier
-    // This sets is_personal = 0, subscription_tier = 'business', seats = 1
-    // Note: subscription_tier is managed by remote API, but this test endpoint updates it locally for testing
-    let result;
-    try {
-      result = await env.DB.prepare(
-        `UPDATE organizations 
-         SET subscription_tier = 'business',
-             seats = 1,
-             is_personal = 0,
-             updated_at = ?
-        WHERE id = ?`
-      )
-        .bind(
-          Math.floor(Date.now() / 1000),
-          organizationId
-        )
-        .run();
-
-      if (!result?.success) {
-        throw new Error('Failed to update organization');
-      }
-    } catch (e) {
-      console.error('[TEST] Organization update failed:', e);
-      throw e;
-    }
-
-    // Note: subscription_tier is managed by remote API
-    // This test endpoint updates it locally for testing purposes only
-
-    console.log(`[TEST] Converted organization ${organizationId} to business:`, {
-      changes: result.meta?.changes ?? 0,
-      success: result.success
-    });
-
-    // Note: Cache clearing removed - organizations are now managed by remote API
-
-    // Verify the update
-    const updated = await env.DB.prepare(
-      `SELECT id, is_personal, subscription_tier FROM organizations WHERE id = ?`
-    ).bind(organizationId).first<{ id: string; is_personal: number; subscription_tier: string }>();
-
-    return createSuccessResponse({ 
-      success: true, 
-      message: `Organization ${organizationId} converted to business`,
-      changes: result.meta?.changes ?? 0,
-      updated: {
-        is_personal: updated?.is_personal ?? null,
-        subscription_tier: updated?.subscription_tier ?? null
-      }
-    });
-  } catch (error) {
-    console.error('[TEST] Error converting org to business:', error);
-    return handleError(error);
-  }
 }
 
 async function testAdobeExtraction(request: Request, env: Env): Promise<Response> {

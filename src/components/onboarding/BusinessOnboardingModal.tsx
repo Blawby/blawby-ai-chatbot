@@ -53,8 +53,8 @@ const STEP_SEQUENCE: OnboardingStep[] = ONBOARDING_STEP_SEQUENCE;
 
 interface BusinessOnboardingModalProps {
   isOpen: boolean;
-  organizationId: string;
-  organizationName?: string;
+  practiceId: string;
+  practiceName?: string;
   fallbackContactEmail?: string | undefined;
   onClose: () => void;
   onCompleted?: () => Promise<void> | void;
@@ -64,8 +64,8 @@ interface BusinessOnboardingModalProps {
 
 const BusinessOnboardingModal = ({
   isOpen,
-  organizationId,
-  organizationName,
+  practiceId,
+  practiceName,
   fallbackContactEmail,
   onClose,
   onCompleted,
@@ -82,12 +82,12 @@ const BusinessOnboardingModal = ({
   const [practiceMetadata, setPracticeMetadata] = useState<Record<string, unknown> | null>(null);
   const [practiceSnapshot, setPracticeSnapshot] = useState<Practice | null>(null);
   const fetchStripeStatus = useCallback(async () => {
-    if (!organizationId) {
+    if (!practiceId) {
       return;
     }
 
     try {
-      const payload = await getOnboardingStatusPayload(organizationId);
+      const payload = await getOnboardingStatusPayload(practiceId);
       const status = extractStripeStatusFromPayload(payload);
       if (status) {
         setStripeStatus(status);
@@ -95,13 +95,13 @@ const BusinessOnboardingModal = ({
     } catch (error) {
       console.warn('[ONBOARDING][STATUS] Failed to load Stripe status:', error);
     }
-  }, [organizationId]);
+  }, [practiceId]);
   
   // Create save function that calls the API
   const saveOnboardingData = useCallback(
     async (data: OnboardingFormData, resumeStep: OnboardingStep, statusOverride?: OnboardingStatusValue) => {
-      if (!organizationId) {
-        throw new Error('Missing organization');
+      if (!practiceId) {
+        throw new Error('Missing practice');
       }
 
       try {
@@ -131,7 +131,7 @@ const BusinessOnboardingModal = ({
           metadata
         };
 
-        const updatedPractice = await updatePractice(organizationId, updatePayload);
+        const updatedPractice = await updatePractice(practiceId, updatePayload);
         setPracticeSnapshot(updatedPractice);
         setPracticeMetadata(
           updatedPractice.metadata && typeof updatedPractice.metadata === 'object' && !Array.isArray(updatedPractice.metadata)
@@ -145,7 +145,7 @@ const BusinessOnboardingModal = ({
         throw error;
       }
     },
-    [organizationId, practiceMetadata, practiceSnapshot, showError]
+    [practiceId, practiceMetadata, practiceSnapshot, showError]
   );
 
   // Custom hook for state management (no auto-save)
@@ -164,8 +164,8 @@ const BusinessOnboardingModal = ({
     return STEP_SEQUENCE[nextIndex];
   }, []);
   const startStripeOnboarding = useCallback(async () => {
-    if (!organizationId) {
-      throw new Error('Missing organization');
+    if (!practiceId) {
+      throw new Error('Missing practice');
     }
 
     if (stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled) {
@@ -184,7 +184,7 @@ const BusinessOnboardingModal = ({
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
-        practiceUuid: organizationId
+        practiceUuid: practiceId
       });
 
       const secret = connectedAccount.clientSecret ?? '';
@@ -203,7 +203,7 @@ const BusinessOnboardingModal = ({
     } finally {
       setStripeRequestPending(false);
     }
-  }, [organizationId, stripeStatus, formData.contactEmail, fallbackContactEmail, fetchStripeStatus, showError, showSuccess]);
+  }, [practiceId, stripeStatus, formData.contactEmail, fallbackContactEmail, fetchStripeStatus, showError, showSuccess]);
 
   const handleStepChange = useCallback((step: OnboardingStep, _prevStep: OnboardingStep) => {
     if (onStepChange) onStepChange(step);
@@ -230,12 +230,12 @@ const BusinessOnboardingModal = ({
 
   // Load saved data on mount
   useEffect(() => {
-    if (!isOpen || !organizationId) return;
+    if (!isOpen || !practiceId) return;
 
     const loadSavedData = async () => {
       setIsLoadingData(true);
       try {
-        const practiceRecord = await getPractice(organizationId);
+        const practiceRecord = await getPractice(practiceId);
         setPracticeSnapshot(practiceRecord);
         const metadataRecord =
           practiceRecord.metadata && typeof practiceRecord.metadata === 'object' && !Array.isArray(practiceRecord.metadata)
@@ -287,7 +287,7 @@ const BusinessOnboardingModal = ({
     void loadSavedData();
   }, [
     isOpen,
-    organizationId,
+    practiceId,
     fallbackContactEmail,
     setFormData,
     goToStep,
@@ -411,7 +411,7 @@ const BusinessOnboardingModal = ({
           onContinue={handleStepContinue}
           onBack={handleBack}
           errors={errors && errors.length > 0 ? errors[0].message : null}
-          organizationSlug={organizationName?.toLowerCase().replace(/\s+/g, '-')}
+          practiceSlug={practiceName?.toLowerCase().replace(/\s+/g, '-')}
           disabled={isLoadingData}
           onSkip={handleSkip}
           stripeStatus={stripeStatus}

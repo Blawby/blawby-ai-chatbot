@@ -9,7 +9,7 @@ import { BadgeRecommended, ModalCloseButton } from '../atoms';
 // Tabs removed per product decision
 import { getBusinessPrices, TIER_FEATURES } from '../../../utils/stripe-products';
 import type { SubscriptionTier } from '../../../types/user';
-import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
+import { usePracticeManagement } from '../../../hooks/usePracticeManagement';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { PlanFeaturesList, type PlanFeature } from '../../settings/molecules/PlanFeaturesList';
@@ -30,7 +30,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 }) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { navigate } = useNavigation();
-  const { currentOrganization } = useOrganizationManagement();
+  const { currentPractice } = usePracticeManagement();
   const { openBillingPortal } = usePaymentUpgrade();
   const { showError } = useToastContext();
   const [isBillingLoading, setIsBillingLoading] = useState(false);
@@ -102,14 +102,14 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
 
   const handleManageBilling = async () => {
     try {
-      const orgId = currentOrganization?.id;
-      if (!orgId) {
-        console.error('No organization selected');
-        showError('No organization selected', 'Please select an organization to manage billing.');
+      const practiceId = currentPractice?.id;
+      if (!practiceId) {
+        console.error('No practice selected');
+        showError('No practice selected', 'Please select a practice to manage billing.');
         return;
       }
       setIsBillingLoading(true);
-      await openBillingPortal({ organizationId: orgId });
+      await openBillingPortal({ practiceId: practiceId });
       onClose();
     } catch (error) {
       console.error('Failed to open billing portal:', error);

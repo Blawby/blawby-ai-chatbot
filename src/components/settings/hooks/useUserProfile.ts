@@ -42,7 +42,7 @@ function _mapBetterAuthUserToProfile(authUser: ExtendedUser): UserProfile {
     
     // Optional fields from Better Auth
     image: authUser.image || null,
-    organizationId: authUser.organizationId || null,
+    practiceId: authUser.practiceId || null,
     role: authUser.role || null,
     phone: authUser.phone || null,
     
@@ -82,7 +82,7 @@ export interface UserProfile {
   name: string;
   email: string;
   image?: string | null;
-  organizationId?: string | null;
+  practiceId?: string | null;
   role?: string | null;
   phone?: string | null;
   // Profile Information

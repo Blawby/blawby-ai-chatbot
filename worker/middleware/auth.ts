@@ -1,6 +1,5 @@
 import { Env, HttpError } from "../types";
 import { HttpErrors } from "../errorHandler";
-import { organizationMembershipSchema } from "../schemas/validation";
 
 export interface AuthenticatedUser {
   id: string;
@@ -16,15 +15,17 @@ export interface AuthContext {
     id: string;
     expiresAt: Date;
   };
+  token: string;
 }
 
 /**
- * Validate Bearer token by calling remote auth server
+ * Validate Bearer token by calling remote auth server (staging API with Better Auth backend)
  */
 async function validateTokenWithRemoteServer(
   token: string,
   env: Env
 ): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }> {
+  // Staging API runs Better Auth backend - validate token via Better Auth session endpoint
   const authServerUrl = env.AUTH_SERVER_URL || 'https://staging-api.blawby.com';
   const AUTH_TIMEOUT_MS = 3000; // 3 second timeout for auth validation
   
@@ -122,7 +123,127 @@ export async function requireAuth(
   }
 
   // Validate token with remote auth server
-  return await validateTokenWithRemoteServer(token, env);
+  const authResult = await validateTokenWithRemoteServer(token, env);
+  return {
+    ...authResult,
+    token
+  };
+}
+
+type RemoteMemberRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+function extractMembersPayload(payload: unknown): RemoteMemberRecord[] {
+  if (Array.isArray(payload)) {
+    return payload.filter(isRecord);
+  }
+  if (isRecord(payload)) {
+    if (Array.isArray(payload.members)) {
+      return payload.members.filter(isRecord);
+    }
+    if (isRecord(payload.data) && Array.isArray(payload.data.members)) {
+      return payload.data.members.filter(isRecord);
+    }
+  }
+  return [];
+}
+
+function extractMemberIdentifiers(member: RemoteMemberRecord): {
+  userId?: string;
+  email?: string;
+  role?: string;
+} {
+  const userId =
+    typeof member.user_id === 'string'
+      ? member.user_id
+      : typeof member.userId === 'string'
+        ? member.userId
+        : undefined;
+  const email =
+    typeof member.email === 'string'
+      ? member.email.toLowerCase()
+      : undefined;
+  const role =
+    typeof member.role === 'string'
+      ? member.role
+      : typeof member.permission === 'string'
+        ? member.permission
+        : undefined;
+
+  return { userId, email, role };
+}
+
+async function fetchMemberRoleFromRemote(
+  token: string,
+  env: Env,
+  organizationId: string,
+  userId: string,
+  userEmail: string
+): Promise<string> {
+  const baseUrl = env.REMOTE_API_URL || env.AUTH_SERVER_URL || 'https://staging-api.blawby.com';
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/practice/${encodeURIComponent(organizationId)}/members`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      }
+    );
+    clearTimeout(timeoutId);
+
+    if (response.status === 404) {
+      throw HttpErrors.notFound("Organization not found");
+    }
+
+    if (!response.ok) {
+      throw HttpErrors.badGateway(`Failed to verify membership (status ${response.status})`);
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    const members = extractMembersPayload(payload);
+    const normalizedEmail = userEmail.toLowerCase();
+
+    const match = members.find((member) => {
+      const { userId: memberUserId, email } = extractMemberIdentifiers(member);
+      if (memberUserId && memberUserId === userId) {
+        return true;
+      }
+      if (email && normalizedEmail && email === normalizedEmail) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!match) {
+      throw HttpErrors.forbidden("User is not a member of this organization");
+    }
+
+    const { role } = extractMemberIdentifiers(match);
+    if (!role) {
+      throw HttpErrors.forbidden("User membership is missing role information");
+    }
+
+    return role;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof HttpError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw HttpErrors.gatewayTimeout("Membership verification timed out");
+    }
+    console.error('Error verifying organization membership via remote API:', error);
+    throw HttpErrors.badGateway("Failed to verify organization membership");
+  }
 }
 
 export async function requireOrganizationMember(
@@ -138,31 +259,17 @@ export async function requireOrganizationMember(
     throw HttpErrors.badRequest("Invalid or missing organizationId");
   }
 
-  // 2. Fetch user's membership for the organization using direct database query
+  // 2. Fetch user's membership from remote API
   try {
-    const membershipResult = await env.DB.prepare(`
-      SELECT role FROM members 
-      WHERE organization_id = ? AND user_id = ?
-    `).bind(organizationId, authContext.user.id).first();
-    
-    // 3. Check if user has membership and validate the result
-    if (!membershipResult) {
-      throw HttpErrors.forbidden("User is not a member of this organization");
-    }
+    const userRole = await fetchMemberRoleFromRemote(
+      authContext.token,
+      env,
+      organizationId,
+      authContext.user.id,
+      authContext.user.email
+    );
 
-    // 4. Validate the membership result structure and role
-    const validatedMembership = organizationMembershipSchema.safeParse(membershipResult);
-    if (!validatedMembership.success) {
-      console.error('Invalid membership result structure:', {
-        membershipResult,
-        errors: validatedMembership.error.issues
-      });
-      throw HttpErrors.forbidden("User is not a member of this organization");
-    }
-
-    const userRole = validatedMembership.data.role;
-
-    // 5. Enforce role requirements if minimumRole is specified
+    // 3. Enforce role requirements if minimumRole is specified
     if (minimumRole) {
       const roleHierarchy: Record<string, number> = {
         'paralegal': 1,
@@ -188,7 +295,7 @@ export async function requireOrganizationMember(
       }
     }
 
-    // 6. Return authContext with actual memberRole
+    // 4. Return authContext with actual memberRole
     return {
       ...authContext,
       memberRole: userRole,

@@ -22,7 +22,7 @@ export class ReviewService {
   constructor(private env: Env) {}
 
   // Get matters that require lawyer review
-  async getReviewMatters(organizationId: string): Promise<ReviewMatter[]> {
+  async getReviewMatters(practiceId: string): Promise<ReviewMatter[]> {
     try {
       // Get matters that have been flagged for review
       const matters = await this.env.DB.prepare(`
@@ -43,7 +43,7 @@ export class ReviewService {
         WHERE m.organization_id = ? 
         AND m.status IN ('pending_review', 'approved', 'rejected')
         ORDER BY m.created_at DESC
-      `).bind(organizationId).all();
+      `).bind(practiceId).all();
 
       return matters.results?.map((matter: { [key: string]: unknown }) => {
         // Parse custom_fields once
@@ -139,8 +139,8 @@ export class ReviewService {
     }
   }
 
-  // Get review statistics for a organization
-  async getReviewStats(organizationId: string): Promise<{
+  // Get review statistics for a practice
+  async getReviewStats(practiceId: string): Promise<{
     total: number;
     pending: number;
     approved: number;
@@ -156,7 +156,7 @@ export class ReviewService {
         FROM matters 
         WHERE organization_id = ? 
         AND status IN ('pending_review', 'approved', 'rejected')
-      `).bind(organizationId).first();
+      `).bind(practiceId).first();
 
       return {
         total: (stats as { total?: number })?.total || 0,

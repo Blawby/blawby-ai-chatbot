@@ -53,25 +53,25 @@ interface ChatMessageHistoryEntry {
 }
 
 interface UseMessageHandlingOptions {
-  organizationId?: string;
+  practiceId?: string;
   sessionId?: string;
   onError?: (error: string) => void;
 }
 
 /**
- * Hook that uses blawby-ai organization for all message handling
+ * Hook that uses blawby-ai practice for all message handling
  * This is the preferred way to use message handling in components
  */
-export const useMessageHandlingWithContext = ({ sessionId, onError }: Omit<UseMessageHandlingOptions, 'organizationId'>) => {
-  const { activeOrganizationId } = useSessionContext();
-  return useMessageHandling({ organizationId: activeOrganizationId ?? undefined, sessionId, onError });
+export const useMessageHandlingWithContext = ({ sessionId, onError }: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
+  const { activePracticeId } = useSessionContext();
+  return useMessageHandling({ practiceId: activePracticeId ?? undefined, sessionId, onError });
 };
 
 /**
- * Legacy hook that requires organizationId parameter
+ * Legacy hook that requires practiceId parameter
  * @deprecated Use useMessageHandlingWithContext() instead
  */
-export const useMessageHandling = ({ organizationId, sessionId, onError }: UseMessageHandlingOptions) => {
+export const useMessageHandling = ({ practiceId, sessionId, onError }: UseMessageHandlingOptions) => {
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   
@@ -130,10 +130,10 @@ export const useMessageHandling = ({ organizationId, sessionId, onError }: UseMe
     // Create new abort controller
     abortControllerRef.current = new globalThis.AbortController();
     
-    const effectiveOrganizationId = (organizationId ?? '').trim();
+    const effectivePracticeId = (practiceId ?? '').trim();
     const effectiveSessionId = (sessionId ?? '').trim();
 
-    if (!effectiveOrganizationId || !effectiveSessionId) {
+    if (!effectivePracticeId || !effectiveSessionId) {
       const errorMessage = 'Secure session is still initializing. Please wait and try again.';
       console.warn(errorMessage);
       onError?.(errorMessage);
@@ -145,7 +145,7 @@ export const useMessageHandling = ({ organizationId, sessionId, onError }: UseMe
     // Create the request body
     const requestBody = {
       messages: messageHistory,
-      organizationId: effectiveOrganizationId,
+      practiceId: effectivePracticeId,
       sessionId: effectiveSessionId,
       attachments
     };
@@ -472,7 +472,7 @@ ${matterData.opposing_party ? `- Opposing Party: ${matterData.opposing_party}` :
       });
       throw error;
     }
-  }, [organizationId, sessionId, onError, updateAIMessage]);
+  }, [practiceId, sessionId, onError, updateAIMessage]);
 
   // Main message sending function
   const sendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
@@ -481,10 +481,10 @@ ${matterData.opposing_party ? `- Opposing Party: ${matterData.opposing_party}` :
       window.__DEBUG_SEND_MESSAGE__(message, attachments);
     }
     
-    const effectiveOrganizationId = (organizationId ?? '').trim();
+    const effectivePracticeId = (practiceId ?? '').trim();
     const effectiveSessionId = (sessionId ?? '').trim();
 
-    if (!effectiveOrganizationId || !effectiveSessionId) {
+    if (!effectivePracticeId || !effectiveSessionId) {
       const errorMessage = 'Secure session is still initializing. Please wait a moment and try again.';
       console.warn(errorMessage);
       onError?.(errorMessage);
@@ -557,7 +557,7 @@ ${matterData.opposing_party ? `- Opposing Party: ${matterData.opposing_party}` :
       
       onError?.(error instanceof Error ? error.message : 'Unknown error occurred');
     }
-  }, [messages, organizationId, sessionId, createMessageHistory, sendMessageWithStreaming, onError, updateAIMessage]);
+  }, [messages, practiceId, sessionId, createMessageHistory, sendMessageWithStreaming, onError, updateAIMessage]);
 
   // Handle contact form submission
   const handleContactFormSubmit = useCallback(async (contactData: ContactData) => {

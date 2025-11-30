@@ -1,0 +1,30 @@
+{
+  "notFound": {
+    "title": "ไม่พบองค์กร",
+    "description": {
+      "prefix": "เราไม่สามารถหาองค์กรได้",
+      "suffix": "อาจเป็นเพราะ:"
+    },
+    "reasons": {
+      "incorrectId": "รหัสองค์กรอาจไม่ถูกต้อง",
+      "movedOrRemoved": "องค์กรอาจถูกย้ายหรือลบแล้ว",
+      "outdatedLink": "คุณอาจมีลิงก์ที่ล้าสมัย"
+    },
+    "helpText": {
+      "prefix": "กรุณาตรวจสอบ URL หรือลองใหม่อีกครั้ง หากปัญหายังคงมีอยู่ กรุณาไปที่",
+      "middle": "หรือติดต่อเราที่",
+      "suffix": "เพื่อขอความช่วยเหลือ"
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "ลองใหม่",
+      "goToHome": "ไปที่หน้าแรก"
+    }
+  },
+  "profile": {
+    "logoAlt": "โลโก้ {{name}}",
+    "verified": "สำนักงานที่ยืนยันแล้ว",
+    "slug": "สลักสำนักงาน: @{{slug}}"
+  }
+}

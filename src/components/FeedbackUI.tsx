@@ -6,7 +6,7 @@ import { getFeedbackEndpoint } from '../config/api';
 
 interface FeedbackUIProps {
   sessionId?: string;
-  organizationId?: string;
+  practiceId?: string;
   onFeedbackSubmit?: (feedback: FeedbackData) => void;
 }
 
@@ -19,7 +19,7 @@ interface FeedbackData {
 
 const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({ 
   sessionId, 
-  organizationId, 
+  practiceId, 
   onFeedbackSubmit 
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -41,7 +41,7 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
         },
         body: JSON.stringify({
           sessionId,
-          organizationId,
+          practiceId,
           ...feedbackData,
           intent: 'message_feedback'
         }),
@@ -63,7 +63,7 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, hasSubmitted, onFeedbackSubmit, organizationId, sessionId]);
+  }, [isSubmitting, hasSubmitted, onFeedbackSubmit, practiceId, sessionId]);
 
   const handleThumbsUp = useCallback(() => {
     setFeedback(prev => {

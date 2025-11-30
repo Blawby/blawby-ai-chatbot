@@ -11,7 +11,7 @@ type ContactFormPayload = {
   phoneNumber?: string;
   sessionId?: string;
   matterDetails?: string;
-  organizationId?: string;
+  practiceId?: string;
 };
 
 export async function handleForms(request: Request, env: Env): Promise<Response> {
@@ -23,14 +23,14 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
     const body = await parseJsonBody(request) as ContactFormPayload;
     const matterService = new MatterService(env);
 
-    const organizationId = body.organizationId?.trim();
-    if (!organizationId) {
-      throw HttpErrors.badRequest('organizationId is required');
+    const practiceId = body.practiceId?.trim();
+    if (!practiceId) {
+      throw HttpErrors.badRequest('practiceId is required');
     }
 
-    const organization = await RemoteApiService.getOrganization(env, organizationId, request);
-    if (!organization) {
-      throw HttpErrors.notFound('Organization not found');
+    const practice = await RemoteApiService.getPractice(env, practiceId, request);
+    if (!practice) {
+      throw HttpErrors.notFound('Practice not found');
     }
 
     const email = body.email?.trim();
@@ -49,14 +49,14 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
 
     const idempotencyKey = request.headers.get('Idempotency-Key') ?? null;
     if (idempotencyKey) {
-      const existing = await getIdempotencyResult(env, organization.id, idempotencyKey);
+      const existing = await getIdempotencyResult(env, practice.id, idempotencyKey);
       if (existing) {
         return createSuccessResponse(existing);
       }
     }
 
     const matter = await matterService.createLeadFromContactForm({
-      organizationId: organization.id,
+      practiceId: practice.id,
       sessionId: body.sessionId ?? null,
       name: body.name ?? null,
       email,
@@ -68,20 +68,20 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
     const responsePayload = {
       matterId: matter.matterId,
       matterNumber: matter.matterNumber,
-      organizationId: organization.id,
+      practiceId: practice.id,
       status: 'lead' as const,
       message: 'Lead submitted successfully. A team member will follow up soon.'
     };
 
     if (idempotencyKey) {
-      await storeIdempotencyResult(env, organization.id, idempotencyKey, responsePayload);
+      await storeIdempotencyResult(env, practice.id, idempotencyKey, responsePayload);
     }
 
     const notificationService = new NotificationService(env);
     try {
       await notificationService.sendMatterCreatedNotification({
         type: 'matter_created',
-        organizationConfig: organization,
+        practice,
         matterInfo: {
           type: 'Lead',
           description: matterDetails,
@@ -96,7 +96,7 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
     } catch (notifyErr) {
       // Best-effort: log and continue without failing the submission
       console.error('Notification send failed for matter creation', {
-        organizationId: organization.id,
+        practiceId: practice.id,
         email,
         phoneNumber
       }, notifyErr);
@@ -109,8 +109,8 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
   }
 }
 
-async function getIdempotencyResult(env: Env, organizationId: string, key: string): Promise<Record<string, unknown> | null> {
-  const storageKey = buildIdempotencyKey(organizationId, key);
+async function getIdempotencyResult(env: Env, practiceId: string, key: string): Promise<Record<string, unknown> | null> {
+  const storageKey = buildIdempotencyKey(practiceId, key);
   const rawValue = await env.CHAT_SESSIONS.get(storageKey);
   if (!rawValue) {
     return null;
@@ -124,11 +124,11 @@ async function getIdempotencyResult(env: Env, organizationId: string, key: strin
   }
 }
 
-async function storeIdempotencyResult(env: Env, organizationId: string, key: string, value: Record<string, unknown>): Promise<void> {
-  const storageKey = buildIdempotencyKey(organizationId, key);
+async function storeIdempotencyResult(env: Env, practiceId: string, key: string, value: Record<string, unknown>): Promise<void> {
+  const storageKey = buildIdempotencyKey(practiceId, key);
   await env.CHAT_SESSIONS.put(storageKey, JSON.stringify(value), { expirationTtl: 60 * 60 * 24 });
 }
 
-function buildIdempotencyKey(organizationId: string, key: string): string {
-  return `idempotency:forms:${organizationId}:${key}`;
+function buildIdempotencyKey(practiceId: string, key: string): string {
+  return `idempotency:forms:${practiceId}:${key}`;
 }

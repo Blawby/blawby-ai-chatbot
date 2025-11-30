@@ -1,0 +1,30 @@
+{
+  "notFound": {
+    "title": "Organización No Encontrada",
+    "description": {
+      "prefix": "No pudimos encontrar la organización",
+      "suffix": "Esto podría deberse a:"
+    },
+    "reasons": {
+      "incorrectId": "El ID de la organización podría ser incorrecto",
+      "movedOrRemoved": "La organización puede haber sido movida o eliminada",
+      "outdatedLink": "Puede que tengas un enlace desactualizado"
+    },
+    "helpText": {
+      "prefix": "Por favor verifica la URL o inténtalo de nuevo. Si continúas teniendo problemas, por favor visita",
+      "middle": "o contáctanos en",
+      "suffix": "para obtener soporte."
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "Intentar de Nuevo",
+      "goToHome": "Ir al Inicio"
+    }
+  },
+  "profile": {
+    "logoAlt": "Logo de {{name}}",
+    "verified": "Práctica verificada",
+    "slug": "Slug de práctica: @{{slug}}"
+  }
+}

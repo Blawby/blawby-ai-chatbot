@@ -1,0 +1,30 @@
+{
+  "notFound": {
+    "title": "未找到组织",
+    "description": {
+      "prefix": "我们无法找到该组织",
+      "suffix": "这可能是因为："
+    },
+    "reasons": {
+      "incorrectId": "组织 ID 可能不正确",
+      "movedOrRemoved": "该组织可能已被移动或删除",
+      "outdatedLink": "您可能有一个过时的链接"
+    },
+    "helpText": {
+      "prefix": "请检查 URL 或重试。如果您仍然遇到问题，请访问",
+      "middle": "或在",
+      "suffix": "上联系我们获取支持。"
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "重试",
+      "goToHome": "返回首页"
+    }
+  },
+  "profile": {
+    "logoAlt": "{{name}} 徽标",
+    "verified": "已验证的律师事务所",
+    "slug": "律师事务所标识: @{{slug}}"
+  }
+}

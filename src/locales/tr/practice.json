@@ -1,0 +1,30 @@
+{
+  "notFound": {
+    "title": "Organizasyon Bulunamadı",
+    "description": {
+      "prefix": "Organizasyonu bulamadık",
+      "suffix": "Bunun nedeni şu olabilir:"
+    },
+    "reasons": {
+      "incorrectId": "Organizasyon ID'si yanlış olabilir",
+      "movedOrRemoved": "Organizasyon taşınmış veya kaldırılmış olabilir",
+      "outdatedLink": "Eski bir bağlantınız olabilir"
+    },
+    "helpText": {
+      "prefix": "Lütfen URL'yi kontrol edin veya tekrar deneyin. Sorunlar devam ederse, ziyaret edin",
+      "middle": "veya bizimle iletişime geçin",
+      "suffix": "destek için."
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "Tekrar Dene",
+      "goToHome": "Ana Sayfaya Git"
+    }
+  },
+  "profile": {
+    "logoAlt": "{{name}} logosu",
+    "verified": "Doğrulanmış uygulama",
+    "slug": "Uygulama slug'ı: @{{slug}}"
+  }
+}

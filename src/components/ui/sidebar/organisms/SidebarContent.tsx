@@ -12,16 +12,16 @@ import { NavigationItem } from '../molecules/NavigationItem';
 import { ChatBubbleOvalLeftEllipsisIcon, DocumentIcon, RocketLaunchIcon } from '@heroicons/react/24/outline';
 import UserProfile from '../../../UserProfile';
 import { MatterStatus } from '../../../../types/matter';
-import type { BusinessOnboardingStatus } from '../../../../hooks/useOrganizationManagement';
+import type { BusinessOnboardingStatus } from '../../../../hooks/usePracticeManagement';
 import { useMattersSidebar, MattersSidebarStatus } from '../../../../hooks/useMattersSidebar';
 import { Input } from '../../input/Input';
 import { Button } from '../../Button';
 
 interface SidebarContentProps {
-  organizationConfig?: {
+  practiceConfig?: {
     name: string;
     profileImage: string | null;
-    organizationId: string;
+    practiceId: string;
   };
   currentRoute: string;
   onGoToChats?: () => void;
@@ -29,7 +29,7 @@ interface SidebarContentProps {
   onOpenOnboarding?: () => void;
   onClose?: () => void;
   matterStatus?: MatterStatus;
-  currentOrganization?: {
+  currentPractice?: {
     id: string;
     subscriptionTier?: string;
   } | null;
@@ -42,14 +42,14 @@ interface SidebarContentProps {
 }
 
 export const SidebarContent = ({
-  organizationConfig,
+  practiceConfig,
   currentRoute,
   onGoToChats,
   onGoToMatter,
   onOpenOnboarding,
   onClose,
   matterStatus,
-  currentOrganization,
+  currentPractice,
   onboardingStatus,
   onboardingHasDraft = false,
   isCollapsed,
@@ -64,8 +64,8 @@ export const SidebarContent = ({
     return 'Setup';
   })();
 
-  const organizationId = organizationConfig?.organizationId;
-  const showMattersSection = Boolean(organizationId) && !isCollapsed;
+  const practiceId = practiceConfig?.practiceId;
+  const showMattersSection = Boolean(practiceId) && !isCollapsed;
 
   const {
     matters,
@@ -78,7 +78,7 @@ export const SidebarContent = ({
     hasMore: hasMoreMatters,
     loadMore: loadMoreMatters
   } = useMattersSidebar({
-    organizationId,
+    practiceId,
     initialStatus: 'lead',
     pageSize: 20,
     autoFetch: showMattersSection
@@ -89,7 +89,7 @@ export const SidebarContent = ({
   // Reset initial selection state when organization changes
   useEffect(() => {
     hasInitialSelection.current = false;
-  }, [organizationId]);
+  }, [practiceId]);
 
   useEffect(() => {
     if (!showMattersSection || !onSelectMatter || matters.length === 0) {
@@ -107,7 +107,7 @@ export const SidebarContent = ({
       onSelectMatter(matters[0].id);
       hasInitialSelection.current = true;
     }
-  }, [matters, onSelectMatter, showMattersSection, selectedMatterId, organizationId]);
+  }, [matters, onSelectMatter, showMattersSection, selectedMatterId, practiceId]);
 
   const statusFilters = useMemo(() => ([
     { value: 'lead', label: 'Leads' },
@@ -134,7 +134,7 @@ export const SidebarContent = ({
     <div className={`flex flex-col h-full bg-light-card-bg dark:bg-dark-card-bg transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-60'}`}>
       {/* Header Section */}
       <SidebarHeader
-        organizationConfig={organizationConfig}
+        practiceConfig={practiceConfig}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
         onClose={onClose}
@@ -272,7 +272,7 @@ export const SidebarContent = ({
       {/* User Profile Section */}
       <UserProfile 
         isCollapsed={isCollapsed} 
-        currentOrganization={currentOrganization} 
+        currentPractice={currentPractice} 
       />
     </div>
   );

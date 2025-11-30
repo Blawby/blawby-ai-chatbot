@@ -1,22 +1,13 @@
--- Blawby AI Chatbot Database Schema
+-- Blawby Conversation System Database Schema
 
 -- Enable foreign key constraints
 PRAGMA foreign_keys = ON;
 
--- Organizations table
-CREATE TABLE IF NOT EXISTS organizations (
-  id TEXT PRIMARY KEY, -- This will be the ULID
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE, -- Human-readable identifier (e.g., "north-carolina-legal-services")
-  domain TEXT,
-  config JSON,
-  stripe_customer_id TEXT UNIQUE,
-  subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'plus', 'business', 'enterprise')),
-  seats INTEGER DEFAULT 1 CHECK (seats > 0),
-  is_personal INTEGER DEFAULT 0 NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+-- Organizations table removed
+-- All practice data is now managed by remote API (staging-api.blawby.com)
+-- Conversation config for practices is stored in practice.metadata.conversationConfig
+-- Workspaces use hardcoded defaults with no storage needed
+-- Conversation tables (conversations, messages, contact_forms, files, etc.) use organization_id as TEXT reference only (no FK constraint)
 
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
@@ -70,7 +61,11 @@ CREATE TABLE IF NOT EXISTS services (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Lawyers table for organization member management
+-- Lawyers table for lawyer profiles within practices
+-- NOTE: This is NOT a replacement for the members table. The members table was for
+-- practice membership (user_id, organization_id, role) and is now handled by remote API.
+-- This lawyers table is for lawyer profiles (specialties, bar numbers, hourly rates, etc.)
+-- used for matter assignment and lawyer search functionality.
 CREATE TABLE IF NOT EXISTS lawyers (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL,
@@ -311,38 +306,8 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_eve
 -- Only chatbot-related tables remain below
 
 -- Note: The users table has been removed - user management is handled by remote API
--- The following tables are kept for chatbot functionality:
--- - organizations: For FK references in chatbot data
--- - members: For organization membership (used by workspace endpoints)
--- - invitations: For organization invitations (used by workspace endpoints)
-
--- ========================================
--- ORGANIZATION MEMBERSHIP TABLES (for workspace endpoints)
--- ========================================
--- Note: These tables are kept for workspace endpoints that need membership data
--- User management is handled by remote API, but membership data may still be needed locally
-
--- Organization members for Better Auth multi-tenancy
-CREATE TABLE IF NOT EXISTS members (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  role TEXT NOT NULL, -- 'owner', 'admin', 'attorney', 'paralegal'
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL,
-  UNIQUE(organization_id, user_id)
-);
-
--- Invitations for organization member onboarding
-CREATE TABLE IF NOT EXISTS invitations (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  email TEXT NOT NULL,
-  role TEXT NOT NULL,
-  status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'declined', 'expired'
-  invited_by TEXT NOT NULL,
-  expires_at INTEGER NOT NULL,
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL
-);
+-- The organizations table has been removed - all organization data is managed by remote API
+-- Chatbot tables use organization_id as TEXT reference only (no FK constraint)
 
 -- Stripe subscription table removed - subscription management is handled by remote API
 
@@ -358,11 +323,6 @@ CREATE TABLE IF NOT EXISTS organization_events (
 
 -- Auth tables (sessions, accounts, verifications) removed - managed by remote API
 
--- Create indexes for organization membership tables
-CREATE INDEX IF NOT EXISTS idx_member_org ON members(organization_id);
-CREATE INDEX IF NOT EXISTS idx_member_user ON members(user_id);
-CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email);
-CREATE INDEX IF NOT EXISTS idx_invitations_organization ON invitations(organization_id);
 CREATE INDEX IF NOT EXISTS idx_org_events_org_created ON organization_events(organization_id, created_at DESC);
 
 -- Create indexes for user_id columns
@@ -382,13 +342,6 @@ CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id);
 
 -- Auth table triggers removed - user management is handled by remote API
 
--- Trigger for organizations table
-CREATE TRIGGER IF NOT EXISTS trigger_organizations_updated_at
-  AFTER UPDATE ON organizations
-  FOR EACH ROW
-  WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-  UPDATE organizations SET updated_at = (strftime('%s', 'now') * 1000) WHERE id = NEW.id;
-END;
+-- Organizations table trigger removed - organizations table no longer exists (managed by remote API)
 
 -- Subscription table trigger removed - subscription management is handled by remote API

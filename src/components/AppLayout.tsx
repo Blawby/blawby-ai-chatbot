@@ -3,13 +3,13 @@ import type { ComponentChildren } from 'preact';
 import { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'preact/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
-import { OrganizationNotFound } from './OrganizationNotFound';
+import { PracticeNotFound } from './PracticeNotFound';
 import LeftSidebar from './LeftSidebar';
 // Onboarding is now routed via /business-onboarding
 import MobileTopNav from './MobileTopNav';
 import MediaSidebar from './MediaSidebar';
 import PrivacySupportSidebar from './PrivacySupportSidebar';
-import OrganizationProfile from './OrganizationProfile';
+import PracticeProfile from './PracticeProfile';
 import { DebugOverlay } from './DebugOverlay';
 import { features } from '../config/features';
 import { ChatMessageUI, FileAttachment } from '../../worker/types';
@@ -25,7 +25,7 @@ import { debounce } from '../utils/debounce';
 import { useToastContext } from '../contexts/ToastContext';
 import { useNavigation } from '../utils/navigation';
 import { useLocation } from 'preact-iso';
-import type { BusinessOnboardingStatus } from '../hooks/useOrganizationManagement';
+import type { BusinessOnboardingStatus } from '../hooks/usePracticeManagement';
 
 // Simple messages object for localization
 const messages = {
@@ -33,20 +33,20 @@ const messages = {
 };
 
 interface AppLayoutProps {
-  organizationNotFound: boolean;
-  organizationId: string;
-  onRetryOrganizationConfig: () => void;
+  practiceNotFound: boolean;
+  practiceId: string;
+  onRetryPracticeConfig: () => void;
   currentTab: 'chats' | 'matter';
   onTabChange: (tab: 'chats' | 'matter') => void;
   isMobileSidebarOpen: boolean;
   onToggleMobileSidebar: (open: boolean) => void;
   isSettingsModalOpen?: boolean;
-  organizationConfig: {
+  practiceConfig: {
     name: string;
     profileImage: string | null;
     description?: string | null;
   };
-  currentOrganization?: {
+  currentPractice?: {
     id: string;
     subscriptionTier?: string;
     businessOnboardingStatus?: BusinessOnboardingStatus;
@@ -64,16 +64,16 @@ interface AppLayoutProps {
 }
 
 const AppLayout: FunctionComponent<AppLayoutProps> = ({
-  organizationNotFound,
-  organizationId,
-  onRetryOrganizationConfig,
+  practiceNotFound,
+  practiceId,
+  onRetryPracticeConfig,
   currentTab,
   onTabChange,
   isMobileSidebarOpen,
   onToggleMobileSidebar,
   isSettingsModalOpen = false,
-  organizationConfig,
-  currentOrganization,
+  practiceConfig,
+  currentPractice,
   messages: chatMessages,
   onRequestConsultation,
   onSendMessage,
@@ -210,22 +210,22 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   });
 
   const handleOpenOnboarding = useCallback(() => {
-    const orgId = currentOrganization?.id || organizationId;
-    if (!orgId) {
-      showError('Organization loading', 'Select an organization before starting onboarding.');
+    const targetPracticeId = currentPractice?.id || practiceId;
+    if (!targetPracticeId) {
+      showError('Practice loading', 'Select a practice before starting onboarding.');
       return;
     }
     // If launching from settings, replace directly to onboarding (single history replace)
     if (location.path.startsWith('/settings')) {
-      navigate(`/business-onboarding?organizationId=${encodeURIComponent(orgId)}`, true);
+      navigate(`/business-onboarding?practiceId=${encodeURIComponent(targetPracticeId)}`, true);
     } else {
       // Otherwise push normally to preserve previous page in history
-      navigate(`/business-onboarding?organizationId=${encodeURIComponent(orgId)}`);
+      navigate(`/business-onboarding?practiceId=${encodeURIComponent(targetPracticeId)}`);
     }
-  }, [currentOrganization?.id, organizationId, showError, navigate, location.path]);
+  }, [currentPractice?.id, practiceId, showError, navigate, location.path]);
 
-  if (organizationNotFound) {
-    return <OrganizationNotFound organizationId={organizationId} onRetry={onRetryOrganizationConfig} />;
+  if (practiceNotFound) {
+    return <PracticeNotFound practiceId={practiceId} onRetry={onRetryPracticeConfig} />;
   }
 
   // Async-safe wrapper for consultation request
@@ -241,9 +241,9 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     }
   };
 
-  const onboardingStatus = currentOrganization?.businessOnboardingStatus;
-  const hasOnboardingDraft = currentOrganization?.businessOnboardingHasDraft ?? false;
-  const _onboardingOrganizationId = currentOrganization?.id;
+  const onboardingStatus = currentPractice?.businessOnboardingStatus;
+  const hasOnboardingDraft = currentPractice?.businessOnboardingHasDraft ?? false;
+  const _onboardingPracticeId = currentPractice?.id;
 
   return (
     <div className="max-md:h-[100dvh] md:h-screen w-full flex bg-white dark:bg-dark-bg">
@@ -258,12 +258,12 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               onGoToMatter={handleGoToMatter}
               onOpenOnboarding={handleOpenOnboarding}
               matterStatus={matterStatus}
-              organizationConfig={{
-                name: organizationConfig.name,
-                profileImage: organizationConfig.profileImage,
-                organizationId
+              practiceConfig={{
+                name: practiceConfig.name,
+                profileImage: practiceConfig.profileImage,
+                practiceId
               }}
-              currentOrganization={currentOrganization}
+              currentPractice={currentPractice}
               onboardingStatus={onboardingStatus}
               onboardingHasDraft={hasOnboardingDraft}
               selectedMatterId={selectedMatterId}
@@ -324,12 +324,12 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                     }}
                     onClose={() => onToggleMobileSidebar(false)}
                     matterStatus={matterStatus}
-                    organizationConfig={{
-                      name: organizationConfig.name,
-                      profileImage: organizationConfig.profileImage,
-                      organizationId
+                    practiceConfig={{
+                      name: practiceConfig.name,
+                      profileImage: practiceConfig.profileImage,
+                      practiceId
                     }}
-                    currentOrganization={currentOrganization}
+                    currentPractice={currentPractice}
                     onboardingStatus={onboardingStatus}
                     onboardingHasDraft={hasOnboardingDraft}
                     selectedMatterId={selectedMatterId}
@@ -368,11 +368,11 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       {/* Right Sidebar - Fixed width, hidden on mobile */}
       <div className="w-80 overflow-y-auto scrollbar-hide hidden lg:block p-2">
         <div className="bg-light-card-bg dark:bg-dark-card-bg rounded-lg p-6 text-gray-900 dark:text-white flex flex-col gap-6 h-full">
-          <OrganizationProfile
-            name={organizationConfig.name}
-            profileImage={organizationConfig.profileImage}
-            organizationId={organizationId}
-            description={organizationConfig.description}
+          <PracticeProfile
+            name={practiceConfig.name}
+            profileImage={practiceConfig.profileImage}
+            practiceId={practiceId}
+            description={practiceConfig.description}
             variant="sidebar"
             showVerified={true}
           />
@@ -392,7 +392,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
           )}
 
           {/* Activity Timeline Section */}
-          <ActivityTimeline organizationId={organizationId} />
+          <ActivityTimeline practiceId={practiceId} />
 
           {/* Media Section */}
           <MediaSidebar messages={chatMessages} />

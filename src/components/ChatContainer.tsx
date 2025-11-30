@@ -12,15 +12,15 @@ interface ChatContainerProps {
   messages: ChatMessageUI[];
   onSendMessage: (message: string, attachments: FileAttachment[]) => void;
   onContactFormSubmit?: (data: ContactData) => void;
-  organizationConfig?: {
+  practiceConfig?: {
     name: string;
     profileImage: string | null;
-    organizationId: string;
+    practiceId: string;
     description?: string | null;
   };
   onOpenSidebar?: () => void;
   sessionId?: string;
-  organizationId?: string;
+  practiceId?: string;
   onFeedbackSubmit?: (feedback: unknown) => void;
 
   // File handling props
@@ -47,10 +47,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   messages,
   onSendMessage,
   onContactFormSubmit,
-  organizationConfig,
+  practiceConfig,
   onOpenSidebar,
   sessionId,
-  organizationId,
+  practiceId,
   onFeedbackSubmit,
   previewFiles,
   uploadingFiles,
@@ -146,11 +146,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       <main className="flex flex-col h-full w-full overflow-hidden relative bg-white dark:bg-dark-bg">
         <VirtualMessageList
           messages={messages}
-          organizationConfig={organizationConfig}
+          practiceConfig={practiceConfig}
           onOpenSidebar={onOpenSidebar}
           onContactFormSubmit={onContactFormSubmit}
           sessionId={sessionId}
-          organizationId={organizationId}
+          practiceId={practiceId}
           onFeedbackSubmit={onFeedbackSubmit}
         />
         

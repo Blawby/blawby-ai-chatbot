@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '../ui/Button';
 import { MatterStatusBadge } from '../matters/StatusBadge';
-import { getOrganizationWorkspaceEndpoint } from '../../config/api';
-import type { MatterWorkflowStatus, MatterTransitionResult } from '../../hooks/useOrganizationManagement';
+import { getPracticeWorkspaceEndpoint } from '../../config/api';
+import type { MatterWorkflowStatus, MatterTransitionResult } from '../../hooks/usePracticeManagement';
 
 interface ConversationHeaderProps {
-  organizationId?: string;
+  practiceId?: string;
   matterId?: string | null;
-  acceptMatter: (orgId: string, matterId: string) => Promise<MatterTransitionResult>;
-  rejectMatter: (orgId: string, matterId: string) => Promise<MatterTransitionResult>;
-  updateMatterStatus: (orgId: string, matterId: string, status: MatterWorkflowStatus) => Promise<MatterTransitionResult>;
+  acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
+  rejectMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
+  updateMatterStatus: (practiceId: string, matterId: string, status: MatterWorkflowStatus) => Promise<MatterTransitionResult>;
 }
 
 interface MatterSummary {
@@ -42,7 +42,7 @@ const STATUS_TRANSITIONS: Record<MatterWorkflowStatus, MatterWorkflowStatus[]> =
 };
 
 export const ConversationHeader = ({
-  organizationId,
+  practiceId,
   matterId,
   acceptMatter,
   rejectMatter,
@@ -54,7 +54,7 @@ export const ConversationHeader = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!organizationId || !matterId) {
+    if (!practiceId || !matterId) {
       setMatter(null);
       setError(null);
       return;
@@ -65,7 +65,7 @@ export const ConversationHeader = ({
       setLoading(true);
       setError(null);
       try {
-        const endpoint = `${getOrganizationWorkspaceEndpoint(organizationId, 'matters')}/${encodeURIComponent(matterId)}`;
+        const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(matterId)}`;
         const response = await fetch(endpoint, {
           method: 'GET',
           credentials: 'include',
@@ -130,14 +130,14 @@ export const ConversationHeader = ({
 
     void fetchMatter();
     return () => controller.abort();
-  }, [organizationId, matterId]);
+  }, [practiceId, matterId]);
 
   const handleAccept = async () => {
-    if (!organizationId || !matterId) return;
+    if (!practiceId || !matterId) return;
     setActionLoading(true);
     setError(null);
     try {
-      const result = await acceptMatter(organizationId, matterId);
+      const result = await acceptMatter(practiceId, matterId);
       setMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: result.acceptedBy ?? prev.acceptedBy } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to accept lead';
@@ -148,11 +148,11 @@ export const ConversationHeader = ({
   };
 
   const handleReject = async () => {
-    if (!organizationId || !matterId) return;
+    if (!practiceId || !matterId) return;
     setActionLoading(true);
     setError(null);
     try {
-      const result = await rejectMatter(organizationId, matterId);
+      const result = await rejectMatter(practiceId, matterId);
       setMatter(prev => prev ? { ...prev, status: result.status, acceptedBy: null } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to reject lead';
@@ -163,12 +163,12 @@ export const ConversationHeader = ({
   };
 
   const handleStatusChange = async (nextStatus: MatterWorkflowStatus) => {
-    if (!organizationId || !matterId || !matter) return;
+    if (!practiceId || !matterId || !matter) return;
     if (nextStatus === matter.status) return;
     setActionLoading(true);
     setError(null);
     try {
-      const result = await updateMatterStatus(organizationId, matterId, nextStatus);
+      const result = await updateMatterStatus(practiceId, matterId, nextStatus);
       setMatter(prev => prev ? { ...prev, status: result.status } : prev);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update status';
@@ -192,7 +192,7 @@ export const ConversationHeader = ({
     return STATUS_OPTIONS.filter(option => allowed.has(option.value));
   }, [matter]);
 
-  if (!organizationId || !matterId) {
+  if (!practiceId || !matterId) {
     return null;
   }
 

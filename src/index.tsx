@@ -12,8 +12,8 @@ import { ToastProvider } from './contexts/ToastContext';
 import { SessionProvider, useSessionContext } from './contexts/SessionContext';
 import { useSession } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
-import { resolveOrganizationKind } from './utils/subscription';
-import type { UIOrganizationConfig } from './hooks/useOrganizationConfig';
+import { resolvePracticeKind } from './utils/subscription';
+import type { UIPracticeConfig } from './hooks/usePracticeConfig';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
@@ -29,10 +29,10 @@ import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPag
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
 import { useToastContext } from './contexts/ToastContext';
-import { useOrganizationConfig } from './hooks/useOrganizationConfig';
-import { useOrganizationManagement } from './hooks/useOrganizationManagement';
+import { usePracticeConfig } from './hooks/usePracticeConfig';
+import { usePracticeManagement } from './hooks/usePracticeManagement';
 import QuotaBanner from './components/QuotaBanner';
-import { PLATFORM_ORGANIZATION_ID } from './utils/constants';
+import { PLATFORM_PRACTICE_ID } from './utils/constants';
 import { listPractices, createPractice } from './lib/apiClient';
 import './index.css';
 import { i18n, initI18n } from './i18n';
@@ -47,15 +47,15 @@ const DEFAULT_CONSULTATION_FEE = Number.parseFloat(
 
 // Main application component (non-auth pages)
 function MainApp({ 
-	organizationId, 
-	organizationConfig, 
-	organizationNotFound, 
-	handleRetryOrganizationConfig
+	practiceId, 
+	practiceConfig, 
+	practiceNotFound, 
+	handleRetryPracticeConfig
 }: {
-	organizationId: string;
-	organizationConfig: UIOrganizationConfig;
-	organizationNotFound: boolean;
-	handleRetryOrganizationConfig: () => void;
+	practiceId: string;
+	practiceConfig: UIPracticeConfig;
+	practiceNotFound: boolean;
+	handleRetryPracticeConfig: () => void;
 }) {
 	// Core state
 	const [clearInputTrigger, setClearInputTrigger] = useState(0);
@@ -75,22 +75,22 @@ function MainApp({
 	// Use session from Better Auth
 	const { data: session, isPending: sessionIsPending } = useSession();
 
-	// Organization data is now passed as props
+	// Practice data is now passed as props
 	
-  // Using our custom organization system instead of Better Auth's organization plugin
+  // Using our custom practice system instead of Better Auth's organization plugin
 	// Removed unused submitUpgrade
 	const { showError } = useToastContext();
 	const showErrorRef = useRef(showError);
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { quota, refreshQuota, activeOrganizationSlug: _activeOrganizationSlug, activeOrganizationId } = useSessionContext();
-	const { currentOrganization, refetch: refetchOrganizations, acceptMatter, rejectMatter, updateMatterStatus } = useOrganizationManagement();
+	const { quota, refreshQuota, activePracticeId } = useSessionContext();
+	const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
 	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
 
 	useEffect(() => {
 		setSelectedMatterId(null);
-	}, [organizationId]);
+	}, [practiceId]);
 
 	const isQuotaRestricted = Boolean(
 		quota &&
@@ -100,7 +100,7 @@ function MainApp({
 	);
 
 	const quotaUsageMessage = isQuotaRestricted
-		? (activeOrganizationId === PLATFORM_ORGANIZATION_ID
+		? (activePracticeId === PLATFORM_PRACTICE_ID
 			? 'You have used all available anonymous messages for this month.'
 			: 'You have reached the monthly message limit for your current plan.')
 		: null;
@@ -185,19 +185,6 @@ function MainApp({
                             if (practices.length === 0) {
                                 const userName = session.user.name || session.user.email?.split('@')[0] || 'User';
                                 const practiceName = `${userName}'s Practice`;
-                                const sanitizedUserId = (session.user.id ?? '')
-                                    .toString()
-                                    .toLowerCase()
-                                    .replace(/[^a-z0-9]/g, '');
-                                const randomSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
-                                    ? crypto.randomUUID().replace(/-/g, '').slice(0, 8)
-                                    : Math.random().toString(36).slice(2, 10);
-                                const slugSource = sanitizedUserId && sanitizedUserId.length >= 12
-                                    ? sanitizedUserId
-                                    : `${sanitizedUserId}-${randomSuffix}`;
-                                const practiceSlug = `practice-${slugSource}`
-                                    .replace(/--+/g, '-')
-                                    .slice(0, 64);
                                 const businessPhone = DEFAULT_PRACTICE_PHONE.length
                                     ? DEFAULT_PRACTICE_PHONE
                                     : undefined;
@@ -208,7 +195,6 @@ function MainApp({
 
                                 await createPractice({
                                     name: practiceName,
-                                    slug: practiceSlug,
                                     businessEmail: session.user.email || undefined,
                                     ...(businessPhone ? { businessPhone } : {}),
                                     ...(consultationFee ? { consultationFee } : {})
@@ -305,16 +291,16 @@ function MainApp({
 	// Handle hash-based routing for pricing modal
 	const [showPricingModal, setShowPricingModal] = useState(false);
 	
-  // Derive current user tier from organization config (our custom system)
-  // Note: subscriptionTier is on Organization, not OrganizationConfig
-  const resolvedKindForTier = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
+  // Derive current user tier from practice config (our custom system)
+  // Note: subscriptionTier is on Practice
+  const resolvedKindForTier = resolvePracticeKind(currentPractice?.kind, currentPractice?.isPersonal ?? null);
   
   // Whitelist of valid SubscriptionTier values
   const VALID_SUBSCRIPTION_TIERS: SubscriptionTier[] = ['free', 'plus', 'business', 'enterprise'];
   
   // Normalize and validate subscriptionTier
-  const normalizedTier = currentOrganization?.subscriptionTier
-    ? currentOrganization.subscriptionTier.trim().toLowerCase()
+  const normalizedTier = currentPractice?.subscriptionTier
+    ? currentPractice.subscriptionTier.trim().toLowerCase()
     : null;
   
   // Find matching tier from whitelist (case-insensitive) to avoid unsafe casts
@@ -345,25 +331,25 @@ function MainApp({
 		};
 	}, []);
 
-	// User tier is now derived directly from organization - no need for custom event listeners
+	// User tier is now derived directly from practice - no need for custom event listeners
 
 	const isSessionReady = Boolean(sessionId);
 
 
-	// Add intro message when organization config is loaded and no messages exist
+	// Add intro message when practice config is loaded and no messages exist
 	useEffect(() => {
-		if (organizationConfig && organizationConfig.introMessage && messages.length === 0) {
-			// Add intro message only (organization profile is now a UI element)
+		if (practiceConfig && practiceConfig.introMessage && messages.length === 0) {
+			// Add intro message only (practice profile is now a UI element)
 			const introMessage: ChatMessageUI = {
 				id: crypto.randomUUID(),
-				content: organizationConfig.introMessage,
+				content: practiceConfig.introMessage,
 				isUser: false,
 				role: 'assistant',
 				timestamp: Date.now()
 			};
 			addMessage(introMessage);
 		}
-	}, [organizationConfig, messages.length, addMessage]);
+	}, [practiceConfig, messages.length, addMessage]);
 
 	// Create stable callback references for keyboard handlers
 	const handleEscape = useCallback(() => {
@@ -477,7 +463,7 @@ function MainApp({
 
 	const handleBusinessWelcomeClose = () => {
 		setShowBusinessWelcome(false);
-		navigate('/settings/organization');
+		navigate('/settings/practice');
 	};
 
 
@@ -519,21 +505,21 @@ function MainApp({
 			<DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
 			
 			<AppLayout
-				organizationNotFound={organizationNotFound}
-				organizationId={organizationId}
-				onRetryOrganizationConfig={handleRetryOrganizationConfig}
+				practiceNotFound={practiceNotFound}
+				practiceId={practiceId}
+				onRetryPracticeConfig={handleRetryPracticeConfig}
 				currentTab={currentTab}
 				onTabChange={setCurrentTab}
 				isMobileSidebarOpen={isMobileSidebarOpen}
 				onToggleMobileSidebar={setIsMobileSidebarOpen}
 				isSettingsModalOpen={isSettingsRouteNow}
-				organizationConfig={{
-					name: organizationConfig.name ?? '',
-					profileImage: organizationConfig?.profileImage ?? null,
-					description: organizationConfig?.description ?? ''
+				practiceConfig={{
+					name: practiceConfig.name ?? '',
+					profileImage: practiceConfig?.profileImage ?? null,
+					description: practiceConfig?.description ?? ''
 				}}
-				currentOrganization={currentOrganization}
-				onOnboardingCompleted={refetchOrganizations}
+				currentPractice={currentPractice}
+				onOnboardingCompleted={refetchPractices}
 				messages={messages}
 				onSendMessage={handleSendMessage}
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
@@ -544,7 +530,7 @@ function MainApp({
 			>
 				<div className="relative h-full flex flex-col">
 					<ConversationHeader
-						organizationId={organizationId}
+						practiceId={practiceId}
 						matterId={selectedMatterId}
 						acceptMatter={acceptMatter}
 						rejectMatter={rejectMatter}
@@ -563,15 +549,15 @@ function MainApp({
 							messages={messages}
 							onSendMessage={handleSendMessage}
 							onContactFormSubmit={handleContactFormSubmit}
-							organizationConfig={{
-								name: organizationConfig.name ?? '',
-								profileImage: organizationConfig?.profileImage ?? null,
-								organizationId,
-								description: organizationConfig?.description ?? ''
+							practiceConfig={{
+								name: practiceConfig.name ?? '',
+								profileImage: practiceConfig?.profileImage ?? null,
+								practiceId,
+								description: practiceConfig?.description ?? ''
 							}}
 							onOpenSidebar={() => setIsMobileSidebarOpen(true)}
 							sessionId={sessionId}
-							organizationId={'blawby-ai'}
+							practiceId={practiceId}
 							onFeedbackSubmit={handleFeedbackSubmit}
 							previewFiles={previewFiles}
 							uploadingFiles={uploadingFiles}
@@ -678,29 +664,29 @@ export function App() {
   return (
     <LocationProvider>
       <SessionProvider>
-        <AppWithOrganization />
+        <AppWithPractice />
       </SessionProvider>
     </LocationProvider>
   );
 }
 
-// Component that loads organization config when authenticated
-function AppWithOrganization() {
+// Component that loads practice config when authenticated
+function AppWithPractice() {
   const { data: session, isPending: sessionIsPending } = useSession();
-  const handleOrgError = useCallback((error: string) => {
-    console.error('Organization config error:', error);
+  const handlePracticeError = useCallback((error: string) => {
+    console.error('Practice config error:', error);
   }, []);
 
-  // Only load organization config when authenticated
+  // Only load practice config when authenticated
   const {
-    organizationId,
-    organizationConfig,
-    organizationNotFound,
-    handleRetryOrganizationConfig,
+    practiceId,
+    practiceConfig,
+    practiceNotFound,
+    handleRetryPracticeConfig,
     isLoading
-  } = useOrganizationConfig({ onError: handleOrgError });
+  } = usePracticeConfig({ onError: handlePracticeError });
 
-  // Show loading state while checking auth or loading org config
+  // Show loading state while checking auth or loading practice config
   if (isLoading || sessionIsPending) {
     return (
       <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
@@ -711,26 +697,26 @@ function AppWithOrganization() {
 
   return (
     <AppWithSEO
-      organizationId={organizationId}
-      organizationConfig={organizationConfig}
-      organizationNotFound={organizationNotFound}
-      handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+      practiceId={practiceId}
+      practiceConfig={practiceConfig}
+      practiceNotFound={practiceNotFound}
+      handleRetryPracticeConfig={handleRetryPracticeConfig}
       session={session}
     />
   );
 }
 
 function AppWithSEO({
-  organizationId,
-  organizationConfig,
-  organizationNotFound,
-  handleRetryOrganizationConfig,
+  practiceId,
+  practiceConfig,
+  practiceNotFound,
+  handleRetryPracticeConfig,
   session,
 }: {
-  organizationId: string;
-  organizationConfig: UIOrganizationConfig;
-  organizationNotFound: boolean;
-  handleRetryOrganizationConfig: () => void;
+  practiceId: string;
+  practiceConfig: UIPracticeConfig;
+  practiceNotFound: boolean;
+  handleRetryPracticeConfig: () => void;
   session: ReturnType<typeof useSession>['data'];
 }) {
   const location = useLocation();
@@ -764,20 +750,20 @@ function AppWithSEO({
 		return function SettingsRouteInner(props: Record<string, unknown>) {
 			return (
 				<MainApp 
-					organizationId={organizationId}
-					organizationConfig={organizationConfig}
-					organizationNotFound={organizationNotFound}
-					handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+					practiceId={practiceId}
+					practiceConfig={practiceConfig}
+					practiceNotFound={practiceNotFound}
+					handleRetryPracticeConfig={handleRetryPracticeConfig}
 					{...props}
 				/>
 			);
 		};
-	}, [organizationId, organizationConfig, organizationNotFound, handleRetryOrganizationConfig]);
+	}, [practiceId, practiceConfig, practiceNotFound, handleRetryPracticeConfig]);
 
 	return (
 		<>
 			<SEOHead 
-				organizationConfig={organizationConfig}
+				practiceConfig={practiceConfig}
 				currentUrl={currentUrl}
 			/>
 			<ToastProvider>
@@ -794,10 +780,10 @@ function AppWithSEO({
 						}
 						return (
 							<MainApp
-								organizationId={organizationId}
-								organizationConfig={organizationConfig}
-								organizationNotFound={organizationNotFound}
-								handleRetryOrganizationConfig={handleRetryOrganizationConfig}
+								practiceId={practiceId}
+								practiceConfig={practiceConfig}
+								practiceNotFound={practiceNotFound}
+								handleRetryPracticeConfig={handleRetryPracticeConfig}
 								{...props}
 							/>
 						);

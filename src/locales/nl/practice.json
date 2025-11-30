@@ -1,0 +1,30 @@
+{
+  "notFound": {
+    "title": "Organisatie Niet Gevonden",
+    "description": {
+      "prefix": "We konden de organisatie niet vinden",
+      "suffix": "Dit kan zijn omdat:"
+    },
+    "reasons": {
+      "incorrectId": "De organisatie-ID is mogelijk onjuist",
+      "movedOrRemoved": "De organisatie is mogelijk verplaatst of verwijderd",
+      "outdatedLink": "U heeft mogelijk een verouderde link"
+    },
+    "helpText": {
+      "prefix": "Controleer de URL of probeer opnieuw. Als de problemen aanhouden, bezoek",
+      "middle": "of neem contact met ons op via",
+      "suffix": "voor ondersteuning."
+    },
+    "helpLink": "blawby.com/help",
+    "githubLink": "GitHub",
+    "actions": {
+      "tryAgain": "Opnieuw Proberen",
+      "goToHome": "Naar Startpagina"
+    }
+  },
+  "profile": {
+    "logoAlt": "{{name}} logo",
+    "verified": "Geverifieerde praktijk",
+    "slug": "Praktijk slug: @{{slug}}"
+  }
+}

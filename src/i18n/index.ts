@@ -7,7 +7,7 @@ import settingsEn from '../locales/en/settings.json';
 import authEn from '../locales/en/auth.json';
 import profileEn from '../locales/en/profile.json';
 import pricingEn from '../locales/en/pricing.json';
-import organizationEn from '../locales/en/organization.json';
+import practiceEn from '../locales/en/practice.json';
 
 export const DEFAULT_LOCALE = 'en' as const;
 
@@ -57,7 +57,7 @@ export const isRTLLocale = (locale: AnyLocale): boolean => {
   return RTL_LOCALES.has(normalized as AppLocale);
 };
 
-const NAMESPACES = ['common', 'settings', 'auth', 'profile', 'pricing', 'organization'] as const;
+const NAMESPACES = ['common', 'settings', 'auth', 'profile', 'pricing', 'practice'] as const;
 
 // Type for locale resource bundles
 type LocaleResourceBundle = Record<string, string>;
@@ -69,7 +69,7 @@ type LocaleIndexModule = {
   auth: LocaleResourceBundle;
   profile: LocaleResourceBundle;
   pricing: LocaleResourceBundle;
-  organization: LocaleResourceBundle;
+  practice: LocaleResourceBundle;
 };
 
 // Create typed loader maps for Vite static analysis
@@ -87,7 +87,7 @@ const staticResources = {
     auth: authEn,
     profile: profileEn,
     pricing: pricingEn,
-    organization: organizationEn
+    practice: practiceEn
   }
 };
 

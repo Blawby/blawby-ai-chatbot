@@ -5,7 +5,7 @@ import { AccountPage } from './pages/AccountPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { MFAEnrollmentPage } from './pages/MFAEnrollmentPage';
 import { HelpPage } from './pages/HelpPage';
-import { OrganizationPage } from './pages/OrganizationPage';
+import { PracticePage } from './pages/PracticePage';
 import { SidebarNavigation, SidebarNavigationItem } from '../ui/SidebarNavigation';
 import { 
   UserIcon, 
@@ -102,7 +102,7 @@ export const SettingsPage = ({
       case 'account':
         return <AccountPage isMobile={isMobile} onClose={onClose} className="h-full" />;
       case 'organization':
-        return <OrganizationPage className="h-full" />;
+        return <PracticePage className="h-full" />;
       case 'security':
         return <SecurityPage isMobile={isMobile} onClose={onClose} className="h-full" />;
       case 'help':

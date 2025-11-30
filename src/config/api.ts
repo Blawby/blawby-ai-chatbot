@@ -27,11 +27,11 @@ function getBaseUrl(): string {
 }
 
 /**
- * Get the base URL for remote API requests (organization/subscription management)
+ * Get the base URL for remote API requests (practice/subscription management)
  * - Uses staging-api.blawby.com for management endpoints
  * - Can be overridden with VITE_REMOTE_API_URL environment variable
  */
-function getRemoteApiUrl(): string {
+export function getRemoteApiUrl(): string {
   if (import.meta.env.VITE_REMOTE_API_URL) {
     return import.meta.env.VITE_REMOTE_API_URL;
   }
@@ -41,7 +41,7 @@ function getRemoteApiUrl(): string {
 const API_CONFIG = {
   baseUrl: getBaseUrl(),
   chatEndpoint: '/api/chat',
-  organizationsEndpoint: '/api/organizations',
+  practicesEndpoint: '/api/practices',
   healthEndpoint: '/api/health',
   matterCreationEndpoint: '/api/matter-creation'
 };
@@ -65,10 +65,10 @@ export const getFeedbackEndpoint = () => {
   return `${config.baseUrl}/api/feedback`;
 };
 
-// Organization workspace endpoints (chatbot data) - still local
-export const getOrganizationsEndpoint = () => {
+// Practice workspace endpoints (chatbot data) - still local
+export const getPracticesEndpoint = () => {
   const config = getApiConfig();
-  return `${config.baseUrl}${config.organizationsEndpoint}`;
+  return `${config.baseUrl}${config.practicesEndpoint}`;
 };
 
 export const getHealthEndpoint = () => {
@@ -108,16 +108,16 @@ export const getSubscriptionCancelEndpoint = () => {
   return `${getRemoteApiUrl()}/api/subscription/cancel`;
 };
 
-// Organization management endpoints - now handled by remote API
-export const getOrganizationsManagementEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/organizations`;
+// Practice management endpoints - now handled by remote API
+export const getPracticesManagementEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/practices`;
 };
 
-export const getOrganizationManagementEndpoint = (orgId: string) => {
-  return `${getRemoteApiUrl()}/api/organizations/${encodeURIComponent(orgId)}`;
+export const getPracticeManagementEndpoint = (practiceId: string) => {
+  return `${getRemoteApiUrl()}/api/practices/${encodeURIComponent(practiceId)}`;
 };
 
-export const getOrganizationWorkspaceEndpoint = (orgId: string, resource: string) => {
+export const getPracticeWorkspaceEndpoint = (practiceId: string, resource: string) => {
   const config = getApiConfig();
-  return `${config.baseUrl}/api/organizations/${encodeURIComponent(orgId)}/workspace/${encodeURIComponent(resource)}`;
+  return `${config.baseUrl}/api/practices/${encodeURIComponent(practiceId)}/workspace/${encodeURIComponent(resource)}`;
 };

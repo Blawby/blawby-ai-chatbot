@@ -1,6 +1,0 @@
--- Migration removed: Enhanced pii_access_audit table is now in schema.sql
--- This migration (v2) was superseded by v3, which is also now in schema.sql
--- Date removed: 2025-01-08
--- 
--- If you have an existing database that needs these, they should already exist
--- from when this migration was first run. Fresh databases get everything from schema.sql.

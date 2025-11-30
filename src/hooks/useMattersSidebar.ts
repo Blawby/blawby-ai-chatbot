@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { getOrganizationWorkspaceEndpoint } from '../config/api';
+import { getPracticeWorkspaceEndpoint } from '../config/api';
 
 export type MattersSidebarStatus = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
 
@@ -20,7 +20,7 @@ export interface MattersSidebarItem {
 }
 
 interface UseMattersSidebarOptions {
-  organizationId?: string;
+  practiceId?: string;
   initialStatus?: MattersSidebarStatus;
   pageSize?: number;
   autoFetch?: boolean;
@@ -209,7 +209,7 @@ export function normalizeMattersResponse(
 
 export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMattersSidebarResult {
   const {
-    organizationId,
+    practiceId,
     initialStatus = 'lead',
     pageSize = 25,
     autoFetch = true,
@@ -228,7 +228,7 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
   const fetchMattersRef = useRef<((append?: boolean, overrideSearch?: string) => Promise<void>) | null>(null);
   const resetPaginationRef = useRef<(() => void) | null>(null);
   const searchDelayMsRef = useRef(searchDelayMs);
-  const organizationIdRef = useRef(organizationId);
+  const practiceIdRef = useRef(practiceId);
 
   const setSearchTerm = useCallback((value: string) => {
     setSearchTermState(value);
@@ -241,7 +241,7 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
   }, []);
 
   const fetchMatters = useCallback(async (append: boolean = false, overrideSearch?: string) => {
-    if (!organizationId) {
+    if (!practiceId) {
       setMatters([]);
       setError(null);
       return;
@@ -257,7 +257,7 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
     setError(null);
 
     try {
-      const baseUrl = getOrganizationWorkspaceEndpoint(organizationId, 'matters');
+      const baseUrl = getPracticeWorkspaceEndpoint(practiceId, 'matters');
       const params = new URLSearchParams();
       params.set('limit', String(pageSize));
       params.set('status', status);
@@ -309,7 +309,7 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
       setLoading(false);
       abortControllerRef.current = null;
     }
-  }, [organizationId, pageSize, status]);
+  }, [practiceId, pageSize, status]);
 
   const refresh = useCallback(async () => {
     resetPagination();
@@ -342,8 +342,8 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
   }, [searchDelayMs]);
 
   useEffect(() => {
-    organizationIdRef.current = organizationId;
-  }, [organizationId]);
+    practiceIdRef.current = practiceId;
+  }, [practiceId]);
 
   // Auto fetch on organization/status change
   useEffect(() => {
@@ -352,11 +352,11 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
     }
     resetPagination();
     void fetchMatters(false);
-  }, [autoFetch, fetchMatters, resetPagination, status, organizationId]);
+  }, [autoFetch, fetchMatters, resetPagination, status, practiceId]);
 
   // Debounced search updates - only responds to searchTerm changes
   useEffect(() => {
-    if (!autoFetch || !organizationIdRef.current || !fetchMattersRef.current || !resetPaginationRef.current) {
+    if (!autoFetch || !practiceIdRef.current || !fetchMattersRef.current || !resetPaginationRef.current) {
       return;
     }
 

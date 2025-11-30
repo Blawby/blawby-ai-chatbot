@@ -91,10 +91,10 @@ interface MessageProps {
 		matterType: string;
 		storageKey?: string;
 	};
-	organizationConfig?: {
+	practiceConfig?: {
 		name: string;
 		profileImage: string | null;
-		organizationId: string;
+		practiceId: string;
 	};
 	onOpenSidebar?: () => void;
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
@@ -104,7 +104,7 @@ interface MessageProps {
 	// Feedback props
 	id?: string;
 	sessionId?: string;
-	organizationId?: string;
+	practiceId?: string;
 	showFeedback?: boolean;
 	onFeedbackSubmit?: (feedback: { rating: number; comment?: string }) => void;
 }
@@ -226,7 +226,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	documentChecklist,
 	lawyerSearchResults,
 	generatedPDF,
-	organizationConfig: _organizationConfig,
+	practiceConfig: _practiceConfig,
 	onOpenSidebar: _onOpenSidebar,
 	onContactFormSubmit,
 	isLoading,
@@ -234,7 +234,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	toolMessage,
 	id: _id,
 	sessionId: _sessionId,
-	organizationId: _organizationId,
+	practiceId: _practiceId,
 	showFeedback: _showFeedback = true,
 	onFeedbackSubmit: _onFeedbackSubmit
 }) => {

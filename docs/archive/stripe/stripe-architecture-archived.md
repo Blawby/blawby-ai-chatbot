@@ -68,4 +68,4 @@ Previously, frontend consumed local endpoints:
 For developers working on the codebase:
 - Payment processing in `worker/agents/legal-intake/index.ts` has TODO comments for remote API integration
 - Organization subscription status is fetched via `RemoteApiService.getSubscriptionStatus()`
-- Feature guards use `RemoteApiService.getOrganizationMetadata()` to check entitlements
+- Feature guards use `RemoteApiService.getPracticeMetadata()` to check entitlements

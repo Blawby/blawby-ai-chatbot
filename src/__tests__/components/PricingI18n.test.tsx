@@ -31,10 +31,10 @@ vi.mock("../../hooks/usePaymentUpgrade", () => ({
 }));
 
 // Mock useOrganizationManagement hook
-vi.mock("../../hooks/useOrganizationManagement", () => ({
-  useOrganizationManagement: () => ({
-    currentOrganization: { id: "org-1", subscriptionTier: "free" },
-    organizations: [],
+vi.mock("../../hooks/usePracticeManagement", () => ({
+  usePracticeManagement: () => ({
+    currentPractice: { id: "practice-1", subscriptionTier: "free" },
+    practices: [],
     loading: false,
     error: null,
   }),
@@ -51,8 +51,7 @@ vi.mock("../../contexts/ToastContext", () => ({
 // Mock SessionContext
 vi.mock("../../contexts/SessionContext", () => ({
   useSessionContext: () => ({
-    activeOrganizationId: "org-1",
-    activeOrganizationSlug: "test-org",
+    activePracticeId: "practice-1",
   }),
 }));
 

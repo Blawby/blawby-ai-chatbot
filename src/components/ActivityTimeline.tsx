@@ -18,7 +18,7 @@ import { useActivity } from '../hooks/useActivity';
 
 interface ActivityTimelineProps {
   className?: string;
-  organizationId?: string;
+  practiceId?: string;
   matterId?: string;
   sessionId?: string;
   limit?: number;
@@ -74,7 +74,7 @@ function formatRelativeTime(dateString: string): string {
 
 const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({ 
   className = '',
-  organizationId,
+  practiceId,
   matterId,
   sessionId,
   limit = 25,
@@ -83,7 +83,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
 }) => {
   // Use the activity hook to fetch real data
   const { events, loading: _loading, error, hasMore, loadMore, refresh } = useActivity({
-    organizationId,
+    practiceId,
     matterId,
     sessionId,
     limit,

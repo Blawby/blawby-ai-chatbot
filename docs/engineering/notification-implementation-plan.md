@@ -775,8 +775,8 @@ For more granular control, implement organization-level testing flags:
 
 ```typescript
 // Check if organization is in test mode
-const organizationConfig = await this.getOrganizationConfig(organizationId);
-if (organizationConfig.testMode) {
+const practiceConfig = await this.getPracticeConfig(organizationId);
+if (practiceConfig.testMode) {
   console.log('🧪 organization in test mode - logging notification instead of sending');
   return;
 }

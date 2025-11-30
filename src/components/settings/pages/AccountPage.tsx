@@ -10,12 +10,12 @@ import { signOut } from '../../../utils/auth';
 import { TIER_FEATURES } from '../../../utils/stripe-products';
 import { useTranslation } from '@/i18n/hooks';
 import { usePaymentUpgrade } from '../../../hooks/usePaymentUpgrade';
-import { useOrganizationManagement } from '../../../hooks/useOrganizationManagement';
+import { usePracticeManagement } from '../../../hooks/usePracticeManagement';
 import {
   describeSubscriptionPlan,
   hasManagedSubscription,
   hasActiveSubscriptionStatus,
-  resolveOrganizationKind,
+  resolvePracticeKind,
   normalizeSubscriptionStatus,
   displayPlan,
 } from '../../../utils/subscription';
@@ -42,7 +42,7 @@ export const AccountPage = ({
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const { syncSubscription, openBillingPortal, submitting } = usePaymentUpgrade();
-  const { currentOrganization, loading: orgLoading, refetch, getMembers, fetchMembers } = useOrganizationManagement();
+  const { currentPractice, loading: orgLoading, refetch, getMembers, fetchMembers } = usePracticeManagement();
   const { data: session, isPending } = useSession();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
@@ -56,31 +56,31 @@ export const AccountPage = ({
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
   
 
-  const resolvedOrgKind = resolveOrganizationKind(currentOrganization?.kind, currentOrganization?.isPersonal ?? null);
-  const resolvedSubscriptionStatus = normalizeSubscriptionStatus(currentOrganization?.subscriptionStatus, resolvedOrgKind);
+  const resolvedOrgKind = resolvePracticeKind(currentPractice?.kind, currentPractice?.isPersonal ?? null);
+  const resolvedSubscriptionStatus = normalizeSubscriptionStatus(currentPractice?.subscriptionStatus, resolvedOrgKind);
   const managedSubscription = hasManagedSubscription(
-    currentOrganization?.kind,
-    currentOrganization?.subscriptionStatus,
-    currentOrganization?.isPersonal ?? null
+    currentPractice?.kind,
+    currentPractice?.subscriptionStatus,
+    currentPractice?.isPersonal ?? null
   );
   const _activeSubscription = hasActiveSubscriptionStatus(resolvedSubscriptionStatus);
   const _planLabel = describeSubscriptionPlan(
-    currentOrganization?.kind,
-    currentOrganization?.subscriptionStatus,
-    currentOrganization?.subscriptionTier,
-    currentOrganization?.isPersonal ?? null
+    currentPractice?.kind,
+    currentPractice?.subscriptionStatus,
+    currentPractice?.subscriptionTier,
+    currentPractice?.isPersonal ?? null
   );
-  const canManageBilling = managedSubscription && Boolean(currentOrganization?.stripeCustomerId);
+  const canManageBilling = managedSubscription && Boolean(currentPractice?.stripeCustomerId);
   
   // Determine if we have a subscription (not free)
   const hasSubscription = managedSubscription && resolvedSubscriptionStatus !== 'none';
   
   // Get renewal date from subscription period_end (stored in seconds, from Stripe webhooks)
   const renewalDate = useMemo(() => {
-    if (!hasSubscription || !currentOrganization?.subscriptionPeriodEnd) return null;
+    if (!hasSubscription || !currentPractice?.subscriptionPeriodEnd) return null;
     // subscriptionPeriodEnd is stored as Unix timestamp in seconds
-    return new Date(currentOrganization.subscriptionPeriodEnd * 1000);
-  }, [hasSubscription, currentOrganization?.subscriptionPeriodEnd]);
+    return new Date(currentPractice.subscriptionPeriodEnd * 1000);
+  }, [hasSubscription, currentPractice?.subscriptionPeriodEnd]);
 
   const clearLocalAuthState = useCallback(() => {
     try {
@@ -95,16 +95,16 @@ export const AccountPage = ({
   const verificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref to track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
-  // Ref to track which organization IDs we've already fetched members for
+  // Ref to track which practice IDs we've already fetched members for
   const fetchedOrgIdsRef = useRef<Set<string>>(new Set());
   // Ref to track if we're currently fetching members
   const isFetchingMembersRef = useRef(false);
   // Refresh token to trigger re-fetch of members (increment to refresh)
   const [membersRefreshToken, setMembersRefreshToken] = useState(0);
 
-  // Function to clear cached orgId so it can be re-fetched
-  const _clearFetchedOrgId = useCallback((orgId: string) => {
-    fetchedOrgIdsRef.current.delete(orgId);
+  // Function to clear cached practiceId so it can be re-fetched
+  const _clearFetchedPracticeId = useCallback((practiceId: string) => {
+    fetchedOrgIdsRef.current.delete(practiceId);
     setMembersRefreshToken(prev => prev + 1);
   }, []);
 
@@ -143,9 +143,9 @@ export const AccountPage = ({
         securityAlerts: userWithExtendedProps.securityAlerts ?? true
       };
       
-      const orgTier = currentOrganization?.subscriptionTier;
+      const orgTier = currentPractice?.subscriptionTier;
       // Always default to 'free' when subscriptionTier is unset to prevent showing
-      // paid-tier features to unsubscribed organizations, regardless of organization kind
+      // paid-tier features to unsubscribed practices, regardless of practice kind
       const displayTier = orgTier || 'free';
       
       setLinks(linksData);
@@ -155,15 +155,15 @@ export const AccountPage = ({
       console.error('Failed to load account data:', error);
       setError(error instanceof Error ? error.message : String(error));
     }
-  }, [session?.user, currentOrganization?.subscriptionTier]);
+  }, [session?.user, currentPractice?.subscriptionTier]);
 
-  // Load account data when component mounts or organization changes
-  // Only load when organization data is available (not loading) and session is available
+  // Load account data when component mounts or practice changes
+  // Only load when practice data is available (not loading) and session is available
   useEffect(() => {
-    if (!orgLoading && currentOrganization !== undefined && session?.user) {
+    if (!orgLoading && currentPractice !== undefined && session?.user) {
       loadAccountData();
     }
-  }, [loadAccountData, orgLoading, currentOrganization, session?.user]);
+  }, [loadAccountData, orgLoading, currentPractice, session?.user]);
 
   // Detect OAuth vs password users based on lastLoginMethod
   const userWithExtendedProps = session?.user as typeof session.user & {
@@ -180,23 +180,23 @@ export const AccountPage = ({
 
   // (moved) deletionBlockedBySubscription computed after isOwner is available
 
-  // Check if current user is organization owner
+  // Check if current user is practice owner
   const currentUserEmail = session?.user?.email || '';
   const members = useMemo(() => {
-    if (!currentOrganization) return [];
-    return getMembers(currentOrganization.id);
-  }, [currentOrganization, getMembers]);
+    if (!currentPractice) return [];
+    return getMembers(currentPractice.id);
+  }, [currentPractice, getMembers]);
   
   const currentMember = useMemo(() => {
-    if (!currentOrganization || !currentUserEmail) return null;
+    if (!currentPractice || !currentUserEmail) return null;
     return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) || 
            members.find(m => m.userId === session?.user?.id);
-  }, [currentOrganization, currentUserEmail, members, session?.user?.id]);
+  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
   
   const isOwner = currentMember?.role === 'owner';
 
   // Subscription deletion guard for personal account deletion (compute after isOwner)
-  const hasManagedSub = Boolean(currentOrganization?.stripeCustomerId);
+  const hasManagedSub = Boolean(currentPractice?.stripeCustomerId);
   const subStatus = (resolvedSubscriptionStatus || 'none').toLowerCase();
   const deletionBlockedBySubscription = isOwner && hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
 
@@ -205,22 +205,22 @@ export const AccountPage = ({
     ? window.location.origin
     : '';
 
-  // Fetch members when organization is available (needed for owner check)
+  // Fetch members when practice is available (needed for owner check)
   useEffect(() => {
-    const orgId = currentOrganization?.id;
-    if (!orgId) return;
+    const practiceId = currentPractice?.id;
+    if (!practiceId) return;
     
-    // Skip if already fetching or already fetched this org
-    if (isFetchingMembersRef.current || fetchedOrgIdsRef.current.has(orgId)) {
+    // Skip if already fetching or already fetched this practice
+    if (isFetchingMembersRef.current || fetchedOrgIdsRef.current.has(practiceId)) {
       return;
     }
     
     // Mark as fetching and fetch members
     isFetchingMembersRef.current = true;
-    fetchMembers(orgId)
+    fetchMembers(practiceId)
       .then(() => {
         // Only mark as fetched on successful fetch
-        fetchedOrgIdsRef.current.add(orgId);
+        fetchedOrgIdsRef.current.add(practiceId);
       })
       .catch((error) => {
         console.error('Failed to fetch members for owner check:', error);
@@ -230,13 +230,13 @@ export const AccountPage = ({
         // Always clear fetching flag regardless of success/failure
         isFetchingMembersRef.current = false;
       });
-  }, [currentOrganization?.id, fetchMembers, membersRefreshToken]);
+  }, [currentPractice?.id, fetchMembers, membersRefreshToken]);
 
   // Auto-sync on return from Stripe portal or checkout
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('sync') === '1' && currentOrganization?.id) {
-      syncSubscription(currentOrganization.id)
+    if (params.get('sync') === '1' && currentPractice?.id) {
+      syncSubscription(currentPractice.id)
         .then(() => {
           refetch();
           showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
@@ -252,7 +252,7 @@ export const AccountPage = ({
           window.history.replaceState({}, '', newUrl.toString());
         });
     }
-  }, [currentOrganization?.id, syncSubscription, refetch, showSuccess]);
+  }, [currentPractice?.id, syncSubscription, refetch, showSuccess]);
 
 
   // Cleanup verification timeout on unmount
@@ -567,7 +567,7 @@ export const AccountPage = ({
 
   // Features are now loaded dynamically from the pricing service
 
-  // Show loading state while session or organization is loading
+  // Show loading state while session or practice is loading
   // Add timeout protection - if loading for more than 10 seconds, show error with retry
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   useEffect(() => {
@@ -611,7 +611,7 @@ export const AccountPage = ({
               setLoadingTimeout(false);
               setError(null);
               refetch().then(() => {
-                if (session?.user && currentOrganization !== undefined) {
+                if (session?.user && currentPractice !== undefined) {
                   loadAccountData();
                 }
               });
@@ -648,12 +648,12 @@ export const AccountPage = ({
             }
           >
             <div className="flex gap-2">
-              {currentOrganization && isOwner && canManageBilling ? (
+              {currentPractice && isOwner && canManageBilling ? (
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => openBillingPortal({ 
-                    organizationId: currentOrganization.id, 
+                    practiceId: currentPractice.id, 
                     returnUrl: `${window.location.origin}/settings/account?sync=1` 
                   })}
                   disabled={submitting}
@@ -753,8 +753,8 @@ export const AccountPage = ({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => currentOrganization && openBillingPortal({
-                  organizationId: currentOrganization.id,
+                onClick={() => currentPractice && openBillingPortal({
+                  practiceId: currentPractice.id,
                   returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
                 })}
                 data-testid="account-delete-action"
