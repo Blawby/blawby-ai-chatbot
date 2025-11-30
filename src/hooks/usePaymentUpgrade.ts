@@ -238,7 +238,7 @@ export const usePaymentUpgrade = () => {
       try {
         await ensureActiveOrganization(organizationId);
 
-        const requestBody: Record<string, unknown> = {
+        const requestBody: SubscriptionUpgradePayload = {
           plan: 'business',
           referenceId: organizationId,
           annual,

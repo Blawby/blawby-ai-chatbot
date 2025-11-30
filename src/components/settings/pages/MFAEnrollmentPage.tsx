@@ -42,7 +42,7 @@ export const MFAEnrollmentPage = ({
   // Check for twoFactor availability during component initialization
   useEffect(() => {
     const checkMFAAvailability = () => {
-      if (hasTwoFactorPlugin(authClient)) {
+      if (hasTwoFactorPlugin()) {
         setIsMFAConfigured(true);
       } else {
         setIsMFAConfigured(false);
@@ -87,7 +87,7 @@ export const MFAEnrollmentPage = ({
     setIsVerifying(true);
     try {
       // Double-check configuration before attempting verification
-      if (!hasTwoFactorPlugin(authClient)) {
+      if (!hasTwoFactorPlugin()) {
         throw new MFAConfigurationError();
       }
       // Here you would verify the code with your backend
@@ -107,7 +107,7 @@ export const MFAEnrollmentPage = ({
       
       // Enable MFA using Better Auth twoFactor plugin
       // Type guard ensures twoFactor is available
-      if (!hasTwoFactorPlugin(authClient)) {
+      if (!hasTwoFactorPlugin()) {
         throw new MFAConfigurationError();
       }
 

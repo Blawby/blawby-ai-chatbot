@@ -285,7 +285,7 @@ export const CartPage = () => {
     if (!organizationId) {
       try {
         console.debug('[CART][UPGRADE] Checking for practices via practice API helpers');
-        const practices = await listPractices();
+        const practices = await listPractices({ scope: 'all' });
         
         // If no practices exist, create a default one
         if (practices.length === 0) {

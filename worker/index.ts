@@ -18,6 +18,9 @@ import { handleStatus } from './routes/status.js';
 import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
+
+// Add RequestInit type for TypeScript
+type RequestInit = globalThis.RequestInit;
 import docProcessor from './consumers/doc-processor';
 import { requireAuth } from './middleware/auth.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';

@@ -10,17 +10,24 @@ import { useToastContext } from '../../contexts/ToastContext';
 import type { OnboardingFormData } from './hooks/useOnboardingState';
 import type { OnboardingStep } from './hooks/useStepValidation';
 import {
-  completeOnboarding as completeOnboardingRequest,
   createConnectedAccount,
   getOnboardingStatusPayload,
-  saveOnboardingProgress
+  getPractice,
+  updatePractice,
+  type Practice,
+  type UpdatePracticeRequest
 } from '../../lib/apiClient';
 import type { StripeConnectStatus } from './types';
 import {
-  extractProgressFromPayload,
   extractStripeStatusFromPayload,
-  type PersistedOnboardingSnapshot,
 } from './utils';
+import {
+  buildPracticeOnboardingMetadata,
+  extractProgressFromPracticeMetadata,
+  ONBOARDING_STEP_SEQUENCE,
+  type OnboardingStatusValue,
+  type PersistedOnboardingSnapshot,
+} from '../../utils/practiceOnboarding';
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
   welcome: 'Welcome to Blawby',
@@ -42,15 +49,7 @@ const STEP_DESCRIPTIONS: Record<OnboardingStep, string> = {
   'review-and-launch': 'Review your setup and launch your intake assistant.'
 };
 
-const STEP_SEQUENCE: OnboardingStep[] = [
-  'welcome',
-  'firm-basics',
-  'trust-account-intro',
-  'stripe-onboarding',
-  'business-details',
-  'services',
-  'review-and-launch'
-];
+const STEP_SEQUENCE: OnboardingStep[] = ONBOARDING_STEP_SEQUENCE;
 
 interface BusinessOnboardingModalProps {
   isOpen: boolean;
@@ -80,9 +79,11 @@ const BusinessOnboardingModal = ({
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [stripeRequestPending, setStripeRequestPending] = useState(false);
+  const [practiceMetadata, setPracticeMetadata] = useState<Record<string, unknown> | null>(null);
+  const [practiceSnapshot, setPracticeSnapshot] = useState<Practice | null>(null);
   const fetchStripeStatus = useCallback(async () => {
     if (!organizationId) {
-      return null;
+      return;
     }
 
     try {
@@ -91,35 +92,61 @@ const BusinessOnboardingModal = ({
       if (status) {
         setStripeStatus(status);
       }
-      return extractProgressFromPayload(payload);
     } catch (error) {
       console.warn('[ONBOARDING][STATUS] Failed to load Stripe status:', error);
-      return null;
     }
   }, [organizationId]);
   
   // Create save function that calls the API
-  const saveOnboardingData = useCallback(async (data: OnboardingFormData, resumeStep: OnboardingStep) => {
-    try {
-      const payload: PersistedOnboardingSnapshot = {
-        ...data,
-        __meta: {
-          resumeStep,
-          savedAt: new Date().toISOString()
-        }
-      };
+  const saveOnboardingData = useCallback(
+    async (data: OnboardingFormData, resumeStep: OnboardingStep, statusOverride?: OnboardingStatusValue) => {
+      if (!organizationId) {
+        throw new Error('Missing organization');
+      }
 
-      await saveOnboardingProgress({
-        organizationId,
-        data: payload as Record<string, unknown>
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save onboarding progress';
-      console.error('[ONBOARDING][SAVE] Error:', errorMessage);
-      showError('Save Failed', 'Could not save your progress. Please try again.');
-      throw error;
-    }
-  }, [organizationId, showError]);
+      try {
+        const snapshot: PersistedOnboardingSnapshot = {
+          ...data,
+          __meta: {
+            resumeStep,
+            savedAt: Date.now()
+          }
+        };
+
+        const metadata = buildPracticeOnboardingMetadata(
+          practiceMetadata ?? practiceSnapshot?.metadata,
+          {
+            snapshot,
+            resumeStep,
+            status: statusOverride ?? 'pending',
+            savedAt: Date.now()
+          }
+        );
+
+        const updatePayload: UpdatePracticeRequest = {
+          name: data.firmName,
+          businessEmail: data.contactEmail,
+          businessPhone: data.contactPhone,
+          logo: data.profileImage,
+          metadata
+        };
+
+        const updatedPractice = await updatePractice(organizationId, updatePayload);
+        setPracticeSnapshot(updatedPractice);
+        setPracticeMetadata(
+          updatedPractice.metadata && typeof updatedPractice.metadata === 'object' && !Array.isArray(updatedPractice.metadata)
+            ? (updatedPractice.metadata as Record<string, unknown>)
+            : null
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to save onboarding progress';
+        console.error('[ONBOARDING][SAVE] Error:', errorMessage);
+        showError('Save Failed', 'Could not save your progress. Please try again.');
+        throw error;
+      }
+    },
+    [organizationId, practiceMetadata, practiceSnapshot, showError]
+  );
 
   // Custom hook for state management (no auto-save)
   const { formData, updateField, setFormData } = useOnboardingState(
@@ -178,16 +205,6 @@ const BusinessOnboardingModal = ({
     }
   }, [organizationId, stripeStatus, formData.contactEmail, fallbackContactEmail, fetchStripeStatus, showError, showSuccess]);
 
-  const completeOnboarding = useCallback(async () => {
-    try {
-      await completeOnboardingRequest(organizationId);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to finalize onboarding';
-      showError('Completion Failed', message);
-      throw error;
-    }
-  }, [organizationId, showError]);
-
   const handleStepChange = useCallback((step: OnboardingStep, _prevStep: OnboardingStep) => {
     if (onStepChange) onStepChange(step);
   }, [onStepChange]);
@@ -218,29 +235,45 @@ const BusinessOnboardingModal = ({
     const loadSavedData = async () => {
       setIsLoadingData(true);
       try {
-        const progress = await fetchStripeStatus();
+        const practiceRecord = await getPractice(organizationId);
+        setPracticeSnapshot(practiceRecord);
+        const metadataRecord =
+          practiceRecord.metadata && typeof practiceRecord.metadata === 'object' && !Array.isArray(practiceRecord.metadata)
+            ? (practiceRecord.metadata as Record<string, unknown>)
+            : null;
+        setPracticeMetadata(metadataRecord);
+
+        await fetchStripeStatus();
+
+        const progress = extractProgressFromPracticeMetadata(metadataRecord);
+        const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
 
         if (progress?.data) {
-          const { __meta, ...rest } = progress.data;
+          const { __meta, ...restRaw } = progress.data;
+          const rest = restRaw as unknown as OnboardingFormData;
           setFormData((prev) => ({
             ...prev,
             ...rest,
-            contactEmail: rest.contactEmail || prev.contactEmail || fallbackContactEmail || ''
+            contactEmail: rest.contactEmail ?? prev.contactEmail ?? fallbackContactEmail ?? ''
           }));
-          const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
-          if (progress.status === 'completed') {
-            if (!hasValidUrlStep) {
+
+          if (!hasValidUrlStep) {
+            if (progress.status === 'completed') {
               goToStep('review-and-launch');
-            }
-          } else {
-            const resumeTarget = __meta?.resumeStep;
-            if (resumeTarget && !hasValidUrlStep) {
-              goToStep(resumeTarget);
+            } else if (__meta?.resumeStep && STEP_SEQUENCE.includes(__meta.resumeStep)) {
+              goToStep(__meta.resumeStep);
             }
           }
-        } else if (progress?.status === 'completed') {
-          const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
-          if (!hasValidUrlStep) {
+        } else {
+          setFormData((prev) => ({
+            ...prev,
+            firmName: practiceRecord.name || prev.firmName,
+            contactEmail: practiceRecord.businessEmail ?? prev.contactEmail ?? fallbackContactEmail ?? '',
+            contactPhone: practiceRecord.businessPhone || prev.contactPhone,
+            profileImage: typeof practiceRecord.logo === 'string' ? practiceRecord.logo : prev.profileImage
+          }));
+
+          if (progress?.status === 'completed' && !hasValidUrlStep) {
             goToStep('review-and-launch');
           }
         }
@@ -252,7 +285,15 @@ const BusinessOnboardingModal = ({
     };
 
     void loadSavedData();
-  }, [isOpen, organizationId, fallbackContactEmail, setFormData, goToStep, currentStepFromUrl, fetchStripeStatus]);
+  }, [
+    isOpen,
+    organizationId,
+    fallbackContactEmail,
+    setFormData,
+    goToStep,
+    currentStepFromUrl,
+    fetchStripeStatus
+  ]);
 
   // useStepValidation already initialized above
 
@@ -291,9 +332,8 @@ const BusinessOnboardingModal = ({
 
     // Save current step data before navigation (explicit save)
     try {
-      await saveOnboardingData(formData, resumeStep);
+      await saveOnboardingData(formData, resumeStep, isLastStep ? 'completed' : undefined);
       if (isLastStep) {
-        await completeOnboarding();
         showSuccess('Onboarding Complete', 'Your business onboarding is finished. You can now publish your assistant.');
         try {
           if (onCompleted) {

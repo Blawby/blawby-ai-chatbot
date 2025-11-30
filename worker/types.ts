@@ -78,7 +78,7 @@ export interface Env {
   
   // Domain configuration
   DOMAIN?: string;
-  DEFAULT_PUBLIC_ORG_SLUG?: string;
+  DEFAULT_PLATFORM_SLUG?: string;
   // SSE Configuration
   SSE_POLL_INTERVAL?: string;
   

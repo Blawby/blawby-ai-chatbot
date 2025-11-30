@@ -112,7 +112,7 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 - [x] Create `DefaultOrganizationService.getPublicOrg()`:
   - Query `organizations` where `is_personal = 0` and config has `isPublic: true`
   - Cache result
-- [x] Add environment variable `DEFAULT_PUBLIC_ORG_SLUG` (defaults to 'blawby-ai')
+- [x] Add environment variable `DEFAULT_PLATFORM_SLUG` (defaults to 'blawby-ai')
 
 **Acceptance Criteria:**
 - Service resolves org from Better Auth session
@@ -770,7 +770,7 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
       return env.DEFAULT_PUBLIC_ORG_ID || '01K0TNGNKTM4Q0AG0XF0A8ST0Q';
     },
     get slug() {
-      return env.DEFAULT_PUBLIC_ORG_SLUG || 'blawby-ai';
+      return env.DEFAULT_PLATFORM_SLUG || 'blawby-ai';
     }
   };
   ```

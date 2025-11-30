@@ -5,6 +5,8 @@ import { useSessionContext } from '../contexts/SessionContext.js';
 import { useSession } from '../lib/authClient.js';
 import { DEFAULT_ORGANIZATION_ID } from '../utils/constants.js';
 import { listPractices, getPractice } from '../lib/apiClient.js';
+import { PLATFORM_SETTINGS } from '../config/platform.js';
+import { isPlatformOrganization } from '../utils/organization.js';
 
 // Zod schema for API response validation
 const OrganizationSchema = z.object({
@@ -40,80 +42,7 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
   const [organizationNotFound, setOrganizationNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [organizationConfig, setOrganizationConfig] = useState<UIOrganizationConfig>({
-    name: 'Blawby AI',
-    profileImage: '/blawby-favicon-iframe.png',
-    introMessage: "Hello! I'm Blawby AI, your intelligent legal assistant. I can help you with family law, business law, contract review, intellectual property, employment law, personal injury, criminal law, civil law, and general legal consultation. How can I assist you today?",
-    description: 'AI-powered legal assistance for businesses and individuals',
-    availableServices: ['Family Law', 'Business Law', 'Contract Review', 'Intellectual Property', 'Employment Law', 'Personal Injury', 'Criminal Law', 'Civil Law', 'General Consultation'],
-    serviceQuestions: {
-      'Family Law': [
-        "I understand this is a difficult time. Can you tell me what type of family situation you're dealing with?",
-        "What are the main issues you're facing?",
-        "Have you taken any steps to address this situation?",
-        "What would a good outcome look like for you?"
-      ],
-      'Business Law': [
-        "What type of business entity are you operating or planning to start?",
-        "What specific legal issue are you facing with your business?",
-        "Are you dealing with contracts, employment issues, or regulatory compliance?",
-        "What is the size and scope of your business operations?"
-      ],
-      'Contract Review': [
-        "What type of contract do you need reviewed?",
-        "What is the value or importance of this contract?",
-        "Are there any specific concerns or red flags you've noticed?",
-        "What is the timeline for this contract?"
-      ],
-      'Intellectual Property': [
-        "What type of intellectual property are you dealing with?",
-        "Are you looking to protect, license, or enforce IP rights?",
-        "What is the nature of your IP (patent, trademark, copyright, trade secret)?",
-        "What is the commercial value or importance of this IP?"
-      ],
-      'Employment Law': [
-        "What specific employment issue are you facing?",
-        "Are you an employer or employee in this situation?",
-        "Have you taken any steps to address this issue?",
-        "What is the timeline or urgency of your situation?"
-      ],
-      'Personal Injury': [
-        "Can you tell me about the incident that caused your injury?",
-        "What type of injuries did you sustain?",
-        "Have you received medical treatment?",
-        "What is the current status of your recovery?"
-      ],
-      'Criminal Law': [
-        "What type of legal situation are you facing?",
-        "Are you currently facing charges or under investigation?",
-        "Have you been arrested or contacted by law enforcement?",
-        "Do you have an attorney representing you?"
-      ],
-      'Civil Law': [
-        "What type of civil legal issue are you dealing with?",
-        "Are you involved in a lawsuit or considering legal action?",
-        "What is the nature of the dispute?",
-        "What outcome are you hoping to achieve?"
-      ],
-      'General Consultation': [
-        "Thanks for reaching out! I'd love to help. Can you tell me what legal situation you're dealing with?",
-        "Have you been able to take any steps to address this yet?",
-        "What would a good outcome look like for you?",
-        "Do you have any documents or information that might be relevant?"
-      ]
-    },
-    jurisdiction: {
-      type: 'national',
-      description: 'Available nationwide',
-      supportedStates: ['all'],
-      supportedCountries: ['US']
-    },
-    voice: {
-      enabled: false,
-      provider: 'cloudflare',
-      voiceId: null,
-      displayName: null,
-      previewUrl: null
-    }
+    ...PLATFORM_SETTINGS
   });
 
   // Use ref to track if we've already fetched for this organizationId
@@ -156,6 +85,13 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
     const requestedOrganizationId = currentOrganizationId;
     // Always fetch the specified organization configuration
     // No need for personal organization fallback since we default to blawby-ai
+    if (isPlatformOrganization(currentOrganizationId)) {
+      fetchedOrganizationIds.current.add(currentOrganizationId);
+      setOrganizationConfig({ ...PLATFORM_SETTINGS });
+      setOrganizationNotFound(false);
+      setIsLoading(false);
+      return;
+    }
     
     if (fetchedOrganizationIds.current.has(currentOrganizationId)) {
       return; // Don't fetch if we've already fetched for this organizationId
@@ -214,7 +150,7 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       
       // If we don't have the organization yet, list all practices and find the matching one
       if (!organization) {
-        const practices = await listPractices({ signal: controller.signal });
+        const practices = await listPractices({ signal: controller.signal, scope: 'all' });
         
         if (isStaleRequest()) {
           return;
@@ -235,27 +171,27 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
         // Parse config safely - config is Record<string, unknown> from API
         const cfg = organization.config as Partial<OrganizationConfig> || {};
         const normalizedJurisdiction: OrganizationConfig['jurisdiction'] = {
-          type: cfg.jurisdiction?.type ?? 'national',
-          description: cfg.jurisdiction?.description ?? 'Available nationwide',
-          supportedStates: cfg.jurisdiction?.supportedStates ?? ['all'],
-          supportedCountries: cfg.jurisdiction?.supportedCountries ?? ['US'],
+          type: cfg.jurisdiction?.type ?? PLATFORM_SETTINGS.jurisdiction.type,
+          description: cfg.jurisdiction?.description ?? PLATFORM_SETTINGS.jurisdiction.description,
+          supportedStates: cfg.jurisdiction?.supportedStates ?? PLATFORM_SETTINGS.jurisdiction.supportedStates,
+          supportedCountries: cfg.jurisdiction?.supportedCountries ?? PLATFORM_SETTINGS.jurisdiction.supportedCountries,
           primaryState: cfg.jurisdiction?.primaryState
         };
 
         const config: UIOrganizationConfig = {
-          name: organization.name || 'Blawby AI',
-          profileImage: cfg.profileImage ?? '/blawby-favicon-iframe.png',
-          introMessage: cfg.introMessage ?? null,
-          description: cfg.description ?? null,
-          availableServices: cfg.availableServices ?? [],
-          serviceQuestions: cfg.serviceQuestions ?? {},
+          name: organization.name || PLATFORM_SETTINGS.name,
+          profileImage: cfg.profileImage ?? PLATFORM_SETTINGS.profileImage,
+          introMessage: cfg.introMessage ?? PLATFORM_SETTINGS.introMessage,
+          description: cfg.description ?? PLATFORM_SETTINGS.description,
+          availableServices: cfg.availableServices ?? PLATFORM_SETTINGS.availableServices,
+          serviceQuestions: cfg.serviceQuestions ?? PLATFORM_SETTINGS.serviceQuestions,
           jurisdiction: normalizedJurisdiction,
           voice: {
-            enabled: Boolean(cfg.voice?.enabled),
-            provider: cfg.voice?.provider ?? 'cloudflare',
-            voiceId: cfg.voice?.voiceId ?? null,
-            displayName: cfg.voice?.displayName ?? null,
-            previewUrl: cfg.voice?.previewUrl ?? null
+            enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : PLATFORM_SETTINGS.voice.enabled,
+            provider: cfg.voice?.provider ?? PLATFORM_SETTINGS.voice.provider,
+            voiceId: cfg.voice?.voiceId ?? PLATFORM_SETTINGS.voice.voiceId,
+            displayName: cfg.voice?.displayName ?? PLATFORM_SETTINGS.voice.displayName,
+            previewUrl: cfg.voice?.previewUrl ?? PLATFORM_SETTINGS.voice.previewUrl
           }
         };
         setOrganizationConfig(config);

@@ -219,5 +219,3 @@ export function ensureOrgCollections(orgId: string): void {
     mockDb.onboarding[orgId] = { ...defaultOnboarding };
   }
 }
-
-export type { MockMember, MockInvitation, MockToken, OnboardingState };

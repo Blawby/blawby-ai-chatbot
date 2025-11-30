@@ -166,6 +166,14 @@ export const deleteUser = (...args: Parameters<AuthClientType['deleteUser']>) =>
 // Keep type export for compatibility
 export type AuthClient = typeof authClient;
 
+// Two-factor auth exports
+export const hasTwoFactorPlugin = () => {
+  const client = getAuthClient();
+  return Boolean(client.twoFactor);
+};
+
+export type TwoFactorClient = NonNullable<AuthClientType['twoFactor']>;
+
 // Organization plugin methods available on authClient.organization:
 // - authClient.organization.setActive({ organizationId: string }) - Set active organization
 // - authClient.organization.create({ name, slug, logo?, metadata? }) - Create organization

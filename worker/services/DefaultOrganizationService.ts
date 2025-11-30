@@ -1,5 +1,5 @@
 import { Env } from '../types.js';
-import { DEFAULT_PUBLIC_ORG_SLUG } from '../../src/utils/constants.js';
+import { DEFAULT_PLATFORM_SLUG } from '../../src/utils/constants.js';
 import type { Organization } from '../types.js';
 import { RemoteApiService } from './RemoteApiService.js';
 
@@ -40,7 +40,7 @@ export class DefaultOrganizationService {
 
     const publicOrg = await this.getPublicOrg(request);
     if (!publicOrg) {
-      throw new Error('No public organization configured. Set DEFAULT_PUBLIC_ORG_SLUG or configure an organization with isPublic: true');
+      throw new Error('No public organization configured. Set DEFAULT_PLATFORM_SLUG or configure an organization with isPublic: true');
     }
     return publicOrg.id;
   }
@@ -50,9 +50,10 @@ export class DefaultOrganizationService {
       return this.publicOrgCache.org;
     }
 
-    const slug = this.env.DEFAULT_PUBLIC_ORG_SLUG || DEFAULT_PUBLIC_ORG_SLUG;
+    const slug = this.env.DEFAULT_PLATFORM_SLUG || DEFAULT_PLATFORM_SLUG;
     const org = await RemoteApiService.getOrganization(this.env, slug, request);
-    const valid = !!org && org.kind !== 'personal' && Boolean(org.config?.isPublic);
+    const config = org?.config as { isPublic?: boolean } | undefined;
+    const valid = !!org && org.kind !== 'personal' && Boolean(config?.isPublic);
 
     const result = valid ? org : null;
     this.publicOrgCache = { org: result, timestamp: Date.now() };

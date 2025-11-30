@@ -2,6 +2,17 @@
 
 ✅ **IMPLEMENTED** - This guide explains how the Better Auth client library is configured in this application, including Bearer token authentication, IndexedDB token storage, and organization management.
 
+## Platform vs. Tenant Organizations
+
+Blawby AI operates as the marketplace/product layer, while each law practice is a multi-tenant organization.
+
+- `/api/practice/*` endpoints always refer to tenant organizations (law firms).
+- `/api/onboarding/*`, `/api/subscription/*`, etc. manage tenant onboarding/billing.
+- Platform defaults (branding, public experience) are defined in `src/config/platform.ts` and exposed as `PLATFORM_SETTINGS`.
+- `DEFAULT_ORGANIZATION_ID` / `PLATFORM_ORGANIZATION_ID` represent the platform context and should not be treated as a tenant org.
+
+Ensure new features distinguish between platform-level configuration and tenant-specific state so that “Blawby” remains the product shell, and individual orgs represent actual practices.
+
 ## Implementation Status
 
 **All major components are implemented and working:**

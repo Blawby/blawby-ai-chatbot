@@ -8,12 +8,15 @@ import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../util
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
 import {
-  completeOnboarding as completeOnboardingRequest,
-  getOnboardingStatusPayload,
-  skipOnboarding,
-  syncSubscription as syncSubscriptionRequest
+  syncSubscription as syncSubscriptionRequest,
+  updatePractice
 } from '../../lib/apiClient';
-import { extractProgressFromPayload } from '../onboarding/utils';
+import {
+  buildPracticeOnboardingMetadata,
+  extractProgressFromPracticeMetadata,
+  ONBOARDING_STEP_SEQUENCE,
+  type OnboardingStatusValue
+} from '../../utils/practiceOnboarding';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
@@ -27,24 +30,15 @@ export const BusinessOnboardingPage = () => {
   const [loadTimedOut, setLoadTimedOut] = useState(false);
   // Track in-flight sync status across renders (separate from UI state)
   const isSyncInProgressRef = useRef(false);
+  const completionRef = useRef(false);
 
   // Derive step from URL path like /business-onboarding/:step
-  const validSteps: OnboardingStep[] = useMemo(() => [
-    'welcome',
-    'firm-basics',
-    'trust-account-intro',
-    'stripe-onboarding',
-    'business-details',
-    'services',
-    'review-and-launch'
-  ], []);
-
   const currentStepFromUrl: OnboardingStep = useMemo(() => {
     const segments = location.path.split('/').filter(Boolean);
-    const stepCandidate = (segments[1] as OnboardingStep | undefined);
+    const stepCandidate = segments[1] as OnboardingStep | undefined;
     if (!stepCandidate) return 'welcome';
-    return (validSteps as string[]).includes(stepCandidate) ? stepCandidate : 'welcome';
-  }, [location.path, validSteps]);
+    return (ONBOARDING_STEP_SEQUENCE as string[]).includes(stepCandidate) ? stepCandidate : 'welcome';
+  }, [location.path]);
 
   const organizationId = currentOrganization?.id ?? organizations?.[0]?.id ?? null;
   
@@ -58,6 +52,29 @@ export const BusinessOnboardingPage = () => {
   
   const targetOrganizationId = targetOrganization?.id ?? organizationId;
   const shouldSync = (Array.isArray(location.query?.sync) ? location.query?.sync[0] : location.query?.sync) === '1';
+  const metadataSource = targetOrganization?.config?.metadata;
+  const onboardingProgress = useMemo(
+    () => extractProgressFromPracticeMetadata(metadataSource),
+    [metadataSource]
+  );
+  const onboardingStatus = onboardingProgress?.status;
+  const markOnboardingStatus = useCallback(
+    async (status: OnboardingStatusValue) => {
+      if (!targetOrganizationId) return;
+      try {
+        const metadata = buildPracticeOnboardingMetadata(metadataSource, {
+          status,
+          savedAt: Date.now()
+        });
+        await updatePractice(targetOrganizationId, { metadata });
+        await refetch();
+      } catch (error) {
+        console.error(`[ONBOARDING][STATUS] Failed to update status to ${status}`, error);
+        throw error;
+      }
+    },
+    [targetOrganizationId, metadataSource, refetch]
+  );
 
   // Local timeout to avoid indefinite spinner when organizations loading takes too long
   useEffect(() => {
@@ -152,42 +169,26 @@ export const BusinessOnboardingPage = () => {
   // Guard: Redirect if onboarding already completed
   useEffect(() => {
     if (!ready || !targetOrganizationId) return;
-    const checkCompletion = async () => {
-      try {
-        const payload = await getOnboardingStatusPayload(targetOrganizationId);
-        const progress = extractProgressFromPayload(payload);
-        let completed = Boolean(progress?.completed);
-
-        if (!completed && payload && typeof payload === 'object' && 'completed' in payload) {
-          completed = Boolean((payload as { completed?: boolean }).completed);
-        }
-
-        if (completed) {
-          console.log('✅ Onboarding already completed, redirecting');
-          showSuccess('Setup Complete', 'Your business profile is already configured.');
-          navigate('/');
-        }
-      } catch (e) {
-        console.warn('Failed to check onboarding status:', e);
-      }
-    };
-    checkCompletion();
-  }, [ready, targetOrganizationId, showSuccess, navigate]);
+    if (onboardingStatus === 'completed' && !completionRef.current) {
+      console.log('✅ Onboarding already completed, redirecting');
+      showSuccess('Setup Complete', 'Your business profile is already configured.');
+      navigate('/');
+    }
+  }, [ready, targetOrganizationId, onboardingStatus, showSuccess, navigate]);
 
   const handleComplete = useCallback(async () => {
     if (!targetOrganizationId) return;
 
+    completionRef.current = true;
     try {
-      console.debug('[ONBOARDING][COMPLETE] Marking onboarding complete for org:', targetOrganizationId);
-      await completeOnboardingRequest(targetOrganizationId);
-
+      await refetch();
       showSuccess('Setup Complete!', 'Your business profile is ready.');
       navigate('/');
     } catch (error) {
-      console.error('Failed to complete onboarding:', error);
-      showError('Error', 'Could not save onboarding status');
+      console.error('Failed to finalize onboarding:', error);
+      showError('Error', 'Could not refresh onboarding status');
     }
-  }, [targetOrganizationId, showSuccess, showError, navigate]);
+  }, [targetOrganizationId, refetch, showSuccess, showError, navigate]);
 
   const handleClose = useCallback(async () => {
     if (!targetOrganizationId) {
@@ -195,15 +196,19 @@ export const BusinessOnboardingPage = () => {
       return;
     }
 
+    if (completionRef.current) {
+      navigate('/');
+      return;
+    }
+
     try {
-      console.debug('[ONBOARDING][SKIP] Marking onboarding skipped for org:', targetOrganizationId);
-      await skipOnboarding(targetOrganizationId);
+      await markOnboardingStatus('skipped');
     } catch (error) {
       console.error('Failed to mark onboarding skipped:', error);
     }
 
     navigate('/');
-  }, [targetOrganizationId, navigate]);
+  }, [targetOrganizationId, navigate, markOnboardingStatus]);
 
   const handleStepChangeFromModal = useCallback((nextStep: OnboardingStep) => {
     // Prevent feedback loops: if URL already reflects this step, do nothing

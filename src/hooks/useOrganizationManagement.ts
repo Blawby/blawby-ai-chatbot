@@ -25,6 +25,10 @@ import {
   createTokenResponseSchema
 } from '../../worker/schemas/validation';
 import { resolveOrganizationKind as resolveOrgKind, normalizeSubscriptionStatus as normalizeOrgStatus } from '../utils/subscription';
+import { extractPracticeOnboardingMetadata } from '../utils/practiceOnboarding';
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -55,10 +59,7 @@ export interface Organization {
   subscriptionPeriodEnd?: number | null;
   config?: {
     ownerEmail?: string;
-    metadata?: {
-      subscriptionPlan?: string;
-      planStatus?: string;
-    };
+    metadata?: Record<string, unknown>;
   };
   kind?: 'personal' | 'business';
   isPersonal?: boolean | null;
@@ -105,6 +106,7 @@ export interface CreateOrgData {
 
 export interface UpdateOrgData {
   name?: string;
+  slug?: string;
   description?: string;
 }
 
@@ -230,6 +232,17 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     }
     return undefined as Organization['config'] & { description?: string } | undefined;
   })();
+  const metadataRecord = (() => {
+    const direct = (raw as Record<string, unknown>).metadata;
+    if (isPlainObject(direct)) {
+      return direct as Record<string, unknown>;
+    }
+    if (cfg && isPlainObject(cfg.metadata)) {
+      return cfg.metadata as Record<string, unknown>;
+    }
+    return null;
+  })();
+  const onboardingMeta = extractPracticeOnboardingMetadata(metadataRecord);
   const betterAuthOrgId = (() => {
     const direct = (raw as Record<string, unknown>).betterAuthOrgId;
     if (typeof direct === 'string' && direct.trim().length > 0) return direct;
@@ -239,6 +252,9 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
   })();
 
   const onboardingCompletedAt = (() => {
+    if (onboardingMeta?.completedAt !== undefined) {
+      return onboardingMeta.completedAt;
+    }
     const camel = (raw as Record<string, unknown>).businessOnboardingCompletedAt;
     const snake = (raw as Record<string, unknown>).business_onboarding_completed_at;
     const value = camel !== undefined ? camel : snake;
@@ -252,6 +268,9 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
   })();
 
   const onboardingSkipped = (() => {
+    if (typeof onboardingMeta?.skipped === 'boolean') {
+      return onboardingMeta.skipped;
+    }
     const camel = (raw as Record<string, unknown>).businessOnboardingSkipped;
     const snake = (raw as Record<string, unknown>).business_onboarding_skipped;
     const value = camel !== undefined ? camel : snake;
@@ -265,6 +284,9 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
   })();
 
   const onboardingData = (() => {
+    if (onboardingMeta?.data) {
+      return onboardingMeta.data;
+    }
     const camel = (raw as Record<string, unknown>).businessOnboardingData;
     const snake = (raw as Record<string, unknown>).business_onboarding_data;
     const value = camel !== undefined ? camel : snake;
@@ -284,6 +306,10 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
   const onboardingStatus: BusinessOnboardingStatus = (() => {
     if (resolvedKind === 'personal') {
       return 'not_required';
+    }
+    if (typeof onboardingMeta?.status === 'string') {
+      if (onboardingMeta.status === 'completed') return 'completed';
+      if (onboardingMeta.status === 'skipped') return 'skipped';
     }
     if (typeof onboardingCompletedAt === 'number') {
       return 'completed';
@@ -527,7 +553,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
         return;
       }
 
-      const rawOrgList = await listPractices({ signal: controller.signal });
+      const rawOrgList = await listPractices({ signal: controller.signal, scope: 'all' });
 
       const normalizedList = rawOrgList
         .filter((item): item is Practice => typeof item === 'object' && item !== null)
@@ -734,7 +760,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
             return null;
           }
         })
-        .filter((token): token is ApiToken => token !== null);
+        .filter((token): token is NonNullable<typeof token> => token !== null);
 
       setTokens(prev => ({ ...prev, [orgId]: validatedTokens }));
     } catch (err) {
@@ -745,13 +771,13 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   // Create API token
   const createToken = useCallback(async (orgId: string, name: string): Promise<{ token: string; tokenId: string }> => {
     try {
-      const result = await createPracticeToken(orgId, { tokenName: name });
+      const result = await apiCreatePracticeToken(orgId, { tokenName: name });
       const validatedResult = createTokenResponseSchema.parse(result);
       await fetchTokens(orgId);
       return { token: validatedResult.token, tokenId: validatedResult.tokenId };
     } catch (error) {
-      console.error('Invalid create token data:', result, error);
-      throw new Error('Invalid create token response format');
+      console.error('Failed to create token:', error);
+      throw new Error('Failed to create token');
     }
   }, [fetchTokens]);
 
