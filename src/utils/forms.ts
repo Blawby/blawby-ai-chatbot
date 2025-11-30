@@ -5,7 +5,7 @@ import type { Practice } from '../lib/apiClient.js';
 const getFormsEndpoint = () => '/api/forms';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ULID_REGEX = /^[0-9A-Z]{26}$/;
+const ULID_REGEX = /^[0-9A-Z]{26}$/i;
 
 interface PaymentConfig {
   ownerEmail?: string;

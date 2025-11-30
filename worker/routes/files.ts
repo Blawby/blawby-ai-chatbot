@@ -160,7 +160,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
 
   // Check if the practice exists - this is required for file operations
   // This check MUST happen before any R2 upload to prevent orphaned files
-  const existingPractice = await RemoteApiService.validateOrganization(env, practiceId);
+  const existingPractice = await RemoteApiService.validatePractice(env, practiceId);
   
   if (!existingPractice) {
     // Log anomaly for monitoring and alerting

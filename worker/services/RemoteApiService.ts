@@ -118,7 +118,7 @@ export class RemoteApiService {
   /**
    * Get practice by ID or slug from remote API
    */
-  static async getOrganization(
+  static async getPractice(
     env: Env,
     practiceId: string,
     request?: Request
@@ -184,7 +184,7 @@ export class RemoteApiService {
    * Get conversation config from remote API
    * Extracts conversation config from practice.metadata.conversationConfig
    */
-  static async getOrganizationConfig(
+  static async getPracticeConfig(
     env: Env,
     practiceId: string,
     request?: Request
@@ -195,7 +195,7 @@ export class RemoteApiService {
       return cached.data;
     }
 
-    const practice = await this.getOrganization(env, practiceId, request);
+    const practice = await this.getPractice(env, practiceId, request);
     if (!practice) {
       return null;
     }
@@ -218,68 +218,132 @@ export class RemoteApiService {
       return null;
     }
 
-    const conversationConfig = metadata.conversationConfig;
-    if (!conversationConfig || typeof conversationConfig !== 'object') {
+    const rawConfig = metadata.conversationConfig;
+    if (!rawConfig || typeof rawConfig !== 'object') {
       return null;
     }
 
-    return conversationConfig as ConversationConfig;
+    try {
+      return this.validateConversationConfig(rawConfig);
+    } catch (error) {
+      Logger.warn('Invalid conversation config received from remote API', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return null;
+    }
+  }
+
+  private static validateConversationConfig(config: Record<string, unknown>): ConversationConfig {
+    const requiredStringArray = (value: unknown): string[] => {
+      if (!Array.isArray(value) || !value.every(item => typeof item === 'string')) {
+        throw new Error('Expected array of strings');
+      }
+      return value;
+    };
+
+    const requiredRecord = (value: unknown): Record<string, string[]> => {
+      if (!value || typeof value !== 'object') {
+        throw new Error('Expected record');
+      }
+      const entries = Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => {
+        return [key, requiredStringArray(entryValue)];
+      });
+      return Object.fromEntries(entries);
+    };
+
+    const voiceValue = config.voice;
+    if (voiceValue && typeof voiceValue !== 'object') {
+      throw new Error('voice must be an object');
+    }
+
+    const voice = {
+      enabled: Boolean(voiceValue && typeof voiceValue === 'object' ? (voiceValue as Record<string, unknown>).enabled : false),
+      provider: (voiceValue && typeof voiceValue === 'object' && typeof (voiceValue as Record<string, unknown>).provider === 'string'
+        ? (voiceValue as Record<string, unknown>).provider
+        : 'cloudflare') as ConversationConfig['voice']['provider'],
+      voiceId: voiceValue && typeof voiceValue === 'object' && typeof (voiceValue as Record<string, unknown>).voiceId === 'string'
+        ? (voiceValue as Record<string, unknown>).voiceId
+        : null,
+      displayName: voiceValue && typeof voiceValue === 'object' && typeof (voiceValue as Record<string, unknown>).displayName === 'string'
+        ? (voiceValue as Record<string, unknown>).displayName
+        : null,
+      previewUrl: voiceValue && typeof voiceValue === 'object' && typeof (voiceValue as Record<string, unknown>).previewUrl === 'string'
+        ? (voiceValue as Record<string, unknown>).previewUrl
+        : null
+    };
+
+    return {
+      consultationFee: typeof config.consultationFee === 'number' ? config.consultationFee : 0,
+      requiresPayment: Boolean(config.requiresPayment),
+      ownerEmail: typeof config.ownerEmail === 'string' ? config.ownerEmail : undefined,
+      availableServices: requiredStringArray(config.availableServices ?? []),
+      serviceQuestions: requiredRecord(config.serviceQuestions ?? {}),
+      domain: typeof config.domain === 'string' ? config.domain : '',
+      description: typeof config.description === 'string' ? config.description : '',
+      paymentLink: typeof config.paymentLink === 'string' ? config.paymentLink : undefined,
+      brandColor: typeof config.brandColor === 'string' ? config.brandColor : '#000000',
+      accentColor: typeof config.accentColor === 'string' ? config.accentColor : '#000000',
+      introMessage: typeof config.introMessage === 'string' ? config.introMessage : '',
+      profileImage: typeof config.profileImage === 'string' ? config.profileImage : undefined,
+      voice,
+      blawbyApi: typeof config.blawbyApi === 'object' && config.blawbyApi !== null
+        ? {
+            enabled: Boolean((config.blawbyApi as Record<string, unknown>).enabled),
+            apiKeyHash: typeof (config.blawbyApi as Record<string, unknown>).apiKeyHash === 'string'
+              ? (config.blawbyApi as Record<string, unknown>).apiKeyHash
+              : undefined,
+            organizationUlid: typeof (config.blawbyApi as Record<string, unknown>).organizationUlid === 'string'
+              ? (config.blawbyApi as Record<string, unknown>).organizationUlid
+              : undefined,
+            apiUrl: typeof (config.blawbyApi as Record<string, unknown>).apiUrl === 'string'
+              ? (config.blawbyApi as Record<string, unknown>).apiUrl
+              : undefined,
+            apiKey: null
+          }
+        : undefined,
+      testMode: typeof config.testMode === 'boolean' ? config.testMode : undefined,
+      metadata: typeof config.metadata === 'object' && config.metadata !== null ? config.metadata as Record<string, unknown> : undefined,
+      betterAuthOrgId: typeof config.betterAuthOrgId === 'string' ? config.betterAuthOrgId : undefined,
+      tools: typeof config.tools === 'object' && config.tools !== null ? config.tools as ConversationConfig['tools'] : undefined,
+      agentMember: typeof config.agentMember === 'object' && config.agentMember !== null ? config.agentMember as ConversationConfig['agentMember'] : undefined,
+      isPublic: typeof config.isPublic === 'boolean' ? config.isPublic : undefined
+    };
   }
 
   /**
    * Update conversation config in remote API
    * Updates practice.metadata.conversationConfig via PATCH request
    */
-  static async updateOrganizationConfig(
+  static async updatePracticeConfig(
     env: Env,
     practiceId: string,
     config: ConversationConfig,
     request?: Request
   ): Promise<boolean> {
-    try {
-      // Get current practice to preserve other metadata
-      const practice = await this.getOrganization(env, practiceId, request);
-      if (!practice) {
-        return false;
-      }
-
-      // Merge conversation config into metadata
-      const updatedMetadata = {
-        ...practice.metadata,
-        conversationConfig: config,
-      };
-
-      // PATCH practice with updated metadata
-      const response = await this.fetchFromRemoteApi(
-        env,
-        `/api/organizations/${practiceId}`,
-        request,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ metadata: updatedMetadata }),
-        }
-      );
-
-      if (!response.ok) {
-        Logger.error('Failed to update conversation config in remote API', {
-          practiceId,
-          status: response.status,
-        });
-        return false;
-      }
-
-      // Clear cache
-      this.configCache.delete(practiceId);
-      this.practiceCache.delete(practiceId);
-
-      return true;
-    } catch (error) {
-      Logger.error('Error updating conversation config in remote API', {
-        practiceId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+    const practice = await this.getPractice(env, practiceId, request);
+    if (!practice) {
       return false;
     }
+
+    const updatedMetadata = {
+      ...practice.metadata,
+      conversationConfig: config
+    };
+
+    await this.fetchFromRemoteApi(
+      env,
+      `/api/organizations/${practiceId}`,
+      request,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ metadata: updatedMetadata })
+      }
+    );
+
+    this.configCache.delete(practiceId);
+    this.practiceCache.delete(practiceId);
+
+    return true;
   }
 
   /**
@@ -296,7 +360,7 @@ export class RemoteApiService {
       return cached.status;
     }
 
-    const practice = await this.getOrganization(env, practiceId, request);
+    const practice = await this.getPractice(env, practiceId, request);
     if (!practice) {
       return 'none';
     }
@@ -315,7 +379,7 @@ export class RemoteApiService {
    * @throws {HttpError} If practice is not found or remote API is unavailable
    * @throws {Error} If practice data is invalid
    */
-  static async getOrganizationMetadata(
+  static async getPracticeMetadata(
     env: Env,
     practiceId: string,
     request?: Request
@@ -326,7 +390,7 @@ export class RemoteApiService {
     kind: 'practice' | 'workspace';
     subscriptionStatus: SubscriptionLifecycleStatus;
   }> {
-    const practice = await this.getOrganization(env, practiceId, request);
+    const practice = await this.getPractice(env, practiceId, request);
     
     if (!practice) {
       // Throw error instead of returning defaults to prevent unauthorized access during API outages
@@ -345,12 +409,12 @@ export class RemoteApiService {
   /**
    * Validate that a practice exists
    */
-  static async validateOrganization(
+  static async validatePractice(
     env: Env,
     practiceId: string,
     request?: Request
   ): Promise<boolean> {
-    const practice = await this.getOrganization(env, practiceId, request);
+    const practice = await this.getPractice(env, practiceId, request);
     return practice !== null;
   }
 

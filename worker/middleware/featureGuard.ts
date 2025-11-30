@@ -1,5 +1,6 @@
 import { HttpErrors } from "../errorHandler.js";
 import type { Env } from "../types.js";
+import { HttpError } from "../types.js";
 import { optionalAuth, requireOrgMember } from "./auth.js";
 import { RemoteApiService } from "../services/RemoteApiService.js";
 import { PracticeService } from "../services/PracticeService.js";
@@ -19,12 +20,14 @@ const getQuota = async (env: Env, practiceId: string, request?: Request) => {
   // Fetch practice metadata from remote API
   let metadata;
   try {
-    metadata = await RemoteApiService.getOrganizationMetadata(env, practiceId, request);
+    metadata = await RemoteApiService.getPracticeMetadata(env, practiceId, request);
   } catch (error) {
-    // If not found in remote API, might be a workspace - use defaults
-    const tier = 'free';
-    const quotaLimit = getQuotaLimit(tier);
-    return { used: 0, limit: quotaLimit, unlimited: quotaLimit < 0 };
+    if (error instanceof HttpError && error.status === 404) {
+      const tier = 'free';
+      const quotaLimit = getQuotaLimit(tier);
+      return { used: 0, limit: quotaLimit, unlimited: quotaLimit < 0 };
+    }
+    throw error;
   }
 
   // Fetch conversation config to get quotaUsed
@@ -88,20 +91,22 @@ export async function requireFeature(
   // Fetch practice metadata from remote API
   let metadata;
   try {
-    metadata = await RemoteApiService.getOrganizationMetadata(env, options.practiceId, request);
+    metadata = await RemoteApiService.getPracticeMetadata(env, options.practiceId, request);
   } catch (error) {
-    // If not found in remote API, might be a workspace - use defaults
-    if (config.requirePractice) {
-      throw HttpErrors.forbidden("This feature is unavailable for workspaces");
+    if (error instanceof HttpError && error.status === 404) {
+      if (config.requirePractice) {
+        throw HttpErrors.forbidden("This feature is unavailable for workspaces");
+      }
+      metadata = {
+        id: options.practiceId,
+        slug: null,
+        tier: 'free' as const,
+        kind: 'workspace' as const,
+        subscriptionStatus: 'none' as const,
+      };
+    } else {
+      throw error;
     }
-    // For workspaces, allow access with free tier defaults
-    metadata = {
-      id: options.practiceId,
-      slug: null,
-      tier: 'free' as const,
-      kind: 'workspace' as const,
-      subscriptionStatus: 'none' as const,
-    };
   }
 
   if (config.requirePractice && metadata.kind === 'workspace') {

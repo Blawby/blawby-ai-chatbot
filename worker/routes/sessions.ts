@@ -24,7 +24,7 @@ async function normalizePracticeId(env: Env, practiceId?: string | null, request
 
   // Validate practice exists via remote API
   try {
-    const practice = await RemoteApiService.getOrganization(env, trimmed, request);
+    const practice = await RemoteApiService.getPractice(env, trimmed, request);
     if (!practice || !practice.id) {
       throw HttpErrors.notFound(`Practice not found: ${trimmed}`);
     }

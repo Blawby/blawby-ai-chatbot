@@ -114,7 +114,7 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
       // If clientName is provided, it will be used in the PDF; otherwise, it will be omitted
 
       // Load practice config for PDF generation
-      const practice = await RemoteApiService.getOrganization(env, practiceId, request);
+      const practice = await RemoteApiService.getPractice(env, practiceId, request);
       const conversationConfig = practice?.conversationConfig;
 
       // Generate PDF - ensure all required CaseDraft fields are provided

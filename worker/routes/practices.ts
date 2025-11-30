@@ -149,7 +149,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
         const practiceIdentifier = pathParts[0];
         const resource = pathParts[2];
         // Fetch practice from remote API
-        const practice = await RemoteApiService.getOrganization(env, practiceIdentifier, request);
+        const practice = await RemoteApiService.getPractice(env, practiceIdentifier, request);
 
         if (!practice) {
           throw HttpErrors.notFound('Practice not found');
@@ -203,6 +203,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
             }
 
             const action = pathParts[4] ?? null;
+
             if (!action && request.method === 'GET') {
               const record = await env.DB.prepare(
                 `SELECT id,
@@ -258,160 +259,158 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
               };
 
               return createSuccessResponse({ matter: payload });
-        }
-          // Handle matter actions
-          if (action === 'accept' && request.method === 'POST') {
-            const authContext = await requireAuth(request, env);
-            await requireOrgMember(request, env, practice.id, 'attorney');
-
-            let idempotencyKey = request.headers.get('Idempotency-Key');
-            if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
-
-            if (idempotencyKey) {
-            const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
-            if (existing) {
-              return createSuccessResponse(existing);
             }
-          }
 
-          const result = await matterService.acceptLead({
-            practiceId: practice.id,
-            matterId,
-            actorUserId: authContext.user.id
-          });
+            if (action === 'accept' && request.method === 'POST') {
+              const authContext = await requireAuth(request, env);
+              await requireOrgMember(request, env, practice.id, 'attorney');
 
-          if (idempotencyKey) {
-            await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
-          }
+              let idempotencyKey = request.headers.get('Idempotency-Key');
+              if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
 
-          // Fire notification (best-effort)
-          try {
-            const notifier = new NotificationService(env);
-            const prevStatusCandidate = (result as unknown as { previousStatus?: unknown }).previousStatus;
-            const prevStatus = typeof prevStatusCandidate === 'string' ? prevStatusCandidate : undefined;
-            await notifier.sendMatterUpdateNotification({
-              type: 'matter_update',
-              practiceConfig: practice,
-                matterInfo: { type: 'Lead' },
-                update: {
-                  action: 'accept',
-                  fromStatus: prevStatus,
-                  toStatus: result.status,
-                  actorId: authContext.user.id
+              if (idempotencyKey) {
+                const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
+                if (existing) {
+                  return createSuccessResponse(existing);
                 }
-              });
-            } catch (error) { void error; }
-
-            return createSuccessResponse(result);
-          }
-
-          if (action === 'reject' && request.method === 'POST') {
-            const authContext = await requireAuth(request, env);
-            await requireOrgMember(request, env, practice.id, 'attorney');
-
-            let idempotencyKey = request.headers.get('Idempotency-Key');
-            if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
-
-            const body: Record<string, unknown> = (await parseJsonBody(request).catch(() => ({}))) as Record<string, unknown>;
-            const reason = typeof body.reason === 'string' && body.reason.trim().length > 0 ? (body.reason as string).trim() : null;
-
-            if (idempotencyKey) {
-              const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
-              if (existing) {
-                return createSuccessResponse(existing);
               }
-            }
 
-            const result = await matterService.rejectLead({
-              practiceId: practice.id,
-              matterId,
-              actorUserId: authContext.user.id,
-              reason
-            });
-
-            if (idempotencyKey) {
-              await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
-            }
-
-            // Fire notification (best-effort)
-            try {
-              const notifier = new NotificationService(env);
-              const prevStatusCandidate2 = (result as unknown as { previousStatus?: unknown }).previousStatus;
-              const prevStatus = typeof prevStatusCandidate2 === 'string' ? prevStatusCandidate2 : undefined;
-              await notifier.sendMatterUpdateNotification({
-                type: 'matter_update',
-                practiceConfig: practice,
-                matterInfo: { type: 'Lead' },
-                update: {
-                  action: 'reject',
-                  fromStatus: prevStatus,
-                  toStatus: result.status,
-                  actorId: authContext.user.id
-                }
+              const result = await matterService.acceptLead({
+                practiceId: practice.id,
+                matterId,
+                actorUserId: authContext.user.id
               });
-            } catch (error) { void error; }
 
-            return createSuccessResponse(result);
-          }
-
-          if (action === 'status' && request.method === 'PATCH') {
-            const authContext = await requireAuth(request, env);
-            await requireOrgMember(request, env, practice.id, 'attorney');
-
-            let idempotencyKey = request.headers.get('Idempotency-Key');
-            if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
-
-            const body = await parseJsonBody(request);
-            const targetStatusRaw = (body as Record<string, unknown>).status;
-            if (typeof targetStatusRaw !== 'string' || targetStatusRaw.trim().length === 0) {
-              throw HttpErrors.badRequest('status is required');
-            }
-            const targetStatus = normalizeMatterStatus(String(targetStatusRaw));
-            const reason = typeof (body as Record<string, unknown>).reason === 'string'
-              ? ((body as Record<string, unknown>).reason as string).trim()
-              : null;
-
-            if (idempotencyKey) {
-              const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
-              if (existing) {
-                return createSuccessResponse(existing);
+              if (idempotencyKey) {
+                await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
               }
+
+              try {
+                const notifier = new NotificationService(env);
+                const prevStatusCandidate = (result as unknown as { previousStatus?: unknown }).previousStatus;
+                const prevStatus = typeof prevStatusCandidate === 'string' ? prevStatusCandidate : undefined;
+                await notifier.sendMatterUpdateNotification({
+                  type: 'matter_update',
+                  practiceConfig: practice,
+                  matterInfo: { type: 'Lead' },
+                  update: {
+                    action: 'accept',
+                    fromStatus: prevStatus,
+                    toStatus: result.status,
+                    actorId: authContext.user.id
+                  }
+                });
+              } catch (error) { void error; }
+
+              return createSuccessResponse(result);
             }
 
-            const result = await matterService.transitionStatus({
-              practiceId: practice.id,
-              matterId,
-              targetStatus,
-              actorUserId: authContext.user.id,
-              reason
-            });
+            if (action === 'reject' && request.method === 'POST') {
+              const authContext = await requireAuth(request, env);
+              await requireOrgMember(request, env, practice.id, 'attorney');
 
-            if (idempotencyKey) {
-              await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
-            }
+              let idempotencyKey = request.headers.get('Idempotency-Key');
+              if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
 
-            // Fire notification (best-effort)
-            try {
-              const notifier = new NotificationService(env);
-              const prevStatusCandidate3 = (result as unknown as { previousStatus?: unknown }).previousStatus;
-              const prevStatus = typeof prevStatusCandidate3 === 'string' ? prevStatusCandidate3 : undefined;
-              await notifier.sendMatterUpdateNotification({
-                type: 'matter_update',
-                practiceConfig: practice,
-                matterInfo: { type: 'Lead' },
-                update: {
-                  action: 'status_change',
-                  fromStatus: prevStatus,
-                  toStatus: result.status,
-                  actorId: authContext.user.id
+              const body: Record<string, unknown> = (await parseJsonBody(request).catch(() => ({}))) as Record<string, unknown>;
+              const reason = typeof body.reason === 'string' && body.reason.trim().length > 0 ? (body.reason as string).trim() : null;
+
+              if (idempotencyKey) {
+                const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
+                if (existing) {
+                  return createSuccessResponse(existing);
                 }
+              }
+
+              const result = await matterService.rejectLead({
+                practiceId: practice.id,
+                matterId,
+                actorUserId: authContext.user.id,
+                reason
               });
-            } catch (error) { void error; }
 
-            return createSuccessResponse(result);
+              if (idempotencyKey) {
+                await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
+              }
+
+              try {
+                const notifier = new NotificationService(env);
+                const prevStatusCandidate2 = (result as unknown as { previousStatus?: unknown }).previousStatus;
+                const prevStatus = typeof prevStatusCandidate2 === 'string' ? prevStatusCandidate2 : undefined;
+                await notifier.sendMatterUpdateNotification({
+                  type: 'matter_update',
+                  practiceConfig: practice,
+                  matterInfo: { type: 'Lead' },
+                  update: {
+                    action: 'reject',
+                    fromStatus: prevStatus,
+                    toStatus: result.status,
+                    actorId: authContext.user.id
+                  }
+                });
+              } catch (error) { void error; }
+
+              return createSuccessResponse(result);
+            }
+
+            if (action === 'status' && request.method === 'PATCH') {
+              const authContext = await requireAuth(request, env);
+              await requireOrgMember(request, env, practice.id, 'attorney');
+
+              let idempotencyKey = request.headers.get('Idempotency-Key');
+              if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
+
+              const body = await parseJsonBody(request);
+              const targetStatusRaw = (body as Record<string, unknown>).status;
+              if (typeof targetStatusRaw !== 'string' || targetStatusRaw.trim().length === 0) {
+                throw HttpErrors.badRequest('status is required');
+              }
+              const targetStatus = normalizeMatterStatus(String(targetStatusRaw));
+              const reason = typeof (body as Record<string, unknown>).reason === 'string'
+                ? ((body as Record<string, unknown>).reason as string).trim()
+                : null;
+
+              if (idempotencyKey) {
+                const existing = await getMatterMutationResult(env, practice.id, idempotencyKey);
+                if (existing) {
+                  return createSuccessResponse(existing);
+                }
+              }
+
+              const result = await matterService.transitionStatus({
+                practiceId: practice.id,
+                matterId,
+                targetStatus,
+                actorUserId: authContext.user.id,
+                reason
+              });
+
+              if (idempotencyKey) {
+                await storeMatterMutationResult(env, practice.id, idempotencyKey, result as unknown as Record<string, unknown>);
+              }
+
+              try {
+                const notifier = new NotificationService(env);
+                const prevStatusCandidate3 = (result as unknown as { previousStatus?: unknown }).previousStatus;
+                const prevStatus = typeof prevStatusCandidate3 === 'string' ? prevStatusCandidate3 : undefined;
+                await notifier.sendMatterUpdateNotification({
+                  type: 'matter_update',
+                  practiceConfig: practice,
+                  matterInfo: { type: 'Lead' },
+                  update: {
+                    action: 'status_change',
+                    fromStatus: prevStatus,
+                    toStatus: result.status,
+                    actorId: authContext.user.id
+                  }
+                });
+              } catch (error) { void error; }
+
+              return createSuccessResponse(result);
+            }
+
+            throw HttpErrors.methodNotAllowed('Unsupported matter action');
           }
-
-        }
 
           if (request.method !== 'GET') {
             throw HttpErrors.methodNotAllowed('Unsupported method for matters workspace endpoint');
@@ -554,7 +553,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
     if (isEventsEndpoint) {
       const practiceIdentifier = pathSegments[0];
       // Fetch practice from remote API
-      const practice = await RemoteApiService.getOrganization(env, practiceIdentifier, request);
+      const practice = await RemoteApiService.getPractice(env, practiceIdentifier, request);
 
       if (!practice) {
         throw HttpErrors.notFound('Practice not found');

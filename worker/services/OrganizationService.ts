@@ -6,6 +6,7 @@ import { RemoteApiService } from './RemoteApiService.js';
 import { Logger } from '../utils/logger.js';
 import { HttpErrors } from '../errorHandler.js';
 import { HttpError } from '../types.js';
+import { ulid } from 'ulid';
 
 // Helper functions for simplified quota
 const _getQuotaLimit = (tier?: string): number => {
@@ -133,24 +134,6 @@ export class PracticeService {
     return buildDefaultConversationConfig(this.env);
   }
 
-  private createSafeSlug(userId: string): string {
-    const fallbackBase = 'user';
-    const rawId = typeof userId === 'string' ? userId : '';
-    let slug = rawId.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    slug = slug.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-
-    if (!slug) {
-      slug = fallbackBase;
-    }
-
-    const prefix = slug.slice(0, 16) || fallbackBase;
-    const suffix = Date.now().toString(36).slice(-6);
-    const combined = `${prefix}-${suffix}`.replace(/-+/g, '-');
-    const normalized = combined.replace(/^-+/, '').slice(0, 32);
-
-    return normalized.length > 0 ? normalized : `${fallbackBase}-${suffix}`;
-  }
-
   /**
    * Build workspace conversation config with hardcoded defaults (no storage needed)
    */
@@ -190,11 +173,8 @@ export class PracticeService {
     const safeName = typeof userName === 'string' && userName.trim().length > 0 ? userName.trim() : 'New User';
     const workspaceName = `${safeName}'s Workspace`;
     const conversationConfig = this.buildWorkspaceConversationConfig();
-    const slug = this.createSafeSlug(userId);
+    const { workspaceId, slug } = this.buildStableWorkspaceIdentifiers(userId);
     const now = Date.now();
-
-    // Generate workspace ULID
-    const workspaceId = this.generateULID();
 
     // Return hardcoded workspace object (no DB storage)
     const workspace: Workspace = {
@@ -433,7 +413,7 @@ export class PracticeService {
 
     try {
       // Fetch from remote API
-      const practiceData = await RemoteApiService.getOrganization(this.env, practiceId, request);
+      const practiceData = await RemoteApiService.getPractice(this.env, practiceId, request);
       
       if (!practiceData) {
         console.log('No practice found in remote API');
@@ -536,23 +516,34 @@ export class PracticeService {
   private async batchFetchMetadata(
     organizationIds: string[],
     batchSize: number = 10
-  ): Promise<Array<Awaited<ReturnType<typeof RemoteApiService.getOrganizationMetadata>> | null>> {
-    const results: Array<Awaited<ReturnType<typeof RemoteApiService.getOrganizationMetadata>> | null> = [];
+  ): Promise<Array<Awaited<ReturnType<typeof RemoteApiService.getPracticeMetadata>> | null>> {
+    const results: Array<Awaited<ReturnType<typeof RemoteApiService.getPracticeMetadata>> | null> = [];
     
     // Process in batches to avoid overwhelming the remote API
     for (let i = 0; i < organizationIds.length; i += batchSize) {
       const batch = organizationIds.slice(i, i + batchSize);
       const batchPromises = batch.map(async (orgId) => {
         try {
-          return await RemoteApiService.getOrganizationMetadata(this.env, orgId);
+          return await RemoteApiService.getPracticeMetadata(this.env, orgId);
         } catch (error) {
-          console.warn(`Failed to fetch subscription metadata for org ${orgId}`, error);
-          return null;
+          if (error instanceof HttpError && error.status === 404) {
+            Logger.info('Practice metadata not found for batch fetch', { practiceId: orgId });
+            return null;
+          }
+          throw error;
         }
       });
-      
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults);
+
+      try {
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+      } catch (error) {
+        Logger.error('Failed to batch fetch practice metadata', {
+          batch,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        throw error;
+      }
     }
     
     return results;
@@ -695,7 +686,7 @@ export class PracticeService {
       };
 
       // Update the practice's conversation config in remote API
-      const success = await RemoteApiService.updateOrganizationConfig(this.env, practiceId, updatedConfig);
+      const success = await RemoteApiService.updatePracticeConfig(this.env, practiceId, updatedConfig);
       
       if (success) {
         // Clear the cache for this practice
@@ -721,11 +712,25 @@ export class PracticeService {
     return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  private generateULID(): string {
-    // Simple ULID generation - in production, use a proper ULID library
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 15);
-    return `${timestamp.toString(36)}${random}`;
+  private buildStableWorkspaceIdentifiers(userId: string): { workspaceId: string; slug: string } {
+    const normalized = typeof userId === 'string' ? userId.toLowerCase() : '';
+    const alphanumeric = normalized.replace(/[^a-z0-9]/g, '');
+    const baseSeedSource = alphanumeric || this.simpleHash(userId) || ulid().toLowerCase();
+    const seed = baseSeedSource.slice(0, 48);
+    const workspaceId = `workspace-${seed}`;
+    const slug = `workspace-${seed}`.replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || `workspace-${seed}`;
+    return { workspaceId, slug };
+  }
+
+  private simpleHash(value: string): string {
+    if (!value) {
+      return 'workspace';
+    }
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(16);
   }
 
   // Business onboarding methods removed - onboarding is now handled by remote API

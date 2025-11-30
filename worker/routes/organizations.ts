@@ -149,7 +149,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
         const practiceIdentifier = pathParts[0];
         const resource = pathParts[2];
         // Fetch practice from remote API
-        const practice = await RemoteApiService.getOrganization(env, practiceIdentifier, request);
+        const practice = await RemoteApiService.getPractice(env, practiceIdentifier, request);
 
         if (!practice) {
           throw HttpErrors.notFound('Practice not found');
@@ -554,7 +554,7 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
     if (isEventsEndpoint) {
       const practiceIdentifier = pathSegments[0];
       // Fetch practice from remote API
-      const practice = await RemoteApiService.getOrganization(env, practiceIdentifier, request);
+      const practice = await RemoteApiService.getPractice(env, practiceIdentifier, request);
 
       if (!practice) {
         throw HttpErrors.notFound('Practice not found');

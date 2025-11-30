@@ -28,7 +28,7 @@ export async function handleForms(request: Request, env: Env): Promise<Response>
       throw HttpErrors.badRequest('practiceId is required');
     }
 
-    const practice = await RemoteApiService.getOrganization(env, practiceId, request);
+    const practice = await RemoteApiService.getPractice(env, practiceId, request);
     if (!practice) {
       throw HttpErrors.notFound('Practice not found');
     }
