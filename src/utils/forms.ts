@@ -24,12 +24,22 @@ const toPaymentConfig = (source: unknown): PaymentConfig | null => {
   if (!isRecord(source)) {
     return null;
   }
-  return {
+  const config = {
     ownerEmail: typeof source.ownerEmail === 'string' ? source.ownerEmail : undefined,
     requiresPayment: typeof source.requiresPayment === 'boolean' ? source.requiresPayment : undefined,
     consultationFee: typeof source.consultationFee === 'number' ? source.consultationFee : undefined,
     paymentLink: typeof source.paymentLink === 'string' ? source.paymentLink : undefined
   };
+
+  // Return null if no payment-related fields were found
+  if (config.ownerEmail === undefined && 
+      config.requiresPayment === undefined && 
+      config.consultationFee === undefined && 
+      config.paymentLink === undefined) {
+    return null;
+  }
+
+  return config;
 };
 
 const resolvePaymentConfig = (practice?: Practice): PaymentConfig | null => {
@@ -37,11 +47,14 @@ const resolvePaymentConfig = (practice?: Practice): PaymentConfig | null => {
     return null;
   }
 
-  const direct = toPaymentConfig(practice.config);
+  // Check practice.config if it exists (legacy support)
+  const practiceWithConfig = practice as Practice & { config?: unknown };
+  const direct = practiceWithConfig.config ? toPaymentConfig(practiceWithConfig.config) : null;
   if (direct) {
     return direct;
   }
 
+  // Fallback to metadata.conversationConfig
   if (isRecord(practice.metadata) && isRecord(practice.metadata.conversationConfig)) {
     return toPaymentConfig(practice.metadata.conversationConfig);
   }

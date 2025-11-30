@@ -8,17 +8,6 @@ import { HttpErrors } from '../errorHandler.js';
 import { HttpError } from '../types.js';
 import { ulid } from 'ulid';
 
-// Helper functions for simplified quota
-const _getQuotaLimit = (tier?: string): number => {
-  switch (tier) {
-    case 'free': return 100;
-    case 'plus': return 500;
-    case 'business': return 1000;
-    case 'enterprise': return -1; // unlimited
-    default: return 100;
-  }
-};
-
 const DEFAULT_AVAILABLE_SERVICES = [
   'Family Law',
   'Employment Law',
@@ -107,12 +96,8 @@ export class PracticeService {
       if (error instanceof HttpError) {
         throw error;
       }
-      // If remote validation fails, log but allow operation to proceed
-      // (this maintains availability while still attempting validation)
-      Logger.warn('User validation failed, proceeding with member creation', {
-        userId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      // Validation failures should not be silently ignored
+      throw HttpErrors.serviceUnavailable('Failed to validate user existence');
     }
   }
 
@@ -283,7 +268,7 @@ export class PracticeService {
     
     // Handle direct environment variable names (without ${} wrapper)
     // Only replace if the value looks like an environment variable name
-    if (result.match(/^[A-Z_]+$/)) {
+    if (result.match(/^[A-Z_][A-Z0-9_]*$/)) {
       const envValue = this.getEnvValue(result);
       console.log(`🔍 Resolving direct ${result}: ${envValue !== undefined ? 'FOUND' : 'NOT FOUND'}`);
       if (envValue !== undefined) {
@@ -665,8 +650,13 @@ export class PracticeService {
         return false;
       }
 
-      // Generate hash for the existing API key (apiKey is guaranteed to be string here due to check above)
-      const apiKeyHash = await this.hashToken(practice.conversationConfig.blawbyApi.apiKey!);
+      // Generate hash for the existing API key
+      const apiKey = practice.conversationConfig.blawbyApi.apiKey;
+      if (!apiKey) {
+        console.log(`❌ No API key found for practice: ${practiceId}`);
+        return false;
+      }
+      const apiKeyHash = await this.hashToken(apiKey);
       
       // Validate the generated hash
       if (!this.isValidApiKeyHash(apiKeyHash)) {

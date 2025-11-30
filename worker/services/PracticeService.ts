@@ -6,7 +6,6 @@ import { RemoteApiService } from './RemoteApiService.js';
 import { Logger } from '../utils/logger.js';
 import { HttpErrors } from '../errorHandler.js';
 import { HttpError } from '../types.js';
-import { ulid } from 'ulid';
 
 const DEFAULT_AVAILABLE_SERVICES = [
   'Family Law',
@@ -702,12 +701,9 @@ export class PracticeService {
   }
 
   private buildStableWorkspaceIdentifiers(userId: string): { workspaceId: string; slug: string } {
-    const normalized = typeof userId === 'string' ? userId.toLowerCase() : '';
-    const alphanumeric = normalized.replace(/[^a-z0-9]/g, '');
-    const baseSeedSource = alphanumeric || this.simpleHash(userId) || ulid().toLowerCase();
-    const seed = baseSeedSource.slice(0, 48);
+    const seed = ((userId || '').toLowerCase().replace(/[^a-z0-9]/g, '') || this.simpleHash(userId)).slice(0, 48);
     const workspaceId = `workspace-${seed}`;
-    const slug = `workspace-${seed}`.replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || `workspace-${seed}`;
+    const slug = workspaceId.slice(0, 64);
     return { workspaceId, slug };
   }
 

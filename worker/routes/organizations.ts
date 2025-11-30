@@ -1,7 +1,7 @@
 import { MatterService } from '../services/MatterService.js';
 import { Env } from '../types.js';
 import { requireAuth, requireOrgMember } from '../middleware/auth.js';
-import { handleError, HttpErrors } from '../errorHandler.js';
+import { handleError, HttpErrors, logError } from '../errorHandler.js';
 import { parseJsonBody } from '../utils.js';
 import { NotificationService } from '../services/NotificationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
@@ -289,18 +289,31 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
             const notifier = new NotificationService(env);
             const prevStatusCandidate = (result as unknown as { previousStatus?: unknown }).previousStatus;
             const prevStatus = typeof prevStatusCandidate === 'string' ? prevStatusCandidate : undefined;
+            
+            // Fetch actual matter type from database
+            const matterRecord = await env.DB.prepare(
+              'SELECT matter_type FROM matters WHERE id = ? AND organization_id = ?'
+            ).bind(matterId, practice.id).first<{ matter_type: string }>();
+            
             await notifier.sendMatterUpdateNotification({
               type: 'matter_update',
               practiceConfig: practice,
-                matterInfo: { type: 'Lead' },
-                update: {
-                  action: 'accept',
-                  fromStatus: prevStatus,
-                  toStatus: result.status,
-                  actorId: authContext.user.id
-                }
-              });
-            } catch (error) { void error; }
+              matterInfo: { type: matterRecord?.matter_type ?? 'Lead' },
+              update: {
+                action: 'accept',
+                fromStatus: prevStatus,
+                toStatus: result.status,
+                actorId: authContext.user.id
+              }
+            });
+          } catch (error) {
+            logError(error, {
+              endpoint: 'organizations',
+              action: 'accept',
+              matterId,
+              practiceId: practice.id
+            });
+          }
 
             return createSuccessResponse(result);
           }
@@ -338,10 +351,16 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
               const notifier = new NotificationService(env);
               const prevStatusCandidate2 = (result as unknown as { previousStatus?: unknown }).previousStatus;
               const prevStatus = typeof prevStatusCandidate2 === 'string' ? prevStatusCandidate2 : undefined;
+              
+              // Fetch actual matter type from database
+              const matterRecord = await env.DB.prepare(
+                'SELECT matter_type FROM matters WHERE id = ? AND organization_id = ?'
+              ).bind(matterId, practice.id).first<{ matter_type: string }>();
+              
               await notifier.sendMatterUpdateNotification({
                 type: 'matter_update',
                 practiceConfig: practice,
-                matterInfo: { type: 'Lead' },
+                matterInfo: { type: matterRecord?.matter_type ?? 'Lead' },
                 update: {
                   action: 'reject',
                   fromStatus: prevStatus,
@@ -349,7 +368,14 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
                   actorId: authContext.user.id
                 }
               });
-            } catch (error) { void error; }
+            } catch (error) {
+              logError(error, {
+                endpoint: 'organizations',
+                action: 'reject',
+                matterId,
+                practiceId: practice.id
+              });
+            }
 
             return createSuccessResponse(result);
           }
@@ -395,10 +421,16 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
               const notifier = new NotificationService(env);
               const prevStatusCandidate3 = (result as unknown as { previousStatus?: unknown }).previousStatus;
               const prevStatus = typeof prevStatusCandidate3 === 'string' ? prevStatusCandidate3 : undefined;
+              
+              // Fetch actual matter type from database
+              const matterRecord = await env.DB.prepare(
+                'SELECT matter_type FROM matters WHERE id = ? AND organization_id = ?'
+              ).bind(matterId, practice.id).first<{ matter_type: string }>();
+              
               await notifier.sendMatterUpdateNotification({
                 type: 'matter_update',
                 practiceConfig: practice,
-                matterInfo: { type: 'Lead' },
+                matterInfo: { type: matterRecord?.matter_type ?? 'Lead' },
                 update: {
                   action: 'status_change',
                   fromStatus: prevStatus,
@@ -406,7 +438,14 @@ export async function handleOrganizations(request: Request, env: Env): Promise<R
                   actorId: authContext.user.id
                 }
               });
-            } catch (error) { void error; }
+            } catch (error) {
+              logError(error, {
+                endpoint: 'organizations',
+                action: 'status_change',
+                matterId,
+                practiceId: practice.id
+              });
+            }
 
             return createSuccessResponse(result);
           }
