@@ -461,21 +461,12 @@ function extractFirstJsonObject(text: string): string | null {
 }
 
 
-// MIME types allowed for analysis (tighter than file upload)
+// MIME types allowed for analysis - only Adobe-supported types since AI analysis was removed
+// Adobe PDF Services only supports: PDF, DOC, DOCX
 const ALLOWED_ANALYSIS_MIME_TYPES = [
-  'image/jpeg',
-  'image/jpg', 
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/tiff',
-  'image/tif',
-  'image/heic',
-  'image/heif',
   'application/pdf',
   'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain'
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ];
 
 const MAX_ANALYSIS_FILE_SIZE = 8 * 1024 * 1024; // 8MB for inline analysis

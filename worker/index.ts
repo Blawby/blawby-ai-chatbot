@@ -20,7 +20,6 @@ import { withCORS, getCorsConfig } from './middleware/cors';
 
 // Add RequestInit type for TypeScript
 type RequestInit = globalThis.RequestInit;
-import docProcessor from './consumers/doc-processor';
 import { requireAuth } from './middleware/auth.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 
@@ -157,8 +156,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 
 export default { 
-  fetch: handleRequest,
-  queue: docProcessor.queue
+  fetch: handleRequest
 };
 
 async function proxyPracticeRequest(request: Request, env: Env, path: string, search: string): Promise<Response> {

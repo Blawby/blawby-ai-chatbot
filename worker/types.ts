@@ -6,7 +6,6 @@ export interface Env {
   CHAT_SESSIONS: KVNamespace;
   RESEND_API_KEY: string;
   FILES_BUCKET?: R2Bucket;
-  DOC_EVENTS: Queue;
   PARALEGAL_TASKS: Queue;
   PAYMENT_API_KEY?: string;
   PAYMENT_API_URL?: string;
@@ -307,8 +306,8 @@ export interface AnalysisResult {
   };
   // Flag to distinguish raw extraction from AI analysis
   extraction_only?: boolean;
-  // State indicator: 'extracted' for raw extraction, 'analyzed' for AI analysis
-  extraction_state?: 'extracted' | 'analyzed';
+  // State indicator: 'extracted' for successful raw extraction, 'analyzed' for AI analysis, 'failed' for extraction failures, 'unsupported' for unsupported file types
+  extraction_state?: 'extracted' | 'analyzed' | 'failed' | 'unsupported';
 }
 
 // Shared UI fields that can be attached to chat messages
