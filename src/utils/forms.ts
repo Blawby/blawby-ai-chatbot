@@ -48,8 +48,9 @@ const resolvePaymentConfig = (practice?: Practice): PaymentConfig | null => {
   }
 
   // Check practice.config if it exists
-  const practiceWithConfig = practice as Practice & { config?: unknown };
-  const direct = practiceWithConfig.config ? toPaymentConfig(practiceWithConfig.config) : null;
+  const direct = 'config' in practice && practice.config 
+    ? toPaymentConfig(practice.config) 
+    : null;
   if (direct) {
     return direct;
   }
@@ -81,7 +82,7 @@ const fetchPracticeForIdentifier = async (identifier: string): Promise<Practice 
 
   try {
     const practices = await listPractices({ scope: 'all' });
-    return practices.find((practice) => practice.id === trimmed);
+    return practices.find((practice) => practice.id === trimmed || practice.slug === trimmed);
   } catch (error) {
     console.warn('Failed to list practices while resolving payment requirements', error);
     return undefined;

@@ -109,7 +109,7 @@ export function SEOHead({
     updateMetaTag('og:url', currentUrl || window.location.href);
     updateMetaTag('og:image', pageImage || 
       (practiceConfig?.profileImage || '/team-profile-demo.png'));
-    // Use organization name for og:site_name, fallback to default site name
+    // Use practice name for og:site_name, fallback to default site name
     const siteName = practiceConfig?.name 
       ? practiceConfig.name.trim()
       : 'Blawby AI';

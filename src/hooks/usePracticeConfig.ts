@@ -157,7 +157,7 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
         }
 
         practice = practices.find(
-          (t) => t.id === currentPracticeId
+          (t) => t.id === currentPracticeId || t.slug === currentPracticeId
         ) as unknown as z.infer<typeof PracticeSchema> | undefined;
       }
 

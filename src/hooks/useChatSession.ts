@@ -35,7 +35,7 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const isDisposedRef = useRef(false);
-  const handshakeOrgRef = useRef<{ practiceId: string | null; promise: Promise<SessionResponsePayload | void> } | null>(null);
+  const handshakePracticeRef = useRef<{ practiceId: string | null; promise: Promise<SessionResponsePayload | void> } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -90,8 +90,8 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
     }
 
     // Prevent multiple simultaneous handshakes for the same practice
-    if (handshakeOrgRef.current && handshakeOrgRef.current.practiceId === practiceId) {
-      return handshakeOrgRef.current.promise;
+    if (handshakePracticeRef.current && handshakePracticeRef.current.practiceId === practiceId) {
+      return handshakePracticeRef.current.promise;
     }
 
     // Create the handshake promise and store it with the practice ID
@@ -133,7 +133,7 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
       writeStoredSessionId(data.sessionId);
 
       // Only update state if this handshake is still for the current practice
-      if (!isDisposedRef.current && handshakeOrgRef.current?.practiceId === practiceId) {
+      if (!isDisposedRef.current && handshakePracticeRef.current?.practiceId === practiceId) {
         setSessionId(data.sessionId);
         setSessionToken(typeof data.sessionToken === 'string' ? data.sessionToken : null);
         setError(null);
@@ -145,15 +145,15 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
         ? handshakeError.message
         : 'Unknown session error';
       // Only update error state if this handshake is still for the current practice
-      if (!isDisposedRef.current && handshakeOrgRef.current?.practiceId === practiceId) {
+      if (!isDisposedRef.current && handshakePracticeRef.current?.practiceId === practiceId) {
         setError(message);
       }
       console.warn('Session handshake failed:', handshakeError);
       throw handshakeError;
     } finally {
       // Only clear handshake state if this handshake is still for the current practice
-      if (handshakeOrgRef.current?.practiceId === practiceId) {
-        handshakeOrgRef.current = null;
+      if (handshakePracticeRef.current?.practiceId === practiceId) {
+        handshakePracticeRef.current = null;
         // Only clear isInitializing if this handshake is still the active one
         if (!isDisposedRef.current) {
           setIsInitializing(false);
@@ -163,7 +163,7 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
     })();
 
     // Store the promise with the practice ID
-    handshakeOrgRef.current = { practiceId: practiceId, promise: handshakePromise };
+    handshakePracticeRef.current = { practiceId: practiceId, promise: handshakePromise };
     
     return handshakePromise;
   }, [practiceId, readStoredSessionId, writeStoredSessionId]);
@@ -171,8 +171,10 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
   useEffect(() => {
     if (!practiceId) {
       clearStoredSession();
-      handshakeOrgRef.current = null;
-      setIsInitializing(false);
+      handshakePracticeRef.current = null;
+      if (!isDisposedRef.current) {
+        setIsInitializing(false);
+      }
       return;
     }
 

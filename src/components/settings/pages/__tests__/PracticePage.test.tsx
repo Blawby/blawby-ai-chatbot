@@ -18,13 +18,13 @@ import { PracticePage } from '../PracticePage';
 import { usePracticeManagement } from '../../../../hooks/usePracticeManagement';
 
 // Mock the organization management hook
-const mockCreateOrganization = vi.fn();
+const mockCreatePractice = vi.fn();
 const mockAcceptInvitation = vi.fn();
 const mockDeclineInvitation = vi.fn();
 const mockFetchMembers = vi.fn();
 const mockRefetch = vi.fn();
-const mockUpdateOrganization = vi.fn();
-const mockDeleteOrganization = vi.fn();
+const mockUpdatePractice = vi.fn();
+const mockDeletePractice = vi.fn();
 const mockUpdateMemberRole = vi.fn();
 const mockRemoveMember = vi.fn();
 const mockSendInvitation = vi.fn();
@@ -64,9 +64,9 @@ const useOrgMgmtMock = {
   acceptMatter: vi.fn(),
   rejectMatter: vi.fn(),
   updateMatterStatus: vi.fn(),
-  createOrganization: mockCreateOrganization,
-  updateOrganization: mockUpdateOrganization,
-  deleteOrganization: mockDeleteOrganization,
+  createPractice: mockCreatePractice,
+  updatePractice: mockUpdatePractice,
+  deletePractice: mockDeletePractice,
   updateMemberRole: mockUpdateMemberRole,
   removeMember: mockRemoveMember,
   sendInvitation: mockSendInvitation,
@@ -111,7 +111,7 @@ vi.mock('../../../../config/features', () => ({
 // Mock SessionContext
 const mockSessionContext = {
   activePracticeId: 'org-1',
-  activeOrganizationSlug: 'test-org',
+  activePracticeSlug: 'test-org',
 };
 
 vi.mock('../../../../contexts/SessionContext', () => ({
@@ -146,7 +146,7 @@ vi.mock('../../../../hooks/useNavigation', () => ({
 describe('PracticePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateOrganization.mockClear();
+    mockCreatePractice.mockClear();
     mockAcceptInvitation.mockClear();
     mockDeclineInvitation.mockClear();
     mockGetMembers.mockClear();
@@ -183,9 +183,9 @@ describe('PracticePage', () => {
     useOrgMgmtMock.acceptMatter = vi.fn();
     useOrgMgmtMock.rejectMatter = vi.fn();
     useOrgMgmtMock.updateMatterStatus = vi.fn();
-    useOrgMgmtMock.createOrganization = mockCreateOrganization;
-    useOrgMgmtMock.updateOrganization = mockUpdateOrganization;
-    useOrgMgmtMock.deleteOrganization = mockDeleteOrganization;
+    useOrgMgmtMock.createPractice = mockCreatePractice;
+    useOrgMgmtMock.updatePractice = mockUpdatePractice;
+    useOrgMgmtMock.deletePractice = mockDeletePractice;
     useOrgMgmtMock.updateMemberRole = mockUpdateMemberRole;
     useOrgMgmtMock.removeMember = mockRemoveMember;
     useOrgMgmtMock.sendInvitation = mockSendInvitation;
@@ -202,7 +202,7 @@ describe('PracticePage', () => {
     
     // Reset SessionContext to match currentPractice
     mockSessionContext.activePracticeId = 'org-1';
-    mockSessionContext.activeOrganizationSlug = 'test-org';
+    mockSessionContext.activePracticeSlug = 'test-org';
     
     // Set up the mock return value
     vi.mocked(usePracticeManagement).mockReturnValue(useOrgMgmtMock);
@@ -382,7 +382,7 @@ describe('PracticePage', () => {
   });
 
   it('should handle organization creation', async () => {
-    mockCreateOrganization.mockResolvedValueOnce(undefined);
+    mockCreatePractice.mockResolvedValueOnce(undefined);
     
     // Set currentPractice to null to show empty state
     useOrgMgmtMock.currentPractice = null;
@@ -409,7 +409,7 @@ describe('PracticePage', () => {
     fireEvent.click(submitButton);
     
     await waitFor(() => {
-      expect(mockCreateOrganization).toHaveBeenCalledWith({
+      expect(mockCreatePractice).toHaveBeenCalledWith({
         name: 'New Organization',
         slug: 'new-org',
         description: undefined,
@@ -578,6 +578,6 @@ describe('PracticePage', () => {
     
     // Verify component does not read SessionContext when currentPractice is null
     expect(mockSessionContext.activePracticeId).toBe(null);
-    expect(mockSessionContext.activeOrganizationSlug).toBe(null);
+    expect(mockSessionContext.activePracticeSlug).toBe(null);
   });
 });

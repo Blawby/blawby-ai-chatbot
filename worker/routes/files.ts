@@ -172,7 +172,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
       fileSize: file.size,
       fileType: file.type,
       timestamp: new Date().toISOString(),
-      anomaly: 'missing_organization_during_file_upload',
+      anomaly: 'missing_practice_during_file_upload',
       severity: 'high'
     });
 
@@ -182,7 +182,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
       practiceId,
       sessionId,
       fileId,
-      alertType: 'missing_organization',
+      alertType: 'missing_practice',
       severity: 'high',
       timestamp: new Date().toISOString()
     });
@@ -547,7 +547,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
             const practiceIdAndSessionId = parts.slice(0, -2).join('-');
             
             // Find the sessionId (it's a UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-            const sessionIdMatch = practiceIdAndSessionId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+            const sessionIdMatch = practiceIdAndSessionId.match(/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/i);
             
             if (sessionIdMatch) {
               const sessionId = sessionIdMatch[0];
