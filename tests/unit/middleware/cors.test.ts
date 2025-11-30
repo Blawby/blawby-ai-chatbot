@@ -7,8 +7,6 @@ const mockEnv: Env = {
   DB: {} as any,
   CHAT_SESSIONS: {} as any,
   RESEND_API_KEY: 'test-key',
-  DOC_EVENTS: {} as any,
-  PARALEGAL_TASKS: {} as any,
   NODE_ENV: 'production'
 } as Env;
 

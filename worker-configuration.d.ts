@@ -53,8 +53,6 @@ declare namespace Cloudflare {
 		ENABLE_STRIPE_SUBSCRIPTIONS: string;
 		FILES_BUCKET: R2Bucket;
 		DB: D1Database;
-		DOC_EVENTS: Queue;
-		PARALEGAL_TASKS: Queue;
 		AI: Ai;
 	}
 }

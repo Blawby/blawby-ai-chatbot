@@ -1,4 +1,4 @@
-import type { KVNamespace, R2Bucket, D1Database, Queue } from '@cloudflare/workers-types';
+import type { KVNamespace, R2Bucket, D1Database } from '@cloudflare/workers-types';
 
 // Environment interface with proper Cloudflare Workers types
 export interface Env {

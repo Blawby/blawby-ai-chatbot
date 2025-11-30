@@ -13,8 +13,6 @@ const createMockEnv = (): Env => {
       put: mockPut
     } as any, // Use any to avoid KVNamespace type conflicts
     RESEND_API_KEY: 'test-key',
-    DOC_EVENTS: {} as any,
-    PARALEGAL_TASKS: {} as any
   } as Env;
 };
 
