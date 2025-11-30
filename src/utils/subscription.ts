@@ -55,7 +55,7 @@ const MANAGED_STATUSES = new Set<SubscriptionLifecycleStatus>([
   'unpaid',
 ]);
 
-export function resolveOrganizationKind(kind?: string | null, isPersonal?: boolean | null): SubscriptionKind {
+export function resolvePracticeKind(kind?: string | null, isPersonal?: boolean | null): SubscriptionKind {
   if (kind === 'business') return 'business';
   if (kind === 'personal') return 'personal';
   if (isPersonal === false) return 'business';
@@ -78,8 +78,8 @@ export function normalizeSubscriptionStatus(
   return 'none';
 }
 
-export function isBusinessOrganization(kind?: string | null, isPersonal?: boolean | null): boolean {
-  return resolveOrganizationKind(kind, isPersonal) === 'business';
+export function isBusinessPractice(kind?: string | null, isPersonal?: boolean | null): boolean {
+  return resolvePracticeKind(kind, isPersonal) === 'business';
 }
 
 export function hasActiveSubscriptionStatus(status?: string | null): boolean {
@@ -92,7 +92,7 @@ export function hasManagedSubscription(
   status?: string | null,
   isPersonal?: boolean | null
 ): boolean {
-  const resolvedKind = resolveOrganizationKind(kind, isPersonal);
+  const resolvedKind = resolvePracticeKind(kind, isPersonal);
   const normalizedStatus = normalizeSubscriptionStatus(status, resolvedKind);
   return resolvedKind === 'business' && MANAGED_STATUSES.has(normalizedStatus);
 }
@@ -103,7 +103,7 @@ export function describeSubscriptionPlan(
   tier?: string | null,
   isPersonal?: boolean | null
 ): string {
-  const resolvedKind = resolveOrganizationKind(kind, isPersonal);
+  const resolvedKind = resolvePracticeKind(kind, isPersonal);
   if (resolvedKind === 'personal') {
     return 'Personal';
   }

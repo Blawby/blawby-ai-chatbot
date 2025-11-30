@@ -1,8 +1,8 @@
-import { DEFAULT_ORGANIZATION_ID, DEFAULT_PLATFORM_SLUG } from './constants';
+import { DEFAULT_PRACTICE_ID, DEFAULT_PLATFORM_SLUG } from './constants';
 import { PLATFORM_SETTINGS } from '../config/platform';
 
 const PLATFORM_IDS = new Set(
-  [DEFAULT_ORGANIZATION_ID, PLATFORM_SETTINGS.id].filter(Boolean)
+  [DEFAULT_PRACTICE_ID, PLATFORM_SETTINGS.id].filter(Boolean)
 );
 
 const PLATFORM_SLUGS = new Set(
@@ -11,7 +11,7 @@ const PLATFORM_SLUGS = new Set(
     .map((slug) => slug!.toLowerCase())
 );
 
-export function isPlatformOrganization(identifier?: string | null): boolean {
+export function isPlatformPractice(identifier?: string | null): boolean {
   if (!identifier) {
     return false;
   }

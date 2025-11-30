@@ -1,4 +1,4 @@
-import { MatterWorkflowStatus } from '../../hooks/useOrganizationManagement';
+import { MatterWorkflowStatus } from '../../hooks/usePracticeManagement';
 import { StatusBadge } from '../ui/badges/StatusBadge';
 
 type BaseBadgeVariant = 'active' | 'pending' | 'inactive' | 'suspended' | 'cancelled' | 'completed';

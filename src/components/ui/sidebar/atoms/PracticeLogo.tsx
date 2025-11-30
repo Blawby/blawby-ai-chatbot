@@ -1,18 +1,18 @@
 /**
- * OrgLogo - Atom Component
+ * PracticeLogo - Atom Component
  * 
- * Pure organization logo/image display. No interactions, no state.
- * Just renders the organization logo with proper styling.
+ * Pure practice logo/image display. No interactions, no state.
+ * Just renders the practice logo with proper styling.
  */
 
-interface OrgLogoProps {
+interface PracticeLogoProps {
   src: string;
   alt: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-export const OrgLogo = ({ 
+export const PracticeLogo = ({ 
   src, 
   alt, 
   size = 'md',

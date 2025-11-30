@@ -1,8 +1,8 @@
 import { FunctionComponent, createContext, useContext, useEffect, useState, useMemo, useCallback } from 'preact/compat';
 import { ComponentChildren } from 'preact';
 import { authClient } from '../lib/authClient';
-import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
-import { DEFAULT_ORGANIZATION_ID, DEFAULT_PLATFORM_SLUG } from '../utils/constants';
+import { usePracticeManagement } from '../hooks/usePracticeManagement';
+import { DEFAULT_PRACTICE_ID, DEFAULT_PLATFORM_SLUG } from '../utils/constants';
 import { PLATFORM_SETTINGS } from '../config/platform';
 
 // Simplified quota types
@@ -15,13 +15,13 @@ export interface SimpleQuota {
 interface SessionContextValue {
   session: ReturnType<typeof authClient.useSession>['data'];
   isAnonymous: boolean;
-  activeOrganizationId: string | null;
-  activeOrganizationSlug: string | null;
+  activePracticeId: string | null;
+  activePracticeSlug: string | null;
   quota: SimpleQuota | null;
   refreshQuota: () => Promise<void>;
 }
 
-interface OrgConfig extends Record<string, unknown> {
+interface PracticeConfig extends Record<string, unknown> {
   quotaUsed?: number;
 }
 
@@ -32,34 +32,34 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const [quota, setQuota] = useState<SimpleQuota | null>(null);
 
   const isAnonymous = !sessionData?.user;
-  const { organizations, currentOrganization } = useOrganizationManagement();
+  const { practices, currentPractice } = usePracticeManagement();
 
-  const activeOrganizationIdFromSession =
-    (sessionData?.user as any)?.organizationId ?? (sessionData?.user as any)?.activeOrganizationId ?? null;
+  const activePracticeIdFromSession =
+    (sessionData?.user as any)?.practiceId ?? (sessionData?.user as any)?.activePracticeId ?? null;
 
-  const activeOrganizationId = currentOrganization?.id ?? activeOrganizationIdFromSession ?? null;
+  const activePracticeId = currentPractice?.id ?? activePracticeIdFromSession ?? null;
 
-  const activeOrganizationSlug = useMemo(() => {
-    if (activeOrganizationId === DEFAULT_ORGANIZATION_ID) {
+  const activePracticeSlug = useMemo(() => {
+    if (activePracticeId === DEFAULT_PRACTICE_ID) {
       return PLATFORM_SETTINGS.slug ?? DEFAULT_PLATFORM_SLUG;
     }
-    const org = organizations.find(o => o.id === activeOrganizationId);
-    return org?.slug ?? null;
-  }, [activeOrganizationId, organizations]);
+    const practice = practices.find(p => p.id === activePracticeId);
+    return practice?.slug ?? null;
+  }, [activePracticeId, practices]);
 
-  // Simplified quota logic - derive from organization config
+  // Simplified quota logic - derive from practice config
   const refreshQuota = useCallback(async () => {
-    if (!currentOrganization) {
+    if (!currentPractice) {
       setQuota(null);
       return;
     }
 
-    const config = (currentOrganization.config ?? undefined) as OrgConfig | undefined;
+    const config = (currentPractice.config ?? undefined) as PracticeConfig | undefined;
     const quotaUsed =
       typeof config?.quotaUsed === 'number' && Number.isFinite(config.quotaUsed)
         ? config.quotaUsed
         : 0;
-    const tier = currentOrganization.subscriptionTier ?? 'free';
+    const tier = currentPractice.subscriptionTier ?? 'free';
     
     // Simple tier-based limits
     const getQuotaLimit = (tier: string) => {
@@ -78,9 +78,9 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
       limit: quotaLimit,
       unlimited: quotaLimit < 0
     });
-  }, [currentOrganization]);
+  }, [currentPractice]);
 
-  // Update quota when organization changes
+  // Update quota when practice changes
   useEffect(() => {
     refreshQuota();
   }, [refreshQuota]);
@@ -88,11 +88,11 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const value = useMemo<SessionContextValue>(() => ({
     session: sessionData ?? null,
     isAnonymous,
-    activeOrganizationId,
-    activeOrganizationSlug,
+    activePracticeId,
+    activePracticeSlug,
     quota,
     refreshQuota,
-  }), [sessionData, isAnonymous, activeOrganizationId, activeOrganizationSlug, quota, refreshQuota]);
+  }), [sessionData, isAnonymous, activePracticeId, activePracticeSlug, quota, refreshQuota]);
 
   return (
     <SessionContext.Provider value={value}>

@@ -27,7 +27,7 @@ interface ReviewAndLaunchStepProps {
     services: Array<{ title: string; description: string }>;
     isPublic: boolean;
   };
-  organizationSlug: string;
+  practiceSlug: string;
   onVisibilityChange: (isPublic: boolean) => void;
   onComplete: () => void;
   onBack: () => void;
@@ -36,14 +36,14 @@ interface ReviewAndLaunchStepProps {
 
 export function ReviewAndLaunchStep({ 
   data, 
-  organizationSlug,
+  practiceSlug,
   onVisibilityChange,
   onComplete, 
   onBack,
   onSkip
 }: ReviewAndLaunchStepProps) {
   const { t } = useTranslation('common');
-  const intakeUrl = `https://ai.blawby.com/${encodeURIComponent((organizationSlug || 'your-firm').trim())}`;
+  const intakeUrl = `https://ai.blawby.com/${encodeURIComponent((practiceSlug || 'your-firm').trim())}`;
   const validServices = data.services.filter(service => service.title.trim().length > 0);
 
   const launchFeatures = [

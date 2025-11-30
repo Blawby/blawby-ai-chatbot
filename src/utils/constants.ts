@@ -15,8 +15,8 @@ export const THEME = {
 // Matter analysis constants
 export const SUMMARY_MIN_LENGTH = 50;
 
-// Organization constants
-// Used as the fallback platform/org identifier for public experiences
-export const DEFAULT_ORGANIZATION_ID = '01K0TNGNKTM4Q0AG0XF0A8ST0Q';
+// Practice constants
+// Used as the fallback platform/practice identifier for public experiences
+export const DEFAULT_PRACTICE_ID = '01K0TNGNKTM4Q0AG0XF0A8ST0Q';
 export const DEFAULT_PLATFORM_SLUG = 'blawby-ai';
-export const PLATFORM_ORGANIZATION_ID = DEFAULT_ORGANIZATION_ID;
+export const PLATFORM_PRACTICE_ID = DEFAULT_PRACTICE_ID;

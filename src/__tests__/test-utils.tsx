@@ -46,7 +46,7 @@ vi.mock('preact-iso', () => ({
 // Mock the feature flags
 vi.mock('../config/features', () => ({
   useFeatureFlag: (flag: string) => {
-    if (flag === 'enableMultipleOrganizations') return false;
+    if (flag === 'enableMultiplePractices') return false;
     return false;
   },
 }));
@@ -122,7 +122,7 @@ vi.mock('../config/features', () => ({
     enableMobileBottomNav: false,
     enablePaymentIframe: false,
     enableLeadQualification: true,
-    enableMultipleOrganizations: true,
+    enableMultiplePractices: true,
   }
 }));
 

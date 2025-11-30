@@ -52,9 +52,9 @@ export async function extractPracticeContext(
   try {
     const authContext = await optionalAuth(request, env);
     if (authContext) {
-      // For authenticated users, we could potentially get organization from their membership
+      // For authenticated users, we could potentially get practice from their membership
       // For now, we'll still use URL param or session as primary source
-      // This could be enhanced to get the user's active organization from better-auth
+      // This could be enhanced to get the user's active practice from better-auth
       
       // Check if user has a session with practice context
       const sessionToken = SessionService.getSessionTokenFromCookie(request);
@@ -210,9 +210,6 @@ export async function withPracticeContext(
   return req;
 }
 
-// Legacy function name - redirects to new name
-export const withOrganizationContext = withPracticeContext;
-
 /**
  * Helper to get practice context from a request that has been processed by the middleware
  */
@@ -223,9 +220,6 @@ export function getPracticeContext(request: Request): PracticeContext | Optional
   }
   return req.practiceContext;
 }
-
-// Legacy function name - redirects to new name
-export const getOrganizationContext = getPracticeContext;
 
 /**
  * Helper to get just the practice ID from context
@@ -238,26 +232,23 @@ export function getPracticeId(request: Request): string {
   return context.practiceId;
 }
 
-// Legacy function name - redirects to new name
-export const getOrganizationId = getPracticeId;
-
 /**
  * Helper to check if the request is from an authenticated user
  */
 export function isAuthenticated(request: Request): boolean {
-  return getOrganizationContext(request).isAuthenticated;
+  return getPracticeContext(request).isAuthenticated;
 }
 
 /**
  * Helper to get the user ID if authenticated
  */
 export function getUserId(request: Request): string | undefined {
-  return getOrganizationContext(request).userId;
+  return getPracticeContext(request).userId;
 }
 
 /**
  * Helper to get the session ID if available
  */
 export function getSessionId(request: Request): string | undefined {
-  return getOrganizationContext(request).sessionId;
+  return getPracticeContext(request).sessionId;
 }

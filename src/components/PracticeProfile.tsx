@@ -1,29 +1,29 @@
 import { FaceSmileIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 
-interface OrganizationProfileProps {
+interface PracticeProfileProps {
 	name: string;
 	profileImage: string | null;
-	organizationId: string;
+	practiceId: string;
 	description?: string | null;
 	variant?: 'sidebar' | 'welcome';
 	showVerified?: boolean;
 }
 
-export default function OrganizationProfile({ 
+export default function PracticeProfile({ 
 	name, 
 	profileImage, 
-	organizationId, 
+	practiceId, 
 	description,
 	variant = 'sidebar',
 	showVerified = true,
-}: OrganizationProfileProps) {
-	const { t } = useTranslation('organization');
+}: PracticeProfileProps) {
+	const { t } = useTranslation('practice');
 	const isWelcome = variant === 'welcome';
 	
 	return (
 		<div className={`flex flex-col items-center gap-3 ${variant === 'welcome' ? 'p-6' : 'p-4'}`}>
-			{/* Organization Logo */}
+			{/* Practice Logo */}
 			<div className="flex items-center justify-center">
 				{profileImage ? (
 					<img 
@@ -38,7 +38,7 @@ export default function OrganizationProfile({
 				)}
 			</div>
 
-			{/* Organization Name with Verified Badge */}
+			{/* Practice Name with Verified Badge */}
 			<div className="flex items-center justify-center gap-2 w-full">
 				<h3 className="text-base sm:text-lg lg:text-xl font-semibold text-center m-0 text-gray-900 dark:text-white leading-tight truncate min-w-0" title={name}>{name}</h3>
 				{showVerified && variant === 'welcome' && (
@@ -46,14 +46,14 @@ export default function OrganizationProfile({
 				)}
 			</div>
 
-			{/* Organization Slug */}
+			{/* Practice Slug */}
 			<div className="text-center w-full">
-				<span className="text-sm sm:text-base lg:text-lg font-medium text-[#d4af37] truncate block" title={t('profile.slug', { id: organizationId })}>@{organizationId}</span>
+				<span className="text-sm sm:text-base lg:text-lg font-medium text-[#d4af37] truncate block" title={t('profile.slug', { id: practiceId })}>@{practiceId}</span>
 			</div>
 
 			{/* Onboarding reminder removed in favor of global top banner */}
 
-			{/* Organization Description - Only show for welcome variant */}
+			{/* Practice Description - Only show for welcome variant */}
 			{description && variant === 'welcome' && (
 				<div className="text-center">
 					<p className="text-gray-700 dark:text-gray-400 text-center text-sm sm:text-base lg:text-lg leading-relaxed max-w-xs mx-auto line-clamp-3">{description}</p>

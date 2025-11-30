@@ -6,7 +6,7 @@ import {
   getSubscriptionCancelEndpoint,
   getRemoteApiUrl
 } from '../config/api';
-import { isPlatformOrganization } from '../utils/organization';
+import { isPlatformPractice } from '../utils/practice';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -56,7 +56,7 @@ export interface Practice {
 
 export interface CreatePracticeRequest {
   name: string;
-  slug: string;
+  slug?: string;
   logo?: string;
   metadata?: PracticeMetadata;
   businessPhone?: string;
@@ -108,7 +108,7 @@ export interface SubscriptionUpgradePayload {
 }
 
 export interface BillingPortalPayload {
-  organizationId: string;
+  practiceId: string;
   returnUrl?: string;
 }
 
@@ -220,7 +220,7 @@ function normalizePracticePayload(payload: unknown): Practice {
     throw new Error('Invalid practice payload');
   }
 
-  const id = String(payload.id ?? payload.practice_id ?? payload.organization_id ?? '');
+  const id = String(payload.id ?? payload.practice_id ?? '');
   const name = String(payload.name ?? 'Practice');
   const slug = toNullableString(payload.slug) ?? id;
 
@@ -320,7 +320,7 @@ export async function listPractices(configOrOptions?: ListPracticesOptions): Pro
   }
   return practices.filter((practice) => {
     const platformMatch =
-      isPlatformOrganization(practice.id) || isPlatformOrganization(practice.slug);
+      isPlatformPractice(practice.id) || isPlatformPractice(practice.slug);
     return scope === 'platform' ? platformMatch : !platformMatch;
   });
 }
@@ -391,11 +391,11 @@ export async function listPracticeInvitations(): Promise<unknown[]> {
 }
 
 export async function createPracticeInvitation(
-  organizationId: string,
+  practiceId: string,
   payload: { email: string; role: string }
 ): Promise<void> {
   await apiClient.post(
-    `/api/practice/${encodeURIComponent(organizationId)}/invitations`,
+    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
     payload
   );
 }
@@ -409,8 +409,8 @@ export async function respondToPracticeInvitation(
   );
 }
 
-export async function listPracticeMembers(organizationId: string): Promise<unknown[]> {
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(organizationId)}/members`);
+export async function listPracticeMembers(practiceId: string): Promise<unknown[]> {
+  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}/members`);
   const payload = unwrapApiData(response.data);
   if (Array.isArray(payload)) {
     return payload;
@@ -422,38 +422,38 @@ export async function listPracticeMembers(organizationId: string): Promise<unkno
 }
 
 export async function updatePracticeMemberRole(
-  organizationId: string,
+  practiceId: string,
   payload: { userId: string; role: string }
 ): Promise<void> {
-  await apiClient.patch(`/api/practice/${encodeURIComponent(organizationId)}/members`, payload);
+  await apiClient.patch(`/api/practice/${encodeURIComponent(practiceId)}/members`, payload);
 }
 
 export async function deletePracticeMember(
-  organizationId: string,
+  practiceId: string,
   userId: string
 ): Promise<void> {
   await apiClient.delete(
-    `/api/practice/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(userId)}`
+    `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`
   );
 }
 
-export async function getOnboardingStatus(organizationId: string): Promise<OnboardingStatus> {
-  if (!organizationId) {
-    throw new Error('organizationId is required');
+export async function getOnboardingStatus(practiceId: string): Promise<OnboardingStatus> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(`/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`);
+  const response = await apiClient.get(`/api/onboarding/practice/${encodeURIComponent(practiceId)}/status`);
   return normalizeOnboardingStatus(response.data);
 }
 
 export async function getOnboardingStatusPayload(
-  organizationId: string,
+  practiceId: string,
   config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<unknown> {
-  if (!organizationId) {
-    throw new Error('organizationId is required');
+  if (!practiceId) {
+    throw new Error('practiceId is required');
   }
   const response = await apiClient.get(
-    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
+    `/api/onboarding/practice/${encodeURIComponent(practiceId)}/status`,
     { signal: config?.signal }
   );
   return response.data;
@@ -475,15 +475,15 @@ export async function createConnectedAccount(
 }
 
 export async function syncSubscription(
-  organizationId: string,
+  practiceId: string,
   options?: { headers?: Record<string, string> }
 ): Promise<SubscriptionSyncResponse> {
-  if (!organizationId) {
-    throw new Error('organizationId is required');
+  if (!practiceId) {
+    throw new Error('practiceId is required');
   }
   const response = await apiClient.post(
     '/api/subscription/sync',
-    { organizationId },
+    { practiceId },
     {
       headers: options?.headers
     }
@@ -525,15 +525,15 @@ export async function requestBillingPortalSession(
   payload: BillingPortalPayload
 ): Promise<SubscriptionEndpointResult> {
   return postSubscriptionEndpoint(getSubscriptionBillingPortalEndpoint(), {
-    referenceId: payload.organizationId,
+    referenceId: payload.practiceId,
     returnUrl: payload.returnUrl
   });
 }
 
 export async function requestSubscriptionCancellation(
-  organizationId: string
+  practiceId: string
 ): Promise<SubscriptionEndpointResult> {
-  return postSubscriptionEndpoint(getSubscriptionCancelEndpoint(), { organizationId });
+  return postSubscriptionEndpoint(getSubscriptionCancelEndpoint(), { practiceId });
 }
 
 apiClient.interceptors.response.use(

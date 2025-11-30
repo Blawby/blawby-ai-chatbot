@@ -87,13 +87,13 @@ enum SubscriptionErrorCode {
 const ERROR_TITLES: Record<SubscriptionErrorCode, string> = {
   [SubscriptionErrorCode.SUBSCRIPTION_ALREADY_ACTIVE]: 'Subscription Active',
   [SubscriptionErrorCode.EMAIL_VERIFICATION_REQUIRED]: 'Verify Email',
-  [SubscriptionErrorCode.ORGANIZATION_NOT_FOUND]: 'Organization Not Found',
+  [SubscriptionErrorCode.PRACTICE_NOT_FOUND]: 'Practice Not Found',
   [SubscriptionErrorCode.INSUFFICIENT_PERMISSIONS]: 'Access Denied',
   [SubscriptionErrorCode.STRIPE_CHECKOUT_FAILED]: 'Upgrade Failed',
   [SubscriptionErrorCode.STRIPE_BILLING_PORTAL_FAILED]: 'Billing Portal Error',
   [SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND]: 'Customer Not Found',
   [SubscriptionErrorCode.STRIPE_SUBSCRIPTION_NOT_FOUND]: 'Subscription Not Found',
-  [SubscriptionErrorCode.INVALID_ORGANIZATION_ID]: 'Invalid Request',
+  [SubscriptionErrorCode.INVALID_PRACTICE_ID]: 'Invalid Request',
   [SubscriptionErrorCode.INVALID_SEAT_COUNT]: 'Invalid Request',
   [SubscriptionErrorCode.INVALID_PLAN_TYPE]: 'Invalid Request',
   [SubscriptionErrorCode.SUBSCRIPTION_SYNC_FAILED]: 'Subscription Sync Error',
@@ -106,7 +106,7 @@ function getErrorTitle(errorCode: SubscriptionErrorCode): string {
 }
 
 export interface SubscriptionUpgradeRequest {
-  organizationId: string;
+  practiceId: string;
   seats?: number | null;
   annual?: boolean;
   successUrl?: string;
@@ -115,7 +115,7 @@ export interface SubscriptionUpgradeRequest {
 }
 
 export interface BillingPortalRequest {
-  organizationId: string;
+  practiceId: string;
   returnUrl?: string;
 }
 
@@ -124,36 +124,36 @@ export const usePaymentUpgrade = () => {
   const [error, setError] = useState<string | null>(null);
   const { showError, showSuccess } = useToastContext();
 
-  const ensureActiveOrganization = useCallback(async (organizationId: string) => {
+  const ensureActivePractice = useCallback(async (practiceId: string) => {
     try {
-      await authClient.organization.setActive({ organizationId });
+      await authClient.organization.setActive({ organizationId: practiceId });
     } catch (activeErr) {
-      const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active organization.';
-      console.warn('[UPGRADE] Active organization setup error:', activeErr instanceof Error ? activeErr : message);
+      const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active practice.';
+      console.warn('[UPGRADE] Active practice setup error:', activeErr instanceof Error ? activeErr : message);
       throw (activeErr instanceof Error ? activeErr : new Error(message));
     }
   }, []);
 
-  const buildSuccessUrl = useCallback((organizationId: string) => {
+  const buildSuccessUrl = useCallback((practiceId: string) => {
     if (typeof window === 'undefined') return '/business-onboarding?sync=1';
     const url = new URL(`${window.location.origin}/business-onboarding`);
     url.searchParams.set('sync', '1');
-    url.searchParams.set('organizationId', organizationId);
+    url.searchParams.set('practiceId', practiceId);
     return url.toString();
   }, []);
 
-  const buildCancelUrl = useCallback((_organizationId: string) => {
+  const buildCancelUrl = useCallback((_practiceId: string) => {
     if (typeof window === 'undefined') return '/';
     const url = new URL(`${window.location.origin}/`);
     return url.toString();
   }, []);
 
   const openBillingPortal = useCallback(
-    async ({ organizationId, returnUrl }: BillingPortalRequest) => {
+    async ({ practiceId, returnUrl }: BillingPortalRequest) => {
       try {
         const result = await requestBillingPortalSession({
-          organizationId,
-          returnUrl: returnUrl ?? `/business-onboarding?sync=1&organizationId=${encodeURIComponent(organizationId)}`
+          practiceId,
+          returnUrl: returnUrl ?? `/business-onboarding?sync=1&practiceId=${encodeURIComponent(practiceId)}`
         });
 
         const url = extractUrl(result.data);
@@ -213,11 +213,11 @@ export const usePaymentUpgrade = () => {
 
 
   const handleAlreadySubscribed = useCallback(
-    async (organizationId: string, returnUrl: string) => {
+    async (practiceId: string, returnUrl: string) => {
       setError(null);
       // Redirect directly to billing portal to manage current subscription
       try {
-        await openBillingPortal({ organizationId, returnUrl });
+        await openBillingPortal({ practiceId, returnUrl });
       } finally {
         // Ensure submitting state is cleared even on early redirect
         setSubmitting(false);
@@ -227,20 +227,20 @@ export const usePaymentUpgrade = () => {
   );
 
   const submitUpgrade = useCallback(
-    async ({ organizationId, seats = 1, annual = false, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
+    async ({ practiceId, seats = 1, annual = false, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
       setSubmitting(true);
       setError(null);
 
-      const resolvedSuccessUrl = successUrl ?? buildSuccessUrl(organizationId);
-      const resolvedCancelUrl = cancelUrl ?? buildCancelUrl(organizationId);
+      const resolvedSuccessUrl = successUrl ?? buildSuccessUrl(practiceId);
+      const resolvedCancelUrl = cancelUrl ?? buildCancelUrl(practiceId);
       const resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
 
       try {
-        await ensureActiveOrganization(organizationId);
+        await ensureActivePractice(practiceId);
 
         const requestBody: SubscriptionUpgradePayload = {
           plan: 'business',
-          referenceId: organizationId,
+          referenceId: practiceId,
           annual,
           successUrl: resolvedSuccessUrl,
           cancelUrl: resolvedCancelUrl,
@@ -262,7 +262,7 @@ export const usePaymentUpgrade = () => {
           // Handle Better Auth raw code: YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN
           const rawCode = extractProperty<string>(result.data, 'code');
           if (rawCode && rawCode.toUpperCase() === 'YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN') {
-            await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
+            await handleAlreadySubscribed(practiceId, resolvedReturnUrl);
             return;
           }
 
@@ -273,7 +273,7 @@ export const usePaymentUpgrade = () => {
               success: extractProperty<boolean>(result.data, 'success'),
               errorCode: extractProperty<string>(result.data, 'errorCode'),
               code: extractProperty<string>(result.data, 'code'),
-              // Exclude sensitive fields like organizationId, subscription details, etc.
+              // Exclude sensitive fields like practiceId, subscription details, etc.
             };
             console.error('❌ Subscription upgrade failed with response:', sanitizedResult);
           }
@@ -314,7 +314,7 @@ export const usePaymentUpgrade = () => {
         // Fallback to original string matching for backward compatibility
         const normalizedMessage = message.toLowerCase();
         if (normalizedMessage.includes("already subscribed to this plan")) {
-          await handleAlreadySubscribed(organizationId, resolvedReturnUrl);
+          await handleAlreadySubscribed(practiceId, resolvedReturnUrl);
           return;
         }
 
@@ -333,13 +333,13 @@ export const usePaymentUpgrade = () => {
         setSubmitting(false);
       }
     },
-    [buildCancelUrl, buildSuccessUrl, ensureActiveOrganization, handleAlreadySubscribed, showError]
+    [buildCancelUrl, buildSuccessUrl, ensureActivePractice, handleAlreadySubscribed, showError]
   );
 
   const syncSubscription = useCallback(
-    async (organizationId: string) => {
+    async (practiceId: string) => {
       try {
-        const result = await syncSubscriptionRequest(organizationId);
+        const result = await syncSubscriptionRequest(practiceId);
 
         if (!result.synced) {
           throw new Error('Failed to refresh subscription status');
@@ -376,9 +376,9 @@ export const usePaymentUpgrade = () => {
 
 
   const cancelSubscription = useCallback(
-    async (organizationId: string) => {
+    async (practiceId: string) => {
       try {
-        const result = await requestSubscriptionCancellation(organizationId);
+        const result = await requestSubscriptionCancellation(practiceId);
 
         if (!result.ok) {
           const errorCode = extractProperty<string>(result.data, 'errorCode');

@@ -6,18 +6,6 @@ import type { User as BetterAuthUser } from 'better-auth/types';
 // Subscription tier type matching database enum
 export type SubscriptionTier = 'free' | 'plus' | 'business' | 'enterprise';
 
-// Organization configuration interface
-export interface OrganizationConfig {
-	subscriptionTier?: SubscriptionTier;
-	name?: string;
-	profileImage?: string | null;
-	description?: string;
-	introMessage?: string;
-	// Simplified quota fields
-	quotaUsed?: number;
-	quotaLimit?: number;
-	quotaResetDate?: string; // ISO timestamp for monthly reset
-}
 
 // Language type for internationalization
 export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'ko' | 'zh' | 'ar' | 'hi' | 'ru' | 'tr' | 'pl' | 'nl' | 'id' | 'th' | 'vi' | 'uk';
@@ -25,7 +13,7 @@ export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'ko' | '
 // Extended User type that includes all custom fields from Better Auth
 export interface ExtendedUser extends BetterAuthUser {
   // Organization & Role
-  organizationId?: string | null;
+  practiceId?: string | null;
   role?: string | null;
   
   // Contact Info
@@ -69,7 +57,7 @@ export interface UserProfile {
   name: string;
   email: string;
   image?: string | null;
-  organizationId?: string | null;
+  practiceId?: string | null;
   role?: string | null;
   phone?: string | null;
   
@@ -245,7 +233,7 @@ export interface BetterAuthSessionUser {
   emailVerified?: boolean;
   image?: string | null;
   lastLoginMethod?: string; // "google", "email", etc.
-  organizationId?: string | null;
+  practiceId?: string | null;
   role?: string | null;
   phone?: string | null;
   
@@ -471,7 +459,7 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     emailVerified: rawUser.emailVerified as boolean | undefined,
     image: rawUser.image as string | null | undefined,
     lastLoginMethod: rawUser.lastLoginMethod as string | undefined,
-    organizationId: rawUser.organizationId as string | null | undefined,
+    practiceId: rawUser.practiceId as string | null | undefined,
     role: rawUser.role as string | null | undefined,
     phone: rawUser.phone as string | null | undefined,
     

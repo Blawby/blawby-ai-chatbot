@@ -2,13 +2,13 @@
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n/hooks';
 
-interface OrganizationNotFoundProps {
-  organizationId: string;
+interface PracticeNotFoundProps {
+  practiceId: string;
   onRetry?: () => void;
 }
 
-export function OrganizationNotFound({ organizationId, onRetry }: OrganizationNotFoundProps) {
-  const { t } = useTranslation('organization');
+export function PracticeNotFound({ practiceId, onRetry }: PracticeNotFoundProps) {
+  const { t } = useTranslation('practice');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-light-bg dark:bg-dark-bg">
@@ -17,7 +17,7 @@ export function OrganizationNotFound({ organizationId, onRetry }: OrganizationNo
           {t('notFound.title')}
         </h1>
         <p className="mb-10 text-base sm:text-lg leading-relaxed text-light-text dark:text-dark-text">
-          {t('notFound.description.prefix')} &quot;<strong className="font-semibold">{organizationId}</strong>&quot;. {t('notFound.description.suffix')}
+          {t('notFound.description.prefix')} &quot;<strong className="font-semibold">{practiceId}</strong>&quot;. {t('notFound.description.suffix')}
         </p>
         <ul className="mb-10 text-left text-sm sm:text-base leading-relaxed text-light-text dark:text-dark-text">
           <li className="mb-2">• {t('notFound.reasons.incorrectId')}</li>

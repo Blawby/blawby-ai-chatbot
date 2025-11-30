@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { mockDb, ensureOrgCollections, randomId } from './mockData';
+import { mockDb, ensurePracticeCollections, randomId } from './mockData';
 import type { MockPractice, MockInvitation } from './mockData';
 
 const ALLOWED_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal'] as const);
@@ -24,7 +24,7 @@ export const handlers = [
 
   http.post('/api/practice', async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const id = randomId('org');
+    const id = randomId('practice');
     const slug =
       typeof body.slug === 'string' && body.slug.trim().length > 0
         ? body.slug
@@ -50,7 +50,7 @@ export const handlers = [
     };
 
     mockDb.practices.push(practice);
-    ensureOrgCollections(id);
+    ensurePracticeCollections(id);
 
     mockDb.members[id].push({
       userId: randomId('user'),
@@ -105,7 +105,7 @@ export const handlers = [
     delete mockDb.members[id];
     delete mockDb.tokens[id];
     delete mockDb.onboarding[id];
-    mockDb.invitations = mockDb.invitations.filter((inv) => inv.organizationId !== id);
+    mockDb.invitations = mockDb.invitations.filter((inv) => inv.practiceId !== id);
     return HttpResponse.json({ success: true });
   }),
 
@@ -119,13 +119,13 @@ export const handlers = [
 
   http.get('/api/practice/:practiceId/members', ({ params }) => {
     const id = String(params.practiceId);
-    ensureOrgCollections(id);
+    ensurePracticeCollections(id);
     return HttpResponse.json({ members: mockDb.members[id] });
   }),
 
   http.patch('/api/practice/:practiceId/members', async ({ params, request }) => {
     const id = String(params.practiceId);
-    ensureOrgCollections(id);
+    ensurePracticeCollections(id);
     const body = (await request.json().catch(() => ({}))) as { userId?: string; role?: unknown };
     if (!body.userId || !body.role) {
       return HttpResponse.json({ error: 'userId and role are required' }, { status: 400 });
@@ -142,10 +142,10 @@ export const handlers = [
   }),
 
   http.delete('/api/practice/:practiceId/members/:userId', ({ params }) => {
-    const orgId = String(params.practiceId);
+    const practiceId = String(params.practiceId);
     const userId = String(params.userId);
-    ensureOrgCollections(orgId);
-    mockDb.members[orgId] = mockDb.members[orgId].filter((member) => member.userId !== userId);
+    ensurePracticeCollections(practiceId);
+    mockDb.members[practiceId] = mockDb.members[practiceId].filter((member) => member.userId !== userId);
     return HttpResponse.json({ success: true });
   }),
 
@@ -154,7 +154,7 @@ export const handlers = [
   }),
 
   http.post('/api/practice/:practiceId/invitations', async ({ params, request }) => {
-    const orgId = String(params.practiceId);
+    const practiceId = String(params.practiceId);
     const body = (await request.json().catch(() => ({}))) as { email?: string; role?: unknown };
     if (!body.email || !body.role) {
       return HttpResponse.json({ error: 'email and role are required' }, { status: 400 });
@@ -162,11 +162,11 @@ export const handlers = [
     if (!isValidRole(body.role)) {
       return HttpResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
-    ensureOrgCollections(orgId);
+    ensurePracticeCollections(practiceId);
     const invitation: MockInvitation = {
       id: randomId('invite'),
-      organizationId: orgId,
-      organizationName: findPractice(orgId)?.name,
+      practiceId: practiceId,
+      organizationName: findPractice(practiceId)?.name,
       email: body.email,
       role: body.role,
       status: 'pending' as const,
@@ -186,8 +186,8 @@ export const handlers = [
     const action = String(params.action);
     if (action === 'accept') {
       invitation.status = 'accepted';
-      ensureOrgCollections(invitation.organizationId);
-      mockDb.members[invitation.organizationId].push({
+      ensurePracticeCollections(invitation.practiceId);
+      mockDb.members[invitation.practiceId].push({
         userId: randomId('user'),
         role: invitation.role,
         email: invitation.email,
@@ -213,10 +213,10 @@ export const handlers = [
     return HttpResponse.json({ success: true, data: mockDb.userPreferences });
   }),
 
-  http.get('/api/onboarding/organization/:organizationId/status', ({ params }) => {
-    const orgId = String(params.organizationId);
-    ensureOrgCollections(orgId);
-    const state = mockDb.onboarding[orgId];
+  http.get('/api/onboarding/practice/:practiceId/status', ({ params }) => {
+    const practiceId = String(params.practiceId);
+    ensurePracticeCollections(practiceId);
+    const state = mockDb.onboarding[practiceId];
     return HttpResponse.json({
       status: state.status,
       completed: state.completed,
@@ -225,7 +225,7 @@ export const handlers = [
       lastSavedAt: state.lastSavedAt,
       hasDraft: state.hasDraft,
       data: state.data,
-      practice_uuid: orgId,
+      practice_uuid: practiceId,
       stripe_account_id: state.stripeAccountId,
       charges_enabled: state.chargesEnabled,
       payouts_enabled: state.payoutsEnabled,
@@ -235,16 +235,16 @@ export const handlers = [
 
   http.post('/api/onboarding/save', async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as {
-      organizationId?: string;
+      practiceId?: string;
       data?: Record<string, unknown>;
     };
-    if (!body.organizationId) {
-      return HttpResponse.json({ error: 'organizationId required' }, { status: 400 });
+    if (!body.practiceId) {
+      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
     }
-    ensureOrgCollections(body.organizationId);
-    mockDb.onboarding[body.organizationId].data = body.data ?? null;
-    mockDb.onboarding[body.organizationId].hasDraft = Boolean(body.data);
-    mockDb.onboarding[body.organizationId].lastSavedAt = Date.now();
+    ensurePracticeCollections(body.practiceId);
+    mockDb.onboarding[body.practiceId].data = body.data ?? null;
+    mockDb.onboarding[body.practiceId].hasDraft = Boolean(body.data);
+    mockDb.onboarding[body.practiceId].lastSavedAt = Date.now();
     return HttpResponse.json({ success: true });
   }),
 
@@ -253,8 +253,8 @@ export const handlers = [
       practice_uuid?: string;
       practice_email?: string;
     };
-    const practiceUuid = body.practice_uuid ?? randomId('org');
-    ensureOrgCollections(practiceUuid);
+    const practiceUuid = body.practice_uuid ?? randomId('practice');
+    ensurePracticeCollections(practiceUuid);
     const state = mockDb.onboarding[practiceUuid];
     state.stripeAccountId = randomId('acct');
     return HttpResponse.json({
@@ -268,12 +268,12 @@ export const handlers = [
   }),
 
   http.post('/api/onboarding/complete', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { organizationId?: string };
-    if (!body.organizationId) {
-      return HttpResponse.json({ error: 'organizationId required' }, { status: 400 });
+    const body = (await request.json().catch(() => ({}))) as { practiceId?: string };
+    if (!body.practiceId) {
+      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
     }
-    ensureOrgCollections(body.organizationId);
-    const state = mockDb.onboarding[body.organizationId];
+    ensurePracticeCollections(body.practiceId);
+    const state = mockDb.onboarding[body.practiceId];
     state.completed = true;
     state.completedAt = Date.now();
     state.status = 'completed';
@@ -281,27 +281,27 @@ export const handlers = [
   }),
 
   http.post('/api/onboarding/skip', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { organizationId?: string };
-    if (!body.organizationId) {
-      return HttpResponse.json({ error: 'organizationId required' }, { status: 400 });
+    const body = (await request.json().catch(() => ({}))) as { practiceId?: string };
+    if (!body.practiceId) {
+      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
     }
-    ensureOrgCollections(body.organizationId);
-    const state = mockDb.onboarding[body.organizationId];
+    ensurePracticeCollections(body.practiceId);
+    const state = mockDb.onboarding[body.practiceId];
     state.skipped = true;
     state.status = 'skipped';
     return HttpResponse.json({ success: true });
   }),
 
   http.post('/api/subscription/sync', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { organizationId?: string };
-    if (!body.organizationId) {
-      return HttpResponse.json({ error: 'organizationId required' }, { status: 400 });
+    const body = (await request.json().catch(() => ({}))) as { practiceId?: string };
+    if (!body.practiceId) {
+      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
     }
     return HttpResponse.json({
       synced: true,
       subscription: {
         status: 'active',
-        organizationId: body.organizationId,
+        practiceId: body.practiceId,
         updatedAt: Date.now()
       }
     });

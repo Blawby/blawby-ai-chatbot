@@ -5,7 +5,7 @@ import { SessionService } from '../services/SessionService.js';
 import { ActivityService } from '../services/ActivityService';
 import { StatusService, type StatusUpdate } from '../services/StatusService.js';
 import { Logger } from '../utils/logger';
-import { withPracticeContext, getPracticeId, withOrganizationContext, getOrganizationId } from '../middleware/practiceContext.js';
+import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { requireFeature } from '../middleware/featureGuard.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 
@@ -474,7 +474,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
           // Include metadata fields if provided
           ...(description && { description }),
           ...(category && { category }),
-          // Also include in metadata object for backward compatibility
           metadata: {
             ...(description && { description }),
             ...(category && { category })

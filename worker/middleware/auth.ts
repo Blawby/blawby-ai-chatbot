@@ -19,12 +19,13 @@ export interface AuthContext {
 }
 
 /**
- * Validate Bearer token by calling remote auth server
+ * Validate Bearer token by calling remote auth server (staging API with Better Auth backend)
  */
 async function validateTokenWithRemoteServer(
   token: string,
   env: Env
 ): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }> {
+  // Staging API runs Better Auth backend - validate token via Better Auth session endpoint
   const authServerUrl = env.AUTH_SERVER_URL || 'https://staging-api.blawby.com';
   const AUTH_TIMEOUT_MS = 3000; // 3 second timeout for auth validation
   

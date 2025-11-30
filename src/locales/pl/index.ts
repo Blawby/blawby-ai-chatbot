@@ -4,6 +4,6 @@ import settings from './settings.json';
 import auth from './auth.json';
 import profile from './profile.json';
 import pricing from './pricing.json';
-import organization from './organization.json';
+import practice from './practice.json';
 
-export { common, settings, auth, profile, pricing, organization };
+export { common, settings, auth, profile, pricing, practice };

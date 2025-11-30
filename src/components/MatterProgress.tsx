@@ -20,26 +20,26 @@ interface MatterProgressData {
 }
 
 interface MatterProgressProps {
-  organizationId: string;
+  practiceId: string;
   matterId: string;
   visible?: boolean;
   onClose?: () => void;
 }
 
-export function MatterProgress({ organizationId, matterId, visible = false, onClose }: MatterProgressProps) {
+export function MatterProgress({ practiceId, matterId, visible = false, onClose }: MatterProgressProps) {
   const [progressData, setProgressData] = useState<MatterProgressData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchProgress = useCallback(async (signal?: AbortSignal) => {
-    if (!organizationId || !matterId) return;
+    if (!practiceId || !matterId) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/paralegal/${organizationId}/${matterId}/status`, {
+      const response = await fetch(`/api/paralegal/${practiceId}/${matterId}/status`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -63,7 +63,7 @@ export function MatterProgress({ organizationId, matterId, visible = false, onCl
     } finally {
       setLoading(false);
     }
-  }, [organizationId, matterId]);
+  }, [practiceId, matterId]);
 
   // Poll for updates every 10 seconds when visible and feature is enabled
   useEffect(() => {

@@ -19,7 +19,7 @@ import { type SubscriptionTier } from '../../../../types/user';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
-  currentOrganization?: {
+  currentPractice?: {
     id: string;
     subscriptionTier?: string;
   } | null;
@@ -27,7 +27,7 @@ interface UserProfileDisplayProps {
 
 export const UserProfileDisplay = ({ 
   isCollapsed = false, 
-  currentOrganization 
+  currentPractice 
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
   const { data: session, isPending, error } = useSession();
@@ -38,16 +38,16 @@ export const UserProfileDisplay = ({
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
 
-  // Derive user data from session and organization
+  // Derive user data from session and practice
   const user = session?.user ? {
     id: session.user.id,
     name: session.user.name || session.user.email || 'User',
     email: session.user.email,
     image: session.user.image,
-    organizationId: currentOrganization?.id || null,
+    practiceId: currentPractice?.id || null,
     role: 'user',
     phone: null,
-    subscriptionTier: (currentOrganization?.subscriptionTier || 'free') as SubscriptionTier
+    subscriptionTier: (currentPractice?.subscriptionTier || 'free') as SubscriptionTier
   } : null;
 
 

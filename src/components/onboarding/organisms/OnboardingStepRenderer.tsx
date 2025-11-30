@@ -23,7 +23,7 @@ interface OnboardingStepRendererProps {
   onBack: () => void;
   onSkip?: () => void;
   errors?: string | null;
-  organizationSlug?: string;
+  practiceSlug?: string;
   disabled?: boolean;
   stripeStatus?: StripeConnectStatus | null;
   stripeClientSecret?: string | null;
@@ -38,7 +38,7 @@ export const OnboardingStepRenderer = ({
   onBack,
   onSkip,
   errors,
-  organizationSlug,
+  practiceSlug,
   disabled = false,
   stripeStatus,
   stripeClientSecret,
@@ -133,7 +133,7 @@ export const OnboardingStepRenderer = ({
           {...commonProps}
           onSkip={onSkip}
           data={stepData}
-          organizationSlug={organizationSlug}
+          practiceSlug={practiceSlug}
           onVisibilityChange={(isPublic) => onChange('isPublic', isPublic)}
           onComplete={onContinue}
         />

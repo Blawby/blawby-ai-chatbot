@@ -14,8 +14,8 @@ vi.mock('../../../../lib/authClient', () => ({
 }));
 
 import { render, screen, fireEvent, waitFor } from '../../../../__tests__/test-utils';
-import { OrganizationPage } from '../OrganizationPage';
-import { useOrganizationManagement } from '../../../../hooks/useOrganizationManagement';
+import { PracticePage } from '../PracticePage';
+import { usePracticeManagement } from '../../../../hooks/usePracticeManagement';
 
 // Mock the organization management hook
 const mockCreateOrganization = vi.fn();
@@ -51,8 +51,8 @@ const mockGetMembers = vi.fn((orgId: string) => {
 
 // Create mutable mock object
 const useOrgMgmtMock = {
-  organizations: [],
-  currentOrganization: {
+  practices: [],
+  currentPractice: {
     id: 'org-1',
     name: 'Test Organization',
     slug: 'test-org',
@@ -82,8 +82,8 @@ const useOrgMgmtMock = {
   refetch: mockRefetch,
 };
 
-vi.mock('../../../../hooks/useOrganizationManagement', () => ({
-  useOrganizationManagement: vi.fn(),
+vi.mock('../../../../hooks/usePracticeManagement', () => ({
+  usePracticeManagement: vi.fn(),
 }));
 
 // Mock the toast context
@@ -100,17 +100,17 @@ vi.mock('../../../../contexts/ToastContext', () => ({
 // Mock the feature flags
 vi.mock('../../../../config/features', () => ({
   useFeatureFlag: (flag: string) => {
-    if (flag === 'enableMultipleOrganizations') return true;
+    if (flag === 'enableMultiplePractices') return true;
     return false;
   },
   features: {
-    enableMultipleOrganizations: true,
+    enableMultiplePractices: true,
   },
 }));
 
 // Mock SessionContext
 const mockSessionContext = {
-  activeOrganizationId: 'org-1',
+  activePracticeId: 'org-1',
   activeOrganizationSlug: 'test-org',
 };
 
@@ -143,7 +143,7 @@ vi.mock('../../../../hooks/useNavigation', () => ({
   }),
 }));
 
-describe('OrganizationPage', () => {
+describe('PracticePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateOrganization.mockClear();
@@ -170,8 +170,8 @@ describe('OrganizationPage', () => {
     mockNavigate.mockClear();
     
     // Reset the mutable mock object to default values
-    useOrgMgmtMock.organizations = [];
-    useOrgMgmtMock.currentOrganization = {
+    useOrgMgmtMock.practices = [];
+    useOrgMgmtMock.currentPractice = {
       id: 'org-1',
       name: 'Test Organization',
       slug: 'test-org',
@@ -200,18 +200,18 @@ describe('OrganizationPage', () => {
     useOrgMgmtMock.fetchMembers = mockFetchMembers;
     useOrgMgmtMock.refetch = mockRefetch;
     
-    // Reset SessionContext to match currentOrganization
-    mockSessionContext.activeOrganizationId = 'org-1';
+    // Reset SessionContext to match currentPractice
+    mockSessionContext.activePracticeId = 'org-1';
     mockSessionContext.activeOrganizationSlug = 'test-org';
     
     // Set up the mock return value
-    vi.mocked(useOrganizationManagement).mockReturnValue(useOrgMgmtMock);
+    vi.mocked(usePracticeManagement).mockReturnValue(useOrgMgmtMock);
   });
 
   afterEach(() => {
     vi.resetAllMocks();
     // Reset the mock object to default values
-    useOrgMgmtMock.currentOrganization = {
+    useOrgMgmtMock.currentPractice = {
       id: 'org-1',
       name: 'Test Organization',
       slug: 'test-org',
@@ -219,14 +219,14 @@ describe('OrganizationPage', () => {
   });
 
   it('should render organization page with correct title', () => {
-    render(<OrganizationPage className="test-class" />);
+    render(<PracticePage className="test-class" />);
     
     expect(screen.getByText('Organization')).toBeInTheDocument();
     expect(screen.getByText('No Organization Yet')).toBeInTheDocument();
   });
 
   it('should provide refetch and fetchMembers functions', () => {
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     expect(mockRefetch).toBeDefined();
     expect(mockFetchMembers).toBeDefined();
   });
@@ -235,18 +235,18 @@ describe('OrganizationPage', () => {
     mockGetMembers.mockReturnValue([]);
     
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = [];
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.practices = [];
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.getMembers = mockGetMembers;
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = true;
     useOrgMgmtMock.error = null;
     
-    // Sync SessionContext with null currentOrganization
-    mockSessionContext.activeOrganizationId = null as any;
+    // Sync SessionContext with null currentPractice
+    mockSessionContext.activePracticeId = null as any;
     mockSessionContext.activeOrganizationSlug = null as any;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     expect(screen.getByText('Loading organization...')).toBeInTheDocument();
   });
@@ -255,23 +255,23 @@ describe('OrganizationPage', () => {
     mockGetMembers.mockReturnValue([]);
     
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = [];
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.practices = [];
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.getMembers = mockGetMembers;
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = false;
-    useOrgMgmtMock.error = 'Failed to load organizations';
+    useOrgMgmtMock.error = 'Failed to load practices';
     
-    // Sync SessionContext with null currentOrganization
-    mockSessionContext.activeOrganizationId = null as any;
+    // Sync SessionContext with null currentPractice
+    mockSessionContext.activePracticeId = null as any;
     mockSessionContext.activeOrganizationSlug = null as any;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
-    expect(screen.getByText('Failed to load organizations')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load practices')).toBeInTheDocument();
   });
 
-  it('should display organizations when available', async () => {
+  it('should display practices when available', async () => {
     mockGetMembers.mockReturnValue([]);
     
     const mockOrganizations = [
@@ -289,14 +289,14 @@ describe('OrganizationPage', () => {
     ];
 
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = mockOrganizations;
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.practices = mockOrganizations;
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.getMembers = mockGetMembers;
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     expect(screen.getByText('Test Organization')).toBeInTheDocument();
     expect(screen.getByText('test-org')).toBeInTheDocument();
@@ -311,7 +311,7 @@ describe('OrganizationPage', () => {
         email: 'user@example.com',
         role: 'attorney' as const,
         status: 'pending' as const,
-        organizationId: 'org-1',
+        practiceId: 'org-1',
         organizationName: 'Test Organization',
         invitedBy: 'admin@example.com',
         expiresAt: '2024-02-01T00:00:00Z',
@@ -320,19 +320,19 @@ describe('OrganizationPage', () => {
     ];
 
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = [{
+    useOrgMgmtMock.practices = [{
       id: 'org-1',
       name: 'Test Organization',
       slug: 'test-org',
       config: {},
     }];
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.getMembers = mockGetMembers;
     useOrgMgmtMock.invitations = mockInvitations;
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     expect(screen.getByText('user@example.com')).toBeInTheDocument();
     expect(screen.getByText('Test Organization')).toBeInTheDocument();
@@ -340,10 +340,10 @@ describe('OrganizationPage', () => {
   });
 
   it('should open create organization modal when create button is clicked', async () => {
-    // Set currentOrganization to null to show empty state
-    useOrgMgmtMock.currentOrganization = null;
+    // Set currentPractice to null to show empty state
+    useOrgMgmtMock.currentPractice = null;
     
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     const createButton = screen.getByText('Create Organization');
     fireEvent.click(createButton);
@@ -366,14 +366,14 @@ describe('OrganizationPage', () => {
     ];
 
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = mockOrganizations;
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.practices = mockOrganizations;
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.getMembers = mockGetMembers;
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     const inviteButton = screen.getByText('Invite Member');
     fireEvent.click(inviteButton);
@@ -386,10 +386,10 @@ describe('OrganizationPage', () => {
   it('should handle organization creation', async () => {
     mockCreateOrganization.mockResolvedValueOnce(undefined);
     
-    // Set currentOrganization to null to show empty state
-    useOrgMgmtMock.currentOrganization = null;
+    // Set currentPractice to null to show empty state
+    useOrgMgmtMock.currentPractice = null;
     
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     // Open create modal
     const createButton = screen.getByText('Create Organization');
@@ -433,14 +433,14 @@ describe('OrganizationPage', () => {
     ];
 
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = mockOrganizations;
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.practices = mockOrganizations;
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.getMembers = mockGetMembers;
     useOrgMgmtMock.invitations = [];
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     // Open invite modal
     const inviteButton = screen.getByText('Invite Member');
@@ -476,7 +476,7 @@ describe('OrganizationPage', () => {
         email: 'user@example.com',
         role: 'attorney' as const,
         status: 'pending' as const,
-        organizationId: 'org-1',
+        practiceId: 'org-1',
         organizationName: 'Test Organization',
         invitedBy: 'admin@example.com',
         expiresAt: '2024-02-01T00:00:00Z',
@@ -485,14 +485,14 @@ describe('OrganizationPage', () => {
     ];
 
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = [];
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.practices = [];
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.getMembers = mockGetMembers;
     useOrgMgmtMock.invitations = mockInvitations;
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     const acceptButton = screen.getByText('Accept');
     fireEvent.click(acceptButton);
@@ -512,7 +512,7 @@ describe('OrganizationPage', () => {
         email: 'user@example.com',
         role: 'attorney' as const,
         status: 'pending' as const,
-        organizationId: 'org-1',
+        practiceId: 'org-1',
         organizationName: 'Test Organization',
         invitedBy: 'admin@example.com',
         expiresAt: '2024-02-01T00:00:00Z',
@@ -521,14 +521,14 @@ describe('OrganizationPage', () => {
     ];
 
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = [];
-    useOrgMgmtMock.currentOrganization = null;
+    useOrgMgmtMock.practices = [];
+    useOrgMgmtMock.currentPractice = null;
     useOrgMgmtMock.getMembers = mockGetMembers;
     useOrgMgmtMock.invitations = mockInvitations;
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     const declineButton = screen.getByText('Decline');
     fireEvent.click(declineButton);
@@ -542,8 +542,8 @@ describe('OrganizationPage', () => {
     mockGetMembers.mockReturnValue([]);
 
     // Update the mutable mock object for this test
-    useOrgMgmtMock.organizations = [];
-    useOrgMgmtMock.currentOrganization = {
+    useOrgMgmtMock.practices = [];
+    useOrgMgmtMock.currentPractice = {
       id: 'org-1',
       name: 'Test Organization',
       slug: 'test-org',
@@ -553,7 +553,7 @@ describe('OrganizationPage', () => {
     useOrgMgmtMock.loading = false;
     useOrgMgmtMock.error = null;
 
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     const editButton = screen.getByText('Edit');
     fireEvent.click(editButton);
@@ -565,22 +565,22 @@ describe('OrganizationPage', () => {
     expect(screen.getByText('Cancel')).toBeInTheDocument();
   });
 
-  it('should show empty state when no organizations or invitations', () => {
-    // Set currentOrganization to null to show empty state
-    useOrgMgmtMock.currentOrganization = null;
+  it('should show empty state when no practices or invitations', () => {
+    // Set currentPractice to null to show empty state
+    useOrgMgmtMock.currentPractice = null;
     
-    // Sync SessionContext with null currentOrganization
-    mockSessionContext.activeOrganizationId = null as any;
+    // Sync SessionContext with null currentPractice
+    mockSessionContext.activePracticeId = null as any;
     mockSessionContext.activeOrganizationSlug = null as any;
     
-    render(<OrganizationPage />);
+    render(<PracticePage />);
     
     // Verify the "no organization" UI renders
     expect(screen.getByText('No Organization Yet')).toBeInTheDocument();
     expect(screen.getByText('Create your law firm or accept an invitation')).toBeInTheDocument();
     
-    // Verify component does not read SessionContext when currentOrganization is null
-    expect(mockSessionContext.activeOrganizationId).toBe(null);
+    // Verify component does not read SessionContext when currentPractice is null
+    expect(mockSessionContext.activePracticeId).toBe(null);
     expect(mockSessionContext.activeOrganizationSlug).toBe(null);
   });
 });

@@ -4,21 +4,21 @@ import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
 import { SessionService } from '../services/SessionService.js';
 import { sessionRequestBodySchema } from '../schemas/validation.js';
-import { withPracticeContext, getPracticeId, withOrganizationContext, getOrganizationId } from '../middleware/practiceContext.js';
+import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { PLATFORM_ORGANIZATION_ID } from '../../src/utils/constants.js';
+import { PLATFORM_PRACTICE_ID } from '../../src/utils/constants.js';
 
 async function normalizePracticeId(env: Env, practiceId?: string | null, request?: Request): Promise<string> {
   if (!practiceId) {
-    return PLATFORM_ORGANIZATION_ID; // Use default instead of throwing error
+    return PLATFORM_PRACTICE_ID; // Use default instead of throwing error
   }
   const trimmed = practiceId.trim();
   if (!trimmed) {
-    return PLATFORM_ORGANIZATION_ID; // Use default instead of throwing error
+    return PLATFORM_PRACTICE_ID; // Use default instead of throwing error
   }
 
   // Skip remote validation for special sentinel values
-  if (trimmed === PLATFORM_ORGANIZATION_ID || trimmed === 'public') {
+  if (trimmed === PLATFORM_PRACTICE_ID || trimmed === 'public') {
     return trimmed;
   }
 
@@ -63,7 +63,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
   }
 
   // PATCH /api/sessions/practice (Phase 1 stub)
-  if (segments.length === 3 && (segments[2] === 'practice' || segments[2] === 'organization') && request.method === 'PATCH') {
+  if (segments.length === 3 && segments[2] === 'practice' && request.method === 'PATCH') {
     const body = await parseJsonBody(request) as { practiceId?: string };
     if (!body?.practiceId || typeof body.practiceId !== 'string') {
       throw HttpErrors.badRequest('practiceId is required');
@@ -101,9 +101,9 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
       const requestWithContext = await withPracticeContext(request, env, {
         requirePractice: false,  // Allow fallback to default
         allowUrlOverride: true,
-        defaultPracticeId: PLATFORM_ORGANIZATION_ID
+        defaultPracticeId: PLATFORM_PRACTICE_ID
       });
-      const contextPracticeId = getPracticeId(requestWithContext) || PLATFORM_ORGANIZATION_ID;
+      const contextPracticeId = getPracticeId(requestWithContext) || PLATFORM_PRACTICE_ID;
       practiceId = await normalizePracticeId(env, contextPracticeId, request);
     }
 

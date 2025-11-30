@@ -133,12 +133,12 @@ export class RemoteApiService {
       // Try by ID first
       let response: Response;
       try {
-        response = await this.fetchFromRemoteApi(env, `/api/organizations/${practiceId}`, request);
+        response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
       } catch (error) {
         // If 404, try by slug
         if (error instanceof HttpError && error.status === 404) {
           try {
-            response = await this.fetchFromRemoteApi(env, `/api/organizations?slug=${encodeURIComponent(practiceId)}`, request);
+            response = await this.fetchFromRemoteApi(env, `/api/practice?slug=${encodeURIComponent(practiceId)}`, request);
           } catch (slugError) {
             // If slug lookup also fails, return null
             if (slugError instanceof HttpError && slugError.status === 404) {
@@ -151,8 +151,8 @@ export class RemoteApiService {
         }
       }
 
-      const data = await response.json() as { data?: Practice; organization?: Practice };
-      const practice = data.data || data.organization;
+      const data = await response.json() as { data?: Practice; practice?: Practice };
+      const practice = data.data || data.practice;
 
       if (!practice) {
         return null;
@@ -332,10 +332,10 @@ export class RemoteApiService {
 
     await this.fetchFromRemoteApi(
       env,
-      `/api/organizations/${practiceId}`,
+      `/api/practice/${practiceId}`,
       request,
       {
-        method: 'PATCH',
+        method: 'PUT',
         body: JSON.stringify({ metadata: updatedMetadata })
       }
     );

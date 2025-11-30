@@ -128,10 +128,10 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
 export async function handlePractices(request: Request, env: Env): Promise<Response> {
   try {
     const url = new URL(request.url);
-    const path = url.pathname.replace('/api/organizations', '');
+    const path = url.pathname.replace('/api/practices', '');
     const pathSegments = path.split('/').filter(segment => segment.length > 0);
     
-    // Only handle workspace endpoints - all other organization management is handled by remote API
+    // Only handle workspace endpoints - all other practice management is handled by remote API
     const isWorkspaceEndpoint = path.includes('/workspace');
     const isEventsEndpoint = pathSegments.length === 2 && pathSegments[1] === 'events' && request.method === 'GET';
     
@@ -139,14 +139,14 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
       // Return 404 for all non-workspace endpoints (management is handled by remote API)
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Organization management endpoints are handled by remote API. Use /api/organizations/:id/workspace/* for chatbot data.' 
+        error: 'Practice management endpoints are handled by remote API. Use /api/practices/:id/workspace/* for chatbot data.' 
       }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Organization workspace analytics + data feeds
+    // Practice workspace analytics + data feeds
     if (path.includes('/workspace')) {
       const pathParts = path.split('/').filter(Boolean);
       if (pathParts.length >= 3 && pathParts[1] === 'workspace') {
@@ -553,7 +553,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
       }
     }
 
-    // Handle organization events route
+    // Handle practice events route
     if (isEventsEndpoint) {
       const practiceIdentifier = pathSegments[0];
       // Fetch practice from remote API
@@ -585,7 +585,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
           : [practice.id, limit])
       ).all();
 
-      // Preact usage: fetch to show an activity feed in the organization workspace.
+      // Preact usage: fetch to show an activity feed in the practice workspace.
       return createSuccessResponse({
         events: events.results?.map(event => ({
           ...event,
@@ -596,9 +596,12 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
       });
     }
 
-    return new Response('Method not allowed', { 
-      status: 405, 
-      headers: {} 
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Method not allowed'
+    }), { 
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error) {

@@ -1,19 +1,19 @@
 /**
  * SidebarHeader - Molecule Component
  * 
- * Combines OrgLogo and CollapsibleToggle to create the sidebar header.
+ * Combines PracticeLogo and CollapsibleToggle to create the sidebar header.
  * Handles collapsed/expanded state display logic.
  */
 
-import { OrgLogo } from '../atoms/OrgLogo';
+import { PracticeLogo } from '../atoms/PracticeLogo';
 import { CollapsibleToggle } from '../atoms/CollapsibleToggle';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface SidebarHeaderProps {
-  organizationConfig?: {
+  practiceConfig?: {
     name: string;
     profileImage: string | null;
-    organizationId: string;
+    practiceId: string;
   };
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -21,7 +21,7 @@ interface SidebarHeaderProps {
 }
 
 export const SidebarHeader = ({ 
-  organizationConfig, 
+  practiceConfig, 
   isCollapsed, 
   onToggleCollapse,
   onClose 
@@ -30,16 +30,16 @@ export const SidebarHeader = ({
     return (
       <div className="flex items-center justify-center border-b border-gray-200 dark:border-dark-border px-3 py-2">
         <div className="relative group w-full h-10 flex items-center justify-center">
-          {organizationConfig?.profileImage ? (
+          {practiceConfig?.profileImage ? (
             <button
               onClick={() => onToggleCollapse()}
               className="w-8 h-8 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent-500"
               title="Click to expand sidebar"
               aria-label="Expand sidebar"
             >
-              <OrgLogo 
-                src={organizationConfig.profileImage} 
-                alt={organizationConfig.name}
+              <PracticeLogo 
+                src={practiceConfig.profileImage} 
+                alt={practiceConfig.name}
                 size="md"
                 className="w-full h-full"
               />
@@ -53,7 +53,7 @@ export const SidebarHeader = ({
             />
           )}
           {/* Hover-only overlay preserved for when profile image exists */}
-          {organizationConfig?.profileImage && (
+          {practiceConfig?.profileImage && (
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
               <CollapsibleToggle
                 icon={<Bars3Icon className="w-4 h-4" />}
@@ -69,10 +69,10 @@ export const SidebarHeader = ({
 
   return (
     <div className="flex items-center justify-between border-b border-gray-200 dark:border-dark-border px-3 py-2">
-      {organizationConfig?.profileImage && (
-        <OrgLogo 
-          src={organizationConfig.profileImage} 
-          alt={organizationConfig.name}
+      {practiceConfig?.profileImage && (
+        <PracticeLogo 
+          src={practiceConfig.profileImage} 
+          alt={practiceConfig.name}
           size="md"
         />
       )}

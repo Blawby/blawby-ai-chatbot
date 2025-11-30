@@ -26,8 +26,8 @@ export interface MockMember {
 
 export interface MockInvitation {
   id: string;
-  organizationId: string;
-  organizationName?: string;
+  practiceId: string;
+  practiceName?: string;
   email: string;
   role: Role;
   status: 'pending' | 'accepted' | 'declined';
@@ -51,12 +51,12 @@ export interface OnboardingState {
   stripeAccountId: string | null;
 }
 
-const personalOrgId = 'org-personal';
-const businessOrgId = 'org-business';
+const personalPracticeId = 'practice-personal';
+const businessPracticeId = 'practice-business';
 const now = Date.now();
 
 const personalPractice: MockPractice = {
-  id: personalOrgId,
+  id: personalPracticeId,
   slug: 'personal-workspace',
   name: 'Personal Workspace',
   description: 'Your default workspace for personal matters.',
@@ -76,7 +76,7 @@ const personalPractice: MockPractice = {
 };
 
 const businessPractice: MockPractice = {
-  id: businessOrgId,
+  id: businessPracticeId,
   slug: 'acme-law',
   name: 'Acme Law Group',
   description: 'Boutique firm focused on business law.',
@@ -96,7 +96,7 @@ const businessPractice: MockPractice = {
 };
 
 const defaultMembers: Record<string, MockMember[]> = {
-  [personalOrgId]: [
+  [personalPracticeId]: [
     {
       userId: 'user-1',
       role: 'owner',
@@ -106,7 +106,7 @@ const defaultMembers: Record<string, MockMember[]> = {
       createdAt: now - 1000 * 60 * 60 * 24
     }
   ],
-  [businessOrgId]: [
+  [businessPracticeId]: [
     {
       userId: 'user-1',
       role: 'owner',
@@ -128,8 +128,8 @@ const defaultMembers: Record<string, MockMember[]> = {
 
 const defaultInvitation: MockInvitation = {
   id: 'invite-1',
-  organizationId: businessOrgId,
-  organizationName: businessPractice.name,
+  practiceId: businessPracticeId,
+  practiceName: businessPractice.name,
   email: 'new.attorney@example.com',
   role: 'attorney',
   status: 'pending',
@@ -174,8 +174,8 @@ export const mockDb = {
   members: { ...defaultMembers } as Record<string, MockMember[]>,
   invitations: [defaultInvitation] as MockInvitation[],
   onboarding: {
-    [businessOrgId]: { ...defaultOnboarding },
-    [personalOrgId]: { ...defaultOnboarding }
+    [businessPracticeId]: { ...defaultOnboarding },
+    [personalPracticeId]: { ...defaultOnboarding }
   } as Record<string, OnboardingState>,
   userPreferences: { ...defaultPreferences }
 };
@@ -190,11 +190,11 @@ export function randomId(prefix = 'mock'): string {
   return `${prefix}-${base.replace(/[^a-zA-Z0-9]/g, '')}`;
 }
 
-export function ensureOrgCollections(orgId: string): void {
-  if (!mockDb.members[orgId]) {
-    mockDb.members[orgId] = [];
+export function ensurePracticeCollections(practiceId: string): void {
+  if (!mockDb.members[practiceId]) {
+    mockDb.members[practiceId] = [];
   }
-  if (!mockDb.onboarding[orgId]) {
-    mockDb.onboarding[orgId] = { ...defaultOnboarding };
+  if (!mockDb.onboarding[practiceId]) {
+    mockDb.onboarding[practiceId] = { ...defaultOnboarding };
   }
 }

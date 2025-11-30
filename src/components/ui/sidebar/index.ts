@@ -1,5 +1,5 @@
 // Sidebar atoms
-export { OrgLogo } from './atoms/OrgLogo';
+export { PracticeLogo } from './atoms/PracticeLogo';
 export { NavigationIcon } from './atoms/NavigationIcon';
 export { CollapsibleToggle } from './atoms/CollapsibleToggle';
 export { StatusDot } from './atoms/StatusDot';

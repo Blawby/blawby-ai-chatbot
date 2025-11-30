@@ -20,7 +20,8 @@ export interface Env {
   ADOBE_EXTRACTOR_SERVICE?: import('./services/AdobeDocumentService.js').IAdobeExtractor; // Optional mock extractor for testing
   
   // Remote Auth Server Configuration
-  AUTH_SERVER_URL?: string; // URL of remote Better Auth server (e.g., https://staging-api.blawby.com)
+  // Staging API (staging-api.blawby.com) runs Better Auth backend
+  AUTH_SERVER_URL?: string; // URL of remote Better Auth server (defaults to https://staging-api.blawby.com)
   
   // Remote API Configuration
   REMOTE_API_URL?: string; // URL of remote API server (e.g., https://staging-api.blawby.com)
@@ -159,6 +160,17 @@ export interface ConversationConfig {
   isPublic?: boolean;
 }
 
+// Practice configuration extends conversation config with jurisdiction
+export interface PracticeConfig extends ConversationConfig {
+  jurisdiction?: {
+    type: 'national' | 'state' | 'multi_state' | 'county' | 'city';
+    description: string;
+    supportedStates?: string[];
+    supportedCountries?: string[];
+    primaryState?: string;
+  };
+}
+
 // Practice type (business organization - law firm)
 export interface Practice {
   id: string;
@@ -263,19 +275,6 @@ export interface ValidatedRequest<T = unknown> {
   env: Env;
 }
 
-// Legacy organization context types - DEPRECATED (use PracticeContext from practiceContext.ts)
-export interface OrganizationContext {
-  organizationId: string;
-  source: 'auth' | 'session' | 'url' | 'default';
-  sessionId?: string;
-  isAuthenticated: boolean;
-  userId?: string;
-}
-
-export interface RequestWithOrganizationContext extends Request {
-  organizationContext?: OrganizationContext;
-}
-
 // UI-specific types that extend base types
 
 export interface FileAttachment {
@@ -287,7 +286,6 @@ export interface FileAttachment {
   storageKey?: string;
 }
 
-// Alias for backward compatibility
 export type DocumentIconAttachment = FileAttachment;
 
 

@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { MatterStatus } from '../types/matter';
 import { SidebarContent } from './ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '../hooks/useMobileDetection';
-import type { BusinessOnboardingStatus } from '../hooks/useOrganizationManagement';
+import type { BusinessOnboardingStatus } from '../hooks/usePracticeManagement';
 
 interface LeftSidebarProps {
   currentRoute: string;
@@ -11,12 +11,12 @@ interface LeftSidebarProps {
   onOpenOnboarding?: () => void;
   onClose?: () => void;
   matterStatus?: MatterStatus;
-  organizationConfig?: {
+  practiceConfig?: {
     name: string;
     profileImage: string | null;
-    organizationId: string;
+    practiceId: string;
   };
-  currentOrganization?: {
+  currentPractice?: {
     id: string;
     subscriptionTier?: string;
   } | null;
@@ -26,7 +26,7 @@ interface LeftSidebarProps {
   onSelectMatter?: (matterId: string) => void;
 }
 
-const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding, onClose, matterStatus, organizationConfig, currentOrganization, onboardingStatus, onboardingHasDraft, selectedMatterId, onSelectMatter }: LeftSidebarProps) => {
+const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding, onClose, matterStatus, practiceConfig, currentPractice, onboardingStatus, onboardingHasDraft, selectedMatterId, onSelectMatter }: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useMobileDetection();
   
@@ -36,14 +36,14 @@ const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding
   return (
     <div className="h-full">
       <SidebarContent
-        organizationConfig={organizationConfig}
+        practiceConfig={practiceConfig}
         currentRoute={currentRoute}
         onGoToChats={onGoToChats}
         onGoToMatter={onGoToMatter}
         onOpenOnboarding={onOpenOnboarding}
         onClose={onClose}
         matterStatus={matterStatus}
-        currentOrganization={currentOrganization}
+        currentPractice={currentPractice}
         onboardingStatus={onboardingStatus}
         onboardingHasDraft={onboardingHasDraft}
         isCollapsed={shouldShowCollapsed}

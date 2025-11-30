@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import type { Role } from '../../../hooks/useOrganizationManagement';
+import type { Role } from '../../../hooks/usePracticeManagement';
 
 const ROLE_STYLES = {
   owner: 'bg-accent-500 text-gray-900',

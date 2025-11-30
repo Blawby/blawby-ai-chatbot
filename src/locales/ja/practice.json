@@ -1,13 +1,13 @@
 {
   "notFound": {
-    "title": "Organization Not Found",
+    "title": "Practice Not Found",
     "description": {
-      "prefix": "We couldn't find the organization",
+      "prefix": "We couldn't find the practice",
       "suffix": "This could be because:"
     },
     "reasons": {
-      "incorrectId": "The organization ID might be incorrect",
-      "movedOrRemoved": "The organization may have been moved or removed",
+      "incorrectId": "The practice ID might be incorrect",
+      "movedOrRemoved": "The practice may have been moved or removed",
       "outdatedLink": "You might have an outdated link"
     },
     "helpText": {

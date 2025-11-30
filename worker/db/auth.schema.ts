@@ -5,7 +5,8 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 // have been removed - they are now managed by remote API at staging-api.blawby.com
 // ============================================================================
 
-// Organization plugin tables (kept for workspace endpoints and FK references)
+// Practice tables (kept for workspace endpoints and FK references)
+// Note: The table name is still "organizations" for database compatibility
 export const organizations = sqliteTable("organizations", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

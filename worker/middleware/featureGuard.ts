@@ -3,7 +3,6 @@ import type { Env } from "../types.js";
 import { HttpError } from "../types.js";
 import { optionalAuth, requireOrgMember } from "./auth.js";
 import { RemoteApiService } from "../services/RemoteApiService.js";
-import { PracticeService } from "../services/PracticeService.js";
 
 // Simplified quota helper functions
 const getQuotaLimit = (tier?: string): number => {
@@ -31,11 +30,7 @@ const getQuota = async (env: Env, practiceId: string, request?: Request) => {
   }
 
   // Fetch conversation config to get quotaUsed
-  const config = await PracticeService.prototype.getConversationConfig.call(
-    new PracticeService(env),
-    practiceId,
-    request
-  ) || {};
+  const config = await RemoteApiService.getPracticeConfig(env, practiceId, request) || {};
 
   const tier = metadata.tier ?? 'free';
   const quotaLimit = getQuotaLimit(tier);

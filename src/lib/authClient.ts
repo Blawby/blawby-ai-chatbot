@@ -174,12 +174,14 @@ export const hasTwoFactorPlugin = () => {
 
 export type TwoFactorClient = NonNullable<AuthClientType['twoFactor']>;
 
-// Organization plugin methods available on authClient.organization:
-// - authClient.organization.setActive({ organizationId: string }) - Set active organization
-// - authClient.organization.create({ name, slug, logo?, metadata? }) - Create organization
-// - authClient.organization.list() - List user's organizations
+// Better Auth organization plugin methods (external API uses "organization" terminology):
+// Note: These methods wrap Better Auth's organization plugin API which uses "organization" in its interface.
+// Internally we use "practice" terminology, but the Better Auth API still requires "organizationId" parameters.
+// - authClient.organization.setActive({ organizationId: string }) - Set active practice
+// - authClient.organization.create({ name, slug, logo?, metadata? }) - Create practice
+// - authClient.organization.list() - List user's practices
 // - authClient.organization.listMembers({ organizationId?, limit?, offset? }) - List members
-// - authClient.organization.getFullOrganization({ organizationId?, organizationSlug? }) - Get full org details
-// - authClient.useActiveOrganization() - React hook for active organization
-// - authClient.organization.getActiveMemberRole() - Get user's role in active org
+// - authClient.organization.getFullOrganization({ organizationId?, organizationSlug? }) - Get full practice details
+// - authClient.useActiveOrganization() - React hook for active practice
+// - authClient.organization.getActiveMemberRole() - Get user's role in active practice
 // See: https://better-auth.com/docs/plugins/organization

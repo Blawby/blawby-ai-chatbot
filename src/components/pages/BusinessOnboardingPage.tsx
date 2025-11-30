@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import BusinessOnboardingModal from '../onboarding/BusinessOnboardingModal';
-import { useOrganizationManagement } from '../../hooks/useOrganizationManagement';
+import { usePracticeManagement } from '../../hooks/usePracticeManagement';
 import { useNavigation } from '../../utils/navigation';
 import { useToastContext } from '../../contexts/ToastContext';
-import { resolveOrganizationKind, normalizeSubscriptionStatus } from '../../utils/subscription';
+import { resolvePracticeKind, normalizeSubscriptionStatus } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
 import {
@@ -21,7 +21,7 @@ import {
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { currentOrganization, organizations, refetch, loading, error } = useOrganizationManagement();
+  const { currentPractice, practices, refetch, loading, error } = usePracticeManagement();
   const { showSuccess, showError } = useToastContext();
   const devForcePaid = isForcePaidEnabled();
   const [isOpen] = useState(true);
@@ -40,19 +40,19 @@ export const BusinessOnboardingPage = () => {
     return (ONBOARDING_STEP_SEQUENCE as string[]).includes(stepCandidate) ? stepCandidate : 'welcome';
   }, [location.path]);
 
-  const organizationId = currentOrganization?.id ?? organizations?.[0]?.id ?? null;
+  const practiceId = currentPractice?.id ?? practices?.[0]?.id ?? null;
   
-  const targetOrganization = useMemo(() => {
-    if (currentOrganization) {
-      return currentOrganization;
+  const targetPractice = useMemo(() => {
+    if (currentPractice) {
+      return currentPractice;
     }
-    const upgraded = organizations?.find(org => resolveOrganizationKind(org.kind, org.isPersonal ?? null) === 'business');
-    return upgraded ?? organizations?.[0] ?? null;
-  }, [organizations, currentOrganization]);
+    const upgraded = practices?.find(org => resolvePracticeKind(org.kind, org.isPersonal ?? null) === 'business');
+    return upgraded ?? practices?.[0] ?? null;
+  }, [practices, currentPractice]);
   
-  const targetOrganizationId = targetOrganization?.id ?? organizationId;
+  const targetPracticeId = targetPractice?.id ?? practiceId;
   const shouldSync = (Array.isArray(location.query?.sync) ? location.query?.sync[0] : location.query?.sync) === '1';
-  const metadataSource = targetOrganization?.config?.metadata;
+  const metadataSource = targetPractice?.config?.metadata;
   const onboardingProgress = useMemo(
     () => extractProgressFromPracticeMetadata(metadataSource),
     [metadataSource]
@@ -60,23 +60,23 @@ export const BusinessOnboardingPage = () => {
   const onboardingStatus = onboardingProgress?.status;
   const markOnboardingStatus = useCallback(
     async (status: OnboardingStatusValue) => {
-      if (!targetOrganizationId) return;
+      if (!targetPracticeId) return;
       try {
         const metadata = buildPracticeOnboardingMetadata(metadataSource, {
           status,
           savedAt: Date.now()
         });
-        await updatePractice(targetOrganizationId, { metadata });
+        await updatePractice(targetPracticeId, { metadata });
         await refetch();
       } catch (error) {
         console.error(`[ONBOARDING][STATUS] Failed to update status to ${status}`, error);
         throw error;
       }
     },
-    [targetOrganizationId, metadataSource, refetch]
+    [targetPracticeId, metadataSource, refetch]
   );
 
-  // Local timeout to avoid indefinite spinner when organizations loading takes too long
+  // Local timeout to avoid indefinite spinner when practices loading takes too long
   useEffect(() => {
     let timeoutId: number | undefined;
     if (loading) {
@@ -89,12 +89,12 @@ export const BusinessOnboardingPage = () => {
     };
   }, [loading]);
 
-  // Clear timeout flag once we have a target organization
+  // Clear timeout flag once we have a target practice
   useEffect(() => {
-    if (targetOrganizationId) {
+    if (targetPracticeId) {
       setLoadTimedOut(false);
     }
-  }, [targetOrganizationId]);
+  }, [targetPracticeId]);
 
   // Sync subscription data on mount if needed
   useEffect(() => {
@@ -106,13 +106,13 @@ export const BusinessOnboardingPage = () => {
         return;
       }
 
-      if (!targetOrganizationId || inFlightRef.current) return;
-      console.debug('[ONBOARDING][SYNC] Starting subscription sync for org:', targetOrganizationId);
+      if (!targetPracticeId || inFlightRef.current) return;
+      console.debug('[ONBOARDING][SYNC] Starting subscription sync for practice:', targetPracticeId);
       
       inFlightRef.current = true;
       setSyncing(true);
       try {
-        const result = await syncSubscriptionRequest(targetOrganizationId, {
+        const result = await syncSubscriptionRequest(targetPracticeId, {
           headers: devForcePaid ? { 'x-test-force-paid': '1' } : undefined
         });
 
@@ -141,19 +141,19 @@ export const BusinessOnboardingPage = () => {
     };
 
     syncSubscription();
-  }, [shouldSync, targetOrganizationId, refetch, showSuccess, showError, devForcePaid]);
+  }, [shouldSync, targetPracticeId, refetch, showSuccess, showError, devForcePaid]);
 
   
 
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {
-    if (!ready || !targetOrganization) return;
+    if (!ready || !targetPractice) return;
     if (devForcePaid) {
       console.debug('[ONBOARDING][DEV_FORCE_PAID] Bypassing subscription eligibility guard.');
       return;
     }
-    const resolvedKind = resolveOrganizationKind(targetOrganization.kind, targetOrganization.isPersonal ?? null);
-    const resolvedStatus = normalizeSubscriptionStatus(targetOrganization.subscriptionStatus, resolvedKind);
+    const resolvedKind = resolvePracticeKind(targetPractice.kind, targetPractice.isPersonal ?? null);
+    const resolvedStatus = normalizeSubscriptionStatus(targetPractice.subscriptionStatus, resolvedKind);
     const allowedStatuses = new Set(['active', 'trialing', 'paused']);
     const eligible = resolvedKind === 'business' && allowedStatuses.has(resolvedStatus);
     if (!eligible) {
@@ -164,20 +164,20 @@ export const BusinessOnboardingPage = () => {
       showError('Not Available', 'Business onboarding is only available for active business subscriptions.');
       navigate('/');
     }
-  }, [ready, targetOrganization, showError, navigate, devForcePaid]);
+  }, [ready, targetPractice, showError, navigate, devForcePaid]);
 
   // Guard: Redirect if onboarding already completed
   useEffect(() => {
-    if (!ready || !targetOrganizationId) return;
+    if (!ready || !targetPracticeId) return;
     if (onboardingStatus === 'completed' && !completionRef.current) {
       console.log('✅ Onboarding already completed, redirecting');
       showSuccess('Setup Complete', 'Your business profile is already configured.');
       navigate('/');
     }
-  }, [ready, targetOrganizationId, onboardingStatus, showSuccess, navigate]);
+  }, [ready, targetPracticeId, onboardingStatus, showSuccess, navigate]);
 
   const handleComplete = useCallback(async () => {
-    if (!targetOrganizationId) return;
+    if (!targetPracticeId) return;
 
     completionRef.current = true;
     try {
@@ -188,10 +188,10 @@ export const BusinessOnboardingPage = () => {
       console.error('Failed to finalize onboarding:', error);
       showError('Error', 'Could not refresh onboarding status');
     }
-  }, [targetOrganizationId, refetch, showSuccess, showError, navigate]);
+  }, [targetPracticeId, refetch, showSuccess, showError, navigate]);
 
   const handleClose = useCallback(async () => {
-    if (!targetOrganizationId) {
+    if (!targetPracticeId) {
       navigate('/');
       return;
     }
@@ -208,7 +208,7 @@ export const BusinessOnboardingPage = () => {
     }
 
     navigate('/');
-  }, [targetOrganizationId, navigate, markOnboardingStatus]);
+  }, [targetPracticeId, navigate, markOnboardingStatus]);
 
   const handleStepChangeFromModal = useCallback((nextStep: OnboardingStep) => {
     // Prevent feedback loops: if URL already reflects this step, do nothing
@@ -237,7 +237,7 @@ export const BusinessOnboardingPage = () => {
     );
   }
 
-  if (!targetOrganizationId) {
+  if (!targetPracticeId) {
     if (error || loadTimedOut) {
       const displayMessage = error
         ? (() => {
@@ -253,7 +253,7 @@ export const BusinessOnboardingPage = () => {
               return 'An unexpected error occurred.';
             }
           })()
-        : 'Request timed out while loading organizations.';
+        : 'Request timed out while loading practices.';
       return (
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
@@ -269,11 +269,11 @@ export const BusinessOnboardingPage = () => {
       );
     }
 
-    if (!loading && (!organizations || organizations.length === 0)) {
+    if (!loading && (!practices || practices.length === 0)) {
       return (
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <p className="text-gray-700 mb-2">No organizations found for your account.</p>
+            <p className="text-gray-700 mb-2">No practices found for your account.</p>
             <button
               onClick={() => navigate('/')}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
@@ -289,7 +289,7 @@ export const BusinessOnboardingPage = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading your organizations...</p>
+          <p className="text-gray-600">Loading your practices...</p>
         </div>
       </div>
     );
@@ -298,9 +298,9 @@ export const BusinessOnboardingPage = () => {
   return (
     <BusinessOnboardingModal
       isOpen={isOpen}
-      organizationId={targetOrganizationId}
-      organizationName={targetOrganization?.name}
-      fallbackContactEmail={targetOrganization?.config?.ownerEmail}
+      practiceId={targetPracticeId}
+      practiceName={targetPractice?.name}
+      fallbackContactEmail={targetPractice?.config?.ownerEmail}
       onClose={handleClose}
       onCompleted={handleComplete}
       currentStepFromUrl={currentStepFromUrl}

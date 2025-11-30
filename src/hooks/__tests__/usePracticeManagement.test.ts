@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/preact';
-import { useOrganizationManagement } from '../useOrganizationManagement';
+import { usePracticeManagement } from '../usePracticeManagement';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
@@ -86,13 +86,13 @@ vi.mock('../../config/api', async () => {
   const actual = await vi.importActual<typeof import('../../config/api')>('../../config/api');
   return {
     ...actual,
-    getOrganizationWorkspaceEndpoint: (orgId: string, resource: string) =>
-      `/api/organizations/${orgId}/workspace/${resource}`,
+    getPracticeWorkspaceEndpoint: (practiceId: string, resource: string) =>
+      `/api/practices/${practiceId}/workspace/${resource}`,
   };
 });
 
 
-describe('useOrganizationManagement', () => {
+describe('usePracticeManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     Object.values(mockApiClient).forEach(fn => fn.mockReset());
@@ -103,14 +103,14 @@ describe('useOrganizationManagement', () => {
     mockPracticeApi.listPracticeTokens.mockResolvedValue([]);
   });
 
-  it('loads organizations via listPractices helper', async () => {
+  it('loads practices via listPractices helper', async () => {
     mockPracticeApi.listPractices.mockResolvedValueOnce([
-      { id: 'org-1', name: 'Test Organization', slug: 'test-organization' }
+      { id: 'org-1', name: 'Test Practice', slug: 'test-practice' }
     ]);
 
     const { result } = renderHook(() =>
-      useOrganizationManagement({
-        autoFetchOrganizations: false,
+      usePracticeManagement({
+        autoFetchPractices: false,
         fetchInvitations: false,
       })
     );
@@ -120,51 +120,51 @@ describe('useOrganizationManagement', () => {
     });
 
     expect(mockPracticeApi.listPractices).toHaveBeenCalled();
-    expect(result.current.organizations).toHaveLength(1);
-    expect(result.current.organizations[0]).toMatchObject({
+    expect(result.current.practices).toHaveLength(1);
+    expect(result.current.practices[0]).toMatchObject({
       id: 'org-1',
-      name: 'Test Organization'
+      name: 'Test Practice'
     });
   });
 
-  it('creates an organization through the practice helper API', async () => {
+  it('creates a practice through the practice helper API', async () => {
     mockPracticeApi.listPractices.mockResolvedValueOnce([
-      { id: 'org-new', name: 'New Organization', slug: 'new-organization' }
+      { id: 'org-new', name: 'New Practice', slug: 'new-practice' }
     ]);
 
     mockPracticeApi.createPractice.mockResolvedValueOnce({
       id: 'org-new',
-      name: 'New Organization',
-      slug: 'new-organization'
+      name: 'New Practice',
+      slug: 'new-practice'
     });
 
     const { result } = renderHook(() =>
-      useOrganizationManagement({
-        autoFetchOrganizations: false,
+      usePracticeManagement({
+        autoFetchPractices: false,
         fetchInvitations: false,
       })
     );
 
     await act(async () => {
-      await result.current.createOrganization({ name: 'New Organization', slug: 'New Organization' });
+      await result.current.createPractice({ name: 'New Practice', slug: 'New Practice' });
     });
 
     expect(mockPracticeApi.createPractice).toHaveBeenCalled();
     expect(mockPracticeApi.listPractices).toHaveBeenCalledTimes(1);
   });
 
-  it('throws when attempting to create an organization without a name', async () => {
+  it('throws when attempting to create a practice without a name', async () => {
     const { result } = renderHook(() =>
-      useOrganizationManagement({
-        autoFetchOrganizations: false,
+      usePracticeManagement({
+        autoFetchPractices: false,
         fetchInvitations: false,
       })
     );
 
     await expect(
       act(async () => {
-        await result.current.createOrganization({ name: '' });
+        await result.current.createPractice({ name: '' });
       })
-    ).rejects.toThrow('Organization name is required');
+    ).rejects.toThrow('Practice name is required');
   });
 });

@@ -6,7 +6,7 @@ import {
   TrashIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
-import { useOrganizationManagement, type Role } from '../../../hooks/useOrganizationManagement';
+import { usePracticeManagement, type Role } from '../../../hooks/usePracticeManagement';
 import { features } from '../../../config/features';
 import { Button } from '../../ui/Button';
 import Modal from '../../Modal';
@@ -23,25 +23,25 @@ import { normalizeSeats } from '../../../utils/subscription';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/i18n/hooks';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../ui/dropdown';
-import { OrgLogo } from '../../ui/sidebar/atoms/OrgLogo';
+import { PracticeLogo } from '../../ui/sidebar/atoms/PracticeLogo';
 
-interface OrganizationPageProps {
+interface PracticePageProps {
   className?: string;
 }
 
-export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
+export const PracticePage = ({ className = '' }: PracticePageProps) => {
   const { data: session } = authClient.useSession();
-  const { activeOrganizationId } = useSessionContext();
+  const { activePracticeId } = useSessionContext();
   const { 
-    organizations,
-    currentOrganization, 
+    practices,
+    currentPractice, 
     getMembers,
     invitations, 
     loading, 
     error,
-    updateOrganization,
-    createOrganization,
-    deleteOrganization,
+    updatePractice,
+    createPractice,
+    deletePractice,
     acceptInvitation,
     declineInvitation,
     fetchMembers,
@@ -49,7 +49,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     removeMember,
     sendInvitation,
     refetch 
-  } = useOrganizationManagement();
+  } = usePracticeManagement();
   
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
@@ -60,12 +60,12 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   // Get current user email from session
   const currentUserEmail = session?.user?.email || '';
   
-  // Organization switcher state
-  const [isSwitchingOrg, setIsSwitchingOrg] = useState(false);
-  const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
+  // Practice switcher state
+  const [isSwitchingPractice, setIsSwitchingPractice] = useState(false);
+  const [isPracticeDropdownOpen, setIsPracticeDropdownOpen] = useState(false);
   
   // Form states
-  const [editOrgForm, setEditOrgForm] = useState({
+  const [editPracticeForm, setEditPracticeForm] = useState({
     name: '',
     description: ''
   });
@@ -83,23 +83,23 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   });
   
   // Inline form states (like SecurityPage pattern)
-  const [isEditingOrg, setIsEditingOrg] = useState(false);
+  const [isEditingPractice, setIsEditingPractice] = useState(false);
   const [isInvitingMember, setIsInvitingMember] = useState(false);
   const [isEditingMember, setIsEditingMember] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [editMemberData, setEditMemberData] = useState<{ userId: string; email: string; name?: string; role: Role } | null>(null);
 
-  const hasOrganization = !!currentOrganization;
-  const members = useMemo(() => currentOrganization ? getMembers(currentOrganization.id) : [], [currentOrganization, getMembers]);
+  const hasPractice = !!currentPractice;
+  const members = useMemo(() => currentPractice ? getMembers(currentPractice.id) : [], [currentPractice, getMembers]);
   const _memberCount = members.length;
   
-  // Better approach - get role directly from current org context
+  // Better approach - get role directly from current practice context
   const currentMember = useMemo(() => {
-    if (!currentOrganization || !currentUserEmail) return null;
+    if (!currentPractice || !currentUserEmail) return null;
     return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) || 
            members.find(m => m.userId === session?.user?.id);
-  }, [currentOrganization, currentUserEmail, members, session?.user?.id]);
+  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
 
   const currentUserRole = currentMember?.role || 'paralegal';
   const isOwner = currentUserRole === 'owner';
@@ -111,42 +111,42 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     : '';
 
   // Subscription guard for deletion
-  const hasManagedSub = Boolean(currentOrganization?.stripeCustomerId);
-  const subStatus = (currentOrganization?.subscriptionStatus || 'none').toLowerCase();
+  const hasManagedSub = Boolean(currentPractice?.stripeCustomerId);
+  const subStatus = (currentPractice?.subscriptionStatus || 'none').toLowerCase();
   const deletionBlockedBySubscription = hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
   const deletionBlockedMessage = (() => {
     if (!deletionBlockedBySubscription) return '';
-    const ts = currentOrganization?.subscriptionPeriodEnd;
+    const ts = currentPractice?.subscriptionPeriodEnd;
     const end = (typeof ts === 'number' && Number.isFinite(ts)) ? new Date(ts * 1000) : null;
     if (end) {
       return `Subscription must be canceled before deleting. Access ends on ${formatDate(end)}.`;
     }
-    return 'Subscription must be canceled in Stripe before deleting this organization.';
+    return 'Subscription must be canceled in Stripe before deleting this practice.';
   })();
 
 
-  // Current user email is now derived from session - removed redirect to keep organization settings accessible
+  // Current user email is now derived from session - removed redirect to keep practice settings accessible
 
-  // Initialize form with current organization data
+  // Initialize form with current practice data
   useEffect(() => {
-    if (currentOrganization) {
+    if (currentPractice) {
       setEditOrgForm({
-        name: currentOrganization.name,
-        description: currentOrganization.description || ''
+        name: currentPractice.name,
+        description: currentPractice.description || ''
       });
       
-      // Fetch related data only once when organization changes
+      // Fetch related data only once when practice changes
       const fetchMembersData = async () => {
         try {
-          await fetchMembers(currentOrganization.id);
+          await fetchMembers(currentPractice.id);
         } catch (err) {
-          showError(err?.message || String(err) || 'Failed to fetch organization members');
+          showError(err?.message || String(err) || 'Failed to fetch practice members');
         }
       };
       
       fetchMembersData();
     }
-  }, [currentOrganization, fetchMembers, showError]);
+  }, [currentPractice, fetchMembers, showError]);
 
   // Auto-sync on return from portal
   useEffect(() => {
@@ -162,8 +162,8 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
       }
       return undefined;
     })();
-    if (String(syncParam) === '1' && currentOrganization?.id) {
-      syncSubscription(currentOrganization.id)
+    if (String(syncParam) === '1' && currentPractice?.id) {
+      syncSubscription(currentPractice.id)
         .then(() => {
           refetch();
           showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
@@ -179,26 +179,26 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
           window.history.replaceState({}, '', newUrl.toString());
         });
     }
-  }, [location, currentOrganization?.id, syncSubscription, refetch, showSuccess]);
+  }, [location, currentPractice?.id, syncSubscription, refetch, showSuccess]);
 
-  const handleCreateOrganization = async () => {
+  const handleCreatePractice = async () => {
     if (!createForm.name.trim()) {
-      showError('Organization name is required');
+      showError('Practice name is required');
       return;
     }
 
     try {
-      await createOrganization({
+      await createPractice({
         name: createForm.name,
         slug: createForm.slug || undefined,
         description: createForm.description || undefined,
       });
       
-      showSuccess('Organization created successfully!');
+      showSuccess('Practice created successfully!');
       setShowCreateModal(false);
       setCreateForm({ name: '', slug: '', description: '' });
 		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to create organization');
+      showError(err instanceof Error ? err.message : 'Failed to create practice');
     }
   };
 
@@ -220,26 +220,26 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
   };
 
-  const handleUpdateOrganization = async () => {
-    if (!currentOrganization) return;
+  const handleUpdatePractice = async () => {
+    if (!currentPractice) return;
     
     try {
-      await updateOrganization(currentOrganization.id, editOrgForm);
-      showSuccess('Organization updated successfully!');
+      await updatePractice(currentPractice.id, editPracticeForm);
+      showSuccess('Practice updated successfully!');
       setIsEditingOrg(false);
 		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to update organization');
+      showError(err instanceof Error ? err.message : 'Failed to update practice');
     }
   };
 
   const handleSendInvitation = async () => {
-    if (!currentOrganization || !inviteForm.email.trim()) {
+    if (!currentPractice || !inviteForm.email.trim()) {
       showError('Email is required');
       return;
     }
 
     try {
-      await sendInvitation(currentOrganization.id, inviteForm.email, inviteForm.role);
+      await sendInvitation(currentPractice.id, inviteForm.email, inviteForm.role);
       showSuccess('Invitation sent successfully!');
       setIsInvitingMember(false);
       setInviteForm({ email: '', role: 'attorney' });
@@ -249,30 +249,30 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   };
 
 
-  const handleDeleteOrganization = async () => {
-    if (!currentOrganization) return;
+  const handleDeletePractice = async () => {
+    if (!currentPractice) return;
     
-    if (deleteConfirmText !== currentOrganization.name) {
-      showError('Organization name must match exactly');
+    if (deleteConfirmText !== currentPractice.name) {
+      showError('Practice name must match exactly');
       return;
     }
 
     try {
-      await deleteOrganization(currentOrganization.id);
-      showSuccess('Organization deleted successfully!');
+      await deletePractice(currentPractice.id);
+      showSuccess('Practice deleted successfully!');
       setShowDeleteModal(false);
       setDeleteConfirmText('');
       navigate('/');
 		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to delete organization');
+      showError(err instanceof Error ? err.message : 'Failed to delete practice');
     }
   };
 
   const handleUpdateMemberRole = async () => {
-    if (!currentOrganization || !editMemberData) return;
+    if (!currentPractice || !editMemberData) return;
 
     try {
-      await updateMemberRole(currentOrganization.id, editMemberData.userId, editMemberData.role);
+      await updateMemberRole(currentPractice.id, editMemberData.userId, editMemberData.role);
       showSuccess('Member role updated successfully!');
       setEditMemberData(null);
 		} catch (err) {
@@ -281,10 +281,10 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
   };
 
   const handleRemoveMember = async (member: { userId: string; email: string; name?: string; role: Role }) => {
-    if (!currentOrganization) return;
+    if (!currentPractice) return;
 
     try {
-      await removeMember(currentOrganization.id, member.userId);
+      await removeMember(currentPractice.id, member.userId);
       showSuccess('Member removed successfully!');
       setEditMemberData(null);
 		} catch (err) {
@@ -292,37 +292,38 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     }
   };
 
-  // Organization switcher handler
-  const handleOrganizationSwitch = async (orgId: string) => {
-    if (orgId === activeOrganizationId || isSwitchingOrg) return;
+  // Practice switcher handler
+  const handlePracticeSwitch = async (practiceId: string) => {
+    if (practiceId === activePracticeId || isSwitchingPractice) return;
     
     setIsSwitchingOrg(true);
     setIsOrgDropdownOpen(false);
     try {
-      await authClient.organization.setActive({ organizationId: orgId });
+      // Note: Better Auth API uses "organizationId" parameter name
+      await authClient.organization.setActive({ organizationId: practiceId });
       await refetch();
-      showSuccess('Organization switched successfully');
+      showSuccess('Practice switched successfully');
     } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to switch organization');
+      showError(err instanceof Error ? err.message : 'Failed to switch practice');
     } finally {
       setIsSwitchingOrg(false);
     }
   };
 
-  // Ensure current organization is always included if it exists
-  const organizationsWithCurrent = useMemo(() => {
-    if (!currentOrganization) return organizations;
-    const hasCurrent = organizations.some(org => org.id === currentOrganization.id);
-    if (hasCurrent) return organizations;
-    return [currentOrganization, ...organizations];
-  }, [organizations, currentOrganization]);
+  // Ensure current practice is always included if it exists
+  const practicesWithCurrent = useMemo(() => {
+    if (!currentPractice) return practices;
+    const hasCurrent = practices.some(org => org.id === currentPractice.id);
+    if (hasCurrent) return practices;
+    return [currentPractice, ...practices];
+  }, [practices, currentPractice]);
 
   if (loading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4" />
-          <p className="text-sm text-gray-500">Loading organization...</p>
+          <p className="text-sm text-gray-500">Loading practice...</p>
         </div>
       </div>
     );
@@ -345,54 +346,54 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
     <div className={`h-full flex flex-col ${className}`}>
       <div className="px-6 py-4">
         <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Organization
+          Practice
         </h1>
         <div className="border-t border-gray-200 dark:border-dark-border mt-4" />
       </div>
       
       <div className="flex-1 overflow-y-auto px-6">
         <div className="space-y-0">
-          {hasOrganization ? (
+          {hasPractice ? (
             <>
-              {/* Organization Name Section */}
+              {/* Practice Name Section */}
               <div className="flex items-center justify-between py-3">
                   <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Organization Name
+                    Practice Name
                   </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {currentOrganization.name}
+                    {currentPractice.name}
                   </p>
                   </div>
                 <div className="ml-4 flex gap-2">
-                  {organizationsWithCurrent.length > 1 && (
+                  {practicesWithCurrent.length > 1 && (
                     <DropdownMenu
-                      open={isOrgDropdownOpen}
+                      open={isPracticeDropdownOpen}
                       onOpenChange={setIsOrgDropdownOpen}
                     >
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="secondary"
                           size="sm"
-                          disabled={isSwitchingOrg}
+                          disabled={isSwitchingPractice}
                         >
                           Switch
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-64 max-h-96">
                         <div className="max-h-64 overflow-y-auto">
-                          {organizationsWithCurrent.map((org) => {
+                          {practicesWithCurrent.map((org) => {
                             const orgProfileImage = org.config ? (org.config as { profileImage?: string | null }).profileImage ?? null : null;
-                            const isActive = org.id === activeOrganizationId;
+                            const isActive = org.id === activePracticeId;
                             return (
                               <DropdownMenuItem
                                 key={org.id}
-                                onSelect={() => handleOrganizationSwitch(org.id)}
-                                disabled={isSwitchingOrg}
+                                onSelect={() => handlePracticeSwitch(org.id)}
+                                disabled={isSwitchingPractice}
                                 className="flex items-center gap-2"
                               >
                                 {orgProfileImage ? (
-                                  <OrgLogo 
+                                  <PracticeLogo 
                                     src={orgProfileImage} 
                                     alt={org.name}
                                     size="sm"
@@ -410,11 +411,11 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                         </div>
                         <DropdownMenuItem
                           onSelect={() => setShowCreateModal(true)}
-                          disabled={isSwitchingOrg}
+                          disabled={isSwitchingPractice}
                           className="flex items-center gap-2"
                         >
                           <PlusIcon className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm">Add organization</span>
+                          <span className="text-sm">Add practice</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -423,28 +424,28 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                     variant="secondary"
                     size="sm"
                     onClick={() => setShowCreateModal(true)}
-                    disabled={isSwitchingOrg}
+                    disabled={isSwitchingPractice}
                   >
                     Add
                   </Button>
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setIsEditingOrg(!isEditingOrg)}
+                    onClick={() => setIsEditingOrg(!isEditingPractice)}
                   >
-                    {isEditingOrg ? 'Cancel' : 'Edit'}
+                    {isEditingPractice ? 'Cancel' : 'Edit'}
                   </Button>
                 </div>
               </div>
               
               {/* Inline Edit Form */}
-              {isEditingOrg && (
+              {isEditingPractice && (
                 <div className="mt-4 space-y-4">
                   <div>
-                    <FormLabel htmlFor="edit-org-name">Organization Name</FormLabel>
+                    <FormLabel htmlFor="edit-org-name">Practice Name</FormLabel>
                     <Input
                       id="edit-org-name"
-                      value={editOrgForm.name}
+                      value={editPracticeForm.name}
                       onChange={(value) => setEditOrgForm(prev => ({ ...prev, name: value }))}
                     />
                   </div>
@@ -453,7 +454,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                     <FormLabel htmlFor="edit-org-description">Description (optional)</FormLabel>
                     <Input
                       id="edit-org-description"
-                      value={editOrgForm.description}
+                      value={editPracticeForm.description}
                       onChange={(value) => setEditOrgForm(prev => ({ ...prev, description: value }))}
                       placeholder="Brief description of your practice"
                     />
@@ -463,7 +464,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                     <Button variant="secondary" onClick={() => setIsEditingOrg(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handleUpdateOrganization}>
+                    <Button onClick={handleUpdatePractice}>
                       Save Changes
                     </Button>
                   </div>
@@ -478,27 +479,27 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                   Subscription Plan
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {currentOrganization.subscriptionTier === 'plus' ? 'Plus' : 
-                   currentOrganization.subscriptionTier === 'business' ? 'Business' : 
-                   currentOrganization.subscriptionTier === 'enterprise' ? 'Enterprise' : 'Free'}
-                  {currentOrganization.seats && currentOrganization.seats > 1 && 
-                    ` • ${currentOrganization.seats} seats`}
+                  {currentPractice.subscriptionTier === 'plus' ? 'Plus' : 
+                   currentPractice.subscriptionTier === 'business' ? 'Business' : 
+                   currentPractice.subscriptionTier === 'enterprise' ? 'Enterprise' : 'Free'}
+                  {currentPractice.seats && currentPractice.seats > 1 && 
+                    ` • ${currentPractice.seats} seats`}
                 </p>
               </div>
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
 
-              {/* Organization Slug Section */}
+              {/* Practice Slug Section */}
               <div className="py-3">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Organization Slug
+                  Practice Slug
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {currentOrganization.slug}
+                  {currentPractice.slug}
                 </p>
               </div>
 
-              {currentOrganization.description && (
+              {currentPractice.description && (
                 <>
                   <div className="border-t border-gray-200 dark:border-dark-border" />
                   <div className="py-3">
@@ -506,7 +507,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                       Description
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {currentOrganization.description}
+                      {currentPractice.description}
                     </p>
                   </div>
                 </>
@@ -520,7 +521,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Team Members</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Seats used: {members.length} / {normalizeSeats(currentOrganization?.seats)}
+                      Seats used: {members.length} / {normalizeSeats(currentPractice?.seats)}
                     </p>
                   </div>
                   {isAdmin && (
@@ -534,17 +535,17 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                   )}
                 </div>
                 
-                {members.length > normalizeSeats(currentOrganization?.seats) && (
+                {members.length > normalizeSeats(currentPractice?.seats) && (
                   <div role="status" aria-live="polite" className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      You&apos;re using {members.length} seats but your plan includes {normalizeSeats(currentOrganization?.seats)}. The billing owner can increase seats in Stripe.
-                      {isOwner && currentOrganization?.stripeCustomerId && (
+                      You&apos;re using {members.length} seats but your plan includes {normalizeSeats(currentPractice?.seats)}. The billing owner can increase seats in Stripe.
+                      {isOwner && currentPractice?.stripeCustomerId && (
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => openBillingPortal({ 
-                            organizationId: currentOrganization.id, 
-                            returnUrl: origin ? `${origin}/settings/organization?sync=1` : '/settings/organization?sync=1' 
+                            practiceId: currentPractice.id, 
+                            returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1' 
                           })}
                           disabled={submitting}
                           className="ml-2 underline text-blue-600 hover:text-blue-700"
@@ -720,12 +721,12 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
 
                   <div className="border-t border-gray-200 dark:border-dark-border" />
 
-                  {/* Delete Organization Section (Owner only) */}
+                  {/* Delete Practice Section (Owner only) */}
                   <div className="flex items-center justify-between py-3" data-testid="org-delete-section">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Organization</h3>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Practice</h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Permanently delete this organization and all its data
+                        Permanently delete this practice and all its data
                       </p>
                     </div>
                     <div className="ml-4">
@@ -734,10 +735,10 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            if (!currentOrganization?.id) return;
+                            if (!currentPractice?.id) return;
                             openBillingPortal({ 
-                              organizationId: currentOrganization.id, 
-                              returnUrl: origin ? `${origin}/settings/organization?sync=1` : '/settings/organization?sync=1' 
+                              practiceId: currentPractice.id, 
+                              returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1' 
                             });
                           }}
                           disabled={submitting}
@@ -770,18 +771,18 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
               )}
             </>
           ) : (
-            /* No Organization State */
+            /* No Practice State */
             <div className="py-3">
               <div className="text-center py-8">
                 <BuildingOfficeIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-sm font-semibold mb-2">No Organization Yet</h3>
+                <h3 className="text-sm font-semibold mb-2">No Practice Yet</h3>
                 <p className="text-xs text-gray-500 mb-4">
                   Create your law firm or accept an invitation
                 </p>
-                {features.enableMultipleOrganizations && (
+                {features.enableMultiplePractices && (
                   <Button size="sm" onClick={() => setShowCreateModal(true)}>
                     <PlusIcon className="w-4 h-4 mr-2" />
-                    Create Organization
+                    Create Practice
                   </Button>
                 )}
               </div>
@@ -799,7 +800,7 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
                   <div key={inv.id} className="flex items-center justify-between py-2">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {inv.organizationName || inv.organizationId}
+                        {inv.practiceName || inv.practiceId}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         Role: {inv.role} • Expires: {formatDate(new Date(inv.expiresAt * 1000))}
@@ -823,15 +824,15 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
         </div>
       </div>
 
-      {/* Create Organization Modal */}
+      {/* Create Practice Modal */}
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Create Organization"
+        title="Create Practice"
       >
         <div className="space-y-4">
           <div>
-            <FormLabel htmlFor="org-name">Organization Name *</FormLabel>
+            <FormLabel htmlFor="org-name">Practice Name *</FormLabel>
             <Input
               id="org-name"
               value={createForm.name}
@@ -871,36 +872,36 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
             >
               Cancel
             </Button>
-            <Button onClick={handleCreateOrganization}>
-              Create Organization
+            <Button onClick={handleCreatePractice}>
+              Create Practice
             </Button>
           </div>
         </div>
       </Modal>
 
 
-      {/* Delete Organization Modal */}
+      {/* Delete Practice Modal */}
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        title="Delete Organization"
+        title="Delete Practice"
       >
         <div className="space-y-4">
           <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
             <p className="text-sm text-red-800 dark:text-red-200">
-              ⚠️ This action cannot be undone. This will permanently delete the organization and all its data.
+              ⚠️ This action cannot be undone. This will permanently delete the practice and all its data.
             </p>
           </div>
           
           <div>
             <FormLabel htmlFor="delete-confirm">
-              Type the organization name to confirm: <strong>{currentOrganization?.name}</strong>
+              Type the practice name to confirm: <strong>{currentPractice?.name}</strong>
             </FormLabel>
             <Input
               id="delete-confirm"
               value={deleteConfirmText}
               onChange={setDeleteConfirmText}
-              placeholder="Enter organization name"
+              placeholder="Enter practice name"
             />
           </div>
           
@@ -910,11 +911,11 @@ export const OrganizationPage = ({ className = '' }: OrganizationPageProps) => {
             </Button>
             <Button 
               variant="ghost"
-              onClick={handleDeleteOrganization}
-              disabled={deleteConfirmText !== currentOrganization?.name}
+              onClick={handleDeletePractice}
+              disabled={deleteConfirmText !== currentPractice?.name}
               className="text-red-600 hover:text-red-700"
             >
-              Delete Organization
+              Delete Practice
             </Button>
           </div>
         </div>

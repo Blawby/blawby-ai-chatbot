@@ -47,7 +47,7 @@ const resolvePaymentConfig = (practice?: Practice): PaymentConfig | null => {
     return null;
   }
 
-  // Check practice.config if it exists (legacy support)
+  // Check practice.config if it exists
   const practiceWithConfig = practice as Practice & { config?: unknown };
   const direct = practiceWithConfig.config ? toPaymentConfig(practiceWithConfig.config) : null;
   if (direct) {
@@ -89,10 +89,10 @@ const fetchPracticeForIdentifier = async (identifier: string): Promise<Practice 
 };
 
 // Utility function to format form data for submission
-export function formatFormData(formData: Record<string, unknown>, organizationId: string) {
+export function formatFormData(formData: Record<string, unknown>, practiceId: string) {
   return {
     ...formData,
-    organizationId,
+    practiceId,
     timestamp: new Date().toISOString()
   };
 }
@@ -100,7 +100,7 @@ export function formatFormData(formData: Record<string, unknown>, organizationId
 // Submit contact form to API
 export async function submitContactForm(
   formData: Record<string, unknown>, 
-  organizationId: string, 
+  practiceId: string, 
   onLoadingMessage: (messageId: string) => void,
   onUpdateMessage: (messageId: string, content: string, isLoading: boolean) => void,
   onError?: (error: string) => void
@@ -110,7 +110,7 @@ export async function submitContactForm(
   try {
     onLoadingMessage(loadingMessageId);
     
-    const formPayload = formatFormData(formData, organizationId);
+    const formPayload = formatFormData(formData, practiceId);
     const response = await fetch(getFormsEndpoint(), {
       method: 'POST',
       headers: {
@@ -125,8 +125,8 @@ export async function submitContactForm(
       
       // Fetch practice configuration to check payment requirements
       let practice: Practice | undefined;
-      if (organizationId) {
-        practice = await fetchPracticeForIdentifier(organizationId);
+      if (practiceId) {
+        practice = await fetchPracticeForIdentifier(practiceId);
       }
       
       // Create confirmation message for matter vs lead first
@@ -140,17 +140,17 @@ export async function submitContactForm(
         confirmationContent = '✅ Perfect! Your matter details have been submitted successfully and updated below.';
       }
 
-      // Independently append payment block if required by organization config
+      // Independently append payment block if required by practice config
       const config = resolvePaymentConfig(practice);
       if (config?.requiresPayment) {
         const fee = config.consultationFee ?? 0;
         const paymentLink = config.paymentLink ?? '';
-        const organizationName = practice?.name ?? 'our firm';
+        const practiceName = practice?.name ?? 'our firm';
 
         let paymentText = '';
         if (fee <= 0 || !paymentLink) {
           console.warn('Payment required but missing fee or payment link:', { fee, paymentLink });
-          paymentText = `A lawyer will reach out with payment details shortly. Thank you for choosing ${organizationName}!`;
+          paymentText = `A lawyer will reach out with payment details shortly. Thank you for choosing ${practiceName}!`;
         } else {
           paymentText = `💰 **Consultation Fee**: $${fee}\n\nTo continue, please complete the payment.\n\n🔗 **Payment Link**: ${paymentLink}\n\nOnce payment is complete, a lawyer will review your matter and follow up.`;
         }
