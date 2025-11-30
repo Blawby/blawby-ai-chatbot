@@ -34,14 +34,14 @@ export async function extractPracticeContext(
   request: Request,
   env: Env,
   options: {
-    requirePractice?: boolean;
-    defaultPracticeId?: string;
+    requireOrganization?: boolean;
+    defaultOrganizationId?: string;
     allowUrlOverride?: boolean;
   } = {}
 ): Promise<PracticeContext | OptionalPracticeContext> {
   const {
-    requirePractice = true,
-    defaultPracticeId,
+    requireOrganization = true,
+    defaultOrganizationId,
     allowUrlOverride = true
   } = options;
 
@@ -61,10 +61,10 @@ export async function extractPracticeContext(
       if (sessionToken) {
         try {
           // Compute target practice ID and ensure it's defined
-          const targetPracticeId = urlPracticeId ?? defaultPracticeId;
+          const targetPracticeId = urlPracticeId ?? defaultOrganizationId;
           if (!targetPracticeId) {
             // No practice ID available, skip session resolution
-            if (requirePractice) {
+            if (requireOrganization) {
               throw HttpErrors.badRequest('Practice context is required but could not be determined');
             }
             return {
@@ -121,10 +121,10 @@ export async function extractPracticeContext(
       // Only resolve session for endpoints that actually need it
       try {
         // Try to resolve session with URL param or default
-        const targetPracticeId = urlPracticeId ?? defaultPracticeId;
+        const targetPracticeId = urlPracticeId ?? defaultOrganizationId;
         if (!targetPracticeId) {
           // No practice ID available, return without session resolution
-          if (requirePractice) {
+          if (requireOrganization) {
             throw HttpErrors.badRequest('Practice context is required but could not be determined');
           }
           return {
@@ -164,23 +164,23 @@ export async function extractPracticeContext(
   }
 
   // Use default practice if provided
-  if (defaultPracticeId) {
+  if (defaultOrganizationId) {
     return {
-      practiceId: defaultPracticeId,
+      practiceId: defaultOrganizationId,
       source: 'default',
       isAuthenticated: false
     };
   }
 
   // No practice found and it's required
-  if (requirePractice) {
+  if (requireOrganization) {
     throw HttpErrors.badRequest('Practice context is required but could not be determined');
   }
 
   // Return undefined practice when not required and no default provided
   return {
-    practiceId: null,
-    source: 'none',
+    practiceId: '',
+    source: 'default',
     isAuthenticated: false
   };
 }
@@ -199,8 +199,8 @@ export async function withPracticeContext(
   } = {}
 ): Promise<RequestWithPracticeContext> {
   const context = await extractPracticeContext(request, env, {
-    requirePractice: options.requirePractice,
-    defaultPracticeId: options.defaultPracticeId,
+    requireOrganization: options.requirePractice,
+    defaultOrganizationId: options.defaultPracticeId,
     allowUrlOverride: options.allowUrlOverride
   });
   

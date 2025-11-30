@@ -277,8 +277,6 @@ export interface RequestWithOrganizationContext extends Request {
 }
 
 // UI-specific types that extend base types
-// Re-export ConversationConfig from PracticeService for convenience
-export type { ConversationConfig } from './services/PracticeService.js';
 
 export interface FileAttachment {
   id: string;

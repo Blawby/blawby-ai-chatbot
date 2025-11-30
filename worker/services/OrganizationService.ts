@@ -7,6 +7,17 @@ import { Logger } from '../utils/logger.js';
 import { HttpErrors } from '../errorHandler.js';
 import { HttpError } from '../types.js';
 
+// Helper functions for simplified quota
+const _getQuotaLimit = (tier?: string): number => {
+  switch (tier) {
+    case 'free': return 100;
+    case 'plus': return 500;
+    case 'business': return 1000;
+    case 'enterprise': return -1; // unlimited
+    default: return 100;
+  }
+};
+
 const DEFAULT_AVAILABLE_SERVICES = [
   'Family Law',
   'Employment Law',
@@ -232,23 +243,13 @@ export class PracticeService {
    * from resolving environment variables. Metadata can be set by organization owners
    * and should not be processed for environment variable substitution.
    */
-  private resolveEnvironmentVariables<T>(
-    config: T,
-    excludeKeys: Set<string> = new Set(['metadata']),
-    depth: number = 0
-  ): T {
-    const MAX_DEPTH = 50;
-    if (depth > MAX_DEPTH) {
-      Logger.warn('Maximum recursion depth exceeded in resolveEnvironmentVariables', { depth });
-      return config;
-    }
-
+  private resolveEnvironmentVariables<T>(config: T, excludeKeys: Set<string> = new Set(['metadata'])): T {
     if (config === null || typeof config !== 'object') {
       return config;
     }
 
     if (Array.isArray(config)) {
-      return config.map(item => this.resolveEnvironmentVariables(item, excludeKeys, depth + 1)) as unknown as T;
+      return config.map(item => this.resolveEnvironmentVariables(item, excludeKeys)) as unknown as T;
     }
 
     const resolvedEntries = Object.entries(config as Record<string, unknown>).map(([key, value]) => {
@@ -258,7 +259,7 @@ export class PracticeService {
       }
       
       if (value && typeof value === 'object') {
-        return [key, this.resolveEnvironmentVariables(value, excludeKeys, depth + 1)];
+        return [key, this.resolveEnvironmentVariables(value, excludeKeys)];
       }
       if (typeof value === 'string') {
         return [key, this.resolveStringVariables(value)];
@@ -296,7 +297,7 @@ export class PracticeService {
     const envVarRegex = /\$\{([^}]+)\}/g;
     let result = value.replace(envVarRegex, (match, varName) => {
       const envValue = this.getEnvValue(varName);
-      Logger.debug('Resolving environment variable', { varName, found: envValue !== undefined });
+      console.log(`🔍 Resolving ${varName}: ${envValue !== undefined ? 'FOUND' : 'NOT FOUND'}`);
       return envValue !== undefined ? envValue : match;
     });
     
@@ -304,7 +305,7 @@ export class PracticeService {
     // Only replace if the value looks like an environment variable name
     if (result.match(/^[A-Z_]+$/)) {
       const envValue = this.getEnvValue(result);
-      Logger.debug('Resolving direct environment variable', { varName: result, found: envValue !== undefined });
+      console.log(`🔍 Resolving direct ${result}: ${envValue !== undefined ? 'FOUND' : 'NOT FOUND'}`);
       if (envValue !== undefined) {
         return envValue;
       }
@@ -421,12 +422,12 @@ export class PracticeService {
   }
 
   async getPractice(practiceId: string, request?: Request): Promise<PracticeOrWorkspace | null> {
-    Logger.debug('PracticeService.getPractice called', { practiceId });
+    console.log('PracticeService.getPractice called with practiceId:', practiceId);
     
     // Check cache first
     const cached = this.practiceCache.get(practiceId);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      Logger.debug('Returning cached practice', { practiceId });
+      console.log('Returning cached practice');
       return cached.data;
     }
 
@@ -435,7 +436,7 @@ export class PracticeService {
       const practiceData = await RemoteApiService.getOrganization(this.env, practiceId, request);
       
       if (!practiceData) {
-        Logger.info('No practice found in remote API', { practiceId });
+        console.log('No practice found in remote API');
         return null;
       }
 
@@ -473,11 +474,11 @@ export class PracticeService {
         businessOnboardingData: practiceWithExtras.businessOnboardingData ?? null,
       };
       
-      Logger.debug('Found practice', { id: practice.id, slug: practice.slug, name: practice.name });
+      console.log('Found practice:', { id: practice.id, slug: practice.slug, name: practice.name });
       this.practiceCache.set(practiceId, { data: practice, timestamp: Date.now() });
       return practice;
     } catch (error) {
-      Logger.error('Failed to fetch practice', { practiceId, error });
+      console.error('Failed to fetch practice:', error);
       return null;
     }
   }
@@ -721,11 +722,10 @@ export class PracticeService {
   }
 
   private generateULID(): string {
-    const timestamp = Date.now().toString(36);
-    const randomBytes = new Uint8Array(10);
-    crypto.getRandomValues(randomBytes);
-    const random = Array.from(randomBytes, byte => byte.toString(36)).join('').substring(0, 15);
-    return `${timestamp}${random}`.toUpperCase();
+    // Simple ULID generation - in production, use a proper ULID library
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    return `${timestamp.toString(36)}${random}`;
   }
 
   // Business onboarding methods removed - onboarding is now handled by remote API

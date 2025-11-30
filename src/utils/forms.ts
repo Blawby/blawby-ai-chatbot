@@ -1,24 +1,79 @@
-import { listPractices } from '../lib/apiClient.js';
+import { getPractice, listPractices } from '../lib/apiClient.js';
+import type { Practice } from '../lib/apiClient.js';
 
 // API endpoints - moved inline since api.ts was removed
 const getFormsEndpoint = () => '/api/forms';
 
-// Type definitions for organization data
-interface Organization {
-  slug?: string;
-  id?: string;
-  name?: string;
-  config?: {
-    ownerEmail?: string;
-    requiresPayment?: boolean;
-    consultationFee?: number;
-    paymentLink?: string;
-  };
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ULID_REGEX = /^[0-9A-Z]{26}$/;
+
+interface PaymentConfig {
+  ownerEmail?: string;
+  requiresPayment?: boolean;
+  consultationFee?: number;
+  paymentLink?: string;
 }
 
-interface OrganizationsResponse {
-  data: Array<Organization>;
-}
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const looksLikePracticeId = (value: string): boolean =>
+  UUID_REGEX.test(value) || ULID_REGEX.test(value);
+
+const toPaymentConfig = (source: unknown): PaymentConfig | null => {
+  if (!isRecord(source)) {
+    return null;
+  }
+  return {
+    ownerEmail: typeof source.ownerEmail === 'string' ? source.ownerEmail : undefined,
+    requiresPayment: typeof source.requiresPayment === 'boolean' ? source.requiresPayment : undefined,
+    consultationFee: typeof source.consultationFee === 'number' ? source.consultationFee : undefined,
+    paymentLink: typeof source.paymentLink === 'string' ? source.paymentLink : undefined
+  };
+};
+
+const resolvePaymentConfig = (practice?: Practice): PaymentConfig | null => {
+  if (!practice) {
+    return null;
+  }
+
+  const direct = toPaymentConfig(practice.config);
+  if (direct) {
+    return direct;
+  }
+
+  if (isRecord(practice.metadata) && isRecord(practice.metadata.conversationConfig)) {
+    return toPaymentConfig(practice.metadata.conversationConfig);
+  }
+
+  return null;
+};
+
+const fetchPracticeForIdentifier = async (identifier: string): Promise<Practice | undefined> => {
+  const trimmed = identifier.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (looksLikePracticeId(trimmed)) {
+    try {
+      return await getPractice(trimmed);
+    } catch (error) {
+      console.warn('Direct practice lookup failed, falling back to list search', {
+        practiceId: trimmed,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  try {
+    const practices = await listPractices({ scope: 'all' });
+    return practices.find((practice) => practice.id === trimmed || practice.slug === trimmed);
+  } catch (error) {
+    console.warn('Failed to list practices while resolving payment requirements', error);
+    return undefined;
+  }
+};
 
 // Utility function to format form data for submission
 export function formatFormData(formData: Record<string, unknown>, organizationId: string) {
@@ -56,14 +111,9 @@ export async function submitContactForm(
       console.log('Form submitted successfully:', result);
       
       // Fetch practice configuration to check payment requirements
-      let practiceConfig: Organization | undefined;
-      try {
-        const practices = await listPractices({ scope: 'all' });
-        practiceConfig = practices.find(
-          (practice) => practice.slug === organizationId || practice.id === organizationId
-        );
-      } catch (error) {
-        console.warn('Failed to fetch practice config:', error);
+      let practice: Practice | undefined;
+      if (organizationId) {
+        practice = await fetchPracticeForIdentifier(organizationId);
       }
       
       // Create confirmation message for matter vs lead first
@@ -78,11 +128,11 @@ export async function submitContactForm(
       }
 
       // Independently append payment block if required by organization config
-      const config = practiceConfig?.config ?? (practiceConfig?.metadata as Record<string, any> | undefined);
+      const config = resolvePaymentConfig(practice);
       if (config?.requiresPayment) {
         const fee = config.consultationFee ?? 0;
         const paymentLink = config.paymentLink ?? '';
-        const organizationName = practiceConfig?.name ?? 'our firm';
+        const organizationName = practice?.name ?? 'our firm';
 
         let paymentText = '';
         if (fee <= 0 || !paymentLink) {
