@@ -48,19 +48,6 @@ CREATE TABLE IF NOT EXISTS contact_forms (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Services table
-CREATE TABLE IF NOT EXISTS services (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  payment_required BOOLEAN DEFAULT FALSE,
-  payment_amount INTEGER,
-  intake_form JSON,
-  active BOOLEAN DEFAULT TRUE,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Lawyers table for lawyer profiles within practices
 -- NOTE: This is NOT a replacement for the members table. The members table was for
 -- practice membership (user_id, organization_id, role) and is now handled by remote API.
@@ -213,27 +200,6 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
 -- is managed by the remote API at staging-api.blawby.com
 -- This org MUST exist across all environments for public chat defaults.
 
--- Payment history table for tracking all payment transactions
-CREATE TABLE IF NOT EXISTS payment_history (
-  id TEXT PRIMARY KEY,
-  payment_id TEXT UNIQUE NOT NULL,
-  organization_id TEXT NOT NULL,
-  customer_email TEXT NOT NULL,
-  customer_name TEXT,
-  customer_phone TEXT,
-  amount INTEGER NOT NULL, -- in cents
-  currency TEXT DEFAULT 'USD',
-  status TEXT NOT NULL, -- 'pending', 'completed', 'failed', 'cancelled', 'refunded'
-  event_type TEXT NOT NULL, -- 'payment.completed', 'payment.failed', 'payment.refunded', etc.
-  matter_type TEXT,
-  matter_description TEXT,
-  invoice_url TEXT,
-  metadata JSON, -- Additional payment data
-  notes TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Chat sessions table for session management
 CREATE TABLE IF NOT EXISTS chat_sessions (
   id TEXT PRIMARY KEY,
@@ -310,20 +276,10 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_eve
 -- Chatbot tables use organization_id as TEXT reference only (no FK constraint)
 
 -- Stripe subscription table removed - subscription management is handled by remote API
-
--- Organization events table for audit logging
-CREATE TABLE IF NOT EXISTS organization_events (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  actor_user_id TEXT,
-  metadata JSON,
-  created_at INTEGER DEFAULT (strftime('%s', 'now')) NOT NULL
-);
+-- Payment history table removed - payment tracking is handled by remote API
+-- Organization events table removed - organization event logging is handled by remote API
 
 -- Auth tables (sessions, accounts, verifications) removed - managed by remote API
-
-CREATE INDEX IF NOT EXISTS idx_org_events_org_created ON organization_events(organization_id, created_at DESC);
 
 -- Create indexes for user_id columns
 CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);

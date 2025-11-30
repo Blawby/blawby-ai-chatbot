@@ -133,9 +133,8 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
     
     // Only handle workspace endpoints - all other practice management is handled by remote API
     const isWorkspaceEndpoint = path.includes('/workspace');
-    const isEventsEndpoint = pathSegments.length === 2 && pathSegments[1] === 'events' && request.method === 'GET';
     
-    if (!isWorkspaceEndpoint && !isEventsEndpoint) {
+    if (!isWorkspaceEndpoint) {
       // Return 404 for all non-workspace endpoints (management is handled by remote API)
       return new Response(JSON.stringify({ 
         success: false, 
@@ -517,83 +516,8 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
           });
         }
 
-        if (resource === 'payments') {
-          const statusFilter = url.searchParams.get('status');
-          const baseQuery = `
-            SELECT id,
-                   payment_id as paymentId,
-                   customer_email as customerEmail,
-                   customer_name as customerName,
-                   amount,
-                   currency,
-                   status,
-                   event_type as eventType,
-                   matter_type as matterType,
-                   invoice_url as invoiceUrl,
-                   created_at as createdAt
-              FROM payment_history
-             WHERE organization_id = ?
-             ${statusFilter ? 'AND status = ?' : ''}
-             ORDER BY created_at DESC
-             LIMIT ?`;
-
-          const bindings = statusFilter
-            ? [practice.id, statusFilter, limit]
-            : [practice.id, limit];
-
-          const payments = await env.DB.prepare(baseQuery).bind(...bindings).all();
-
-          // Preact usage: billing history table on the workspace.
-          return createSuccessResponse({
-            payments: payments.results ?? []
-          });
-        }
-
         throw HttpErrors.notFound('Workspace resource not found');
       }
-    }
-
-    // Handle practice events route
-    if (isEventsEndpoint) {
-      const practiceIdentifier = pathSegments[0];
-      // Fetch practice from remote API
-      const practice = await RemoteApiService.getPractice(env, practiceIdentifier, request);
-
-      if (!practice) {
-        throw HttpErrors.notFound('Practice not found');
-      }
-
-      await requireOrgMember(request, env, practice.id, 'admin');
-
-      const limit = parseLimit(url.searchParams.get('limit'), 50);
-      const eventTypeFilter = url.searchParams.get('eventType');
-
-      const events = await env.DB.prepare(
-        `SELECT id,
-                event_type as eventType,
-                actor_user_id as actorUserId,
-                metadata,
-                created_at as createdAt
-           FROM organization_events
-          WHERE organization_id = ?
-          ${eventTypeFilter ? 'AND event_type = ?' : ''}
-          ORDER BY created_at DESC
-          LIMIT ?`
-      ).bind(
-        ...(eventTypeFilter
-          ? [practice.id, eventTypeFilter, limit]
-          : [practice.id, limit])
-      ).all();
-
-      // Preact usage: fetch to show an activity feed in the practice workspace.
-      return createSuccessResponse({
-        events: events.results?.map(event => ({
-          ...event,
-          metadata: typeof event.metadata === 'string'
-            ? (parseJsonField(event.metadata) ?? event.metadata)
-            : event.metadata
-        })) ?? []
-      });
     }
 
     return new Response(JSON.stringify({
