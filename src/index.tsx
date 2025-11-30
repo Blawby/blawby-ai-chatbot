@@ -180,7 +180,7 @@ function MainApp({
                         
                         // Check if practices exist
                         try {
-                            const practices = await listPractices({ signal: controller.signal });
+                            const practices = await listPractices({ signal: controller.signal, scope: 'all' });
 
                             if (practices.length === 0) {
                                 const userName = session.user.name || session.user.email?.split('@')[0] || 'User';

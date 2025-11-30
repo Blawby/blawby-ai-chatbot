@@ -553,7 +553,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
         return;
       }
 
-      const rawOrgList = await listPractices({ signal: controller.signal });
+      const rawOrgList = await listPractices({ signal: controller.signal, scope: 'all' });
 
       const normalizedList = rawOrgList
         .filter((item): item is Practice => typeof item === 'object' && item !== null)

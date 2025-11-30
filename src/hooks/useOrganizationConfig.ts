@@ -150,7 +150,7 @@ export const useOrganizationConfig = ({ onError, organizationId: explicitOrgId }
       
       // If we don't have the organization yet, list all practices and find the matching one
       if (!organization) {
-        const practices = await listPractices({ signal: controller.signal });
+        const practices = await listPractices({ signal: controller.signal, scope: 'all' });
         
         if (isStaleRequest()) {
           return;
