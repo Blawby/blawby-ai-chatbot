@@ -567,8 +567,9 @@ describe('PracticePage', () => {
     // Set currentPractice to null to show empty state
     useOrgMgmtMock.currentPractice = null;
     
-    // Sync SessionContext with null currentPractice
+    // Sync SessionContext with null currentPractice - both activePracticeId and activePracticeSlug should be null for empty-state scenario
     mockSessionContext.activePracticeId = null as any;
+    mockSessionContext.activePracticeSlug = null as any;
     
     render(<PracticePage />);
     

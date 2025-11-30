@@ -529,45 +529,8 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       // Try to construct the file path from the fileId if we don't have database metadata
       let filePath = fileRecord?.file_path;
       if (!filePath) {
-        // Extract practiceId and sessionId from fileId format: practiceId-sessionId-timestamp-random
-        // The practiceId can contain hyphens, so we need to be more careful about parsing
-        const lastHyphenIndex = fileId.lastIndexOf('-');
-        const secondLastHyphenIndex = fileId.lastIndexOf('-', lastHyphenIndex - 1);
-        
-        if (lastHyphenIndex !== -1 && secondLastHyphenIndex !== -1) {
-          // The format is: practiceId-sessionId-timestamp-random
-          // We need to find where the sessionId ends and timestamp begins
-          const parts = fileId.split('-');
-          if (parts.length >= 4) {
-            // The last two parts are timestamp and random string
-            const timestamp = parts[parts.length - 2];
-            const randomString = parts[parts.length - 1];
-            
-            // Everything before the timestamp is practiceId-sessionId
-            const practiceIdAndSessionId = parts.slice(0, -2).join('-');
-            
-            // Find the sessionId (it's a UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-            const sessionIdMatch = practiceIdAndSessionId.match(/[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/i);
-            
-            if (sessionIdMatch) {
-              const sessionId = sessionIdMatch[0];
-              const practiceId = practiceIdAndSessionId.substring(0, practiceIdAndSessionId.length - sessionId.length - 1); // -1 for the hyphen
-              
-              console.log('Parsed fileId:', { practiceId, sessionId, timestamp, randomString });
-              
-              // Try to find the file in R2 with a pattern match
-              const prefix = `uploads/${practiceId}/${sessionId}/${fileId}`;
-              console.log('Looking for file with prefix:', prefix);
-              // List objects with this prefix
-              const objects = await env.FILES_BUCKET.list({ prefix });
-              console.log('R2 objects found:', objects.objects.length);
-              if (objects.objects.length > 0) {
-                filePath = objects.objects[0].key;
-                console.log('Found file path:', filePath);
-              }
-            }
-          }
-        }
+        console.log('No file path found for fileId:', fileId);
+        throw HttpErrors.notFound('File not found');
       }
 
       if (!filePath) {

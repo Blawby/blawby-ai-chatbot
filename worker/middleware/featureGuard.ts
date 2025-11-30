@@ -1,6 +1,5 @@
 import { HttpErrors } from "../errorHandler.js";
 import type { Env } from "../types.js";
-import { HttpError } from "../types.js";
 import { optionalAuth, requireOrgMember } from "./auth.js";
 import { RemoteApiService } from "../services/RemoteApiService.js";
 
@@ -18,16 +17,7 @@ const getQuotaLimit = (tier?: string): number => {
 const getQuota = async (env: Env, practiceId: string, request?: Request) => {
   // Fetch practice metadata from remote API
   let metadata;
-  try {
-    metadata = await RemoteApiService.getPracticeMetadata(env, practiceId, request);
-  } catch (error) {
-    if (error instanceof HttpError && error.status === 404) {
-      const tier = 'free';
-      const quotaLimit = getQuotaLimit(tier);
-      return { used: 0, limit: quotaLimit, unlimited: quotaLimit < 0 };
-    }
-    throw error;
-  }
+  metadata = await RemoteApiService.getPracticeMetadata(env, practiceId, request);
 
   // Fetch conversation config to get quotaUsed
   const config = await RemoteApiService.getPracticeConfig(env, practiceId, request) || {};
@@ -85,24 +75,7 @@ export async function requireFeature(
 
   // Fetch practice metadata from remote API
   let metadata;
-  try {
-    metadata = await RemoteApiService.getPracticeMetadata(env, options.practiceId, request);
-  } catch (error) {
-    if (error instanceof HttpError && error.status === 404) {
-      if (config.requirePractice) {
-        throw HttpErrors.forbidden("This feature is unavailable for workspaces");
-      }
-      metadata = {
-        id: options.practiceId,
-        slug: null,
-        tier: 'free' as const,
-        kind: 'workspace' as const,
-        subscriptionStatus: 'none' as const,
-      };
-    } else {
-      throw error;
-    }
-  }
+  metadata = await RemoteApiService.getPracticeMetadata(env, options.practiceId, request);
 
   if (config.requirePractice && metadata.kind === 'workspace') {
     throw HttpErrors.forbidden("This feature is unavailable for workspaces");
