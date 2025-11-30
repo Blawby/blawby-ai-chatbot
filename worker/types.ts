@@ -283,6 +283,33 @@ export interface PaymentEmbedData {
   paymentId?: string;
 }
 
+/**
+ * Analysis result from document processing
+ * Can represent either raw extraction (extraction_only: true) or AI analysis (extraction_only: false)
+ */
+export interface AnalysisResult {
+  summary: string;
+  key_facts: string[] | null;
+  entities: {
+    people: string[];
+    orgs: string[];
+    dates: string[];
+  } | null;
+  action_items: string[] | null;
+  confidence: number;
+  error?: string;
+  // Raw Adobe extraction data (optional)
+  adobeExtract?: {
+    text?: string;
+    tables?: unknown[];
+    elements?: unknown[];
+  };
+  // Flag to distinguish raw extraction from AI analysis
+  extraction_only?: boolean;
+  // State indicator: 'extracted' for raw extraction, 'analyzed' for AI analysis
+  extraction_state?: 'extracted' | 'analyzed';
+}
+
 // Shared UI fields that can be attached to chat messages
 export interface UIMessageExtras {
   files?: FileAttachment[];

@@ -6,7 +6,7 @@ import { ActivityService } from '../services/ActivityService';
 import { StatusService, type StatusUpdate } from '../services/StatusService.js';
 import { Logger } from '../utils/logger';
 import type { MessageBatch } from '@cloudflare/workers-types';
-import type { AutoAnalysisEvent } from '../types/events.js';
+import type { DocumentEvent, AutoAnalysisEvent } from '../types/events.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
 import { requireFeature } from '../middleware/featureGuard.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';

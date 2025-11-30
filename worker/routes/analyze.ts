@@ -2,7 +2,7 @@ import type { Env } from '../types';
 import { HttpErrors, createSuccessResponse } from '../errorHandler';
 import { rateLimit, getClientId } from '../middleware/rateLimit.js';
 import { AdobeDocumentService, type AdobeExtractSuccess, type IAdobeExtractor } from '../services/AdobeDocumentService.js';
-import { type AnalysisResult } from '../services/SessionService.js';
+import { type AnalysisResult } from '../types.js';
 import { 
   log, 
   logRequestStart, 
@@ -249,11 +249,13 @@ async function attemptAdobeExtract(
     // Return raw Adobe extraction results (no AI summarization)
     const rawExtract = extractResult.details;
     return {
-      summary: rawExtract.text?.substring(0, 500) || 'Document extracted successfully',
-      key_facts: [],
-      entities: { people: [], orgs: [], dates: [] },
-      action_items: [],
-      confidence: 1.0,
+      summary: 'Raw extraction — no analysis performed: ' + (rawExtract.text?.substring(0, 500) || 'Document extracted successfully'),
+      key_facts: null,
+      entities: null,
+      action_items: null,
+      confidence: 0.5,
+      extraction_state: 'extracted',
+      extraction_only: true,
       adobeExtractTextLength: rawExtract.text?.length || 0,
       adobeExtractTextPreview: rawExtract.text?.substring(0, 200) || 'No text',
       extraction_method: 'adobe_extract',

@@ -1,7 +1,8 @@
 // Removed unused imports
 // Removed AI summarization - using Adobe extraction only
 import { AdobeDocumentService, type AdobeExtractSuccess } from '../services/AdobeDocumentService.js';
-import { SessionService, type AnalysisResult } from '../services/SessionService.js';
+import { SessionService } from '../services/SessionService.js';
+import { type AnalysisResult } from '../types.js';
 import { StatusService } from '../services/StatusService.js';
 import type { Env } from '../types.js';
 import type { DocumentEvent, AutoAnalysisEvent } from '../types/events.js';
@@ -79,10 +80,12 @@ export default {
             await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "❌ Document storage is not configured");
             const failureAnalysis: AnalysisResult = {
               summary: "Storage not configured",
-              entities: { people: [], orgs: [], dates: [] },
-              key_facts: [],
-              action_items: [],
+              entities: null,
+              key_facts: null,
+              action_items: null,
               confidence: 0,
+              extraction_only: true,
+              extraction_state: 'extracted',
               error: "FILES_BUCKET is not available"
             };
             await SessionService.sendAnalysisComplete(env, sessionId, organizationId, failureAnalysis);
@@ -124,10 +127,12 @@ export default {
             // Send analysis complete with failure payload
             const failureAnalysis: AnalysisResult = {
               summary: "Document not found for analysis",
-              entities: { people: [], orgs: [], dates: [] },
-              key_facts: [],
-              action_items: [],
+              entities: null,
+              key_facts: null,
+              action_items: null,
               confidence: 0,
+              extraction_only: true,
+              extraction_state: 'extracted',
               error: "Document not found for analysis"
             };
             
@@ -178,6 +183,53 @@ export default {
             }), 
             { expirationTtl: 60 * 60 * 24 * 3 } // 3 days
           );
+          
+          // Store extraction data in files.metadata column
+          if (analysis.adobeExtract) {
+            try {
+              // Find the file record by file_path (which should match file.key)
+              const fileRecord = await env.DB.prepare(`
+                SELECT id FROM files WHERE file_path = ? AND organization_id = ? AND is_deleted = FALSE
+              `).bind(file.key, organizationId).first<{ id: string }>();
+              
+              if (fileRecord) {
+                // Get existing metadata or create new object
+                const existingMetadata = await env.DB.prepare(`
+                  SELECT metadata FROM files WHERE id = ?
+                `).bind(fileRecord.id).first<{ metadata: string | null }>();
+                
+                const existingData = existingMetadata?.metadata 
+                  ? JSON.parse(existingMetadata.metadata) 
+                  : {};
+                
+                // Update metadata with extraction data
+                const updatedMetadata = {
+                  ...existingData,
+                  extraction: {
+                    ...analysis.adobeExtract,
+                    extractedAt: new Date().toISOString(),
+                    extractionState: analysis.extraction_state || 'extracted',
+                    extractionOnly: analysis.extraction_only || false,
+                    confidence: analysis.confidence
+                  }
+                };
+                
+                // Update the file record with extraction metadata
+                await env.DB.prepare(`
+                  UPDATE files 
+                  SET metadata = ?, updated_at = datetime('now')
+                  WHERE id = ?
+                `).bind(JSON.stringify(updatedMetadata), fileRecord.id).run();
+                
+                console.log('✅ Extraction data stored in files.metadata:', { fileId: fileRecord.id });
+              } else {
+                console.warn('⚠️ File record not found in database, cannot store extraction data:', { fileKey: file.key });
+              }
+            } catch (error) {
+              // Log error but don't fail the analysis
+              console.error('Failed to store extraction data in files.metadata:', error);
+            }
+          }
           
           // Send final analysis result
           await SessionService.sendAnalysisComplete(env, sessionId, organizationId, analysis);
@@ -321,7 +373,7 @@ async function performDocumentAnalysis(
           type: 'file_processing',
           status: 'processing',
           message: "✅ Document extraction complete",
-          progress: 90,
+          progress: 100,
           data: { fileName: key.split('/').pop() ?? key }
         }, statusCreatedAt ?? undefined);
       }
@@ -333,11 +385,13 @@ async function performDocumentAnalysis(
       // Return raw Adobe extraction as AnalysisResult
       const rawExtract = adobeResult.details;
       analysis = {
-        summary: rawExtract.text?.substring(0, 500) || 'Document extracted successfully',
-        entities: { people: [], orgs: [], dates: [] },
-        key_facts: [],
-        action_items: [],
-        confidence: 1.0,
+        summary: 'Raw extraction — no analysis performed: ' + (rawExtract.text?.substring(0, 500) || 'Document extracted successfully'),
+        entities: null,
+        key_facts: null,
+        action_items: null,
+        confidence: 0.5,
+        extraction_only: true,
+        extraction_state: 'extracted',
         // Include raw Adobe extraction data
         adobeExtract: {
           text: rawExtract.text,
@@ -372,10 +426,12 @@ async function performDocumentAnalysis(
     }
     analysis = {
       summary: "Document extraction is not available for this file type. Adobe PDF Services extraction is only available for PDF, DOC, and DOCX files.",
-      entities: { people: [], orgs: [], dates: [] },
-      key_facts: [],
-      action_items: ["Try uploading a PDF, DOC, or DOCX file"],
+      entities: null,
+      key_facts: null,
+      action_items: null,
       confidence: 0,
+      extraction_only: true,
+      extraction_state: 'extracted',
       error: "File type not supported for extraction"
     };
   }
