@@ -25,6 +25,10 @@ import {
   createTokenResponseSchema
 } from '../../worker/schemas/validation';
 import { resolveOrganizationKind as resolveOrgKind, normalizeSubscriptionStatus as normalizeOrgStatus } from '../utils/subscription';
+import { extractPracticeOnboardingMetadata } from '../utils/practiceOnboarding';
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -55,10 +59,7 @@ export interface Organization {
   subscriptionPeriodEnd?: number | null;
   config?: {
     ownerEmail?: string;
-    metadata?: {
-      subscriptionPlan?: string;
-      planStatus?: string;
-    };
+    metadata?: Record<string, unknown>;
   };
   kind?: 'personal' | 'business';
   isPersonal?: boolean | null;
@@ -230,6 +231,17 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
     }
     return undefined as Organization['config'] & { description?: string } | undefined;
   })();
+  const metadataRecord = (() => {
+    const direct = (raw as Record<string, unknown>).metadata;
+    if (isPlainObject(direct)) {
+      return direct as Record<string, unknown>;
+    }
+    if (cfg && isPlainObject(cfg.metadata)) {
+      return cfg.metadata as Record<string, unknown>;
+    }
+    return null;
+  })();
+  const onboardingMeta = extractPracticeOnboardingMetadata(metadataRecord);
   const betterAuthOrgId = (() => {
     const direct = (raw as Record<string, unknown>).betterAuthOrgId;
     if (typeof direct === 'string' && direct.trim().length > 0) return direct;
@@ -239,6 +251,9 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
   })();
 
   const onboardingCompletedAt = (() => {
+    if (onboardingMeta?.completedAt !== undefined) {
+      return onboardingMeta.completedAt;
+    }
     const camel = (raw as Record<string, unknown>).businessOnboardingCompletedAt;
     const snake = (raw as Record<string, unknown>).business_onboarding_completed_at;
     const value = camel !== undefined ? camel : snake;
@@ -252,6 +267,9 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
   })();
 
   const onboardingSkipped = (() => {
+    if (typeof onboardingMeta?.skipped === 'boolean') {
+      return onboardingMeta.skipped;
+    }
     const camel = (raw as Record<string, unknown>).businessOnboardingSkipped;
     const snake = (raw as Record<string, unknown>).business_onboarding_skipped;
     const value = camel !== undefined ? camel : snake;
@@ -265,6 +283,9 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
   })();
 
   const onboardingData = (() => {
+    if (onboardingMeta?.data) {
+      return onboardingMeta.data;
+    }
     const camel = (raw as Record<string, unknown>).businessOnboardingData;
     const snake = (raw as Record<string, unknown>).business_onboarding_data;
     const value = camel !== undefined ? camel : snake;
@@ -284,6 +305,10 @@ function normalizeOrganizationRecord(raw: Record<string, unknown>): Organization
   const onboardingStatus: BusinessOnboardingStatus = (() => {
     if (resolvedKind === 'personal') {
       return 'not_required';
+    }
+    if (typeof onboardingMeta?.status === 'string') {
+      if (onboardingMeta.status === 'completed') return 'completed';
+      if (onboardingMeta.status === 'skipped') return 'skipped';
     }
     if (typeof onboardingCompletedAt === 'number') {
       return 'completed';

@@ -42,7 +42,7 @@ describe('Organization Context Integration', () => {
   });
 
   it('should handle session creation with organization context from request body', async () => {
-    const response = await (env as { fetch: typeof fetch }).fetch(
+    const response = await fetch(
       'http://localhost/api/sessions',
       new Request('http://localhost/api/sessions', {
         method: 'POST',
@@ -64,7 +64,7 @@ describe('Organization Context Integration', () => {
   });
 
   it('should handle session creation with organization context from URL parameter', async () => {
-    const response = await (env as { fetch: typeof fetch }).fetch(
+    const response = await fetch(
       'http://localhost/api/sessions?organizationId=blawby-ai',
       new Request('http://localhost/api/sessions?organizationId=blawby-ai', {
         method: 'POST',
@@ -81,7 +81,7 @@ describe('Organization Context Integration', () => {
   });
 
   it('should fall back to default organization when none provided', async () => {
-    const response = await (env as { fetch: typeof fetch }).fetch(
+    const response = await fetch(
       'http://localhost/api/sessions',
       new Request('http://localhost/api/sessions', {
         method: 'POST',
@@ -100,7 +100,7 @@ describe('Organization Context Integration', () => {
 
   it('should handle session retrieval with organization context', async () => {
     // First create a session
-    const createResponse = await (env as { fetch: typeof fetch }).fetch(
+    const createResponse = await fetch(
       'http://localhost/api/sessions',
       new Request('http://localhost/api/sessions', {
         method: 'POST',

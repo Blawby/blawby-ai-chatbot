@@ -1,22 +1,30 @@
 import type { OnboardingFormData } from './hooks/useOnboardingState';
-import type { OnboardingStep } from './hooks/useStepValidation';
 import type { StripeConnectStatus } from './types';
+import {
+  buildPracticeOnboardingMetadata as buildMetadata,
+  extractPracticeOnboardingMetadata as extractMetadata,
+  extractProgressFromPracticeMetadata as extractProgressMetadata,
+  isValidOnboardingStep as isValidStep,
+  ONBOARDING_STEP_SEQUENCE,
+  type OnboardingStatusValue,
+  type PersistedOnboardingSnapshot as GenericPersistedOnboardingSnapshot,
+  type PracticeOnboardingProgress
+} from '../../utils/practiceOnboarding';
 
-export type PersistedOnboardingSnapshot = OnboardingFormData & {
-  __meta?: {
-    resumeStep?: OnboardingStep;
-    savedAt?: string;
-  };
-};
+export type { OnboardingStatusValue } from '../../utils/practiceOnboarding';
 
-export interface BusinessOnboardingStatusResponse {
-  status: 'completed' | 'skipped' | 'pending' | 'not_required';
-  completed: boolean;
-  skipped: boolean;
-  completedAt: number | null;
-  lastSavedAt: number | null;
-  hasDraft: boolean;
-  data: PersistedOnboardingSnapshot | null;
+export { ONBOARDING_STEP_SEQUENCE };
+export const isValidOnboardingStep = isValidStep;
+export const buildPracticeOnboardingMetadata = buildMetadata;
+export const extractPracticeOnboardingMetadata = (metadata: unknown) =>
+  extractMetadata<OnboardingFormData>(metadata);
+export const extractProgressFromPracticeMetadata = (metadata: unknown) =>
+  extractProgressMetadata<OnboardingFormData>(metadata);
+
+export type PersistedOnboardingSnapshot = GenericPersistedOnboardingSnapshot<OnboardingFormData>;
+export interface BusinessOnboardingStatusResponse
+  extends Omit<PracticeOnboardingProgress<OnboardingFormData>, 'status'> {
+  status: OnboardingStatusValue | 'not_required';
 }
 
 const unwrapOnboardingPayload = (payload: unknown): unknown => {

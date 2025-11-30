@@ -5,6 +5,7 @@ import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint
 } from '../config/api';
+import { isPlatformOrganization } from '../utils/organization';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -94,11 +95,6 @@ export interface SubscriptionSyncResponse {
   synced: boolean;
   subscription?: unknown;
   updatedAt?: string | null;
-}
-
-export interface SaveOnboardingProgressRequest {
-  organizationId: string;
-  data: Record<string, unknown>;
 }
 
 export interface SubscriptionUpgradePayload {
@@ -308,11 +304,22 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
   };
 }
 
-export async function listPractices(config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice[]> {
+type ListPracticesOptions = Pick<AxiosRequestConfig, 'signal'> & {
+  includePlatform?: boolean;
+};
+
+export async function listPractices(options?: ListPracticesOptions): Promise<Practice[]> {
   const response = await apiClient.get('/api/practice/list', {
-    signal: config?.signal
+    signal: options?.signal
   });
-  return unwrapPracticeListResponse(response.data);
+  const practices = unwrapPracticeListResponse(response.data);
+  if (options?.includePlatform) {
+    return practices;
+  }
+  return practices.filter(
+    (practice) =>
+      !isPlatformOrganization(practice.id) && !isPlatformOrganization(practice.slug)
+  );
 }
 
 export async function getPractice(practiceId: string, config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice> {
@@ -494,27 +501,6 @@ export async function createConnectedAccount(
   });
 
   return normalizeConnectedAccountResponse(response.data);
-}
-
-export async function completeOnboarding(organizationId: string): Promise<void> {
-  if (!organizationId) {
-    throw new Error('organizationId is required');
-  }
-  await apiClient.post('/api/onboarding/complete', { organizationId });
-}
-
-export async function saveOnboardingProgress(payload: SaveOnboardingProgressRequest): Promise<void> {
-  if (!payload.organizationId) {
-    throw new Error('organizationId is required');
-  }
-  await apiClient.post('/api/onboarding/save', payload);
-}
-
-export async function skipOnboarding(organizationId: string): Promise<void> {
-  if (!organizationId) {
-    throw new Error('organizationId is required');
-  }
-  await apiClient.post('/api/onboarding/skip', { organizationId });
 }
 
 export async function syncSubscription(

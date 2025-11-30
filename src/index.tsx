@@ -32,7 +32,7 @@ import { useToastContext } from './contexts/ToastContext';
 import { useOrganizationConfig } from './hooks/useOrganizationConfig';
 import { useOrganizationManagement } from './hooks/useOrganizationManagement';
 import QuotaBanner from './components/QuotaBanner';
-import { DEFAULT_ORGANIZATION_ID } from './utils/constants';
+import { PLATFORM_ORGANIZATION_ID } from './utils/constants';
 import { listPractices, createPractice } from './lib/apiClient';
 import './index.css';
 import { i18n, initI18n } from './i18n';
@@ -100,7 +100,7 @@ function MainApp({
 	);
 
 	const quotaUsageMessage = isQuotaRestricted
-		? (activeOrganizationId === DEFAULT_ORGANIZATION_ID
+		? (activeOrganizationId === PLATFORM_ORGANIZATION_ID
 			? 'You have used all available anonymous messages for this month.'
 			: 'You have reached the monthly message limit for your current plan.')
 		: null;

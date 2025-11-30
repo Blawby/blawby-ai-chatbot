@@ -6,19 +6,19 @@ import { SessionService } from '../services/SessionService.js';
 import { sessionRequestBodySchema } from '../schemas/validation.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { DEFAULT_ORGANIZATION_ID } from '../../src/utils/constants.js';
+import { PLATFORM_ORGANIZATION_ID } from '../../src/utils/constants.js';
 
 async function normalizeOrganizationId(env: Env, organizationId?: string | null, request?: Request): Promise<string> {
   if (!organizationId) {
-    return DEFAULT_ORGANIZATION_ID; // Use default instead of throwing error
+    return PLATFORM_ORGANIZATION_ID; // Use default instead of throwing error
   }
   const trimmed = organizationId.trim();
   if (!trimmed) {
-    return DEFAULT_ORGANIZATION_ID; // Use default instead of throwing error
+    return PLATFORM_ORGANIZATION_ID; // Use default instead of throwing error
   }
 
   // Skip remote validation for special sentinel values
-  if (trimmed === DEFAULT_ORGANIZATION_ID || trimmed === 'public') {
+  if (trimmed === PLATFORM_ORGANIZATION_ID || trimmed === 'public') {
     return trimmed;
   }
 
@@ -100,9 +100,9 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
       const requestWithContext = await withOrganizationContext(request, env, {
         requireOrganization: false,  // Allow fallback to default
         allowUrlOverride: true,
-        defaultOrganizationId: DEFAULT_ORGANIZATION_ID
+        defaultOrganizationId: PLATFORM_ORGANIZATION_ID
       });
-      const contextOrgId = getOrganizationId(requestWithContext) || DEFAULT_ORGANIZATION_ID;
+      const contextOrgId = getOrganizationId(requestWithContext) || PLATFORM_ORGANIZATION_ID;
       organizationId = await normalizeOrganizationId(env, contextOrgId, request);
     }
 

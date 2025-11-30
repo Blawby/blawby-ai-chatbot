@@ -2,7 +2,8 @@ import { FunctionComponent, createContext, useContext, useEffect, useState, useM
 import { ComponentChildren } from 'preact';
 import { authClient } from '../lib/authClient';
 import { useOrganizationManagement } from '../hooks/useOrganizationManagement';
-import { DEFAULT_ORGANIZATION_ID, DEFAULT_PUBLIC_ORG_SLUG } from '../utils/constants';
+import { DEFAULT_ORGANIZATION_ID, DEFAULT_PLATFORM_SLUG } from '../utils/constants';
+import { PLATFORM_SETTINGS } from '../config/platform';
 
 // Simplified quota types
 export interface SimpleQuota {
@@ -40,7 +41,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
 
   const activeOrganizationSlug = useMemo(() => {
     if (activeOrganizationId === DEFAULT_ORGANIZATION_ID) {
-      return DEFAULT_PUBLIC_ORG_SLUG;
+      return PLATFORM_SETTINGS.slug ?? DEFAULT_PLATFORM_SLUG;
     }
     const org = organizations.find(o => o.id === activeOrganizationId);
     return org?.slug ?? null;
