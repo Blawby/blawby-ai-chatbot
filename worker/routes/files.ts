@@ -439,14 +439,10 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
 
       // Store file with error handling
       let fileId: string, url: string, storageKey: string;
-      try {
-        const result = await storeFile(file, resolvedOrganizationId, resolvedSessionId, env);
-        fileId = result.fileId;
-        url = result.url;
-        storageKey = result.storageKey;
-      } catch (storeError) {
-        throw storeError; // Re-throw the original error
-      }
+      const result = await storeFile(file, resolvedOrganizationId, resolvedSessionId, env);
+      fileId = result.fileId;
+      url = result.url;
+      storageKey = result.storageKey;
 
       // Update status to indicate file stored
       if (statusId) {
@@ -598,6 +594,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       // Handle upload failure - no usage tracking to rollback in simplified system
       return handleError(error);
     }
+  }
 
   // File download endpoint
   if (path.startsWith('/api/files/') && request.method === 'GET') {
@@ -728,5 +725,4 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
   }
 
   throw HttpErrors.notFound('Invalid file endpoint');
-}
 }

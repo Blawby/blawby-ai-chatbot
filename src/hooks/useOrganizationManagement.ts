@@ -106,6 +106,7 @@ export interface CreateOrgData {
 
 export interface UpdateOrgData {
   name?: string;
+  slug?: string;
   description?: string;
 }
 
@@ -759,7 +760,7 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
             return null;
           }
         })
-        .filter((token): token is ApiToken => token !== null);
+        .filter((token): token is NonNullable<typeof token> => token !== null);
 
       setTokens(prev => ({ ...prev, [orgId]: validatedTokens }));
     } catch (err) {
@@ -770,13 +771,13 @@ export function useOrganizationManagement(options: UseOrganizationManagementOpti
   // Create API token
   const createToken = useCallback(async (orgId: string, name: string): Promise<{ token: string; tokenId: string }> => {
     try {
-      const result = await createPracticeToken(orgId, { tokenName: name });
+      const result = await apiCreatePracticeToken(orgId, { tokenName: name });
       const validatedResult = createTokenResponseSchema.parse(result);
       await fetchTokens(orgId);
       return { token: validatedResult.token, tokenId: validatedResult.tokenId };
     } catch (error) {
-      console.error('Invalid create token data:', result, error);
-      throw new Error('Invalid create token response format');
+      console.error('Failed to create token:', error);
+      throw new Error('Failed to create token');
     }
   }, [fetchTokens]);
 

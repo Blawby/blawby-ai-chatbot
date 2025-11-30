@@ -29,8 +29,10 @@ apiClient.interceptors.request.use(
     config.baseURL = config.baseURL ?? ensureApiBaseUrl();
     const token = await getTokenAsync();
     if (token) {
-      config.headers = config.headers ?? {};
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`
+      } as any; // Use any to avoid AxiosHeaders vs AxiosRequestHeaders conflicts
     }
     return config;
   },
@@ -305,21 +307,24 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
 }
 
 type ListPracticesOptions = Pick<AxiosRequestConfig, 'signal'> & {
-  includePlatform?: boolean;
+  scope?: 'all' | 'tenant' | 'platform';
 };
 
-export async function listPractices(options?: ListPracticesOptions): Promise<Practice[]> {
+export async function listPractices(configOrOptions?: ListPracticesOptions): Promise<Practice[]> {
+  const opts = configOrOptions ?? {};
+  const scope = opts.scope ?? 'tenant';
   const response = await apiClient.get('/api/practice/list', {
-    signal: options?.signal
+    signal: opts.signal
   });
   const practices = unwrapPracticeListResponse(response.data);
-  if (options?.includePlatform) {
+  if (scope === 'all') {
     return practices;
   }
-  return practices.filter(
-    (practice) =>
-      !isPlatformOrganization(practice.id) && !isPlatformOrganization(practice.slug)
-  );
+  return practices.filter((practice) => {
+    const platformMatch =
+      isPlatformOrganization(practice.id) || isPlatformOrganization(practice.slug);
+    return scope === 'platform' ? platformMatch : !platformMatch;
+  });
 }
 
 export async function getPractice(practiceId: string, config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice> {
@@ -547,7 +552,7 @@ export async function updateUserPreferences(
 export async function requestSubscriptionUpgrade(
   payload: SubscriptionUpgradePayload
 ): Promise<SubscriptionEndpointResult> {
-  return postSubscriptionEndpoint(getSubscriptionUpgradeEndpoint(), payload);
+  return postSubscriptionEndpoint(getSubscriptionUpgradeEndpoint(), payload as unknown as Record<string, unknown>);
 }
 
 export async function requestBillingPortalSession(

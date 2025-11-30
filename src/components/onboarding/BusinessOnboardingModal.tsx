@@ -109,7 +109,7 @@ const BusinessOnboardingModal = ({
           ...data,
           __meta: {
             resumeStep,
-            savedAt: new Date().toISOString()
+            savedAt: Date.now()
           }
         };
 

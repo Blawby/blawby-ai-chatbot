@@ -7,7 +7,8 @@ export type PersistedOnboardingSnapshot<
 > = T & {
   __meta?: {
     resumeStep?: OnboardingStep;
-    savedAt?: string;
+    // Supports both number (timestamp) and string (ISO date) for backward compatibility
+    savedAt?: number | string;
   };
 };
 

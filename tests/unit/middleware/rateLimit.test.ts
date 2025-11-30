@@ -4,10 +4,11 @@ import type { Env } from '../../../worker/types.js';
 
 // Mock environment
 const createMockEnv = (): Partial<Env> => ({
+  AI: {} as any, // Mock AI instance
   CHAT_SESSIONS: {
     get: vi.fn(),
     put: vi.fn()
-  } as unknown as KVNamespace
+  } as any // Use any to avoid KVNamespace type conflicts
 });
 
 describe('Rate Limiting Tests', () => {

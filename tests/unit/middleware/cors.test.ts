@@ -4,6 +4,7 @@ import type { Env } from '../../../worker/types';
 
 // Mock environment
 const mockEnv: Partial<Env> = {
+  AI: {} as any, // Mock AI instance
   NODE_ENV: 'production'
 };
 

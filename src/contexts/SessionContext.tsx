@@ -35,7 +35,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { organizations, currentOrganization } = useOrganizationManagement();
 
   const activeOrganizationIdFromSession =
-    sessionData?.user?.organizationId ?? sessionData?.user?.activeOrganizationId ?? null;
+    (sessionData?.user as any)?.organizationId ?? (sessionData?.user as any)?.activeOrganizationId ?? null;
 
   const activeOrganizationId = currentOrganization?.id ?? activeOrganizationIdFromSession ?? null;
 
