@@ -3,30 +3,42 @@ import { rateLimit, getClientId } from '../../../worker/middleware/rateLimit.js'
 import type { Env } from '../../../worker/types.js';
 
 // Mock environment
-const createMockEnv = (): Partial<Env> => ({
-  AI: {} as any, // Mock AI instance
-  CHAT_SESSIONS: {
-    get: vi.fn(),
-    put: vi.fn()
-  } as any // Use any to avoid KVNamespace type conflicts
-});
+const createMockEnv = (): Env => {
+  const mockGet = vi.fn();
+  const mockPut = vi.fn();
+  return {
+    AI: {} as any, // Mock AI instance
+    DB: {} as any,
+    CHAT_SESSIONS: {
+      get: mockGet,
+      put: mockPut
+    } as any, // Use any to avoid KVNamespace type conflicts
+    RESEND_API_KEY: 'test-key',
+    DOC_EVENTS: {} as any,
+    PARALEGAL_TASKS: {} as any
+  } as Env;
+};
 
 describe('Rate Limiting Tests', () => {
-  let mockEnv: Partial<Env>;
+  let mockEnv: Env;
+  let mockGet: ReturnType<typeof vi.fn>;
+  let mockPut: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     mockEnv = createMockEnv();
+    mockGet = mockEnv.CHAT_SESSIONS.get as ReturnType<typeof vi.fn>;
+    mockPut = mockEnv.CHAT_SESSIONS.put as ReturnType<typeof vi.fn>;
     vi.clearAllMocks();
   });
 
   it('should allow requests within rate limit', async () => {
     // Mock KV to return current count below limit
-    mockEnv.CHAT_SESSIONS.get.mockResolvedValue('5'); // 5 requests so far
+    mockGet.mockResolvedValue('5'); // 5 requests so far
     
     const result = await rateLimit(mockEnv, 'test-client', 10, 60);
     
     expect(result).toBe(true);
-    expect(mockEnv.CHAT_SESSIONS.put).toHaveBeenCalledWith(
+    expect(mockPut).toHaveBeenCalledWith(
       expect.stringContaining('rl:test-client:'),
       '6',
       expect.objectContaining({ expirationTtl: 65 })
@@ -35,22 +47,22 @@ describe('Rate Limiting Tests', () => {
 
   it('should block requests over rate limit', async () => {
     // Mock KV to return current count at limit
-    mockEnv.CHAT_SESSIONS.get.mockResolvedValue('10'); // 10 requests (at limit)
+    mockGet.mockResolvedValue('10'); // 10 requests (at limit)
     
     const result = await rateLimit(mockEnv, 'test-client', 10, 60);
     
     expect(result).toBe(false);
-    expect(mockEnv.CHAT_SESSIONS.put).not.toHaveBeenCalled();
+    expect(mockPut).not.toHaveBeenCalled();
   });
 
   it('should handle first request (no existing count)', async () => {
     // Mock KV to return null (no existing count)
-    mockEnv.CHAT_SESSIONS.get.mockResolvedValue(null);
+    mockGet.mockResolvedValue(null);
     
     const result = await rateLimit(mockEnv, 'test-client', 10, 60);
     
     expect(result).toBe(true);
-    expect(mockEnv.CHAT_SESSIONS.put).toHaveBeenCalledWith(
+    expect(mockPut).toHaveBeenCalledWith(
       expect.stringContaining('rl:test-client:'),
       '1',
       expect.objectContaining({ expirationTtl: 65 })
@@ -91,11 +103,11 @@ describe('Rate Limiting Tests', () => {
     const windowSec = 60;
     const expectedWindow = Math.floor(now / (windowSec * 1000));
     
-    mockEnv.CHAT_SESSIONS.get.mockResolvedValue('5');
+    mockGet.mockResolvedValue('5');
     
     await rateLimit(mockEnv, 'test-client', 10, windowSec);
     
-    expect(mockEnv.CHAT_SESSIONS.get).toHaveBeenCalledWith(
+    expect(mockGet).toHaveBeenCalledWith(
       expect.stringContaining(`rl:test-client:${expectedWindow}`)
     );
   });

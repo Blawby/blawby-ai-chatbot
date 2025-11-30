@@ -3,10 +3,15 @@ import { withCORS, createProductionCorsOptions, createDevelopmentCorsOptions } f
 import type { Env } from '../../../worker/types';
 
 // Mock environment
-const mockEnv: Partial<Env> = {
+const mockEnv: Env = {
   AI: {} as any, // Mock AI instance
+  DB: {} as any,
+  CHAT_SESSIONS: {} as any,
+  RESEND_API_KEY: 'test-key',
+  DOC_EVENTS: {} as any,
+  PARALEGAL_TASKS: {} as any,
   NODE_ENV: 'production'
-};
+} as Env;
 
 const mockCtx = {} as ExecutionContext;
 

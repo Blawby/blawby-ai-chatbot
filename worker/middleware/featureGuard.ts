@@ -84,7 +84,7 @@ export async function requireFeature(
 
   const organization = await env.DB.prepare(
     `SELECT id, subscription_tier, kind, config FROM organizations WHERE id = ?`
-  ).bind(options.organizationId).first();
+  ).bind(options.organizationId).first<{ id: string; subscription_tier?: string | null; kind?: string | null; config?: string | null }>();
 
   if (!organization) {
     throw HttpErrors.notFound("Organization not found");
@@ -95,7 +95,7 @@ export async function requireFeature(
   }
 
   if (config.minTier && config.minTier.length > 0) {
-    const tier = organization.subscription_tier ?? 'free';
+    const tier = (organization.subscription_tier ?? 'free') as string;
     if (!config.minTier.includes(tier as any)) {
       throw HttpErrors.forbidden("This feature requires a higher subscription tier", {
         feature: config.feature,
@@ -128,8 +128,8 @@ export async function requireFeature(
     organizationId: options.organizationId,
     sessionId: options.sessionId,
     userId: authContext?.user.id,
-    tier: organization.subscription_tier,
-    kind: organization.kind,
+    tier: (organization.subscription_tier ?? undefined) as string | undefined,
+    kind: (organization.kind ?? undefined) as string | undefined,
     subscriptionStatus: null, // Not stored in DB in simplified system
     isAnonymous,
     organization,

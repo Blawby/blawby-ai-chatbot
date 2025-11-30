@@ -52,7 +52,8 @@ export class DefaultOrganizationService {
 
     const slug = this.env.DEFAULT_PLATFORM_SLUG || DEFAULT_PLATFORM_SLUG;
     const org = await RemoteApiService.getOrganization(this.env, slug, request);
-    const valid = !!org && org.kind !== 'personal' && Boolean(org.config?.isPublic);
+    const config = org?.config as { isPublic?: boolean } | undefined;
+    const valid = !!org && org.kind !== 'personal' && Boolean(config?.isPublic);
 
     const result = valid ? org : null;
     this.publicOrgCache = { org: result, timestamp: Date.now() };

@@ -148,7 +148,7 @@ function setupIndexedDBMock() {
               currentTarget: { result: mockDB },
               oldVersion: 0,
               newVersion: mockDB.version,
-            } as IDBVersionChangeEvent;
+            } as unknown as IDBVersionChangeEvent;
             openRequest.onupgradeneeded(event);
           }
           
