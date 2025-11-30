@@ -6,7 +6,7 @@ import { ActivityService } from '../services/ActivityService';
 import { StatusService, type StatusUpdate } from '../services/StatusService.js';
 import { Logger } from '../utils/logger';
 import type { MessageBatch } from '@cloudflare/workers-types';
-import type { DocumentEvent, AutoAnalysisEvent } from '../types/events.js';
+import type { AutoAnalysisEvent } from '../types/events.js';
 import { withOrganizationContext, getOrganizationId } from '../middleware/organizationContext.js';
 import { requireFeature } from '../middleware/featureGuard.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
@@ -219,23 +219,7 @@ async function storeFile(file: File, organizationId: string, sessionId: string, 
     }
   });
 
-  // Enqueue for background processing if it's an analyzable file type
-  const analyzableTypes = ['application/pdf', 'text/plain', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (analyzableTypes.includes(file.type)) {
-    try {
-      await env.DOC_EVENTS.send({
-        key: storageKey,
-        organizationId,
-        sessionId,
-        mime: file.type,
-        size: file.size
-      });
-      Logger.info('Enqueued file for background processing:', storageKey);
-    } catch (queueError) {
-      Logger.warn('Failed to enqueue file for background processing:', queueError);
-      // Don't fail the upload if queue fails
-    }
-  }
+  // REMOVED: DOC_EVENTS queue processing - using inline processing only (via doc-processor)
 
   Logger.info('File stored in R2 successfully:', storageKey);
 

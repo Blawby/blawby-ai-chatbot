@@ -7,7 +7,6 @@ const createMockEnv = (): Env => {
   const mockGet = vi.fn();
   const mockPut = vi.fn();
   return {
-    AI: {} as any, // Mock AI instance
     DB: {} as any,
     CHAT_SESSIONS: {
       get: mockGet,

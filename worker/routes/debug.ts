@@ -17,7 +17,8 @@ export async function handleDebug(request: Request, env: Env): Promise<Response>
     return await testAdobeExtraction(request, env);
   }
 
-  // Test helper endpoint: convert organization to business (mimics persistOrganizationSubscriptionState)
+  // Test helper endpoint: convert organization to business
+  // Updates subscription_tier directly (subscription management is handled by remote API)
   // Only available in test/dev environments
   if (path === '/api/test/convert-org-to-business' && request.method === 'POST') {
     // Only allow in test/dev
@@ -32,7 +33,7 @@ export async function handleDebug(request: Request, env: Env): Promise<Response>
 
 /**
  * Test helper: Convert organization to business by directly updating is_personal = 0
- * This mimics persistOrganizationSubscriptionState which does a direct SQL update
+ * Updates subscription_tier directly in local DB (subscription management is handled by remote API)
  */
 async function convertOrgToBusiness(request: Request, env: Env): Promise<Response> {
   try {
@@ -69,9 +70,9 @@ async function convertOrgToBusiness(request: Request, env: Env): Promise<Respons
     // Note: This test endpoint directly manipulates local DB for testing purposes
     await requireOrgMember(request, env, organizationId, 'owner');
 
-    // Direct SQL update - same logic as persistOrganizationSubscriptionState
-    // markBusiness = true when status is 'active' and tier is 'business'
+    // Direct SQL update to set organization to business tier
     // This sets is_personal = 0, subscription_tier = 'business', seats = 1
+    // Note: subscription_tier is managed by remote API, but this test endpoint updates it locally for testing
     let result;
     try {
       result = await env.DB.prepare(
@@ -96,9 +97,8 @@ async function convertOrgToBusiness(request: Request, env: Env): Promise<Respons
       throw e;
     }
 
-    // Subscription creation removed - subscriptions are now managed by remote API
-    // The remote API should handle subscription status for business onboarding
-    // This test endpoint no longer creates local subscription records
+    // Note: subscription_tier is managed by remote API
+    // This test endpoint updates it locally for testing purposes only
 
     console.log(`[TEST] Converted organization ${organizationId} to business:`, {
       changes: result.meta?.changes ?? 0,

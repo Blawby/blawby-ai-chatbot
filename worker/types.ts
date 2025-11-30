@@ -1,8 +1,7 @@
-import type { Ai, KVNamespace, R2Bucket, D1Database, Queue } from '@cloudflare/workers-types';
+import type { KVNamespace, R2Bucket, D1Database, Queue } from '@cloudflare/workers-types';
 
 // Environment interface with proper Cloudflare Workers types
 export interface Env {
-  AI: Ai;
   DB: D1Database;
   CHAT_SESSIONS: KVNamespace;
   RESEND_API_KEY: string;
@@ -28,47 +27,14 @@ export interface Env {
   // Remote API Configuration
   REMOTE_API_URL?: string; // URL of remote API server (e.g., https://staging-api.blawby.com)
   
-  // Legacy Better Auth Configuration (deprecated - kept for migration)
-  BETTER_AUTH_SECRET?: string;
-  BETTER_AUTH_URL?: string;
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
-  ENABLE_AUTH_GEOLOCATION?: string;
-  ENABLE_AUTH_IP_DETECTION?: string;
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
   
-  // Stripe Configuration (deprecated - managed by remote API)
-  // These are kept for backward compatibility but should not be used
-  STRIPE_SECRET_KEY?: string;
-  STRIPE_WEBHOOK_SECRET?: string;
-  STRIPE_CONNECT_WEBHOOK_SECRET?: string;
-  STRIPE_PRICE_ID?: string;
-  STRIPE_ANNUAL_PRICE_ID?: string;
-  ENABLE_STRIPE_SUBSCRIPTIONS?: string | boolean;
-  
-  // Cloudflare AI Configuration
-  CLOUDFLARE_ACCOUNT_ID?: string;
-  CLOUDFLARE_API_TOKEN?: string;
-  CLOUDFLARE_PUBLIC_URL?: string;
-
   BLAWBY_API_URL?: string;
   BLAWBY_API_TOKEN?: string;
   BLAWBY_ORGANIZATION_ULID?: string;
   IDEMPOTENCY_SALT?: string;
   PAYMENT_IDEMPOTENCY_SECRET?: string;
   LAWYER_SEARCH_API_KEY?: string;
-  // AI provider defaults / feature flags
-  AI_PROVIDER_DEFAULT?: string;
-  AI_MODEL_DEFAULT?: string;
-  AI_MODEL_FALLBACK?: string[];  // Align with Organization.config.aiModelFallback type
-  ENABLE_WORKERS_AI?: boolean;   // Use boolean for feature flags
-  ENABLE_GATEWAY_OPENAI?: boolean;
-  
-  // AI processing limits (configurable)
-  AI_MAX_TEXT_LENGTH?: string;
-  AI_MAX_TABLES?: string;
-  AI_MAX_ELEMENTS?: string;
-  AI_MAX_STRUCTURED_PAYLOAD_LENGTH?: string;
   
   // Environment flags
   NODE_ENV?: string;
@@ -187,27 +153,6 @@ export interface Organization {
   subscriptionStatus: SubscriptionLifecycleStatus;
   createdAt: number;
   updatedAt: number;
-}
-
-// Stripe subscription cache type following Theo's KV-first pattern
-export interface StripeSubscriptionCache {
-  subscriptionId: string;
-  // Maps to Organization.stripeCustomerId for cross-reference
-  stripeCustomerId?: string | null;
-  status: 'active' | 'trialing' | 'canceled' | 'past_due' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
-  priceId: string;
-  // Optional to match Organization interface - defaults to 1 if not specified
-  seats?: number | null;
-  currentPeriodEnd: number;
-  cancelAtPeriodEnd: boolean;
-  limits: {
-    aiQueries: number;
-    documentAnalysis: boolean;
-    customBranding: boolean;
-  };
-  // Cache metadata for KV invalidation
-  cachedAt: number;
-  expiresAt?: number;
 }
 
 // Form types
@@ -338,18 +283,6 @@ export interface PaymentEmbedData {
   paymentId?: string;
 }
 
-/**
- * Represents the current state of AI processing for a chat message.
- * Use this to determine loading states and provide appropriate UI feedback.
- */
-export type AiState = 'thinking' | 'processing' | 'generating';
-
-/**
- * Centralized constant for AI loading states.
- * Use this for UI logic to determine when AI is actively processing.
- */
-export const AI_LOADING_STATES: readonly AiState[] = ['thinking', 'processing', 'generating'] as const;
-
 // Shared UI fields that can be attached to chat messages
 export interface UIMessageExtras {
   files?: FileAttachment[];
@@ -398,43 +331,13 @@ export type ChatMessageUI =
   | (ChatMessage & UIMessageExtras & {
       role: 'user'; // Explicitly constrain role to 'user' for user messages
       isUser: true;
-      aiState?: never; // User messages cannot have aiState
     })
   | (ChatMessage & UIMessageExtras & {
       role: 'assistant'; // Explicitly constrain role to 'assistant' for assistant messages
       isUser: false;
-      aiState?: AiState; // Assistant messages can have aiState
     })
   | (ChatMessage & UIMessageExtras & {
       role: 'system'; // Explicitly constrain role to 'system' for system messages
       isUser: false;
-      aiState?: AiState; // System messages can have aiState
       // System messages can have UI extras but typically don't use most of them
     });
-
-// Agent message interface that extends ChatMessage with isUser property
-export interface AgentMessage {
-  readonly id?: string;
-  readonly role?: 'user' | 'assistant' | 'system';
-  readonly content: string;
-  readonly isUser?: boolean;
-  readonly timestamp?: number;
-  readonly metadata?: Record<string, unknown>;
-}
-
-// Agent response interface
-export interface AgentResponse {
-  readonly response: string;
-  readonly metadata: {
-    readonly conversationComplete?: boolean;
-    readonly inputMessageCount: number;
-    readonly lastUserMessage: string | null;
-    readonly sessionId?: string;
-    readonly organizationId?: string;
-    readonly error?: string;
-    readonly toolName?: string;
-    readonly toolResult?: unknown;
-    readonly allowRetry?: boolean;
-    readonly rawParameters?: unknown;
-  };
-}

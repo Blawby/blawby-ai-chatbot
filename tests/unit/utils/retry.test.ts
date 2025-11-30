@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { withRetry, withAIRetry } from '../../../worker/utils/retry.js';
+import { withRetry } from '../../../worker/utils/retry.js';
 
 describe('Retry Utility Tests', () => {
   beforeEach(() => {
@@ -76,17 +76,6 @@ describe('Retry Utility Tests', () => {
     
     // Should have waited at least 100ms (base delay)
     expect(endTime - startTime).toBeGreaterThanOrEqual(100);
-  });
-
-  it('should use AI retry with correct defaults', async () => {
-    const mockFn = vi.fn()
-      .mockRejectedValueOnce(new Error('AI service timeout'))
-      .mockResolvedValue('success');
-    
-    const result = await withAIRetry(mockFn);
-    
-    expect(result).toBe('success');
-    expect(mockFn).toHaveBeenCalledTimes(2); // AI retry defaults to 4 attempts, but succeeds on 2nd
   });
 
   it('should preserve error type and message', async () => {

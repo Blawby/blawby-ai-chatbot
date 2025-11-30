@@ -213,24 +213,6 @@ export const multipartHeadersSchema = z.object({
   'content-type': z.string().includes('multipart/form-data')
 });
 
-// Stripe subscription cache schema
-export const stripeSubscriptionCacheSchema = z.object({
-  subscriptionId: z.string().min(1),
-  stripeCustomerId: z.string().min(1).nullable().optional(),
-  status: z.enum(['active', 'trialing', 'canceled', 'past_due', 'incomplete', 'incomplete_expired', 'unpaid']),
-  priceId: z.string().min(1),
-  seats: z.number().int().positive().nullable().optional(),
-  currentPeriodEnd: z.number().int().nonnegative(),
-  cancelAtPeriodEnd: z.boolean(),
-  limits: z.object({
-    aiQueries: z.number().int().nonnegative(),
-    documentAnalysis: z.boolean(),
-    customBranding: z.boolean()
-  }),
-  cachedAt: z.number().int().positive(),
-  expiresAt: z.number().int().positive().optional()
-});
-
 // Organization Management API Response Schemas
 export const organizationMemberSchema = z.object({
   userId: z.string().min(1),

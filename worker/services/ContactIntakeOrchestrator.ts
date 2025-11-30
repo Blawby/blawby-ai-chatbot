@@ -1,4 +1,25 @@
-import { ConversationContextManager, type ConversationContext, type CaseDraft as ContextCaseDraft } from '../middleware/conversationContextManager.js';
+// REMOVED: ConversationContextManager import - AI middleware removed
+// Define types locally
+export interface ConversationContext {
+  sessionId?: string;
+  organizationId?: string;
+  establishedMatters?: unknown[];
+  userIntent?: string;
+  caseDraft?: ContextCaseDraft;
+  [key: string]: unknown;
+}
+
+export interface ContextCaseDraft {
+  matterType?: string;
+  description?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  opposingParty?: string;
+  urgency?: string;
+  [key: string]: unknown;
+}
 import { PDFGenerationService } from './PDFGenerationService.js';
 import { NotificationService } from './NotificationService.js';
 import { Logger } from '../utils/logger.js';
@@ -84,17 +105,16 @@ export class ContactIntakeOrchestrator {
   static async finalizeSubmission(options: OrchestrationOptions): Promise<OrchestrationResult> {
     const { env, organizationConfig, sessionId, organizationId, matter, correlationId } = options;
 
+    // REMOVED: ConversationContextManager - using simple context object instead
     let context: ConversationContext | null = null;
     if (sessionId && organizationId) {
-      try {
-        context = await ConversationContextManager.load(sessionId, organizationId, env);
-      } catch (error) {
-        Logger.warn('[ContactIntakeOrchestrator] Failed to load conversation context', {
-          sessionId,
-          organizationId,
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
+      // Create a simple context object (no AI conversation context needed)
+      context = {
+        sessionId,
+        organizationId,
+        establishedMatters: [],
+        userIntent: 'intake'
+      };
     }
 
     // Ensure contact info is captured in context for downstream features
@@ -261,17 +281,7 @@ export class ContactIntakeOrchestrator {
       }
     }
 
-    if (context && sessionId && organizationId) {
-      try {
-        await ConversationContextManager.save(context, env);
-      } catch (error) {
-        Logger.warn('[ContactIntakeOrchestrator] Failed to persist updated context', {
-          sessionId,
-          organizationId,
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-    }
+    // REMOVED: ConversationContextManager.save - context is not persisted (no AI conversation tracking needed)
 
     return {
       pdf: pdfResult,

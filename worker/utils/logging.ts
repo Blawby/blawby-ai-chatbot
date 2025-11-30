@@ -76,16 +76,6 @@ export function logAdobeStep(requestId: string, step: string, data: LogData = {}
 }
 
 /**
- * Log AI processing steps
- */
-export function logAIProcessing(requestId: string, step: string, data: LogData = {}): void {
-  log('info', `ai.${step}`, {
-    request_id: requestId,
-    ...data
-  });
-}
-
-/**
  * Log JSON parsing steps
  */
 export function logJSONParsing(requestId: string, step: string, data: LogData = {}): void {

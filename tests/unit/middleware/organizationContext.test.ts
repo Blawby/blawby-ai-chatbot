@@ -4,12 +4,11 @@ import type { Env } from '../../../worker/types.js';
 import type { AuthContext } from '../../../worker/middleware/auth.js';
 import { SessionService } from '../../../worker/services/SessionService.js';
 import { optionalAuth } from '../../../worker/middleware/auth.js';
-import type { D1Database, Ai, KVNamespace, Queue } from '@cloudflare/workers-types';
+import type { D1Database, KVNamespace, Queue } from '@cloudflare/workers-types';
 
 // Mock environment
 const mockEnv: Env = {
   DB: {} as D1Database,
-  AI: {} as Ai,
   CHAT_SESSIONS: {} as KVNamespace,
   RESEND_API_KEY: 'test-key',
   DOC_EVENTS: {} as Queue,

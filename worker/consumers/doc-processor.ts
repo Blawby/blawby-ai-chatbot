@@ -1,6 +1,5 @@
 // Removed unused imports
-// Removed custom PDF text extraction - using Cloudflare AI directly
-import { withAIRetry } from '../utils/retry.js';
+// Removed AI summarization - using Adobe extraction only
 import { AdobeDocumentService, type AdobeExtractSuccess } from '../services/AdobeDocumentService.js';
 import { SessionService, type AnalysisResult } from '../services/SessionService.js';
 import { StatusService } from '../services/StatusService.js';
@@ -313,7 +312,7 @@ async function performDocumentAnalysis(
     );
     
     if (adobeResult.success && adobeResult.details) {
-      // Step 4b: AI summarization (80%)
+      // Return raw Adobe extraction (no AI summarization)
       if (statusId && sessionId && organizationId) {
         await StatusService.setStatus(env, {
           id: statusId,
@@ -321,16 +320,31 @@ async function performDocumentAnalysis(
           organizationId,
           type: 'file_processing',
           status: 'processing',
-          message: "🤖 Summarizing with AI...",
-          progress: 80,
+          message: "✅ Document extraction complete",
+          progress: 90,
           data: { fileName: key.split('/').pop() ?? key }
         }, statusCreatedAt ?? undefined);
       }
       
       if (sessionId && organizationId) {
-        await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "🔍 Summarizing document...");
+        await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "✅ Document extraction complete");
       }
-      analysis = await summarizeAdobeResult(env, adobeResult.details, sessionId, organizationId, statusId);
+      
+      // Return raw Adobe extraction as AnalysisResult
+      const rawExtract = adobeResult.details;
+      analysis = {
+        summary: rawExtract.text?.substring(0, 500) || 'Document extracted successfully',
+        entities: { people: [], orgs: [], dates: [] },
+        key_facts: [],
+        action_items: [],
+        confidence: 1.0,
+        // Include raw Adobe extraction data
+        adobeExtract: {
+          text: rawExtract.text,
+          tables: rawExtract.tables,
+          elements: rawExtract.elements
+        }
+      };
     } else {
       if (statusId && sessionId && organizationId) {
         await StatusService.setStatus(env, {
@@ -352,90 +366,25 @@ async function performDocumentAnalysis(
   }
 
   if (!analysis) {
-    if (mime.startsWith('image/')) {
-      if (sessionId && organizationId) {
-        await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "🔍 Analyzing image content...");
-      }
-      analysis = await analyzeImage(env, new Uint8Array(buf));
-    } else if (mime === 'application/pdf') {
-      if (sessionId && organizationId) {
-        await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "❌ Unable to analyze PDF document");
-      }
-      analysis = {
-        summary: "PDF document could not be analyzed. Adobe extraction failed and text-based analysis is not available for binary PDF files.",
-        entities: { people: [], orgs: [], dates: [] },
-        key_facts: [],
-        action_items: [],
-        confidence: 0,
-        error: "Adobe extraction failed for PDF"
-      };
-    } else {
-      // Step 4c: Text processing fallback (80%)
-      if (statusId && sessionId && organizationId) {
-        await StatusService.setStatus(env, {
-          id: statusId,
-          sessionId,
-          organizationId,
-          type: 'file_processing',
-          status: 'processing',
-          message: "📝 Processing document text...",
-          progress: 80,
-          data: { fileName: key.split('/').pop() ?? key }
-        }, statusCreatedAt ?? undefined);
-      }
-      
-      if (sessionId && organizationId) {
-        await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "🔍 Processing document text...");
-      }
-      const text = new TextDecoder().decode(buf);
-      analysis = await summarizeLegal(env, text, sessionId, organizationId, statusId, statusCreatedAt);
+    // No Adobe extraction available - return error (no AI fallback)
+    if (sessionId && organizationId) {
+      await SessionService.sendAnalysisStatus(env, sessionId, organizationId, "❌ Document extraction not available for this file type");
     }
+    analysis = {
+      summary: "Document extraction is not available for this file type. Adobe PDF Services extraction is only available for PDF, DOC, and DOCX files.",
+      entities: { people: [], orgs: [], dates: [] },
+      key_facts: [],
+      action_items: ["Try uploading a PDF, DOC, or DOCX file"],
+      confidence: 0,
+      error: "File type not supported for extraction"
+    };
   }
 
   return analysis;
 }
 
-async function summarizeLegal(env: Env, text: string, sessionId?: string, organizationId?: string, statusId?: string, statusCreatedAt?: number) {
-  const prompt = [
-    "You are a legal intake summarizer. Output JSON with fields:",
-    "summary, key_facts[], entities{people[],orgs[],dates[]}, action_items[], confidence(0-1).",
-    "Use only the given text; if unsure, say so."
-  ].join("\n");
-  
-  const truncated = text.length > MAX_TEXT_CHARS ? `${text.slice(0, MAX_TEXT_CHARS)}...` : text;
-  
-  // Step 4d: AI analysis (90%)
-  if (statusId && sessionId && organizationId) {
-    await StatusService.setStatus(env, {
-      id: statusId,
-      sessionId,
-      organizationId,
-      type: 'file_processing',
-      status: 'processing',
-      message: "🤖 Analyzing with AI...",
-      progress: 90,
-      data: { fileName: "document" }
-    }, statusCreatedAt ?? undefined);
-  }
-  
-  const res = await withAIRetry(() => (env.AI as { run: (model: string, params: Record<string, unknown>) => Promise<unknown> }).run("@cf/openai/gpt-oss-20b", {
-    input: `${prompt}\n\n${truncated}`,
-    max_tokens: 800,
-    temperature: 0.1
-  }));
-  
-  return safeJson(res as Record<string, unknown>);
-}
-
-async function analyzeImage(env: Env, bytes: Uint8Array) {
-  const res = await withAIRetry(() => env.AI.run("@cf/llava-hf/llava-1.5-7b-hf", {
-    image: Array.from(bytes),
-    prompt: "Extract any visible legal parties, dates, amounts, signatures, and document type. Output JSON with summary, key_facts, entities{people,orgs,dates}, action_items, confidence.",
-    max_tokens: 512
-  }));
-  
-  return safeJson(res as Record<string, unknown>);
-}
+// REMOVED: summarizeLegal function - AI summarization removed
+// REMOVED: analyzeImage function - AI image analysis removed
 
 function isAdobeEligibleMime(mime: string): boolean {
   return mime === 'application/pdf'
@@ -443,110 +392,5 @@ function isAdobeEligibleMime(mime: string): boolean {
     || mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 }
 
-function buildSafeStructuredPayload(tables: Record<string, unknown>[], elements: Record<string, unknown>[]): string {
-  // If no data, return empty string
-  if (tables.length === 0 && elements.length === 0) {
-    return '';
-  }
-
-  // Try to include all data first
-  const fullPayload = { tables, elements };
-  const fullSerialized = JSON.stringify(fullPayload);
-  
-  // If it fits within the limit, return it
-  if (fullSerialized.length <= MAX_STRUCTURED_CHARS) {
-    return fullSerialized;
-  }
-
-  // Try including tables incrementally
-  let includedTables: unknown[] = [];
-  let includedElements: unknown[] = [];
-  
-  // First, try to include all tables
-  for (const table of tables) {
-    const testPayload = { tables: [...includedTables, table], elements: [] };
-    const testSerialized = JSON.stringify(testPayload);
-    if (testSerialized.length <= MAX_STRUCTURED_CHARS) {
-      includedTables.push(table);
-    } else {
-      break;
-    }
-  }
-  
-  // Then try to include elements
-  for (const element of elements) {
-    const testPayload = { tables: includedTables, elements: [...includedElements, element] };
-    const testSerialized = JSON.stringify(testPayload);
-    if (testSerialized.length <= MAX_STRUCTURED_CHARS) {
-      includedElements.push(element);
-    } else {
-      break;
-    }
-  }
-  
-  // If we have some data, return it
-  if (includedTables.length > 0 || includedElements.length > 0) {
-    return JSON.stringify({ tables: includedTables, elements: includedElements });
-  }
-  
-  // If even a single item is too large, return a placeholder
-  return '[structured data omitted - too large]';
-}
-
-async function summarizeAdobeResult(env: Env, extract: AdobeExtractSuccess, _sessionId?: string, _organizationId?: string, _statusId?: string) {
-  const text = extract.text ?? '';
-  const structured = buildSafeStructuredPayload(
-    (extract.tables ?? []) as Record<string, unknown>[], 
-    (extract.elements ?? []) as Record<string, unknown>[]
-  );
-
-  const truncatedText = text.length > MAX_TEXT_CHARS ? `${text.slice(0, MAX_TEXT_CHARS)}...` : text;
-
-  const basePrompt = [
-    "You are a legal intake summarizer. Output JSON with fields:",
-    "summary, key_facts[], entities{people[],orgs[],dates[]}, action_items[], confidence(0-1).",
-    "Prioritize parties, deadlines, dollar amounts, obligations, and recommended next steps.",
-    "Use the structured cues provided by Adobe Extract when available."
-  ].join("\n");
-
-  const userContent = [
-    truncatedText,
-    structured ? `Structured data:\n${structured}` : ''
-  ].filter(Boolean).join('\n\n');
-
-  const res = await withAIRetry(() => (env.AI as { run: (model: string, params: Record<string, unknown>) => Promise<unknown> }).run("@cf/openai/gpt-oss-20b", {
-    input: `${basePrompt}\n\n${userContent}`,
-    max_tokens: 800,
-    temperature: 0.1
-  }));
-
-  return safeJson(res as Record<string, unknown>);
-}
-
-function safeJson(x: unknown): AnalysisResult {
-  if (typeof x === "string") {
-    try { 
-      return JSON.parse(x); 
-    } catch {
-      // Fallback to structured response if JSON parsing fails
-      return {
-        summary: x.substring(0, 200) + (x.length > 200 ? '...' : ''),
-        key_facts: [x],
-        entities: { people: [], orgs: [], dates: [] },
-        action_items: [],
-        confidence: 0.5
-      };
-    }
-  }
-  if (typeof x === "object" && x !== null && 'summary' in x) {
-    return x as AnalysisResult;
-  }
-  // Final fallback
-  return {
-    summary: "Analysis completed but response format was unexpected",
-    key_facts: ["Document processed successfully"],
-    entities: { people: [], orgs: [], dates: [] },
-    action_items: [],
-    confidence: 0.3
-  };
-}
+// REMOVED: buildSafeStructuredPayload function - no longer needed without AI summarization
+// REMOVED: safeJson function - no longer needed without AI summarization
