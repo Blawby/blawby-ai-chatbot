@@ -21,5 +21,10 @@
       "tryAgain": "Try Again",
       "goToHome": "Go to Home"
     }
+  },
+  "profile": {
+    "logoAlt": "{{name}} logo",
+    "verified": "Verified practice",
+    "slug": "Practice slug: @{{slug}}"
   }
 }

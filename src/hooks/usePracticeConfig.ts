@@ -131,7 +131,7 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
       
       // If practiceId looks like a UUID, try to fetch it directly
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentPracticeId) ||
-                     /^[A-Z0-9]{26}$/i.test(currentPracticeId); // Also support shorter IDs
+                     /^[0-9A-HJKMNP-TV-Z]{26}$/i.test(currentPracticeId); // Also support shorter IDs (ULID with Crockford Base32)
       
       if (isUuid) {
         try {
@@ -157,7 +157,7 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
         }
 
         practice = practices.find(
-          (t) => t.slug === currentPracticeId || t.id === currentPracticeId
+          (t) => t.id === currentPracticeId
         ) as unknown as z.infer<typeof PracticeSchema> | undefined;
       }
 

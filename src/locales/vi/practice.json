@@ -21,5 +21,10 @@
       "tryAgain": "Try Again",
       "goToHome": "Go to Home"
     }
+  },
+  "profile": {
+    "logoAlt": "Logo {{name}}",
+    "verified": "Văn phòng đã xác minh",
+    "slug": "Slug văn phòng: @{{slug}}"
   }
 }

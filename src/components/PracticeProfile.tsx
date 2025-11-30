@@ -46,9 +46,9 @@ export default function PracticeProfile({
 				)}
 			</div>
 
-			{/* Practice Slug */}
+			{/* Practice ID */}
 			<div className="text-center w-full">
-				<span className="text-sm sm:text-base lg:text-lg font-medium text-[#d4af37] truncate block" title={t('profile.slug', { id: practiceId })}>@{practiceId}</span>
+				<span className="text-sm sm:text-base lg:text-lg font-medium text-[#d4af37] truncate block" title={t('profile.slug', { slug: practiceId })}>@{practiceId}</span>
 			</div>
 
 			{/* Onboarding reminder removed in favor of global top banner */}

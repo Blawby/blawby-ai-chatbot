@@ -317,7 +317,8 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       
       // Extract and validate required fields
       const file = formData.get('file') as File;
-      const practiceId = formData.get('practiceId') as string;
+      const rawPracticeId = formData.get('practiceId');
+      const practiceId = typeof rawPracticeId === 'string' && rawPracticeId.trim() ? rawPracticeId.trim() : undefined;
       const sessionId = formData.get('sessionId') as string;
       
       // Extract optional metadata fields
@@ -356,7 +357,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       const contextPracticeId = getPracticeId(requestWithContext);
       
       // Compare submitted practiceId with context-derived ID and reject if they differ
-      if (practiceId?.trim() && practiceId.trim() !== contextPracticeId) {
+      if (practiceId && practiceId !== contextPracticeId) {
         throw HttpErrors.badRequest('Submitted practiceId does not match authenticated practice context');
       }
       

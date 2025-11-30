@@ -312,7 +312,7 @@ export class RemoteApiService {
 
   /**
    * Update conversation config in remote API
-   * Updates practice.metadata.conversationConfig via PATCH request
+   * Updates practice.metadata.conversationConfig via PUT request
    */
   static async updatePracticeConfig(
     env: Env,

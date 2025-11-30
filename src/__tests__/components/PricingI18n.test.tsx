@@ -51,8 +51,7 @@ vi.mock("../../contexts/ToastContext", () => ({
 // Mock SessionContext
 vi.mock("../../contexts/SessionContext", () => ({
   useSessionContext: () => ({
-    activePracticeId: "org-1",
-    activeOrganizationSlug: "test-org",
+    activePracticeId: "practice-1",
   }),
 }));
 

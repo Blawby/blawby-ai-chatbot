@@ -21,5 +21,10 @@
       "tryAgain": "Try Again",
       "goToHome": "Go to Home"
     }
+  },
+  "profile": {
+    "logoAlt": "{{name}}のロゴ",
+    "verified": "認証済み事務所",
+    "slug": "事務所スラッグ: @{{slug}}"
   }
 }

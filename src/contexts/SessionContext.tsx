@@ -2,8 +2,7 @@ import { FunctionComponent, createContext, useContext, useEffect, useState, useM
 import { ComponentChildren } from 'preact';
 import { authClient } from '../lib/authClient';
 import { usePracticeManagement } from '../hooks/usePracticeManagement';
-import { DEFAULT_PRACTICE_ID, DEFAULT_PLATFORM_SLUG } from '../utils/constants';
-import { PLATFORM_SETTINGS } from '../config/platform';
+import { DEFAULT_PRACTICE_ID } from '../utils/constants';
 
 // Simplified quota types
 export interface SimpleQuota {
@@ -16,7 +15,6 @@ interface SessionContextValue {
   session: ReturnType<typeof authClient.useSession>['data'];
   isAnonymous: boolean;
   activePracticeId: string | null;
-  activePracticeSlug: string | null;
   quota: SimpleQuota | null;
   refreshQuota: () => Promise<void>;
 }
@@ -38,14 +36,6 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     (sessionData?.user as any)?.practiceId ?? (sessionData?.user as any)?.activePracticeId ?? null;
 
   const activePracticeId = currentPractice?.id ?? activePracticeIdFromSession ?? null;
-
-  const activePracticeSlug = useMemo(() => {
-    if (activePracticeId === DEFAULT_PRACTICE_ID) {
-      return PLATFORM_SETTINGS.slug ?? DEFAULT_PLATFORM_SLUG;
-    }
-    const practice = practices.find(p => p.id === activePracticeId);
-    return practice?.slug ?? null;
-  }, [activePracticeId, practices]);
 
   // Simplified quota logic - derive from practice config
   const refreshQuota = useCallback(async () => {
@@ -89,10 +79,9 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     session: sessionData ?? null,
     isAnonymous,
     activePracticeId,
-    activePracticeSlug,
     quota,
     refreshQuota,
-  }), [sessionData, isAnonymous, activePracticeId, activePracticeSlug, quota, refreshQuota]);
+  }), [sessionData, isAnonymous, activePracticeId, quota, refreshQuota]);
 
   return (
     <SessionContext.Provider value={value}>

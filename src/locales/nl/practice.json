@@ -21,5 +21,10 @@
       "tryAgain": "Opnieuw Proberen",
       "goToHome": "Naar Startpagina"
     }
+  },
+  "profile": {
+    "logoAlt": "{{name}} logo",
+    "verified": "Geverifieerde praktijk",
+    "slug": "Praktijk slug: @{{slug}}"
   }
 }

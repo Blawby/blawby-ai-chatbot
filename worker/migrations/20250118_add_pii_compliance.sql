@@ -1,8 +1,0 @@
--- Migration removed: All columns and tables are now in schema.sql
--- This migration was redundant since schema.sql already includes:
---   - All PII compliance columns in users table
---   - pii_access_audit table with all columns and indexes
--- Date removed: 2025-01-08
--- 
--- If you have an existing database that needs these, they should already exist
--- from when this migration was first run. Fresh databases get everything from schema.sql.

@@ -108,7 +108,7 @@ export function SEOHead({
       (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
     updateMetaTag('og:url', currentUrl || window.location.href);
     updateMetaTag('og:image', pageImage || 
-      (practiceConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
+      (practiceConfig?.profileImage || '/team-profile-demo.png'));
     // Use organization name for og:site_name, fallback to default site name
     const siteName = practiceConfig?.name 
       ? practiceConfig.name.trim()

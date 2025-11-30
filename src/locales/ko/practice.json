@@ -21,5 +21,10 @@
       "tryAgain": "다시 시도",
       "goToHome": "홈으로 이동"
     }
+  },
+  "profile": {
+    "logoAlt": "{{name}} 로고",
+    "verified": "인증된 법률 사무소",
+    "slug": "법률 사무소 슬러그: @{{slug}}"
   }
 }

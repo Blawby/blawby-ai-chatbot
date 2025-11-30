@@ -21,5 +21,10 @@
       "tryAgain": "Tentar Novamente",
       "goToHome": "Ir para o Início"
     }
+  },
+  "profile": {
+    "logoAlt": "Logo de {{name}}",
+    "verified": "Escritório verificado",
+    "slug": "Slug do escritório: @{{slug}}"
   }
 }

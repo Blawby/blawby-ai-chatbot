@@ -81,7 +81,7 @@ const fetchPracticeForIdentifier = async (identifier: string): Promise<Practice 
 
   try {
     const practices = await listPractices({ scope: 'all' });
-    return practices.find((practice) => practice.id === trimmed || practice.slug === trimmed);
+    return practices.find((practice) => practice.id === trimmed);
   } catch (error) {
     console.warn('Failed to list practices while resolving payment requirements', error);
     return undefined;

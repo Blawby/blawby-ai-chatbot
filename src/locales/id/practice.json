@@ -21,5 +21,10 @@
       "tryAgain": "Coba Lagi",
       "goToHome": "Ke Beranda"
     }
+  },
+  "profile": {
+    "logoAlt": "Logo {{name}}",
+    "verified": "Praktik terverifikasi",
+    "slug": "Slug praktik: @{{slug}}"
   }
 }

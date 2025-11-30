@@ -17,7 +17,7 @@ export const PracticeLogo = ({
   alt, 
   size = 'md',
   className = ''
-}: OrgLogoProps) => {
+}: PracticeLogoProps) => {
   const sizeClasses = {
     sm: 'w-6 h-6',
     md: 'w-8 h-8',

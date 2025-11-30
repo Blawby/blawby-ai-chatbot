@@ -130,7 +130,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   // Initialize form with current practice data
   useEffect(() => {
     if (currentPractice) {
-      setEditOrgForm({
+      setEditPracticeForm({
         name: currentPractice.name,
         description: currentPractice.description || ''
       });
@@ -226,7 +226,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     try {
       await updatePractice(currentPractice.id, editPracticeForm);
       showSuccess('Practice updated successfully!');
-      setIsEditingOrg(false);
+      setIsEditingPractice(false);
 		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update practice');
     }
@@ -296,8 +296,8 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   const handlePracticeSwitch = async (practiceId: string) => {
     if (practiceId === activePracticeId || isSwitchingPractice) return;
     
-    setIsSwitchingOrg(true);
-    setIsOrgDropdownOpen(false);
+    setIsSwitchingPractice(true);
+    setIsPracticeDropdownOpen(false);
     try {
       // Note: Better Auth API uses "organizationId" parameter name
       await authClient.organization.setActive({ organizationId: practiceId });
@@ -306,7 +306,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to switch practice');
     } finally {
-      setIsSwitchingOrg(false);
+      setIsSwitchingPractice(false);
     }
   };
 
@@ -369,7 +369,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                   {practicesWithCurrent.length > 1 && (
                     <DropdownMenu
                       open={isPracticeDropdownOpen}
-                      onOpenChange={setIsOrgDropdownOpen}
+                      onOpenChange={setIsPracticeDropdownOpen}
                     >
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -431,7 +431,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setIsEditingOrg(!isEditingPractice)}
+                    onClick={() => setIsEditingPractice(!isEditingPractice)}
                   >
                     {isEditingPractice ? 'Cancel' : 'Edit'}
                   </Button>
@@ -446,7 +446,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                     <Input
                       id="edit-org-name"
                       value={editPracticeForm.name}
-                      onChange={(value) => setEditOrgForm(prev => ({ ...prev, name: value }))}
+                      onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
                     />
                   </div>
                   
@@ -455,7 +455,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                     <Input
                       id="edit-org-description"
                       value={editPracticeForm.description}
-                      onChange={(value) => setEditOrgForm(prev => ({ ...prev, description: value }))}
+                      onChange={(value) => setEditPracticeForm(prev => ({ ...prev, description: value }))}
                       placeholder="Brief description of your practice"
                     />
                   </div>

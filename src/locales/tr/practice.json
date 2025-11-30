@@ -21,5 +21,10 @@
       "tryAgain": "Tekrar Dene",
       "goToHome": "Ana Sayfaya Git"
     }
+  },
+  "profile": {
+    "logoAlt": "{{name}} logosu",
+    "verified": "Doğrulanmış uygulama",
+    "slug": "Uygulama slug'ı: @{{slug}}"
   }
 }

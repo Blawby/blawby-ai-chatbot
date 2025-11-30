@@ -10,7 +10,7 @@ function isValidRole(role: unknown): role is Role {
 }
 
 function findPractice(practiceId: string) {
-  return mockDb.practices.find((practice) => practice.id === practiceId || practice.slug === practiceId);
+  return mockDb.practices.find((practice) => practice.id === practiceId);
 }
 
 function notFound(message: string) {
@@ -103,7 +103,6 @@ export const handlers = [
     }
     mockDb.practices.splice(index, 1);
     delete mockDb.members[id];
-    delete mockDb.tokens[id];
     delete mockDb.onboarding[id];
     mockDb.invitations = mockDb.invitations.filter((inv) => inv.practiceId !== id);
     return HttpResponse.json({ success: true });

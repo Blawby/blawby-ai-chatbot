@@ -171,6 +171,8 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
   useEffect(() => {
     if (!practiceId) {
       clearStoredSession();
+      handshakeOrgRef.current = null;
+      setIsInitializing(false);
       return;
     }
 

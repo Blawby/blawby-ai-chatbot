@@ -165,7 +165,7 @@ const BusinessOnboardingModal = ({
   }, []);
   const startStripeOnboarding = useCallback(async () => {
     if (!practiceId) {
-      throw new Error('Missing organization');
+      throw new Error('Missing practice');
     }
 
     if (stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled) {

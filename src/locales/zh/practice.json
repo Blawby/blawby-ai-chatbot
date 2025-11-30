@@ -21,5 +21,10 @@
       "tryAgain": "重试",
       "goToHome": "返回首页"
     }
+  },
+  "profile": {
+    "logoAlt": "{{name}} 徽标",
+    "verified": "已验证的律师事务所",
+    "slug": "律师事务所标识: @{{slug}}"
   }
 }

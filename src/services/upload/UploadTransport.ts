@@ -107,7 +107,9 @@ export async function uploadWithProgress(
               fileType: response.data.fileType,
               fileSize: response.data.fileSize,
               url: response.data.url,
-              storageKey: response.data.storageKey || `${practiceId}/${sessionId}/${response.data.fileId}`
+              storageKey: response.data.storageKey || (response.data.fileExtension 
+                ? `uploads/${practiceId}/${sessionId}/${response.data.fileId}.${response.data.fileExtension}`
+                : `uploads/${practiceId}/${sessionId}/${response.data.fileId}`)
             };
 
             // Final progress update to 100%

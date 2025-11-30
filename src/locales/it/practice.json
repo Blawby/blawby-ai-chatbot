@@ -21,5 +21,10 @@
       "tryAgain": "Riprova",
       "goToHome": "Vai alla Home"
     }
+  },
+  "profile": {
+    "logoAlt": "Logo di {{name}}",
+    "verified": "Studio verificato",
+    "slug": "Slug dello studio: @{{slug}}"
   }
 }

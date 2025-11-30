@@ -21,5 +21,10 @@
       "tryAgain": "Erneut versuchen",
       "goToHome": "Zur Startseite"
     }
+  },
+  "profile": {
+    "logoAlt": "{{name}} Logo",
+    "verified": "Verifizierte Praxis",
+    "slug": "Praxis-Slug: @{{slug}}"
   }
 }

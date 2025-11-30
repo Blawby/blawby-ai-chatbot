@@ -21,5 +21,10 @@
       "tryAgain": "Spróbuj Ponownie",
       "goToHome": "Przejdź do Strony Głównej"
     }
+  },
+  "profile": {
+    "logoAlt": "Logo {{name}}",
+    "verified": "Zweryfikowana praktyka",
+    "slug": "Slug praktyki: @{{slug}}"
   }
 }

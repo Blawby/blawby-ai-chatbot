@@ -84,7 +84,7 @@ function MainApp({
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { quota, refreshQuota, activePracticeSlug: _activePracticeSlug, activePracticeId } = useSessionContext();
+	const { quota, refreshQuota, activePracticeId } = useSessionContext();
 	const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
 	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
 
@@ -557,7 +557,7 @@ function MainApp({
 							}}
 							onOpenSidebar={() => setIsMobileSidebarOpen(true)}
 							sessionId={sessionId}
-							practiceId={'blawby-ai'}
+							practiceId={practiceId}
 							onFeedbackSubmit={handleFeedbackSubmit}
 							previewFiles={previewFiles}
 							uploadingFiles={uploadingFiles}

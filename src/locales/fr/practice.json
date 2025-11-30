@@ -21,5 +21,10 @@
       "tryAgain": "Réessayer",
       "goToHome": "Retour à l'accueil"
     }
+  },
+  "profile": {
+    "logoAlt": "Logo de {{name}}",
+    "verified": "Cabinet vérifié",
+    "slug": "Identifiant de cabinet : @{{slug}}"
   }
 }

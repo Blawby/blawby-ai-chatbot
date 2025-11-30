@@ -221,8 +221,8 @@ describe('PracticePage', () => {
   it('should render organization page with correct title', () => {
     render(<PracticePage className="test-class" />);
     
-    expect(screen.getByText('Organization')).toBeInTheDocument();
-    expect(screen.getByText('No Organization Yet')).toBeInTheDocument();
+    expect(screen.getByText('Practice')).toBeInTheDocument();
+    expect(screen.getByText('No Practice Yet')).toBeInTheDocument();
   });
 
   it('should provide refetch and fetchMembers functions', () => {
@@ -244,11 +244,10 @@ describe('PracticePage', () => {
     
     // Sync SessionContext with null currentPractice
     mockSessionContext.activePracticeId = null as any;
-    mockSessionContext.activeOrganizationSlug = null as any;
 
     render(<PracticePage />);
     
-    expect(screen.getByText('Loading organization...')).toBeInTheDocument();
+    expect(screen.getByText('Loading practice...')).toBeInTheDocument();
   });
 
   it('should show error state when there is an error', async () => {
@@ -264,7 +263,6 @@ describe('PracticePage', () => {
     
     // Sync SessionContext with null currentPractice
     mockSessionContext.activePracticeId = null as any;
-    mockSessionContext.activeOrganizationSlug = null as any;
 
     render(<PracticePage />);
     
@@ -345,11 +343,11 @@ describe('PracticePage', () => {
     
     render(<PracticePage />);
     
-    const createButton = screen.getByText('Create Organization');
+    const createButton = screen.getByText('Create Practice');
     fireEvent.click(createButton);
     
     await waitFor(() => {
-      expect(screen.getByText('Create Organization')).toBeInTheDocument();
+      expect(screen.getByText('Create Practice')).toBeInTheDocument();
     });
   });
 
@@ -392,22 +390,22 @@ describe('PracticePage', () => {
     render(<PracticePage />);
     
     // Open create modal
-    const createButton = screen.getByText('Create Organization');
+    const createButton = screen.getByText('Create Practice');
     fireEvent.click(createButton);
     
     await waitFor(() => {
-      expect(screen.getByText('Create Organization')).toBeInTheDocument();
+      expect(screen.getByText('Create Practice')).toBeInTheDocument();
     });
     
     // Fill form
-    const nameInput = screen.getByLabelText('Organization Name *');
+    const nameInput = screen.getByLabelText('Practice Name *');
     const slugInput = screen.getByLabelText('Slug (optional)');
     
     fireEvent.input(nameInput, { target: { value: 'New Organization' } });
     fireEvent.input(slugInput, { target: { value: 'new-org' } });
     
     // Submit form
-    const submitButton = screen.getByText('Create Organization');
+    const submitButton = screen.getByText('Create Practice');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -559,7 +557,7 @@ describe('PracticePage', () => {
     fireEvent.click(editButton);
     
     // Should show the inline edit form
-    expect(screen.getByLabelText('Organization Name')).toBeInTheDocument();
+    expect(screen.getByLabelText('Practice Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Description (optional)')).toBeInTheDocument();
     expect(screen.getByText('Save Changes')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
@@ -571,12 +569,11 @@ describe('PracticePage', () => {
     
     // Sync SessionContext with null currentPractice
     mockSessionContext.activePracticeId = null as any;
-    mockSessionContext.activeOrganizationSlug = null as any;
     
     render(<PracticePage />);
     
     // Verify the "no organization" UI renders
-    expect(screen.getByText('No Organization Yet')).toBeInTheDocument();
+    expect(screen.getByText('No Practice Yet')).toBeInTheDocument();
     expect(screen.getByText('Create your law firm or accept an invitation')).toBeInTheDocument();
     
     // Verify component does not read SessionContext when currentPractice is null
