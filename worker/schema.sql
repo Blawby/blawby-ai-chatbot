@@ -7,8 +7,30 @@ PRAGMA foreign_keys = ON;
 -- All practice data is now managed by remote API (staging-api.blawby.com)
 -- Conversation config for practices is stored in practice.metadata.conversationConfig
 -- Workspaces use hardcoded defaults with no storage needed
--- Conversation tables (conversations, contact_forms, files, etc.) use practice_id as TEXT reference only (no FK constraint)
 -- Better Auth sessions are managed by staging API at /api/auth/get-session endpoint
+--
+-- ========================================
+-- REFERENTIAL INTEGRITY STRATEGY
+-- ========================================
+-- practice_id columns are TEXT NOT NULL (no FK constraints) because practices are managed
+-- by remote API. Application-layer validation is required:
+--
+-- 1. VALIDATION: All services MUST validate practice_id exists via RemoteApiService.validatePractice()
+--    before INSERT/UPDATE operations. This prevents orphaned records.
+--
+-- 2. ORPHAN HANDLING: If a practice is deleted in remote API, local records become orphaned.
+--    - Queries filter by practice_id, so orphaned records are effectively hidden
+--    - No automatic cascade delete (remote API doesn't notify us)
+--    - Consider periodic cleanup job to archive/delete orphaned records
+--
+-- 3. CONSISTENCY: All practice_id columns are NOT NULL for consistent practice scoping.
+--    This ensures all records can be properly filtered by practice.
+--
+-- 4. MONITORING: Log warnings when practice validation fails during writes.
+--    This helps detect data integrity issues early.
+--
+-- See: worker/services/RemoteApiService.validatePractice()
+-- See: worker/services/ConversationService (validates before inserts)
 
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
@@ -119,7 +141,7 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE TABLE IF NOT EXISTS matter_questions (
   id TEXT PRIMARY KEY,
   matter_id TEXT,
-  practice_id TEXT,
+  practice_id TEXT NOT NULL, -- Aligned with other tables: practice scoping required
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
   source TEXT DEFAULT 'ai-form', -- 'ai-form' | 'human-entry' | 'followup'
@@ -129,7 +151,7 @@ CREATE TABLE IF NOT EXISTS matter_questions (
 -- AI feedback table for user quality ratings and intent tags
 CREATE TABLE IF NOT EXISTS ai_feedback (
   id TEXT PRIMARY KEY,
-  practice_id TEXT,
+  practice_id TEXT NOT NULL, -- Aligned with other tables: practice scoping required
   rating INTEGER, -- 1-5 scale
   thumbs_up BOOLEAN,
   comments TEXT,

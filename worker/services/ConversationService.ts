@@ -1,5 +1,7 @@
 import type { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
+import { RemoteApiService } from './RemoteApiService.js';
+import { Logger } from '../utils/logger.js';
 
 export interface Conversation {
   id: string;
@@ -50,8 +52,22 @@ export class ConversationService {
 
   /**
    * Create a new conversation
+   * 
+   * Validates practice_id exists in remote API before insert to prevent orphaned records.
    */
   async createConversation(options: CreateConversationOptions): Promise<Conversation> {
+    // Validate practice exists in remote API to prevent orphaned records
+    const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId);
+    if (!practiceExists) {
+      Logger.error('Attempted to create conversation with invalid practice_id', {
+        practiceId: options.practiceId,
+        userId: options.userId,
+        anomaly: 'invalid_practice_id_on_conversation_create',
+        severity: 'high'
+      });
+      throw HttpErrors.notFound(`Practice not found: ${options.practiceId}`);
+    }
+
     const conversationId = crypto.randomUUID();
     const now = new Date().toISOString();
     
@@ -273,6 +289,8 @@ export class ConversationService {
 
   /**
    * Send a message to a conversation
+   * 
+   * Validates practice_id exists in remote API before insert to prevent orphaned records.
    */
   async sendMessage(options: {
     conversationId: string;
@@ -282,6 +300,19 @@ export class ConversationService {
     role?: 'user' | 'assistant' | 'system';
     metadata?: Record<string, unknown>;
   }): Promise<ConversationMessage> {
+    // Validate practice exists in remote API to prevent orphaned records
+    const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId);
+    if (!practiceExists) {
+      Logger.error('Attempted to send message with invalid practice_id', {
+        practiceId: options.practiceId,
+        conversationId: options.conversationId,
+        userId: options.senderUserId,
+        anomaly: 'invalid_practice_id_on_message_send',
+        severity: 'high'
+      });
+      throw HttpErrors.notFound(`Practice not found: ${options.practiceId}`);
+    }
+
     // Validate participant access
     await this.validateParticipantAccess(
       options.conversationId,
