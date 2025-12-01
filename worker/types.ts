@@ -29,6 +29,7 @@ export interface Env {
   BLAWBY_ORGANIZATION_ULID?: string;
   IDEMPOTENCY_SALT?: string;
   LAWYER_SEARCH_API_KEY?: string;
+  LAWYER_SEARCH_API_URL?: string;
   
   // Environment flags
   NODE_ENV?: string;
@@ -154,6 +155,8 @@ export interface ConversationConfig {
 
 // Practice configuration extends conversation config
 // Currently identical to ConversationConfig, kept for future extensibility
+// Using type alias instead of interface to avoid empty interface lint error
+// If extension is needed in the future, convert to interface with additional properties
 export type PracticeConfig = ConversationConfig;
 
 // Practice type (business organization - law firm)

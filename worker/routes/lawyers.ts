@@ -41,8 +41,13 @@ async function handleGetLawyers(request: Request, env: Env, url: URL): Promise<R
     const city = url.searchParams.get('city');
     const practiceArea = url.searchParams.get('practice_area') || url.searchParams.get('practiceArea');
     const zipCode = url.searchParams.get('zipCode') || url.searchParams.get('zip_code');
-    const page = parseInt(url.searchParams.get('page') || '1', 10);
-    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    
+    // Parse and validate integer parameters to avoid forwarding NaN
+    const pageRaw = parseInt(url.searchParams.get('page') || '1', 10);
+    const limitRaw = parseInt(url.searchParams.get('limit') || '20', 10);
+    const page = Number.isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
+    const limit = Number.isNaN(limitRaw) || limitRaw < 1 ? 20 : limitRaw;
+    
     const all = url.searchParams.get('all') === 'true';
 
     // Build search URL

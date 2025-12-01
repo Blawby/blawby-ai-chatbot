@@ -23,6 +23,7 @@
 		"test:component": "vitest run -c config/vitest/vitest.config.component.ts",
 		"db:reset": "./scripts/reset-dev-db.sh",
 		"db:init": "wrangler d1 execute blawby-ai-chatbot --local --file worker/schema.sql",
+		"validate:lawyer-api-migration": "tsx scripts/validate-lawyer-api-migration.ts",
 		"test:all": "npm run test",
 		"test:watch": "vitest --watch -c config/vitest/vitest.config.unit.ts",
 		"test:ui": "vitest --ui -c config/vitest/vitest.config.component.ts",
