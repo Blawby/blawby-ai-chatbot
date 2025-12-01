@@ -32,13 +32,24 @@ export const useMockChat = (): UseMockChatReturn => {
 	const [isMockMode, setIsMockMode] = useState(isMockModeEnabled());
 	const [messages, setMessages] = useState<ChatMessageUI[]>(MOCK_MESSAGES);
 
-	// Sync with localStorage
+	// Sync with localStorage changes (e.g., from console or other tabs)
 	useEffect(() => {
-		const stored = isMockModeEnabled();
-		if (stored !== isMockMode) {
-			setIsMockMode(stored);
+		const checkStorage = () => {
+			const stored = isMockModeEnabled();
+			if (stored !== isMockMode) {
+				setIsMockMode(stored);
+			}
+		};
+		
+		// Check on mount
+		checkStorage();
+		
+		// Listen for storage changes (e.g., from other tabs or console)
+		if (typeof window !== 'undefined') {
+			window.addEventListener('storage', checkStorage);
+			return () => window.removeEventListener('storage', checkStorage);
 		}
-	}, []);
+	}, [isMockMode]);
 
 	const handleSetMockMode = useCallback((enabled: boolean) => {
 		setIsMockMode(enabled);

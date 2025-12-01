@@ -15,7 +15,7 @@ export const MessageAvatar: FunctionComponent<MessageAvatarProps> = ({
 	className = ''
 }) => {
 	return (
-		<div className={`flex-shrink-0 ${className}`}>
+		<div className={`flex-shrink-0 self-start ${className}`}>
 			<Avatar src={src} name={name} size={size} />
 		</div>
 	);

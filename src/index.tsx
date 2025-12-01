@@ -101,9 +101,8 @@ function MainApp({
 	const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
 
 
-	// Mock mode for UI development
+	// Mock mode for UI development - hook maintains single source of truth
 	const mockChat = useMockChat();
-	const isMockMode = isMockModeEnabled();
 
 	const {
 		sessionId,
@@ -119,16 +118,16 @@ function MainApp({
 	});
 
 	// Use mock data if mock mode is enabled, otherwise use real data
-	const messages = isMockMode ? mockChat.messages : realMessageHandling.messages;
-	const addMessage = isMockMode ? undefined : realMessageHandling.addMessage;
+	const messages = mockChat.isMockMode ? mockChat.messages : realMessageHandling.messages;
+	const addMessage = mockChat.isMockMode ? undefined : realMessageHandling.addMessage;
 	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
-		if (isMockMode) {
+		if (mockChat.isMockMode) {
 			await mockChat.sendMessage(message, attachments);
 		} else {
 			await realMessageHandling.sendMessage(message, attachments);
 		}
-	}, [isMockMode, mockChat, realMessageHandling]);
-	const handleContactFormSubmit = isMockMode 
+	}, [mockChat, realMessageHandling]);
+	const handleContactFormSubmit = mockChat.isMockMode 
 		? async () => { console.log('Mock: Contact form submitted'); }
 		: realMessageHandling.handleContactFormSubmit;
 
@@ -333,19 +332,19 @@ function MainApp({
 	// Add intro message when practice config is loaded and no messages exist
 	useEffect(() => {
 		if (practiceConfig && practiceConfig.introMessage && messages.length === 0) {
-		// Add intro message only (practice profile is now a UI element)
-		if (addMessage && !isMockMode) {
-			const introMessage: ChatMessageUI = {
-				id: crypto.randomUUID(),
-				content: practiceConfig.introMessage,
-				isUser: false,
-				role: 'assistant',
-				timestamp: Date.now()
-			};
-			addMessage(introMessage);
+			// Add intro message only (practice profile is now a UI element)
+			if (addMessage && !mockChat.isMockMode) {
+				const introMessage: ChatMessageUI = {
+					id: crypto.randomUUID(),
+					content: practiceConfig.introMessage,
+					isUser: false,
+					role: 'assistant',
+					timestamp: Date.now()
+				};
+				addMessage(introMessage);
+			}
 		}
-	}
-}, [practiceConfig, messages.length, addMessage, isMockMode]);
+	}, [practiceConfig, messages.length, addMessage, mockChat.isMockMode]);
 
 	// Create stable callback references for keyboard handlers
 	const handleEscape = useCallback(() => {
@@ -506,23 +505,11 @@ function MainApp({
 						updateMatterStatus={updateMatterStatus}
 					/>
 					<div className="flex-1 min-h-0">
-						{/* Mock mode indicator */}
-						{isMockMode && (
-							<div className="bg-yellow-100 dark:bg-yellow-900/20 border-b border-yellow-300 dark:border-yellow-700 px-4 py-2 text-sm text-yellow-800 dark:text-yellow-200">
-								🔧 <strong>Mock Mode Enabled</strong> - Using demo data. 
-								<button 
-									onClick={() => mockChat.setMockMode(false)}
-									className="ml-2 underline hover:no-underline"
-								>
-									Disable
-								</button>
-							</div>
-						)}
 						<ChatContainer
 							messages={messages}
 							onSendMessage={handleSendMessage}
 							onContactFormSubmit={handleContactFormSubmit}
-							practiceConfig={isMockMode ? mockChat.practiceConfig : {
+							practiceConfig={mockChat.isMockMode ? mockChat.practiceConfig : {
 								name: practiceConfig.name ?? '',
 								profileImage: practiceConfig?.profileImage ?? null,
 								practiceId,

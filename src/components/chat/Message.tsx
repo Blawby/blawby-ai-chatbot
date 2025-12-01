@@ -144,14 +144,14 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	const avatarSize = size === 'sm' ? 'sm' : size === 'lg' ? 'lg' : 'md';
 
 	return (
-		<div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} ${className}`}>
+		<div className={`flex items-start gap-3 mb-4 last:mb-0 ${isUser ? 'flex-row-reverse' : 'flex-row'} ${className}`}>
 			{/* Avatar */}
 			{messageAvatar && (
 				<MessageAvatar
 					src={messageAvatar.src}
 					name={messageAvatar.name}
 					size={avatarSize}
-					className="mt-1"
+					className="flex-shrink-0"
 				/>
 			)}
 			

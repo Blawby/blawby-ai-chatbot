@@ -147,14 +147,20 @@ export const MOCK_MESSAGES_WITH_FILES: ChatMessageUI[] = [
 /**
  * Enable mock mode by setting this to true
  * Or use environment variable: VITE_ENABLE_MOCK_CHAT=true
+ * 
+ * Priority: localStorage > env var > false
  */
 export const isMockModeEnabled = (): boolean => {
+	// Check localStorage first (allows runtime toggles)
+	if (typeof window !== 'undefined') {
+		const stored = localStorage.getItem('mockChatEnabled');
+		if (stored !== null) {
+			return stored === 'true';
+		}
+	}
+	// Fall back to env var (static at build time)
 	if (typeof import.meta !== 'undefined' && import.meta.env) {
 		return import.meta.env.VITE_ENABLE_MOCK_CHAT === 'true';
-	}
-	// Check localStorage for manual toggle
-	if (typeof window !== 'undefined') {
-		return localStorage.getItem('mockChatEnabled') === 'true';
 	}
 	return false;
 };
