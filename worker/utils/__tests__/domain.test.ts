@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeDomain, getConfiguredDomain, isValidCookieDomain } from '../domain.js';
+import { normalizeDomain, isValidCookieDomain } from '../domain.js';
 
 describe('domain utilities', () => {
   describe('normalizeDomain', () => {
@@ -33,37 +33,6 @@ describe('domain utilities', () => {
     it('should handle complex URLs', () => {
       expect(normalizeDomain('https://ai.blawby.com:443/api/auth')).toBe('ai.blawby.com');
       expect(normalizeDomain('http://staging.blawby.com:8080/dashboard?tab=settings')).toBe('staging.blawby.com');
-    });
-  });
-
-  describe('getConfiguredDomain', () => {
-    it('should use DOMAIN when available', () => {
-      const env = { DOMAIN: 'example.com' };
-      expect(getConfiguredDomain(env)).toBe('example.com');
-    });
-
-    it('should fallback to CLOUDFLARE_PUBLIC_URL when DOMAIN not set', () => {
-      const env = { CLOUDFLARE_PUBLIC_URL: 'https://ai.blawby.com' };
-      expect(getConfiguredDomain(env)).toBe('ai.blawby.com');
-    });
-
-    it('should fallback to BETTER_AUTH_URL when others not set', () => {
-      const env = { BETTER_AUTH_URL: 'http://localhost:8787' };
-      expect(getConfiguredDomain(env)).toBe('localhost');
-    });
-
-    it('should return localhost as final fallback', () => {
-      const env = {};
-      expect(getConfiguredDomain(env)).toBe('localhost');
-    });
-
-    it('should prioritize DOMAIN over other sources', () => {
-      const env = {
-        DOMAIN: 'custom.com',
-        CLOUDFLARE_PUBLIC_URL: 'https://ai.blawby.com',
-        BETTER_AUTH_URL: 'http://localhost:8787'
-      };
-      expect(getConfiguredDomain(env)).toBe('custom.com');
     });
   });
 

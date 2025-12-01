@@ -3,17 +3,6 @@ main = "worker/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-[ai]
-binding = "AI"
-
-[[ai.models]]
-binding = "gpt-oss"
-model = "@cf/openai/gpt-oss-20b"
-
-[[ai.models]]
-binding = "llava"
-model = "@cf/llava-hf/llava-1.5-7b-hf"
-
 # Fresh resources for AI chatbot
 [[kv_namespaces]]
 binding = "CHAT_SESSIONS"
@@ -26,67 +15,17 @@ database_name = "blawby-ai-chatbot"
 database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf"  # blawby-ai-chatbot
 migrations_dir = "worker/migrations"
 
-# Resend API key for email notifications (set via wrangler secret put RESEND_API_KEY)
-
-# Blawby API Configuration
-[vars]
-BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
-# Remote API URL for organization/subscription management
-REMOTE_API_URL = "https://staging-api.blawby.com"
-# BETTER_AUTH_URL should be set per environment (not in base vars to avoid localhost leaking to production)
-DOMAIN = "localhost"
-# Stripe price configuration for all environments (test mode IDs)
-STRIPE_PRICE_ID = "price_1SHfgbDJLzJ14cfPBGuTvcG3"
-STRIPE_ANNUAL_PRICE_ID = "price_1SHfhCDJLzJ14cfPGFGQ77vQ"
-
-# Lawyer Search API Configuration
-LAWYER_SEARCH_API_URL = "https://search.blawby.com"
-# LAWYER_SEARCH_API_KEY should be set via: wrangler secret put LAWYER_SEARCH_API_KEY
-
-# PDF Generation Configuration
-# Adobe PDF Services API for HTML-to-PDF conversion and document extraction
-# Set via: wrangler secret put ADOBE_CLIENT_ID
-# Set via: wrangler secret put ADOBE_CLIENT_SECRET
-# Set via: wrangler secret put ADOBE_TECHNICAL_ACCOUNT_ID
-# Set via: wrangler secret put ADOBE_TECHNICAL_ACCOUNT_EMAIL
-# Set via: wrangler secret put ADOBE_ORGANIZATION_ID
-ADOBE_IMS_BASE_URL = "https://ims-na1.adobelogin.com"
-ADOBE_PDF_SERVICES_BASE_URL = "https://pdf-services.adobe.io"
-ADOBE_SCOPE = "openid,AdobeID,DCAPI"
-
-# Cloudflare AI Configuration
-CLOUDFLARE_PUBLIC_URL = "https://blawby-ai-chatbot.paulchrisluke.workers.dev"
-# CLOUDFLARE_API_TOKEN should be set via: wrangler secret put CLOUDFLARE_API_TOKEN
-# CLOUDFLARE_ACCOUNT_ID should be set via: wrangler secret put CLOUDFLARE_ACCOUNT_ID
-
-# PDF analysis will be implemented in a future PR
-
-# Environment flags
-NODE_ENV = "development"
-DEBUG = false
-VITE_DEBUG_OVERLAY = false
-LOG_LEVEL = "debug"
-
-# Feature Flags
-ENABLE_STRIPE_SUBSCRIPTIONS = true
-REQUIRE_EMAIL_VERIFICATION = "false"
-
-# Authentication removed - frontend-only application
-
-# AI Model Configuration (used in worker/agents/legal-intake/index.ts)
-AI_MODEL = "@cf/openai/gpt-oss-20b"
-AI_PROVIDER_DEFAULT = "workers-ai"
-AI_MODEL_DEFAULT = "@cf/openai/gpt-oss-20b"
-AI_MODEL_FALLBACK = "@cf/openai/gpt-oss-20b"
-ENABLE_WORKERS_AI = true
-ENABLE_GATEWAY_OPENAI = false
-
-# Analysis Configuration (used in worker/routes/analyze.ts)
-ANALYSIS_TIMEOUT_MS = "60000"
-
-# Rate Limiting Configuration (referenced in README)
-RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
-RATE_LIMIT_BURST_SIZE = "10"
+# Secrets Configuration
+# The following secrets should be set via wrangler secret put or .dev.vars:
+# - RESEND_API_KEY: Email notifications
+# - LAWYER_SEARCH_API_KEY: External lawyer search API
+# - CLOUDFLARE_API_TOKEN: Cloudflare API access
+# - CLOUDFLARE_ACCOUNT_ID: Cloudflare account identifier
+# - ADOBE_CLIENT_ID: Adobe PDF Services
+# - ADOBE_CLIENT_SECRET: Adobe PDF Services
+# - ADOBE_TECHNICAL_ACCOUNT_ID: Adobe PDF Services
+# - ADOBE_TECHNICAL_ACCOUNT_EMAIL: Adobe PDF Services
+# - ADOBE_ORGANIZATION_ID: Adobe PDF Services
 
 # R2 bucket for file storage
 [[r2_buckets]]
@@ -98,7 +37,6 @@ bucket_name = "blawby-ai-files"
 # Development environment
 [env.dev]
 name = "blawby-ai-chatbot-dev"
-ai = { binding = "AI" }
 kv_namespaces = [
   { binding = "CHAT_SESSIONS", id = "e7bbadb101d44a828fb3ef34528b3540" }
 ]
@@ -111,27 +49,37 @@ bucket_name = "blawby-ai-files"
 
 # Development environment variables
 [env.dev.vars]
+# Environment Configuration
 NODE_ENV = "development"
 LOG_LEVEL = "debug"
+DEBUG = false
+VITE_DEBUG_OVERLAY = false
+
+# Remote API Configuration
+REMOTE_API_URL = "https://staging-api.blawby.com"
+
+# Lawyer Search API Configuration
+LAWYER_SEARCH_API_URL = "https://search.blawby.com"
+# LAWYER_SEARCH_API_KEY set via .dev.vars or wrangler secret
+
+# Feature Flags
+REQUIRE_EMAIL_VERIFICATION = "false"
+
+# Adobe PDF Services Configuration
 ENABLE_ADOBE_EXTRACT = true
 ADOBE_IMS_BASE_URL = "https://ims-na1.adobelogin.com"
 ADOBE_PDF_SERVICES_BASE_URL = "https://pdf-services.adobe.io"
 ADOBE_SCOPE = "openid,AdobeID,DCAPI"
-AI_PROVIDER_DEFAULT = "workers-ai"
-AI_MODEL_DEFAULT = "@cf/openai/gpt-oss-20b"
-AI_MODEL_FALLBACK = "@cf/openai/gpt-oss-20b"
-ENABLE_WORKERS_AI = true
-ENABLE_GATEWAY_OPENAI = false
-BETTER_AUTH_URL = "http://localhost:8787"
-DOMAIN = "localhost"
+# Adobe secrets set via .dev.vars or wrangler secret
 
-# Domain configuration for ai.blawby.com
+# Analysis Configuration
 ANALYSIS_TIMEOUT_MS = "60000"
+
+# Rate Limiting Configuration
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
 [env.production]
 name = "blawby-ai-chatbot"
-ai = { binding = "AI" }
 kv_namespaces = [
   { binding = "CHAT_SESSIONS", id = "9ca96bd55b2d4455bad3fe0cda914f14", preview_id = "e7bbadb101d44a828fb3ef34528b3540" }
 ]
@@ -141,29 +89,33 @@ d1_databases = [
 
 # Production environment variables
 [env.production.vars]
+# Environment Configuration
 NODE_ENV = "production"
 LOG_LEVEL = "warn"
-# Stripe price configuration for production (live mode IDs)
-STRIPE_PRICE_ID = "price_1SI0uoDJLzJ14cfP4kmC67jR"
-STRIPE_ANNUAL_PRICE_ID = "price_1SI0uoDJLzJ14cfPoXID4aj4"
+DEBUG = false
+VITE_DEBUG_OVERLAY = false
+
+# Remote API Configuration
+REMOTE_API_URL = "https://production-api.blawby.com"
+
+# Lawyer Search API Configuration
+LAWYER_SEARCH_API_URL = "https://search.blawby.com"
+# LAWYER_SEARCH_API_KEY set via wrangler secret
+
+# Feature Flags
+REQUIRE_EMAIL_VERIFICATION = "false"
+
+# Adobe PDF Services Configuration
 ENABLE_ADOBE_EXTRACT = true
 ADOBE_IMS_BASE_URL = "https://ims-na1.adobelogin.com"
 ADOBE_PDF_SERVICES_BASE_URL = "https://pdf-services.adobe.io"
 ADOBE_SCOPE = "openid,AdobeID,DCAPI"
-AI_PROVIDER_DEFAULT = "workers-ai"
-AI_MODEL_DEFAULT = "@cf/openai/gpt-oss-20b"
-AI_MODEL_FALLBACK = "@cf/openai/gpt-oss-20b"
-ENABLE_WORKERS_AI = true
-ENABLE_GATEWAY_OPENAI = false
-BETTER_AUTH_URL = "https://ai.blawby.com"
-CLOUDFLARE_PUBLIC_URL = "https://ai.blawby.com"
-DOMAIN = "ai.blawby.com"
-ENABLE_STRIPE_SUBSCRIPTIONS = true
-REQUIRE_EMAIL_VERIFICATION = "false"
-REMOTE_API_URL = "https://production-api.blawby.com"
+# Adobe secrets set via wrangler secret
 
-# Updated to use modern nested producers syntax
+# Analysis Configuration
 ANALYSIS_TIMEOUT_MS = "60000"
+
+# Rate Limiting Configuration
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
 [[env.production.r2_buckets]]

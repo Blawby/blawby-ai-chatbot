@@ -557,8 +557,7 @@ export async function handleAnalyze(request: Request, env: Env): Promise<Respons
     // Debug: Log environment variables
     log('info', 'environment_check', {
       CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID ? 'SET' : 'NOT SET',
-      CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN ? 'SET' : 'NOT SET', 
-      CLOUDFLARE_PUBLIC_URL: env.CLOUDFLARE_PUBLIC_URL ? 'SET' : 'NOT SET'
+      CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN ? 'SET' : 'NOT SET'
     });
 
     // Parse form data

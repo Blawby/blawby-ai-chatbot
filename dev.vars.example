@@ -1,14 +1,10 @@
 # Local development environment variables (Worker Secrets Only)
 # Copy this file to .dev.vars and fill in your actual values
-# 
-# Note: Non-sensitive configuration variables (like AI_MODEL_DEFAULT, ENABLE_WORKERS_AI, etc.)
-# are now managed in wrangler.toml instead of this file.
-# 
-# Updated for Better Auth organization migration - all "team" references changed to "organization"
 #
-# Frontend Environment Variables (Vite):
-# - VITE_API_URL: Set to 'http://localhost:8787' for local development (automatically set by vite.config.ts)
-# - In production, VITE_API_URL is undefined, so the frontend uses relative URLs (/api/...)
+# IMPORTANT: This file is ONLY for sensitive secrets (API keys, tokens, etc.)
+# All non-sensitive configuration variables are managed in wrangler.toml
+#
+# For production secrets, use: wrangler secret put <KEY_NAME>
 
 # API Keys and Tokens (SENSITIVE)
 LAWYER_SEARCH_API_KEY=your_lawyer_search_api_key_here
@@ -24,25 +20,3 @@ ADOBE_CLIENT_SECRET=your_adobe_client_secret_here
 ADOBE_TECHNICAL_ACCOUNT_ID=your_technical_account_id@techacct.adobe.com
 ADOBE_TECHNICAL_ACCOUNT_EMAIL=your_technical_account_email@techacct.adobe.com
 ADOBE_ORGANIZATION_ID=your_organization_id@AdobeOrg
-
-# Remote Auth Server Configuration (SENSITIVE)
-# Note: Auth is now handled by remote server (staging-api.blawby.com)
-AUTH_SERVER_URL=https://staging-api.blawby.com
-
-# Frontend Environment Variables (Vite)
-# These should be set in your .env file or build environment, not in .dev.vars
-# .dev.vars is for Worker secrets only, but documented here for reference:
-# 
-# VITE_AUTH_SERVER_URL: URL of your Better Auth server
-#   - Required in production
-#   - Optional in development (falls back to ngrok URL for local testing)
-#   - Example: https://auth.yourdomain.com or http://localhost:8787
-
-# Better Auth Feature Flags (NON-SENSITIVE)
-# Set to 'true' to enable geolocation and IP detection features
-# Note: These features require proper Cloudflare context and are disabled by default
-ENABLE_AUTH_GEOLOCATION=false
-ENABLE_AUTH_IP_DETECTION=false
-
-# Domain Configuration (NON-SENSITIVE)
-# DOMAIN=localhost  # Set this in .dev.vars for local development

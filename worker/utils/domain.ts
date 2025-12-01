@@ -43,16 +43,6 @@ export function normalizeDomain(domain: string): string {
   }
 }
 
-/**
- * Gets the configured domain from environment variables with fallback
- * @param env - Environment variables
- * @returns The normalized domain name
- */
-export function getConfiguredDomain(env: { DOMAIN?: string; CLOUDFLARE_PUBLIC_URL?: string; BETTER_AUTH_URL?: string }): string {
-  // Priority order: DOMAIN > CLOUDFLARE_PUBLIC_URL > BETTER_AUTH_URL > localhost
-  const domainSource = env.DOMAIN || env.CLOUDFLARE_PUBLIC_URL || env.BETTER_AUTH_URL || 'localhost';
-  return normalizeDomain(domainSource);
-}
 
 /**
  * Validates that a domain is safe for cookie usage

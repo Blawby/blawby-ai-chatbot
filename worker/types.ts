@@ -26,13 +26,11 @@ export interface Env {
   
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
   
-  BLAWBY_ORGANIZATION_ULID?: string;
   IDEMPOTENCY_SALT?: string;
   LAWYER_SEARCH_API_KEY?: string;
   LAWYER_SEARCH_API_URL?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
-  CLOUDFLARE_PUBLIC_URL?: string;
   
   // Environment flags
   NODE_ENV?: string;
@@ -40,8 +38,6 @@ export interface Env {
   ENV_TEST?: string;
   IS_PRODUCTION?: string;
   
-  // Domain configuration
-  DOMAIN?: string;
   DEFAULT_PLATFORM_SLUG?: string;
   // SSE Configuration
   SSE_POLL_INTERVAL?: string;
