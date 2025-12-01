@@ -1,5 +1,6 @@
 import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
+import { anonymousClient } from 'better-auth/client/plugins';
 import { setToken, getTokenAsync } from './tokenStorage';
 import { isDevelopment } from '../utils/environment';
 
@@ -59,7 +60,7 @@ function getAuthClient(): AuthClientType {
   if (currentContext === 'ssr') {
     const placeholderBaseURL = getAuthBaseUrl(); // Returns placeholder during SSR
     const client = createAuthClient({
-      plugins: [organizationClient()],
+      plugins: [organizationClient(), anonymousClient()],
       baseURL: placeholderBaseURL,
       fetchOptions: {
         auth: {
@@ -78,7 +79,7 @@ function getAuthClient(): AuthClientType {
   
   // Create and cache the client
   const client = createAuthClient({
-    plugins: [organizationClient()],
+    plugins: [organizationClient(), anonymousClient()],
     baseURL,
     fetchOptions: {
       auth: {

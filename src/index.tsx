@@ -10,7 +10,7 @@ import { SEOHead } from './components/SEOHead';
 import { ConversationHeader } from './components/chat/ConversationHeader';
 import { ToastProvider } from './contexts/ToastContext';
 import { SessionProvider, useSessionContext } from './contexts/SessionContext';
-import { useSession } from './lib/authClient';
+import { useSession, getClient } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
 import { resolvePracticeKind } from './utils/subscription';
 import type { UIPracticeConfig } from './hooks/usePracticeConfig';
@@ -33,10 +33,10 @@ import { useToastContext } from './contexts/ToastContext';
 import { usePracticeConfig } from './hooks/usePracticeConfig';
 import { usePracticeManagement } from './hooks/usePracticeManagement';
 import { PLATFORM_PRACTICE_ID } from './utils/constants';
-import { listPractices, createPractice } from './lib/apiClient';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { useMockChat } from './hooks/useMockChat';
 import { isMockModeEnabled, toggleMockMode } from './components/chat/mock/mockChatData';
+import { isDevelopment } from './utils/environment';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -56,8 +56,6 @@ if (typeof window !== 'undefined') {
 	console.log('💡 Mock Chat Mode: Use window.mockChat.enable() or window.mockChat.disable() in the console');
 }
 
-const DEFAULT_PRACTICE_PHONE =
-	(import.meta.env.VITE_DEFAULT_PRACTICE_PHONE ?? '+17025550123').trim();
 
 
 
@@ -165,60 +163,9 @@ function MainApp({
         setShowWelcomeModal(shouldShowWelcome);
     }, [shouldShowWelcome]);
 
-    // Check if OAuth user needs onboarding (one-time check after auth)
-    useEffect(() => {
-        // Ensure practice exists once per session if user is present
-        (async () => {
-            try {
-                if (session?.user && typeof window !== 'undefined') {
-                    const key = `ensuredPractice_v1_${session.user.id}`;
-                    if (!sessionStorage.getItem(key)) {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 10000);
-                        
-                        // Check if practices exist
-                        try {
-                            const practices = await listPractices({ signal: controller.signal, scope: 'all' });
-
-                            if (practices.length === 0) {
-                                const userName = session.user.name || session.user.email?.split('@')[0] || 'User';
-                                const practiceName = `${userName}'s Practice`;
-                                const businessPhone = DEFAULT_PRACTICE_PHONE.length
-                                    ? DEFAULT_PRACTICE_PHONE
-                                    : undefined;
-
-                                await createPractice({
-                                    name: practiceName,
-                                    businessEmail: session.user.email || undefined,
-                                    ...(businessPhone ? { businessPhone } : {})
-                                }, { signal: controller.signal });
-                            }
-
-                            clearTimeout(timeoutId);
-                            sessionStorage.setItem(key, '1');
-                        } catch (e) {
-                            clearTimeout(timeoutId);
-                            if (e instanceof Error && e.name === 'CanceledError') {
-                                return;
-                            }
-                            console.warn('Failed to ensure practice (non-OK response):', e);
-                            // Don't show error for 404s - practice might not be needed yet
-                            if (e && typeof e === 'object' && 'response' in e && (e as { response?: { status?: number } }).response?.status !== 404) {
-                                showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
-                            }
-                            return;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn('Failed to ensure practice (client fallback):', e);
-                // Don't show error for expected failures
-                if (e && typeof e === 'object' && 'response' in e && (e as { response?: { status?: number } }).response?.status !== 404) {
-                    showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
-                }
-            }
-        })();
-    }, [session?.user, sessionIsPending]);
+    // Note: Auto-practice creation removed - clients don't need practices.
+    // Practice members (lawyers) will create practices through onboarding/upgrade flow.
+    // Clients chat with practices via widget (practiceId from URL), not their own practice.
 
     useEffect(() => {
         const user = session?.user;
@@ -643,6 +590,33 @@ function AppWithPractice() {
     handleRetryPracticeConfig,
     isLoading
   } = usePracticeConfig({ onError: handlePracticeError });
+
+  // Handle anonymous sign-in for widget users (clients chatting with practices)
+  useEffect(() => {
+    if (typeof window === 'undefined' || sessionIsPending) return;
+    
+    // If no session and practiceId is available (widget context), sign in anonymously
+    if (!session?.user && practiceId) {
+      const key = `anonymous_signin_attempted_${practiceId}`;
+      if (!sessionStorage.getItem(key)) {
+        (async () => {
+          try {
+            const client = getClient();
+            const result = await client.signIn.anonymous();
+            if (result.data?.user) {
+              sessionStorage.setItem(key, '1');
+              if (isDevelopment()) {
+                console.debug('[Auth] Anonymous sign-in successful for widget user');
+              }
+            }
+          } catch (error) {
+            console.warn('[Auth] Anonymous sign-in failed (may not be configured on server):', error);
+            // Don't set sessionStorage key so we can retry later
+          }
+        })();
+      }
+    }
+  }, [session?.user, practiceId, sessionIsPending]);
 
   // Show loading state while checking auth or loading practice config
   if (isLoading || sessionIsPending) {
