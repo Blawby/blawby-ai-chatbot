@@ -2,7 +2,7 @@ import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
-import { requireAuth } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
 function createJsonResponse(data: unknown): Response {
@@ -20,8 +20,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     throw HttpErrors.notFound('Conversation route not found');
   }
 
-  // Require authentication for all conversation endpoints
-  const authContext = await requireAuth(request, env);
+  // Support optional auth for anonymous users (Better Auth anonymous plugin)
+  const authContext = await optionalAuth(request, env);
+  if (!authContext) {
+    throw HttpErrors.unauthorized("Authentication required - anonymous or authenticated session needed");
+  }
   const userId = authContext.user.id;
 
   // Get practice context
