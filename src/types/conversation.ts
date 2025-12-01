@@ -1,0 +1,122 @@
+// TypeScript types for user-to-user conversations and messages
+
+/**
+ * Conversation status
+ */
+export type ConversationStatus = 'active' | 'archived' | 'completed';
+
+/**
+ * Message role in conversation
+ */
+export type MessageRole = 'user' | 'assistant' | 'system';
+
+/**
+ * Conversation participant info
+ */
+export interface ConversationParticipant {
+  userId: string;
+  name?: string;
+  email?: string;
+  image?: string | null;
+}
+
+/**
+ * Conversation metadata stored in user_info JSON field
+ */
+export interface ConversationMetadata {
+  title?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Conversation object from API
+ */
+export interface Conversation {
+  id: string;
+  practice_id: string;
+  user_id: string; // Creator/owner of the conversation
+  matter_id: string | null; // Optional: link to specific matter
+  participants: string[]; // Array of user IDs
+  user_info: ConversationMetadata | null;
+  status: ConversationStatus;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+}
+
+/**
+ * Message object from API
+ */
+export interface ConversationMessage {
+  id: string;
+  conversation_id: string;
+  practice_id: string;
+  user_id: string; // Sender of the message
+  role: MessageRole;
+  content: string;
+  metadata: Record<string, unknown> | null;
+  token_count: number | null;
+  created_at: string; // ISO timestamp
+}
+
+/**
+ * UI-friendly message type that extends ConversationMessage
+ */
+export interface ConversationMessageUI extends ConversationMessage {
+  isUser: boolean; // Derived from role === 'user'
+  timestamp: number; // Converted from created_at ISO string to milliseconds
+  files?: Array<{
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+    url: string;
+  }>;
+}
+
+/**
+ * Create conversation request payload
+ */
+export interface CreateConversationRequest {
+  matterId?: string;
+  participantUserIds?: string[];
+  metadata?: Record<string, unknown>;
+  title?: string;
+}
+
+/**
+ * Update conversation request payload
+ */
+export interface UpdateConversationRequest {
+  status?: ConversationStatus;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Send message request payload
+ */
+export interface SendMessageRequest {
+  conversationId: string;
+  content: string;
+  attachments?: string[]; // Array of file IDs
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Get messages response with pagination
+ */
+export interface GetMessagesResponse {
+  messages: ConversationMessage[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+/**
+ * Get messages query parameters
+ */
+export interface GetMessagesOptions {
+  conversationId: string;
+  limit?: number;
+  cursor?: string;
+  since?: string; // ISO timestamp for polling new messages
+}
+

@@ -2,6 +2,9 @@ import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '../contexts/SessionContext.js';
 import { ChatMessageUI, FileAttachment } from '../../worker/types';
 import { ContactData } from '../components/ContactForm';
+import { getTokenAsync } from '../lib/tokenStorage';
+import { getApiConfig } from '../config/api';
+import type { ConversationMessage } from '../types/conversation';
 
 // Tool name to user-friendly message mapping
 const TOOL_LOADING_MESSAGES: Record<string, string> = {
@@ -36,6 +39,7 @@ interface ChatMessageHistoryEntry {
 interface UseMessageHandlingOptions {
   practiceId?: string;
   sessionId?: string;
+  conversationId?: string; // Required for user-to-user chat
   onError?: (error: string) => void;
 }
 
@@ -43,18 +47,22 @@ interface UseMessageHandlingOptions {
  * Hook that uses blawby-ai practice for all message handling
  * This is the preferred way to use message handling in components
  */
-export const useMessageHandlingWithContext = ({ sessionId, onError }: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
+export const useMessageHandlingWithContext = ({ sessionId, conversationId, onError }: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
   const { activePracticeId } = useSessionContext();
-  return useMessageHandling({ practiceId: activePracticeId ?? undefined, sessionId, onError });
+  return useMessageHandling({ practiceId: activePracticeId ?? undefined, sessionId, conversationId, onError });
 };
 
 /**
  * Legacy hook that requires practiceId parameter
  * @deprecated Use useMessageHandlingWithContext() instead
+ * 
+ * Note: For user-to-user chat, conversationId is required.
+ * This hook will fetch messages on mount if conversationId is provided.
  */
-export const useMessageHandling = ({ practiceId, sessionId, onError }: UseMessageHandlingOptions) => {
+export const useMessageHandling = ({ practiceId, sessionId, conversationId, onError }: UseMessageHandlingOptions) => {
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
+  const isDisposedRef = useRef(false);
   
   // Debug hooks for test environment (development only)
   useEffect(() => {
@@ -97,6 +105,25 @@ export const useMessageHandling = ({ practiceId, sessionId, onError }: UseMessag
     return history;
   }, []);
 
+  // Convert API message to UI message
+  const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
+    return {
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      timestamp: new Date(msg.created_at).getTime(),
+      metadata: msg.metadata || undefined,
+      isUser: msg.role === 'user',
+      files: msg.metadata?.attachments ? (msg.metadata.attachments as string[]).map((fileId: string) => ({
+        id: fileId,
+        name: 'File',
+        size: 0,
+        type: 'application/octet-stream',
+        url: '', // TODO: Generate file URL from file ID
+      })) : undefined,
+    };
+  }, []);
+
   // REMOVED: AI streaming functionality - will be replaced with user-to-user chat in future PR
   // const sendMessageWithStreaming = useCallback(async (
   //   messageHistory: ChatMessageHistoryEntry[], 
@@ -114,18 +141,24 @@ export const useMessageHandling = ({ practiceId, sessionId, onError }: UseMessag
     }
     
     const effectivePracticeId = (practiceId ?? '').trim();
-    const effectiveSessionId = (sessionId ?? '').trim();
 
-    if (!effectivePracticeId || !effectiveSessionId) {
-      const errorMessage = 'Secure session is still initializing. Please wait a moment and try again.';
+    if (!effectivePracticeId) {
+      const errorMessage = 'Practice ID is required. Please wait a moment and try again.';
       console.warn(errorMessage);
       onError?.(errorMessage);
       return;
     }
 
-    // Create user message
-    const userMessage: ChatMessageUI = {
-      id: crypto.randomUUID(),
+    if (!conversationId) {
+      const errorMessage = 'Conversation ID is required for sending messages.';
+      console.warn(errorMessage);
+      onError?.(errorMessage);
+      return;
+    }
+
+    // Optimistic update: create user message immediately
+    const tempMessage: ChatMessageUI = {
+      id: `temp-${Date.now()}`,
       content: message,
       isUser: true,
       role: 'user',
@@ -133,68 +166,73 @@ export const useMessageHandling = ({ practiceId, sessionId, onError }: UseMessag
       files: attachments
     };
     
-    setMessages(prev => [...prev, userMessage]);
-    
-    // Add a placeholder AI message immediately that will be updated
-    const placeholderId = Date.now().toString();
-    const placeholderMessage: ChatMessageUI = {
-      id: placeholderId,
-      content: '',
-      isUser: false,
-      role: 'assistant',
-      timestamp: Date.now(),
-      isLoading: true
-    };
-    
-    setMessages(prev => [...prev, placeholderMessage]);
-    
-    // Create message history from existing messages
-    const messageHistory = createMessageHistory(messages, message);
+    setMessages(prev => [...prev, tempMessage]);
     
     try {
-      // REMOVED: AI streaming - will be replaced with user-to-user chat in future PR
-      // For now, show a message that chat is being rebuilt
-      updateAIMessage(placeholderId, { 
-        content: 'Chat functionality is being rebuilt. Please check back soon.',
-        isLoading: false 
+      const token = await getTokenAsync();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      // Convert file attachments to file IDs (assuming attachments have id or need to be uploaded first)
+      const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
+
+      const config = getApiConfig();
+      const response = await fetch(`${config.baseUrl}/api/chat/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          conversationId,
+          content: message,
+          attachments: attachmentIds.length > 0 ? attachmentIds : undefined,
+        }),
       });
-      // await sendMessageWithStreaming(messageHistory, placeholderId, attachments);
+
+      if (!response.ok) {
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+        const errorData = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as { success: boolean; error?: string; data?: ConversationMessage };
+      if (!data.success || !data.data) {
+        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+        throw new Error(data.error || 'Failed to send message');
+      }
+
+      // Replace temp message with real message from server
+      if (!isDisposedRef.current) {
+        setMessages(prev => prev.map(m => m.id === tempMessage.id ? toUIMessage(data.data!) : m));
+      }
     } catch (error) {
       // Check if this is an AbortError (user cancelled request)
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('Request was cancelled by user');
+        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
         return; // Don't show error message for user-initiated cancellation
       }
       
-      console.error('Error sending message details:', {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+      
+      console.error('Error sending message:', {
         error,
         errorType: typeof error,
         errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-        isAuthError: error instanceof Error && error.message.includes('Authentication'),
-        isError10000: error instanceof Error && error.message.includes('10000')
       });
       
-      // Provide better error messages for auth-related issues
-      let errorMessage = error instanceof Error && error.message
+      const errorMessage = error instanceof Error && error.message
         ? error.message
-        : "I'm having trouble connecting to our AI service right now. Please try again in a moment, or contact us directly if the issue persists.";
-
-      if (error instanceof Error) {
-        if (error.message.includes('10000') || error.message.includes('Authentication')) {
-          errorMessage = 'Please sign in to continue chatting';
-        }
-      }
+        : "Failed to send message. Please try again.";
       
-      // Update placeholder with error message using the existing placeholderId
-      updateAIMessage(placeholderId, { 
-        content: errorMessage,
-        isLoading: false 
-      });
-      
-      onError?.(error instanceof Error ? error.message : 'Unknown error occurred');
+      onError?.(errorMessage);
     }
-  }, [messages, practiceId, sessionId, createMessageHistory, onError, updateAIMessage]);
+  }, [practiceId, conversationId, toUIMessage, onError]);
 
   // Handle contact form submission
   const handleContactFormSubmit = useCallback(async (contactData: ContactData) => {
@@ -259,9 +297,70 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     }
   }, []);
 
+  // Fetch messages from conversation
+  const fetchMessages = useCallback(async () => {
+    if (!conversationId || !practiceId) {
+      return;
+    }
+
+    try {
+      const token = await getTokenAsync();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const params = new URLSearchParams({
+        conversationId,
+        practiceId,
+        limit: '50',
+      });
+
+      const config = getApiConfig();
+      const response = await fetch(`${config.baseUrl}/api/chat/messages?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore: boolean; nextCursor: string | null } };
+      if (!data.success || !data.data) {
+        throw new Error(data.error || 'Failed to fetch messages');
+      }
+
+      if (!isDisposedRef.current) {
+        const uiMessages = data.data.messages.map(toUIMessage);
+        setMessages(uiMessages);
+      }
+    } catch (err) {
+      if (isDisposedRef.current) return;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
+      onError?.(errorMessage);
+    }
+  }, [conversationId, practiceId, toUIMessage, onError]);
+
+  // Fetch messages on mount if conversationId is provided
+  useEffect(() => {
+    if (conversationId && practiceId) {
+      fetchMessages();
+    }
+
+    return () => {
+      isDisposedRef.current = true;
+    };
+  }, [conversationId, practiceId, fetchMessages]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      isDisposedRef.current = true;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
