@@ -605,13 +605,32 @@ function AppWithPractice() {
             const result = await client.signIn.anonymous();
             if (result.data?.user) {
               sessionStorage.setItem(key, '1');
-              if (isDevelopment()) {
-                console.debug('[Auth] Anonymous sign-in successful for widget user');
-              }
+              console.log('[Auth] Anonymous sign-in successful for widget user', {
+                userId: result.data.user.id,
+                practiceId
+              });
+            } else if (result.error) {
+              // Fail loudly - Better Auth anonymous plugin may not be configured
+              console.error('[Auth] Anonymous sign-in failed - Better Auth anonymous plugin not configured on staging-api', {
+                error: result.error,
+                practiceId,
+                message: 'The staging-api.blawby.com server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+              });
+              // Set key to prevent retry loops, but log error clearly
+              sessionStorage.setItem(key, 'failed');
             }
           } catch (error) {
-            console.warn('[Auth] Anonymous sign-in failed (may not be configured on server):', error);
-            // Don't set sessionStorage key so we can retry later
+            // Fail loudly with detailed error information
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error('[Auth] Anonymous sign-in exception - staging-api configuration issue', {
+              error: errorMessage,
+              practiceId,
+              stack: error instanceof Error ? error.stack : undefined,
+              message: 'CRITICAL: Better Auth anonymous plugin must be configured on staging-api.blawby.com. ' +
+                       'Check staging-api server logs and ensure anonymous() plugin is added to Better Auth config.'
+            });
+            // Set key to prevent retry loops
+            sessionStorage.setItem(key, 'failed');
           }
         })();
       }
