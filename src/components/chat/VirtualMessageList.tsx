@@ -1,12 +1,12 @@
 import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'preact/hooks';
 import Message from './Message';
-import PracticeProfile from './PracticeProfile';
+import PracticeProfile from '../PracticeProfile';
 import { memo } from 'preact/compat';
-import { debounce } from '../utils/debounce';
-import { ErrorBoundary } from './ErrorBoundary';
-import { ChatMessageUI } from '../../worker/types';
-import { ContactData } from './ContactForm';
+import { debounce } from '../../utils/debounce';
+import { ErrorBoundary } from '../ErrorBoundary';
+import { ChatMessageUI } from '../../../worker/types';
+import { ContactData } from '../ContactForm';
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
@@ -152,27 +152,45 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 </div>
             )}
             <ErrorBoundary>
-                {visibleMessages.map((message, _index) => (
-                    <Message
-                        key={message.id}
-                        content={message.content}
-                        isUser={message.isUser}
-                        files={message.files}
-                        matterCanvas={message.matterCanvas}
-                        contactForm={message.contactForm}
-                        generatedPDF={message.generatedPDF}
-                        practiceConfig={practiceConfig}
-                        onOpenSidebar={onOpenSidebar}
-                        onContactFormSubmit={onContactFormSubmit}
-                        isLoading={message.isLoading}
-                        // REMOVED: aiState - AI functionality removed
-                        toolMessage={message.toolMessage}
-                        id={message.id}
-                        sessionId={sessionId}
-                        practiceId={practiceId}
-                        onFeedbackSubmit={onFeedbackSubmit}
-                    />
-                ))}
+                {visibleMessages.map((message, _index) => {
+                    // Determine avatar for message
+                    // Check if message has avatar in metadata (for mock data)
+                    const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
+                    
+                    const avatar = mockAvatar 
+                        ? mockAvatar
+                        : message.isUser 
+                            ? undefined // User avatars can be added later if needed
+                            : practiceConfig 
+                                ? {
+                                    src: practiceConfig.profileImage,
+                                    name: practiceConfig.name
+                                }
+                                : undefined;
+
+                    return (
+                        <Message
+                            key={message.id}
+                            content={message.content}
+                            isUser={message.isUser}
+                            files={message.files}
+                            avatar={avatar}
+                            matterCanvas={message.matterCanvas}
+                            contactForm={message.contactForm}
+                            generatedPDF={message.generatedPDF}
+                            practiceConfig={practiceConfig}
+                            onOpenSidebar={onOpenSidebar}
+                            onContactFormSubmit={onContactFormSubmit}
+                            isLoading={message.isLoading}
+                            // REMOVED: aiState - AI functionality removed
+                            toolMessage={message.toolMessage}
+                            id={message.id}
+                            sessionId={sessionId}
+                            practiceId={practiceId}
+                            onFeedbackSubmit={onFeedbackSubmit}
+                        />
+                    );
+                })}
             </ErrorBoundary>
         </div>
     );

@@ -77,7 +77,6 @@ export const conversationConfigSchema = z.object({
   isPublic: z.boolean().optional(),
   tools: z.record(z.string(), z.object({
     enabled: z.boolean(),
-    quotaMetric: z.enum(['messages', 'files']).nullable().optional(),
     requiredRole: z.enum(['owner', 'admin', 'attorney', 'paralegal']).nullable().optional(),
     allowAnonymous: z.boolean().optional()
   })).optional(),

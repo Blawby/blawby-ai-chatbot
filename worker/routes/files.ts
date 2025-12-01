@@ -6,7 +6,6 @@ import { ActivityService } from '../services/ActivityService';
 import { StatusService, type StatusUpdate } from '../services/StatusService.js';
 import { Logger } from '../utils/logger';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
-import { requireFeature } from '../middleware/featureGuard.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 
 /**
@@ -383,22 +382,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       resolvedPracticeId = sessionResolution.session.practiceId;
       resolvedSessionId = sessionResolution.session.id;
 
-      await requireFeature(
-        request,
-        env,
-        {
-          feature: 'files',
-          allowAnonymous: false,
-          quotaMetric: 'files',
-          minTier: ['business', 'enterprise'],
-          requirePractice: true,
-        },
-        {
-          practiceId: resolvedPracticeId,
-          sessionId: resolvedSessionId,
-        }
-      );
-
       // Update status to indicate file stored
       let statusId: string | null = null;
       let statusCreatedAt: number | null = null;
@@ -459,8 +442,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
 
       // Document analysis has been removed - files are stored but not processed
 
-      // Usage tracking is now handled BEFORE file storage to prevent quota drift
-      // No additional usage tracking needed here since it was done atomically before upload
+      // File storage complete
 
       const responseBody = {
         success: true,
@@ -493,7 +475,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       });
 
     } catch (error) {
-      // Handle upload failure - no usage tracking to rollback in simplified system
+      // Handle upload failure
       return handleError(error);
     }
   }

@@ -2,11 +2,12 @@ import { FunctionComponent } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
-import { ChatMessageUI } from '../../worker/types';
-import { FileAttachment } from '../../worker/types';
-import { ContactData } from './ContactForm';
-import { createKeyPressHandler } from '../utils/keyboard';
-import type { UploadingFile } from '../hooks/useFileUpload';
+import { ChatMessageUI } from '../../../worker/types';
+import { FileAttachment } from '../../../worker/types';
+import { ContactData } from '../ContactForm';
+import { createKeyPressHandler } from '../../utils/keyboard';
+import type { UploadingFile } from '../../hooks/useFileUpload';
+import { useMobileDetection } from '../../hooks/useMobileDetection';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -36,8 +37,6 @@ interface ChatContainerProps {
   setIsRecording: (v: boolean) => void;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
-  isUsageRestricted?: boolean;
-  usageMessage?: string | null;
 
   // Input control prop
   clearInput?: number;
@@ -64,12 +63,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   setIsRecording,
   isReadyToUpload,
   isSessionReady,
-  isUsageRestricted,
-  usageMessage,
   clearInput
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isMobile = useMobileDetection();
 
 
   // Simple resize handler for window size changes
@@ -123,11 +121,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setInputValue('');
 
     // Only blur on mobile devices to collapse virtual keyboard
-    if (textareaRef.current) {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (isMobile) {
-        textareaRef.current.blur();
-      }
+    if (textareaRef.current && isMobile) {
+      textareaRef.current.blur();
     }
   };
 
@@ -171,8 +166,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           textareaRef={textareaRef}
           isReadyToUpload={isReadyToUpload}
           isSessionReady={isSessionReady}
-          isUsageRestricted={isUsageRestricted}
-          usageMessage={usageMessage}
         />
       </main>
     </div>

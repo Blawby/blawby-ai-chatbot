@@ -163,7 +163,7 @@
 
   .chat-markdown ul,
   .chat-markdown ol {
-    @apply ml-5 mb-3;
+    @apply my-3 pl-6;
   }
 
   .chat-markdown ul {
@@ -175,11 +175,19 @@
   }
 
   .chat-markdown li {
-    @apply mb-1;
+    @apply mb-1.5;
   }
 
   .chat-markdown li:last-child {
     @apply mb-0;
+  }
+
+  .chat-markdown ul li {
+    @apply list-disc;
+  }
+
+  .chat-markdown ol li {
+    @apply list-decimal;
   }
 
   .chat-markdown blockquote {

@@ -1,5 +1,5 @@
 import type { VNode } from 'preact';
-import ChatMarkdown from './ChatMarkdown';
+import ChatMarkdown from './chat/ChatMarkdown';
 
 // Define allowed variant types
 export type AIThinkingVariant = 'thinking' | 'processing' | 'generating';
