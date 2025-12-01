@@ -135,9 +135,9 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	);
 
 	// Determine avatar - use provided avatar, or fall back to practiceConfig for assistant messages
-	const messageAvatar = avatar || (!isUser && practiceConfig ? {
-		src: practiceConfig.profileImage,
-		name: practiceConfig.name
+	const messageAvatar = avatar || (!isUser && _practiceConfig ? {
+		src: _practiceConfig.profileImage,
+		name: _practiceConfig.name
 	} : undefined);
 
 	// Avatar size based on message size

@@ -8,11 +8,13 @@ import { FileAttachment } from '../../../../worker/types';
 import type { VNode } from 'preact';
 
 export const formatDocumentIconSize = (bytes: number): string => {
+	if (bytes < 0) return '0 B';
 	if (bytes === 0) return '0 B';
 	const k = 1024;
-	const sizes = ['B', 'KB', 'MB', 'GB'];
+	const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+	const clampedIndex = Math.min(i, sizes.length - 1);
+	return `${parseFloat((bytes / Math.pow(k, clampedIndex)).toFixed(1))} ${sizes[clampedIndex]}`;
 };
 
 export const getDocumentIcon = (file: FileAttachment): VNode => {
@@ -45,14 +47,14 @@ export const getDocumentIcon = (file: FileAttachment): VNode => {
 	}
 
 	// Audio file icon
-	if (file.type.startsWith('audio/')) {
+	if (file.type?.startsWith('audio/')) {
 		return (
 			<MusicalNoteIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
 		);
 	}
 
 	// Video file icon
-	if (file.type.startsWith('video/')) {
+	if (file.type?.startsWith('video/')) {
 		return (
 			<VideoCameraIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
 		);

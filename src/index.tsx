@@ -120,6 +120,7 @@ function MainApp({
 
 	// Use mock data if mock mode is enabled, otherwise use real data
 	const messages = isMockMode ? mockChat.messages : realMessageHandling.messages;
+	const addMessage = isMockMode ? undefined : realMessageHandling.addMessage;
 	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
 		if (isMockMode) {
 			await mockChat.sendMessage(message, attachments);
@@ -332,7 +333,8 @@ function MainApp({
 	// Add intro message when practice config is loaded and no messages exist
 	useEffect(() => {
 		if (practiceConfig && practiceConfig.introMessage && messages.length === 0) {
-			// Add intro message only (practice profile is now a UI element)
+		// Add intro message only (practice profile is now a UI element)
+		if (addMessage && !isMockMode) {
 			const introMessage: ChatMessageUI = {
 				id: crypto.randomUUID(),
 				content: practiceConfig.introMessage,
@@ -342,7 +344,8 @@ function MainApp({
 			};
 			addMessage(introMessage);
 		}
-	}, [practiceConfig, messages.length, addMessage]);
+	}
+}, [practiceConfig, messages.length, addMessage, isMockMode]);
 
 	// Create stable callback references for keyboard handlers
 	const handleEscape = useCallback(() => {

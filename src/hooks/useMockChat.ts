@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
-import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
+import type { ChatMessageUI, FileAttachment } from '../../worker/types';
 import { 
 	MOCK_MESSAGES, 
 	MOCK_MESSAGES_WITH_AVATARS, 

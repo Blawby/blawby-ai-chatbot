@@ -122,8 +122,7 @@ export const MOCK_MESSAGES_WITH_FILES: ChatMessageUI[] = [
 				name: 'document.pdf',
 				type: 'application/pdf',
 				size: 1024000,
-				url: 'https://via.placeholder.com/300x400?text=PDF+Document',
-				timestamp: new Date()
+				url: 'https://via.placeholder.com/300x400?text=PDF+Document'
 			}
 		]
 	},
@@ -139,8 +138,7 @@ export const MOCK_MESSAGES_WITH_FILES: ChatMessageUI[] = [
 				name: 'screenshot.png',
 				type: 'image/png',
 				size: 512000,
-				url: 'https://via.placeholder.com/400x300?text=Image+Attachment',
-				timestamp: new Date()
+				url: 'https://via.placeholder.com/400x300?text=Image+Attachment'
 			}
 		]
 	}
