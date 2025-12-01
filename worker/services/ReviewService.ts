@@ -14,7 +14,6 @@ export interface ReviewMatter {
     phone?: string;
   };
   answers?: Record<string, string>;
-  aiSummary?: string;
   lawyerNotes?: string;
 }
 
@@ -36,10 +35,8 @@ export class ReviewService {
           m.created_at,
           m.custom_fields,
           m.client_name,
-          m.contact_info,
-          aigs.summary as ai_summary
+          m.contact_info
         FROM matters m
-        LEFT JOIN ai_generated_summaries aigs ON m.id = aigs.matter_id
         WHERE m.organization_id = ? 
         AND m.status IN ('pending_review', 'approved', 'rejected')
         ORDER BY m.created_at DESC
@@ -77,7 +74,6 @@ export class ReviewService {
           clientName: matter.client_name as string | undefined,
           contactInfo,
           answers: customFields?.answers as Record<string, string> | undefined,
-          aiSummary: matter.ai_summary as string | undefined,
           lawyerNotes: customFields?.lawyerNotes as string | undefined
         };
       }) || [];

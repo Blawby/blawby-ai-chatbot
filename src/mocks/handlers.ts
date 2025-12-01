@@ -164,8 +164,8 @@ export const handlers = [
     ensurePracticeCollections(practiceId);
     const invitation: MockInvitation = {
       id: randomId('invite'),
-      practiceId: practiceId,
-      organizationName: findPractice(practiceId)?.name,
+      practiceId,
+      practiceName: findPractice(practiceId)?.name,
       email: body.email,
       role: body.role,
       status: 'pending' as const,

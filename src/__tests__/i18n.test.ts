@@ -24,8 +24,8 @@ if (typeof window !== 'undefined') {
     value: localStorageMock
   });
 }
-if (typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage === 'undefined') {
-  (globalThis as any).localStorage = localStorageMock;
+if (typeof globalThis !== 'undefined' && typeof (globalThis as { localStorage?: typeof localStorage }).localStorage === 'undefined') {
+  (globalThis as { localStorage: typeof localStorage }).localStorage = localStorageMock;
 }
 
 describe('i18n Configuration', () => {

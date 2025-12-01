@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { organizationConfigSchema } from '../../../worker/schemas/validation';
+import { conversationConfigSchema } from '../../../worker/schemas/validation';
 
-describe('organizationConfigSchema tools and agentMember', () => {
+describe('conversationConfigSchema tools and agentMember', () => {
   it('accepts tools and agentMember with expected shapes', () => {
     const input = {
       isPublic: true,
@@ -17,7 +17,7 @@ describe('organizationConfigSchema tools and agentMember', () => {
       },
     };
 
-    const parsed = organizationConfigSchema.parse(input);
+    const parsed = conversationConfigSchema.parse(input);
     expect(parsed.isPublic).toBe(true);
     expect(parsed.tools?.pdf_analysis?.enabled).toBe(true);
     expect(parsed.tools?.pdf_analysis?.quotaMetric).toBe('files');
@@ -33,13 +33,14 @@ describe('organizationConfigSchema tools and agentMember', () => {
       },
     } as unknown as { tools: Record<string, { enabled: boolean; quotaMetric: string; requiredRole: string; allowAnonymous: boolean }> };
 
-    expect(() => organizationConfigSchema.parse(bad)).toThrowError();
+    expect(() => conversationConfigSchema.parse(bad)).toThrowError();
   });
 
   it('allows empty config and optional fields omitted', () => {
     const minimal = {};
-    const parsed = organizationConfigSchema.parse(minimal);
+    const parsed = conversationConfigSchema.parse(minimal);
     expect(parsed.tools).toBeUndefined();
     expect(parsed.agentMember).toBeUndefined();
   });
 });
+

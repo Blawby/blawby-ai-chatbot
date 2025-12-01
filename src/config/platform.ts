@@ -9,12 +9,6 @@ export interface PlatformSettings {
   description: string | null;
   availableServices: string[];
   serviceQuestions: Record<string, string[]>;
-  jurisdiction: {
-    type: 'national' | 'state';
-    description: string;
-    supportedStates: string[];
-    supportedCountries: string[];
-  };
   voice: {
     enabled: boolean;
     provider: 'cloudflare' | 'elevenlabs' | 'custom';
@@ -98,12 +92,6 @@ export const PLATFORM_SETTINGS: PlatformSettings = {
       'What would a good outcome look like for you?',
       'Do you have any documents or information that might be relevant?'
     ]
-  },
-  jurisdiction: {
-    type: 'national',
-    description: 'Available nationwide',
-    supportedStates: ['all'],
-    supportedCountries: ['US']
   },
   voice: {
     enabled: false,

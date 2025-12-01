@@ -17,7 +17,6 @@ import LazyMedia from './LazyMedia';
 import MatterCanvas from './MatterCanvas';
 import MediaContent from './MediaContent';
 import Modal from './Modal';
-import PaymentEmbed from './PaymentEmbed';
 import ChatMarkdown from './ChatMarkdown';
 
 
@@ -33,12 +32,6 @@ interface MessageProps {
 		matterSummary: string;
 		answers?: Record<string, string>;
 		isExpanded?: boolean;
-	};
-	paymentEmbed?: {
-		paymentUrl: string;
-		amount?: number;
-		description?: string;
-		paymentId?: string;
 	};
 	contactForm?: {
 		fields: string[];
@@ -99,7 +92,8 @@ interface MessageProps {
 	onOpenSidebar?: () => void;
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	isLoading?: boolean;
-	aiState?: 'thinking' | 'processing' | 'generating';
+	// REMOVED: aiState - AI functionality removed, will be replaced with user-to-user chat
+	// aiState?: 'thinking' | 'processing' | 'generating';
 	toolMessage?: string;
 	// Feedback props
 	id?: string;
@@ -221,7 +215,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isUser, 
 	files = [], 
 	matterCanvas,
-	paymentEmbed,
 	contactForm,
 	documentChecklist,
 	lawyerSearchResults,
@@ -230,7 +223,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onOpenSidebar: _onOpenSidebar,
 	onContactFormSubmit,
 	isLoading,
-	aiState,
+	// REMOVED: aiState - AI functionality removed
+	// aiState,
 	toolMessage,
 	id: _id,
 	sessionId: _sessionId,
@@ -268,8 +262,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 
 
 	const hasContent = Boolean(content);
-	const isStreaming = isLoading && hasContent && aiState === 'generating';
-	const shouldShowIndicator = isLoading && (!hasContent || aiState !== 'generating');
+	// REMOVED: AI streaming state - AI functionality removed
+	// const isStreaming = isLoading && hasContent && aiState === 'generating';
+	const isStreaming = false; // No streaming for user-to-user chat
+	const shouldShowIndicator = isLoading && !hasContent;
 
 	return (
 		<div className={`flex flex-col max-w-full my-4 px-3 py-2 rounded-xl break-words relative ${
@@ -296,10 +292,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					</>
 				)}
 				
-				{/* Show AI thinking indicator only when we truly need a spinner */}
+				{/* REMOVED: AI thinking indicator - AI functionality removed */}
 				{shouldShowIndicator && (
 					<AIThinkingIndicator 
-						variant={aiState || 'thinking'} 
+						variant="thinking" 
 						toolMessage={toolMessage}
 					/>
 				)}
@@ -313,23 +309,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						service={matterCanvas.service}
 						matterSummary={matterCanvas.matterSummary}
 						answers={matterCanvas.answers || {}}
-					/>
-				)}
-				
-				{/* Display payment embed */}
-				{paymentEmbed && (
-					<PaymentEmbed
-							paymentUrl={paymentEmbed.paymentUrl}
-							amount={paymentEmbed.amount}
-							description={paymentEmbed.description}
-						onPaymentComplete={(paymentId) => {
-							// Handle payment completion
-							showSuccess('Payment received', `Payment ${paymentId} completed successfully.`);
-							
-							// TODO: Trigger scheduling flow separately if needed
-							// This could be handled by the parent component or a separate service
-							// showInfo('Scheduling', 'We will contact you shortly to schedule your consultation.');
-						}}
 					/>
 				)}
 				

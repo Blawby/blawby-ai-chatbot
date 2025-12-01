@@ -61,4 +61,3 @@ export type MatterType =
   | 'workers_compensation';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
-export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'cancelled';

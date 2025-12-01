@@ -33,7 +33,9 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { practices, currentPractice } = usePracticeManagement();
 
   const activePracticeIdFromSession =
-    (sessionData?.user as any)?.practiceId ?? (sessionData?.user as any)?.activePracticeId ?? null;
+    (sessionData?.user as { practiceId?: string; activePracticeId?: string })?.practiceId ?? 
+    (sessionData?.user as { practiceId?: string; activePracticeId?: string })?.activePracticeId ?? 
+    null;
 
   const activePracticeId = currentPractice?.id ?? activePracticeIdFromSession ?? null;
 

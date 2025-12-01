@@ -3,8 +3,9 @@ import type { Env } from '../types.js';
 import type { PracticeOrWorkspace } from '../types.js';
 
 export interface NotificationRequest {
-  type: 'lawyer_review' | 'matter_created' | 'payment_required' | 'matter_update';
-  practiceConfig: PracticeOrWorkspace | null;
+  type: 'lawyer_review' | 'matter_created' | 'matter_update';
+  practiceConfig?: PracticeOrWorkspace | null;
+  practice?: PracticeOrWorkspace | null; // Alias for practiceConfig for backward compatibility
   matterInfo?: {
     type: string;
     urgency?: string;
@@ -52,13 +53,14 @@ export class NotificationService {
   }
 
   async sendLawyerReviewNotification(request: NotificationRequest): Promise<void> {
-    const { practiceConfig, matterInfo } = request;
+    const { practiceConfig, practice, matterInfo } = request;
+    const effectivePractice = practiceConfig ?? practice ?? null;
     
     try {
       const { EmailService } = await import('./EmailService.js');
       const emailService = new EmailService(this.env.RESEND_API_KEY);
       
-      const ownerEmail = extractOwnerEmail(practiceConfig);
+      const ownerEmail = extractOwnerEmail(effectivePractice);
       if (!ownerEmail) {
         Logger.info('No owner email configured for practice - skipping lawyer review notification');
         return;
@@ -85,13 +87,14 @@ Please review this matter as soon as possible.`
   }
 
   async sendMatterCreatedNotification(request: NotificationRequest): Promise<void> {
-    const { practiceConfig, matterInfo, clientInfo } = request;
+    const { practiceConfig, practice, matterInfo, clientInfo } = request;
+    const effectivePractice = practiceConfig ?? practice ?? null;
     
     try {
       const { EmailService } = await import('./EmailService.js');
       const emailService = new EmailService(this.env.RESEND_API_KEY);
       
-      const ownerEmail = extractOwnerEmail(practiceConfig);
+      const ownerEmail = extractOwnerEmail(effectivePractice);
       if (!ownerEmail) {
         Logger.info('No owner email configured for practice - skipping matter creation notification');
         return;
@@ -118,41 +121,9 @@ Please review and take appropriate action.`
     }
   }
 
-  async sendPaymentRequiredNotification(request: NotificationRequest): Promise<void> {
-    const { practiceConfig, matterInfo, clientInfo } = request;
-    
-    try {
-      const { EmailService } = await import('./EmailService.js');
-      const emailService = new EmailService(this.env.RESEND_API_KEY);
-      
-      const ownerEmail = extractOwnerEmail(practiceConfig);
-      if (!ownerEmail) {
-        Logger.info('No owner email configured for practice - skipping payment notification');
-        return;
-      }
-
-      await emailService.send({
-        from: 'noreply@blawby.com',
-        to: ownerEmail,
-        subject: `Payment Required - ${matterInfo?.type || 'Unknown'} Matter`,
-        text: `A payment is required for a new legal matter:
-
-Client: ${clientInfo?.name || 'Unknown'}
-Contact: ${clientInfo?.email || 'No email'}, ${clientInfo?.phone || 'No phone'}
-Matter Type: ${matterInfo?.type || 'Unknown'}
-Description: ${matterInfo?.description || 'No description provided'}
-
-Payment link has been sent to the client. Please monitor payment status.`
-      });
-
-      Logger.info('Payment required notification sent successfully');
-    } catch (error) {
-      Logger.warn('Failed to send payment required notification:', error);
-    }
-  }
-
   async sendMatterUpdateNotification(request: NotificationRequest): Promise<void> {
-    const { practiceConfig, update, matterInfo } = request;
+    const { practiceConfig, practice, update, matterInfo } = request;
+    const effectivePractice = practiceConfig ?? practice ?? null;
 
     try {
       // Validate update payload in an action-aware manner
@@ -182,7 +153,7 @@ Payment link has been sent to the client. Please monitor payment status.`
       const { EmailService } = await import('./EmailService.js');
       const emailService = new EmailService(this.env.RESEND_API_KEY);
 
-      const ownerEmail = extractOwnerEmail(practiceConfig);
+      const ownerEmail = extractOwnerEmail(effectivePractice);
       if (!ownerEmail) {
         Logger.info('No owner email configured for practice - skipping matter update notification');
         return;

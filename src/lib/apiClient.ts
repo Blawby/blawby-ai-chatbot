@@ -30,7 +30,7 @@ apiClient.interceptors.request.use(
       config.headers = {
         ...config.headers,
         Authorization: `Bearer ${token}`
-      } as any; // Use any to avoid AxiosHeaders vs AxiosRequestHeaders conflicts
+      } as Record<string, string>; // Type assertion for headers compatibility
     }
     return config;
   },
@@ -47,11 +47,30 @@ export interface Practice {
   metadata?: PracticeMetadata;
   businessPhone?: string | null;
   businessEmail?: string | null;
-  consultationFee?: number | null;
-  paymentUrl?: string | null;
   calendlyUrl?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  
+  // Subscription and practice management properties
+  kind?: 'personal' | 'business' | 'practice';
+  subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+  subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
+  seats?: number | null;
+  config?: {
+    ownerEmail?: string;
+    metadata?: Record<string, unknown>;
+    description?: string;
+    [key: string]: unknown; // Allow additional config properties
+  };
+  stripeCustomerId?: string | null;
+  subscriptionPeriodEnd?: number | null;
+  description?: string;
+  isPersonal?: boolean | null;
+  betterAuthOrgId?: string;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  businessOnboardingCompletedAt?: number | null;
+  businessOnboardingSkipped?: boolean;
+  businessOnboardingHasDraft?: boolean;
 }
 
 export interface CreatePracticeRequest {
@@ -61,8 +80,6 @@ export interface CreatePracticeRequest {
   metadata?: PracticeMetadata;
   businessPhone?: string;
   businessEmail?: string;
-  consultationFee?: number;
-  paymentUrl?: string;
   calendlyUrl?: string;
 }
 
@@ -232,8 +249,6 @@ function normalizePracticePayload(payload: unknown): Practice {
     metadata: isRecord(payload.metadata) ? payload.metadata : undefined,
     businessPhone: toNullableString(payload.businessPhone ?? payload.business_phone),
     businessEmail: toNullableString(payload.businessEmail ?? payload.business_email),
-    consultationFee: toNullableNumber(payload.consultationFee ?? payload.consultation_fee),
-    paymentUrl: toNullableString(payload.paymentUrl ?? payload.payment_url),
     calendlyUrl: toNullableString(payload.calendlyUrl ?? payload.calendly_url),
     createdAt: toNullableString(payload.createdAt ?? payload.created_at),
     updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at)

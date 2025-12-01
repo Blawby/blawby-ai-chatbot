@@ -236,30 +236,6 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
         </div>
       </div>
 
-      {/* Payment Section */}
-      {matter.hasPayment && matter.paymentEmbed && (
-        <div>
-          <div>
-            <CreditCardIcon />
-            <h4>Payment Required</h4>
-          </div>
-          <p>
-            {matter.paymentEmbed.description || 'Consultation fee'}
-            {matter.paymentEmbed.amount !== null && matter.paymentEmbed.amount !== undefined && (
-              <span> - {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(matter.paymentEmbed.amount)}</span>
-            )}
-          </p>
-          <div>
-            <button onClick={onPayNow}>
-              Pay Now
-            </button>
-            <button onClick={onViewInChat}>
-              View in Chat
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Ready State Actions */}
       {status === 'ready' && (
         <div>

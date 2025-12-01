@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock IndexedDB before importing tokenStorage
 class MockIDBRequest {
-  result: any = null;
+  result: unknown = null;
   error: DOMException | null = null;
   onsuccess: ((event: Event) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
@@ -10,7 +10,7 @@ class MockIDBRequest {
 
   constructor(public operation: string) {}
 
-  dispatchSuccess(result?: any) {
+  dispatchSuccess(result?: unknown) {
     this.result = result;
     if (this.onsuccess) {
       this.onsuccess(new Event('success'));
@@ -38,10 +38,10 @@ class MockIDBTransaction {
 }
 
 // Global storage for mock IndexedDB data (persists across transactions)
-const mockStorage: Map<string, Map<string, any>> = new Map();
+const mockStorage: Map<string, Map<string, unknown>> = new Map();
 
 class MockIDBObjectStore {
-  private get data(): Map<string, any> {
+  private get data(): Map<string, unknown> {
     if (!mockStorage.has(this.name)) {
       mockStorage.set(this.name, new Map());
     }
@@ -60,16 +60,16 @@ class MockIDBObjectStore {
       const value = this.data.get(key) || null;
       request.dispatchSuccess(value);
     }, 0);
-    return request as any;
+    return request as unknown as MockIDBRequest;
   }
 
-  put(value: any, key: string): MockIDBRequest {
+  put(value: unknown, key: string): MockIDBRequest {
     const request = new MockIDBRequest('put');
     setTimeout(() => {
       this.data.set(key, value);
       request.dispatchSuccess(value);
     }, 0);
-    return request as any;
+    return request as unknown as MockIDBRequest;
   }
 
   delete(key: string): MockIDBRequest {
@@ -78,7 +78,7 @@ class MockIDBObjectStore {
       this.data.delete(key);
       request.dispatchSuccess();
     }, 0);
-    return request as any;
+    return request as unknown as MockIDBRequest;
   }
 }
 
@@ -92,7 +92,7 @@ class MockIDBDatabase {
       contains: (name: string) => this.storeNames.includes(name),
       item: (index: number) => this.storeNames[index] || null,
       length: this.storeNames.length,
-      [Symbol.iterator]: function* () {
+      *[Symbol.iterator]() {
         for (let i = 0; i < this.storeNames.length; i++) {
           yield this.storeNames[i];
         }
@@ -130,9 +130,9 @@ function setupIndexedDBMock() {
 
   // Setup indexedDB mock
   if (typeof global !== 'undefined') {
-    (global as any).indexedDB = {
+    (global as { indexedDB?: typeof indexedDB }).indexedDB = {
       open: (name: string, version?: number) => {
-        const openRequest = new MockIDBRequest('open') as any;
+        const openRequest = new MockIDBRequest('open') as unknown as IDBOpenDBRequest;
         
         setTimeout(() => {
           if (!mockDB) {
@@ -154,21 +154,21 @@ function setupIndexedDBMock() {
           
           // Trigger success
           if (openRequest) {
-            (openRequest as any).result = mockDB;
-            openRequest.dispatchSuccess(mockDB);
+            (openRequest as { result?: MockIDBDatabase }).result = mockDB;
+            (openRequest as MockIDBRequest).dispatchSuccess(mockDB);
           }
         }, 0);
 
-        return openRequest;
+        return openRequest as unknown as IDBOpenDBRequest;
       },
       deleteDatabase: vi.fn(),
       cmp: vi.fn(),
-    };
+    } as typeof indexedDB;
   }
 
   // Also setup on window for browser-like environment
   if (typeof window !== 'undefined') {
-    (window as any).indexedDB = (global as any).indexedDB;
+    (window as { indexedDB?: typeof indexedDB }).indexedDB = (global as { indexedDB?: typeof indexedDB }).indexedDB;
   }
 }
 
@@ -334,14 +334,17 @@ describe('tokenStorage', () => {
   describe('error handling', () => {
     it('should handle IndexedDB errors gracefully', async () => {
       // Simulate IndexedDB error
-      const originalOpen = (global as any).indexedDB.open;
-      (global as any).indexedDB.open = vi.fn(() => {
-        const request = new MockIDBRequest('open') as any;
-        setTimeout(() => {
-          request.dispatchError(new DOMException('Database error', 'UnknownError'));
-        }, 0);
-        return request;
-      });
+      const globalIndexedDB = global as { indexedDB?: typeof indexedDB };
+      const originalOpen = globalIndexedDB.indexedDB?.open;
+      if (globalIndexedDB.indexedDB) {
+        globalIndexedDB.indexedDB.open = vi.fn(() => {
+          const request = new MockIDBRequest('open') as unknown as IDBOpenDBRequest;
+          setTimeout(() => {
+            (request as MockIDBRequest).dispatchError(new DOMException('Database error', 'UnknownError'));
+          }, 0);
+          return request;
+        });
+      }
 
       vi.resetModules();
       const { getToken } = await import('../../lib/tokenStorage');
@@ -349,7 +352,9 @@ describe('tokenStorage', () => {
       expect(token).toBeNull();
 
       // Restore
-      (global as any).indexedDB.open = originalOpen;
+      if (globalIndexedDB.indexedDB && originalOpen) {
+        globalIndexedDB.indexedDB.open = originalOpen;
+      }
       setupIndexedDBMock();
     });
   });

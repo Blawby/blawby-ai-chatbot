@@ -1,93 +1,5 @@
-import { getPractice, listPractices } from '../lib/apiClient.js';
-import type { Practice } from '../lib/apiClient.js';
-
 // API endpoints - moved inline since api.ts was removed
 const getFormsEndpoint = () => '/api/forms';
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ULID_REGEX = /^[0-9A-Z]{26}$/i;
-
-interface PaymentConfig {
-  ownerEmail?: string;
-  requiresPayment?: boolean;
-  consultationFee?: number;
-  paymentLink?: string;
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-const looksLikePracticeId = (value: string): boolean =>
-  UUID_REGEX.test(value) || ULID_REGEX.test(value);
-
-const toPaymentConfig = (source: unknown): PaymentConfig | null => {
-  if (!isRecord(source)) {
-    return null;
-  }
-  const config = {
-    ownerEmail: typeof source.ownerEmail === 'string' ? source.ownerEmail : undefined,
-    requiresPayment: typeof source.requiresPayment === 'boolean' ? source.requiresPayment : undefined,
-    consultationFee: typeof source.consultationFee === 'number' ? source.consultationFee : undefined,
-    paymentLink: typeof source.paymentLink === 'string' ? source.paymentLink : undefined
-  };
-
-  // Return null if no payment-related fields were found
-  if (config.ownerEmail === undefined && 
-      config.requiresPayment === undefined && 
-      config.consultationFee === undefined && 
-      config.paymentLink === undefined) {
-    return null;
-  }
-
-  return config;
-};
-
-const resolvePaymentConfig = (practice?: Practice): PaymentConfig | null => {
-  if (!practice) {
-    return null;
-  }
-
-  // Check practice.config if it exists
-  const direct = 'config' in practice && practice.config 
-    ? toPaymentConfig(practice.config) 
-    : null;
-  if (direct) {
-    return direct;
-  }
-
-  // Fallback to metadata.conversationConfig
-  if (isRecord(practice.metadata) && isRecord(practice.metadata.conversationConfig)) {
-    return toPaymentConfig(practice.metadata.conversationConfig);
-  }
-
-  return null;
-};
-
-const fetchPracticeForIdentifier = async (identifier: string): Promise<Practice | undefined> => {
-  const trimmed = identifier.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  if (looksLikePracticeId(trimmed)) {
-    try {
-      return await getPractice(trimmed);
-    } catch (error) {
-      console.warn('Direct practice lookup failed, falling back to list search', {
-        practiceId: trimmed,
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  }
-
-  try {
-    const practices = await listPractices({ scope: 'all' });
-    return practices.find((practice) => practice.id === trimmed || practice.slug === trimmed);
-  } catch (error) {
-    console.warn('Failed to list practices while resolving payment requirements', error);
-    return undefined;
-  }
-};
 
 // Utility function to format form data for submission
 export function formatFormData(formData: Record<string, unknown>, practiceId: string) {
@@ -124,12 +36,6 @@ export async function submitContactForm(
       const result = await response.json();
       console.log('Form submitted successfully:', result);
       
-      // Fetch practice configuration to check payment requirements
-      let practice: Practice | undefined;
-      if (practiceId) {
-        practice = await fetchPracticeForIdentifier(practiceId);
-      }
-      
       // Create confirmation message for matter vs lead first
       const baseMessage = '✅ Your lead has been submitted. The legal team will review and contact you.';
       let confirmationContent = baseMessage;
@@ -139,24 +45,6 @@ export async function submitContactForm(
 
       if (hasMatter) {
         confirmationContent = '✅ Perfect! Your matter details have been submitted successfully and updated below.';
-      }
-
-      // Independently append payment block if required by practice config
-      const config = resolvePaymentConfig(practice);
-      if (config?.requiresPayment) {
-        const fee = config.consultationFee ?? 0;
-        const paymentLink = config.paymentLink ?? '';
-        const practiceName = practice?.name ?? 'our firm';
-
-        let paymentText = '';
-        if (fee <= 0 || !paymentLink) {
-          console.warn('Payment required but missing fee or payment link:', { fee, paymentLink });
-          paymentText = `A lawyer will reach out with payment details shortly. Thank you for choosing ${practiceName}!`;
-        } else {
-          paymentText = `💰 **Consultation Fee**: $${fee}\n\nTo continue, please complete the payment.\n\n🔗 **Payment Link**: ${paymentLink}\n\nOnce payment is complete, a lawyer will review your matter and follow up.`;
-        }
-
-        confirmationContent = `${confirmationContent}\n\n${paymentText}`;
       }
 
       // Update the loading message with confirmation

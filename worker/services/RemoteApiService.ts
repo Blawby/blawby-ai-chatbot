@@ -224,7 +224,7 @@ export class RemoteApiService {
     }
 
     try {
-      return this.validateConversationConfig(rawConfig);
+      return this.validateConversationConfig(rawConfig as Record<string, unknown>);
     } catch (error) {
       Logger.warn('Invalid conversation config received from remote API', {
         error: error instanceof Error ? error.message : String(error)
@@ -256,51 +256,47 @@ export class RemoteApiService {
       throw new Error('voice must be an object');
     }
 
-    const voice = {
-      enabled: Boolean(voiceValue && typeof voiceValue === 'object' ? (voiceValue as Record<string, unknown>).enabled : false),
-      provider: (voiceValue && typeof voiceValue === 'object' && typeof (voiceValue as Record<string, unknown>).provider === 'string'
-        ? (voiceValue as Record<string, unknown>).provider
+    const voiceObj = voiceValue && typeof voiceValue === 'object' ? (voiceValue as Record<string, unknown>) : {};
+    const voice: ConversationConfig['voice'] = {
+      enabled: Boolean(voiceObj.enabled),
+      provider: (typeof voiceObj.provider === 'string' && ['cloudflare', 'elevenlabs', 'custom'].includes(voiceObj.provider)
+        ? voiceObj.provider
         : 'cloudflare') as ConversationConfig['voice']['provider'],
-      voiceId: voiceValue && typeof voiceValue === 'object' && typeof (voiceValue as Record<string, unknown>).voiceId === 'string'
-        ? (voiceValue as Record<string, unknown>).voiceId
-        : null,
-      displayName: voiceValue && typeof voiceValue === 'object' && typeof (voiceValue as Record<string, unknown>).displayName === 'string'
-        ? (voiceValue as Record<string, unknown>).displayName
-        : null,
-      previewUrl: voiceValue && typeof voiceValue === 'object' && typeof (voiceValue as Record<string, unknown>).previewUrl === 'string'
-        ? (voiceValue as Record<string, unknown>).previewUrl
-        : null
+      voiceId: typeof voiceObj.voiceId === 'string' ? voiceObj.voiceId : undefined,
+      displayName: typeof voiceObj.displayName === 'string' ? voiceObj.displayName : undefined,
+      previewUrl: typeof voiceObj.previewUrl === 'string' ? voiceObj.previewUrl : undefined
     };
 
     return {
-      consultationFee: typeof config.consultationFee === 'number' ? config.consultationFee : 0,
-      requiresPayment: Boolean(config.requiresPayment),
       ownerEmail: typeof config.ownerEmail === 'string' ? config.ownerEmail : undefined,
       availableServices: requiredStringArray(config.availableServices ?? []),
       serviceQuestions: requiredRecord(config.serviceQuestions ?? {}),
       domain: typeof config.domain === 'string' ? config.domain : '',
       description: typeof config.description === 'string' ? config.description : '',
-      paymentLink: typeof config.paymentLink === 'string' ? config.paymentLink : undefined,
       brandColor: typeof config.brandColor === 'string' ? config.brandColor : '#000000',
       accentColor: typeof config.accentColor === 'string' ? config.accentColor : '#000000',
       introMessage: typeof config.introMessage === 'string' ? config.introMessage : '',
       profileImage: typeof config.profileImage === 'string' ? config.profileImage : undefined,
       voice,
-      blawbyApi: typeof config.blawbyApi === 'object' && config.blawbyApi !== null
-        ? {
-            enabled: Boolean((config.blawbyApi as Record<string, unknown>).enabled),
-            apiKeyHash: typeof (config.blawbyApi as Record<string, unknown>).apiKeyHash === 'string'
-              ? (config.blawbyApi as Record<string, unknown>).apiKeyHash
-              : undefined,
-            organizationUlid: typeof (config.blawbyApi as Record<string, unknown>).organizationUlid === 'string'
-              ? (config.blawbyApi as Record<string, unknown>).organizationUlid
-              : undefined,
-            apiUrl: typeof (config.blawbyApi as Record<string, unknown>).apiUrl === 'string'
-              ? (config.blawbyApi as Record<string, unknown>).apiUrl
-              : undefined,
-            apiKey: null
-          }
-        : undefined,
+      blawbyApi: (() => {
+        if (typeof config.blawbyApi !== 'object' || config.blawbyApi === null) {
+          return undefined;
+        }
+        const apiObj = config.blawbyApi as Record<string, unknown>;
+        const result: ConversationConfig['blawbyApi'] = {
+          enabled: Boolean(apiObj.enabled),
+        };
+        if (typeof apiObj.apiKeyHash === 'string') {
+          result.apiKeyHash = apiObj.apiKeyHash;
+        }
+        if (typeof apiObj.organizationUlid === 'string') {
+          result.organizationUlid = apiObj.organizationUlid;
+        }
+        if (typeof apiObj.apiUrl === 'string') {
+          result.apiUrl = apiObj.apiUrl;
+        }
+        return result;
+      })(),
       testMode: typeof config.testMode === 'boolean' ? config.testMode : undefined,
       metadata: typeof config.metadata === 'object' && config.metadata !== null ? config.metadata as Record<string, unknown> : undefined,
       betterAuthOrgId: typeof config.betterAuthOrgId === 'string' ? config.betterAuthOrgId : undefined,

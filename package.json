@@ -6,7 +6,6 @@
 	},
 	"scripts": {
 		"dev": "vite",
-		"dev:seed": "tsx scripts/dev-seed-practice.ts",
 		"dev:worker": "wrangler dev --port 8787",
 		"dev:worker:clean": "lsof -ti:8787 | xargs kill -9 2>/dev/null || true && wrangler dev --port 8787",
 		"dev:full": "concurrently \"npm run dev\" \"npm run dev:worker\"",
@@ -24,6 +23,7 @@
 		"test:component": "vitest run -c config/vitest/vitest.config.component.ts",
 		"db:reset": "./scripts/reset-dev-db.sh",
 		"db:init": "wrangler d1 execute blawby-ai-chatbot --local --file worker/schema.sql",
+		"validate:lawyer-api-migration": "tsx scripts/validate-lawyer-api-migration.ts",
 		"test:all": "npm run test",
 		"test:watch": "vitest --watch -c config/vitest/vitest.config.unit.ts",
 		"test:ui": "vitest --ui -c config/vitest/vitest.config.component.ts",

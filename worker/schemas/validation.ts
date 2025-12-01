@@ -54,17 +54,14 @@ export const matterUpdateSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional()
 });
 
-// Conversation config schemas (formerly organizationConfigSchema)
+// Conversation config schemas
 export const conversationConfigSchema = z.object({
   // AI fields removed - no longer used
-  consultationFee: z.number().min(0).optional(),
-  requiresPayment: z.boolean().optional(),
   ownerEmail: emailSchema.optional(),
   availableServices: z.array(z.string().min(1)).optional(),
   serviceQuestions: z.record(z.string(), z.array(z.string().min(1))).optional(),
   domain: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
-  paymentLink: z.string().url().optional(),
   brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   introMessage: z.string().min(1).optional(),
@@ -91,42 +88,6 @@ export const conversationConfigSchema = z.object({
     tagRequired: z.boolean().optional()
   }).optional()
 }).passthrough();
-
-
-// Legacy organization schemas - kept for backward compatibility but deprecated
-// All organization management is now handled by remote API
-export const organizationConfigSchema = conversationConfigSchema; // Alias for backward compatibility
-
-// Organization database schema - DEPRECATED (organizations table removed)
-export const organizationDbSchema = z.object({
-  id: idSchema,
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  stripeCustomerId: stripeCustomerIdSchema,
-  subscriptionTier: subscriptionTierSchema.default('free'),
-  seats: seatsSchema,
-  createdAt: timestampSchema,
-  updatedAt: timestampSchema
-});
-
-// Organization creation/update schemas - DEPRECATED (use remote API)
-export const organizationCreateSchema = z.object({
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  config: conversationConfigSchema,
-  stripeCustomerId: stripeCustomerIdSchema,
-  subscriptionTier: subscriptionTierSchema.default('free'),
-  seats: seatsSchema
-});
-
-export const organizationUpdateSchema = z.object({
-  name: z.string().min(1).optional(),
-  slug: z.string().min(1).optional(),
-  config: conversationConfigSchema.optional(),
-  stripeCustomerId: stripeCustomerIdSchema.optional(),
-  subscriptionTier: subscriptionTierSchema.optional(),
-  seats: seatsSchema.optional()
-});
 
 // Form schemas
 export const contactFormSchema = z.object({
@@ -189,9 +150,6 @@ export const practiceIdQuerySchema = z.object({
   practiceId: idSchema
 });
 
-// Legacy alias for backward compatibility
-export const organizationIdQuerySchema = practiceIdQuerySchema;
-
 // Session request body schema
 export const sessionRequestBodySchema = z.object({
   practiceId: z.string().min(1).optional(),
@@ -214,28 +172,6 @@ export const multipartHeadersSchema = z.object({
   'content-type': z.string().includes('multipart/form-data')
 });
 
-// Practice Management API Response Schemas (DEPRECATED - handled by remote API)
-export const organizationMemberSchema = z.object({
-  userId: z.string().min(1),
-  role: organizationRoleSchema,
-  email: z.string().email().nullable().optional(),
-  name: z.string().nullable().optional(),
-  image: z.string().nullable().optional(),
-  createdAt: timestampSchema
-});
-
-export const organizationInvitationSchema = z.object({
-  id: z.string().min(1),
-  organizationId: z.string().min(1),
-  organizationName: z.string().optional(),
-  email: z.string().email(),
-  role: organizationRoleSchema,
-  status: z.enum(['pending', 'accepted', 'declined']),
-  invitedBy: z.string().min(1),
-  expiresAt: timestampSchema,
-  createdAt: timestampSchema
-});
-
 export const practiceSchema = z.object({
   id: z.string().min(1),
   slug: z.string().min(1),
@@ -251,12 +187,4 @@ export const practiceSchema = z.object({
     conversationConfig: conversationConfigSchema.optional()
   }).optional(),
   kind: z.enum(['workspace', 'practice']).optional()
-});
-
-// Legacy alias for backward compatibility
-export const organizationSchema = practiceSchema;
-
-// API Response schemas
-export const membersResponseSchema = z.object({
-  members: z.array(organizationMemberSchema)
 });

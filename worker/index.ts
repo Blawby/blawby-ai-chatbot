@@ -13,6 +13,7 @@ import {
   handleDebug,
   handleConfig,
 } from './routes';
+import { handleLawyers } from './routes/lawyers.js';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
@@ -136,6 +137,17 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleStatus(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
+    } else if (path.startsWith('/api/lawyers')) {
+      response = await handleLawyers(request, env);
+    } else if (path.startsWith('/api/agent')) {
+      // REMOVED: AI agent endpoints - AI functionality removed, will be replaced with user-to-user chat
+      response = new Response(JSON.stringify({ 
+        error: 'AI agent endpoints have been removed. User-to-user chat will be available in a future update.',
+        errorCode: 'AI_REMOVED'
+      }), {
+        status: 410, // 410 Gone - indicates the resource is permanently removed
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path === '/api/health') {
       response = await handleHealth(request, env);
     } else if (path === '/') {

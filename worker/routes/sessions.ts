@@ -92,7 +92,7 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     
     // Determine practice ID: body takes precedence over URL param
     let practiceId: string;
-    const bodyPracticeId = (body as any).practiceId;
+    const bodyPracticeId = (body as { practiceId?: string }).practiceId;
     if (bodyPracticeId) {
       // Use practice from request body
       practiceId = await normalizePracticeId(env, bodyPracticeId, request);

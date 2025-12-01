@@ -38,15 +38,6 @@ export function useMatterState(messages: ChatMessageUI[]): MatterState {
       return null;
     }
 
-    // Find payment embed in the same message or nearby messages
-    let paymentEmbed = null;
-    for (const message of messages) {
-      if (message.paymentEmbed) {
-        paymentEmbed = message.paymentEmbed;
-        break;
-      }
-    }
-
     // Find document checklist in the same message or nearby messages
     let documentChecklist = null;
     for (const message of messages) {
@@ -62,8 +53,6 @@ export function useMatterState(messages: ChatMessageUI[]): MatterState {
       service: latestMatterCanvas.service,
       matterSummary: latestMatterCanvas.matterSummary,
       answers: latestMatterCanvas.answers,
-      hasPayment: !!paymentEmbed,
-      paymentEmbed,
       documentChecklist,
       status: 'incomplete' as MatterStatus // Will be determined below
     };
@@ -86,10 +75,6 @@ export function useMatterState(messages: ChatMessageUI[]): MatterState {
 
     // Analyze missing information using centralized utility
     const missingInfo = analyzeMissingInfo(matterData);
-    
-    // Check if payment is required and completed
-    const paymentComplete = !matterData.hasPayment || 
-                           (matterData.paymentEmbed && matterData.paymentEmbed.paymentId);
 
     // Check if required documents are uploaded
     const documentsComplete = !matterData.documentChecklist ||
@@ -98,8 +83,8 @@ export function useMatterState(messages: ChatMessageUI[]): MatterState {
                                .every(doc => doc.status === 'uploaded');
 
     // Matter is ready if it has basic info, no missing critical info, 
-    // payment is handled, and required documents are uploaded
-    if (missingInfo.length === 0 && paymentComplete && documentsComplete) {
+    // and required documents are uploaded
+    if (missingInfo.length === 0 && documentsComplete) {
       return 'ready';
     }
 

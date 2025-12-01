@@ -88,6 +88,9 @@ const useOrgMgmtMock = {
   createOrganization: vi.fn(),
   updateOrganization: vi.fn(),
   deleteOrganization: vi.fn(),
+  createPractice: vi.fn(),
+  updatePractice: vi.fn(),
+  deletePractice: vi.fn(),
   inviteMember: vi.fn(),
   acceptInvitation: vi.fn(),
   declineInvitation: vi.fn(),
@@ -210,6 +213,9 @@ describe('SettingsPage Integration Tests', () => {
     useOrgMgmtMock.getWorkspaceData = vi.fn();
     useOrgMgmtMock.fetchWorkspaceData = vi.fn();
     useOrgMgmtMock.refetch = vi.fn();
+    useOrgMgmtMock.createPractice = vi.fn();
+    useOrgMgmtMock.updatePractice = vi.fn();
+    useOrgMgmtMock.deletePractice = vi.fn();
     
     // Set up the mock return value
     vi.mocked(usePracticeManagement).mockReturnValue(useOrgMgmtMock);

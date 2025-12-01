@@ -11,7 +11,6 @@
 # - In production, VITE_API_URL is undefined, so the frontend uses relative URLs (/api/...)
 
 # API Keys and Tokens (SENSITIVE)
-BLAWBY_API_TOKEN=your_blawby_api_token_here
 LAWYER_SEARCH_API_KEY=your_lawyer_search_api_key_here
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
 RESEND_API_KEY=your_resend_api_key_here
@@ -27,11 +26,8 @@ ADOBE_TECHNICAL_ACCOUNT_EMAIL=your_technical_account_email@techacct.adobe.com
 ADOBE_ORGANIZATION_ID=your_organization_id@AdobeOrg
 
 # Remote Auth Server Configuration (SENSITIVE)
-# Note: Auth is now handled by remote server. These are kept for legacy compatibility.
+# Note: Auth is now handled by remote server (staging-api.blawby.com)
 AUTH_SERVER_URL=https://staging-api.blawby.com
-# Legacy Better Auth config (deprecated - kept for migration period)
-BETTER_AUTH_SECRET=your_better_auth_secret_here
-BETTER_AUTH_URL=http://localhost:8787
 
 # Frontend Environment Variables (Vite)
 # These should be set in your .env file or build environment, not in .dev.vars
@@ -50,18 +46,3 @@ ENABLE_AUTH_IP_DETECTION=false
 
 # Domain Configuration (NON-SENSITIVE)
 # DOMAIN=localhost  # Set this in .dev.vars for local development
-
-# Google OAuth Configuration (SENSITIVE)
-GOOGLE_CLIENT_ID=your_google_client_id_here
-GOOGLE_CLIENT_SECRET=your_google_client_secret_here
-
-# Stripe Configuration (SENSITIVE)
-STRIPE_SECRET_KEY=your_stripe_secret_key_here
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret_here
-STRIPE_CONNECT_WEBHOOK_SECRET=your_stripe_connect_webhook_secret_here
-STRIPE_PRICE_ID=your_price_id_here
-STRIPE_ANNUAL_PRICE_ID=your_annual_price_id_here
-
-# Development Practice Seeding
-# NOTE: Dev seed environment variables are NOT Worker secrets.
-#       Set them in .env (see .env.example) or export them in your shell before running npm run dev:seed.

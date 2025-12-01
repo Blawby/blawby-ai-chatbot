@@ -81,16 +81,6 @@ export const getMatterCreationEndpoint = () => {
   return `${config.baseUrl}${config.matterCreationEndpoint}`;
 };
 
-// Payment endpoints - now handled by remote API
-export const getPaymentUpgradeEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/payment/upgrade`;
-};
-
-export const getPaymentStatusEndpoint = (paymentId: string) => {
-  const encodedId = encodeURIComponent(paymentId);
-  return `${getRemoteApiUrl()}/api/payment/status/${encodedId}`;
-};
-
 // Subscription endpoints - now handled by remote API
 export const getSubscriptionUpgradeEndpoint = () => {
   return `${getRemoteApiUrl()}/api/auth/subscription/upgrade`;
