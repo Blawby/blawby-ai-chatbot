@@ -59,8 +59,6 @@ interface AppLayoutProps {
   onUploadDocument?: (files: File[], metadata?: { documentType?: string; matterId?: string }) => Promise<FileAttachment[]>;
   children: ComponentChildren; // ChatContainer component
   onOnboardingCompleted?: () => Promise<void> | void;
-  selectedMatterId?: string | null;
-  onMatterSelect?: (matterId: string) => void;
 }
 
 const AppLayout: FunctionComponent<AppLayoutProps> = ({
@@ -79,9 +77,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   onSendMessage,
   onUploadDocument,
   children,
-  onOnboardingCompleted: _onOnboardingCompleted,
-  selectedMatterId,
-  onMatterSelect
+  onOnboardingCompleted: _onOnboardingCompleted
 }) => {
   // Matter state management
   const { matter, status: matterStatus } = useMatterState(chatMessages);
@@ -266,8 +262,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               currentPractice={currentPractice}
               onboardingStatus={onboardingStatus}
               onboardingHasDraft={hasOnboardingDraft}
-              selectedMatterId={selectedMatterId}
-              onSelectMatter={onMatterSelect}
             />
           </div>
           
@@ -332,11 +326,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                     currentPractice={currentPractice}
                     onboardingStatus={onboardingStatus}
                     onboardingHasDraft={hasOnboardingDraft}
-                    selectedMatterId={selectedMatterId}
-                    onSelectMatter={(id) => {
-                      onMatterSelect?.(id);
-                      onToggleMobileSidebar(false);
-                    }}
                   />
                 </motion.div>
               </motion.div>

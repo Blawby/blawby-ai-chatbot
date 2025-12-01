@@ -84,11 +84,6 @@ function MainApp({
 	}, [showError]);
 	const { quota, refreshQuota, activePracticeId } = useSessionContext();
 	const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
-	const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
-
-	useEffect(() => {
-		setSelectedMatterId(null);
-	}, [practiceId]);
 
 	const isQuotaRestricted = Boolean(
 		quota &&
@@ -518,13 +513,11 @@ function MainApp({
 				onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
 					return await handleFileSelect(files);
 				}}
-				selectedMatterId={selectedMatterId}
-				onMatterSelect={setSelectedMatterId}
 			>
 				<div className="relative h-full flex flex-col">
 					<ConversationHeader
 						practiceId={practiceId}
-						matterId={selectedMatterId}
+						matterId={null}
 						acceptMatter={acceptMatter}
 						rejectMatter={rejectMatter}
 						updateMatterStatus={updateMatterStatus}

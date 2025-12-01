@@ -8,7 +8,6 @@ import {
   handleActivity,
   handleFiles,
   handleAnalyze,
-  handleReview,
   handlePDF,
   handleDebug,
   handleConfig,
@@ -97,8 +96,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleFiles(request, env);
     } else if (path === '/api/analyze') {
       response = await handleAnalyze(request, env);
-    } else if (path.startsWith('/api/review')) {
-      response = await handleReview(request, env);
     } else if (path === '/api/stripe/webhook') {
       // Stripe webhooks are handled by remote API
       response = new Response(JSON.stringify({ error: 'Stripe webhook endpoints are handled by remote API' }), {
