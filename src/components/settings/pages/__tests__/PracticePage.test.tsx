@@ -243,7 +243,7 @@ describe('PracticePage', () => {
     useOrgMgmtMock.error = null;
     
     // Sync SessionContext with null currentPractice
-    mockSessionContext.activePracticeId = null as any;
+    mockSessionContext.activePracticeId = null as string | null;
 
     render(<PracticePage />);
     
@@ -262,7 +262,7 @@ describe('PracticePage', () => {
     useOrgMgmtMock.error = 'Failed to load practices';
     
     // Sync SessionContext with null currentPractice
-    mockSessionContext.activePracticeId = null as any;
+    mockSessionContext.activePracticeId = null as string | null;
 
     render(<PracticePage />);
     
@@ -568,8 +568,8 @@ describe('PracticePage', () => {
     useOrgMgmtMock.currentPractice = null;
     
     // Sync SessionContext with null currentPractice - both activePracticeId and activePracticeSlug should be null for empty-state scenario
-    mockSessionContext.activePracticeId = null as any;
-    mockSessionContext.activePracticeSlug = null as any;
+    mockSessionContext.activePracticeId = null as string | null;
+    mockSessionContext.activePracticeSlug = null as string | null;
     
     render(<PracticePage />);
     

@@ -30,6 +30,9 @@ export interface Env {
   IDEMPOTENCY_SALT?: string;
   LAWYER_SEARCH_API_KEY?: string;
   LAWYER_SEARCH_API_URL?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_PUBLIC_URL?: string;
   
   // Environment flags
   NODE_ENV?: string;

@@ -82,7 +82,7 @@ async function handleGetActivity(request: Request, env: Env): Promise<Response> 
   try {
     sessionResolution = await SessionService.resolveSession(env, {
       request,
-      organizationId: practiceId, // TODO: Update SessionService to use practiceId
+      practiceId: practiceId,
       createIfMissing: true // Allow creating session if missing
     });
   } catch (error) {
@@ -90,7 +90,7 @@ async function handleGetActivity(request: Request, env: Env): Promise<Response> 
     throw HttpErrors.badRequest('Failed to resolve session');
   }
 
-  const resolvedPracticeId = sessionResolution.session.organizationId; // TODO: Update SessionService to use practiceId
+  const resolvedPracticeId = sessionResolution.session.practiceId;
   
   // Security check: ensure session belongs to the requested practice
   if (resolvedPracticeId !== practiceId) {
@@ -219,7 +219,7 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
   try {
     sessionResolution = await SessionService.resolveSession(env, {
       request,
-      organizationId: practiceId, // TODO: Update SessionService to use practiceId
+      practiceId: practiceId,
       createIfMissing: true // Allow creating session if missing
     });
   } catch (error) {
@@ -227,7 +227,7 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
     throw HttpErrors.badRequest('Failed to resolve session');
   }
 
-  const resolvedPracticeId = sessionResolution.session.organizationId; // TODO: Update SessionService to use practiceId
+  const resolvedPracticeId = sessionResolution.session.practiceId;
   
   // Security check: ensure session belongs to the requested practice
   if (resolvedPracticeId !== practiceId) {

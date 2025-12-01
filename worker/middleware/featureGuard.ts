@@ -24,7 +24,7 @@ const getQuota = async (env: Env, practiceId: string, request?: Request) => {
 
   const tier = metadata.tier ?? 'free';
   const quotaLimit = getQuotaLimit(tier);
-  const quotaUsed = (config as any).quotaUsed ?? 0;
+  const quotaUsed = (config as { quotaUsed?: number }).quotaUsed ?? 0;
 
   return { used: quotaUsed, limit: quotaLimit, unlimited: quotaLimit < 0 };
 };
@@ -52,7 +52,7 @@ export interface FeatureGuardContext {
   kind?: 'practice' | 'workspace';
   subscriptionStatus?: string | null;
   isAnonymous: boolean;
-  practice?: any;
+  practice?: import('../types').PracticeOrWorkspace;
 }
 
 export async function requireFeature(

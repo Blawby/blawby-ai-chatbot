@@ -26,6 +26,8 @@ const PracticeSchema = z.object({
 
 // Extended config with name for UI convenience (name comes from Practice, not config)
 export interface UIPracticeConfig extends PracticeConfig {
+  id?: string; // Optional - comes from Practice object
+  slug?: string; // Optional - comes from Practice object
   name?: string; // Optional - comes from Practice object
 }
 
@@ -42,7 +44,18 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
   const [practiceNotFound, setPracticeNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [practiceConfig, setPracticeConfig] = useState<UIPracticeConfig>({
-    ...PLATFORM_SETTINGS
+    id: PLATFORM_SETTINGS.id,
+    slug: PLATFORM_SETTINGS.slug,
+    name: PLATFORM_SETTINGS.name,
+    profileImage: PLATFORM_SETTINGS.profileImage ?? null,
+    introMessage: PLATFORM_SETTINGS.introMessage ?? '',
+    description: PLATFORM_SETTINGS.description ?? '',
+    availableServices: PLATFORM_SETTINGS.availableServices,
+    serviceQuestions: PLATFORM_SETTINGS.serviceQuestions,
+    domain: '',
+    brandColor: '#000000',
+    accentColor: '#000000',
+    voice: PLATFORM_SETTINGS.voice
   });
 
   // Use ref to track if we've already fetched for this practiceId
@@ -87,7 +100,20 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
     // No need for personal practice fallback since we default to blawby-ai
     if (isPlatformPractice(currentPracticeId)) {
       fetchedPracticeIds.current.add(currentPracticeId);
-      setPracticeConfig({ ...PLATFORM_SETTINGS });
+      setPracticeConfig({
+        id: PLATFORM_SETTINGS.id,
+        slug: PLATFORM_SETTINGS.slug,
+        name: PLATFORM_SETTINGS.name,
+        profileImage: PLATFORM_SETTINGS.profileImage ?? null,
+        introMessage: PLATFORM_SETTINGS.introMessage ?? '',
+        description: PLATFORM_SETTINGS.description ?? '',
+        availableServices: PLATFORM_SETTINGS.availableServices,
+        serviceQuestions: PLATFORM_SETTINGS.serviceQuestions,
+        domain: '',
+        brandColor: '#000000',
+        accentColor: '#000000',
+        voice: PLATFORM_SETTINGS.voice
+      });
       setPracticeNotFound(false);
       setIsLoading(false);
       return;
@@ -172,12 +198,17 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
         const cfg = practice.config as Partial<PracticeConfig> || {};
 
         const config: UIPracticeConfig = {
+          id: practice.id,
+          slug: practice.slug,
           name: practice.name || PLATFORM_SETTINGS.name,
-          profileImage: cfg.profileImage ?? PLATFORM_SETTINGS.profileImage,
-          introMessage: cfg.introMessage ?? PLATFORM_SETTINGS.introMessage,
-          description: cfg.description ?? PLATFORM_SETTINGS.description,
+          profileImage: cfg.profileImage ?? PLATFORM_SETTINGS.profileImage ?? null,
+          introMessage: cfg.introMessage ?? PLATFORM_SETTINGS.introMessage ?? '',
+          description: cfg.description ?? PLATFORM_SETTINGS.description ?? '',
           availableServices: cfg.availableServices ?? PLATFORM_SETTINGS.availableServices,
           serviceQuestions: cfg.serviceQuestions ?? PLATFORM_SETTINGS.serviceQuestions,
+          domain: cfg.domain ?? '',
+          brandColor: cfg.brandColor ?? '#000000',
+          accentColor: cfg.accentColor ?? '#000000',
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : PLATFORM_SETTINGS.voice.enabled,
             provider: cfg.voice?.provider ?? PLATFORM_SETTINGS.voice.provider,

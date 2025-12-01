@@ -109,7 +109,7 @@ const PricingModal: FunctionComponent<PricingModalProps> = ({
         return;
       }
       setIsBillingLoading(true);
-      await openBillingPortal({ practiceId: practiceId });
+      await openBillingPortal({ practiceId });
       onClose();
     } catch (error) {
       console.error('Failed to open billing portal:', error);

@@ -163,7 +163,7 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
     })();
 
     // Store the promise with the practice ID
-    handshakePracticeRef.current = { practiceId: practiceId, promise: handshakePromise };
+    handshakePracticeRef.current = { practiceId, promise: handshakePromise };
     
     return handshakePromise;
   }, [practiceId, readStoredSessionId, writeStoredSessionId]);

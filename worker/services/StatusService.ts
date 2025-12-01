@@ -278,7 +278,7 @@ export class StatusService {
   static async createDocumentAnalysisStatus(
     env: Env,
     sessionId: string,
-    organizationId: string,
+    practiceId: string,
     fileName: string,
     status: StatusUpdate['status'] = 'processing',
     priority: number = 10

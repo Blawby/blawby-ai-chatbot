@@ -461,7 +461,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                   </div>
                   
                   <div className="flex gap-2 pt-2">
-                    <Button variant="secondary" onClick={() => setIsEditingOrg(false)}>
+                    <Button variant="secondary" onClick={() => setIsEditingPractice(false)}>
                       Cancel
                     </Button>
                     <Button onClick={handleUpdatePractice}>
@@ -680,48 +680,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
 
-              {/* API Tokens Section (Owner only) */}
+              {/* Delete Practice Section (Owner only) */}
               {isOwner && (
                 <>
-                  <div className="py-3">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">API Tokens</h3>
-                      <Button size="sm" onClick={() => setShowTokenModal(true)}>
-                        <KeyIcon className="w-4 h-4 mr-2" />
-                        Create Token
-                      </Button>
-                    </div>
-                    
-                    {tokens.length > 0 ? (
-                      <div className="space-y-3">
-                        {tokens.map((token) => (
-                          <div key={token.id} className="flex items-center justify-between py-2">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{token.name}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Created: {formatDate(new Date(token.createdAt * 1000))}
-                                {token.lastUsed && ` • Last used: ${formatDate(new Date(token.lastUsed * 1000))}`}
-                              </p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRevokeToken(token.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              Revoke
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">No API tokens created yet</p>
-                    )}
-                  </div>
-
-                  <div className="border-t border-gray-200 dark:border-dark-border" />
-
-                  {/* Delete Practice Section (Owner only) */}
                   <div className="flex items-center justify-between py-3" data-testid="org-delete-section">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Practice</h3>

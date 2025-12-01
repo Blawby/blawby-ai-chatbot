@@ -165,7 +165,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         onOpenSidebar={onOpenSidebar}
                         onContactFormSubmit={onContactFormSubmit}
                         isLoading={message.isLoading}
-                        aiState={message.aiState}
+                        // REMOVED: aiState - AI functionality removed
                         toolMessage={message.toolMessage}
                         id={message.id}
                         sessionId={sessionId}

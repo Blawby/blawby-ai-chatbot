@@ -203,7 +203,7 @@ function MainApp({
                             }
                             console.warn('Failed to ensure practice (non-OK response):', e);
                             // Don't show error for 404s - practice might not be needed yet
-                            if (e && typeof e === 'object' && 'response' in e && (e as any).response?.status !== 404) {
+                            if (e && typeof e === 'object' && 'response' in e && (e as { response?: { status?: number } }).response?.status !== 404) {
                                 showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
                             }
                             return;
@@ -213,7 +213,7 @@ function MainApp({
             } catch (e) {
                 console.warn('Failed to ensure practice (client fallback):', e);
                 // Don't show error for expected failures
-                if (e && typeof e === 'object' && 'response' in e && (e as any).response?.status !== 404) {
+                if (e && typeof e === 'object' && 'response' in e && (e as { response?: { status?: number } }).response?.status !== 404) {
                     showErrorRef.current('Couldn\'t set up your workspace', 'Please refresh and try again. If this keeps happening, contact support.');
                 }
             }

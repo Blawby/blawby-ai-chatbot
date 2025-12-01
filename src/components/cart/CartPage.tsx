@@ -303,7 +303,7 @@ export const CartPage = () => {
           }
         } else {
           // Use first practice or find personal one
-          const personal = practices.find((p: any) => p.kind === 'personal' || p.metadata?.kind === 'personal');
+          const personal = practices.find((p) => p.kind === 'personal' || (p.metadata as { kind?: string } | undefined)?.kind === 'personal');
           const practice = personal || practices[0];
           if (practice?.id) {
             practiceId = practice.id;

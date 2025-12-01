@@ -12,7 +12,6 @@ import {
   listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
   deletePracticeMember as apiDeletePracticeMember,
-  type Practice,
   type UpdatePracticeRequest
 } from '../lib/apiClient';
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '../utils/subscription';
@@ -37,6 +36,8 @@ export interface MatterTransitionResult {
   } | null;
 }
 
+// Practice interface - matches apiClient.ts but kept here for backward compatibility
+// and to include additional properties specific to practice management
 export interface Practice {
   id: string;
   slug: string;
@@ -51,13 +52,23 @@ export interface Practice {
   config?: {
     ownerEmail?: string;
     metadata?: Record<string, unknown>;
+    description?: string;
+    [key: string]: unknown; // Allow additional config properties
   };
-  kind?: 'personal' | 'business';
+  kind?: 'personal' | 'business' | 'practice';
   isPersonal?: boolean | null;
   businessOnboardingStatus?: BusinessOnboardingStatus;
   businessOnboardingCompletedAt?: number | null;
   businessOnboardingSkipped?: boolean;
   businessOnboardingHasDraft?: boolean;
+  // Additional fields from apiClient
+  logo?: string | null;
+  metadata?: Record<string, unknown> | null;
+  businessPhone?: string | null;
+  businessEmail?: string | null;
+  calendlyUrl?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface Member {

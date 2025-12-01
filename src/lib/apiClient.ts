@@ -30,7 +30,7 @@ apiClient.interceptors.request.use(
       config.headers = {
         ...config.headers,
         Authorization: `Bearer ${token}`
-      } as any; // Use any to avoid AxiosHeaders vs AxiosRequestHeaders conflicts
+      } as Record<string, string>; // Type assertion for headers compatibility
     }
     return config;
   },
@@ -50,6 +50,27 @@ export interface Practice {
   calendlyUrl?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  
+  // Subscription and practice management properties
+  kind?: 'personal' | 'business' | 'practice';
+  subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
+  subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
+  seats?: number | null;
+  config?: {
+    ownerEmail?: string;
+    metadata?: Record<string, unknown>;
+    description?: string;
+    [key: string]: unknown; // Allow additional config properties
+  };
+  stripeCustomerId?: string | null;
+  subscriptionPeriodEnd?: number | null;
+  description?: string;
+  isPersonal?: boolean | null;
+  betterAuthOrgId?: string;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  businessOnboardingCompletedAt?: number | null;
+  businessOnboardingSkipped?: boolean;
+  businessOnboardingHasDraft?: boolean;
 }
 
 export interface CreatePracticeRequest {

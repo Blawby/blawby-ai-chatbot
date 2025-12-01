@@ -59,7 +59,7 @@ const LawyerSearchPage: FunctionComponent = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const performSearch = useCallback(async (params: typeof searchParams) => {
+  const performSearch = useCallback(async (params: typeof searchParams, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     setHasSearched(true);
@@ -72,7 +72,9 @@ const LawyerSearchPage: FunctionComponent = () => {
       if (params.page > 1) queryParams.set('page', String(params.page));
       if (params.limit !== 20) queryParams.set('limit', String(params.limit));
 
-      const response = await fetch(`/api/lawyers?${queryParams.toString()}`);
+      const response = await fetch(`/api/lawyers?${queryParams.toString()}`, {
+        signal
+      });
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to fetch lawyers' }));
@@ -90,6 +92,10 @@ const LawyerSearchPage: FunctionComponent = () => {
         throw new Error('Invalid response format');
       }
     } catch (err) {
+      // Don't set error or update state if the request was aborted
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Failed to search lawyers');
       setResults(null);
     } finally {
@@ -102,11 +108,17 @@ const LawyerSearchPage: FunctionComponent = () => {
     const state = location.query.state || '';
     const city = location.query.city || '';
     const practiceArea = location.query.practice_area || location.query.practiceArea || '';
-    const page = parseInt(location.query.page || '1', 10);
+    // Validate page parameter to prevent NaN
+    const pageRaw = parseInt(location.query.page || '1', 10);
+    const page = Number.isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
 
     if (state || city || practiceArea) {
+      const abortController = new AbortController();
       setSearchParams({ state, city, practiceArea, page, limit: 20 });
-      performSearch({ state, city, practiceArea, page, limit: 20 });
+      performSearch({ state, city, practiceArea, page, limit: 20 }, abortController.signal);
+      
+      // Cleanup: abort request if URL changes or component unmounts
+      return () => abortController.abort();
     }
   }, [location.query, performSearch]);
 

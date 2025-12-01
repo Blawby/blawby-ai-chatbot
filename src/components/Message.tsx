@@ -92,7 +92,8 @@ interface MessageProps {
 	onOpenSidebar?: () => void;
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	isLoading?: boolean;
-	aiState?: 'thinking' | 'processing' | 'generating';
+	// REMOVED: aiState - AI functionality removed, will be replaced with user-to-user chat
+	// aiState?: 'thinking' | 'processing' | 'generating';
 	toolMessage?: string;
 	// Feedback props
 	id?: string;
@@ -222,7 +223,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onOpenSidebar: _onOpenSidebar,
 	onContactFormSubmit,
 	isLoading,
-	aiState,
+	// REMOVED: aiState - AI functionality removed
+	// aiState,
 	toolMessage,
 	id: _id,
 	sessionId: _sessionId,
@@ -260,8 +262,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 
 
 	const hasContent = Boolean(content);
-	const isStreaming = isLoading && hasContent && aiState === 'generating';
-	const shouldShowIndicator = isLoading && (!hasContent || aiState !== 'generating');
+	// REMOVED: AI streaming state - AI functionality removed
+	// const isStreaming = isLoading && hasContent && aiState === 'generating';
+	const isStreaming = false; // No streaming for user-to-user chat
+	const shouldShowIndicator = isLoading && !hasContent;
 
 	return (
 		<div className={`flex flex-col max-w-full my-4 px-3 py-2 rounded-xl break-words relative ${
@@ -288,10 +292,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					</>
 				)}
 				
-				{/* Show AI thinking indicator only when we truly need a spinner */}
+				{/* REMOVED: AI thinking indicator - AI functionality removed */}
 				{shouldShowIndicator && (
 					<AIThinkingIndicator 
-						variant={aiState || 'thinking'} 
+						variant="thinking" 
 						toolMessage={toolMessage}
 					/>
 				)}
