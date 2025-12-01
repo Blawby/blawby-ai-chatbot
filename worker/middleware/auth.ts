@@ -34,7 +34,7 @@ async function validateTokenWithRemoteServer(
   const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
   
   try {
-    const response = await fetch(`${authServerUrl}/api/session`, {
+    const response = await fetch(`${authServerUrl}/api/auth/get-session`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -58,12 +58,14 @@ async function validateTokenWithRemoteServer(
         id: string;
         email: string;
         name: string;
-        emailVerified: boolean;
-        image?: string;
+        email_verified?: boolean;
+        image?: string | null;
       };
       session?: {
         id: string;
-        expiresAt: string | number;
+        expires_at: string;
+        user_id: string;
+        active_organization_id?: string | null;
       };
     };
 
@@ -76,13 +78,13 @@ async function validateTokenWithRemoteServer(
         id: sessionData.user.id,
         email: sessionData.user.email,
         name: sessionData.user.name,
-        emailVerified: sessionData.user.emailVerified ?? false,
-        image: sessionData.user.image,
+        emailVerified: sessionData.user.email_verified ?? false,
+        image: sessionData.user.image ?? undefined,
       },
       session: {
         id: sessionData.session?.id || sessionData.user.id,
-        expiresAt: sessionData.session?.expiresAt 
-          ? new Date(sessionData.session.expiresAt)
+        expiresAt: sessionData.session?.expires_at
+          ? new Date(sessionData.session.expires_at)
           : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days
       },
     };

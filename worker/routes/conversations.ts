@@ -1,0 +1,115 @@
+import { parseJsonBody } from '../utils.js';
+import { HttpErrors } from '../errorHandler.js';
+import type { Env } from '../types.js';
+import { ConversationService } from '../services/ConversationService.js';
+import { requireAuth } from '../middleware/auth.js';
+import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
+
+function createJsonResponse(data: unknown): Response {
+  return new Response(JSON.stringify({ success: true, data }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+export async function handleConversations(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const segments = url.pathname.split('/').filter(Boolean);
+
+  if (segments[0] !== 'api' || segments[1] !== 'conversations') {
+    throw HttpErrors.notFound('Conversation route not found');
+  }
+
+  // Require authentication for all conversation endpoints
+  const authContext = await requireAuth(request, env);
+  const userId = authContext.user.id;
+
+  // Get practice context
+  const requestWithContext = await withPracticeContext(request, env, {
+    requirePractice: true,
+    allowUrlOverride: true
+  });
+  const practiceId = getPracticeId(requestWithContext);
+
+  const conversationService = new ConversationService(env);
+
+  // POST /api/conversations - Create new conversation
+  if (segments.length === 2 && request.method === 'POST') {
+    const body = await parseJsonBody(request) as {
+      matterId?: string;
+      participantUserIds: string[];
+      metadata?: Record<string, unknown>;
+    };
+
+    if (!Array.isArray(body.participantUserIds) || body.participantUserIds.length === 0) {
+      throw HttpErrors.badRequest('participantUserIds must be a non-empty array');
+    }
+
+    // Ensure creator is included in participants
+    const participants = Array.from(new Set([userId, ...body.participantUserIds]));
+
+    const conversation = await conversationService.createConversation({
+      practiceId,
+      userId,
+      matterId: body.matterId || null,
+      participantUserIds: participants,
+      metadata: body.metadata
+    });
+
+    return createJsonResponse(conversation);
+  }
+
+  // GET /api/conversations - List conversations
+  if (segments.length === 2 && request.method === 'GET') {
+    const matterId = url.searchParams.get('matterId');
+    const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+
+    const conversations = await conversationService.getConversations({
+      practiceId,
+      matterId: matterId || null,
+      userId, // Filter to conversations where user is a participant
+      status: status || undefined,
+      limit
+    });
+
+    return createJsonResponse(conversations);
+  }
+
+  // GET /api/conversations/:id - Get single conversation
+  if (segments.length === 3 && request.method === 'GET') {
+    const conversationId = segments[2];
+
+    // Validate user has access
+    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    return createJsonResponse(conversation);
+  }
+
+  // PATCH /api/conversations/:id - Update conversation
+  if (segments.length === 3 && request.method === 'PATCH') {
+    const conversationId = segments[2];
+    const body = await parseJsonBody(request) as {
+      status?: 'active' | 'archived' | 'closed';
+      metadata?: Record<string, unknown>;
+    };
+
+    // Validate user has access
+    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+
+    const conversation = await conversationService.updateConversation(
+      conversationId,
+      practiceId,
+      {
+        status: body.status,
+        metadata: body.metadata
+      }
+    );
+
+    return createJsonResponse(conversation);
+  }
+
+  throw HttpErrors.methodNotAllowed('Unsupported method for conversations endpoint');
+}
+

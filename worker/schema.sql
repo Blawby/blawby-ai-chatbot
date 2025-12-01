@@ -7,37 +7,27 @@ PRAGMA foreign_keys = ON;
 -- All practice data is now managed by remote API (staging-api.blawby.com)
 -- Conversation config for practices is stored in practice.metadata.conversationConfig
 -- Workspaces use hardcoded defaults with no storage needed
--- Conversation tables (conversations, messages, contact_forms, files, etc.) use organization_id as TEXT reference only (no FK constraint)
+-- Conversation tables (conversations, contact_forms, files, etc.) use practice_id as TEXT reference only (no FK constraint)
+-- Better Auth sessions are managed by staging API at /api/auth/get-session endpoint
 
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  session_id TEXT NOT NULL,
+  practice_id TEXT NOT NULL,
   user_id TEXT,
+  matter_id TEXT, -- Optional: link to specific matter for tighter integration
+  participants JSON, -- Array of user IDs: ["userId1", "userId2"]
   user_info JSON,
   status TEXT DEFAULT 'active',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Messages table
-CREATE TABLE IF NOT EXISTS messages (
-  id TEXT PRIMARY KEY,
-  conversation_id TEXT NOT NULL,
-  matter_id TEXT, -- Optional: link to specific matter for tighter integration
-  user_id TEXT,
-  content TEXT NOT NULL,
-  is_user BOOLEAN NOT NULL,
-  metadata JSON,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Contact form submissions table
 CREATE TABLE IF NOT EXISTS contact_forms (
   id TEXT PRIMARY KEY,
   conversation_id TEXT,
-  organization_id TEXT NOT NULL,
+  practice_id TEXT NOT NULL,
   phone_number TEXT NOT NULL,
   email TEXT NOT NULL,
   matter_details TEXT NOT NULL,
@@ -51,7 +41,7 @@ CREATE TABLE IF NOT EXISTS contact_forms (
 -- Matters table to represent legal matters
 CREATE TABLE IF NOT EXISTS matters (
   id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
+  practice_id TEXT NOT NULL,
   user_id TEXT,
   client_name TEXT NOT NULL,
   client_email TEXT,
@@ -100,10 +90,9 @@ CREATE TABLE IF NOT EXISTS matter_events (
 -- Files table (replaces uploaded_files) - general-purpose file management
 CREATE TABLE IF NOT EXISTS files (
   id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
+  practice_id TEXT NOT NULL,
   user_id TEXT,
   matter_id TEXT, -- Optional: link to specific matter
-  session_id TEXT, -- Optional: link to chat session
   conversation_id TEXT, -- Optional: link to conversation
   original_name TEXT NOT NULL,
   file_name TEXT NOT NULL, -- Storage filename
@@ -126,23 +115,11 @@ CREATE TABLE IF NOT EXISTS files (
   deleted_at DATETIME
 );
 
--- AI Training Data Tables --
-
--- Chat logs table for long-term storage of chat sessions
-CREATE TABLE IF NOT EXISTS chat_logs (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  organization_id TEXT,
-  role TEXT NOT NULL, -- 'user' | 'assistant' | 'system'
-  content TEXT NOT NULL,
-  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Matter questions table for Q&A pairs from intake
 CREATE TABLE IF NOT EXISTS matter_questions (
   id TEXT PRIMARY KEY,
   matter_id TEXT,
-  organization_id TEXT,
+  practice_id TEXT,
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
   source TEXT DEFAULT 'ai-form', -- 'ai-form' | 'human-entry' | 'followup'
@@ -152,8 +129,7 @@ CREATE TABLE IF NOT EXISTS matter_questions (
 -- AI feedback table for user quality ratings and intent tags
 CREATE TABLE IF NOT EXISTS ai_feedback (
   id TEXT PRIMARY KEY,
-  session_id TEXT,
-  organization_id TEXT,
+  practice_id TEXT,
   rating INTEGER, -- 1-5 scale
   thumbs_up BOOLEAN,
   comments TEXT,
@@ -163,39 +139,19 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
 
 
 -- ========================================
--- DEFAULT ORGANIZATION
+-- DEFAULT PRACTICE
 -- ========================================
--- The critical public/default organization `blawby-ai` (ID: 01K0TNGNKTM4Q0AG0XF0A8ST0Q)
+-- The critical public/default practice `blawby-ai` (ID: 01K0TNGNKTM4Q0AG0XF0A8ST0Q)
 -- is managed by the remote API at staging-api.blawby.com
--- This org MUST exist across all environments for public chat defaults.
-
--- Chat sessions table for session management
-CREATE TABLE IF NOT EXISTS chat_sessions (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  user_id TEXT,
-  token_hash TEXT,
-  state TEXT NOT NULL DEFAULT 'active',
-  status_reason TEXT,
-  retention_horizon_days INTEGER NOT NULL DEFAULT 180,
-  is_hold INTEGER NOT NULL DEFAULT 0,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  last_active DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  closed_at DATETIME,
-  UNIQUE(id, organization_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_team_state ON chat_sessions(organization_id, state);
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_last_active ON chat_sessions(last_active);
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_token_hash_organization ON chat_sessions(token_hash, organization_id);
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id);
+-- This practice MUST exist across all environments for public chat defaults.
 
 -- Chat messages table for storing conversation messages
+-- Note: chat_sessions table removed - Better Auth sessions managed by staging API
+-- Note: session_id removed from chat_messages - messages linked to conversations only
 CREATE TABLE IF NOT EXISTS chat_messages (
   id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  organization_id TEXT NOT NULL,
+  conversation_id TEXT NOT NULL,
+  practice_id TEXT NOT NULL,
   user_id TEXT,
   role TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -203,23 +159,6 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   token_count INTEGER,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created ON chat_messages(session_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_organization ON chat_messages(organization_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
-
--- Session audit events table for activity tracking
-CREATE TABLE IF NOT EXISTS session_audit_events (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  actor_type TEXT NOT NULL,
-  actor_id TEXT,
-  payload TEXT,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_events(session_id, created_at);
 
 -- Sample data removed - organizations are managed by remote API
 
@@ -231,7 +170,8 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_eve
 
 -- Note: The users table has been removed - user management is handled by remote API
 -- The organizations table has been removed - all organization data is managed by remote API
--- Chatbot tables use organization_id as TEXT reference only (no FK constraint)
+-- Chatbot tables use practice_id as TEXT reference only (no FK constraint)
+-- Better Auth sessions are managed by staging API - no local session storage needed
 
 -- Stripe subscription table removed - subscription management is handled by remote API
 -- Payment history table removed - payment tracking is handled by remote API
@@ -239,11 +179,37 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_session ON session_audit_eve
 
 -- Auth tables (sessions, accounts, verifications) removed - managed by remote API
 
--- Create indexes for user_id columns
+-- Create indexes for conversations
+CREATE INDEX IF NOT EXISTS idx_conversations_practice ON conversations(practice_id, status);
+CREATE INDEX IF NOT EXISTS idx_conversations_matter ON conversations(matter_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
+
+-- Create indexes for chat_messages
+CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_practice ON chat_messages(practice_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
+
+-- Create indexes for matters
+CREATE INDEX IF NOT EXISTS idx_matters_practice ON matters(practice_id);
 CREATE INDEX IF NOT EXISTS idx_matters_user ON matters(user_id);
-CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_matters_status ON matters(status);
+
+-- Create indexes for files
+CREATE INDEX IF NOT EXISTS idx_files_practice ON files(practice_id);
 CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id);
+CREATE INDEX IF NOT EXISTS idx_files_matter ON files(matter_id);
+CREATE INDEX IF NOT EXISTS idx_files_conversation ON files(conversation_id);
+
+-- Create indexes for contact_forms
+CREATE INDEX IF NOT EXISTS idx_contact_forms_practice ON contact_forms(practice_id);
+CREATE INDEX IF NOT EXISTS idx_contact_forms_conversation ON contact_forms(conversation_id);
+
+-- Create indexes for matter_questions
+CREATE INDEX IF NOT EXISTS idx_matter_questions_practice ON matter_questions(practice_id);
+CREATE INDEX IF NOT EXISTS idx_matter_questions_matter ON matter_questions(matter_id);
+
+-- Create indexes for ai_feedback
+CREATE INDEX IF NOT EXISTS idx_ai_feedback_practice ON ai_feedback(practice_id);
 
 -- Auth views removed - user management is handled by remote API
 
