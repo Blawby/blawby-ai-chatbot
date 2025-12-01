@@ -2,7 +2,7 @@ import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider
 import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
-import ChatContainer from './components/ChatContainer';
+import ChatContainer from './components/chat/ChatContainer';
 import DragDropOverlay from './components/DragDropOverlay';
 import AppLayout from './components/AppLayout';
 import AuthPage from './components/AuthPage';
@@ -32,9 +32,9 @@ import { debounce } from './utils/debounce';
 import { useToastContext } from './contexts/ToastContext';
 import { usePracticeConfig } from './hooks/usePracticeConfig';
 import { usePracticeManagement } from './hooks/usePracticeManagement';
-import QuotaBanner from './components/QuotaBanner';
 import { PLATFORM_PRACTICE_ID } from './utils/constants';
 import { listPractices, createPractice } from './lib/apiClient';
+import { useMobileDetection } from './hooks/useMobileDetection';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -67,9 +67,6 @@ function MainApp({
 	const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
 	// Removed legacy business setup modal flow (replaced by /business-onboarding route)
 	
-	// Mobile state - initialized as false to avoid SSR/client hydration mismatch
-	const [_isMobile, setIsMobile] = useState(false);
-	
 	// Use session from Better Auth
 	const { data: session, isPending: sessionIsPending } = useSession();
 
@@ -82,21 +79,9 @@ function MainApp({
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { quota, refreshQuota, activePracticeId } = useSessionContext();
+	const { activePracticeId } = useSessionContext();
 	const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
 
-	const isQuotaRestricted = Boolean(
-		quota &&
-		!quota.unlimited &&
-		quota.limit > 0 &&
-		quota.used >= quota.limit
-	);
-
-	const quotaUsageMessage = isQuotaRestricted
-		? (activePracticeId === PLATFORM_PRACTICE_ID
-			? 'You have used all available anonymous messages for this month.'
-			: 'You have reached the monthly message limit for your current plan.')
-		: null;
 
 	const {
 		sessionId,
@@ -114,17 +99,7 @@ function MainApp({
 	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
 		// Let sendMessage errors propagate to its onError handler
 		await sendMessage(message, attachments);
-		
-		// Handle quota refresh separately to avoid leaving stale UI
-		try {
-			await refreshQuota();
-		} catch (_error) {
-			// Log for diagnostics
-			console.error('Failed to refresh quota after sending message:', _error);
-			// Show user-facing notification for quota refresh failure
-			showError('Unable to update usage quota', 'Your message was sent, but we couldn\'t refresh your usage information.');
-		}
-	}, [sendMessage, refreshQuota, showError]);
+	}, [sendMessage]);
 
 	const {
 		previewFiles,
@@ -405,31 +380,6 @@ function MainApp({
 		};
 	}, []);
 
-	// Mobile detection with resize handling
-	useLayoutEffect(() => {
-		// Function to check if mobile
-		const checkIsMobile = () => {
-			return window.innerWidth < 1024;
-		};
-
-		// Set initial mobile state
-		setIsMobile(checkIsMobile());
-
-		// Create debounced resize handler for performance
-		const debouncedResizeHandler = debounce(() => {
-			setIsMobile(checkIsMobile());
-		}, 100);
-
-		// Add resize listener
-		window.addEventListener('resize', debouncedResizeHandler);
-
-		// Cleanup function
-		return () => {
-			window.removeEventListener('resize', debouncedResizeHandler);
-			debouncedResizeHandler.cancel();
-		};
-	}, []);
-
 	// Handle feedback submission
 	const handleFeedbackSubmit = useCallback((feedback: Record<string, unknown>) => {
 		// Handle feedback submission
@@ -522,14 +472,6 @@ function MainApp({
 						rejectMatter={rejectMatter}
 						updateMatterStatus={updateMatterStatus}
 					/>
-					{(quota && !quota.unlimited) && (
-						<div className="px-4 pt-4">
-							<QuotaBanner
-								quota={quota}
-								onUpgrade={() => navigate('/pricing')}
-							/>
-						</div>
-					)}
 					<div className="flex-1 min-h-0">
 						<ChatContainer
 							messages={messages}
@@ -560,8 +502,6 @@ function MainApp({
 							clearInput={clearInputTrigger}
 							isReadyToUpload={isReadyToUpload}
 							isSessionReady={isSessionReady}
-							isUsageRestricted={isQuotaRestricted}
-							usageMessage={quotaUsageMessage}
 						/>
 					</div>
 				</div>
@@ -716,20 +656,7 @@ function AppWithSEO({
 	// Hoisted settings modal controls
 	const isSettingsOpen = location.path.startsWith('/settings');
 	// Responsive mobile state for the hoisted settings layout
-	const [isMobileHoisted, setIsMobileHoisted] = useState(false);
-	useLayoutEffect(() => {
-		if (typeof window === 'undefined') return;
-		const checkIsMobile = () => window.innerWidth < 1024;
-		setIsMobileHoisted(checkIsMobile());
-		const debouncedResizeHandler = debounce(() => {
-			setIsMobileHoisted(checkIsMobile());
-		}, 100);
-		window.addEventListener('resize', debouncedResizeHandler);
-		return () => {
-			window.removeEventListener('resize', debouncedResizeHandler);
-			debouncedResizeHandler.cancel();
-		};
-	}, []);
+	const isMobileHoisted = useMobileDetection();
 
 	// Stable component to avoid remounting the MainApp subtree for settings
 	const SettingsRoute = useMemo(() => {

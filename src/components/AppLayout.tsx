@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
-import { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'preact/hooks';
+import { useRef, useEffect, useCallback } from 'preact/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import { PracticeNotFound } from './PracticeNotFound';
@@ -21,11 +21,11 @@ import MatterTab from './MatterTab';
 import { useMatterState } from '../hooks/useMatterState';
 import { analyzeMissingInfo } from '../utils/matterAnalysis';
 import { THEME } from '../utils/constants';
-import { debounce } from '../utils/debounce';
 import { useToastContext } from '../contexts/ToastContext';
 import { useNavigation } from '../utils/navigation';
 import { useLocation } from 'preact-iso';
 import type { BusinessOnboardingStatus } from '../hooks/usePracticeManagement';
+import { useMobileDetection } from '../hooks/useMobileDetection';
 
 // Simple messages object for localization
 const messages = {
@@ -85,8 +85,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const { navigate } = useNavigation();
   const location = useLocation();
   
-  // Mobile state - initialized as false to avoid SSR/client hydration mismatch
-  const [isMobile, setIsMobile] = useState(false);
+  // Mobile detection using shared hook
+  const isMobile = useMobileDetection();
   
   // Focus management for mobile sidebar
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -144,31 +144,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isMobileSidebarOpen, onToggleMobileSidebar]);
-
-  // Mobile detection with resize handling
-  useLayoutEffect(() => {
-    // Function to check if mobile
-    const checkIsMobile = () => {
-      return window.innerWidth < 1024;
-    };
-
-    // Set initial mobile state
-    setIsMobile(checkIsMobile());
-
-    // Create debounced resize handler for performance
-    const debouncedResizeHandler = debounce(() => {
-      setIsMobile(checkIsMobile());
-    }, 100);
-
-    // Add resize listener
-    window.addEventListener('resize', debouncedResizeHandler);
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener('resize', debouncedResizeHandler);
-      debouncedResizeHandler.cancel();
-    };
-  }, []);
   
   // Tab switching handlers
   const handleGoToChats = () => {

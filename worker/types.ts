@@ -138,7 +138,6 @@ export interface ConversationConfig {
   tools?: {
     [toolName: string]: {
       enabled: boolean;
-      quotaMetric?: 'messages' | 'files' | null;
       requiredRole?: 'owner' | 'admin' | 'attorney' | 'paralegal' | null;
       allowAnonymous?: boolean;
     };

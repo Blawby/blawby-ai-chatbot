@@ -4,7 +4,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { motion, AnimatePresence } from 'framer-motion';
 import { THEME } from '../utils/constants';
-import { debounce } from '../utils/debounce';
+import { useMobileDetection } from '../hooks/useMobileDetection';
 
 interface ModalProps {
     isOpen: boolean;
@@ -29,24 +29,11 @@ const Modal: FunctionComponent<ModalProps> = ({
 }) => {
     // Add state to track if we're in browser environment
     const [isBrowser, setIsBrowser] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
+    const isMobile = useMobileDetection();
 
-    // Set browser state on mount and detect mobile
+    // Set browser state on mount
     useEffect(() => {
         setIsBrowser(true);
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-        checkMobile();
-        
-        // Create debounced resize handler for performance
-        const debouncedResizeHandler = debounce(checkMobile, 100);
-        window.addEventListener('resize', debouncedResizeHandler);
-        
-        return () => {
-            window.removeEventListener('resize', debouncedResizeHandler);
-            debouncedResizeHandler.cancel();
-        };
     }, []);
 
     useEffect(() => {

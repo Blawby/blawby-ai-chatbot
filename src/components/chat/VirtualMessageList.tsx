@@ -1,12 +1,12 @@
 import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'preact/hooks';
 import Message from './Message';
-import PracticeProfile from './PracticeProfile';
+import PracticeProfile from '../PracticeProfile';
 import { memo } from 'preact/compat';
-import { debounce } from '../utils/debounce';
-import { ErrorBoundary } from './ErrorBoundary';
-import { ChatMessageUI } from '../../worker/types';
-import { ContactData } from './ContactForm';
+import { debounce } from '../../utils/debounce';
+import { ErrorBoundary } from '../ErrorBoundary';
+import { ChatMessageUI } from '../../../worker/types';
+import { ContactData } from '../ContactForm';
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];

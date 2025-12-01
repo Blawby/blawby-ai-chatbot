@@ -7,16 +7,16 @@ import {
 	MusicalNoteIcon,
 	VideoCameraIcon
 } from "@heroicons/react/24/outline";
-import { FileAttachment } from '../../worker/types';
-import { useToastContext } from '../contexts/ToastContext';
-import { AIThinkingIndicator } from './AIThinkingIndicator';
-import { ContactForm, ContactData } from './ContactForm';
-import DocumentChecklist from './DocumentChecklist';
-import LawyerSearchResults from './LawyerSearchResults';
-import LazyMedia from './LazyMedia';
-import MatterCanvas from './MatterCanvas';
-import MediaContent from './MediaContent';
-import Modal from './Modal';
+import { FileAttachment } from '../../../worker/types';
+import { useToastContext } from '../../contexts/ToastContext';
+import { AIThinkingIndicator } from '../AIThinkingIndicator';
+import { ContactForm, ContactData } from '../ContactForm';
+import DocumentChecklist from '../DocumentChecklist';
+import LawyerSearchResults from '../LawyerSearchResults';
+import LazyMedia from '../LazyMedia';
+import MatterCanvas from '../MatterCanvas';
+import MediaContent from '../MediaContent';
+import Modal from '../Modal';
 import ChatMarkdown from './ChatMarkdown';
 
 

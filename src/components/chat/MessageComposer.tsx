@@ -1,14 +1,14 @@
 import type { RefObject } from 'preact';
 import { useLayoutEffect } from 'preact/hooks';
-import { Button } from './ui/Button';
-import FileMenu from './FileMenu';
-import MediaControls from './MediaControls';
-import { FileDisplay } from './ui/upload/organisms/FileDisplay';
-import { FileUploadStatus } from './ui/upload/molecules/FileUploadStatus';
+import { Button } from '../ui/Button';
+import FileMenu from '../FileMenu';
+import MediaControls from '../MediaControls';
+import { FileDisplay } from '../ui/upload/organisms/FileDisplay';
+import { FileUploadStatus } from '../ui/upload/molecules/FileUploadStatus';
 import { ArrowUpIcon } from "@heroicons/react/24/outline";
-import { features } from '../config/features';
-import { FileAttachment } from '../../worker/types';
-import type { UploadingFile } from '../hooks/useFileUpload';
+import { features } from '../../config/features';
+import { FileAttachment } from '../../../worker/types';
+import type { UploadingFile } from '../../hooks/useFileUpload';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -27,8 +27,6 @@ interface MessageComposerProps {
   textareaRef: RefObject<HTMLTextAreaElement>;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
-  isUsageRestricted?: boolean;
-  usageMessage?: string | null;
 }
 
 const MessageComposer = ({
@@ -48,8 +46,6 @@ const MessageComposer = ({
   textareaRef,
   isReadyToUpload,
   isSessionReady,
-  isUsageRestricted,
-  usageMessage,
 }: MessageComposerProps) => {
   const handleInput = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
     const t = e.currentTarget;
@@ -61,7 +57,6 @@ const MessageComposer = ({
   const handleSubmit = () => {
     if (!inputValue.trim() && previewFiles.length === 0) return;
     if (isSessionReady === false) return;
-    if (isUsageRestricted) return;
     onSubmit();
     const el = textareaRef.current;
     if (el) { el.style.height = ''; }
@@ -75,9 +70,6 @@ const MessageComposer = ({
   }, [inputValue, textareaRef]);
 
   const statusMessage = (() => {
-    if (isUsageRestricted) {
-      return usageMessage ?? 'You have reached your current plan\'s usage limit.';
-    }
     if (isSessionReady === false) {
       return 'Setting up a secure session...';
     }
@@ -86,8 +78,7 @@ const MessageComposer = ({
 
   const sendDisabled = (
     (!inputValue.trim() && previewFiles.length === 0) ||
-    isSessionReady === false ||
-    Boolean(isUsageRestricted)
+    isSessionReady === false
   );
 
   return (
@@ -130,7 +121,7 @@ const MessageComposer = ({
               <FileMenu
                 onFileSelect={handleFileSelect}
                 onCameraCapture={handleCameraCapture}
-                isReadyToUpload={isSessionReady === false || isUsageRestricted ? false : isReadyToUpload}
+                isReadyToUpload={isSessionReady === false ? false : isReadyToUpload}
               />
             </div>
           )}
@@ -160,11 +151,9 @@ const MessageComposer = ({
               size="sm"
               disabled={sendDisabled}
               aria-label={
-                isUsageRestricted
-                  ? 'Send message (usage limit reached)'
-                  : isSessionReady === false
-                    ? 'Send message (waiting for secure session)'
-                    : (!inputValue.trim() && previewFiles.length === 0
+                isSessionReady === false
+                  ? 'Send message (waiting for secure session)'
+                  : (!inputValue.trim() && previewFiles.length === 0
                   ? 'Send message (disabled)'
                   : 'Send message')}
               className="w-8 h-8 p-0 rounded-full"
