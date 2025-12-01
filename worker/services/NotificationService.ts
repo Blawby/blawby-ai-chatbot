@@ -3,7 +3,7 @@ import type { Env } from '../types.js';
 import type { PracticeOrWorkspace } from '../types.js';
 
 export interface NotificationRequest {
-  type: 'lawyer_review' | 'matter_created' | 'payment_required' | 'matter_update';
+  type: 'lawyer_review' | 'matter_created' | 'matter_update';
   practiceConfig: PracticeOrWorkspace | null;
   matterInfo?: {
     type: string;
@@ -115,39 +115,6 @@ Please review and take appropriate action.`
       Logger.info('Matter creation notification sent successfully');
     } catch (error) {
       Logger.warn('Failed to send matter creation notification:', error);
-    }
-  }
-
-  async sendPaymentRequiredNotification(request: NotificationRequest): Promise<void> {
-    const { practiceConfig, matterInfo, clientInfo } = request;
-    
-    try {
-      const { EmailService } = await import('./EmailService.js');
-      const emailService = new EmailService(this.env.RESEND_API_KEY);
-      
-      const ownerEmail = extractOwnerEmail(practiceConfig);
-      if (!ownerEmail) {
-        Logger.info('No owner email configured for practice - skipping payment notification');
-        return;
-      }
-
-      await emailService.send({
-        from: 'noreply@blawby.com',
-        to: ownerEmail,
-        subject: `Payment Required - ${matterInfo?.type || 'Unknown'} Matter`,
-        text: `A payment is required for a new legal matter:
-
-Client: ${clientInfo?.name || 'Unknown'}
-Contact: ${clientInfo?.email || 'No email'}, ${clientInfo?.phone || 'No phone'}
-Matter Type: ${matterInfo?.type || 'Unknown'}
-Description: ${matterInfo?.description || 'No description provided'}
-
-Payment link has been sent to the client. Please monitor payment status.`
-      });
-
-      Logger.info('Payment required notification sent successfully');
-    } catch (error) {
-      Logger.warn('Failed to send payment required notification:', error);
     }
   }
 

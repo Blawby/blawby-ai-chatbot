@@ -17,7 +17,6 @@ import LazyMedia from './LazyMedia';
 import MatterCanvas from './MatterCanvas';
 import MediaContent from './MediaContent';
 import Modal from './Modal';
-import PaymentEmbed from './PaymentEmbed';
 import ChatMarkdown from './ChatMarkdown';
 
 
@@ -33,12 +32,6 @@ interface MessageProps {
 		matterSummary: string;
 		answers?: Record<string, string>;
 		isExpanded?: boolean;
-	};
-	paymentEmbed?: {
-		paymentUrl: string;
-		amount?: number;
-		description?: string;
-		paymentId?: string;
 	};
 	contactForm?: {
 		fields: string[];
@@ -221,7 +214,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isUser, 
 	files = [], 
 	matterCanvas,
-	paymentEmbed,
 	contactForm,
 	documentChecklist,
 	lawyerSearchResults,
@@ -313,23 +305,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						service={matterCanvas.service}
 						matterSummary={matterCanvas.matterSummary}
 						answers={matterCanvas.answers || {}}
-					/>
-				)}
-				
-				{/* Display payment embed */}
-				{paymentEmbed && (
-					<PaymentEmbed
-							paymentUrl={paymentEmbed.paymentUrl}
-							amount={paymentEmbed.amount}
-							description={paymentEmbed.description}
-						onPaymentComplete={(paymentId) => {
-							// Handle payment completion
-							showSuccess('Payment received', `Payment ${paymentId} completed successfully.`);
-							
-							// TODO: Trigger scheduling flow separately if needed
-							// This could be handled by the parent component or a separate service
-							// showInfo('Scheduling', 'We will contact you shortly to schedule your consultation.');
-						}}
 					/>
 				)}
 				

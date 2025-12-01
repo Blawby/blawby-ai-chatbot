@@ -290,23 +290,6 @@ export class ContactIntakeOrchestrator {
           }
         });
         notifications.matterCreatedSent = true;
-
-        if (practiceConfig.conversationConfig?.requiresPayment) {
-          await notificationService.sendPaymentRequiredNotification({
-            type: 'payment_required',
-            practiceConfig,
-            matterInfo: {
-              type: matter.matterType,
-              description: matter.description
-            },
-            clientInfo: {
-              name: matter.name,
-              email: matter.email,
-              phone: matter.phone
-            }
-          });
-          notifications.paymentSent = true;
-        }
       } catch (error) {
         Logger.warn('[ContactIntakeOrchestrator] Notification dispatch failed', {
           sessionId,

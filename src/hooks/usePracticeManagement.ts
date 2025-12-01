@@ -15,10 +15,6 @@ import {
   type Practice,
   type UpdatePracticeRequest
 } from '../lib/apiClient';
-import {
-  organizationInvitationSchema,
-  membersResponseSchema
-} from '../../worker/schemas/validation';
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '../utils/subscription';
 import { extractPracticeOnboardingMetadata } from '../utils/practiceOnboarding';
 
@@ -530,12 +526,35 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
       const validatedInvitations = rawInvitations
         .map(invitation => {
-          try {
-            return organizationInvitationSchema.parse(invitation);
-          } catch (error) {
-            console.error('Invalid invitation data:', invitation, error);
+          // Validate invitation structure manually
+          if (!invitation || typeof invitation !== 'object') {
             return null;
           }
+          const inv = invitation as Record<string, unknown>;
+          if (
+            typeof inv.id === 'string' &&
+            typeof inv.practiceId === 'string' &&
+            typeof inv.email === 'string' &&
+            typeof inv.role === 'string' &&
+            typeof inv.status === 'string' &&
+            typeof inv.invitedBy === 'string' &&
+            typeof inv.expiresAt === 'number' &&
+            typeof inv.createdAt === 'number'
+          ) {
+            return {
+              id: inv.id,
+              practiceId: inv.practiceId,
+              practiceName: typeof inv.practiceName === 'string' ? inv.practiceName : undefined,
+              email: inv.email,
+              role: inv.role as Role,
+              status: inv.status as 'pending' | 'accepted' | 'declined',
+              invitedBy: inv.invitedBy,
+              expiresAt: inv.expiresAt,
+              createdAt: inv.createdAt,
+            } as Invitation;
+          }
+          console.error('Invalid invitation data:', invitation);
+          return null;
         })
         .filter((invitation): invitation is Invitation => invitation !== null);
 
@@ -631,15 +650,28 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const fetchMembers = useCallback(async (practiceId: string): Promise<void> => {
     try {
       const data = await listPracticeMembers(practiceId);
-      const validatedData = membersResponseSchema.parse({ members: data });
-      const normalizedMembers: Member[] = (validatedData.members || []).map(m => ({
-        userId: m.userId,
-        role: m.role,
-        email: m.email ?? '',
-        name: m.name ?? undefined,
-        image: m.image ?? undefined,
-        createdAt: m.createdAt,
-      }));
+      // Validate and normalize members manually
+      const normalizedMembers: Member[] = (Array.isArray(data) ? data : []).map(m => {
+        if (!m || typeof m !== 'object') {
+          return null;
+        }
+        const member = m as Record<string, unknown>;
+        if (
+          typeof member.userId === 'string' &&
+          typeof member.role === 'string' &&
+          typeof member.createdAt === 'number'
+        ) {
+          return {
+            userId: member.userId,
+            role: member.role as Role,
+            email: typeof member.email === 'string' ? member.email : '',
+            name: typeof member.name === 'string' ? member.name : undefined,
+            image: typeof member.image === 'string' ? member.image : undefined,
+            createdAt: member.createdAt,
+          } as Member;
+        }
+        return null;
+      }).filter((m): m is Member => m !== null);
       setMembers(prev => ({ ...prev, [practiceId]: normalizedMembers }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');

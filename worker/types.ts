@@ -6,8 +6,6 @@ export interface Env {
   CHAT_SESSIONS: KVNamespace;
   RESEND_API_KEY: string;
   FILES_BUCKET?: R2Bucket;
-  PAYMENT_API_KEY?: string;
-  PAYMENT_API_URL?: string;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;
   ADOBE_TECHNICAL_ACCOUNT_ID?: string;
@@ -28,11 +26,8 @@ export interface Env {
   
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
   
-  BLAWBY_API_URL?: string;
-  BLAWBY_API_TOKEN?: string;
   BLAWBY_ORGANIZATION_ULID?: string;
   IDEMPOTENCY_SALT?: string;
-  PAYMENT_IDEMPOTENCY_SECRET?: string;
   LAWYER_SEARCH_API_KEY?: string;
   
   // Environment flags
@@ -114,14 +109,11 @@ export type SubscriptionLifecycleStatus =
 
 // Conversation configuration (conversation/messaging settings, not chatbot)
 export interface ConversationConfig {
-  consultationFee: number;
-  requiresPayment: boolean;
   ownerEmail?: string;
   availableServices: string[];
   serviceQuestions: Record<string, string[]>;
   domain: string;
   description: string;
-  paymentLink?: string;
   brandColor: string;
   accentColor: string;
   introMessage: string;
@@ -160,16 +152,9 @@ export interface ConversationConfig {
   isPublic?: boolean;
 }
 
-// Practice configuration extends conversation config with jurisdiction
-export interface PracticeConfig extends ConversationConfig {
-  jurisdiction?: {
-    type: 'national' | 'state' | 'multi_state' | 'county' | 'city';
-    description: string;
-    supportedStates?: string[];
-    supportedCountries?: string[];
-    primaryState?: string;
-  };
-}
+// Practice configuration extends conversation config
+// Currently identical to ConversationConfig, kept for future extensibility
+export type PracticeConfig = ConversationConfig;
 
 // Practice type (business organization - law firm)
 export interface Practice {
@@ -323,13 +308,6 @@ export interface MatterCanvasData {
   answers?: Record<string, string>;
 }
 
-export interface PaymentEmbedData {
-  paymentUrl: string;
-  amount?: number;
-  description?: string;
-  paymentId?: string;
-}
-
 /**
  * Analysis result from document processing
  * Currently only supports raw extraction (extraction_only: true)
@@ -376,7 +354,6 @@ export interface UIMessageExtras {
       status: 'missing' | 'uploaded' | 'pending';
     }>;
   };
-  paymentEmbed?: PaymentEmbedData;
   generatedPDF?: {
     filename: string;
     size: number;

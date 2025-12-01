@@ -26,6 +26,7 @@ import { PricingModal, WelcomeModal } from './components/modals/organisms';
 import { useWelcomeModal } from './components/modals/hooks/useWelcomeModal';
 import { BusinessWelcomePrompt } from './components/onboarding/organisms/BusinessWelcomePrompt';
 import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPage';
+import LawyerSearchPage from './components/pages/LawyerSearchPage';
 import { CartPage } from './components/cart/CartPage';
 import { debounce } from './utils/debounce';
 import { useToastContext } from './contexts/ToastContext';
@@ -39,9 +40,6 @@ import { i18n, initI18n } from './i18n';
 
 const DEFAULT_PRACTICE_PHONE =
 	(import.meta.env.VITE_DEFAULT_PRACTICE_PHONE ?? '+17025550123').trim();
-const DEFAULT_CONSULTATION_FEE = Number.parseFloat(
-	import.meta.env.VITE_DEFAULT_CONSULTATION_FEE ?? '150'
-);
 
 
 
@@ -188,16 +186,11 @@ function MainApp({
                                 const businessPhone = DEFAULT_PRACTICE_PHONE.length
                                     ? DEFAULT_PRACTICE_PHONE
                                     : undefined;
-                                const consultationFee =
-                                    Number.isFinite(DEFAULT_CONSULTATION_FEE) && DEFAULT_CONSULTATION_FEE > 0
-                                        ? DEFAULT_CONSULTATION_FEE
-                                        : undefined;
 
                                 await createPractice({
                                     name: practiceName,
                                     businessEmail: session.user.email || undefined,
-                                    ...(businessPhone ? { businessPhone } : {}),
-                                    ...(consultationFee ? { consultationFee } : {})
+                                    ...(businessPhone ? { businessPhone } : {})
                                 }, { signal: controller.signal });
                             }
 
@@ -770,6 +763,7 @@ function AppWithSEO({
 				<Router>
   					<Route path="/auth" component={AuthPage} />
 					<Route path="/cart" component={CartPage} />
+					<Route path="/lawyers" component={LawyerSearchPage} />
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
 					<Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
 					<Route path="/settings/*" component={SettingsRoute} />

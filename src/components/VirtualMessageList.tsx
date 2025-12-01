@@ -159,7 +159,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         isUser={message.isUser}
                         files={message.files}
                         matterCanvas={message.matterCanvas}
-                        paymentEmbed={message.paymentEmbed}
                         contactForm={message.contactForm}
                         generatedPDF={message.generatedPDF}
                         practiceConfig={practiceConfig}

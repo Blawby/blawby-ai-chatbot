@@ -7,8 +7,7 @@ import { ContactData } from '../components/ContactForm';
 const TOOL_LOADING_MESSAGES: Record<string, string> = {
   'show_contact_form': 'Preparing contact form...',
   'create_matter': 'Creating your case file...',
-  'request_lawyer_review': 'Requesting lawyer review...',
-  'create_payment_invoice': 'Creating payment invoice...'
+  'request_lawyer_review': 'Requesting lawyer review...'
 };
 // Global interface for window API base override and debug properties
 declare global {
@@ -321,7 +320,6 @@ export const useMessageHandling = ({ practiceId, sessionId, onError }: UseMessag
                     currentContent = data.result.message;
                   }
 
-                  const paymentEmbed = data.result?.data?.payment_embed;
                   const caseSummaryPdf = data.result?.data?.case_summary_pdf;
                   const matterData = data.result?.data;
 
@@ -329,10 +327,6 @@ export const useMessageHandling = ({ practiceId, sessionId, onError }: UseMessag
                     content: currentContent,
                     isLoading: false
                   };
-
-                  if (paymentEmbed) {
-                    updates.paymentEmbed = paymentEmbed;
-                  }
 
                   if (caseSummaryPdf && typeof caseSummaryPdf === 'object') {
                     const {

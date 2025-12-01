@@ -31,9 +31,6 @@ export interface MatterSummaryData {
   matterType: string;
   description: string;
   urgency: string;
-  requiresPayment: boolean;
-  consultationFee?: number;
-  paymentLink?: string;
   pdfFilename?: string;
   missingInfo?: string[];
 }
@@ -66,41 +63,9 @@ export function generateMatterSummaryMessage(data: MatterSummaryData): string {
 }
 
 /**
- * Generate payment required message
+ * Generate submission confirmation message
  */
-export function generatePaymentRequiredMessage(data: MatterSummaryData): string {
-  const { consultationFee, paymentLink } = data;
-  
-  // Guard against missing or invalid consultation fee
-  const fee = consultationFee && consultationFee > 0 ? consultationFee : 0;
-  
-  // Handle zero-fee case
-  if (fee === 0) {
-    return `No consultation fee is required for your matter. A lawyer will contact you within 24 hours to discuss your case.`;
-  }
-  
-  let message = `Before we can proceed with your consultation, there's a consultation fee of ${formatUSD(fee)}.\n\n`;
-  
-  message += `**Next Steps:**\n`;
-  
-  // Include payment link if available
-  if (paymentLink) {
-    message += `1. Please complete the payment using this secure payment link: ${escapeMD(paymentLink)}\n`;
-  } else {
-    message += `1. Please complete the payment using the embedded payment form below\n`;
-  }
-  
-  message += `2. Once payment is confirmed, a lawyer will contact you within 24 hours\n\n`;
-  
-  message += `Please complete the payment to secure your consultation. If you have any questions about the payment process, please let me know.`;
-  
-  return message;
-}
-
-/**
- * Generate no payment required message
- */
-export function generateNoPaymentMessage(): string {
+export function generateSubmissionMessage(): string {
   return `I'll submit this to our legal organization for review. A lawyer will contact you within 24 hours to discuss your case.`;
 }
 
@@ -114,10 +79,7 @@ export function generatePDFMessage(pdfFilename: string): string {
 /**
  * Generate notification confirmation message
  */
-export function generateNotificationMessage(requiresPayment: boolean): string {
-  if (requiresPayment) {
-    return `Your full submission has already been sent to our legal organization for review, and we alerted them that payment is pending.`;
-  }
+export function generateNotificationMessage(): string {
   return `Your full submission has already been sent to our legal organization for review.`;
 }
 
@@ -143,12 +105,8 @@ export function generateMissingInfoMessage(missingInfo: string[]): string {
 export function generateCompleteMatterMessage(data: MatterSummaryData): string {
   let message = generateMatterSummaryMessage(data);
   
-  // Add payment section if required
-  if (data.requiresPayment) {
-    message += generatePaymentRequiredMessage(data);
-  } else {
-    message += generateNoPaymentMessage();
-  }
+  // Add submission message
+  message += generateSubmissionMessage();
   
   // Add PDF message if available
   if (data.pdfFilename) {
@@ -156,7 +114,7 @@ export function generateCompleteMatterMessage(data: MatterSummaryData): string {
   }
   
   // Add notification message
-  message += `\n\n${generateNotificationMessage(data.requiresPayment)}`;
+  message += `\n\n${generateNotificationMessage()}`;
   
   // Add missing information if any
   if (data.missingInfo && data.missingInfo.length > 0) {

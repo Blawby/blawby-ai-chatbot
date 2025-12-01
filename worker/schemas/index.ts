@@ -4,8 +4,6 @@
 export * from './validation';
 
 // Type definitions
-export * from './jurisdictionConfig';
-export * from './payment';
 export * from './lawyer';
 export * from './legal';
 

@@ -13,6 +13,7 @@ import {
   handleDebug,
   handleConfig,
 } from './routes';
+import { handleLawyers } from './routes/lawyers.js';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
@@ -136,6 +137,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleStatus(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
+    } else if (path.startsWith('/api/lawyers') || path.startsWith('/lawyers')) {
+      response = await handleLawyers(request, env);
     } else if (path === '/api/health') {
       response = await handleHealth(request, env);
     } else if (path === '/') {

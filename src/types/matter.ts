@@ -7,13 +7,6 @@ export interface MatterData {
   matterSummary: string;
   answers?: Record<string, string>;
   status: MatterStatus;
-  hasPayment?: boolean;
-  paymentEmbed?: {
-    paymentUrl: string;
-    amount?: number;
-    description?: string;
-    paymentId?: string;
-  };
   documentChecklist?: {
     matterType: string;
     documents: Array<{

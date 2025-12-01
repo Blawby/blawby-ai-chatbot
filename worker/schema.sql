@@ -48,27 +48,6 @@ CREATE TABLE IF NOT EXISTS contact_forms (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Lawyers table for lawyer profiles within practices
--- NOTE: This is NOT a replacement for the members table. The members table was for
--- practice membership (user_id, organization_id, role) and is now handled by remote API.
--- This lawyers table is for lawyer profiles (specialties, bar numbers, hourly rates, etc.)
--- used for matter assignment and lawyer search functionality.
-CREATE TABLE IF NOT EXISTS lawyers (
-  id TEXT PRIMARY KEY,
-  organization_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  phone TEXT,
-  specialties JSON, -- Array of practice areas
-  status TEXT DEFAULT 'active', -- 'active', 'inactive', 'on_leave'
-  role TEXT DEFAULT 'attorney', -- 'attorney', 'paralegal', 'admin'
-  hourly_rate INTEGER, -- in cents
-  bar_number TEXT,
-  license_state TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Matters table to represent legal matters
 CREATE TABLE IF NOT EXISTS matters (
   id TEXT PRIMARY KEY,
@@ -170,16 +149,6 @@ CREATE TABLE IF NOT EXISTS matter_questions (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- AI generated summaries table (deprecated - AI features removed, table kept for existing data)
-CREATE TABLE IF NOT EXISTS ai_generated_summaries (
-  id TEXT PRIMARY KEY,
-  matter_id TEXT,
-  summary TEXT NOT NULL,
-  model_used TEXT,
-  prompt_snapshot TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
 -- AI feedback table for user quality ratings and intent tags
 CREATE TABLE IF NOT EXISTS ai_feedback (
   id TEXT PRIMARY KEY,
@@ -238,17 +207,6 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created ON chat_messages(session_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_organization ON chat_messages(organization_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
-
--- Session summaries table (deprecated - AI features removed, table kept for existing data)
-CREATE TABLE IF NOT EXISTS session_summaries (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  summary TEXT NOT NULL,
-  token_count INTEGER,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_session_summaries_session ON session_summaries(session_id, created_at DESC);
 
 -- Session audit events table for activity tracking
 CREATE TABLE IF NOT EXISTS session_audit_events (

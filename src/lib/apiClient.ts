@@ -47,8 +47,6 @@ export interface Practice {
   metadata?: PracticeMetadata;
   businessPhone?: string | null;
   businessEmail?: string | null;
-  consultationFee?: number | null;
-  paymentUrl?: string | null;
   calendlyUrl?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -61,8 +59,6 @@ export interface CreatePracticeRequest {
   metadata?: PracticeMetadata;
   businessPhone?: string;
   businessEmail?: string;
-  consultationFee?: number;
-  paymentUrl?: string;
   calendlyUrl?: string;
 }
 
@@ -232,8 +228,6 @@ function normalizePracticePayload(payload: unknown): Practice {
     metadata: isRecord(payload.metadata) ? payload.metadata : undefined,
     businessPhone: toNullableString(payload.businessPhone ?? payload.business_phone),
     businessEmail: toNullableString(payload.businessEmail ?? payload.business_email),
-    consultationFee: toNullableNumber(payload.consultationFee ?? payload.consultation_fee),
-    paymentUrl: toNullableString(payload.paymentUrl ?? payload.payment_url),
     calendlyUrl: toNullableString(payload.calendlyUrl ?? payload.calendly_url),
     createdAt: toNullableString(payload.createdAt ?? payload.created_at),
     updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at)

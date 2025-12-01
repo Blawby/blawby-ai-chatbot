@@ -17,15 +17,26 @@ let migrationCompleted = false;
 function getDB(): Promise<IDBDatabase> {
     if (!dbPromise) {
         dbPromise = new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, 1);
+            const request = indexedDB.open(DB_NAME, 2);
 
             request.onerror = () => reject(request.error);
             request.onsuccess = () => resolve(request.result);
 
             request.onupgradeneeded = (event) => {
                 const db = (event.target as IDBOpenDBRequest).result;
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    db.createObjectStore(STORE_NAME);
+                const oldVersion = event.oldVersion || 0;
+                
+                // Migrate from version 1 to 2: change object store structure
+                if (oldVersion < 2) {
+                    // Delete old store if it exists
+                    if (db.objectStoreNames.contains(STORE_NAME)) {
+                        db.deleteObjectStore(STORE_NAME);
+                    }
+                    // Create new store with keyPath
+                    db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+                } else if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    // Create object store with keyPath so we can use put() with a key
+                    db.createObjectStore(STORE_NAME, { keyPath: 'key' });
                 }
             };
         });
@@ -91,7 +102,11 @@ export async function getToken(): Promise<string | null> {
             const store = transaction.objectStore(STORE_NAME);
             const request = store.get(TOKEN_KEY);
 
-            request.onsuccess = () => resolve(request.result || null);
+            request.onsuccess = () => {
+                const result = request.result;
+                // Result will be an object with { key: TOKEN_KEY, value: token } or null
+                resolve(result?.value || null);
+            };
             request.onerror = () => reject(request.error);
         });
     } catch (error) {
@@ -106,7 +121,8 @@ export async function setToken(token: string): Promise<void> {
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readwrite');
             const store = transaction.objectStore(STORE_NAME);
-            const request = store.put(token, TOKEN_KEY);
+            // Store as object with key property (matches keyPath)
+            const request = store.put({ key: TOKEN_KEY, value: token });
 
             request.onsuccess = () => {
                 // Update cache immediately when token is set

@@ -98,6 +98,7 @@ const criticalCssPlugin = (): Plugin => {
 const proxyEndpoints = [
 	'agent',
 	'sessions',
+	'lawyers',
 	'files',
 	'activity',
 	'analyze',

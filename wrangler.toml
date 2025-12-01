@@ -30,7 +30,6 @@ migrations_dir = "worker/migrations"
 
 # Blawby API Configuration
 [vars]
-BLAWBY_API_URL = "https://staging.blawby.com"
 BLAWBY_ORGANIZATION_ULID = "01jq70jnstyfzevc6423czh50e"
 # Remote API URL for organization/subscription management
 REMOTE_API_URL = "https://staging-api.blawby.com"
@@ -39,7 +38,6 @@ DOMAIN = "localhost"
 # Stripe price configuration for all environments (test mode IDs)
 STRIPE_PRICE_ID = "price_1SHfgbDJLzJ14cfPBGuTvcG3"
 STRIPE_ANNUAL_PRICE_ID = "price_1SHfhCDJLzJ14cfPGFGQ77vQ"
-# BLAWBY_API_TOKEN should be set via: wrangler secret put BLAWBY_API_TOKEN
 
 # Lawyer Search API Configuration
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"
@@ -162,7 +160,6 @@ CLOUDFLARE_PUBLIC_URL = "https://ai.blawby.com"
 DOMAIN = "ai.blawby.com"
 ENABLE_STRIPE_SUBSCRIPTIONS = true
 REQUIRE_EMAIL_VERIFICATION = "false"
-BLAWBY_API_URL = "https://production-api.blawby.com"
 REMOTE_API_URL = "https://production-api.blawby.com"
 
 # Updated to use modern nested producers syntax

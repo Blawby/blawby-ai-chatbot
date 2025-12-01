@@ -273,14 +273,11 @@ export class RemoteApiService {
     };
 
     return {
-      consultationFee: typeof config.consultationFee === 'number' ? config.consultationFee : 0,
-      requiresPayment: Boolean(config.requiresPayment),
       ownerEmail: typeof config.ownerEmail === 'string' ? config.ownerEmail : undefined,
       availableServices: requiredStringArray(config.availableServices ?? []),
       serviceQuestions: requiredRecord(config.serviceQuestions ?? {}),
       domain: typeof config.domain === 'string' ? config.domain : '',
       description: typeof config.description === 'string' ? config.description : '',
-      paymentLink: typeof config.paymentLink === 'string' ? config.paymentLink : undefined,
       brandColor: typeof config.brandColor === 'string' ? config.brandColor : '#000000',
       accentColor: typeof config.accentColor === 'string' ? config.accentColor : '#000000',
       introMessage: typeof config.introMessage === 'string' ? config.introMessage : '',

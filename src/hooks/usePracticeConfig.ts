@@ -170,13 +170,6 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
         // Practice exists, use its config or defaults
         // Parse config safely - config is Record<string, unknown> from API
         const cfg = practice.config as Partial<PracticeConfig> || {};
-        const normalizedJurisdiction: PracticeConfig['jurisdiction'] = {
-          type: cfg.jurisdiction?.type ?? PLATFORM_SETTINGS.jurisdiction.type,
-          description: cfg.jurisdiction?.description ?? PLATFORM_SETTINGS.jurisdiction.description,
-          supportedStates: cfg.jurisdiction?.supportedStates ?? PLATFORM_SETTINGS.jurisdiction.supportedStates,
-          supportedCountries: cfg.jurisdiction?.supportedCountries ?? PLATFORM_SETTINGS.jurisdiction.supportedCountries,
-          primaryState: cfg.jurisdiction?.primaryState
-        };
 
         const config: UIPracticeConfig = {
           name: practice.name || PLATFORM_SETTINGS.name,
@@ -185,7 +178,6 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
           description: cfg.description ?? PLATFORM_SETTINGS.description,
           availableServices: cfg.availableServices ?? PLATFORM_SETTINGS.availableServices,
           serviceQuestions: cfg.serviceQuestions ?? PLATFORM_SETTINGS.serviceQuestions,
-          jurisdiction: normalizedJurisdiction,
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : PLATFORM_SETTINGS.voice.enabled,
             provider: cfg.voice?.provider ?? PLATFORM_SETTINGS.voice.provider,

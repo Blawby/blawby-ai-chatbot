@@ -18,7 +18,6 @@ Ensure new features distinguish between platform-level configuration and tenant-
 **All major components are implemented and working:**
 - ✅ Better Auth Client with Proxy pattern for lazy initialization
 - ✅ API Client with Axios and automatic Bearer token injection
-- ✅ Development Practice Seeding script
 - ✅ Practice Management APIs (all endpoints)
 - ✅ Onboarding APIs (status, connected accounts, complete)
 
@@ -516,72 +515,6 @@ await apiClient.delete('/api/practice/uuid-here');
 ```
 
 The Bearer token is automatically included in all requests - no need to manually add it!
-
----
-
-# Development Practice Seeding
-
-✅ **IMPLEMENTED** - For local development, you can automatically create a default practice for your test account using the dev seed script.
-
-## Setup
-
-The script is located at `scripts/dev-seed-practice.ts` and can be run via:
-
-```bash
-npm run dev:seed
-```
-
-## Environment Variables
-
-Set these environment variables before running the script:
-
-```bash
-# Required
-DEV_SEED_USER_EMAIL=your-dev-email@example.com
-DEV_SEED_USER_PASSWORD=your-dev-password
-
-# Optional (with defaults)
-DEV_SEED_BASE_URL=http://localhost:8787  # Worker URL for practice API calls
-DEV_SEED_AUTH_URL=https://staging-api.blawby.com  # Remote auth server URL for sign-in
-DEV_SEED_PRACTICE_NAME=Dev Practice  # Name for the practice (default: "Dev Practice")
-DEV_SEED_PRACTICE_SLUG=dev-practice  # Slug for the practice (default: auto-generated)
-```
-
-## How It Works
-
-1. **Sign In**: The script signs in to the remote auth server (`DEV_SEED_AUTH_URL`) using the provided credentials
-2. **Check Existing**: Lists practices via `GET /api/practice/list` on the Worker (`DEV_SEED_BASE_URL`)
-3. **Create if Needed**: If no practices exist, creates a default practice via `POST /api/practice` with:
-   - Name: `DEV_SEED_PRACTICE_NAME` or "Dev Practice"
-   - Slug: `DEV_SEED_PRACTICE_SLUG` or auto-generated
-   - Business email: The user's email
-   - Business phone: `+1-555-0100` (valid format required)
-   - Consultation fee: `100.00` (must be > 0)
-
-## Example Usage
-
-```bash
-DEV_SEED_USER_EMAIL=test@example.com \
-DEV_SEED_USER_PASSWORD=TestPassword123! \
-DEV_SEED_AUTH_URL=https://staging-api.blawby.com \
-npm run dev:seed
-```
-
-## Output
-
-The script will output:
-- `🔐 Signing in as ...` - Sign-in attempt
-- `✅ Auth token acquired` - Successful authentication
-- `✅ Practice already exists (...)` - If practices are found
-- `ℹ️  No practices found. Creating default practice...` - If creating new practice
-- `🎉 Practice created: ...` - Success message with practice name/slug/id
-
-## Notes
-
-- The script is idempotent - it won't create duplicate practices if one already exists
-- It uses the remote auth server for sign-in (not the local Worker proxy)
-- It uses the local Worker for practice API calls (which proxies to the remote API)
-- The created practice will be available immediately in the frontend after sign-in
 
 ---
 
