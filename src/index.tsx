@@ -35,8 +35,26 @@ import { usePracticeManagement } from './hooks/usePracticeManagement';
 import { PLATFORM_PRACTICE_ID } from './utils/constants';
 import { listPractices, createPractice } from './lib/apiClient';
 import { useMobileDetection } from './hooks/useMobileDetection';
+import { useMockChat } from './hooks/useMockChat';
+import { isMockModeEnabled, toggleMockMode } from './components/chat/mock/mockChatData';
 import './index.css';
 import { i18n, initI18n } from './i18n';
+
+// Expose mock mode controls to browser console for easy access
+if (typeof window !== 'undefined') {
+	(window as any).mockChat = {
+		enable: () => {
+			toggleMockMode(true);
+			window.location.reload();
+		},
+		disable: () => {
+			toggleMockMode(false);
+			window.location.reload();
+		},
+		isEnabled: () => isMockModeEnabled()
+	};
+	console.log('💡 Mock Chat Mode: Use window.mockChat.enable() or window.mockChat.disable() in the console');
+}
 
 const DEFAULT_PRACTICE_PHONE =
 	(import.meta.env.VITE_DEFAULT_PRACTICE_PHONE ?? '+17025550123').trim();
@@ -83,12 +101,16 @@ function MainApp({
 	const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
 
 
+	// Mock mode for UI development
+	const mockChat = useMockChat();
+	const isMockMode = isMockModeEnabled();
+
 	const {
 		sessionId,
 		error: sessionError
 	} = useChatSessionWithContext();
 
-	const { messages, sendMessage, handleContactFormSubmit, addMessage } = useMessageHandlingWithContext({
+	const realMessageHandling = useMessageHandlingWithContext({
 		sessionId,
 		onError: (error) => {
 			console.error('Message handling error:', error);
@@ -96,10 +118,18 @@ function MainApp({
 		}
 	});
 
+	// Use mock data if mock mode is enabled, otherwise use real data
+	const messages = isMockMode ? mockChat.messages : realMessageHandling.messages;
 	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
-		// Let sendMessage errors propagate to its onError handler
-		await sendMessage(message, attachments);
-	}, [sendMessage]);
+		if (isMockMode) {
+			await mockChat.sendMessage(message, attachments);
+		} else {
+			await realMessageHandling.sendMessage(message, attachments);
+		}
+	}, [isMockMode, mockChat, realMessageHandling]);
+	const handleContactFormSubmit = isMockMode 
+		? async () => { console.log('Mock: Contact form submitted'); }
+		: realMessageHandling.handleContactFormSubmit;
 
 	const {
 		previewFiles,
@@ -473,11 +503,23 @@ function MainApp({
 						updateMatterStatus={updateMatterStatus}
 					/>
 					<div className="flex-1 min-h-0">
+						{/* Mock mode indicator */}
+						{isMockMode && (
+							<div className="bg-yellow-100 dark:bg-yellow-900/20 border-b border-yellow-300 dark:border-yellow-700 px-4 py-2 text-sm text-yellow-800 dark:text-yellow-200">
+								🔧 <strong>Mock Mode Enabled</strong> - Using demo data. 
+								<button 
+									onClick={() => mockChat.setMockMode(false)}
+									className="ml-2 underline hover:no-underline"
+								>
+									Disable
+								</button>
+							</div>
+						)}
 						<ChatContainer
 							messages={messages}
 							onSendMessage={handleSendMessage}
 							onContactFormSubmit={handleContactFormSubmit}
-							practiceConfig={{
+							practiceConfig={isMockMode ? mockChat.practiceConfig : {
 								name: practiceConfig.name ?? '',
 								profileImage: practiceConfig?.profileImage ?? null,
 								practiceId,
