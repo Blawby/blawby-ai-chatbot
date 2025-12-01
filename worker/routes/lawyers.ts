@@ -66,14 +66,31 @@ async function handleGetLawyers(request: Request, env: Env, url: URL): Promise<R
 
     const fullUrl = searchParams.toString() ? `${searchUrl}?${searchParams.toString()}` : searchUrl;
 
-    // Call external API
-    const response = await fetch(fullUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+    // Call external API with timeout
+    const controller = new AbortController();
+    const timeoutMs = 10000; // 10 second timeout
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+
+    let response: Response;
+    try {
+      response = await fetch(fullUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw HttpErrors.gatewayTimeout('Lawyer search API request timed out after 10 seconds');
       }
-    });
+      throw error;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();

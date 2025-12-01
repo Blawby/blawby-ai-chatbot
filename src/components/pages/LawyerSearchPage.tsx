@@ -59,20 +59,6 @@ const LawyerSearchPage: FunctionComponent = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Read initial params from URL
-  useEffect(() => {
-    const params = new URLSearchParams(location.query);
-    const state = params.get('state') || '';
-    const city = params.get('city') || '';
-    const practiceArea = params.get('practice_area') || params.get('practiceArea') || '';
-    const page = parseInt(params.get('page') || '1', 10);
-
-    if (state || city || practiceArea) {
-      setSearchParams({ state, city, practiceArea, page, limit: 20 });
-      performSearch({ state, city, practiceArea, page, limit: 20 });
-    }
-  }, [location.query]);
-
   const performSearch = useCallback(async (params: typeof searchParams) => {
     setLoading(true);
     setError(null);
@@ -90,7 +76,10 @@ const LawyerSearchPage: FunctionComponent = () => {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to fetch lawyers' }));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        const errorMessage = (errorData && typeof errorData === 'object' && 'error' in errorData && typeof errorData.error === 'string') 
+          ? errorData.error 
+          : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
       }
 
       const data: LawyerSearchResponse = await response.json();
@@ -107,6 +96,19 @@ const LawyerSearchPage: FunctionComponent = () => {
       setLoading(false);
     }
   }, []);
+
+  // Read initial params from URL
+  useEffect(() => {
+    const state = location.query.state || '';
+    const city = location.query.city || '';
+    const practiceArea = location.query.practice_area || location.query.practiceArea || '';
+    const page = parseInt(location.query.page || '1', 10);
+
+    if (state || city || practiceArea) {
+      setSearchParams({ state, city, practiceArea, page, limit: 20 });
+      performSearch({ state, city, practiceArea, page, limit: 20 });
+    }
+  }, [location.query, performSearch]);
 
   const handleSearch = (e: Event) => {
     e.preventDefault();

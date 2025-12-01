@@ -524,6 +524,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
       const rawInvitations = await listPracticeInvitations();
 
+      // Define valid role and status values
+      const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal'];
+      const validStatuses: Array<'pending' | 'accepted' | 'declined'> = ['pending', 'accepted', 'declined'];
+
       const validatedInvitations = rawInvitations
         .map(invitation => {
           // Validate invitation structure manually
@@ -541,6 +545,16 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             typeof inv.expiresAt === 'number' &&
             typeof inv.createdAt === 'number'
           ) {
+            // Validate role is one of the allowed values
+            if (!validRoles.includes(inv.role as Role)) {
+              console.error('Invalid invitation role:', inv.role, 'Expected one of:', validRoles, 'Invitation:', invitation);
+              return null;
+            }
+            // Validate status is one of the allowed values
+            if (!validStatuses.includes(inv.status as 'pending' | 'accepted' | 'declined')) {
+              console.error('Invalid invitation status:', inv.status, 'Expected one of:', validStatuses, 'Invitation:', invitation);
+              return null;
+            }
             return {
               id: inv.id,
               practiceId: inv.practiceId,
@@ -651,27 +665,41 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     try {
       const data = await listPracticeMembers(practiceId);
       // Validate and normalize members manually
-      const normalizedMembers: Member[] = (Array.isArray(data) ? data : []).map(m => {
-        if (!m || typeof m !== 'object') {
+      const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal'];
+      
+      const normalizedMembers: Member[] = (Array.isArray(data) ? data : [])
+        .map(m => {
+          if (!m || typeof m !== 'object') {
+            return null;
+          }
+          const member = m as Record<string, unknown>;
+          if (
+            typeof member.userId === 'string' &&
+            typeof member.role === 'string' &&
+            typeof member.createdAt === 'number'
+          ) {
+            // Validate role is one of the allowed values
+            if (!validRoles.includes(member.role as Role)) {
+              console.error('Invalid member role:', member.role, 'Expected one of:', validRoles, 'Member:', member);
+              return null;
+            }
+            // Validate email is present and is a string (required field)
+            if (typeof member.email !== 'string' || !member.email.trim()) {
+              console.error('Invalid or missing member email:', member.email, 'Member:', member);
+              return null;
+            }
+            return {
+              userId: member.userId,
+              role: member.role as Role,
+              email: member.email,
+              name: typeof member.name === 'string' ? member.name : undefined,
+              image: typeof member.image === 'string' ? member.image : undefined,
+              createdAt: member.createdAt,
+            } as Member;
+          }
           return null;
-        }
-        const member = m as Record<string, unknown>;
-        if (
-          typeof member.userId === 'string' &&
-          typeof member.role === 'string' &&
-          typeof member.createdAt === 'number'
-        ) {
-          return {
-            userId: member.userId,
-            role: member.role as Role,
-            email: typeof member.email === 'string' ? member.email : '',
-            name: typeof member.name === 'string' ? member.name : undefined,
-            image: typeof member.image === 'string' ? member.image : undefined,
-            createdAt: member.createdAt,
-          } as Member;
-        }
-        return null;
-      }).filter((m): m is Member => m !== null);
+        })
+        .filter((m): m is Member => m !== null);
       setMembers(prev => ({ ...prev, [practiceId]: normalizedMembers }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');
