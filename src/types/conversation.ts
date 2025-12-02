@@ -3,7 +3,7 @@
 /**
  * Conversation status
  */
-export type ConversationStatus = 'active' | 'archived' | 'completed';
+export type ConversationStatus = 'active' | 'archived' | 'completed' | 'closed';
 
 /**
  * Message role in conversation
@@ -81,6 +81,13 @@ export interface CreateConversationRequest {
   participantUserIds?: string[];
   metadata?: Record<string, unknown>;
   title?: string;
+}
+
+/**
+ * Add participants request payload
+ */
+export interface AddParticipantsRequest {
+  participantUserIds: string[];
 }
 
 /**

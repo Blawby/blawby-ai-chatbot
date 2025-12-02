@@ -16,6 +16,7 @@ interface UseConversationsReturn {
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  addParticipants: (conversationId: string, participantUserIds: string[]) => Promise<Conversation | null>;
 }
 
 /**
@@ -121,6 +122,71 @@ export function useConversations({
     await fetchConversations();
   }, [fetchConversations]);
 
+  const addParticipants = useCallback(async (
+    conversationId: string,
+    participantUserIds: string[]
+  ): Promise<Conversation | null> => {
+    if (!practiceId) {
+      const errorMessage = 'Practice ID is required to add participants';
+      setError(errorMessage);
+      onError?.(errorMessage);
+      return null;
+    }
+
+    if (!conversationId) {
+      const errorMessage = 'Conversation ID is required to add participants';
+      setError(errorMessage);
+      onError?.(errorMessage);
+      return null;
+    }
+
+    if (!Array.isArray(participantUserIds) || participantUserIds.length === 0) {
+      const errorMessage = 'At least one participant user ID is required';
+      setError(errorMessage);
+      onError?.(errorMessage);
+      return null;
+    }
+
+    try {
+      const token = await getTokenAsync();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const config = getApiConfig();
+      const response = await fetch(`${config.baseUrl}/api/conversations/${conversationId}/participants`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ participantUserIds }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as { success: boolean; error?: string; data?: Conversation };
+      if (!data.success || !data.data) {
+        throw new Error(data.error || 'Failed to add participants');
+      }
+
+      // Refresh conversations to pull the latest participant list
+      await refresh();
+
+      return data.data;
+    } catch (err) {
+      if (isDisposedRef.current) return null;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add participants';
+      setError(errorMessage);
+      onError?.(errorMessage);
+      return null;
+    }
+  }, [practiceId, onError, refresh]);
+
   // Initial load and refetch when filters change
   useEffect(() => {
     if (!practiceId) {
@@ -143,6 +209,7 @@ export function useConversations({
     isLoading,
     error,
     refresh,
+    addParticipants,
   };
 }
 

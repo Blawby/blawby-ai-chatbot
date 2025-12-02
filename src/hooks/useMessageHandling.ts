@@ -63,6 +63,7 @@ export const useMessageHandling = ({ practiceId, sessionId, conversationId, onEr
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const isDisposedRef = useRef(false);
+  const lastConversationIdRef = useRef<string | undefined>();
   
   // Debug hooks for test environment (development only)
   useEffect(() => {
@@ -356,6 +357,19 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       isDisposedRef.current = true;
     };
   }, [conversationId, practiceId, fetchMessages]);
+
+  // Clear UI state when switching to a different conversation to avoid showing stale messages
+  useEffect(() => {
+    if (
+      lastConversationIdRef.current &&
+      conversationId &&
+      lastConversationIdRef.current !== conversationId
+    ) {
+      setMessages([]);
+    }
+
+    lastConversationIdRef.current = conversationId;
+  }, [conversationId]);
 
   // Cleanup on unmount
   useEffect(() => {
