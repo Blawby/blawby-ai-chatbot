@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
-import { PRODUCTS, PRICES, getStripePriceIds } from '../../utils/stripe-products';
+import { PRODUCTS, PRICES } from '../../utils/stripe-products';
 import { usePaymentUpgrade } from '../../hooks/usePaymentUpgrade';
 import { usePracticeManagement } from '../../hooks/usePracticeManagement';
 import { useToastContext } from '../../contexts/ToastContext';
@@ -14,7 +14,9 @@ import {
 } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import { authClient } from '../../lib/authClient';
-import { listPractices, createPractice } from '../../lib/apiClient';
+import { listPractices } from '../../lib/apiClient';
+import { createOrganizationForSubscription } from '../../utils/subscription';
+import { fetchPlans, type SubscriptionPlan } from '../../utils/fetchPlans';
 
 export const CartPage = () => {
   const location = useLocation();
@@ -33,31 +35,54 @@ export const CartPage = () => {
 
   const [selectedPriceId, setSelectedPriceId] = useState<string>('');
   const [quantity, setQuantity] = useState(initialSeats);
-  const [priceIds, setPriceIds] = useState<{ monthly: string; annual: string } | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Refs for radio buttons to manage focus programmatically
   const annualRef = useRef<HTMLButtonElement | null>(null);
   const monthlyRef = useRef<HTMLButtonElement | null>(null);
 
-  const loadPriceIds = useCallback(async () => {
+  const loadPlans = useCallback(async () => {
     try {
       setLoadError(null);
-      const ids = await getStripePriceIds();
-      setPriceIds(ids);
-      setSelectedPriceId(ids.monthly);
+      const availablePlans = await fetchPlans();
+      // Filter to only show active, public plans
+      const publicPlans = availablePlans.filter(
+        (plan) => plan.isActive && plan.isPublic
+      );
+      setPlans(publicPlans);
+      
+      if (publicPlans.length === 0) {
+        const errorMsg = 'No subscription plans available';
+        setLoadError(errorMsg);
+        showError('No Plans Available', errorMsg);
+        return;
+      }
+      
+      // Select the first plan (or business plan if available)
+      const businessPlan = publicPlans.find(p => p.name.toLowerCase().includes('business')) || publicPlans[0];
+      if (businessPlan) {
+        setSelectedPlan(businessPlan);
+        // Set initial price ID to monthly (will be updated when user selects annual)
+        setSelectedPriceId(businessPlan.stripeMonthlyPriceId);
+      } else {
+        const errorMsg = 'No suitable plan found';
+        setLoadError(errorMsg);
+        showError('Plan Selection Error', errorMsg);
+      }
     } catch (error) {
-      console.error('Failed to load price IDs:', error);
+      console.error('Failed to load plans:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to load pricing information';
       setLoadError(errorMsg);
       showError('Failed to load pricing', errorMsg);
     }
   }, [showError]);
 
-  // Load price IDs from config
+  // Load plans from API
   useEffect(() => {
-    loadPriceIds();
-  }, [loadPriceIds]);
+    loadPlans();
+  }, [loadPlans]);
 
   // Dev/test-only override to force paid UI in deterministic E2E runs
   const devForcePaid = isForcePaidEnabled();
@@ -167,10 +192,13 @@ export const CartPage = () => {
       </div>
     ) : null;
 
+  // Determine if annual is selected based on selected price ID
+  const isAnnual = selectedPlan ? selectedPriceId === selectedPlan.stripeYearlyPriceId : false;
+
   // Keyboard navigation for radiogroup (must be before early return)
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (!priceIds) return;
-    const priceIdList = [priceIds.annual, priceIds.monthly];
+    if (!selectedPlan) return;
+    const priceIdList = [selectedPlan.stripeYearlyPriceId, selectedPlan.stripeMonthlyPriceId];
     const currentIndex = priceIdList.indexOf(selectedPriceId);
     
     switch (event.key) {
@@ -182,7 +210,7 @@ export const CartPage = () => {
         setSelectedPriceId(nextId);
         // Move focus to the newly selected button
         queueMicrotask(() => {
-          if (nextId === priceIds.annual) {
+          if (nextId === selectedPlan.stripeYearlyPriceId) {
             annualRef.current?.focus();
           } else {
             monthlyRef.current?.focus();
@@ -198,7 +226,7 @@ export const CartPage = () => {
         setSelectedPriceId(nextId);
         // Move focus to the newly selected button
         queueMicrotask(() => {
-          if (nextId === priceIds.annual) {
+          if (nextId === selectedPlan.stripeYearlyPriceId) {
             annualRef.current?.focus();
           } else {
             monthlyRef.current?.focus();
@@ -207,23 +235,31 @@ export const CartPage = () => {
         break;
       }
     }
-  }, [selectedPriceId, priceIds]);
+  }, [selectedPriceId, selectedPlan]);
 
   if (isPaidTier) {
     return paidState;
   }
 
-  const selectedPrice = priceIds ? (selectedPriceId === priceIds.annual ? PRICES.annual : PRICES.monthly) : null;
-  const isAnnual = priceIds ? selectedPriceId === priceIds.annual : false;
+  if (!selectedPlan) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4" />
+          <p>Loading pricing information...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Create locale-aware currency formatter
   const currencyFormatter = new Intl.NumberFormat(i18n.language, {
     style: 'currency',
-    currency: PRICES.monthly.currency.toUpperCase()
+    currency: selectedPlan.currency.toUpperCase()
   });
 
-  const monthlySeatPrice = PRICES.monthly.unit_amount / 100;
-  const annualSeatPricePerYear = PRICES.annual.unit_amount / 100;
+  const monthlySeatPrice = parseFloat(selectedPlan.monthlyPrice);
+  const annualSeatPricePerYear = parseFloat(selectedPlan.yearlyPrice);
   const annualSeatPricePerMonth = annualSeatPricePerYear / 12;
 
   const subtotal = isAnnual
@@ -242,61 +278,23 @@ export const CartPage = () => {
     } catch (e) {
       console.warn('[CART][UPGRADE] debug start failed:', e);
     }
-
-    // Store cart data for Stripe Elements integration
-    const cartData = {
-      product_id: selectedPrice.product,
-      price_id: selectedPriceId,
-      quantity
-    };
-
-
-    try {
-      // Attempt to store in localStorage
-      const cartDataString = JSON.stringify(cartData);
-      localStorage.setItem('cartData', cartDataString);
-    } catch (error) {
-      // Log the error with context
-      console.error('❌ Cart Page - Failed to store cart data in localStorage:', {
-        error: error instanceof Error ? error.message : String(error),
-        cartData,
-        storageAvailable: typeof Storage !== 'undefined',
-        localStorageAvailable: typeof localStorage !== 'undefined'
-      });
-
-      // Fallback to sessionStorage if available
-      try {
-        if (typeof sessionStorage !== 'undefined') {
-          const cartDataString = JSON.stringify(cartData);
-          sessionStorage.setItem('cartData', cartDataString);
-        }
-      } catch (sessionError) {
-        console.error('❌ Cart Page - Failed to store cart data in sessionStorage:', {
-          error: sessionError instanceof Error ? sessionError.message : String(sessionError),
-          cartData
-        });
-        // Continue without persisting - checkout should not be blocked
-      }
-    }
     
     // Ensure practice exists server-side to avoid race conditions
+    // Note: The practice creation is now handled in usePaymentUpgrade.submitUpgrade()
+    // which uses the createOrganizationForSubscription helper with the correct naming pattern
     let practiceId = currentPractice?.id;
     if (!practiceId) {
       try {
         console.debug('[CART][UPGRADE] Checking for practices via practice API helpers');
         const practices = await listPractices({ scope: 'all' });
         
-        // If no practices exist, create a default one
+        // If no practices exist, create one using the helper (with correct naming pattern)
         if (practices.length === 0) {
           console.debug('[CART][UPGRADE] No practices found, creating default practice');
           const session = await authClient.getSession();
           const userName = session?.data?.user?.name || session?.data?.user?.email?.split('@')[0] || 'User';
-          const practiceName = `${userName}'s Practice`;
           
-          const createdPractice = await createPractice({
-            name: practiceName,
-            businessEmail: session?.data?.user?.email || undefined,
-          });
+          const createdPractice = await createOrganizationForSubscription(userName);
           
           if (createdPractice?.id) {
             practiceId = createdPractice.id;
@@ -322,15 +320,26 @@ export const CartPage = () => {
 
     // Align active practice using Better Auth client helpers before checkout
     // Note: Better Auth API uses "organizationId" parameter name
+    // Use getClient() directly to bypass proxy issues
     try {
-      await authClient.organization.setActive({ organizationId: practiceId });
-      console.debug('[CART][UPGRADE] Active practice set via auth client:', practiceId);
+      const { getClient } = await import('../../lib/authClient');
+      const client = getClient();
+      if (client.organization?.setActive) {
+        await client.organization.setActive({ organizationId: practiceId });
+        console.debug('[CART][UPGRADE] Active practice set via auth client:', practiceId);
+      }
     } catch (e) {
       console.warn('[CART][UPGRADE] Failed to set active practice with auth client (continuing anyway):', e);
     }
 
+    if (!selectedPlan) {
+      showError('Setup Required', 'Please select a plan.');
+      return;
+    }
+
     const upgradeParams = {
       practiceId, // our DB practice id as referenceId for backend
+      plan: selectedPlan.name, // Plan name from API (e.g., "professional", "business_seat")
       seats: quantity,
       annual: isAnnual,
       cancelUrl: typeof window !== 'undefined' ? window.location.href : undefined,
@@ -363,22 +372,11 @@ export const CartPage = () => {
         <div className="text-center">
           <p className="text-red-400 mb-4">{loadError}</p>
           <button 
-            onClick={loadPriceIds}
+            onClick={loadPlans}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
             Retry
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!priceIds) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4" />
-          <p>Loading pricing information...</p>
         </div>
       </div>
     );
@@ -416,17 +414,17 @@ export const CartPage = () => {
               <button
                 ref={annualRef}
                 onClick={() => {
-                  if (priceIds) {
-                    setSelectedPriceId(priceIds.annual);
+                  if (selectedPlan) {
+                    setSelectedPriceId(selectedPlan.stripeYearlyPriceId);
                     queueMicrotask(() => annualRef.current?.focus());
                   }
                 }}
                 role="radio"
-                aria-checked={priceIds ? selectedPriceId === priceIds.annual : false}
+                aria-checked={selectedPlan ? selectedPriceId === selectedPlan.stripeYearlyPriceId : false}
                 aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`}
-                tabIndex={priceIds && selectedPriceId === priceIds.annual ? 0 : -1}
+                tabIndex={selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId ? 0 : -1}
                 className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
-                  priceIds && selectedPriceId === priceIds.annual 
+                  selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId 
                     ? 'border-white bg-gray-800' 
                     : 'border-gray-700 hover:border-gray-600'
                 }`}
@@ -442,7 +440,7 @@ export const CartPage = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-base md:text-lg font-bold text-white">Annual</div>
                   <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
-                    {priceIds && selectedPriceId === priceIds.annual && (
+                    {selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId && (
                       <div className="w-3 h-3 bg-accent-500 rounded-full" />
                     )}
                   </div>
@@ -466,17 +464,17 @@ export const CartPage = () => {
               <button
                 ref={monthlyRef}
                 onClick={() => {
-                  if (priceIds) {
-                    setSelectedPriceId(priceIds.monthly);
+                  if (selectedPlan) {
+                    setSelectedPriceId(selectedPlan.stripeMonthlyPriceId);
                     queueMicrotask(() => monthlyRef.current?.focus());
                   }
                 }}
                 role="radio"
-                aria-checked={priceIds ? selectedPriceId === priceIds.monthly : false}
+                aria-checked={selectedPlan ? selectedPriceId === selectedPlan.stripeMonthlyPriceId : false}
                 aria-label={`Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`}
-                tabIndex={priceIds && selectedPriceId === priceIds.monthly ? 0 : -1}
+                tabIndex={selectedPlan && selectedPriceId === selectedPlan.stripeMonthlyPriceId ? 0 : -1}
                 className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
-                  priceIds && selectedPriceId === priceIds.monthly
+                  selectedPlan && selectedPriceId === selectedPlan.stripeMonthlyPriceId
                     ? 'border-white bg-gray-800'
                     : 'border-gray-700 hover:border-gray-600'
                 }`}
@@ -485,7 +483,7 @@ export const CartPage = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-base md:text-lg font-bold text-white">Monthly</div>
                   <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
-                    {priceIds && selectedPriceId === priceIds.monthly && (
+                    {selectedPlan && selectedPriceId === selectedPlan.stripeMonthlyPriceId && (
                       <div className="w-3 h-3 bg-accent-500 rounded-full" />
                     )}
                   </div>
@@ -518,7 +516,7 @@ export const CartPage = () => {
             <div className="hidden lg:block absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-600 to-transparent shadow-lg" />
             <PricingSummary
               heading="Summary"
-              planName={PRODUCTS.business.name}
+              planName={selectedPlan.displayName}
               planDescription={`${quantity} users • ${isAnnual ? 'Billed annually' : 'Billed monthly'}`}
               pricePerSeat={`${currencyFormatter.format(isAnnual ? annualSeatPricePerMonth : monthlySeatPrice)} per user / month`}
               isAnnual={isAnnual}

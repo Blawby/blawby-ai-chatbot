@@ -43,6 +43,12 @@ export function useConversations({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const isDisposedRef = useRef(false);
+  const onErrorRef = useRef(onError);
+
+  // Keep onError ref in sync
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     return () => {
@@ -90,31 +96,65 @@ export function useConversations({
         credentials: 'include',
       });
 
+      // Handle redirects (practice members get redirected to inbox)
+      // Note: fetch() automatically follows redirects by default, so we check response.redirected
+      // and response.url to detect if a redirect to inbox occurred
+      if (response.redirected && response.url.includes('/api/inbox')) {
+        // Practice member - conversations should be fetched via inbox endpoint
+        // For now, set empty array (inbox hook handles this separately)
+        if (!isDisposedRef.current) {
+          setConversations([]);
+          setError(null);
+        }
+        return;
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json() as { success: boolean; error?: string; data?: Conversation[] };
-      if (!data.success || !Array.isArray(data.data)) {
+      const data = await response.json() as { 
+        success: boolean; 
+        error?: string; 
+        data?: Conversation[] | { conversation: Conversation } | { conversations: Conversation[] };
+      };
+      
+      if (!data.success || !data.data) {
         throw new Error(data.error || 'Failed to fetch conversations');
       }
 
+      // Handle different response shapes
+      let conversationsArray: Conversation[] = [];
+      
+      if ('conversation' in data.data) {
+        // Anonymous: single conversation
+        conversationsArray = [data.data.conversation];
+      } else if (Array.isArray(data.data)) {
+        // Direct array of conversations
+        conversationsArray = data.data;
+      } else if ('conversations' in data.data && Array.isArray(data.data.conversations)) {
+        // Wrapped array
+        conversationsArray = data.data.conversations;
+      } else {
+        throw new Error('Invalid response format');
+      }
+
       if (!isDisposedRef.current) {
-        setConversations(data.data);
+        setConversations(conversationsArray);
         setError(null);
       }
     } catch (err) {
       if (isDisposedRef.current) return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch conversations';
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
     } finally {
       if (!isDisposedRef.current) {
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, onError]);
+  }, [practiceId, matterId, status]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {

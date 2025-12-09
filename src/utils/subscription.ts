@@ -1,3 +1,50 @@
+import { createPractice, type Practice } from '../lib/apiClient';
+
+/**
+ * Creates an organization (practice) for subscription purposes.
+ * Follows the pattern: {userName}'s org with slug {userName}-org
+ * 
+ * @param userName - The user's display name
+ * @returns The created practice/organization
+ */
+export async function createOrganizationForSubscription(userName: string): Promise<Practice> {
+  // Generate organization name and slug following the documented pattern
+  // Sanitize userName to handle edge cases: empty strings, special characters, leading/trailing spaces
+  const sanitizedName = userName.trim() || 'User';
+  const orgName = `${sanitizedName}'s org`;
+  
+  // Compute slug base: normalize to lowercase and replace non-alphanumeric with hyphens
+  let slugBase = sanitizedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  
+  // If slug base is empty after sanitization (e.g., only special characters), fall back to "user"
+  if (!slugBase) {
+    slugBase = 'user';
+  }
+  
+  // Ensure final slug has no leading/trailing hyphens and is non-empty
+  const orgSlug = `${slugBase}-org`;
+
+  // Create organization via practices API
+  const practice = await createPractice({
+    name: orgName,
+    slug: orgSlug,
+  });
+
+  // Set as active organization
+  // Use getClient() directly to bypass proxy issues
+  const { getClient } = await import('../lib/authClient');
+  const client = getClient();
+  if (client.organization?.setActive) {
+    await client.organization.setActive({
+      organizationId: practice.id,
+    });
+  } else {
+    console.warn('[SUBSCRIPTION] organization.setActive not available, skipping');
+  }
+
+  return practice;
+}
+
 /**
  * Normalizes subscription tier for display.
  * Strips -annual suffix, title-cases, defaults to Free.

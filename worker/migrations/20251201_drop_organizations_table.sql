@@ -23,3 +23,5 @@ DROP INDEX IF EXISTS idx_organizations_stripe_customer_id;
 DROP INDEX IF EXISTS idx_organizations_is_personal;
 
 PRAGMA foreign_keys = ON;
+
+

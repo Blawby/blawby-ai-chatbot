@@ -24,11 +24,56 @@ export interface RequestWithPracticeContext extends Request {
 }
 
 /**
+ * List of query parameter names that are auth-related and must be rejected
+ * to prevent URL-based authentication manipulation
+ */
+const AUTH_RELATED_QUERY_PARAMS = [
+  'token',
+  'authorization',
+  'auth',
+  'bearer',
+  'access_token',
+  'accessToken',
+  'userId',
+  'user_id',
+  'userEmail',
+  'user_email',
+  'sessionId',
+  'session_id',
+  'cookie',
+  'apiKey',
+  'api_key',
+  'apikey',
+  'jwt',
+  'refresh_token',
+  'refreshToken'
+];
+
+/**
+ * Validates that URL query parameters do not contain auth-related parameters
+ * Throws an error if any auth-related parameters are found
+ */
+function validateNoAuthQueryParams(url: URL): void {
+  for (const param of AUTH_RELATED_QUERY_PARAMS) {
+    if (url.searchParams.has(param)) {
+      throw HttpErrors.badRequest(
+        `Security violation: Auth-related query parameter '${param}' is not allowed. ` +
+        'Authentication must be provided via Authorization header or cookies only.'
+      );
+    }
+  }
+}
+
+/**
  * Middleware that extracts practice context from multiple sources:
  * 1. Better-Auth session (authenticated users)
  * 2. Session cookie (anonymous users with session)
  * 3. URL query param (fallback)
  * 4. Default practice (last resort)
+ * 
+ * SECURITY: This function explicitly preserves all authentication-related
+ * properties (headers, cookies, tokens) and only extracts practice metadata.
+ * URL parameters cannot be used to modify authentication.
  */
 export async function extractPracticeContext(
   request: Request,
@@ -46,6 +91,10 @@ export async function extractPracticeContext(
   } = options;
 
   const url = new URL(request.url);
+  
+  // SECURITY: Reject any auth-related query parameters to prevent URL-based auth manipulation
+  validateNoAuthQueryParams(url);
+  
   const urlPracticeId = url.searchParams.get('practiceId');
 
   // Try to get auth context first (for authenticated users)
@@ -188,6 +237,16 @@ export async function extractPracticeContext(
 /**
  * Middleware function that can be used in route handlers
  * Attaches practice context to the request object
+ * 
+ * SECURITY: This function explicitly preserves all authentication-related
+ * properties (headers, cookies, tokens) and only attaches practice metadata.
+ * The returned request object maintains the original request's authentication
+ * headers and cookies unchanged. URL parameters cannot modify authentication.
+ * 
+ * @param request - Original request with authentication headers/cookies
+ * @param env - Environment configuration
+ * @param options - Options for practice context extraction
+ * @returns Request with practice context attached (auth headers preserved)
  */
 export async function withPracticeContext(
   request: Request,
@@ -198,14 +257,30 @@ export async function withPracticeContext(
     allowUrlOverride?: boolean;
   } = {}
 ): Promise<RequestWithPracticeContext> {
+  // SECURITY: Extract practice context without modifying the original request
+  // The original request's headers, cookies, and authentication remain unchanged
   const context = await extractPracticeContext(request, env, {
     requirePractice: options.requirePractice,
     defaultPracticeId: options.defaultPracticeId,
     allowUrlOverride: options.allowUrlOverride
   });
   
+  // SECURITY: Cast the original request (preserving all headers/cookies/auth)
+  // and only attach practice metadata. The original request object is not cloned
+  // or modified, so all authentication properties remain intact.
   const req = request as RequestWithPracticeContext;
   req.practiceContext = context;
+  
+  // SECURITY: Verify that auth headers are preserved
+  // This is a defensive check to ensure we haven't accidentally modified the request
+  const originalAuthHeader = request.headers.get('Authorization');
+  const preservedAuthHeader = req.headers.get('Authorization');
+  if (originalAuthHeader !== preservedAuthHeader) {
+    throw new Error(
+      'Security violation: withPracticeContext must preserve Authorization header. ' +
+      'This indicates a bug in the middleware implementation.'
+    );
+  }
   
   return req;
 }

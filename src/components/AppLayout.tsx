@@ -18,6 +18,8 @@ import { UserIcon } from "@heroicons/react/24/outline";
 import { Button } from './ui/Button';
 import ActivityTimeline from './ActivityTimeline';
 import MatterTab from './MatterTab';
+import { InboxPage } from './settings/pages/InboxPage';
+import { useSession } from '../lib/authClient';
 import { useMatterState } from '../hooks/useMatterState';
 import { analyzeMissingInfo } from '../utils/matterAnalysis';
 import { THEME } from '../utils/constants';
@@ -37,8 +39,8 @@ interface AppLayoutProps {
   practiceNotFound: boolean;
   practiceId: string;
   onRetryPracticeConfig: () => void;
-  currentTab: 'chats' | 'matter';
-  onTabChange: (tab: 'chats' | 'matter') => void;
+  currentTab: 'chats' | 'matter' | 'inbox';
+  onTabChange: (tab: 'chats' | 'matter' | 'inbox') => void;
   isMobileSidebarOpen: boolean;
   onToggleMobileSidebar: (open: boolean) => void;
   isSettingsModalOpen?: boolean;
@@ -85,6 +87,11 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const { showError } = useToastContext();
   const { navigate } = useNavigation();
   const location = useLocation();
+  const { data: session } = useSession();
+  
+  // Show inbox tab for all authenticated users
+  // API will enforce member-only access (requires practice member role)
+  const showInboxTab = !!session?.user;
   
   // Mobile detection using shared hook
   const isMobile = useMobileDetection();
@@ -176,6 +183,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const handleGoToMatter = () => {
     onTabChange('matter');
   };
+
+  const handleGoToInbox = () => {
+    onTabChange('inbox');
+  };
   const { isNavbarVisible } = useNavbarScroll({ 
     threshold: 50, 
     debounceMs: 0
@@ -228,6 +239,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               currentRoute={currentTab}
               onGoToChats={handleGoToChats}
               onGoToMatter={handleGoToMatter}
+              onGoToInbox={showInboxTab ? handleGoToInbox : undefined}
               onOpenOnboarding={handleOpenOnboarding}
               matterStatus={matterStatus}
               practiceConfig={{
@@ -288,6 +300,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       handleGoToMatter();
                       onToggleMobileSidebar(false);
                     }}
+                    onGoToInbox={showInboxTab ? () => {
+                      handleGoToInbox();
+                      onToggleMobileSidebar(false);
+                    } : undefined}
                     onOpenOnboarding={() => {
                       handleOpenOnboarding();
                       onToggleMobileSidebar(false);
@@ -313,7 +329,11 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       {/* Main Content Area - Flex grow, full width on mobile */}
       <div className="flex-1 bg-white dark:bg-dark-bg overflow-y-auto">
         <ErrorBoundary>
-          {currentTab === 'chats' ? children : (
+          {currentTab === 'chats' ? children : currentTab === 'inbox' ? (
+            <div className="h-full">
+              <InboxPage className="h-full" />
+            </div>
+          ) : (
             <div className="h-full">
               <MatterTab
                 matter={matter}

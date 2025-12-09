@@ -16,6 +16,7 @@ export interface AuthContext {
     expiresAt: Date;
   };
   token: string;
+  isAnonymous?: boolean; // Flag for anonymous users (Better Auth anonymous plugin)
 }
 
 /**
@@ -126,9 +127,22 @@ export async function requireAuth(
 
   // Validate token with remote auth server
   const authResult = await validateTokenWithRemoteServer(token, env);
+  
+  // Detect anonymous users (Better Auth anonymous plugin)
+  // Anonymous users typically have:
+  // - null/empty email
+  // - name containing "Anonymous" or similar
+  // - email starting with "anonymous-"
+  const isAnonymous = !authResult.user.email || 
+                      authResult.user.email.trim() === '' ||
+                      authResult.user.email.startsWith('anonymous-') ||
+                      authResult.user.name?.toLowerCase().includes('anonymous') ||
+                      authResult.user.name === 'Anonymous User';
+  
   return {
     ...authResult,
-    token
+    token,
+    isAnonymous
   };
 }
 
@@ -364,5 +378,26 @@ export async function checkOrgAccess(
     };
   } catch {
     return { hasAccess: false };
+  }
+}
+
+/**
+ * Check if user is a practice member (non-throwing)
+ * Returns membership info without throwing errors
+ * Alias for checkOrgAccess for consistency with practice terminology
+ */
+export async function checkPracticeMembership(
+  request: Request,
+  env: Env,
+  practiceId: string
+): Promise<{ isMember: boolean; memberRole?: string }> {
+  try {
+    const result = await requireOrgMember(request, env, practiceId);
+    return {
+      isMember: true,
+      memberRole: result.memberRole,
+    };
+  } catch {
+    return { isMember: false };
   }
 }

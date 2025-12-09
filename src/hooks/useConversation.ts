@@ -35,6 +35,110 @@ export function useConversationWithContext(options: Omit<UseConversationOptions,
 }
 
 /**
+ * Hook for getting or creating current conversation for a practice
+ * Automatically fetches the current conversation (or creates one) and returns conversation data
+ * Note: The API endpoint automatically creates a conversation if one doesn't exist
+ */
+export function useCurrentConversation(
+  practiceId: string | undefined,
+  options?: { onError?: (error: string) => void }
+): UseConversationReturn & { conversationId: string | null } {
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isLoadingCurrent, setIsLoadingCurrent] = useState<boolean>(true);
+  const [errorCurrent, setErrorCurrent] = useState<string | null>(null);
+  const onErrorRef = useRef(options?.onError);
+  
+  // Keep onError ref in sync
+  useEffect(() => {
+    onErrorRef.current = options?.onError;
+  }, [options?.onError]);
+  
+  // Fetch current conversation
+  useEffect(() => {
+    if (!practiceId) {
+      setIsLoadingCurrent(false);
+      return;
+    }
+    
+    const fetchCurrent = async () => {
+      setIsLoadingCurrent(true);
+      setErrorCurrent(null);
+      
+      try {
+        const token = await getTokenAsync();
+        if (!token) {
+          throw new Error('Authentication required');
+        }
+        
+        const config = getApiConfig();
+        const response = await fetch(
+          `${config.baseUrl}/api/conversations/current?practiceId=${encodeURIComponent(practiceId)}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          }
+        );
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json() as { 
+          success: boolean; 
+          error?: string; 
+          data?: { conversation: Conversation } 
+        };
+        
+        if (!data.success || !data.data?.conversation) {
+          throw new Error(data.error || 'Failed to get current conversation');
+        }
+        
+        setConversationId(data.data.conversation.id);
+        setErrorCurrent(null);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to get conversation';
+        setErrorCurrent(errorMessage);
+        onErrorRef.current?.(errorMessage);
+      } finally {
+        setIsLoadingCurrent(false);
+      }
+    };
+    
+    fetchCurrent();
+  }, [practiceId]); // Only depend on practiceId to avoid infinite re-renders
+  
+  // Use existing useConversation hook with the conversationId
+  const conversationHook = useConversation({ 
+    conversationId: conversationId || '', 
+    practiceId,
+    onError: options?.onError 
+  });
+  
+  // Combine loading states
+  const isLoading = isLoadingCurrent || (conversationId ? conversationHook.isLoading : false);
+  const error = errorCurrent || conversationHook.error;
+  
+  return {
+    conversation: conversationHook.conversation,
+    messages: conversationHook.messages,
+    isLoading,
+    isLoadingMore: conversationHook.isLoadingMore,
+    error,
+    sendMessage: conversationHook.sendMessage,
+    loadMore: conversationHook.loadMore,
+    refresh: conversationHook.refresh,
+    hasMore: conversationHook.hasMore,
+    nextCursor: conversationHook.nextCursor,
+    conversationId,
+  };
+}
+
+/**
  * Legacy hook that requires practiceId parameter
  * @deprecated Use useConversationWithContext() instead
  */
@@ -225,7 +329,7 @@ export function useConversation({
         id: `temp-${Date.now()}`,
         conversation_id: conversationId,
         practice_id: practiceId,
-        user_id: '', // Will be set by server
+        user_id: '', // Will be set by server (messages always have a user_id, not null)
         role: 'user',
         content,
         metadata: attachments ? { attachments } : null,

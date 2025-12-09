@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import ChatContainer from './components/chat/ChatContainer';
@@ -9,7 +9,7 @@ import AuthPage from './components/AuthPage';
 import { SEOHead } from './components/SEOHead';
 import { ConversationHeader } from './components/chat/ConversationHeader';
 import { ToastProvider } from './contexts/ToastContext';
-import { SessionProvider, useSessionContext } from './contexts/SessionContext';
+import { SessionProvider } from './contexts/SessionContext';
 import { useSession, getClient } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
 import { resolvePracticeKind } from './utils/subscription';
@@ -17,6 +17,8 @@ import type { UIPracticeConfig } from './hooks/usePracticeConfig';
 import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
+import { useConversations } from './hooks/useConversations';
+import { useCurrentConversation } from './hooks/useConversation';
 import { setupGlobalKeyboardListeners } from './utils/keyboard';
 import type { ChatMessageUI, FileAttachment } from '../worker/types';
 // Settings components
@@ -28,21 +30,18 @@ import { BusinessWelcomePrompt } from './components/onboarding/organisms/Busines
 import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPage';
 import LawyerSearchPage from './components/pages/LawyerSearchPage';
 import { CartPage } from './components/cart/CartPage';
-import { debounce } from './utils/debounce';
 import { useToastContext } from './contexts/ToastContext';
 import { usePracticeConfig } from './hooks/usePracticeConfig';
 import { usePracticeManagement } from './hooks/usePracticeManagement';
-import { PLATFORM_PRACTICE_ID } from './utils/constants';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { useMockChat } from './hooks/useMockChat';
 import { isMockModeEnabled, toggleMockMode } from './components/chat/mock/mockChatData';
-import { isDevelopment } from './utils/environment';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
 // Expose mock mode controls to browser console for easy access
 if (typeof window !== 'undefined') {
-	(window as any).mockChat = {
+	(window as unknown as Record<string, unknown>).mockChat = {
 		enable: () => {
 			toggleMockMode(true);
 			window.location.reload();
@@ -73,7 +72,7 @@ function MainApp({
 }) {
 	// Core state
 	const [clearInputTrigger, setClearInputTrigger] = useState(0);
-	const [currentTab, setCurrentTab] = useState<'chats' | 'matter'>('chats');
+	const [currentTab, setCurrentTab] = useState<'chats' | 'matter' | 'inbox'>('chats');
 	const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 	const [isRecording, setIsRecording] = useState(false);
 	const location = useLocation();
@@ -95,8 +94,7 @@ function MainApp({
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { activePracticeId } = useSessionContext();
-	const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
+	const { currentPractice, practices, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
 
 
 	// Mock mode for UI development - hook maintains single source of truth
@@ -107,8 +105,49 @@ function MainApp({
 		error: sessionError
 	} = useChatSessionWithContext();
 
+	// Determine if user is a practice member (has their own practice matching the widget practice)
+	// Practice members see inbox, clients/anonymous see their conversations with the practice
+	const isPracticeMember = useMemo(() => {
+		if (!practices || practices.length === 0) {
+			return false;
+		}
+		return practices.some(p => p.id === practiceId);
+	}, [practices, practiceId]);
+
+	// Initialize conversation based on user type:
+	// - Practice members: Use inbox (handled separately via inbox tab)
+	// - Signed-in clients: Get or create current conversation with this practice
+	// - Anonymous users: Get or create current conversation with this practice
+	// Use practiceId from props (practice from URL/widget), not activePracticeId (user's own practice)
+	const { conversations: conversationList } = useConversations({
+		practiceId,
+		onError: (error) => {
+			console.error('Conversation initialization error:', error);
+		}
+	});
+
+	// For anonymous/signed-in clients: Get or create current conversation
+	// This ensures they always have a conversation to chat in
+	const { conversation: currentConversation, conversationId: currentConversationId } = useCurrentConversation(
+		isPracticeMember ? undefined : practiceId, // Only fetch for non-members
+		{ 
+			onError: (error) => {
+				console.error('Current conversation error:', error);
+			}
+		}
+	);
+
+	// Determine conversationId to use:
+	// 1. If practice member: Use first from list (or null - inbox handles this)
+	// 2. If signed-in client: Use current conversation (get-or-create)
+	// 3. If anonymous: Use current conversation (get-or-create)
+	const conversationId = isPracticeMember 
+		? (conversationList.length > 0 ? conversationList[0].id : null)
+		: (currentConversationId || currentConversation?.id || null);
+
 	const realMessageHandling = useMessageHandlingWithContext({
 		sessionId,
+		conversationId: conversationId || undefined,
 		onError: (error) => {
 			console.error('Message handling error:', error);
 			showError(typeof error === 'string' ? error : 'We hit a snag sending that message.');
@@ -602,16 +641,57 @@ function AppWithPractice() {
         (async () => {
           try {
             const client = getClient();
-            const result = await client.signIn.anonymous();
-            if (result.data?.user) {
+            // Type assertion needed: Better Auth anonymous plugin types may not be fully exposed
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const anonymousSignIn = (client.signIn as any).anonymous;
+            
+            // Check if anonymous method exists before calling
+            if (typeof anonymousSignIn !== 'function') {
+              console.error('[Auth] Anonymous sign-in method not available - Better Auth anonymous plugin may not be configured', {
+                practiceId,
+                message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+              });
+              sessionStorage.setItem(key, 'failed');
+              return;
+            }
+            
+            const result = await anonymousSignIn();
+            if (result?.data?.user) {
               sessionStorage.setItem(key, '1');
-              if (isDevelopment()) {
-                console.debug('[Auth] Anonymous sign-in successful for widget user');
-              }
+              console.log('[Auth] Anonymous sign-in successful for widget user', {
+                userId: result.data.user.id,
+                practiceId
+              });
+            } else if (result?.error) {
+              // Fail loudly - Better Auth anonymous plugin may not be configured
+              console.error('[Auth] Anonymous sign-in failed - Better Auth anonymous plugin may not be configured', {
+                error: result.error,
+                practiceId,
+                message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+              });
+              // Set key to prevent retry loops, but log error clearly
+              sessionStorage.setItem(key, 'failed');
+            } else {
+              // Handle case where result is undefined or doesn't have expected structure
+              console.error('[Auth] Anonymous sign-in returned unexpected result', {
+                practiceId,
+                result,
+                message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+              });
+              sessionStorage.setItem(key, 'failed');
             }
           } catch (error) {
-            console.warn('[Auth] Anonymous sign-in failed (may not be configured on server):', error);
-            // Don't set sessionStorage key so we can retry later
+            // Fail loudly with detailed error information
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error('[Auth] Anonymous sign-in exception - server configuration issue', {
+              error: errorMessage,
+              practiceId,
+              stack: error instanceof Error ? error.stack : undefined,
+              message: 'CRITICAL: Better Auth anonymous plugin must be configured on the API server. ' +
+                       'Check server logs and ensure anonymous() plugin is added to Better Auth config.'
+            });
+            // Set key to prevent retry loops
+            sessionStorage.setItem(key, 'failed');
           }
         })();
       }

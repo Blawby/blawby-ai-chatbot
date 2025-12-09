@@ -4,6 +4,7 @@ import {
   getSubscriptionUpgradeEndpoint,
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
+  getSubscriptionListEndpoint,
   getRemoteApiUrl
 } from '../config/api';
 import { isPlatformPractice } from '../utils/practice';
@@ -549,6 +550,49 @@ export async function requestSubscriptionCancellation(
   practiceId: string
 ): Promise<SubscriptionEndpointResult> {
   return postSubscriptionEndpoint(getSubscriptionCancelEndpoint(), { practiceId });
+}
+
+export interface SubscriptionListItem {
+  id: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export interface SubscriptionListResponse {
+  subscriptions?: SubscriptionListItem[];
+  data?: SubscriptionListItem[];
+}
+
+export async function listSubscriptions(
+  referenceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<SubscriptionListItem[]> {
+  if (!referenceId) {
+    throw new Error('referenceId is required');
+  }
+  
+  // Use GET request with referenceId as query parameter
+  const response = await apiClient.get(
+    getSubscriptionListEndpoint(),
+    {
+      params: { referenceId },
+      baseURL: undefined, // Use full URL from getSubscriptionListEndpoint
+      signal: config?.signal
+    }
+  );
+  
+  // Handle different response shapes
+  const data = response.data as SubscriptionListResponse;
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (data?.subscriptions && Array.isArray(data.subscriptions)) {
+    return data.subscriptions;
+  }
+  if (data?.data && Array.isArray(data.data)) {
+    return data.data;
+  }
+  return [];
 }
 
 apiClient.interceptors.response.use(

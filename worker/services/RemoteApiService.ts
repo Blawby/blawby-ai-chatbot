@@ -140,7 +140,7 @@ export class RemoteApiService {
           try {
             response = await this.fetchFromRemoteApi(env, `/api/practice?slug=${encodeURIComponent(practiceId)}`, request);
           } catch (slugError) {
-            // If slug lookup also fails, return null
+            // If slug lookup also fails with 404, return null
             if (slugError instanceof HttpError && slugError.status === 404) {
               return null;
             }
@@ -170,7 +170,7 @@ export class RemoteApiService {
         return null;
       }
       
-      // Re-throw connectivity/server errors instead of swallowing them
+      // Re-throw connectivity/server errors (including 401) instead of swallowing them
       Logger.error('Failed to fetch practice from remote API', {
         practiceId,
         error: error instanceof Error ? error.message : String(error),

@@ -14,6 +14,7 @@ import {
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleChat } from './routes/chat.js';
+import { handleInbox } from './routes/inbox.js';
 import { handleLawyers } from './routes/lawyers.js';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
@@ -138,6 +139,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleConfig(request, env);
     } else if (path.startsWith('/api/lawyers')) {
       response = await handleLawyers(request, env);
+    } else if (path.startsWith('/api/inbox')) {
+      response = await handleInbox(request, env);
     } else if (path.startsWith('/api/conversations')) {
       response = await handleConversations(request, env);
     } else if (path.startsWith('/api/chat')) {

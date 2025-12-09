@@ -2,7 +2,7 @@ import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
 function createJsonResponse(data: unknown): Response {
@@ -48,12 +48,15 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('participantUserIds must be a non-empty array');
     }
 
+    // Check if anonymous user
+    const isAnonymous = authContext.isAnonymous === true;
+    
     // Ensure creator is included in participants
     const participants = Array.from(new Set([userId, ...body.participantUserIds]));
 
     const conversation = await conversationService.createConversation({
       practiceId,
-      userId,
+      userId: isAnonymous ? null : userId, // Null user_id for anonymous users
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata
@@ -62,12 +65,37 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(conversation);
   }
 
-  // GET /api/conversations - List conversations
+  // GET /api/conversations - Smart endpoint that detects user type
   if (segments.length === 2 && request.method === 'GET') {
+    // Check if user is practice member
+    const membershipCheck = await checkPracticeMembership(request, env, practiceId);
+    
+    if (membershipCheck.isMember) {
+      // Practice member: Redirect to inbox endpoint
+      const inboxUrl = new URL(request.url);
+      inboxUrl.pathname = '/api/inbox/conversations';
+      return Response.redirect(inboxUrl.toString(), 302);
+    }
+    
+    // Check if anonymous user
+    const isAnonymous = authContext.isAnonymous === true;
+    
+    if (isAnonymous) {
+      // Anonymous user: Return single conversation (get-or-create)
+      const conversation = await conversationService.getOrCreateCurrentConversation(
+        userId,
+        practiceId,
+        request,
+        isAnonymous
+      );
+      return createJsonResponse({ conversation }); // Single object
+    }
+    
+    // Signed-in client: Return list of their conversations with this practice
     const matterId = url.searchParams.get('matterId');
     const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
-
+    
     const conversations = await conversationService.getConversations({
       practiceId,
       matterId: matterId || null,
@@ -75,8 +103,20 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       status: status || undefined,
       limit
     });
+    
+    return createJsonResponse({ conversations }); // Array wrapped in object
+  }
 
-    return createJsonResponse(conversations);
+  // GET /api/conversations/current - Get or create current conversation
+  if (segments.length === 3 && segments[2] === 'current' && request.method === 'GET') {
+    const isAnonymous = authContext.isAnonymous === true;
+    const conversation = await conversationService.getOrCreateCurrentConversation(
+      userId,
+      practiceId,
+      request,
+      isAnonymous
+    );
+    return createJsonResponse({ conversation });
   }
 
   // GET /api/conversations/:id - Get single conversation
@@ -91,7 +131,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   }
 
   // PATCH /api/conversations/:id - Update conversation
-  if (segments.length === 3 && request.method === 'PATCH') {
+  if (segments.length === 3 && segments[2] !== 'current' && request.method === 'PATCH') {
     const conversationId = segments[2];
     const body = await parseJsonBody(request) as {
       status?: 'active' | 'archived' | 'closed';

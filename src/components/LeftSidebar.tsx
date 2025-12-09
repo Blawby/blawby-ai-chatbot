@@ -8,6 +8,7 @@ interface LeftSidebarProps {
   currentRoute: string;
   onGoToChats?: () => void;
   onGoToMatter?: () => void;
+  onGoToInbox?: () => void;
   onOpenOnboarding?: () => void;
   onClose?: () => void;
   matterStatus?: MatterStatus;
@@ -24,7 +25,7 @@ interface LeftSidebarProps {
   onboardingHasDraft?: boolean;
 }
 
-const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding, onClose, matterStatus, practiceConfig, currentPractice, onboardingStatus, onboardingHasDraft }: LeftSidebarProps) => {
+const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onGoToInbox, onOpenOnboarding, onClose, matterStatus, practiceConfig, currentPractice, onboardingStatus, onboardingHasDraft }: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useMobileDetection();
   
@@ -38,6 +39,7 @@ const LeftSidebar = ({ currentRoute, onGoToChats, onGoToMatter, onOpenOnboarding
         currentRoute={currentRoute}
         onGoToChats={onGoToChats}
         onGoToMatter={onGoToMatter}
+        onGoToInbox={onGoToInbox}
         onOpenOnboarding={onOpenOnboarding}
         onClose={onClose}
         matterStatus={matterStatus}

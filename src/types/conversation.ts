@@ -34,11 +34,18 @@ export interface ConversationMetadata {
 export interface Conversation {
   id: string;
   practice_id: string;
-  user_id: string; // Creator/owner of the conversation
+  user_id: string | null; // Creator/owner of the conversation (nullable for anonymous users)
   matter_id: string | null; // Optional: link to specific matter
   participants: string[]; // Array of user IDs
   user_info: ConversationMetadata | null;
   status: ConversationStatus;
+  // Inbox fields (optional, only present in inbox context)
+  assigned_to?: string | null; // User ID of assigned practice member
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  tags?: string[]; // Array of tag strings
+  internal_notes?: string | null; // Internal notes for practice members
+  last_message_at?: string | null; // ISO timestamp of last message
+  first_response_at?: string | null; // ISO timestamp of first practice member response
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }
