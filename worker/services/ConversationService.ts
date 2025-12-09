@@ -450,11 +450,7 @@ export class ConversationService {
     ).run();
 
     // Update conversation's updated_at and last_message_at timestamps
-    await this.env.DB.prepare(`
-      UPDATE conversations
-      SET updated_at = ?, last_message_at = ?
-      WHERE id = ? AND practice_id = ?
-    `).bind(now, now, options.conversationId, options.practiceId).run();
+    await this.updateLastMessageAt(options.conversationId, options.practiceId);
 
     return this.getMessage(messageId);
   }
@@ -861,10 +857,21 @@ export class ConversationService {
   }
 
   /**
-   * Update last_message_at when a message is sent
+   * Update the last_message_at and updated_at timestamps for a conversation.
+   * 
+   * This method is called automatically by sendMessage when a message is sent.
+   * It can also be called directly if you need to update the timestamp without
+   * sending a message (e.g., when importing historical messages or syncing from
+   * external systems).
+   * 
+   * @param conversationId - The ID of the conversation to update
+   * @param practiceId - The practice ID that owns the conversation
+   * @throws {HttpErrors.notFound} If the conversation doesn't exist (though this method
+   *   doesn't validate existence for performance - validation should be done by the caller)
    */
   async updateLastMessageAt(conversationId: string, practiceId: string): Promise<void> {
     const now = new Date().toISOString();
+    // SQL placeholders: last_message_at, updated_at, id, practice_id
     await this.env.DB.prepare(`
       UPDATE conversations
       SET last_message_at = ?, updated_at = ?
