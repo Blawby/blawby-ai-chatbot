@@ -14,12 +14,73 @@ const DEFAULT_RETURN_URL = typeof window !== 'undefined'
   ? `${window.location.origin}/` 
   : '/';
 
-// Helper function to ensure a non-empty return URL
+// Allowlist of trusted hosts for return URLs (beyond same-origin)
+// Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
+const TRUSTED_RETURN_URL_HOSTS: string[] = [];
+
+// Helper function to ensure a safe, validated return URL
+// Prevents open-redirect vulnerabilities by validating URLs before returning them
 function ensureValidReturnUrl(url: string | undefined | null, practiceId?: string): string {
-  const trimmed = url?.trim();
-  if (trimmed && trimmed.length > 0) {
-    return trimmed;
+  // Treat undefined/null/invalid inputs as unsafe
+  if (!url || typeof url !== 'string') {
+    return getFallbackUrl(practiceId);
   }
+
+  const trimmed = url.trim();
+  if (trimmed.length === 0) {
+    return getFallbackUrl(practiceId);
+  }
+
+  // Parse and validate the URL
+  try {
+    // Guard against SSR - need window.location.origin for validation
+    if (typeof window === 'undefined') {
+      return getFallbackUrl(practiceId);
+    }
+
+    // Parse the URL - this will throw for invalid URLs
+    // Use window.location.origin as base to handle relative URLs
+    const parsed = new URL(trimmed, window.location.origin);
+
+    // Guard against dangerous schemes (javascript:, data:, vbscript:, etc.)
+    const allowedProtocols = ['http:', 'https:'];
+    if (!allowedProtocols.includes(parsed.protocol)) {
+      return getFallbackUrl(practiceId);
+    }
+
+    // Ensure it's an absolute URL (not relative)
+    // If the URL was relative, it will have been resolved to an absolute URL by the URL constructor
+    // But we need to verify it's actually absolute by checking it has a protocol
+    if (!parsed.protocol || !parsed.host) {
+      return getFallbackUrl(practiceId);
+    }
+
+    // Primary validation: allow same-origin URLs
+    if (parsed.origin === window.location.origin) {
+      return parsed.toString();
+    }
+
+    // Secondary validation: check against allowlist of trusted hosts
+    if (TRUSTED_RETURN_URL_HOSTS.length > 0 && parsed.host) {
+      const hostname = parsed.hostname.toLowerCase();
+      const isTrusted = TRUSTED_RETURN_URL_HOSTS.some(
+        trustedHost => hostname === trustedHost.toLowerCase() || hostname.endsWith(`.${trustedHost.toLowerCase()}`)
+      );
+      if (isTrusted) {
+        return parsed.toString();
+      }
+    }
+
+    // URL is not same-origin and not in allowlist - reject it
+    return getFallbackUrl(practiceId);
+  } catch {
+    // URL parsing failed or any other error - treat as unsafe
+    return getFallbackUrl(practiceId);
+  }
+}
+
+// Helper function to get the fallback URL
+function getFallbackUrl(practiceId?: string): string {
   // Fallback to business onboarding with practice ID if available
   if (practiceId && typeof window !== 'undefined') {
     return `${window.location.origin}/business-onboarding?sync=1&practiceId=${encodeURIComponent(practiceId)}`;
