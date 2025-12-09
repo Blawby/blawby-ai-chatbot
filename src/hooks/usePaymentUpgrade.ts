@@ -389,7 +389,8 @@ export const usePaymentUpgrade = () => {
         // Fallback to original string matching for backward compatibility
         const normalizedMessage = message.toLowerCase();
         if (normalizedMessage.includes("already subscribed to this plan")) {
-          await handleAlreadySubscribed(resolvedPracticeId || practiceId, resolvedReturnUrl);
+          const safeReturnUrl = resolvedReturnUrl ?? returnUrl ?? '';
+          await handleAlreadySubscribed(resolvedPracticeId || practiceId, safeReturnUrl);
           return;
         }
 

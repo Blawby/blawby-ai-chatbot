@@ -679,9 +679,18 @@ export class ConversationService {
     const countResult = await this.env.DB.prepare(countQuery).bind(...countBindings).first<{ total: number }>();
     const total = countResult?.total || 0;
 
-    // Add sorting
-    const sortColumn = sortBy === 'last_message_at' ? 'COALESCE(last_message_at, created_at)' : sortBy;
-    query += ` ORDER BY ${sortColumn} ${sortOrder.toUpperCase()} LIMIT ? OFFSET ?`;
+    // Add sorting with whitelist to prevent SQL injection
+    const sortColumnMap: Record<string, string> = {
+      'last_message_at': 'COALESCE(last_message_at, created_at)',
+      'created_at': 'created_at',
+      'priority': 'priority'
+    };
+    const validSortColumn = sortColumnMap[sortBy] || sortColumnMap['last_message_at'];
+    
+    // Validate sortOrder to prevent SQL injection
+    const validSortOrder = (sortOrder === 'asc' || sortOrder === 'desc') ? sortOrder.toUpperCase() : 'DESC';
+    
+    query += ` ORDER BY ${validSortColumn} ${validSortOrder} LIMIT ? OFFSET ?`;
     bindings.push(limit, offset);
 
     const records = await this.env.DB.prepare(query).bind(...bindings).all<{

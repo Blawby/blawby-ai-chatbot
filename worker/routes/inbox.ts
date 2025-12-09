@@ -116,7 +116,7 @@ export async function handleInbox(request: Request, env: Env): Promise<Response>
     };
 
     // Handle 'me' assignment
-    let assignedTo: string | null = body.assigned_to;
+    let assignedTo: string | null | undefined = body.assigned_to;
     if (assignedTo === 'me') {
       assignedTo = userId;
     }

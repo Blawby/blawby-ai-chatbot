@@ -224,6 +224,8 @@ export function useInbox({
     conversationId: string,
     assignedTo: string | null | 'me'
   ) => {
+    // Create dedicated AbortController for this mutation
+    const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
       if (!token) {
@@ -238,7 +240,7 @@ export function useInbox({
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        signal: abortControllerRef.current?.signal,
+        signal: mutationController.signal,
         body: JSON.stringify({ assigned_to: assignedTo }),
       });
 
@@ -257,6 +259,9 @@ export function useInbox({
       setError(errorMessage);
       onError?.(errorMessage);
       throw err;
+    } finally {
+      // Clean up mutation controller
+      mutationController.abort();
     }
   }, [refresh, onError]);
 
@@ -271,6 +276,8 @@ export function useInbox({
       status?: 'active' | 'archived' | 'closed';
     }
   ) => {
+    // Create dedicated AbortController for this mutation
+    const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
       if (!token) {
@@ -285,7 +292,7 @@ export function useInbox({
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        signal: abortControllerRef.current?.signal,
+        signal: mutationController.signal,
         body: JSON.stringify(updates),
       });
 
@@ -304,6 +311,9 @@ export function useInbox({
       setError(errorMessage);
       onError?.(errorMessage);
       throw err;
+    } finally {
+      // Clean up mutation controller
+      mutationController.abort();
     }
   }, [refresh, onError]);
 
@@ -313,6 +323,8 @@ export function useInbox({
     content: string,
     metadata?: Record<string, unknown>
   ) => {
+    // Create dedicated AbortController for this mutation
+    const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
       if (!token) {
@@ -327,7 +339,7 @@ export function useInbox({
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        signal: abortControllerRef.current?.signal,
+        signal: mutationController.signal,
         body: JSON.stringify({ content, metadata }),
       });
 
@@ -346,11 +358,19 @@ export function useInbox({
       setError(errorMessage);
       onError?.(errorMessage);
       throw err;
+    } finally {
+      // Clean up mutation controller
+      mutationController.abort();
     }
   }, [refresh, onError]);
 
   // Initial load and refetch when filters change
   useEffect(() => {
+    // Define inline to avoid dependency on refresh
+    const loadData = async () => {
+      await Promise.all([fetchConversations(), fetchStats()]);
+    };
+
     if (!practiceId) {
       setIsLoading(false);
       return;
@@ -362,12 +382,12 @@ export function useInbox({
     }
 
     abortControllerRef.current = new AbortController();
-    refresh();
+    loadData();
 
     // Set up auto-refresh if enabled
     if (autoRefresh) {
       refreshTimerRef.current = window.setInterval(() => {
-        refresh();
+        loadData();
       }, refreshInterval);
     }
 
@@ -379,7 +399,7 @@ export function useInbox({
         clearInterval(refreshTimerRef.current);
       }
     };
-  }, [practiceId, filters.assignedTo, filters.status, filters.priority, filters.tags, limit, offset, sortBy, sortOrder, autoRefresh, refreshInterval, refresh]);
+  }, [practiceId, filters.assignedTo, filters.status, filters.priority, JSON.stringify(filters.tags), limit, offset, sortBy, sortOrder, autoRefresh, refreshInterval, fetchConversations, fetchStats]);
 
   return {
     conversations,

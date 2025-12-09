@@ -38,6 +38,8 @@ export async function createOrganizationForSubscription(userName: string): Promi
     await client.organization.setActive({
       organizationId: practice.id,
     });
+  } else {
+    console.warn('[SUBSCRIPTION] organization.setActive not available, skipping');
   }
 
   return practice;

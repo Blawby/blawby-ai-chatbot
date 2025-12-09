@@ -116,51 +116,6 @@ export class RemoteApiService {
   }
 
   /**
-   * Get mock practice for testing (only in dev/test environments)
-   * @throws {Error} If called in production environment
-   */
-  private static getMockPractice(practiceId: string, env: Env): PracticeOrWorkspace {
-    // Security guard: only allow mock data in development or test environments
-    const isDevOrTest = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
-    if (!isDevOrTest) {
-      throw new Error('Mock practice data is only available in development or test environments');
-    }
-
-    const now = Date.now();
-    const conversationConfig: ConversationConfig = {
-      availableServices: ['legal-consultation', 'document-review'],
-      serviceQuestions: {
-        'legal-consultation': ['What is your legal issue?', 'When did this occur?'],
-        'document-review': ['What type of document?', 'When do you need it reviewed?']
-      },
-      domain: '',
-      description: 'Test practice for development',
-      brandColor: '#000000',
-      accentColor: '#000000',
-      introMessage: 'Welcome to our legal services',
-      voice: {
-        enabled: false,
-        provider: 'cloudflare'
-      }
-    };
-
-    return {
-      id: practiceId,
-      slug: 'test-practice',
-      name: 'Test Practice',
-      kind: 'practice',
-      subscriptionTier: 'business',
-      subscriptionStatus: 'active',
-      conversationConfig,
-      metadata: {
-        conversationConfig
-      },
-      createdAt: now,
-      updatedAt: now
-    };
-  }
-
-  /**
    * Get practice by ID or slug from remote API
    */
   static async getPractice(

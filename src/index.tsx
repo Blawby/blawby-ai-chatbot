@@ -94,7 +94,7 @@ function MainApp({
 	useEffect(() => {
 		showErrorRef.current = showError;
 	}, [showError]);
-	const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
+	const { currentPractice, practices, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
 
 
 	// Mock mode for UI development - hook maintains single source of truth
@@ -108,8 +108,8 @@ function MainApp({
 	// Determine if user is a practice member (has their own practice matching the widget practice)
 	// Practice members see inbox, clients/anonymous see their conversations with the practice
 	const isPracticeMember = useMemo(() => {
-		return !!currentPractice?.id && currentPractice.id === practiceId;
-	}, [currentPractice, practiceId]);
+		return practices.some(p => p.id === practiceId);
+	}, [practices, practiceId]);
 
 	// Initialize conversation based on user type:
 	// - Practice members: Use inbox (handled separately via inbox tab)

@@ -77,7 +77,7 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
     } else if (!selectedConversationId) {
       setInternalNotes('');
     }
-  }, [selectedConversationId]); // Only sync when conversation selection changes
+  }, [selectedConversationId, conversations]); // Sync when conversation selection or conversations array changes
 
   // Debounced update for internal notes to prevent API calls on every keystroke
   const debouncedUpdateNotesRef = useRef<ReturnType<typeof debounce> | null>(null);
