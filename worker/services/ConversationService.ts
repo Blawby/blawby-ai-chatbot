@@ -185,6 +185,7 @@ export class ConversationService {
       FROM conversations
       WHERE practice_id = ? 
         AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
+        AND user_id IS ${isAnonymous ? 'NULL' : 'NOT NULL'}
         AND status = 'active'
       ORDER BY updated_at DESC
       LIMIT 1

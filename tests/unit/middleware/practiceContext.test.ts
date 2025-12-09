@@ -183,8 +183,10 @@ describe('PracticeContext Middleware Security Tests', () => {
       const originalUserId = 'user-123';
       const originalToken = 'Bearer valid-token-for-user-123';
       
+      // Note: We don't include auth-related params in URL as they are now rejected by security validation
+      // This test verifies that practiceId from URL is safe (metadata only) and auth comes from headers
       const request = new Request(
-        `https://example.com/api/test?practiceId=test-practice&userId=attacker-456&token=evil-token`,
+        `https://example.com/api/test?practiceId=test-practice`,
         {
           method: 'GET',
           headers: {
@@ -212,15 +214,20 @@ describe('PracticeContext Middleware Security Tests', () => {
         requirePractice: true
       });
 
-      // Verify practice context uses URL param (allowed for practiceId)
+      // Verify practice context uses URL param (allowed for practiceId - metadata only)
       expect(getPracticeId(requestWithContext)).toBe('test-practice');
       
-      // Verify auth context would use original token, not URL params
+      // Verify auth context uses original token from headers, not URL params
       // The optionalAuth should have been called with the original request
       expect(optionalAuth).toHaveBeenCalledWith(request, mockEnv);
       
-      // Verify the request still has original auth header
+      // Verify the request still has original auth header (preserved)
       expect(requestWithContext.headers.get('Authorization')).toBe(originalToken);
+      
+      // Verify user identity comes from auth, not URL
+      if (requestWithContext.practiceContext && 'userId' in requestWithContext.practiceContext) {
+        expect(requestWithContext.practiceContext.userId).toBe(originalUserId);
+      }
     });
 
     it('should reject auth-related URL params even when allowUrlOverride is true', async () => {
