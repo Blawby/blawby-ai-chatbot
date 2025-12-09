@@ -85,7 +85,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       const conversation = await conversationService.getOrCreateCurrentConversation(
         userId,
         practiceId,
-        request
+        request,
+        isAnonymous
       );
       return createJsonResponse({ conversation }); // Single object
     }
@@ -108,10 +109,12 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations/current - Get or create current conversation
   if (segments.length === 3 && segments[2] === 'current' && request.method === 'GET') {
+    const isAnonymous = authContext.isAnonymous === true;
     const conversation = await conversationService.getOrCreateCurrentConversation(
       userId,
       practiceId,
-      request
+      request,
+      isAnonymous
     );
     return createJsonResponse({ conversation });
   }

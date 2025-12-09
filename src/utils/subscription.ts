@@ -12,7 +12,17 @@ export async function createOrganizationForSubscription(userName: string): Promi
   // Sanitize userName to handle edge cases: empty strings, special characters, leading/trailing spaces
   const sanitizedName = userName.trim() || 'User';
   const orgName = `${sanitizedName}'s org`;
-  const orgSlug = `${sanitizedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-org`;
+  
+  // Compute slug base: normalize to lowercase and replace non-alphanumeric with hyphens
+  let slugBase = sanitizedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  
+  // If slug base is empty after sanitization (e.g., only special characters), fall back to "user"
+  if (!slugBase) {
+    slugBase = 'user';
+  }
+  
+  // Ensure final slug has no leading/trailing hyphens and is non-empty
+  const orgSlug = `${slugBase}-org`;
 
   // Create organization via practices API
   const practice = await createPractice({

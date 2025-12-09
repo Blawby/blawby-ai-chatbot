@@ -24,15 +24,17 @@ export async function handleInbox(request: Request, env: Env): Promise<Response>
     throw HttpErrors.notFound('Inbox route not found');
   }
 
-  // Get practice context first
+  // Get practice context first (this only attaches practice metadata, preserves auth headers)
   const requestWithContext = await withPracticeContext(request, env, {
     requirePractice: true,
     allowUrlOverride: true
   });
   const practiceId = getPracticeId(requestWithContext);
 
-  // Require authenticated practice member (minimum paralegal role)
-  const memberContext = await requireOrganizationMember(requestWithContext, env, practiceId, 'paralegal');
+  // SECURITY: Always use the original request for authentication to ensure
+  // URL parameters cannot affect which user is authenticated.
+  // The practiceId from context is safe to use as it's only metadata.
+  const memberContext = await requireOrganizationMember(request, env, practiceId, 'paralegal');
   const userId = memberContext.user.id;
   const conversationService = new ConversationService(env);
 

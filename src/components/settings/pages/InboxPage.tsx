@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'preact/hooks';
+import { useState, useMemo, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '../../../contexts/SessionContext';
 import { useInbox, type InboxFilters } from '../../../hooks/useInbox';
 import { useToastContext } from '../../../contexts/ToastContext';
@@ -71,12 +71,13 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
 
   // Sync internal notes local state with selected conversation
   useEffect(() => {
-    if (selectedConversation) {
-      setInternalNotes(selectedConversation.internal_notes || '');
-    } else {
+    const conversation = conversations.find(c => c.id === selectedConversationId);
+    if (conversation) {
+      setInternalNotes(conversation.internal_notes || '');
+    } else if (!selectedConversationId) {
       setInternalNotes('');
     }
-  }, [selectedConversation]);
+  }, [selectedConversationId]); // Only sync when conversation selection changes
 
   // Debounced update for internal notes to prevent API calls on every keystroke
   const debouncedUpdateNotesRef = useRef<ReturnType<typeof debounce> | null>(null);

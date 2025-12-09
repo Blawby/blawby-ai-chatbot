@@ -74,6 +74,11 @@ export class ConversationService {
       throw HttpErrors.notFound(`Practice not found: ${options.practiceId}`);
     }
 
+    // Validate that we have at least one participant
+    if (!options.userId && options.participantUserIds.length === 0) {
+      throw HttpErrors.badRequest('At least one participant is required for anonymous conversations');
+    }
+
     const conversationId = crypto.randomUUID();
     const now = new Date().toISOString();
     
@@ -162,7 +167,8 @@ export class ConversationService {
   async getOrCreateCurrentConversation(
     userId: string,
     practiceId: string,
-    request?: Request
+    request?: Request,
+    isAnonymous?: boolean
   ): Promise<Conversation> {
     // Validate practice exists (pass request for auth token)
     const practiceExists = await RemoteApiService.validatePractice(this.env, practiceId, request);
@@ -224,9 +230,9 @@ export class ConversationService {
     // For anonymous users, user_id will be null but they still have a userId for participants
     return this.createConversation({
       practiceId,
-      userId: null, // Anonymous conversations have null user_id
+      userId: isAnonymous ? null : userId, // Store actual userId for authenticated users, null for anonymous
       matterId: null,
-      participantUserIds: [userId], // Include anonymous userId in participants
+      participantUserIds: isAnonymous ? [userId] : [], // userId will be added automatically by createConversation for authenticated users
       metadata: null
     });
   }
@@ -584,6 +590,51 @@ export class ConversationService {
   }
 
   /**
+   * Build WHERE clause and bindings for inbox filters
+   */
+  private buildInboxFilters(options: {
+    assignedTo?: string | null;
+    status?: 'active' | 'archived' | 'closed';
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+    tags?: string[];
+  }): { whereClause: string; bindings: unknown[] } {
+    const conditions: string[] = [];
+    const bindings: unknown[] = [];
+
+    if (options.assignedTo === 'unassigned') {
+      conditions.push('(assigned_to IS NULL OR assigned_to = "")');
+    } else if (options.assignedTo === 'me') {
+      throw new Error("'me' should be resolved to userId by caller before calling getInboxConversations");
+    } else if (options.assignedTo) {
+      conditions.push('assigned_to = ?');
+      bindings.push(options.assignedTo);
+    }
+
+    if (options.status) {
+      conditions.push('status = ?');
+      bindings.push(options.status);
+    }
+
+    if (options.priority) {
+      conditions.push('priority = ?');
+      bindings.push(options.priority);
+    }
+
+    if (options.tags && options.tags.length > 0) {
+      const tagConditions = options.tags.map(() => 
+        'EXISTS (SELECT 1 FROM json_each(conversations.tags) WHERE json_each.value = ?)'
+      );
+      conditions.push(`(${tagConditions.join(' OR ')})`);
+      options.tags.forEach(tag => bindings.push(tag));
+    }
+
+    return {
+      whereClause: conditions.length > 0 ? ' AND ' + conditions.join(' AND ') : '',
+      bindings
+    };
+  }
+
+  /**
    * Get conversations for team inbox with filters
    */
   async getInboxConversations(options: {
@@ -602,83 +653,27 @@ export class ConversationService {
     const sortBy = options.sortBy || 'last_message_at';
     const sortOrder = options.sortOrder || 'desc';
 
+    // Build filters using helper method
+    const filters = this.buildInboxFilters({
+      assignedTo: options.assignedTo,
+      status: options.status,
+      priority: options.priority,
+      tags: options.tags
+    });
+
     let query = `
       SELECT 
         id, practice_id, user_id, matter_id, participants, user_info, status,
         assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
         created_at, updated_at
       FROM conversations
-      WHERE practice_id = ?
+      WHERE practice_id = ?${filters.whereClause}
     `;
-    const bindings: unknown[] = [options.practiceId];
-
-    // Filter by assigned_to
-    if (options.assignedTo === 'unassigned') {
-      query += ' AND (assigned_to IS NULL OR assigned_to = "")';
-    } else if (options.assignedTo === 'me') {
-      // Caller should resolve 'me' to userId before calling this method
-      throw new Error("'me' should be resolved to userId by caller before calling getInboxConversations");
-    } else if (options.assignedTo) {
-      query += ' AND assigned_to = ?';
-      bindings.push(options.assignedTo);
-    }
-
-    // Filter by status
-    if (options.status) {
-      query += ' AND status = ?';
-      bindings.push(options.status);
-    }
-
-    // Filter by priority
-    if (options.priority) {
-      query += ' AND priority = ?';
-      bindings.push(options.priority);
-    }
-
-    // Filter by tags (if any tag matches)
-    if (options.tags && options.tags.length > 0) {
-      const tagConditions = options.tags.map(() => 
-        'EXISTS (SELECT 1 FROM json_each(conversations.tags) WHERE json_each.value = ?)'
-      );
-      query += ` AND (${tagConditions.join(' OR ')})`;
-      options.tags.forEach(tag => {
-        bindings.push(tag);
-      });
-    }
+    const bindings: unknown[] = [options.practiceId, ...filters.bindings];
 
     // Build separate count query with same WHERE conditions
-    let countQuery = 'SELECT COUNT(*) as total FROM conversations WHERE practice_id = ?';
-    const countBindings: unknown[] = [options.practiceId];
-
-    // Apply same filters for count query
-    if (options.assignedTo === 'unassigned') {
-      countQuery += ' AND (assigned_to IS NULL OR assigned_to = "")';
-    } else if (options.assignedTo === 'me') {
-      throw new Error("'me' should be resolved to userId by caller before calling getInboxConversations");
-    } else if (options.assignedTo) {
-      countQuery += ' AND assigned_to = ?';
-      countBindings.push(options.assignedTo);
-    }
-
-    if (options.status) {
-      countQuery += ' AND status = ?';
-      countBindings.push(options.status);
-    }
-
-    if (options.priority) {
-      countQuery += ' AND priority = ?';
-      countBindings.push(options.priority);
-    }
-
-    if (options.tags && options.tags.length > 0) {
-      const tagConditions = options.tags.map(() => 
-        'EXISTS (SELECT 1 FROM json_each(conversations.tags) WHERE json_each.value = ?)'
-      );
-      countQuery += ` AND (${tagConditions.join(' OR ')})`;
-      options.tags.forEach(tag => {
-        countBindings.push(tag);
-      });
-    }
+    let countQuery = `SELECT COUNT(*) as total FROM conversations WHERE practice_id = ?${filters.whereClause}`;
+    const countBindings: unknown[] = [options.practiceId, ...filters.bindings];
 
     const countResult = await this.env.DB.prepare(countQuery).bind(...countBindings).first<{ total: number }>();
     const total = countResult?.total || 0;
