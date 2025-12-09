@@ -5,7 +5,8 @@ import {
   requestBillingPortalSession,
   requestSubscriptionCancellation,
   syncSubscription as syncSubscriptionRequest,
-  listPractices
+  listPractices,
+  listSubscriptions
 } from '../lib/apiClient';
 import { createOrganizationForSubscription } from '../utils/subscription';
 
@@ -356,9 +357,12 @@ export const usePaymentUpgrade = () => {
         }
 
         // Build URLs after practice resolution to ensure resolvedPracticeId is set
-        resolvedSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
-        resolvedCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
-        resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
+        // Validate URLs to prevent open-redirect vulnerabilities
+        const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
+        const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
+        resolvedSuccessUrl = ensureValidReturnUrl(rawSuccessUrl, resolvedPracticeId);
+        resolvedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
+        resolvedReturnUrl = ensureValidReturnUrl(returnUrl ?? resolvedSuccessUrl, resolvedPracticeId);
 
         // Step 2: Set active practice
         await ensureActivePractice(resolvedPracticeId);
@@ -366,29 +370,18 @@ export const usePaymentUpgrade = () => {
         // Step 3: Check for existing subscriptions
         let activeSubscription: { id: string } | undefined;
         try {
-          // Use getClient() directly to bypass proxy issues with subscription methods
-          const client = getClient();
-          if (client.subscription?.list) {
-            const { data: subscriptions, error: listError } = await client.subscription.list({
-              referenceId: resolvedPracticeId,
-            });
-
-            if (listError) {
-              // Log but continue - subscription might not exist yet
-              if (import.meta.env.DEV) {
-                console.warn('[UPGRADE] Error checking existing subscriptions:', listError);
-              }
-            } else {
-              activeSubscription = subscriptions?.find(
-                (sub) => sub.status === 'active' || sub.status === 'trialing'
-              );
-            }
-          }
+          // Use GET request to list subscriptions (instead of POST via Better Auth client)
+          const subscriptions = await listSubscriptions(resolvedPracticeId);
+          activeSubscription = subscriptions?.find(
+            (sub) => sub.status === 'active' || sub.status === 'trialing'
+          );
         } catch (e) {
-          // Log but continue - subscription might not exist yet
-          if (import.meta.env.DEV) {
-            console.warn('[UPGRADE] Error checking existing subscriptions:', e);
-          }
+          // Fail loudly on unexpected errors
+          const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+          console.error('[UPGRADE] Error checking existing subscriptions:', e);
+          showError('Subscription Check Failed', `An error occurred while checking subscriptions: ${errorMsg}. Please try again.`);
+          setSubmitting(false);
+          return;
         }
 
         // Step 4: Create or upgrade subscription using Better Auth

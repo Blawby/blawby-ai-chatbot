@@ -98,6 +98,10 @@ export const getSubscriptionCancelEndpoint = () => {
   return `${getRemoteApiUrl()}/api/subscription/cancel`;
 };
 
+export const getSubscriptionListEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/auth/subscription/list`;
+};
+
 // Practice management endpoints - now handled by remote API
 export const getPracticesManagementEndpoint = () => {
   return `${getRemoteApiUrl()}/api/practices`;

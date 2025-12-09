@@ -606,7 +606,7 @@ export class ConversationService {
     const bindings: unknown[] = [];
 
     if (options.assignedTo === 'unassigned') {
-      conditions.push('(assigned_to IS NULL OR assigned_to = "")');
+      conditions.push('(assigned_to IS NULL OR assigned_to = \'\')');
     } else if (options.assignedTo === 'me') {
       throw new Error("'me' should be resolved to userId by caller before calling getInboxConversations");
     } else if (options.assignedTo) {
