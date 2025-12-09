@@ -8,7 +8,7 @@
 import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
-import { ChatBubbleOvalLeftEllipsisIcon, DocumentIcon, RocketLaunchIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleOvalLeftEllipsisIcon, DocumentIcon, RocketLaunchIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import UserProfile from '../../../UserProfile';
 import { MatterStatus } from '../../../../types/matter';
 import type { BusinessOnboardingStatus } from '../../../../hooks/usePracticeManagement';
@@ -22,6 +22,7 @@ interface SidebarContentProps {
   currentRoute: string;
   onGoToChats?: () => void;
   onGoToMatter?: () => void;
+  onGoToInbox?: () => void;
   onOpenOnboarding?: () => void;
   onClose?: () => void;
   matterStatus?: MatterStatus;
@@ -40,6 +41,7 @@ export const SidebarContent = ({
   currentRoute,
   onGoToChats,
   onGoToMatter,
+  onGoToInbox,
   onOpenOnboarding,
   onClose,
   matterStatus,
@@ -86,6 +88,16 @@ export const SidebarContent = ({
               isCollapsed={isCollapsed}
               matterStatus={matterStatus}
             />
+
+            {onGoToInbox && (
+              <NavigationItem
+                icon={<EnvelopeIcon />}
+                label="Inbox"
+                isActive={currentRoute === 'inbox'}
+                onClick={onGoToInbox}
+                isCollapsed={isCollapsed}
+              />
+            )}
 
             {onboardingStatus && onboardingStatus !== 'not_required' && (
               <NavigationItem

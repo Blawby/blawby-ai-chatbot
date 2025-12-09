@@ -35,6 +35,103 @@ export function useConversationWithContext(options: Omit<UseConversationOptions,
 }
 
 /**
+ * Hook for getting or creating current conversation for a practice
+ * Automatically fetches the current conversation (or creates one) and returns conversation data
+ */
+export function useCurrentConversation(
+  practiceId: string | undefined,
+  options?: { autoCreate?: boolean; onError?: (error: string) => void }
+): UseConversationReturn & { conversationId: string | null } {
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isLoadingCurrent, setIsLoadingCurrent] = useState<boolean>(true);
+  const [errorCurrent, setErrorCurrent] = useState<string | null>(null);
+  
+  // Fetch current conversation
+  useEffect(() => {
+    if (!practiceId) {
+      setIsLoadingCurrent(false);
+      return;
+    }
+    
+    const fetchCurrent = async () => {
+      setIsLoadingCurrent(true);
+      setErrorCurrent(null);
+      
+      try {
+        const token = await getTokenAsync();
+        if (!token) {
+          throw new Error('Authentication required');
+        }
+        
+        const config = getApiConfig();
+        const response = await fetch(
+          `${config.baseUrl}/api/conversations/current?practiceId=${encodeURIComponent(practiceId)}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          }
+        );
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json() as { 
+          success: boolean; 
+          error?: string; 
+          data?: { conversation: Conversation } 
+        };
+        
+        if (!data.success || !data.data?.conversation) {
+          throw new Error(data.error || 'Failed to get current conversation');
+        }
+        
+        setConversationId(data.data.conversation.id);
+        setErrorCurrent(null);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to get conversation';
+        setErrorCurrent(errorMessage);
+        options?.onError?.(errorMessage);
+      } finally {
+        setIsLoadingCurrent(false);
+      }
+    };
+    
+    fetchCurrent();
+  }, [practiceId, options]);
+  
+  // Use existing useConversation hook with the conversationId
+  const conversationHook = useConversation({ 
+    conversationId: conversationId || '', 
+    practiceId,
+    onError: options?.onError 
+  });
+  
+  // Combine loading states
+  const isLoading = isLoadingCurrent || (conversationId ? conversationHook.isLoading : false);
+  const error = errorCurrent || conversationHook.error;
+  
+  return {
+    conversation: conversationHook.conversation,
+    messages: conversationHook.messages,
+    isLoading,
+    isLoadingMore: conversationHook.isLoadingMore,
+    error,
+    sendMessage: conversationHook.sendMessage,
+    loadMore: conversationHook.loadMore,
+    refresh: conversationHook.refresh,
+    hasMore: conversationHook.hasMore,
+    nextCursor: conversationHook.nextCursor,
+    conversationId,
+  };
+}
+
+/**
  * Legacy hook that requires practiceId parameter
  * @deprecated Use useConversationWithContext() instead
  */

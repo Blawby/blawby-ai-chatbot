@@ -1,3 +1,37 @@
+import { getClient } from '../lib/authClient';
+import { createPractice, type Practice } from '../lib/apiClient';
+
+/**
+ * Creates an organization (practice) for subscription purposes.
+ * Follows the pattern: {userName}'s org with slug {userName}-org
+ * 
+ * @param userName - The user's display name
+ * @returns The created practice/organization
+ */
+export async function createOrganizationForSubscription(userName: string): Promise<Practice> {
+  // Generate organization name and slug following the documented pattern
+  const orgName = `${userName}'s org`;
+  const orgSlug = `${userName.toLowerCase().replace(/\s+/g, '-')}-org`;
+
+  // Create organization via practices API
+  const practice = await createPractice({
+    name: orgName,
+    slug: orgSlug,
+  });
+
+  // Set as active organization
+  // Use getClient() directly to bypass proxy issues
+  const { getClient } = await import('../lib/authClient');
+  const client = getClient();
+  if (client.organization?.setActive) {
+    await client.organization.setActive({
+      organizationId: practice.id,
+    });
+  }
+
+  return practice;
+}
+
 /**
  * Normalizes subscription tier for display.
  * Strips -annual suffix, title-cases, defaults to Free.

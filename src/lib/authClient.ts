@@ -1,6 +1,7 @@
 import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
+import { stripeClient } from '@better-auth/stripe/client';
 import { setToken, getTokenAsync } from './tokenStorage';
 import { isDevelopment } from '../utils/environment';
 
@@ -60,7 +61,7 @@ function getAuthClient(): AuthClientType {
   if (currentContext === 'ssr') {
     const placeholderBaseURL = getAuthBaseUrl(); // Returns placeholder during SSR
     const client = createAuthClient({
-      plugins: [organizationClient(), anonymousClient()],
+      plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
       baseURL: placeholderBaseURL,
       fetchOptions: {
         auth: {
@@ -79,7 +80,7 @@ function getAuthClient(): AuthClientType {
   
   // Create and cache the client
   const client = createAuthClient({
-    plugins: [organizationClient(), anonymousClient()],
+    plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
     baseURL,
     fetchOptions: {
       auth: {
@@ -120,16 +121,54 @@ export const authClient = new Proxy({} as AuthClientType, {
   get(_target, prop) {
     const client = getAuthClient();
     const value = (client as Record<PropertyKey, unknown>)[prop];
-    // If it's a function, bind it to the client to preserve 'this' context
+    
+    // If it's a function, it might also have properties (like subscription.upgrade, subscription.list)
+    // Create a proxy that handles both calling the function AND accessing its properties
     if (typeof value === 'function') {
-      return value.bind(client);
+      const boundFn = value.bind(client);
+      // Create a function that has the properties from the original value
+      // We'll use Object.assign to copy properties, but the main approach is to proxy property access
+      const proxiedFn = Object.assign(boundFn, value);
+      
+      // Return a proxy that handles both function calls and property access
+      return new Proxy(proxiedFn, {
+        apply(_target, _thisArg, args) {
+          // When called as a function, call the bound function
+          return boundFn(...args);
+        },
+        get(_target, subProp) {
+          // When accessing properties (like subscription.upgrade), get them from the original value
+          // Properties are on the original function, not the bound one
+          const subValue = (value as Record<PropertyKey, unknown>)[subProp];
+          
+          if (typeof subValue === 'function') {
+            // Bind nested functions to the original value to preserve 'this'
+            return subValue.bind(value);
+          }
+          // Handle further nesting (e.g., subscription.upgrade might return an object)
+          if (subValue && typeof subValue === 'object') {
+            return new Proxy(subValue, {
+              get(_target, subSubProp) {
+                const subSubValue = subValue[subSubProp];
+                if (typeof subSubValue === 'function') {
+                  return subSubValue.bind(subValue);
+                }
+                return subSubValue;
+              }
+            });
+          }
+          return subValue;
+        }
+      });
     }
-    // If it's an object (like signUp, signIn which have nested methods), return a proxy for it
+    
+    // If it's an object (like signUp, signIn, organization which have nested methods), return a proxy for it
     if (value && typeof value === 'object') {
       return new Proxy(value, {
         get(_target, subProp) {
           const subValue = value[subProp];
           if (typeof subValue === 'function') {
+            // Bind the function to preserve 'this' context
             return subValue.bind(value);
           }
           // Handle further nesting (e.g., signUp.email)

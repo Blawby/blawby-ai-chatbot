@@ -11,6 +11,12 @@ export interface Conversation {
   participants: string[]; // Array of user IDs
   user_info: Record<string, unknown> | null;
   status: 'active' | 'archived' | 'closed';
+  assigned_to?: string | null; // User ID of assigned practice member
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  tags?: string[]; // Array of tag strings
+  internal_notes?: string | null; // Internal notes for practice members
+  last_message_at?: string | null; // Timestamp of last message
+  first_response_at?: string | null; // Timestamp of first practice member response
   created_at: string;
   updated_at: string;
 }
@@ -100,7 +106,9 @@ export class ConversationService {
   async getConversation(conversationId: string, practiceId: string): Promise<Conversation> {
     const record = await this.env.DB.prepare(`
       SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status, created_at, updated_at
+        id, practice_id, user_id, matter_id, participants, user_info, status,
+        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
+        created_at, updated_at
       FROM conversations
       WHERE id = ? AND practice_id = ?
     `).bind(conversationId, practiceId).first<{
@@ -111,6 +119,12 @@ export class ConversationService {
       participants: string;
       user_info: string | null;
       status: string;
+      assigned_to: string | null;
+      priority: string | null;
+      tags: string | null;
+      internal_notes: string | null;
+      last_message_at: string | null;
+      first_response_at: string | null;
       created_at: string;
       updated_at: string;
     } | null>();
@@ -127,9 +141,91 @@ export class ConversationService {
       participants: JSON.parse(record.participants || '[]') as string[],
       user_info: record.user_info ? JSON.parse(record.user_info) : null,
       status: record.status as Conversation['status'],
+      assigned_to: record.assigned_to || null,
+      priority: (record.priority || 'normal') as Conversation['priority'],
+      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
+      internal_notes: record.internal_notes || null,
+      last_message_at: record.last_message_at || null,
+      first_response_at: record.first_response_at || null,
       created_at: record.created_at,
       updated_at: record.updated_at
     };
+  }
+
+  /**
+   * Get or create current conversation for a user with a practice
+   * For anonymous users: Gets most recent active conversation or creates new
+   * For signed-in clients: Gets most recent active conversation or creates new
+   */
+  async getOrCreateCurrentConversation(
+    userId: string,
+    practiceId: string,
+    request?: Request
+  ): Promise<Conversation> {
+    // Validate practice exists (pass request for auth token)
+    const practiceExists = await RemoteApiService.validatePractice(this.env, practiceId, request);
+    if (!practiceExists) {
+      throw HttpErrors.notFound(`Practice not found: ${practiceId}`);
+    }
+
+    // Try to get most recent active conversation
+    const existing = await this.env.DB.prepare(`
+      SELECT 
+        id, practice_id, user_id, matter_id, participants, user_info, status,
+        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
+        created_at, updated_at
+      FROM conversations
+      WHERE practice_id = ? 
+        AND JSON_EXTRACT(participants, "$") LIKE ?
+        AND status = 'active'
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).bind(practiceId, `%"${userId}"%`).first<{
+      id: string;
+      practice_id: string;
+      user_id: string | null;
+      matter_id: string | null;
+      participants: string;
+      user_info: string | null;
+      status: string;
+      assigned_to: string | null;
+      priority: string | null;
+      tags: string | null;
+      internal_notes: string | null;
+      last_message_at: string | null;
+      first_response_at: string | null;
+      created_at: string;
+      updated_at: string;
+    } | null>();
+
+    if (existing) {
+      return {
+        id: existing.id,
+        practice_id: existing.practice_id,
+        user_id: existing.user_id,
+        matter_id: existing.matter_id,
+        participants: JSON.parse(existing.participants || '[]') as string[],
+        user_info: existing.user_info ? JSON.parse(existing.user_info) : null,
+        status: existing.status as Conversation['status'],
+        assigned_to: existing.assigned_to || null,
+        priority: (existing.priority || 'normal') as Conversation['priority'],
+        tags: existing.tags ? JSON.parse(existing.tags) as string[] : undefined,
+        internal_notes: existing.internal_notes || null,
+        last_message_at: existing.last_message_at || null,
+        first_response_at: existing.first_response_at || null,
+        created_at: existing.created_at,
+        updated_at: existing.updated_at
+      };
+    }
+
+    // No existing conversation, create new one
+    return this.createConversation({
+      practiceId,
+      userId,
+      matterId: null,
+      participantUserIds: [userId], // Just the user initially
+      metadata: null
+    });
   }
 
   /**
@@ -340,12 +436,12 @@ export class ConversationService {
       now
     ).run();
 
-    // Update conversation's updated_at timestamp
+    // Update conversation's updated_at and last_message_at timestamps
     await this.env.DB.prepare(`
       UPDATE conversations
-      SET updated_at = ?
+      SET updated_at = ?, last_message_at = ?
       WHERE id = ? AND practice_id = ?
-    `).bind(now, options.conversationId, options.practiceId).run();
+    `).bind(now, now, options.conversationId, options.practiceId).run();
 
     return this.getMessage(messageId);
   }
@@ -482,6 +578,271 @@ export class ConversationService {
         read_status: readStatus
       }
     });
+  }
+
+  /**
+   * Get conversations for team inbox with filters
+   */
+  async getInboxConversations(options: {
+    practiceId: string;
+    assignedTo?: string | null; // 'me', 'unassigned', or specific user ID
+    status?: 'active' | 'archived' | 'closed';
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+    tags?: string[];
+    limit?: number;
+    offset?: number;
+    sortBy?: 'last_message_at' | 'created_at' | 'priority';
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{ conversations: Conversation[]; total: number }> {
+    const limit = Math.min(options.limit || 50, 100);
+    const offset = options.offset || 0;
+    const sortBy = options.sortBy || 'last_message_at';
+    const sortOrder = options.sortOrder || 'desc';
+
+    let query = `
+      SELECT 
+        id, practice_id, user_id, matter_id, participants, user_info, status,
+        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
+        created_at, updated_at
+      FROM conversations
+      WHERE practice_id = ?
+    `;
+    const bindings: unknown[] = [options.practiceId];
+
+    // Filter by assigned_to
+    if (options.assignedTo === 'unassigned') {
+      query += ' AND (assigned_to IS NULL OR assigned_to = "")';
+    } else if (options.assignedTo === 'me') {
+      // This will be handled by the caller (they pass their userId)
+      query += ' AND assigned_to = ?';
+      // Note: Caller should pass actual userId for 'me'
+    } else if (options.assignedTo) {
+      query += ' AND assigned_to = ?';
+      bindings.push(options.assignedTo);
+    }
+
+    // Filter by status
+    if (options.status) {
+      query += ' AND status = ?';
+      bindings.push(options.status);
+    }
+
+    // Filter by priority
+    if (options.priority) {
+      query += ' AND priority = ?';
+      bindings.push(options.priority);
+    }
+
+    // Filter by tags (if any tag matches)
+    if (options.tags && options.tags.length > 0) {
+      const tagConditions = options.tags.map(() => 'tags LIKE ?');
+      query += ` AND (${tagConditions.join(' OR ')})`;
+      options.tags.forEach(tag => {
+        bindings.push(`%"${tag}"%`);
+      });
+    }
+
+    // Count total (for pagination)
+    const countQuery = query.replace(/SELECT[\s\S]*?FROM/, 'SELECT COUNT(*) as total FROM');
+    const countResult = await this.env.DB.prepare(countQuery).bind(...bindings).first<{ total: number }>();
+    const total = countResult?.total || 0;
+
+    // Add sorting
+    const sortColumn = sortBy === 'last_message_at' ? 'COALESCE(last_message_at, created_at)' : sortBy;
+    query += ` ORDER BY ${sortColumn} ${sortOrder.toUpperCase()} LIMIT ? OFFSET ?`;
+    bindings.push(limit, offset);
+
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<{
+      id: string;
+      practice_id: string;
+      user_id: string | null;
+      matter_id: string | null;
+      participants: string;
+      user_info: string | null;
+      status: string;
+      assigned_to: string | null;
+      priority: string | null;
+      tags: string | null;
+      internal_notes: string | null;
+      last_message_at: string | null;
+      first_response_at: string | null;
+      created_at: string;
+      updated_at: string;
+    }>();
+
+    const conversations = records.results.map(record => ({
+      id: record.id,
+      practice_id: record.practice_id,
+      user_id: record.user_id,
+      matter_id: record.matter_id,
+      participants: JSON.parse(record.participants || '[]') as string[],
+      user_info: record.user_info ? JSON.parse(record.user_info) : null,
+      status: record.status as Conversation['status'],
+      assigned_to: record.assigned_to || null,
+      priority: (record.priority || 'normal') as Conversation['priority'],
+      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
+      internal_notes: record.internal_notes || null,
+      last_message_at: record.last_message_at || null,
+      first_response_at: record.first_response_at || null,
+      created_at: record.created_at,
+      updated_at: record.updated_at
+    }));
+
+    return { conversations, total };
+  }
+
+  /**
+   * Assign conversation to a practice member
+   */
+  async assignConversation(
+    conversationId: string,
+    practiceId: string,
+    assignedTo: string | null
+  ): Promise<Conversation> {
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const now = new Date().toISOString();
+
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET assigned_to = ?, updated_at = ?
+      WHERE id = ? AND practice_id = ?
+    `).bind(assignedTo, now, conversationId, practiceId).run();
+
+    return this.getConversation(conversationId, practiceId);
+  }
+
+  /**
+   * Update inbox conversation fields
+   */
+  async updateInboxConversation(
+    conversationId: string,
+    practiceId: string,
+    updates: {
+      assigned_to?: string | null;
+      priority?: 'low' | 'normal' | 'high' | 'urgent';
+      tags?: string[];
+      internal_notes?: string | null;
+      status?: 'active' | 'archived' | 'closed';
+    }
+  ): Promise<Conversation> {
+    await this.getConversation(conversationId, practiceId);
+
+    const now = new Date().toISOString();
+    const updatesList: string[] = [];
+    const bindings: unknown[] = [];
+
+    if (updates.assigned_to !== undefined) {
+      updatesList.push('assigned_to = ?');
+      bindings.push(updates.assigned_to);
+    }
+
+    if (updates.priority) {
+      updatesList.push('priority = ?');
+      bindings.push(updates.priority);
+    }
+
+    if (updates.tags !== undefined) {
+      updatesList.push('tags = ?');
+      bindings.push(JSON.stringify(updates.tags));
+    }
+
+    if (updates.internal_notes !== undefined) {
+      updatesList.push('internal_notes = ?');
+      bindings.push(updates.internal_notes);
+    }
+
+    if (updates.status) {
+      updatesList.push('status = ?');
+      bindings.push(updates.status);
+    }
+
+    if (updatesList.length === 0) {
+      return this.getConversation(conversationId, practiceId);
+    }
+
+    updatesList.push('updated_at = ?');
+    bindings.push(now, conversationId, practiceId);
+
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET ${updatesList.join(', ')}
+      WHERE id = ? AND practice_id = ?
+    `).bind(...bindings).run();
+
+    return this.getConversation(conversationId, practiceId);
+  }
+
+  /**
+   * Get inbox statistics for a practice
+   */
+  async getInboxStats(practiceId: string, userId?: string): Promise<{
+    total: number;
+    active: number;
+    unassigned: number;
+    assignedToMe: number;
+    highPriority: number;
+    archived: number;
+    closed: number;
+  }> {
+    const stats = await this.env.DB.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+        SUM(CASE WHEN (assigned_to IS NULL OR assigned_to = '') AND status = 'active' THEN 1 ELSE 0 END) as unassigned,
+        SUM(CASE WHEN assigned_to = ? AND status = 'active' THEN 1 ELSE 0 END) as assignedToMe,
+        SUM(CASE WHEN priority IN ('high', 'urgent') AND status = 'active' THEN 1 ELSE 0 END) as highPriority,
+        SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END) as archived,
+        SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed
+      FROM conversations
+      WHERE practice_id = ?
+    `).bind(userId || null, practiceId).first<{
+      total: number;
+      active: number;
+      unassigned: number;
+      assignedToMe: number;
+      highPriority: number;
+      archived: number;
+      closed: number;
+    }>();
+
+    return {
+      total: stats?.total || 0,
+      active: stats?.active || 0,
+      unassigned: stats?.unassigned || 0,
+      assignedToMe: stats?.assignedToMe || 0,
+      highPriority: stats?.highPriority || 0,
+      archived: stats?.archived || 0,
+      closed: stats?.closed || 0
+    };
+  }
+
+  /**
+   * Update last_message_at when a message is sent
+   */
+  async updateLastMessageAt(conversationId: string, practiceId: string): Promise<void> {
+    const now = new Date().toISOString();
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET last_message_at = ?, updated_at = ?
+      WHERE id = ? AND practice_id = ?
+    `).bind(now, now, conversationId, practiceId).run();
+  }
+
+  /**
+   * Update first_response_at when a practice member sends first message
+   */
+  async updateFirstResponseAt(conversationId: string, practiceId: string): Promise<void> {
+    const conversation = await this.getConversation(conversationId, practiceId);
+    
+    // Only set if not already set
+    if (!conversation.first_response_at) {
+      const now = new Date().toISOString();
+      await this.env.DB.prepare(`
+        UPDATE conversations
+        SET first_response_at = ?, updated_at = ?
+        WHERE id = ? AND practice_id = ?
+      `).bind(now, now, conversationId, practiceId).run();
+    }
   }
 }
 

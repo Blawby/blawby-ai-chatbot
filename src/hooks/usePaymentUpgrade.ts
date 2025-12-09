@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'preact/hooks';
 import { useToastContext } from '../contexts/ToastContext';
-import { authClient } from '../lib/authClient';
+import { authClient, getClient } from '../lib/authClient';
 import {
-  requestSubscriptionUpgrade,
   requestBillingPortalSession,
   requestSubscriptionCancellation,
   syncSubscription as syncSubscriptionRequest,
-  type SubscriptionUpgradePayload
+  listPractices
 } from '../lib/apiClient';
+import { createOrganizationForSubscription } from '../utils/subscription';
 
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
@@ -107,6 +107,7 @@ function getErrorTitle(errorCode: SubscriptionErrorCode): string {
 
 export interface SubscriptionUpgradeRequest {
   practiceId: string;
+  plan: string; // Plan name from API (e.g., "professional", "business_seat")
   seats?: number | null;
   annual?: boolean;
   successUrl?: string;
@@ -126,11 +127,17 @@ export const usePaymentUpgrade = () => {
 
   const ensureActivePractice = useCallback(async (practiceId: string) => {
     try {
-      await authClient.organization.setActive({ organizationId: practiceId });
+      // Use getClient() directly to bypass proxy issues
+      const client = getClient();
+      if (client.organization?.setActive) {
+        await client.organization.setActive({ organizationId: practiceId });
+      } else {
+        console.warn('[UPGRADE] organization.setActive not available, skipping');
+      }
     } catch (activeErr) {
       const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active practice.';
       console.warn('[UPGRADE] Active practice setup error:', activeErr instanceof Error ? activeErr : message);
-      throw (activeErr instanceof Error ? activeErr : new Error(message));
+      // Don't throw - allow subscription to proceed even if setActive fails
     }
   }, []);
 
@@ -227,72 +234,135 @@ export const usePaymentUpgrade = () => {
   );
 
   const submitUpgrade = useCallback(
-    async ({ practiceId, seats = 1, annual = false, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
+    async ({ practiceId, plan, seats = 1, annual = false, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
       setSubmitting(true);
       setError(null);
 
+      let resolvedPracticeId = practiceId;
       const resolvedSuccessUrl = successUrl ?? buildSuccessUrl(practiceId);
       const resolvedCancelUrl = cancelUrl ?? buildCancelUrl(practiceId);
       const resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
 
       try {
-        await ensureActivePractice(practiceId);
+        // Step 1: Ensure practice exists, create if needed
+        if (!resolvedPracticeId) {
+          try {
+            const practices = await listPractices({ scope: 'all' });
+            
+            if (practices.length === 0) {
+              // No practices exist, create one using the helper
+              const session = await authClient.getSession();
+              const userName = session?.data?.user?.name || session?.data?.user?.email?.split('@')[0] || 'User';
+              const practice = await createOrganizationForSubscription(userName);
+              resolvedPracticeId = practice.id;
+            } else {
+              // Use first practice or find personal one
+              const personal = practices.find((p) => p.kind === 'personal' || (p.metadata as { kind?: string } | undefined)?.kind === 'personal');
+              const practice = personal || practices[0];
+              if (practice?.id) {
+                resolvedPracticeId = practice.id;
+              }
+            }
+          } catch (e) {
+            console.error('[UPGRADE] Failed to ensure/fetch practices:', e);
+            showError('Setup Required', 'We are preparing your workspace. Please try again in a moment.');
+            return;
+          }
+        }
 
-        const requestBody: SubscriptionUpgradePayload = {
-          plan: 'business',
-          referenceId: practiceId,
-          annual,
+        if (!resolvedPracticeId) {
+          showError('Setup Required', 'We are preparing your workspace. Please try again in a moment.');
+          return;
+        }
+
+        // Step 2: Set active practice
+        await ensureActivePractice(resolvedPracticeId);
+
+        // Step 3: Check for existing subscriptions
+        let activeSubscription: { id: string } | undefined;
+        try {
+          // Use getClient() directly to bypass proxy issues with subscription methods
+          const client = getClient();
+          if (client.subscription?.list) {
+            const { data: subscriptions, error: listError } = await client.subscription.list({
+              referenceId: resolvedPracticeId,
+            });
+
+            if (listError) {
+              // Log but continue - subscription might not exist yet
+              if (import.meta.env.DEV) {
+                console.warn('[UPGRADE] Error checking existing subscriptions:', listError);
+              }
+            } else {
+              activeSubscription = subscriptions?.find(
+                (sub) => sub.status === 'active' || sub.status === 'trialing'
+              );
+            }
+          }
+        } catch (e) {
+          // Log but continue - subscription might not exist yet
+          if (import.meta.env.DEV) {
+            console.warn('[UPGRADE] Error checking existing subscriptions:', e);
+          }
+        }
+
+        // Step 4: Create or upgrade subscription using Better Auth
+        // Use getClient() directly to bypass proxy issues with subscription methods
+        const client = getClient();
+        if (!client.subscription?.upgrade) {
+          throw new Error('Subscription upgrade not available. Please ensure Better Auth Stripe plugin is configured.');
+        }
+
+        const { data, error: subscriptionError } = await client.subscription.upgrade({
+          plan, // Plan name from API (e.g., "professional", "business_seat")
+          referenceId: resolvedPracticeId,
+          subscriptionId: activeSubscription?.id, // Only if exists to avoid duplicates
           successUrl: resolvedSuccessUrl,
           cancelUrl: resolvedCancelUrl,
-          returnUrl: resolvedReturnUrl,
-        };
-        if (seats > 1) {
-          requestBody.seats = seats;
-        }
+          annual,
+          seats: seats > 1 ? seats : undefined,
+          disableRedirect: false, // Auto-redirect to Stripe Checkout
+        });
 
-        const result = await requestSubscriptionUpgrade(requestBody);
+        if (subscriptionError) {
+          // Handle Better Auth error format
+          const errorMessage = subscriptionError.message || 'Subscription upgrade failed';
+          const errorCode = (subscriptionError as { code?: string }).code;
 
-        console.debug('[UPGRADE] Response status:', result.status);
-        if (import.meta.env.DEV) {
-          console.debug('[UPGRADE] Response body:', result.data);
-        }
-        const checkoutUrl = extractUrl(result.data);
-
-        if (!result.ok || !checkoutUrl) {
-          // Handle Better Auth raw code: YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN
-          const rawCode = extractProperty<string>(result.data, 'code');
-          if (rawCode && rawCode.toUpperCase() === 'YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN') {
-            await handleAlreadySubscribed(practiceId, resolvedReturnUrl);
+          // Handle specific Better Auth error codes
+          if (errorCode && errorCode.toUpperCase() === 'YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN') {
+            await handleAlreadySubscribed(resolvedPracticeId, resolvedReturnUrl);
             return;
           }
 
           if (import.meta.env.DEV) {
-            // Only log in development, and sanitize sensitive data
-            const sanitizedResult = {
-              error: extractProperty<string>(result.data, 'error'),
-              success: extractProperty<boolean>(result.data, 'success'),
-              errorCode: extractProperty<string>(result.data, 'errorCode'),
-              code: extractProperty<string>(result.data, 'code'),
-              // Exclude sensitive fields like practiceId, subscription details, etc.
-            };
-            console.error('❌ Subscription upgrade failed with response:', sanitizedResult);
+            console.error('❌ Subscription upgrade failed:', {
+              error: errorMessage,
+              code: errorCode,
+            });
           }
 
-          // Handle specific error codes
-          const errorCode = extractProperty<string>(result.data, 'errorCode');
-          if (errorCode) {
-            throw new Error(JSON.stringify({
-              errorCode,
-              message: extractErrorMessage(result.data, 'Subscription upgrade failed'),
-              details: extractProperty<unknown>(result.data, 'details')
-            }));
+          // Check for email verification requirement
+          if (errorMessage.toLowerCase().includes('email verification') || errorCode === 'EMAIL_VERIFICATION_REQUIRED') {
+            setError(errorMessage);
+            showError(
+              'Verify Email',
+              'Please verify your email address before upgrading. Check your inbox for the verification link.'
+            );
+            return;
           }
 
-          const message = extractErrorMessage(result.data, 'Unable to initiate Stripe checkout');
-          throw new Error(message);
+          setError(errorMessage);
+          showError('Upgrade Failed', errorMessage);
+          return;
         }
 
-        window.location.href = checkoutUrl;
+        // If disableRedirect is false, Better Auth will auto-redirect
+        // If disableRedirect is true, we'd manually redirect using data.url
+        // Since we set disableRedirect: false, the redirect happens automatically
+        if (data?.url && import.meta.env.DEV) {
+          console.debug('[UPGRADE] Checkout URL:', data.url);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upgrade failed';
 
@@ -314,7 +384,7 @@ export const usePaymentUpgrade = () => {
         // Fallback to original string matching for backward compatibility
         const normalizedMessage = message.toLowerCase();
         if (normalizedMessage.includes("already subscribed to this plan")) {
-          await handleAlreadySubscribed(practiceId, resolvedReturnUrl);
+          await handleAlreadySubscribed(resolvedPracticeId || practiceId, resolvedReturnUrl);
           return;
         }
 
