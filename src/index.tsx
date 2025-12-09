@@ -640,32 +640,52 @@ function AppWithPractice() {
             const client = getClient();
             // Type assertion needed: Better Auth anonymous plugin types may not be fully exposed
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const result = await (client.signIn as any).anonymous?.();
+            const anonymousSignIn = (client.signIn as any).anonymous;
+            
+            // Check if anonymous method exists before calling
+            if (typeof anonymousSignIn !== 'function') {
+              console.error('[Auth] Anonymous sign-in method not available - Better Auth anonymous plugin may not be configured', {
+                practiceId,
+                message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+              });
+              sessionStorage.setItem(key, 'failed');
+              return;
+            }
+            
+            const result = await anonymousSignIn();
             if (result?.data?.user) {
               sessionStorage.setItem(key, '1');
               console.log('[Auth] Anonymous sign-in successful for widget user', {
                 userId: result.data.user.id,
                 practiceId
               });
-            } else if (result.error) {
+            } else if (result?.error) {
               // Fail loudly - Better Auth anonymous plugin may not be configured
-              console.error('[Auth] Anonymous sign-in failed - Better Auth anonymous plugin not configured on staging-api', {
+              console.error('[Auth] Anonymous sign-in failed - Better Auth anonymous plugin may not be configured', {
                 error: result.error,
                 practiceId,
-                message: 'The staging-api.blawby.com server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+                message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
               });
               // Set key to prevent retry loops, but log error clearly
+              sessionStorage.setItem(key, 'failed');
+            } else {
+              // Handle case where result is undefined or doesn't have expected structure
+              console.error('[Auth] Anonymous sign-in returned unexpected result', {
+                practiceId,
+                result,
+                message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+              });
               sessionStorage.setItem(key, 'failed');
             }
           } catch (error) {
             // Fail loudly with detailed error information
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error('[Auth] Anonymous sign-in exception - staging-api configuration issue', {
+            console.error('[Auth] Anonymous sign-in exception - server configuration issue', {
               error: errorMessage,
               practiceId,
               stack: error instanceof Error ? error.stack : undefined,
-              message: 'CRITICAL: Better Auth anonymous plugin must be configured on staging-api.blawby.com. ' +
-                       'Check staging-api server logs and ensure anonymous() plugin is added to Better Auth config.'
+              message: 'CRITICAL: Better Auth anonymous plugin must be configured on the API server. ' +
+                       'Check server logs and ensure anonymous() plugin is added to Better Auth config.'
             });
             // Set key to prevent retry loops
             sessionStorage.setItem(key, 'failed');

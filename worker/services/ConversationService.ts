@@ -35,7 +35,7 @@ export interface ConversationMessage {
 
 export interface CreateConversationOptions {
   practiceId: string;
-  userId: string;
+  userId: string | null; // Null for anonymous users
   matterId?: string | null;
   participantUserIds: string[];
   metadata?: Record<string, unknown>;
@@ -77,8 +77,10 @@ export class ConversationService {
     const conversationId = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    // Ensure creator is in participants
-    const participants = Array.from(new Set([options.userId, ...options.participantUserIds]));
+    // Ensure creator is in participants (only if userId is not null)
+    const participants = options.userId 
+      ? Array.from(new Set([options.userId, ...options.participantUserIds]))
+      : options.participantUserIds;
     const participantsJson = JSON.stringify(participants);
     const userInfoJson = options.metadata ? JSON.stringify(options.metadata) : null;
 
@@ -89,7 +91,7 @@ export class ConversationService {
     `).bind(
       conversationId,
       options.practiceId,
-      options.userId,
+      options.userId, // Can be null for anonymous users
       options.matterId || null,
       participantsJson,
       userInfoJson,
@@ -176,11 +178,11 @@ export class ConversationService {
         created_at, updated_at
       FROM conversations
       WHERE practice_id = ? 
-        AND JSON_EXTRACT(participants, "$") LIKE ?
+        AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
         AND status = 'active'
       ORDER BY updated_at DESC
       LIMIT 1
-    `).bind(practiceId, `%"${userId}"%`).first<{
+    `).bind(practiceId, userId).first<{
       id: string;
       practice_id: string;
       user_id: string | null;
@@ -219,11 +221,12 @@ export class ConversationService {
     }
 
     // No existing conversation, create new one
+    // For anonymous users, user_id will be null but they still have a userId for participants
     return this.createConversation({
       practiceId,
-      userId,
+      userId: null, // Anonymous conversations have null user_id
       matterId: null,
-      participantUserIds: [userId], // Just the user initially
+      participantUserIds: [userId], // Include anonymous userId in participants
       metadata: null
     });
   }
@@ -254,8 +257,8 @@ export class ConversationService {
 
     if (options.userId) {
       // User must be in participants array
-      query += ' AND JSON_EXTRACT(participants, "$") LIKE ?';
-      bindings.push(`%"${options.userId}"%`);
+      query += ' AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)';
+      bindings.push(options.userId);
     }
 
     if (options.status) {
@@ -613,9 +616,8 @@ export class ConversationService {
     if (options.assignedTo === 'unassigned') {
       query += ' AND (assigned_to IS NULL OR assigned_to = "")';
     } else if (options.assignedTo === 'me') {
-      // This will be handled by the caller (they pass their userId)
-      query += ' AND assigned_to = ?';
-      // Note: Caller should pass actual userId for 'me'
+      // Caller should resolve 'me' to userId before calling this method
+      throw new Error("'me' should be resolved to userId by caller before calling getInboxConversations");
     } else if (options.assignedTo) {
       query += ' AND assigned_to = ?';
       bindings.push(options.assignedTo);
@@ -635,16 +637,50 @@ export class ConversationService {
 
     // Filter by tags (if any tag matches)
     if (options.tags && options.tags.length > 0) {
-      const tagConditions = options.tags.map(() => 'tags LIKE ?');
+      const tagConditions = options.tags.map(() => 
+        'EXISTS (SELECT 1 FROM json_each(conversations.tags) WHERE json_each.value = ?)'
+      );
       query += ` AND (${tagConditions.join(' OR ')})`;
       options.tags.forEach(tag => {
-        bindings.push(`%"${tag}"%`);
+        bindings.push(tag);
       });
     }
 
-    // Count total (for pagination)
-    const countQuery = query.replace(/SELECT[\s\S]*?FROM/, 'SELECT COUNT(*) as total FROM');
-    const countResult = await this.env.DB.prepare(countQuery).bind(...bindings).first<{ total: number }>();
+    // Build separate count query with same WHERE conditions
+    let countQuery = 'SELECT COUNT(*) as total FROM conversations WHERE practice_id = ?';
+    const countBindings: unknown[] = [options.practiceId];
+
+    // Apply same filters for count query
+    if (options.assignedTo === 'unassigned') {
+      countQuery += ' AND (assigned_to IS NULL OR assigned_to = "")';
+    } else if (options.assignedTo === 'me') {
+      throw new Error("'me' should be resolved to userId by caller before calling getInboxConversations");
+    } else if (options.assignedTo) {
+      countQuery += ' AND assigned_to = ?';
+      countBindings.push(options.assignedTo);
+    }
+
+    if (options.status) {
+      countQuery += ' AND status = ?';
+      countBindings.push(options.status);
+    }
+
+    if (options.priority) {
+      countQuery += ' AND priority = ?';
+      countBindings.push(options.priority);
+    }
+
+    if (options.tags && options.tags.length > 0) {
+      const tagConditions = options.tags.map(() => 
+        'EXISTS (SELECT 1 FROM json_each(conversations.tags) WHERE json_each.value = ?)'
+      );
+      countQuery += ` AND (${tagConditions.join(' OR ')})`;
+      options.tags.forEach(tag => {
+        countBindings.push(tag);
+      });
+    }
+
+    const countResult = await this.env.DB.prepare(countQuery).bind(...countBindings).first<{ total: number }>();
     const total = countResult?.total || 0;
 
     // Add sorting

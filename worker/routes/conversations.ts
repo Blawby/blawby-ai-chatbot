@@ -48,12 +48,15 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('participantUserIds must be a non-empty array');
     }
 
+    // Check if anonymous user
+    const isAnonymous = authContext.isAnonymous === true;
+    
     // Ensure creator is included in participants
     const participants = Array.from(new Set([userId, ...body.participantUserIds]));
 
     const conversation = await conversationService.createConversation({
       practiceId,
-      userId,
+      userId: isAnonymous ? null : userId, // Null user_id for anonymous users
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata

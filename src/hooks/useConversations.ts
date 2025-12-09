@@ -43,6 +43,12 @@ export function useConversations({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const isDisposedRef = useRef(false);
+  const onErrorRef = useRef(onError);
+
+  // Keep onError ref in sync
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     return () => {
@@ -91,17 +97,16 @@ export function useConversations({
       });
 
       // Handle redirects (practice members get redirected to inbox)
-      if (response.status === 302 || response.status === 307) {
-        const location = response.headers.get('Location');
-        if (location?.includes('/api/inbox')) {
-          // Practice member - conversations should be fetched via inbox endpoint
-          // For now, set empty array (inbox hook handles this separately)
-          if (!isDisposedRef.current) {
-            setConversations([]);
-            setError(null);
-          }
-          return;
+      // Note: fetch() automatically follows redirects by default, so we check response.redirected
+      // and response.url to detect if a redirect to inbox occurred
+      if (response.redirected && response.url.includes('/api/inbox')) {
+        // Practice member - conversations should be fetched via inbox endpoint
+        // For now, set empty array (inbox hook handles this separately)
+        if (!isDisposedRef.current) {
+          setConversations([]);
+          setError(null);
         }
+        return;
       }
 
       if (!response.ok) {
@@ -143,13 +148,13 @@ export function useConversations({
       if (isDisposedRef.current) return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch conversations';
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
     } finally {
       if (!isDisposedRef.current) {
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, onError]);
+  }, [practiceId, matterId, status]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {

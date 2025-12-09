@@ -7,9 +7,9 @@ export interface SubscriptionPlan {
   description: string;
   stripeProductId: string;
   stripeMonthlyPriceId: string;
-  stripeYearlyPriceId: string;
+  stripeYearlyPriceId: string | null;
   monthlyPrice: string;
-  yearlyPrice: string;
+  yearlyPrice: string | null;
   currency: string;
   features: string[];
   limits: {

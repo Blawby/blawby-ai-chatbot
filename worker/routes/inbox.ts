@@ -32,7 +32,7 @@ export async function handleInbox(request: Request, env: Env): Promise<Response>
   const practiceId = getPracticeId(requestWithContext);
 
   // Require authenticated practice member (minimum paralegal role)
-  const memberContext = await requireOrganizationMember(request, env, practiceId, 'paralegal');
+  const memberContext = await requireOrganizationMember(requestWithContext, env, practiceId, 'paralegal');
   const userId = memberContext.user.id;
   const conversationService = new ConversationService(env);
 

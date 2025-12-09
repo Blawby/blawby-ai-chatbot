@@ -30,7 +30,7 @@ export interface InboxConversation extends Conversation {
 }
 
 interface UseInboxOptions {
-  practiceId: string;
+  practiceId?: string;
   filters?: InboxFilters;
   limit?: number;
   offset?: number;
@@ -176,7 +176,7 @@ export function useInbox({
         setIsLoading(false);
       }
     }
-  }, [practiceId, filters, limit, offset, sortBy, sortOrder, onError]);
+  }, [practiceId, filters.assignedTo, filters.status, filters.priority, filters.tags, limit, offset, sortBy, sortOrder, onError]);
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
@@ -238,6 +238,7 @@ export function useInbox({
           'Content-Type': 'application/json',
         },
         credentials: 'include',
+        signal: abortControllerRef.current?.signal,
         body: JSON.stringify({ assigned_to: assignedTo }),
       });
 
@@ -249,6 +250,9 @@ export function useInbox({
       // Refresh conversations after assignment
       await refresh();
     } catch (err) {
+      if (isDisposedRef.current) {
+        throw err;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to assign conversation';
       setError(errorMessage);
       onError?.(errorMessage);
@@ -281,6 +285,7 @@ export function useInbox({
           'Content-Type': 'application/json',
         },
         credentials: 'include',
+        signal: abortControllerRef.current?.signal,
         body: JSON.stringify(updates),
       });
 
@@ -292,6 +297,9 @@ export function useInbox({
       // Refresh conversations after update
       await refresh();
     } catch (err) {
+      if (isDisposedRef.current) {
+        throw err;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to update conversation';
       setError(errorMessage);
       onError?.(errorMessage);
@@ -319,6 +327,7 @@ export function useInbox({
           'Content-Type': 'application/json',
         },
         credentials: 'include',
+        signal: abortControllerRef.current?.signal,
         body: JSON.stringify({ content, metadata }),
       });
 
@@ -330,6 +339,9 @@ export function useInbox({
       // Refresh conversations to update last_message_at
       await refresh();
     } catch (err) {
+      if (isDisposedRef.current) {
+        throw err;
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
       setError(errorMessage);
       onError?.(errorMessage);
@@ -342,6 +354,11 @@ export function useInbox({
     if (!practiceId) {
       setIsLoading(false);
       return;
+    }
+
+    // Abort any existing requests before creating a new AbortController
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
 
     abortControllerRef.current = new AbortController();
@@ -362,7 +379,7 @@ export function useInbox({
         clearInterval(refreshTimerRef.current);
       }
     };
-  }, [practiceId, filters, limit, offset, sortBy, sortOrder, autoRefresh, refreshInterval, refresh]);
+  }, [practiceId, filters.assignedTo, filters.status, filters.priority, filters.tags, limit, offset, sortBy, sortOrder, autoRefresh, refreshInterval, refresh]);
 
   return {
     conversations,

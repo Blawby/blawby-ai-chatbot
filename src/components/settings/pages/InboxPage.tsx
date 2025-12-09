@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '../../../contexts/SessionContext';
 import { useInbox, type InboxFilters } from '../../../hooks/useInbox';
 import { useToastContext } from '../../../contexts/ToastContext';
+import { debounce } from '../../../utils/debounce';
 import { 
   EnvelopeIcon, 
   UserIcon, 
@@ -43,6 +44,7 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
     status: 'active',
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [internalNotes, setInternalNotes] = useState<string>('');
 
   const {
     conversations,
@@ -54,7 +56,7 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
     assignConversation,
     updateConversation,
   } = useInbox({
-    practiceId: activePracticeId || '',
+    practiceId: activePracticeId || undefined,
     filters,
     limit: 50,
     autoRefresh: true,
@@ -66,6 +68,35 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
     if (!selectedConversationId) return null;
     return conversations.find(c => c.id === selectedConversationId);
   }, [conversations, selectedConversationId]);
+
+  // Sync internal notes local state with selected conversation
+  useEffect(() => {
+    if (selectedConversation) {
+      setInternalNotes(selectedConversation.internal_notes || '');
+    } else {
+      setInternalNotes('');
+    }
+  }, [selectedConversation]);
+
+  // Debounced update for internal notes to prevent API calls on every keystroke
+  const debouncedUpdateNotesRef = useRef<ReturnType<typeof debounce> | null>(null);
+  
+  useEffect(() => {
+    // Create debounced function that updates conversation notes
+    debouncedUpdateNotesRef.current = debounce(
+      (id: string, notes: string) => {
+        updateConversation(id, { internal_notes: notes });
+      },
+      500
+    );
+
+    return () => {
+      // Cleanup: cancel any pending debounced calls on unmount
+      if (debouncedUpdateNotesRef.current) {
+        debouncedUpdateNotesRef.current.cancel();
+      }
+    };
+  }, [updateConversation]);
 
   const handleFilterChange = (key: keyof InboxFilters, value: string | null) => {
     setFilters(prev => ({
@@ -341,11 +372,15 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
                     Internal Notes
                   </label>
                   <textarea
-                    value={selectedConversation.internal_notes || ''}
+                    value={internalNotes}
                     onChange={(e) => {
-                      updateConversation(selectedConversation.id, {
-                        internal_notes: e.currentTarget.value
-                      });
+                      const value = e.currentTarget.value;
+                      // Update local state immediately for responsive UI
+                      setInternalNotes(value);
+                      // Debounced update will handle the API call
+                      if (debouncedUpdateNotesRef.current && selectedConversation) {
+                        debouncedUpdateNotesRef.current(selectedConversation.id, value);
+                      }
                     }}
                     placeholder="Add internal notes (not visible to client)..."
                     className="w-full min-h-[100px] border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"

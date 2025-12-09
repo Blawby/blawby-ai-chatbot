@@ -20,8 +20,6 @@ import ActivityTimeline from './ActivityTimeline';
 import MatterTab from './MatterTab';
 import { InboxPage } from './settings/pages/InboxPage';
 import { useSession } from '../lib/authClient';
-import { usePracticeManagement } from '../hooks/usePracticeManagement';
-import { useMemo } from 'preact/hooks';
 import { useMatterState } from '../hooks/useMatterState';
 import { analyzeMissingInfo } from '../utils/matterAnalysis';
 import { THEME } from '../utils/constants';

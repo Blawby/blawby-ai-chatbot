@@ -239,9 +239,9 @@ export const usePaymentUpgrade = () => {
       setError(null);
 
       let resolvedPracticeId = practiceId;
-      const resolvedSuccessUrl = successUrl ?? buildSuccessUrl(practiceId);
-      const resolvedCancelUrl = cancelUrl ?? buildCancelUrl(practiceId);
-      const resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
+      let resolvedSuccessUrl: string;
+      let resolvedCancelUrl: string;
+      let resolvedReturnUrl: string;
 
       try {
         // Step 1: Ensure practice exists, create if needed
@@ -274,6 +274,11 @@ export const usePaymentUpgrade = () => {
           showError('Setup Required', 'We are preparing your workspace. Please try again in a moment.');
           return;
         }
+
+        // Build URLs after practice resolution to ensure resolvedPracticeId is set
+        resolvedSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
+        resolvedCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
+        resolvedReturnUrl = returnUrl ?? resolvedSuccessUrl;
 
         // Step 2: Set active practice
         await ensureActivePractice(resolvedPracticeId);

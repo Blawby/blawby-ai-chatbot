@@ -1,4 +1,3 @@
-import { getClient } from '../lib/authClient';
 import { createPractice, type Practice } from '../lib/apiClient';
 
 /**
@@ -10,8 +9,10 @@ import { createPractice, type Practice } from '../lib/apiClient';
  */
 export async function createOrganizationForSubscription(userName: string): Promise<Practice> {
   // Generate organization name and slug following the documented pattern
-  const orgName = `${userName}'s org`;
-  const orgSlug = `${userName.toLowerCase().replace(/\s+/g, '-')}-org`;
+  // Sanitize userName to handle edge cases: empty strings, special characters, leading/trailing spaces
+  const sanitizedName = userName.trim() || 'User';
+  const orgName = `${sanitizedName}'s org`;
+  const orgSlug = `${sanitizedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-org`;
 
   // Create organization via practices API
   const practice = await createPractice({

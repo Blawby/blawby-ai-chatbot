@@ -116,9 +116,34 @@ export class RemoteApiService {
   }
 
   /**
-   * Get mock practice for testing (when remote API requires auth/Stripe)
+   * Get mock practice for testing (only in dev/test environments)
+   * @throws {Error} If called in production environment
    */
-  private static getMockPractice(practiceId: string): PracticeOrWorkspace {
+  private static getMockPractice(practiceId: string, env: Env): PracticeOrWorkspace {
+    // Security guard: only allow mock data in development or test environments
+    const isDevOrTest = env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
+    if (!isDevOrTest) {
+      throw new Error('Mock practice data is only available in development or test environments');
+    }
+
+    const now = Date.now();
+    const conversationConfig: ConversationConfig = {
+      availableServices: ['legal-consultation', 'document-review'],
+      serviceQuestions: {
+        'legal-consultation': ['What is your legal issue?', 'When did this occur?'],
+        'document-review': ['What type of document?', 'When do you need it reviewed?']
+      },
+      domain: '',
+      description: 'Test practice for development',
+      brandColor: '#000000',
+      accentColor: '#000000',
+      introMessage: 'Welcome to our legal services',
+      voice: {
+        enabled: false,
+        provider: 'cloudflare'
+      }
+    };
+
     return {
       id: practiceId,
       slug: 'test-practice',
@@ -126,24 +151,12 @@ export class RemoteApiService {
       kind: 'practice',
       subscriptionTier: 'business',
       subscriptionStatus: 'active',
+      conversationConfig,
       metadata: {
-        conversationConfig: {
-          availableServices: ['legal-consultation', 'document-review'],
-          serviceQuestions: {
-            'legal-consultation': ['What is your legal issue?', 'When did this occur?'],
-            'document-review': ['What type of document?', 'When do you need it reviewed?']
-          },
-          domain: '',
-          description: 'Test practice for development',
-          brandColor: '#000000',
-          accentColor: '#000000',
-          introMessage: 'Welcome to our legal services',
-          voice: {
-            enabled: false,
-            provider: 'cloudflare'
-          }
-        }
-      }
+        conversationConfig
+      },
+      createdAt: now,
+      updatedAt: now
     };
   }
 
@@ -167,28 +180,11 @@ export class RemoteApiService {
       try {
         response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
       } catch (error) {
-        // If 401 (Unauthorized), return mock practice for testing
-        // This handles cases where practice requires Stripe subscription
-        if (error instanceof HttpError && error.status === 401) {
-          Logger.debug('Practice requires auth/Stripe, returning mock practice for testing', { practiceId });
-          const mockPractice = this.getMockPractice(practiceId);
-          // Cache the mock
-          this.practiceCache.set(practiceId, { data: mockPractice, timestamp: Date.now() });
-          return mockPractice;
-        }
-        
         // If 404, try by slug
         if (error instanceof HttpError && error.status === 404) {
           try {
             response = await this.fetchFromRemoteApi(env, `/api/practice?slug=${encodeURIComponent(practiceId)}`, request);
           } catch (slugError) {
-            // If slug lookup also fails with 401, return mock
-            if (slugError instanceof HttpError && slugError.status === 401) {
-              Logger.debug('Practice slug requires auth/Stripe, returning mock practice for testing', { practiceId });
-              const mockPractice = this.getMockPractice(practiceId);
-              this.practiceCache.set(practiceId, { data: mockPractice, timestamp: Date.now() });
-              return mockPractice;
-            }
             // If slug lookup also fails with 404, return null
             if (slugError instanceof HttpError && slugError.status === 404) {
               return null;
@@ -219,15 +215,7 @@ export class RemoteApiService {
         return null;
       }
       
-      // If 401, return mock for testing
-      if (error instanceof HttpError && error.status === 401) {
-        Logger.debug('Practice requires auth/Stripe, returning mock practice for testing', { practiceId });
-        const mockPractice = this.getMockPractice(practiceId);
-        this.practiceCache.set(practiceId, { data: mockPractice, timestamp: Date.now() });
-        return mockPractice;
-      }
-      
-      // Re-throw connectivity/server errors instead of swallowing them
+      // Re-throw connectivity/server errors (including 401) instead of swallowing them
       Logger.error('Failed to fetch practice from remote API', {
         practiceId,
         error: error instanceof Error ? error.message : String(error),
