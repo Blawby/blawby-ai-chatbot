@@ -108,6 +108,9 @@ function MainApp({
 	// Determine if user is a practice member (has their own practice matching the widget practice)
 	// Practice members see inbox, clients/anonymous see their conversations with the practice
 	const isPracticeMember = useMemo(() => {
+		if (!practices || practices.length === 0) {
+			return false;
+		}
 		return practices.some(p => p.id === practiceId);
 	}, [practices, practiceId]);
 

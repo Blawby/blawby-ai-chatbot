@@ -399,7 +399,7 @@ export function useInbox({
         clearInterval(refreshTimerRef.current);
       }
     };
-  }, [practiceId, filters.assignedTo, filters.status, filters.priority, JSON.stringify(filters.tags), limit, offset, sortBy, sortOrder, autoRefresh, refreshInterval, fetchConversations, fetchStats]);
+  }, [practiceId, filters.assignedTo, filters.status, filters.priority, limit, offset, sortBy, sortOrder, autoRefresh, refreshInterval, fetchConversations, fetchStats]);
 
   return {
     conversations,

@@ -9,6 +9,24 @@ import {
 } from '../lib/apiClient';
 import { createOrganizationForSubscription } from '../utils/subscription';
 
+// Default return URL for billing portal redirects
+const DEFAULT_RETURN_URL = typeof window !== 'undefined' 
+  ? `${window.location.origin}/` 
+  : '/';
+
+// Helper function to ensure a non-empty return URL
+function ensureValidReturnUrl(url: string | undefined | null, practiceId?: string): string {
+  const trimmed = url?.trim();
+  if (trimmed && trimmed.length > 0) {
+    return trimmed;
+  }
+  // Fallback to business onboarding with practice ID if available
+  if (practiceId && typeof window !== 'undefined') {
+    return `${window.location.origin}/business-onboarding?sync=1&practiceId=${encodeURIComponent(practiceId)}`;
+  }
+  return DEFAULT_RETURN_URL;
+}
+
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
   if (result && typeof result === 'object' && result !== null) {
@@ -158,9 +176,10 @@ export const usePaymentUpgrade = () => {
   const openBillingPortal = useCallback(
     async ({ practiceId, returnUrl }: BillingPortalRequest) => {
       try {
+        const safeReturnUrl = ensureValidReturnUrl(returnUrl, practiceId);
         const result = await requestBillingPortalSession({
           practiceId,
-          returnUrl: returnUrl ?? `/business-onboarding?sync=1&practiceId=${encodeURIComponent(practiceId)}`
+          returnUrl: safeReturnUrl
         });
 
         const url = extractUrl(result.data);
@@ -389,7 +408,7 @@ export const usePaymentUpgrade = () => {
         // Fallback to original string matching for backward compatibility
         const normalizedMessage = message.toLowerCase();
         if (normalizedMessage.includes("already subscribed to this plan")) {
-          const safeReturnUrl = resolvedReturnUrl ?? returnUrl ?? '';
+          const safeReturnUrl = ensureValidReturnUrl(resolvedReturnUrl || returnUrl, resolvedPracticeId || practiceId);
           await handleAlreadySubscribed(resolvedPracticeId || practiceId, safeReturnUrl);
           return;
         }

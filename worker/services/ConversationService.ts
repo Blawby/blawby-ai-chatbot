@@ -177,7 +177,9 @@ export class ConversationService {
     }
 
     // Try to get most recent active conversation
-    const existing = await this.env.DB.prepare(`
+    // Build WHERE clause conditionally to avoid SQL keyword interpolation
+    const userIdCondition = isAnonymous ? 'AND user_id IS NULL' : 'AND user_id IS NOT NULL';
+    const query = `
       SELECT 
         id, practice_id, user_id, matter_id, participants, user_info, status,
         assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
@@ -185,11 +187,12 @@ export class ConversationService {
       FROM conversations
       WHERE practice_id = ? 
         AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
-        AND user_id IS ${isAnonymous ? 'NULL' : 'NOT NULL'}
+        ${userIdCondition}
         AND status = 'active'
       ORDER BY updated_at DESC
       LIMIT 1
-    `).bind(practiceId, userId).first<{
+    `;
+    const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<{
       id: string;
       practice_id: string;
       user_id: string | null;

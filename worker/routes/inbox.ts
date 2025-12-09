@@ -35,15 +35,19 @@ export async function handleInbox(request: Request, env: Env): Promise<Response>
   // URL parameters cannot affect which user is authenticated.
   // 
   // CRITICAL: practiceId is an authorization parameter, not mere metadata. It determines
-  // which practice's data the user can access (lines 60, 82, 91, etc.). The allowUrlOverride: true
-  // setting allows practiceId to be influenced by URL parameters, which could enable authorization
-  // bypass if not properly validated.
+  // which practice's data the user can access (lines 73, 94, 103, 126, 154, 175, 178, 184, 192).
+  // The allowUrlOverride: true setting allows practiceId to be influenced by URL parameters,
+  // which could enable authorization bypass if not properly validated.
   //
   // This approach is safe ONLY because requireOrganizationMember validates that the authenticated
   // user (from the original request's Authorization header) is actually a member of the specific
   // practiceId provided. If an attacker manipulates practiceId via URL parameters, 
   // requireOrganizationMember will fail with 403 Forbidden if they are not a member of that practice.
   // 
+  // REVIEWER NOTE: Verify that requireOrganizationMember actually checks that the authenticated
+  // user (from the original request Authorization header) is a member of the specific practiceId
+  // before allowing access. The safety of allowUrlOverride: true depends on that membership validation.
+  //
   // If requireOrganizationMember did not validate membership against the provided practiceId,
   // this would be a critical authorization bypass vulnerability.
   const memberContext = await requireOrganizationMember(request, env, practiceId, 'paralegal');
