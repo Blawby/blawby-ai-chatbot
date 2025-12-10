@@ -184,7 +184,7 @@ function getErrorTitle(errorCode: SubscriptionErrorCode): string {
 }
 
 export interface SubscriptionUpgradeRequest {
-  practiceId: string;
+  practiceId?: string;
   plan: string; // Plan name from API (e.g., "professional", "business_seat")
   seats?: number | null;
   annual?: boolean;
@@ -219,15 +219,17 @@ export const usePaymentUpgrade = () => {
     }
   }, []);
 
-  const buildSuccessUrl = useCallback((practiceId: string) => {
+  const buildSuccessUrl = useCallback((practiceId?: string) => {
     if (typeof window === 'undefined') return '/business-onboarding?sync=1';
     const url = new URL(`${window.location.origin}/business-onboarding`);
     url.searchParams.set('sync', '1');
-    url.searchParams.set('practiceId', practiceId);
+    if (practiceId) {
+      url.searchParams.set('practiceId', practiceId);
+    }
     return url.toString();
   }, []);
 
-  const buildCancelUrl = useCallback((_practiceId: string) => {
+  const buildCancelUrl = useCallback((_practiceId?: string) => {
     if (typeof window === 'undefined') return '/';
     const url = new URL(`${window.location.origin}/`);
     return url.toString();
@@ -331,8 +333,8 @@ export const usePaymentUpgrade = () => {
         // Build URLs 
         // Note: If no practiceId, we can't put it in the URL yet, but that's fine for initial creation
         // The success page will need to handle "just created" state or we rely on the sync param
-        const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId || '');
-        const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId || '');
+        const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
+        const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
         
         // Ensure URLs are valid
         // If resolvedPracticeId is undefined, validation might be slightly looser or use default

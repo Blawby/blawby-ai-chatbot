@@ -289,7 +289,7 @@ export const CartPage = () => {
     }
 
     const upgradeParams = {
-      practiceId: practiceId || '', // pass empty string or undefined if no practice yet
+      practiceId: practiceId || undefined, // pass undefined if no practice yet to trigger middleware auto-creation
       plan: selectedPlan.name, // Plan name from API (e.g., "professional", "business_seat")
       seats: quantity,
       annual: isAnnual,
