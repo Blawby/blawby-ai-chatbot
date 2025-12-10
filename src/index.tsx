@@ -123,14 +123,29 @@ function MainApp({
 		? (conversationList.length > 0 ? conversationList[0].id : null)
 		: (currentConversationId || currentConversation?.id || null);
 
-	const realMessageHandling = useMessageHandlingWithContext({
+	// Stabilize error handler
+	const handleMessageError = useCallback((error: unknown) => {
+		console.error('Message handling error:', error);
+		showError(typeof error === 'string' ? error : 'We hit a snag sending that message.');
+	}, [showError]);
+
+	const rawMessageHandling = useMessageHandlingWithContext({
 		sessionId,
 		conversationId: conversationId || undefined,
-		onError: (error) => {
-			console.error('Message handling error:', error);
-			showError(typeof error === 'string' ? error : 'We hit a snag sending that message.');
-		}
+		onError: handleMessageError
 	});
+
+	// Stabilize the return object to prevent unnecessary re-renders of children
+	// This wrapper ensures we only get a new object reference if the internal properties actually change
+	const realMessageHandling = useMemo(() => rawMessageHandling, [
+		rawMessageHandling.messages,
+		rawMessageHandling.addMessage,
+		rawMessageHandling.sendMessage,
+		rawMessageHandling.handleContactFormSubmit,
+		// Include inputs to ensure safety, though property changes should trigger updates
+		sessionId,
+		conversationId
+	]);
 
 	// Use real chat data
 	const messages = realMessageHandling.messages;
