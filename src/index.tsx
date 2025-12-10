@@ -137,16 +137,25 @@ function MainApp({
 	});
 
 	// Stabilize the return object to prevent unnecessary re-renders of children
-	// This wrapper ensures we only get a new object reference if the internal properties actually change
-	const realMessageHandling = useMemo(() => rawMessageHandling, [
+	// Create a new object that only changes when its properties actually change
+	const realMessageHandling = useMemo(() => ({
+		messages: rawMessageHandling.messages,
+		addMessage: rawMessageHandling.addMessage,
+		sendMessage: rawMessageHandling.sendMessage,
+		handleContactFormSubmit: rawMessageHandling.handleContactFormSubmit,
+		intakeStatus: rawMessageHandling.intakeStatus,
+		updateMessage: rawMessageHandling.updateMessage,
+		clearMessages: rawMessageHandling.clearMessages,
+		cancelStreaming: rawMessageHandling.cancelStreaming,
+	}), [
 		rawMessageHandling.messages,
 		rawMessageHandling.addMessage,
 		rawMessageHandling.sendMessage,
 		rawMessageHandling.handleContactFormSubmit,
 		rawMessageHandling.intakeStatus,
-		// Include inputs to ensure safety, though property changes should trigger updates
-		sessionId,
-		conversationId
+		rawMessageHandling.updateMessage,
+		rawMessageHandling.clearMessages,
+		rawMessageHandling.cancelStreaming,
 	]);
 
 	// Use real chat data

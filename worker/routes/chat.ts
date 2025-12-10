@@ -63,18 +63,39 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     });
 
     // Check if this is a contact form submission and send email notifications
-    if (body.metadata?.isContactFormSubmission && body.metadata?.contactData) {
+    if (body.metadata?.isContactFormSubmission) {
       try {
+        // Runtime validation of contact data from message content
+        // Parse contact info from the formatted message content
+        const contactMatch = body.content.match(/Name: (.+)\nEmail: (.+)\nPhone: (.+)\nLocation: (.+)/);
+        
+        if (!contactMatch) {
+          console.warn('[Chat] Contact form submission detected but could not parse contact data from message');
+          return createJsonResponse(message);
+        }
+
+        const contactData = {
+          name: contactMatch[1]?.trim(),
+          email: contactMatch[2]?.trim(),
+          phone: contactMatch[3]?.trim(),
+          location: contactMatch[4]?.trim()
+        };
+
+        // Validate required fields
+        if (!contactData.name || typeof contactData.name !== 'string' || contactData.name.length === 0) {
+          console.warn('[Chat] Invalid contact data: name is required');
+          return createJsonResponse(message);
+        }
+
+        if (!contactData.email || typeof contactData.email !== 'string' || !contactData.email.includes('@')) {
+          console.warn('[Chat] Invalid contact data: valid email is required');
+          return createJsonResponse(message);
+        }
+
         const { NotificationService } = await import('../services/NotificationService.js');
         const { RemoteApiService } = await import('../services/RemoteApiService.js');
         
         const notificationService = new NotificationService(env);
-        const contactData = body.metadata.contactData as {
-          name: string;
-          email: string;
-          phone?: string;
-          location?: string;
-        };
 
         // Fetch practice object for email notification
         const practice = await RemoteApiService.getPractice(env, practiceId, request);

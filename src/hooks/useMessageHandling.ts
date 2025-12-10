@@ -296,7 +296,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
           conversationId,
           content: contactMessage,
           metadata: {
-            contactData: contactData, // Mark this message as containing contact form data
+            // Mark this as a contact form submission without storing PII in metadata
             isContactFormSubmission: true
           }
         }),
@@ -424,15 +424,17 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   const isAnonymous = !session?.user;
   const userMessages = messages.filter(m => m.isUser);
   
-  // Check if contact form has been submitted by looking for a message with contact data
+  // Check if contact form has been submitted by looking for the submission flag
   const hasSubmittedContactForm = messages.some(m => 
-    m.isUser && m.metadata?.contactData
+    m.isUser && m.metadata?.isContactFormSubmission
   );
   
   const intakeStep = useCallback(() => {
     if (!isAnonymous) return 'completed';
     if (userMessages.length === 0) return 'issue';
-    if (userMessages.length === 1 && !hasSubmittedContactForm) return 'contact_form';
+    // If contact form hasn't been submitted, stay on contact_form step
+    if (!hasSubmittedContactForm) return 'contact_form';
+    // Once contact form is submitted, move to auth gate
     if (hasSubmittedContactForm) return 'auth_gate';
     return 'completed';
   }, [isAnonymous, userMessages.length, hasSubmittedContactForm]);
@@ -453,6 +455,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
       let newMessages = [...prev];
       let changed = false;
+      
+      // Use monotonically increasing timestamps to ensure stable ordering
+      let nextTimestamp = Date.now();
 
       // Helper to add message if missing
       const addMsg = (id: string, content: string, metadata?: Record<string, unknown>) => {
@@ -461,7 +466,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
           id,
           role: 'assistant',
           content,
-          timestamp: Date.now(),
+          timestamp: nextTimestamp++,
           isUser: false,
           metadata,
           files: undefined
@@ -500,7 +505,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       }
 
       if (changed) {
-        // Simple sort by timestamp to keep order roughly correct
+        // Sort by timestamp - monotonic timestamps ensure stable ordering
         return newMessages.sort((a, b) => a.timestamp - b.timestamp);
       }
       
