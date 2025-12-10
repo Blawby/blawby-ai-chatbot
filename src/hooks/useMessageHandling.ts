@@ -457,7 +457,10 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       let changed = false;
       
       // Use monotonically increasing timestamps to ensure stable ordering
-      let nextTimestamp = Date.now();
+      const maxTimestamp = newMessages.length > 0 
+        ? Math.max(...newMessages.map(m => m.timestamp))
+        : Date.now();
+      let nextTimestamp = maxTimestamp + 1;
 
       // Helper to add message if missing
       const addMsg = (id: string, content: string, metadata?: Record<string, unknown>) => {

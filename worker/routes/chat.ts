@@ -65,33 +65,19 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     // Check if this is a contact form submission and send email notifications
     if (body.metadata?.isContactFormSubmission) {
       try {
-        // Runtime validation of contact data from message content
-        // Parse contact info from the formatted message content
-        const contactMatch = body.content.match(/Name: (.+)\nEmail: (.+)\nPhone: (.+)\nLocation: (.+)/);
+        const { parseContactData } = await import('../utils/contactValidation.js');
         
-        if (!contactMatch) {
-          console.warn('[Chat] Contact form submission detected but could not parse contact data from message');
+        // Parse and validate contact data from message content
+        const contactData = parseContactData(body.content);
+        
+        if (!contactData) {
+          console.warn('[Chat] Contact form submission detected but validation failed', {
+            contentPreview: body.content.substring(0, 100)
+          });
           return createJsonResponse(message);
         }
 
-        const contactData = {
-          name: contactMatch[1]?.trim(),
-          email: contactMatch[2]?.trim(),
-          phone: contactMatch[3]?.trim(),
-          location: contactMatch[4]?.trim()
-        };
-
-        // Validate required fields
-        if (!contactData.name || typeof contactData.name !== 'string' || contactData.name.length === 0) {
-          console.warn('[Chat] Invalid contact data: name is required');
-          return createJsonResponse(message);
-        }
-
-        if (!contactData.email || typeof contactData.email !== 'string' || !contactData.email.includes('@')) {
-          console.warn('[Chat] Invalid contact data: valid email is required');
-          return createJsonResponse(message);
-        }
-
+        // contactData is now fully validated with proper types
         const { NotificationService } = await import('../services/NotificationService.js');
         const { RemoteApiService } = await import('../services/RemoteApiService.js');
         
@@ -113,11 +99,14 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
             clientInfo: {
               name: contactData.name,
               email: contactData.email,
-              phone: contactData.phone
+              phone: contactData.phone || undefined
             }
           });
 
-          console.log('[Chat] Sent intake notification to practice', { practiceId, contactEmail: contactData.email });
+          console.log('[Chat] Sent intake notification to practice', { 
+            practiceId, 
+            contactEmail: contactData.email 
+          });
         }
       } catch (emailError) {
         // Log error but don't fail the message send
