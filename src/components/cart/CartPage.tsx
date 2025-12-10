@@ -6,6 +6,7 @@ import { useToastContext } from '../../contexts/ToastContext';
 import { useLocation } from 'preact-iso';
 import { useNavigation } from '../../utils/navigation';
 import { useTranslation } from '../../i18n/hooks';
+import { fetchPlans, type SubscriptionPlan } from '../../utils/fetchPlans';
 import { QuantitySelector } from './molecules/QuantitySelector';
 import { PricingSummary } from '../ui/cards/PricingSummary';
 import {
@@ -13,10 +14,7 @@ import {
   hasManagedSubscription,
 } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
-import { authClient } from '../../lib/authClient';
-import { listPractices } from '../../lib/apiClient';
-import { createOrganizationForSubscription } from '../../utils/subscription';
-import { fetchPlans, type SubscriptionPlan } from '../../utils/fetchPlans';
+
 
 export const CartPage = () => {
   const location = useLocation();
@@ -281,56 +279,9 @@ export const CartPage = () => {
     
     // Ensure practice exists server-side to avoid race conditions
     // Note: The practice creation is now handled in usePaymentUpgrade.submitUpgrade()
-    // which uses the createOrganizationForSubscription helper with the correct naming pattern
-    let practiceId = currentPractice?.id;
-    if (!practiceId) {
-      try {
-        console.debug('[CART][UPGRADE] Checking for practices via practice API helpers');
-        const practices = await listPractices({ scope: 'all' });
-        
-        // If no practices exist, create one using the helper (with correct naming pattern)
-        if (practices.length === 0) {
-          console.debug('[CART][UPGRADE] No practices found, creating default practice');
-          const session = await authClient.getSession();
-          const userName = session?.data?.user?.name || session?.data?.user?.email?.split('@')[0] || 'User';
-          
-          const createdPractice = await createOrganizationForSubscription(userName);
-          
-          if (createdPractice?.id) {
-            practiceId = createdPractice.id;
-          }
-        } else {
-          // Use first practice or find personal one
-          const personal = practices.find((p) => p.kind === 'personal' || (p.metadata as { kind?: string } | undefined)?.kind === 'personal');
-          const practice = personal || practices[0];
-          if (practice?.id) {
-            practiceId = practice.id;
-          }
-        }
-        console.debug('[CART][UPGRADE] Ensured/loaded practices. Resolved practiceId:', practiceId);
-      } catch (e) {
-        console.error('[CART][UPGRADE] Failed to ensure/fetch practices before checkout:', e);
-      }
-    }
-
-    if (!practiceId) {
-      showError('Setup Required', 'We are preparing your workspace. Please try again in a moment.');
-      return;
-    }
-
-    // Align active practice using Better Auth client helpers before checkout
-    // Note: Better Auth API uses "organizationId" parameter name
-    // Use getClient() directly to bypass proxy issues
-    try {
-      const { getClient } = await import('../../lib/authClient');
-      const client = getClient();
-      if (client.organization?.setActive) {
-        await client.organization.setActive({ organizationId: practiceId });
-        console.debug('[CART][UPGRADE] Active practice set via auth client:', practiceId);
-      }
-    } catch (e) {
-      console.warn('[CART][UPGRADE] Failed to set active practice with auth client (continuing anyway):', e);
-    }
+    // which uses Better Auth middleware auto-creation if practiceId is undefined.
+    // We just pass currentPractice?.id if it exists.
+    const practiceId = currentPractice?.id;
 
     if (!selectedPlan) {
       showError('Setup Required', 'Please select a plan.');
@@ -338,7 +289,7 @@ export const CartPage = () => {
     }
 
     const upgradeParams = {
-      practiceId, // our DB practice id as referenceId for backend
+      practiceId: practiceId || undefined, // pass undefined if no practice yet to trigger middleware auto-creation
       plan: selectedPlan.name, // Plan name from API (e.g., "professional", "business_seat")
       seats: quantity,
       annual: isAnnual,
@@ -401,7 +352,29 @@ export const CartPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left: Price selection */}
           <div className="px-4 md:px-8 lg:px-16">
-            <h2 className="text-2xl font-bold mb-6">Pick your plan</h2>
+            <h2 className="text-2xl font-bold mb-4">Pick your plan</h2>
+            
+            {/* Plan Description */}
+            {selectedPlan.description && (
+              <p className="text-gray-300 mb-6 text-sm md:text-base">
+                {selectedPlan.description}
+              </p>
+            )}
+
+            {/* Plan Features */}
+            {selectedPlan.features && selectedPlan.features.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-white mb-3">What&apos;s included:</h3>
+                <ul className="space-y-2">
+                  {selectedPlan.features.map((feature, index) => (
+                    <li key={index} className="text-sm text-gray-400 flex items-start">
+                      <span className="text-accent-500 mr-2 mt-1">✓</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             
             {/* Price cards */}
             <div 
@@ -517,9 +490,10 @@ export const CartPage = () => {
             <PricingSummary
               heading="Summary"
               planName={selectedPlan.displayName}
-              planDescription={`${quantity} users • ${isAnnual ? 'Billed annually' : 'Billed monthly'}`}
+              planDescription={`${quantity} ${quantity === 1 ? 'user' : 'users'} • ${isAnnual ? 'Billed annually' : 'Billed monthly'}`}
               pricePerSeat={`${currencyFormatter.format(isAnnual ? annualSeatPricePerMonth : monthlySeatPrice)} per user / month`}
               isAnnual={isAnnual}
+              planFeatures={selectedPlan.features}
               billingNote={
                 isAnnual
                   ? `Billed annually at ${currencyFormatter.format(total)}/year`

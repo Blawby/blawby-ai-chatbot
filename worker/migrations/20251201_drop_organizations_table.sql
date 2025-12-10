@@ -25,3 +25,4 @@ DROP INDEX IF EXISTS idx_organizations_is_personal;
 PRAGMA foreign_keys = ON;
 
 
+
