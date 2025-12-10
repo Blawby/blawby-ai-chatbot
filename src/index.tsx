@@ -189,7 +189,6 @@ function MainApp({
                 await realMessageHandling.sendMessage(message, attachments);
         }, [conversationId, isCreatingConversation, createConversation, realMessageHandling]);
         const handleContactFormSubmit = realMessageHandling.handleContactFormSubmit;
->>>>>>> main
 
 	const {
 		previewFiles,
