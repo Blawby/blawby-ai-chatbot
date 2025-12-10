@@ -107,13 +107,12 @@ export const useMessageHandling = ({ practiceId, sessionId, conversationId, onEr
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
-    return {
+    const baseMessage = {
       id: msg.id,
       role: msg.role,
       content: msg.content,
       timestamp: new Date(msg.created_at).getTime(),
       metadata: msg.metadata || undefined,
-      isUser: msg.role === 'user',
       files: msg.metadata?.attachments ? (msg.metadata.attachments as string[]).map((fileId: string) => ({
         id: fileId,
         name: 'File',
@@ -122,6 +121,15 @@ export const useMessageHandling = ({ practiceId, sessionId, conversationId, onEr
         url: '', // TODO: Generate file URL from file ID
       })) : undefined,
     };
+
+    // Return properly typed variant based on role
+    if (msg.role === 'user') {
+      return { ...baseMessage, role: 'user', isUser: true } as ChatMessageUI;
+    } else if (msg.role === 'system') {
+      return { ...baseMessage, role: 'system', isUser: false } as ChatMessageUI;
+    } else {
+      return { ...baseMessage, role: 'assistant', isUser: false } as ChatMessageUI;
+    }
   }, []);
 
   // REMOVED: AI streaming functionality - will be replaced with user-to-user chat in future PR
@@ -265,13 +273,54 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         window.__DEBUG_CONTACT_FORM__(sanitizedContactData, redactedContactMessage);
       }
 
-      // Send the contact information as a user message
-      await sendMessage(contactMessage);
+      // Send the contact information as a user message with metadata flag
+      // This metadata helps us detect that the contact form was submitted
+      if (!conversationId) {
+        throw new Error('Conversation ID is required');
+      }
+
+      const token = await getTokenAsync();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const config = getApiConfig();
+      const response = await fetch(`${config.baseUrl}/api/chat/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          conversationId,
+          content: contactMessage,
+          metadata: {
+            contactData: contactData, // Mark this message as containing contact form data
+            isContactFormSubmission: true
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as { success: boolean; error?: string; data?: ConversationMessage };
+      if (!data.success || !data.data) {
+        throw new Error(data.error || 'Failed to send contact form');
+      }
+
+      // Add the message to local state
+      if (!isDisposedRef.current) {
+        setMessages(prev => [...prev, toUIMessage(data.data!)]);
+      }
     } catch (error) {
       console.error('Error submitting contact form:', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
     }
-  }, [sendMessage, onError]);
+  }, [conversationId, toUIMessage, onError]);
 
   // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {
@@ -367,6 +416,101 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     };
   }, []);
 
+  // Determine intake status based on user message count (for anonymous users)
+  // 0 messages -> Ask Issue (location auto-detected via Cloudflare)
+  // 1 message -> Show Contact Form
+  // 2+ messages (after contact form submitted) -> Auth Gate
+  const { session } = useSessionContext();
+  const isAnonymous = !session?.user;
+  const userMessages = messages.filter(m => m.isUser);
+  
+  // Check if contact form has been submitted by looking for a message with contact data
+  const hasSubmittedContactForm = messages.some(m => 
+    m.isUser && m.metadata?.contactData
+  );
+  
+  const intakeStep = useCallback(() => {
+    if (!isAnonymous) return 'completed';
+    if (userMessages.length === 0) return 'issue';
+    if (userMessages.length === 1 && !hasSubmittedContactForm) return 'contact_form';
+    if (hasSubmittedContactForm) return 'auth_gate';
+    return 'completed';
+  }, [isAnonymous, userMessages.length, hasSubmittedContactForm]);
+
+  const currentStep = intakeStep();
+
+  // Inject system messages based on step
+  useEffect(() => {
+    if (!isAnonymous) return;
+
+    setMessages(prev => {
+      // Check for existence of local system messages
+      const hasWelcome = prev.some(m => m.id === 'system-welcome');
+      const hasIssue = prev.some(m => m.id === 'system-issue');
+      const hasContactForm = prev.some(m => m.id === 'system-contact-form');
+      const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
+      const hasAuth = prev.some(m => m.id === 'system-auth');
+
+      let newMessages = [...prev];
+      let changed = false;
+
+      // Helper to add message if missing
+      const addMsg = (id: string, content: string, metadata?: Record<string, unknown>) => {
+        // Construct a message that strictly matches ChatMessageUI (specifically the assistant variant)
+        const msg: ChatMessageUI = {
+          id,
+          role: 'assistant',
+          content,
+          timestamp: Date.now(),
+          isUser: false,
+          metadata,
+          files: undefined
+        };
+        newMessages.push(msg);
+        changed = true;
+      };
+
+      // Welcome and Issue (shown at start)
+      if (currentStep === 'issue' || currentStep === 'contact_form' || currentStep === 'auth_gate') {
+        if (!hasWelcome) addMsg('system-welcome', 'Hi! I can help you find the right legal help.');
+        if (!hasIssue) addMsg('system-issue', 'Please briefly describe your legal issue.');
+      }
+      
+      // Contact form (after issue answered)
+      if (currentStep === 'contact_form' || currentStep === 'auth_gate') {
+        if (!hasContactForm) {
+          addMsg('system-contact-form', 'To help you better, please provide your contact information.', {
+            contactForm: {
+              fields: ['name', 'email', 'phone', 'location'],
+              required: ['name', 'email'],
+              message: 'We\'ll use this to connect you with the right attorney.'
+            }
+          });
+        }
+      }
+
+      // Submission confirmation (after contact form submitted)
+      if (currentStep === 'auth_gate') {
+        if (!hasSubmissionConfirm) {
+          addMsg('system-submission-confirm', 'Thank you! Your request has been submitted. A legal professional will join this conversation as soon as possible.');
+        }
+        if (!hasAuth) {
+          addMsg('system-auth', 'Sign up to save your conversation and case details.');
+        }
+      }
+
+      if (changed) {
+        // Simple sort by timestamp to keep order roughly correct
+        return newMessages.sort((a, b) => a.timestamp - b.timestamp);
+      }
+      
+      return prev;
+    });
+  }, [currentStep, isAnonymous]);
+
+  // Expose auth gate status
+  const showAuthGate = isAnonymous && currentStep === 'auth_gate';
+
   return {
     messages,
     sendMessage,
@@ -374,6 +518,10 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     addMessage,
     updateMessage,
     clearMessages,
-    cancelStreaming
+    cancelStreaming,
+    intakeStatus: {
+      step: currentStep,
+      showAuthGate
+    }
   };
 }; 

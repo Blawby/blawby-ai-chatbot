@@ -8,6 +8,7 @@ import AppLayout from './components/AppLayout';
 import AuthPage from './components/AuthPage';
 import { SEOHead } from './components/SEOHead';
 import { ConversationHeader } from './components/chat/ConversationHeader';
+import { AuthGateOverlay } from './components/chat/AuthGateOverlay';
 import { ToastProvider } from './contexts/ToastContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { useSession, getClient } from './lib/authClient';
@@ -142,6 +143,7 @@ function MainApp({
 		rawMessageHandling.addMessage,
 		rawMessageHandling.sendMessage,
 		rawMessageHandling.handleContactFormSubmit,
+		rawMessageHandling.intakeStatus,
 		// Include inputs to ensure safety, though property changes should trigger updates
 		sessionId,
 		conversationId
@@ -150,6 +152,7 @@ function MainApp({
 	// Use real chat data
 	const messages = realMessageHandling.messages;
 	const addMessage = realMessageHandling.addMessage;
+	const intakeStatus = realMessageHandling.intakeStatus;
 	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
 		await realMessageHandling.sendMessage(message, attachments);
 	}, [realMessageHandling]);
@@ -477,7 +480,7 @@ function MainApp({
 						rejectMatter={rejectMatter}
 						updateMatterStatus={updateMatterStatus}
 					/>
-					<div className="flex-1 min-h-0">
+					<div className="flex-1 min-h-0 relative">
 						<ChatContainer
 							messages={messages}
 							onSendMessage={handleSendMessage}
@@ -506,8 +509,17 @@ function MainApp({
 							setIsRecording={setIsRecording}
 							clearInput={clearInputTrigger}
 							isReadyToUpload={isReadyToUpload}
-							isSessionReady={isSessionReady}
+							isSessionReady={isSessionReady && !intakeStatus.showAuthGate}
 						/>
+						{intakeStatus.showAuthGate && (
+							<AuthGateOverlay
+								onSignIn={() => {
+									// Navigate to auth page
+									window.location.href = '/auth?mode=signin';
+								}}
+								practiceName={practiceConfig.name ?? undefined}
+							/>
+						)}
 					</div>
 				</div>
 			</AppLayout>

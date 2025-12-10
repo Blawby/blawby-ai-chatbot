@@ -62,6 +62,48 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
       metadata: body.metadata
     });
 
+    // Check if this is a contact form submission and send email notifications
+    if (body.metadata?.isContactFormSubmission && body.metadata?.contactData) {
+      try {
+        const { NotificationService } = await import('../services/NotificationService.js');
+        const { RemoteApiService } = await import('../services/RemoteApiService.js');
+        
+        const notificationService = new NotificationService(env);
+        const contactData = body.metadata.contactData as {
+          name: string;
+          email: string;
+          phone?: string;
+          location?: string;
+        };
+
+        // Fetch practice object for email notification
+        const practice = await RemoteApiService.getPractice(env, practiceId, request);
+
+        if (practice) {
+          // Send notification to practice members
+          await notificationService.sendMatterCreatedNotification({
+            type: 'matter_created',
+            practiceConfig: practice,
+            matterInfo: {
+              type: 'Intake Form Submission',
+              urgency: 'normal',
+              description: `New lead from ${contactData.name}`
+            },
+            clientInfo: {
+              name: contactData.name,
+              email: contactData.email,
+              phone: contactData.phone
+            }
+          });
+
+          console.log('[Chat] Sent intake notification to practice', { practiceId, contactEmail: contactData.email });
+        }
+      } catch (emailError) {
+        // Log error but don't fail the message send
+        console.error('[Chat] Failed to send email notification:', emailError);
+      }
+    }
+
     return createJsonResponse(message);
   }
 
