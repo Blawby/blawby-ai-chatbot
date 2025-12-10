@@ -1,14 +1,12 @@
 import { useState, useCallback } from 'preact/hooks';
 import { useToastContext } from '../contexts/ToastContext';
-import { authClient, getClient } from '../lib/authClient';
+import { getClient } from '../lib/authClient';
 import {
   requestBillingPortalSession,
   requestSubscriptionCancellation,
-  syncSubscription as syncSubscriptionRequest,
-  listPractices,
-  listSubscriptions
+  syncSubscription as syncSubscriptionRequest
 } from '../lib/apiClient';
-import { createOrganizationForSubscription } from '../utils/subscription';
+
 
 // Default return URL for billing portal redirects
 const DEFAULT_RETURN_URL = typeof window !== 'undefined' 
@@ -254,7 +252,7 @@ export const usePaymentUpgrade = () => {
             extractProperty<string>(result.data, 'errorCode');
 
           let mappedErrorCode: SubscriptionErrorCode | null = null;
-          if (typeof errorCode === 'string' && errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
+        if (errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
             mappedErrorCode = SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND;
           } else if (typeof errorCode === 'string') {
             const upperCode = errorCode.toUpperCase();
@@ -319,88 +317,57 @@ export const usePaymentUpgrade = () => {
       setSubmitting(true);
       setError(null);
 
-      let resolvedPracticeId = practiceId;
-      let resolvedSuccessUrl: string;
-      let resolvedCancelUrl: string;
-      let resolvedReturnUrl: string;
+      // We only resolve a practiceId if one was explicitly passed (existing user with org)
+      // Otherwise we leave it undefined so Better Auth can auto-create the org
+      const resolvedPracticeId = practiceId || undefined; 
 
       try {
-        // Step 1: Ensure practice exists, create if needed
-        if (!resolvedPracticeId) {
-          try {
-            const practices = await listPractices({ scope: 'all' });
-            
-            if (practices.length === 0) {
-              // No practices exist, create one using the helper
-              const session = await authClient.getSession();
-              const userName = session?.data?.user?.name || session?.data?.user?.email?.split('@')[0] || 'User';
-              const practice = await createOrganizationForSubscription(userName);
-              resolvedPracticeId = practice.id;
-            } else {
-              // Use first practice or find personal one
-              const personal = practices.find((p) => p.kind === 'personal' || (p.metadata as { kind?: string } | undefined)?.kind === 'personal');
-              const practice = personal || practices[0];
-              if (practice?.id) {
-                resolvedPracticeId = practice.id;
-              }
-            }
-          } catch (e) {
-            console.error('[UPGRADE] Failed to ensure/fetch practices:', e);
-            showError('Setup Required', 'We are preparing your workspace. Please try again in a moment.');
-            return;
-          }
+        // Step 1: Set active practice IF we have one
+        // This is good practice but not strictly required for the upgrade call if we pass referenceId
+        if (resolvedPracticeId) {
+            await ensureActivePractice(resolvedPracticeId);
         }
 
-        if (!resolvedPracticeId) {
-          showError('Setup Required', 'We are preparing your workspace. Please try again in a moment.');
-          return;
-        }
+        // Build URLs 
+        // Note: If no practiceId, we can't put it in the URL yet, but that's fine for initial creation
+        // The success page will need to handle "just created" state or we rely on the sync param
+        const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId || '');
+        const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId || '');
+        
+        // Ensure URLs are valid
+        // If resolvedPracticeId is undefined, validation might be slightly looser or use default
+        const validatedSuccessUrl = ensureValidReturnUrl(rawSuccessUrl, resolvedPracticeId);
+        const validatedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
+        const validatedReturnUrl = ensureValidReturnUrl(returnUrl ?? validatedSuccessUrl, resolvedPracticeId);
 
-        // Build URLs after practice resolution to ensure resolvedPracticeId is set
-        // Validate URLs to prevent open-redirect vulnerabilities
-        const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
-        const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
-        resolvedSuccessUrl = ensureValidReturnUrl(rawSuccessUrl, resolvedPracticeId);
-        resolvedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
-        resolvedReturnUrl = ensureValidReturnUrl(returnUrl ?? resolvedSuccessUrl, resolvedPracticeId);
 
-        // Step 2: Set active practice
-        await ensureActivePractice(resolvedPracticeId);
-
-        // Step 3: Check for existing subscriptions
-        let activeSubscription: { id: string } | undefined;
-        try {
-          // Use GET request to list subscriptions (instead of POST via Better Auth client)
-          const subscriptions = await listSubscriptions(resolvedPracticeId);
-          activeSubscription = subscriptions?.find(
-            (sub) => sub.status === 'active' || sub.status === 'trialing'
-          );
-        } catch (e) {
-          // Fail loudly on unexpected errors
-          const errorMsg = e instanceof Error ? e.message : 'Unknown error';
-          console.error('[UPGRADE] Error checking existing subscriptions:', e);
-          showError('Subscription Check Failed', `An error occurred while checking subscriptions: ${errorMsg}. Please try again.`);
-          setSubmitting(false);
-          return;
-        }
-
-        // Step 4: Create or upgrade subscription using Better Auth
+        // Step 2: Create or upgrade subscription using Better Auth
         // Use getClient() directly to bypass proxy issues with subscription methods
         const client = getClient();
         if (!client.subscription?.upgrade) {
           throw new Error('Subscription upgrade not available. Please ensure Better Auth Stripe plugin is configured.');
         }
 
-        const { data, error: subscriptionError } = await client.subscription.upgrade({
+        // Just call upgrade - middleware handles:
+        // 1. Org creation (if referenceId missing)
+        // 2. Org selection (if existing orgs)
+        // 3. Duplicate checks (if active sub exists)
+        const upgradeParams: Parameters<typeof client.subscription.upgrade>[0] = {
           plan, // Plan name from API (e.g., "professional", "business_seat")
-          referenceId: resolvedPracticeId,
-          subscriptionId: activeSubscription?.id, // Only if exists to avoid duplicates
-          successUrl: resolvedSuccessUrl,
-          cancelUrl: resolvedCancelUrl,
+          // subscriptionId is handled automatically by middleware now
+          successUrl: validatedSuccessUrl,
+          cancelUrl: validatedCancelUrl,
           annual,
           seats: seats > 1 ? seats : undefined,
           disableRedirect: false, // Auto-redirect to Stripe Checkout
-        });
+        };
+        
+        // Only include referenceId if we have one (allows middleware to auto-create org if omitted)
+        if (resolvedPracticeId) {
+          upgradeParams.referenceId = resolvedPracticeId;
+        }
+        
+        const { data, error: subscriptionError } = await client.subscription.upgrade(upgradeParams);
 
         if (subscriptionError) {
           // Handle Better Auth error format
@@ -409,8 +376,13 @@ export const usePaymentUpgrade = () => {
 
           // Handle specific Better Auth error codes
           if (errorCode && errorCode.toUpperCase() === 'YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN') {
-            await handleAlreadySubscribed(resolvedPracticeId, resolvedReturnUrl);
-            return;
+             // If we have a practice ID, we can try to manage billing
+             if (resolvedPracticeId) {
+                await handleAlreadySubscribed(resolvedPracticeId, validatedReturnUrl);
+                return;
+             }
+             // If we don't have a practice ID (new flow), we can't easily redirect to portal yet
+             // Just show the error
           }
 
           if (import.meta.env.DEV) {
@@ -436,8 +408,6 @@ export const usePaymentUpgrade = () => {
         }
 
         // If disableRedirect is false, Better Auth will auto-redirect
-        // If disableRedirect is true, we'd manually redirect using data.url
-        // Since we set disableRedirect: false, the redirect happens automatically
         if (data?.url && import.meta.env.DEV) {
           console.debug('[UPGRADE] Checkout URL:', data.url);
         }
@@ -461,10 +431,11 @@ export const usePaymentUpgrade = () => {
 
         // Fallback to original string matching for backward compatibility
         const normalizedMessage = message.toLowerCase();
-        if (normalizedMessage.includes("already subscribed to this plan")) {
-          const safeReturnUrl = ensureValidReturnUrl(resolvedReturnUrl || returnUrl, resolvedPracticeId || practiceId);
-          await handleAlreadySubscribed(resolvedPracticeId || practiceId, safeReturnUrl);
-          return;
+        if (normalizedMessage.includes("already subscribed to this plan") && resolvedPracticeId) {
+          // Only attempt portal redirect if we have a practice ID
+           const safeReturnUrl = ensureValidReturnUrl(returnUrl, resolvedPracticeId);
+           await handleAlreadySubscribed(resolvedPracticeId, safeReturnUrl);
+           return;
         }
 
         if (normalizedMessage.includes('email verification is required')) {

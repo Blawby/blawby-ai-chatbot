@@ -34,26 +34,8 @@ import { useToastContext } from './contexts/ToastContext';
 import { usePracticeConfig } from './hooks/usePracticeConfig';
 import { usePracticeManagement } from './hooks/usePracticeManagement';
 import { useMobileDetection } from './hooks/useMobileDetection';
-import { useMockChat } from './hooks/useMockChat';
-import { isMockModeEnabled, toggleMockMode } from './components/chat/mock/mockChatData';
 import './index.css';
 import { i18n, initI18n } from './i18n';
-
-// Expose mock mode controls to browser console for easy access
-if (typeof window !== 'undefined') {
-	(window as unknown as Record<string, unknown>).mockChat = {
-		enable: () => {
-			toggleMockMode(true);
-			window.location.reload();
-		},
-		disable: () => {
-			toggleMockMode(false);
-			window.location.reload();
-		},
-		isEnabled: () => isMockModeEnabled()
-	};
-	console.log('💡 Mock Chat Mode: Use window.mockChat.enable() or window.mockChat.disable() in the console');
-}
 
 
 
@@ -95,10 +77,6 @@ function MainApp({
 		showErrorRef.current = showError;
 	}, [showError]);
 	const { currentPractice, practices, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
-
-
-	// Mock mode for UI development - hook maintains single source of truth
-	const mockChat = useMockChat();
 
 	const {
 		sessionId,
@@ -154,19 +132,13 @@ function MainApp({
 		}
 	});
 
-	// Use mock data if mock mode is enabled, otherwise use real data
-	const messages = mockChat.isMockMode ? mockChat.messages : realMessageHandling.messages;
-	const addMessage = mockChat.isMockMode ? undefined : realMessageHandling.addMessage;
+	// Use real chat data
+	const messages = realMessageHandling.messages;
+	const addMessage = realMessageHandling.addMessage;
 	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
-		if (mockChat.isMockMode) {
-			await mockChat.sendMessage(message, attachments);
-		} else {
-			await realMessageHandling.sendMessage(message, attachments);
-		}
-	}, [mockChat, realMessageHandling]);
-	const handleContactFormSubmit = mockChat.isMockMode 
-		? async () => { console.log('Mock: Contact form submitted'); }
-		: realMessageHandling.handleContactFormSubmit;
+		await realMessageHandling.sendMessage(message, attachments);
+	}, [realMessageHandling]);
+	const handleContactFormSubmit = realMessageHandling.handleContactFormSubmit;
 
 	const {
 		previewFiles,
@@ -319,7 +291,7 @@ function MainApp({
 	useEffect(() => {
 		if (practiceConfig && practiceConfig.introMessage && messages.length === 0) {
 			// Add intro message only (practice profile is now a UI element)
-			if (addMessage && !mockChat.isMockMode) {
+			if (addMessage) {
 				const introMessage: ChatMessageUI = {
 					id: crypto.randomUUID(),
 					content: practiceConfig.introMessage,
@@ -330,7 +302,7 @@ function MainApp({
 				addMessage(introMessage);
 			}
 		}
-	}, [practiceConfig, messages.length, addMessage, mockChat.isMockMode]);
+	}, [practiceConfig, messages.length, addMessage]);
 
 	// Create stable callback references for keyboard handlers
 	const handleEscape = useCallback(() => {
@@ -495,7 +467,7 @@ function MainApp({
 							messages={messages}
 							onSendMessage={handleSendMessage}
 							onContactFormSubmit={handleContactFormSubmit}
-							practiceConfig={mockChat.isMockMode ? mockChat.practiceConfig : {
+							practiceConfig={{
 								name: practiceConfig.name ?? '',
 								profileImage: practiceConfig?.profileImage ?? null,
 								practiceId,

@@ -28,7 +28,6 @@ import { useNavigation } from '../utils/navigation';
 import { useLocation } from 'preact-iso';
 import type { BusinessOnboardingStatus } from '../hooks/usePracticeManagement';
 import { useMobileDetection } from '../hooks/useMobileDetection';
-import { MockChatControls } from './chat/mock/MockChatControls';
 
 // Simple messages object for localization
 const messages = {
@@ -384,13 +383,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 
           {/* Privacy & Support Section */}
           <PrivacySupportSidebar />
-
-          {/* Mock Chat Controls - Only in dev mode */}
-          {import.meta.env?.DEV && (
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-              <MockChatControls />
-            </div>
-          )}
         </div>
       </div>
 

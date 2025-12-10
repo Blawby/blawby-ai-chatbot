@@ -30,6 +30,7 @@ interface PricingSummaryProps {
   pricePerSeat?: string;
   billingNote?: string;
   isAnnual?: boolean;
+  planFeatures?: string[];
   lineItems: LineItem[];
   primaryAction: {
     label: string;
@@ -61,6 +62,7 @@ export const PricingSummary = ({
   pricePerSeat,
   billingNote,
   isAnnual = false,
+  planFeatures,
   lineItems,
   primaryAction,
   secondaryAction,
@@ -186,6 +188,24 @@ export const PricingSummary = ({
 
           {billingNote && (
             <p className="text-xs text-gray-400">{billingNote}</p>
+          )}
+
+          {/* Plan Features */}
+          {planFeatures && planFeatures.length > 0 && (
+            <>
+              <div className="border-t border-gray-700" />
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-white">Plan Features</h3>
+                <ul className="space-y-1.5">
+                  {planFeatures.map((feature, index) => (
+                    <li key={index} className="text-xs text-gray-400 flex items-start">
+                      <span className="text-accent-500 mr-2">•</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
           )}
 
           {/* Action Buttons */}
