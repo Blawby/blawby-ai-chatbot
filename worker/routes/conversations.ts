@@ -153,6 +153,29 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(conversation);
   }
 
+  // POST /api/conversations/:id/participants - Add participants to a conversation
+  if (segments.length === 4 && segments[3] === 'participants' && request.method === 'POST') {
+    const conversationId = segments[2];
+    const body = await parseJsonBody(request) as {
+      participantUserIds: string[];
+    };
+
+    if (!Array.isArray(body.participantUserIds) || body.participantUserIds.length === 0) {
+      throw HttpErrors.badRequest('participantUserIds must be a non-empty array');
+    }
+
+    // Validate user has access before allowing them to add others
+    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+
+    const conversation = await conversationService.addParticipants(
+      conversationId,
+      practiceId,
+      body.participantUserIds
+    );
+
+    return createJsonResponse(conversation);
+  }
+
   throw HttpErrors.methodNotAllowed('Unsupported method for conversations endpoint');
 }
 

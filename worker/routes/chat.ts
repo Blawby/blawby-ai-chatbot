@@ -72,7 +72,7 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
         
         if (!contactData) {
           console.warn('[Chat] Contact form submission detected but validation failed', {
-            contentPreview: body.content.substring(0, 100)
+            messageLength: body.content.length
           });
           return createJsonResponse(message);
         }
@@ -103,9 +103,13 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
             }
           });
 
+          // Hash email for logging to avoid PII in logs
+          const { createContentHash } = await import('../utils/piiSanitizer.js');
+          const emailHash = await createContentHash(contactData.email);
+          
           console.log('[Chat] Sent intake notification to practice', { 
             practiceId, 
-            contactEmail: contactData.email 
+            contactEmailHash: emailHash
           });
         }
       } catch (emailError) {

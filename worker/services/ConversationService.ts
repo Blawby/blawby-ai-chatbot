@@ -350,21 +350,32 @@ export class ConversationService {
   }
 
   /**
-   * Add a participant to a conversation
+   * Add one or more participants to a conversation
+   *
+   * Ensures uniqueness, preserves existing participants, and updates the
+   * conversation's updated_at timestamp.
    */
-  async addParticipant(
+  async addParticipants(
     conversationId: string,
     practiceId: string,
-    userId: string
+    userIds: string[]
   ): Promise<Conversation> {
-    const conversation = await this.getConversation(conversationId, practiceId);
-
-    // Check if user is already a participant
-    if (conversation.participants.includes(userId)) {
-      return conversation; // Already a participant
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      throw HttpErrors.badRequest('participantUserIds must be a non-empty array');
     }
 
-    const updatedParticipants = [...conversation.participants, userId];
+    const conversation = await this.getConversation(conversationId, practiceId);
+
+    // Merge and de-duplicate participants
+    const mergedParticipants = Array.from(
+      new Set([...conversation.participants, ...userIds.filter(Boolean)])
+    );
+
+    // If no changes, return existing conversation
+    if (mergedParticipants.length === conversation.participants.length) {
+      return conversation;
+    }
+
     const now = new Date().toISOString();
 
     await this.env.DB.prepare(`
@@ -372,13 +383,24 @@ export class ConversationService {
       SET participants = ?, updated_at = ?
       WHERE id = ? AND practice_id = ?
     `).bind(
-      JSON.stringify(updatedParticipants),
+      JSON.stringify(mergedParticipants),
       now,
       conversationId,
       practiceId
     ).run();
 
     return this.getConversation(conversationId, practiceId);
+  }
+
+  /**
+   * Add a participant to a conversation
+   */
+  async addParticipant(
+    conversationId: string,
+    practiceId: string,
+    userId: string
+  ): Promise<Conversation> {
+    return this.addParticipants(conversationId, practiceId, [userId]);
   }
 
   /**

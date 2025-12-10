@@ -15,13 +15,15 @@ import { useSession, getClient } from './lib/authClient';
 import { type SubscriptionTier } from './types/user';
 import { resolvePracticeKind } from './utils/subscription';
 import type { UIPracticeConfig } from './hooks/usePracticeConfig';
-import { useMessageHandlingWithContext } from './hooks/useMessageHandling';
+import { useMessageHandling } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
 import { useChatSessionWithContext } from './hooks/useChatSession';
 import { useConversations } from './hooks/useConversations';
 import { useCurrentConversation } from './hooks/useConversation';
 import { setupGlobalKeyboardListeners } from './utils/keyboard';
 import type { ChatMessageUI, FileAttachment } from '../worker/types';
+import { getApiConfig } from './config/api';
+import { getTokenAsync } from './lib/tokenStorage';
 // Settings components
 import { SettingsLayout } from './components/settings/SettingsLayout';
 import { useNavigation } from './utils/navigation';
@@ -35,6 +37,7 @@ import { useToastContext } from './contexts/ToastContext';
 import { usePracticeConfig } from './hooks/usePracticeConfig';
 import { usePracticeManagement } from './hooks/usePracticeManagement';
 import { useMobileDetection } from './hooks/useMobileDetection';
+import { isDevelopment } from './utils/environment';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -61,9 +64,15 @@ function MainApp({
 	const location = useLocation();
 	const { navigate } = useNavigation();
 	const isSettingsRouteNow = location.path.startsWith('/settings');
-	const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-	const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
-	// Removed legacy business setup modal flow (replaced by /business-onboarding route)
+        const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+        const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
+        const [conversationId, setConversationId] = useState<string | null>(null);
+        const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+        // Removed legacy business setup modal flow (replaced by /business-onboarding route)
+
+        useEffect(() => {
+                setConversationId(null);
+        }, [practiceId]);
 	
 	// Use session from Better Auth
 	const { data: session, isPending: sessionIsPending } = useSession();
@@ -72,100 +81,115 @@ function MainApp({
 	
   // Using our custom practice system instead of Better Auth's organization plugin
 	// Removed unused submitUpgrade
-	const { showError } = useToastContext();
-	const showErrorRef = useRef(showError);
-	useEffect(() => {
-		showErrorRef.current = showError;
-	}, [showError]);
-	const { currentPractice, practices, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
+        const { showError } = useToastContext();
+        const showErrorRef = useRef(showError);
+        useEffect(() => {
+                showErrorRef.current = showError;
+        }, [showError]);
+        const { currentPractice, refetch: refetchPractices, acceptMatter, rejectMatter, updateMatterStatus } = usePracticeManagement();
 
-	const {
-		sessionId,
-		error: sessionError
-	} = useChatSessionWithContext();
+        const {
+                conversations,
+                isLoading: conversationsLoading,
+                refresh: refreshConversations
+        } = useConversations({
+                practiceId,
+                onError: (error) => showErrorRef.current?.(error)
+        });
 
-	// Determine if user is a practice member (has their own practice matching the widget practice)
-	// Practice members see inbox, clients/anonymous see their conversations with the practice
-	const isPracticeMember = useMemo(() => {
-		if (!practices || practices.length === 0) {
-			return false;
-		}
-		return practices.some(p => p.id === practiceId);
-	}, [practices, practiceId]);
+        const {
+                sessionId,
+                error: sessionError
+        } = useChatSessionWithContext();
 
-	// Initialize conversation based on user type:
-	// - Practice members: Use inbox (handled separately via inbox tab)
-	// - Signed-in clients: Get or create current conversation with this practice
-	// - Anonymous users: Get or create current conversation with this practice
-	// Use practiceId from props (practice from URL/widget), not activePracticeId (user's own practice)
-	const { conversations: conversationList } = useConversations({
-		practiceId,
-		onError: (error) => {
-			console.error('Conversation initialization error:', error);
-		}
-	});
+        const realMessageHandling = useMessageHandling({
+                practiceId,
+                sessionId,
+                conversationId: conversationId ?? undefined,
+                onError: (error) => {
+                        console.error('Message handling error:', error);
+                        showError(typeof error === 'string' ? error : 'We hit a snag sending that message.');
+                }
+        });
 
-	// For anonymous/signed-in clients: Get or create current conversation
-	// This ensures they always have a conversation to chat in
-	const { conversation: currentConversation, conversationId: currentConversationId } = useCurrentConversation(
-		isPracticeMember ? undefined : practiceId, // Only fetch for non-members
-		{ 
-			onError: (error) => {
-				console.error('Current conversation error:', error);
-			}
-		}
-	);
+        const messages = realMessageHandling.messages;
+        const addMessage = realMessageHandling.addMessage;
 
-	// Determine conversationId to use:
-	// 1. If practice member: Use first from list (or null - inbox handles this)
-	// 2. If signed-in client: Use current conversation (get-or-create)
-	// 3. If anonymous: Use current conversation (get-or-create)
-	const conversationId = isPracticeMember 
-		? (conversationList.length > 0 ? conversationList[0].id : null)
-		: (currentConversationId || currentConversation?.id || null);
+        useEffect(() => {
+                realMessageHandling.clearMessages();
+        }, [practiceId, realMessageHandling.clearMessages]);
 
-	// Stabilize error handler
-	const handleMessageError = useCallback((error: unknown) => {
-		console.error('Message handling error:', error);
-		showError(typeof error === 'string' ? error : 'We hit a snag sending that message.');
-	}, [showError]);
+        const createConversation = useCallback(async () => {
+                if (!practiceId || !session?.user || isCreatingConversation) return null;
 
-	const rawMessageHandling = useMessageHandlingWithContext({
-		sessionId,
-		conversationId: conversationId || undefined,
-		onError: handleMessageError
-	});
+                try {
+                        setIsCreatingConversation(true);
+                        const token = await getTokenAsync();
+                        if (!token) {
+                                throw new Error('Authentication required');
+                        }
 
-	// Stabilize the return object to prevent unnecessary re-renders of children
-	// Create a new object that only changes when its properties actually change
-	const realMessageHandling = useMemo(() => ({
-		messages: rawMessageHandling.messages,
-		addMessage: rawMessageHandling.addMessage,
-		sendMessage: rawMessageHandling.sendMessage,
-		handleContactFormSubmit: rawMessageHandling.handleContactFormSubmit,
-		intakeStatus: rawMessageHandling.intakeStatus,
-		updateMessage: rawMessageHandling.updateMessage,
-		clearMessages: rawMessageHandling.clearMessages,
-		cancelStreaming: rawMessageHandling.cancelStreaming,
-	}), [
-		rawMessageHandling.messages,
-		rawMessageHandling.addMessage,
-		rawMessageHandling.sendMessage,
-		rawMessageHandling.handleContactFormSubmit,
-		rawMessageHandling.intakeStatus,
-		rawMessageHandling.updateMessage,
-		rawMessageHandling.clearMessages,
-		rawMessageHandling.cancelStreaming,
-	]);
+                        const config = getApiConfig();
+                        const response = await fetch(`${config.baseUrl}/api/conversations`, {
+                                method: 'POST',
+                                headers: {
+                                        Authorization: `Bearer ${token}`,
+                                        'Content-Type': 'application/json'
+                                },
+                                credentials: 'include',
+                                body: JSON.stringify({
+                                        participantUserIds: [session.user.id],
+                                        metadata: { source: 'chat' }
+                                })
+                        });
 
-	// Use real chat data
-	const messages = realMessageHandling.messages;
-	const addMessage = realMessageHandling.addMessage;
-	const intakeStatus = realMessageHandling.intakeStatus;
-	const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
-		await realMessageHandling.sendMessage(message, attachments);
-	}, [realMessageHandling]);
-	const handleContactFormSubmit = realMessageHandling.handleContactFormSubmit;
+                        if (!response.ok) {
+                                const errorData = await response.json().catch(() => ({})) as { error?: string };
+                                throw new Error(errorData.error || `HTTP ${response.status}`);
+                        }
+
+                        const data = await response.json() as { success: boolean; error?: string; data?: { id: string } };
+                        if (!data.success || !data.data?.id) {
+                                throw new Error(data.error || 'Failed to start conversation');
+                        }
+
+                        setConversationId(data.data.id);
+                        await refreshConversations();
+                        return data.data.id;
+                } catch (error) {
+                        const message = error instanceof Error ? error.message : 'Failed to start conversation';
+                        showErrorRef.current?.(message);
+                        return null;
+                } finally {
+                        setIsCreatingConversation(false);
+                }
+        }, [practiceId, session?.user, isCreatingConversation, refreshConversations]);
+
+        useEffect(() => {
+                if (conversationsLoading || isCreatingConversation) return;
+
+                const practiceConversation = conversations.find((c) => c.practice_id === practiceId);
+
+                if (practiceConversation) {
+                        setConversationId((prev) => prev ?? practiceConversation.id);
+                } else if (practiceId && session?.user) {
+                        void createConversation();
+                }
+        }, [conversationsLoading, isCreatingConversation, conversations, practiceId, session?.user, createConversation]);
+
+        const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
+                if (!conversationId) {
+                        showErrorRef.current?.('Setting up your conversation. Please try again momentarily.');
+                        if (!isCreatingConversation) {
+                                void createConversation();
+                        }
+                        return;
+                }
+
+                await realMessageHandling.sendMessage(message, attachments);
+        }, [conversationId, isCreatingConversation, createConversation, realMessageHandling]);
+        const handleContactFormSubmit = realMessageHandling.handleContactFormSubmit;
+>>>>>>> main
 
 	const {
 		previewFiles,
@@ -311,25 +335,24 @@ function MainApp({
 
 	// User tier is now derived directly from practice - no need for custom event listeners
 
-	const isSessionReady = Boolean(sessionId);
+        const isSessionReady = Boolean(sessionId && conversationId && !conversationsLoading && !isCreatingConversation);
 
 
-	// Add intro message when practice config is loaded and no messages exist
-	useEffect(() => {
-		if (practiceConfig && practiceConfig.introMessage && messages.length === 0) {
-			// Add intro message only (practice profile is now a UI element)
-			if (addMessage) {
-				const introMessage: ChatMessageUI = {
-					id: crypto.randomUUID(),
-					content: practiceConfig.introMessage,
-					isUser: false,
-					role: 'assistant',
-					timestamp: Date.now()
-				};
-				addMessage(introMessage);
-			}
-		}
-	}, [practiceConfig, messages.length, addMessage]);
+        // Add intro message when practice config is loaded and no messages exist
+        useEffect(() => {
+                if (practiceConfig && practiceConfig.introMessage && messages.length === 0) {
+                        if (addMessage) {
+                                const introMessage: ChatMessageUI = {
+                                        id: crypto.randomUUID(),
+                                        content: practiceConfig.introMessage,
+                                        isUser: false,
+                                        role: 'assistant',
+                                        timestamp: Date.now()
+                                };
+                                addMessage(introMessage);
+                        }
+                }
+        }, [practiceConfig, messages.length, addMessage]);
 
 	// Create stable callback references for keyboard handlers
 	const handleEscape = useCallback(() => {
@@ -489,21 +512,21 @@ function MainApp({
 						rejectMatter={rejectMatter}
 						updateMatterStatus={updateMatterStatus}
 					/>
-					<div className="flex-1 min-h-0 relative">
-						<ChatContainer
-							messages={messages}
-							onSendMessage={handleSendMessage}
-							onContactFormSubmit={handleContactFormSubmit}
-							practiceConfig={{
-								name: practiceConfig.name ?? '',
-								profileImage: practiceConfig?.profileImage ?? null,
-								practiceId,
-								description: practiceConfig?.description ?? ''
-							}}
-							onOpenSidebar={() => setIsMobileSidebarOpen(true)}
-							sessionId={sessionId}
-							practiceId={practiceId}
-							onFeedbackSubmit={handleFeedbackSubmit}
+					<div className="flex-1 min-h-0">
+                                                <ChatContainer
+                                                        messages={messages}
+                                                        onSendMessage={handleSendMessage}
+                                                        onContactFormSubmit={handleContactFormSubmit}
+                                                        practiceConfig={{
+                                                                name: practiceConfig.name ?? '',
+                                                                profileImage: practiceConfig?.profileImage ?? null,
+                                                                practiceId,
+                                                                description: practiceConfig?.description ?? ''
+                                                        }}
+                                                        onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+                                                        sessionId={sessionId}
+                                                        practiceId={practiceId}
+                                                        onFeedbackSubmit={handleFeedbackSubmit}
 							previewFiles={previewFiles}
 							uploadingFiles={uploadingFiles}
 							removePreviewFile={removePreviewFile}

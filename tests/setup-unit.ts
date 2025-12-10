@@ -16,3 +16,9 @@ if (typeof globalThis.fetch === 'undefined') {
   globalThis.Request = nodeFetch.Request as unknown as typeof globalThis.Request;
   globalThis.Response = nodeFetch.Response as unknown as typeof globalThis.Response;
 }
+
+// Node 18 doesn't provide Float16Array; polyfill for tests that rely on typed arrays detection
+if (typeof (globalThis as any).Float16Array === 'undefined') {
+  class PolyfillFloat16Array extends Uint16Array {}
+  (globalThis as any).Float16Array = PolyfillFloat16Array as unknown as typeof Float16Array;
+}
