@@ -61,6 +61,26 @@ export function isValidCookieDomain(domain: string): boolean {
   if (domain === 'localhost') {
     return true;
   }
-  
+
   return domainRegex.test(domain);
+}
+
+/**
+ * Resolves the best configured domain from environment variables
+ * Priority: DOMAIN > CLOUDFLARE_PUBLIC_URL > BETTER_AUTH_URL > localhost
+ */
+export function getConfiguredDomain(env: { DOMAIN?: string; CLOUDFLARE_PUBLIC_URL?: string; BETTER_AUTH_URL?: string }): string {
+  if (env.DOMAIN) {
+    return normalizeDomain(env.DOMAIN);
+  }
+
+  if (env.CLOUDFLARE_PUBLIC_URL) {
+    return normalizeDomain(env.CLOUDFLARE_PUBLIC_URL);
+  }
+
+  if (env.BETTER_AUTH_URL) {
+    return normalizeDomain(env.BETTER_AUTH_URL);
+  }
+
+  return 'localhost';
 }
