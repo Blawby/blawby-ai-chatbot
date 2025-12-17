@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { features } from '../config/features';
 
 export interface ActivityEvent {
   id: string;
@@ -66,6 +67,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
   
   const nextCursorRef = useRef<string | undefined>();
   const refreshTimeoutRef = useRef<ReturnType<typeof setInterval>>();
+  const enabled = features.enableActivity;
 
   const buildQueryParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -84,6 +86,11 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
   }, [practiceId, matterId, sessionId, limit, since, until, type, actorType]);
 
   const fetchActivity = useCallback(async (isLoadMore = false) => {
+    if (!enabled) {
+      // Feature-flagged off: Activity is not yet migrated to staging-api.
+      // TODO(activity): switch to staging-api endpoint and remove this guard.
+      return;
+    }
     if (!practiceId) {
       setError('Practice ID is required');
       return;
@@ -172,7 +179,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
     } finally {
       setLoading(false);
     }
-  }, [practiceId, buildQueryParams, etag, lastModified]);
+  }, [enabled, practiceId, buildQueryParams, etag, lastModified]);
 
   const refresh = useCallback(async () => {
     nextCursorRef.current = undefined;
@@ -197,14 +204,14 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
 
   // Initial load
   useEffect(() => {
-    if (practiceId) {
+    if (enabled && practiceId) {
       refresh();
     }
-  }, [practiceId, refresh]);
+  }, [enabled, practiceId, refresh]);
 
   // Auto refresh
   useEffect(() => {
-    if (autoRefresh && refreshInterval > 0) {
+    if (enabled && autoRefresh && refreshInterval > 0) {
       refreshTimeoutRef.current = setInterval(() => {
         refresh();
       }, refreshInterval);
@@ -215,7 +222,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
         }
       };
     }
-  }, [autoRefresh, refreshInterval, refresh]);
+  }, [enabled, autoRefresh, refreshInterval, refresh]);
 
   // Cleanup on unmount
   useEffect(() => {

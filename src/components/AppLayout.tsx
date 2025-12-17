@@ -91,6 +91,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   // Show inbox tab for all authenticated users
   // API will enforce member-only access (requires practice member role)
   const showInboxTab = !!session?.user;
+
+  // Activity is feature-flagged off by default while we decide the final architecture.
+  // TODO(activity): migrate activity source-of-truth to staging-api and remove Worker/D1 dependency.
+  const showActivity = features.enableActivity;
   
   // Mobile detection using shared hook
   const isMobile = useMobileDetection();
@@ -376,7 +380,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
           )}
 
           {/* Activity Timeline Section */}
-          <ActivityTimeline practiceId={practiceId} />
+          {showActivity && <ActivityTimeline practiceId={practiceId} />}
 
           {/* Media Section */}
           <MediaSidebar messages={chatMessages} />

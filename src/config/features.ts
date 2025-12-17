@@ -93,6 +93,17 @@ interface FeatureFlags {
      * When false, the Plus plan is hidden from pricing/upgrade flows
      */
     enablePlusTier: boolean;
+
+    /**
+     * Enable Activity Timeline UI + /api/activity calls.
+     *
+     * Default: false
+     *
+     * NOTE: Activity is currently backed by the Worker + D1 and is not fully
+     * migrated to staging-api. Keep this disabled until the remote API is the
+     * source of truth for activity events.
+     */
+    enableActivity: boolean;
 }
 
 // Immutable base configuration
@@ -111,6 +122,7 @@ const baseFeatureConfig: FeatureFlags = {
     enableMultiplePractices: true, // Enable multiple practices feature
     enableParalegalAgent: false, // Disable paralegal agent features by default
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)
+    enableActivity: false, // Disabled until activity is migrated off Worker/D1
 };
 
 // DEV-only overrides (computed via spread, no mutation)
