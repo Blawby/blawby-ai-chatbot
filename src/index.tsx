@@ -114,6 +114,7 @@ function MainApp({
 
         const messages = realMessageHandling.messages;
         const addMessage = realMessageHandling.addMessage;
+        const intakeStatus = realMessageHandling.intakeStatus;
 
         useEffect(() => {
                 realMessageHandling.clearMessages();
