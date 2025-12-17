@@ -135,6 +135,54 @@ export async function handleSessions(request: Request, env: Env): Promise<Respon
     }, resolution.cookie ? [resolution.cookie] : undefined);
   }
 
+  // GET /api/sessions
+  // Returns the current session (if any) based on the session cookie + practice context.
+  // This matches the "Session management" link advertised in the root route and avoids 405s
+  // when clients probe /api/sessions without an ID.
+  if (segments.length === 2 && request.method === 'GET') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: false,
+      defaultPracticeId: 'public'
+    });
+
+    const contextPracticeId = getPracticeId(requestWithContext) || 'public';
+    const practiceId = await normalizePracticeId(env, contextPracticeId, request);
+    const rawToken = SessionService.getSessionTokenFromCookie(request);
+
+    if (!rawToken) {
+      return createJsonResponse({ session: null });
+    }
+
+    try {
+      const session = await SessionService.getSessionByToken(env, rawToken, practiceId);
+      if (!session) {
+        return createJsonResponse({ session: null });
+      }
+
+      return createJsonResponse({
+        session: {
+          sessionId: session.id,
+          practiceId: session.practiceId,
+          state: session.state,
+          statusReason: session.statusReason,
+          retentionHorizonDays: session.retentionHorizonDays,
+          isHold: session.isHold,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          lastActive: session.lastActive,
+          closedAt: session.closedAt ?? null
+        }
+      });
+    } catch (error) {
+      console.warn('[SessionsRoute] Failed to resolve current session', {
+        practiceId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // Do not 5xx for a status endpoint; return null so clients can proceed to POST handshake.
+      return createJsonResponse({ session: null });
+    }
+  }
+
   // GET /api/sessions/:id
   if (segments.length === 3 && request.method === 'GET') {
     const sessionId = segments[2];

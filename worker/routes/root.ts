@@ -14,7 +14,9 @@ export async function handleRoot(_request: Request, _env: Env): Promise<Response
     <ul>
         <li><strong>POST</strong> /api/forms - Contact submissions</li>
         <li><strong>POST</strong> /api/analyze - Document analysis (Adobe PDF Services)</li>
-        <li><strong>GET</strong> /api/sessions - Session management</li>
+        <li><strong>GET</strong> /api/sessions - Current session (from cookie)</li>
+        <li><strong>POST</strong> /api/sessions - Create/resume session (handshake)</li>
+        <li><strong>GET</strong> /api/sessions/:id - Fetch session by id</li>
         <li><strong>POST</strong> /api/files - File uploads</li>
         <!-- REMOVED: AI endpoints - /api/chat, /api/feedback, /api/export -->
     </ul>
