@@ -30,31 +30,31 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
   return plans.map((plan) => {
     const record = plan as Record<string, unknown>;
     const limits = (record.limits as Record<string, unknown> | undefined) ?? undefined;
-    return ({
-    id: plan.id as string,
-    name: plan.name as string,
-    displayName: (plan.display_name || plan.displayName) as string,
-    description: (plan.description || '') as string,
-    stripeProductId: (plan.stripe_product_id || plan.stripeProductId) as string,
-    stripeMonthlyPriceId: (plan.stripe_monthly_price_id || plan.stripeMonthlyPriceId) as string,
-    stripeYearlyPriceId: (plan.stripe_yearly_price_id || plan.stripeYearlyPriceId) as string | null,
-    monthlyPrice: (plan.monthly_price || plan.monthlyPrice) as string,
-    yearlyPrice: (plan.yearly_price || plan.yearlyPrice) as string | null,
-    currency: (plan.currency || 'usd') as string,
-    features: (plan.features || []) as string[],
-    limits: {
-      users: (limits?.users as number | undefined) ?? undefined,
-      invoices_per_month: (limits?.invoices_per_month as number | undefined) ?? undefined,
-      storage_gb: (limits?.storage_gb as number | undefined) ?? undefined,
-    },
-    meteredItems: (plan.metered_items || plan.meteredItems || []) as Array<{
-      priceId: string;
-      meterName: string;
-      type: string;
-    }>,
-    isActive: (plan.is_active ?? plan.isActive ?? true) as boolean,
-    isPublic: (plan.is_public ?? plan.isPublic ?? true) as boolean,
-    }) as SubscriptionPlan;
+    return {
+      id: record.id as string,
+      name: record.name as string,
+      displayName: (record.display_name || record.displayName) as string,
+      description: (record.description || '') as string,
+      stripeProductId: (record.stripe_product_id || record.stripeProductId) as string,
+      stripeMonthlyPriceId: (record.stripe_monthly_price_id || record.stripeMonthlyPriceId) as string,
+      stripeYearlyPriceId: (record.stripe_yearly_price_id || record.stripeYearlyPriceId) as string | null,
+      monthlyPrice: (record.monthly_price || record.monthlyPrice) as string,
+      yearlyPrice: (record.yearly_price || record.yearlyPrice) as string | null,
+      currency: (record.currency || 'usd') as string,
+      features: (record.features || []) as string[],
+      limits: {
+        users: limits?.users as number | undefined,
+        invoices_per_month: limits?.invoices_per_month as number | undefined,
+        storage_gb: limits?.storage_gb as number | undefined,
+      },
+      meteredItems: (record.metered_items || record.meteredItems || []) as Array<{
+        priceId: string;
+        meterName: string;
+        type: string;
+      }>,
+      isActive: (record.is_active ?? record.isActive ?? true) as boolean,
+      isPublic: (record.is_public ?? record.isPublic ?? true) as boolean,
+    };
   });
 }
 
