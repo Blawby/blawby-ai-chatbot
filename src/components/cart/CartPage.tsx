@@ -14,11 +14,13 @@ import {
   hasManagedSubscription,
 } from '../../utils/subscription';
 import { isForcePaidEnabled } from '../../utils/devFlags';
+import { useSession } from '../../lib/authClient';
 
 
 export const CartPage = () => {
   const location = useLocation();
-  const { navigate } = useNavigation();
+  const { navigate, navigateToAuth } = useNavigation();
+  const { data: session, isPending: isSessionPending } = useSession();
   const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
   const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
@@ -79,8 +81,14 @@ export const CartPage = () => {
 
   // Load plans from API
   useEffect(() => {
+    if (isSessionPending) return;
+    if (!session?.user) {
+      // Follow the subscription guide assumptions: cart requires authenticated session.
+      navigateToAuth('signin');
+      return;
+    }
     loadPlans();
-  }, [loadPlans]);
+  }, [isSessionPending, session?.user, loadPlans, navigateToAuth]);
 
   // Dev/test-only override to force paid UI in deterministic E2E runs
   const devForcePaid = isForcePaidEnabled();
