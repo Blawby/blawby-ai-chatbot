@@ -31,51 +31,21 @@ apiClient.interceptors.request.use(
     // Some staging-api routes are public, but will return 401 if an invalid Bearer
     // token is present. Keeping these requests unauthenticated avoids breaking
     // pricing/cart for users without a valid session.
-    const shouldOmitAuthForRequest = (() => {
-      const url = config.url ?? '';
-      if (typeof url !== 'string') return false;
-
-      // Handle relative, absolute, and baseURL-combined variants.
-      if (url.includes('/api/subscriptions/plans')) return true;
-      try {
-        const resolved = new URL(url, config.baseURL as string | undefined);
-        return resolved.pathname.endsWith('/api/subscriptions/plans');
-      } catch {
-        return false;
-      }
-    })();
-
-    if (shouldOmitAuthForRequest) {
-      const headers = config.headers as unknown;
-      if (headers && typeof headers === 'object') {
-        // AxiosHeaders supports `.delete()`. Plain objects support `delete`.
+    const url = config.url ?? '';
+    if (typeof url === 'string' && url.includes('/api/subscriptions/plans')) {
+      if (config.headers && typeof config.headers === 'object') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const anyHeaders = headers as any;
-        if (typeof anyHeaders.delete === 'function') {
-          anyHeaders.delete('Authorization');
-          anyHeaders.delete('authorization');
-        } else {
-          delete anyHeaders.Authorization;
-          delete anyHeaders.authorization;
-          if (anyHeaders.common && typeof anyHeaders.common === 'object') {
-            delete anyHeaders.common.Authorization;
-            delete anyHeaders.common.authorization;
-          }
-        }
+        delete (config.headers as any).Authorization;
       }
       return config;
     }
 
     const token = await getTokenAsync();
     if (token) {
-      // Axios supports either AxiosHeaders or a plain object for `config.headers`.
-      // Casting avoids TS treating this as an AxiosHeaders-only assignment.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       config.headers = {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(config.headers as any),
+        ...config.headers,
         Authorization: `Bearer ${token}`
-      } as any;
+      } as Record<string, string>; // Type assertion for headers compatibility
     }
     return config;
   },
