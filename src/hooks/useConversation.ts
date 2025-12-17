@@ -194,8 +194,19 @@ export function useConversation({
 
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        const authError = 'Authentication required to load conversation details.';
+        setError(authError);
+        onError?.(authError);
+        return;
+      }
+
+      // credentials: 'include' attaches Better Auth cookies, but we still send the bearer token
+      // so the worker always receives an explicit user identity for permission checks.
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/conversations/${conversationId}?practiceId=${encodeURIComponent(practiceId)}`, {
@@ -238,8 +249,18 @@ export function useConversation({
 
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        const authError = 'Authentication required to load messages.';
+        setError(authError);
+        onError?.(authError);
+        loadingState(false);
+        return;
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
       const params = new URLSearchParams({
         conversationId,
@@ -308,8 +329,17 @@ export function useConversation({
 
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        const authError = 'Authentication required to send messages.';
+        setError(authError);
+        onError?.(authError);
+        throw new Error(authError);
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
       // Optimistic update
       const tempMessage: ConversationMessageUI = {
@@ -461,4 +491,3 @@ export function useConversation({
     nextCursor,
   };
 }
-

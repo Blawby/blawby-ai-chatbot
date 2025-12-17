@@ -108,8 +108,19 @@ export function useInbox({
 
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        const authError = 'Authentication required to view the inbox.';
+        setError(authError);
+        onError?.(authError);
+        return;
+      }
+
+      // Always attach the bearer token even though Better Auth cookies are sent via credentials: 'include'
+      // so we have an explicit user identity for worker-side authorization checks.
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
       const params = new URLSearchParams();
       if (filters.assignedTo !== undefined) {
@@ -180,8 +191,15 @@ export function useInbox({
 
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        console.warn('Skipping inbox stats fetch because no auth token is available.');
+        return;
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/stats`, {
@@ -222,8 +240,17 @@ export function useInbox({
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        const authError = 'Authentication required to assign conversations.';
+        setError(authError);
+        onError?.(authError);
+        throw new Error(authError);
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}/assign`, {
@@ -270,8 +297,17 @@ export function useInbox({
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        const authError = 'Authentication required to update conversations.';
+        setError(authError);
+        onError?.(authError);
+        throw new Error(authError);
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}`, {
@@ -313,8 +349,17 @@ export function useInbox({
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        const authError = 'Authentication required to send messages.';
+        setError(authError);
+        onError?.(authError);
+        throw new Error(authError);
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}/messages`, {
@@ -395,4 +440,3 @@ export function useInbox({
     sendMessage,
   };
 }
-
