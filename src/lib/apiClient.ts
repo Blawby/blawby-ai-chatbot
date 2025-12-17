@@ -26,6 +26,20 @@ export const apiClient = axios.create();
 apiClient.interceptors.request.use(
   async (config) => {
     config.baseURL = config.baseURL ?? ensureApiBaseUrl();
+
+    // Public endpoints: do not attach Authorization header.
+    // Some staging-api routes are public, but will return 401 if an invalid Bearer
+    // token is present. Keeping these requests unauthenticated avoids breaking
+    // pricing/cart for users without a valid session.
+    const url = config.url ?? '';
+    if (typeof url === 'string' && url.includes('/api/subscriptions/plans')) {
+      if (config.headers && typeof config.headers === 'object') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (config.headers as any).Authorization;
+      }
+      return config;
+    }
+
     const token = await getTokenAsync();
     if (token) {
       config.headers = {
