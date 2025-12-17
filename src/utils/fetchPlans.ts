@@ -1,4 +1,4 @@
-import { publicApiClient } from '../lib/apiClient';
+import { apiClient } from '../lib/apiClient';
 
 export interface SubscriptionPlan {
   id: string;
@@ -28,7 +28,7 @@ export interface SubscriptionPlan {
 
 export const fetchPlans = async (): Promise<SubscriptionPlan[]> => {
   try {
-    const response = await publicApiClient.get('/api/subscriptions/plans');
+    const response = await apiClient.get('/api/subscriptions/plans');
     const plans = response.data?.plans || [];
     
     // Transform snake_case API response to camelCase TypeScript interface

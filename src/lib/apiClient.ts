@@ -22,8 +22,6 @@ function ensureApiBaseUrl(): string {
 }
 
 export const apiClient = axios.create();
-// A minimal client for public endpoints that must never send auth headers.
-export const publicApiClient = axios.create();
 
 apiClient.interceptors.request.use(
   async (config) => {
@@ -79,14 +77,6 @@ apiClient.interceptors.request.use(
         Authorization: `Bearer ${token}`
       } as any;
     }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-publicApiClient.interceptors.request.use(
-  (config) => {
-    config.baseURL = config.baseURL ?? ensureApiBaseUrl();
     return config;
   },
   (error) => Promise.reject(error)
@@ -653,14 +643,6 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Do not clear tokens for endpoints that are intended to be public.
-      // Some public staging-api routes return 401 when an invalid Bearer is present,
-      // and we don't want that to log users out.
-      const url = error.config?.url;
-      if (typeof url === 'string' && url.includes('/api/subscriptions/plans')) {
-        return Promise.reject(error);
-      }
-
       // Guard against concurrent 401s - only handle once
       if (!isHandling401) {
         // Create the handler promise immediately and assign it
