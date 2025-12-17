@@ -1,10 +1,21 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useRef, useState, useCallback } from 'preact/hooks';
 import { Toast } from '../components/Toast';
 
 export const useToast = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // De-dupe identical toasts that fire repeatedly (e.g. auth-required loops).
+  const lastToastAtRef = useRef<Record<string, number>>({});
 
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+    const key = `${toast.type}::${toast.title}::${toast.message ?? ''}`;
+    const now = Date.now();
+    const lastAt = lastToastAtRef.current[key] ?? 0;
+    // Ignore duplicates within 5 seconds.
+    if (now - lastAt < 5000) {
+      return '';
+    }
+    lastToastAtRef.current[key] = now;
+
     const id = crypto.randomUUID();
     const newToast: Toast = { ...toast, id };
     
