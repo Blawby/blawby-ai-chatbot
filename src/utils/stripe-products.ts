@@ -116,26 +116,3 @@ export function getBusinessPricesStructured(locale: string = 'en'): {
 
   return { monthly, annual };
 }
-
-// Functions to get actual Stripe price IDs from config
-export async function getStripePriceIds(): Promise<{ monthly: string; annual: string }> {
-  const { getAppConfig } = await import('../services/config');
-  const config = await getAppConfig();
-  
-  return {
-    monthly: config.stripe.priceId,
-    annual: config.stripe.annualPriceId
-  };
-}
-
-export async function getMonthlyPriceId(): Promise<string> {
-  const { getAppConfig } = await import('../services/config');
-  const config = await getAppConfig();
-  return config.stripe.priceId;
-}
-
-export async function getAnnualPriceId(): Promise<string> {
-  const { getAppConfig } = await import('../services/config');
-  const config = await getAppConfig();
-  return config.stripe.annualPriceId;
-}
