@@ -108,9 +108,8 @@ export function useInbox({
 
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const params = new URLSearchParams();
       if (filters.assignedTo !== undefined) {
@@ -133,10 +132,7 @@ export function useInbox({
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/conversations?${params.toString()}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         signal: abortControllerRef.current?.signal,
       });
@@ -184,15 +180,13 @@ export function useInbox({
 
     try {
       const token = await getTokenAsync();
-      if (!token) return;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/stats`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         signal: abortControllerRef.current?.signal,
       });
@@ -228,17 +222,13 @@ export function useInbox({
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}/assign`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         signal: mutationController.signal,
         body: JSON.stringify({ assigned_to: assignedTo }),
@@ -280,17 +270,13 @@ export function useInbox({
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         signal: mutationController.signal,
         body: JSON.stringify(updates),
@@ -327,17 +313,13 @@ export function useInbox({
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}/messages`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         signal: mutationController.signal,
         body: JSON.stringify({ content, metadata }),

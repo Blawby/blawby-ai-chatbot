@@ -179,9 +179,8 @@ export const useMessageHandling = ({ practiceId, sessionId, conversationId, onEr
     
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       // Convert file attachments to file IDs (assuming attachments have id or need to be uploaded first)
       const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
@@ -189,10 +188,7 @@ export const useMessageHandling = ({ practiceId, sessionId, conversationId, onEr
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/chat/messages`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           conversationId,
@@ -281,17 +277,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       }
 
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/chat/messages`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           conversationId,
@@ -355,9 +347,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const params = new URLSearchParams({
         conversationId,
@@ -368,10 +359,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/chat/messages?${params.toString()}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
       });
 

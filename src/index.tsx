@@ -125,18 +125,18 @@ function MainApp({
 
                 try {
                         setIsCreatingConversation(true);
+                        const config = getApiConfig();
                         const token = await getTokenAsync();
-                        if (!token) {
-                                throw new Error('Authentication required');
+                        const headers: Record<string, string> = {
+                                'Content-Type': 'application/json'
+                        };
+                        if (token) {
+                                headers.Authorization = `Bearer ${token}`;
                         }
 
-                        const config = getApiConfig();
                         const response = await fetch(`${config.baseUrl}/api/conversations`, {
                                 method: 'POST',
-                                headers: {
-                                        Authorization: `Bearer ${token}`,
-                                        'Content-Type': 'application/json'
-                                },
+                                headers,
                                 credentials: 'include',
                                 body: JSON.stringify({
                                         participantUserIds: [session.user.id],

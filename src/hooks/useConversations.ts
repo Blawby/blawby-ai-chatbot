@@ -72,9 +72,8 @@ export function useConversations({
 
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const params = new URLSearchParams({
         practiceId,
@@ -90,10 +89,7 @@ export function useConversations({
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/conversations?${params.toString()}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
       });
 
@@ -189,17 +185,13 @@ export function useConversations({
 
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const config = getApiConfig();
       const response = await fetch(`${config.baseUrl}/api/conversations/${conversationId}/participants`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ participantUserIds }),
       });
