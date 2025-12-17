@@ -4,6 +4,7 @@
  */
 
 import { useLocation } from 'preact-iso';
+import { useMemo } from 'preact/hooks';
 
 /**
  * Hook for programmatic navigation
@@ -12,7 +13,9 @@ import { useLocation } from 'preact-iso';
 export function useNavigation() {
   const location = useLocation();
 
-  return {
+  // Memoize to avoid re-creating functions every render.
+  // This prevents effects that depend on navigation callbacks from re-running.
+  return useMemo(() => ({
     /**
      * Navigate to a new URL
      * @param url - The URL to navigate to
@@ -46,5 +49,5 @@ export function useNavigation() {
       path: location.path,
       query: location.query
     })
-  };
+  }), [location]);
 }
