@@ -181,6 +181,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
                    internal_notes as internalNotes,
                    last_message_at as lastMessageAt,
                    first_response_at as firstResponseAt,
+                   closed_at as closedAt,
                    created_at as createdAt,
                    updated_at as updatedAt
               FROM conversations
@@ -205,7 +206,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
               createdAt: conv.createdAt,
               updatedAt: conv.updatedAt,
               lastActive: conv.lastMessageAt || conv.updatedAt,
-              closedAt: conv.status === 'closed' ? conv.updatedAt : null,
+              closedAt: conv.closedAt || null,
               userId: conv.userId
             })) ?? []
           });

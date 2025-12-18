@@ -18,10 +18,7 @@ interface VirtualMessageListProps {
     };
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
-
-    // Feedback props
     practiceId?: string;
-    onFeedbackSubmit?: (feedback: unknown) => void;
 }
 
 const BATCH_SIZE = 20;
@@ -33,8 +30,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     practiceConfig,
     onOpenSidebar,
     onContactFormSubmit,
-    practiceId,
-    onFeedbackSubmit
+    practiceId
 }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
@@ -184,7 +180,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             toolMessage={message.toolMessage}
                             id={message.id}
                             practiceId={practiceId}
-                            onFeedbackSubmit={onFeedbackSubmit}
                         />
                     );
                 })}

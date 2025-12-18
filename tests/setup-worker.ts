@@ -48,7 +48,7 @@ beforeAll(async () => {
         actor_type TEXT,
         actor_id TEXT,
         payload TEXT,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
     `).run();
 

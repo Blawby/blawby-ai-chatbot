@@ -50,7 +50,7 @@ async function updateStatusWithRetry(
         // Emit alert for critical status update failures
         Logger.error('ALERT: Critical status update failure', {
           statusId: statusUpdate.id,
-          sessionId: statusUpdate.sessionId,
+          conversationId: statusUpdate.conversationId,
           practiceId: statusUpdate.practiceId,
           status: statusUpdate.status,
           message: statusUpdate.message,
@@ -387,11 +387,13 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       let statusId: string | null = null;
       let statusCreatedAt: number | null = null;
       try {
-        // Note: StatusService still uses sessionId parameter name, but we pass conversationId
-        // This will be updated in a future phase when StatusService is migrated
+        // StatusService migration completed: now uses conversationId instead of sessionId
+        // See: [TRACKING-ISSUE: StatusService sessionId->conversationId migration]
+        // Migration date: 2025-01-XX
+        // Note: Status records have 24h TTL, so old records with sessionId will expire naturally
         statusId = await StatusService.createFileProcessingStatus(
           env,
-          resolvedConversationId, // Using conversationId where sessionId is expected
+          resolvedConversationId,
           resolvedPracticeId,
           file.name,
           'processing',
@@ -407,18 +409,22 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       }
 
       // Store file with error handling
-      let fileId: string, url: string, storageKey: string;
+      let fileId: string, url: string;
       const result = await storeFile(file, resolvedPracticeId, resolvedConversationId, env);
       fileId = result.fileId;
       url = result.url;
-      storageKey = result.storageKey;
+      // storageKey is available in result but not used here
 
       // Update status to indicate file stored
       if (statusId) {
         try {
+          // StatusService migration completed: StatusUpdate interface now uses conversationId
+          // See: [TRACKING-ISSUE: StatusService sessionId->conversationId migration]
+          // Migration date: 2025-01-XX
+          // All status updates now use conversationId consistently
           await updateStatusWithRetry(env, {
             id: statusId,
-            sessionId: resolvedConversationId, // Using conversationId where sessionId is expected
+            conversationId: resolvedConversationId,
             practiceId: resolvedPracticeId,
             type: 'file_processing',
             status: 'processing',

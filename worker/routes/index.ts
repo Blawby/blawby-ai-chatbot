@@ -3,7 +3,7 @@ export { handleRoot } from './root';
 export { handleForms } from './forms';
 // Practice management is handled by remote API, but workspace endpoints remain for chatbot data
 export { handlePractices } from './practices';
-// Sessions removed - using conversations instead
+// Sessions removed - using activity endpoint instead
 export { handleActivity } from './activity';
 // Auth is now handled by remote server - removed handleAuth
 export { handleConfig } from './config';

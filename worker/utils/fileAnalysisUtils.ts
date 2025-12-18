@@ -113,17 +113,19 @@ async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<s
   console.log('No file path from database, attempting to construct from file ID');
   
   // Handle the actual file ID format with UUID
-  // Format: organization-slug-uuid-timestamp-random
-  // Example: north-carolina-legal-services-5b69514f-ef86-45ea-996d-4f2764b40d27-1754974140878-11oeburbd
+  // Format: practiceId-conversationId-timestamp-random (new format)
+  // Legacy format: organization-slug-uuid-timestamp-random (old format with sessionId)
+  // Example (new): 01K0TNGNKTM4Q0AG0XF0A8ST0Q-5b69514f-ef86-45ea-996d-4f2764b40d27-1754974140878-11oeburbd
+  // Example (old): north-carolina-legal-services-5b69514f-ef86-45ea-996d-4f2764b40d27-1754974140878-11oeburbd
   
   // Split by hyphens and look for UUID pattern
   const parts = fileId.split('-');
   console.log('File ID parts:', parts);
   
   if (parts.length >= 6) {
-    // Find the UUID part (8-4-4-4-12 format)
-    let organizationSlug = '';
-    let sessionId = '';
+    // Find the UUID part (8-4-4-4-12 format) - this could be conversationId (new format) or sessionId (legacy)
+    let practiceIdOrOrgSlug = '';
+    let conversationIdOrSessionId = '';
     let timestamp = '';
     let random = '';
     
@@ -134,26 +136,26 @@ async function findFilePathInR2(env: FileAnalysisEnv, fileId: string): Promise<s
       
       if (potentialUuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)) {
         // Found UUID, reconstruct the parts
-        organizationSlug = parts.slice(0, i).join('-');
-        sessionId = potentialUuid;
+        practiceIdOrOrgSlug = parts.slice(0, i).join('-');
+        conversationIdOrSessionId = potentialUuid;
         timestamp = parts[i + 5];
         random = parts[i + 6];
         
-        console.log('Successfully parsed file ID:', { organizationSlug, sessionId, timestamp, random, fileId });
+        console.log('Successfully parsed file ID:', { practiceIdOrOrgSlug, conversationIdOrSessionId, timestamp, random, fileId });
         
-        // Try to find the file with this prefix
-        const prefix = `uploads/${organizationSlug}/${sessionId}/${fileId}`;
-        console.log('Looking for file with prefix:', prefix);
+        // Try to find the file with new format first (conversationId)
+        const newFormatPrefix = `uploads/${practiceIdOrOrgSlug}/${conversationIdOrSessionId}/${fileId}`;
+        console.log('Looking for file with new format prefix:', newFormatPrefix);
         
         try {
-          const objects = await env.FILES_BUCKET.list({ prefix });
+          const objects = await env.FILES_BUCKET.list({ prefix: newFormatPrefix });
           console.log('R2 objects found:', objects.objects.length);
           if (objects.objects.length > 0) {
             const filePath = objects.objects[0].key;
             console.log('Found file path:', filePath);
             return filePath;
           } else {
-            console.log('No R2 objects found with prefix:', prefix);
+            console.log('No R2 objects found with new format prefix:', newFormatPrefix);
           }
         } catch (listError) {
           console.warn('Failed to list R2 objects:', listError);

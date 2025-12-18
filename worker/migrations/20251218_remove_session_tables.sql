@@ -4,7 +4,7 @@
 -- 
 -- Changes:
 -- 1. Drop chat_sessions table (no longer needed - using conversations instead)
--- 2. Create session_audit_events table with conversation_id (if it doesn't exist)
+-- 2. Drop and recreate session_audit_events table with conversation_id (replaces session_id)
 -- 3. Drop any indexes on chat_sessions
 -- 4. Create indexes on session_audit_events for conversation_id lookups
 --
@@ -24,10 +24,16 @@ DROP INDEX IF EXISTS idx_chat_sessions_token;
 DROP INDEX IF EXISTS idx_chat_sessions_user;
 DROP INDEX IF EXISTS idx_chat_sessions_organization;
 
--- Create session_audit_events table if it doesn't exist (with conversation_id)
--- If the table already exists with session_id, it will need to be recreated
--- Note: This will fail if table exists with different schema - manual migration may be needed
-CREATE TABLE IF NOT EXISTS session_audit_events (
+-- Migrate session_audit_events table from session_id to conversation_id
+-- Strategy: Drop and recreate to ensure correct schema
+-- Note: Existing data with session_id cannot be migrated automatically and will be lost
+-- This is acceptable as the migration comment states old data cannot be migrated
+
+-- Drop existing table if it exists (may have old schema with session_id)
+DROP TABLE IF EXISTS session_audit_events;
+
+-- Create session_audit_events table with new schema (conversation_id)
+CREATE TABLE session_audit_events (
   id TEXT PRIMARY KEY,
   conversation_id TEXT NOT NULL,
   practice_id TEXT NOT NULL,

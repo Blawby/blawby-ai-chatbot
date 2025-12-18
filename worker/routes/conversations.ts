@@ -107,8 +107,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse({ conversations }); // Array wrapped in object
   }
 
-  // GET /api/conversations/current - Get or create current conversation
-  if (segments.length === 3 && segments[2] === 'current' && request.method === 'GET') {
+  // GET /api/conversations/active - Get or create current conversation
+  if (segments.length === 3 && segments[2] === 'active' && request.method === 'GET') {
     const isAnonymous = authContext.isAnonymous === true;
     const conversation = await conversationService.getOrCreateCurrentConversation(
       userId,
@@ -131,7 +131,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   }
 
   // PATCH /api/conversations/:id - Update conversation
-  if (segments.length === 3 && segments[2] !== 'current' && request.method === 'PATCH') {
+  if (segments.length === 3 && segments[2] !== 'active' && request.method === 'PATCH') {
     const conversationId = segments[2];
     const body = await parseJsonBody(request) as {
       status?: 'active' | 'archived' | 'closed';

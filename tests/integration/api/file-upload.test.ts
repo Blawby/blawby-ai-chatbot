@@ -49,7 +49,7 @@ describe('File Upload API Integration - Real API', () => {
       const formData = new FormData();
       formData.append('file', new Blob([pdfContent], { type: 'application/pdf' }), 'test.pdf');
       formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
-      formData.append('sessionId', 'test-upload-session-pdf');
+      formData.append('conversationId', 'test-upload-session-pdf');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -70,7 +70,7 @@ describe('File Upload API Integration - Real API', () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Legal document content'], { type: 'application/msword' }), 'document.doc');
       formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
-      formData.append('sessionId', 'test-upload-session-doc');
+      formData.append('conversationId', 'test-upload-session-doc');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -101,7 +101,7 @@ describe('File Upload API Integration - Real API', () => {
       const formData = new FormData();
       formData.append('file', new Blob([pngData], { type: 'image/png' }), 'test.png');
       formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
-      formData.append('sessionId', 'test-upload-session-image');
+      formData.append('conversationId', 'test-upload-session-image');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -122,7 +122,7 @@ describe('File Upload API Integration - Real API', () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Contract content'], { type: 'text/plain' }), 'contract.txt');
       formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
-      formData.append('sessionId', 'test-upload-session-metadata');
+      formData.append('conversationId', 'test-upload-session-metadata');
       formData.append('description', 'Legal contract for review');
       formData.append('category', 'contract');
       
@@ -156,7 +156,7 @@ describe('File Upload API Integration - Real API', () => {
       const formData = new FormData();
       formData.append('file', new Blob([largeContent], { type: 'text/plain' }), 'large-file.txt');
       formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
-      formData.append('sessionId', 'test-upload-session-large');
+      formData.append('conversationId', 'test-upload-session-large');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -177,7 +177,7 @@ describe('File Upload API Integration - Real API', () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Special chars content'], { type: 'text/plain' }), 'test-file (1).txt');
       formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
-      formData.append('sessionId', 'test-upload-session-special');
+      formData.append('conversationId', 'test-upload-session-special');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -197,7 +197,7 @@ describe('File Upload API Integration - Real API', () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Organization specific content'], { type: 'text/plain' }), 'org-specific.txt');
       formData.append('organizationId', '01K0TNGNKNJEP8EPKHXAQV4S0R');
-      formData.append('sessionId', 'test-upload-session-org');
+      formData.append('conversationId', 'test-upload-session-org');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -219,7 +219,7 @@ describe('File Upload API Integration - Real API', () => {
     it('should handle missing file', async () => {
       const formData = new FormData();
       formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
-      formData.append('sessionId', 'test-upload-session-no-file');
+      formData.append('conversationId', 'test-upload-session-no-file');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -244,7 +244,7 @@ describe('File Upload API Integration - Real API', () => {
       expect(response.status).toBe(400);
     });
 
-    it('should handle missing session ID', async () => {
+    it('should handle missing conversation ID', async () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Test content'], { type: 'text/plain' }), 'test.txt');
       formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');

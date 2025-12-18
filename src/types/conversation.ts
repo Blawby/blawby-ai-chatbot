@@ -46,6 +46,7 @@ export interface Conversation {
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // ISO timestamp of last message
   first_response_at?: string | null; // ISO timestamp of first practice member response
+  closed_at?: string | null; // ISO timestamp when conversation was closed
   created_at: string; // ISO timestamp
   updated_at: string; // ISO timestamp
 }

@@ -406,14 +406,6 @@ function MainApp({
 		};
 	}, []);
 
-	// Handle feedback submission
-	const handleFeedbackSubmit = useCallback((feedback: Record<string, unknown>) => {
-		// Handle feedback submission
-		 
-		console.log('Feedback submitted:', feedback);
-		// Could show a toast notification here
-	}, []);
-
     // Handle welcome modal using server-truth hook
     const handleWelcomeComplete = async () => {
         await markWelcomeAsShown();
@@ -511,7 +503,6 @@ function MainApp({
                                                         }}
                                                         onOpenSidebar={() => setIsMobileSidebarOpen(true)}
                                                         practiceId={practiceId}
-                                                        onFeedbackSubmit={handleFeedbackSubmit}
 							previewFiles={previewFiles}
 							uploadingFiles={uploadingFiles}
 							removePreviewFile={removePreviewFile}
