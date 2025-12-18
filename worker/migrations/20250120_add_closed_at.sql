@@ -28,9 +28,8 @@ SET closed_at = COALESCE(
     WHERE session_audit_events.conversation_id = conversations.id
       AND session_audit_events.event_type = 'status_change'
       AND (
-        session_audit_events.payload LIKE '%"status":"closed"%'
-        OR session_audit_events.payload LIKE '%"toStatus":"closed"%'
-        OR session_audit_events.payload LIKE '%closed%'
+        json_extract(session_audit_events.payload, '$.status') = 'closed'
+        OR json_extract(session_audit_events.payload, '$.toStatus') = 'closed'
       )
   ),
   -- Fallback: Use updated_at if conversation is currently closed

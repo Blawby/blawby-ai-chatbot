@@ -107,8 +107,9 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse({ conversations }); // Array wrapped in object
   }
 
-  // GET /api/conversations/active - Get or create current conversation
-  if (segments.length === 3 && segments[2] === 'active' && request.method === 'GET') {
+  // GET /api/conversations/(active|current) - Get or create current conversation
+  if (segments.length === 3 && (segments[2] === 'active' || segments[2] === 'current') && request.method === 'GET') {
+    const isLegacyPath = segments[2] === 'current';
     const isAnonymous = authContext.isAnonymous === true;
     const conversation = await conversationService.getOrCreateCurrentConversation(
       userId,
@@ -116,7 +117,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       request,
       isAnonymous
     );
-    return createJsonResponse({ conversation });
+    const response = createJsonResponse({ conversation });
+    if (isLegacyPath) {
+      response.headers.set('Warning', '299 - "Deprecated path /api/conversations/current; use /api/conversations/active"');
+    }
+    return response;
   }
 
   // GET /api/conversations/:id - Get single conversation
@@ -131,7 +136,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   }
 
   // PATCH /api/conversations/:id - Update conversation
-  if (segments.length === 3 && segments[2] !== 'active' && request.method === 'PATCH') {
+  if (segments.length === 3 && segments[2] !== 'active' && segments[2] !== 'current' && request.method === 'PATCH') {
     const conversationId = segments[2];
     const body = await parseJsonBody(request) as {
       status?: 'active' | 'archived' | 'closed';
@@ -178,4 +183,3 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   throw HttpErrors.methodNotAllowed('Unsupported method for conversations endpoint');
 }
-
