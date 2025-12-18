@@ -115,3 +115,28 @@ export const getPracticeWorkspaceEndpoint = (practiceId: string, resource: strin
   const config = getApiConfig();
   return `${config.baseUrl}/api/practices/${encodeURIComponent(practiceId)}/workspace/${encodeURIComponent(resource)}`;
 };
+
+// Session endpoints - now handled by remote API
+// Session endpoints removed - using conversations instead
+
+// Conversation endpoints - now handled by remote API
+export const getConversationsEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/conversations`;
+};
+
+export const getConversationEndpoint = (conversationId: string) => {
+  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}`;
+};
+
+export const getCurrentConversationEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/conversations/current`;
+};
+
+export const getConversationParticipantsEndpoint = (conversationId: string) => {
+  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/participants`;
+};
+
+// Chat message endpoints - now handled by remote API
+export const getChatMessagesEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/chat/messages`;
+};

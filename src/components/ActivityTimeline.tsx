@@ -20,7 +20,7 @@ interface ActivityTimelineProps {
   className?: string;
   practiceId?: string;
   matterId?: string;
-  sessionId?: string;
+  conversationId?: string;
   limit?: number;
   autoRefresh?: boolean;
   refreshInterval?: number;
@@ -76,7 +76,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
   className = '',
   practiceId,
   matterId,
-  sessionId,
+  conversationId,
   limit = 25,
   autoRefresh = true,
   refreshInterval = 30000
@@ -85,7 +85,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
   const { events, loading: _loading, error, hasMore, loadMore, refresh } = useActivity({
     practiceId,
     matterId,
-    sessionId,
+    conversationId,
     limit,
     autoRefresh,
     refreshInterval

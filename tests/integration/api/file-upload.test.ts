@@ -24,8 +24,8 @@ describe('File Upload API Integration - Real API', () => {
     it('should upload a text file', async () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Test content for file upload'], { type: 'text/plain' }), 'test.txt');
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
-      formData.append('sessionId', 'test-upload-session-text');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('conversationId', 'test-upload-conversation-text');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -48,7 +48,7 @@ describe('File Upload API Integration - Real API', () => {
       
       const formData = new FormData();
       formData.append('file', new Blob([pdfContent], { type: 'application/pdf' }), 'test.pdf');
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
       formData.append('sessionId', 'test-upload-session-pdf');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
@@ -69,7 +69,7 @@ describe('File Upload API Integration - Real API', () => {
     it('should upload a document file', async () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Legal document content'], { type: 'application/msword' }), 'document.doc');
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
       formData.append('sessionId', 'test-upload-session-doc');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
@@ -100,7 +100,7 @@ describe('File Upload API Integration - Real API', () => {
       
       const formData = new FormData();
       formData.append('file', new Blob([pngData], { type: 'image/png' }), 'test.png');
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
       formData.append('sessionId', 'test-upload-session-image');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
@@ -121,7 +121,7 @@ describe('File Upload API Integration - Real API', () => {
     it('should handle file upload with metadata', async () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Contract content'], { type: 'text/plain' }), 'contract.txt');
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
       formData.append('sessionId', 'test-upload-session-metadata');
       formData.append('description', 'Legal contract for review');
       formData.append('category', 'contract');
@@ -155,7 +155,7 @@ describe('File Upload API Integration - Real API', () => {
       
       const formData = new FormData();
       formData.append('file', new Blob([largeContent], { type: 'text/plain' }), 'large-file.txt');
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
       formData.append('sessionId', 'test-upload-session-large');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
@@ -176,7 +176,7 @@ describe('File Upload API Integration - Real API', () => {
     it('should handle file upload with special characters in filename', async () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Special chars content'], { type: 'text/plain' }), 'test-file (1).txt');
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
       formData.append('sessionId', 'test-upload-session-special');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
@@ -218,7 +218,7 @@ describe('File Upload API Integration - Real API', () => {
   describe('File Upload Error Handling', () => {
     it('should handle missing file', async () => {
       const formData = new FormData();
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
       formData.append('sessionId', 'test-upload-session-no-file');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
@@ -230,10 +230,10 @@ describe('File Upload API Integration - Real API', () => {
       expect(response.status).toBe(400);
     });
 
-    it('should handle missing organization ID', async () => {
+    it('should handle missing practice ID', async () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Test content'], { type: 'text/plain' }), 'test.txt');
-      formData.append('sessionId', 'test-upload-session-no-org');
+      formData.append('conversationId', 'test-upload-conversation-no-practice');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -247,7 +247,7 @@ describe('File Upload API Integration - Real API', () => {
     it('should handle missing session ID', async () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Test content'], { type: 'text/plain' }), 'test.txt');
-      formData.append('organizationId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
+      formData.append('practiceId', '01K0TNGNKTM4Q0AG0XF0A8ST0Q');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
@@ -258,24 +258,24 @@ describe('File Upload API Integration - Real API', () => {
       expect(response.status).toBe(400);
     });
 
-    it('should handle invalid organization ID', async () => {
+    it('should handle invalid practice ID', async () => {
       const formData = new FormData();
       formData.append('file', new Blob(['Test content'], { type: 'text/plain' }), 'test.txt');
-      formData.append('organizationId', 'invalid-organization');
-      formData.append('sessionId', 'test-upload-session-invalid-org');
+      formData.append('practiceId', 'invalid-practice');
+      formData.append('conversationId', 'test-upload-conversation-invalid-practice');
       
       const response = await fetch(`${BASE_URL}/api/files/upload`, {
         method: 'POST',
         body: formData
       });
       
-      // The API should reject uploads for non-existent organizations to prevent orphaned files
+      // The API should reject uploads for non-existent practices to prevent orphaned files
       expect(response.ok).toBe(false);
-      expect(response.status).toBe(500); // Internal server error due to organization not found
+      expect(response.status).toBe(500); // Internal server error due to practice not found
       
       const result = await response.json() as ApiResponse;
       expect(result).toHaveProperty('success', false);
-      expect(result.error).toContain('Organization \'invalid-organization\' not found');
+      expect(result.error).toContain('Practice \'invalid-practice\' not found');
     });
   });
 });

@@ -5,7 +5,7 @@ import { memo } from 'preact/compat';
 import { getFeedbackEndpoint } from '../config/api';
 
 interface FeedbackUIProps {
-  sessionId?: string;
+  conversationId?: string;
   practiceId?: string;
   onFeedbackSubmit?: (feedback: FeedbackData) => void;
 }
@@ -18,7 +18,7 @@ interface FeedbackData {
 }
 
 const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({ 
-  sessionId, 
+  conversationId, 
   practiceId, 
   onFeedbackSubmit 
 }) => {
@@ -40,7 +40,7 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sessionId,
+          conversationId,
           practiceId,
           ...feedbackData,
           intent: 'message_feedback'
@@ -63,7 +63,7 @@ const FeedbackUI: FunctionComponent<FeedbackUIProps> = memo(({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, hasSubmitted, onFeedbackSubmit, practiceId, sessionId]);
+  }, [isSubmitting, hasSubmitted, onFeedbackSubmit, practiceId, conversationId]);
 
   const handleThumbsUp = useCallback(() => {
     setFeedback(prev => {

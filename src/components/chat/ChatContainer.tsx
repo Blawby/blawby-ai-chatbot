@@ -20,7 +20,6 @@ interface ChatContainerProps {
     description?: string | null;
   };
   onOpenSidebar?: () => void;
-  sessionId?: string;
   practiceId?: string;
   onFeedbackSubmit?: (feedback: unknown) => void;
 
@@ -48,7 +47,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onContactFormSubmit,
   practiceConfig,
   onOpenSidebar,
-  sessionId,
   practiceId,
   onFeedbackSubmit,
   previewFiles,
@@ -144,7 +142,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           practiceConfig={practiceConfig}
           onOpenSidebar={onOpenSidebar}
           onContactFormSubmit={onContactFormSubmit}
-          sessionId={sessionId}
           practiceId={practiceId}
           onFeedbackSubmit={onFeedbackSubmit}
         />

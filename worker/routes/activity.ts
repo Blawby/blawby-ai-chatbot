@@ -1,5 +1,5 @@
 import { ActivityService, type ActivityEvent } from '../services/ActivityService';
-import { SessionService } from '../services/SessionService';
+// SessionService removed - using conversations instead
 import { rateLimit, getClientId } from '../middleware/rateLimit';
 import { createRateLimitResponse } from '../errorHandler';
 import { HttpErrors, handleError } from '../errorHandler';
@@ -7,13 +7,13 @@ import { parseJsonBody } from '../utils.js';
 import type { Env } from '../types';
 
 interface CreateActivityRequest {
-  type: 'matter_event' | 'session_event';
+  type: 'matter_event' | 'conversation_event';
   eventType: string;
   title: string;
   description?: string;
   eventDate: string;
   matterId?: string;
-  sessionId?: string;
+  conversationId?: string;
   metadata?: Record<string, unknown>;
   idempotencyKey?: string;
 }
@@ -77,29 +77,12 @@ async function handleGetActivity(request: Request, env: Env): Promise<Response> 
     throw HttpErrors.badRequest('practiceId parameter is required');
   }
 
-  // Resolve session for tenant scoping (no auth required)
-  let sessionResolution;
-  try {
-    sessionResolution = await SessionService.resolveSession(env, {
-      request,
-      practiceId: practiceId,
-      createIfMissing: true // Allow creating session if missing
-    });
-  } catch (error) {
-    console.error('Session resolution error:', error);
-    throw HttpErrors.badRequest('Failed to resolve session');
-  }
-
-  const resolvedPracticeId = sessionResolution.session.practiceId;
-  
-  // Security check: ensure session belongs to the requested practice
-  if (resolvedPracticeId !== practiceId) {
-    throw HttpErrors.forbidden('Session does not belong to the specified practice');
-  }
+  // Practice ID is validated directly - no session resolution needed
+  const resolvedPracticeId = practiceId;
 
   // Parse query parameters
   const matterId = url.searchParams.get('matterId') || undefined;
-  const sessionId = url.searchParams.get('sessionId') || undefined;
+  const conversationId = url.searchParams.get('conversationId') || undefined;
   const limit = parseInt(url.searchParams.get('limit') || '25', 10);
   const cursor = url.searchParams.get('cursor') || undefined;
   const since = url.searchParams.get('since') || undefined;
@@ -125,7 +108,7 @@ async function handleGetActivity(request: Request, env: Env): Promise<Response> 
     result = await activityService.queryActivity({
       practiceId: resolvedPracticeId,
       matterId,
-      sessionId,
+      conversationId,
       limit,
       cursor,
       since,
@@ -202,8 +185,8 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
   if (body.type === 'matter_event' && !body.matterId) {
     throw HttpErrors.badRequest('matterId is required when type is matter_event');
   }
-  if (body.type === 'session_event' && !body.sessionId) {
-    throw HttpErrors.badRequest('sessionId is required when type is session_event');
+  if (body.type === 'conversation_event' && !body.conversationId) {
+    throw HttpErrors.badRequest('conversationId is required when type is conversation_event');
   }
 
   // Extract practice ID from request (could be in body or query params)
@@ -214,24 +197,17 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
     throw HttpErrors.badRequest('practiceId is required');
   }
 
-  // Resolve session for tenant scoping (no auth required)
-  let sessionResolution;
-  try {
-    sessionResolution = await SessionService.resolveSession(env, {
-      request,
-      practiceId: practiceId,
-      createIfMissing: true // Allow creating session if missing
-    });
-  } catch (error) {
-    console.error('Session resolution error:', error);
-    throw HttpErrors.badRequest('Failed to resolve session');
-  }
-
-  const resolvedPracticeId = sessionResolution.session.practiceId;
-  
-  // Security check: ensure session belongs to the requested practice
-  if (resolvedPracticeId !== practiceId) {
-    throw HttpErrors.forbidden('Session does not belong to the specified practice');
+  // Validate conversation exists and belongs to practice (if conversation event)
+  let resolvedPracticeId = practiceId;
+  if (body.type === 'conversation_event' && body.conversationId) {
+    const { ConversationService } = await import('../services/ConversationService.js');
+    const conversationService = new ConversationService(env);
+    try {
+      const conversation = await conversationService.getConversation(body.conversationId, practiceId);
+      resolvedPracticeId = conversation.practice_id;
+    } catch (error) {
+      throw HttpErrors.badRequest(`Conversation not found or does not belong to practice: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // Check for idempotency
@@ -278,7 +254,7 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
       ...body.metadata,
       practiceId: resolvedPracticeId,
       ...(body.matterId ? { matterId: body.matterId } : {}),
-      ...(body.sessionId ? { sessionId: body.sessionId } : {})
+      ...(body.conversationId ? { conversationId: body.conversationId } : {})
     }
   }, resolvedPracticeId);
 
@@ -319,7 +295,7 @@ async function checkIdempotency(env: Env, key: string, practiceId: string): Prom
     const eventId = existing;
     // Try to fetch the event (simplified - in real implementation you'd need to know the type)
     return await getEventById(env, eventId, 'matter_event') || 
-           await getEventById(env, eventId, 'session_event');
+           await getEventById(env, eventId, 'conversation_event');
   }
   
   return null;
@@ -332,7 +308,7 @@ async function storeIdempotencyKey(env: Env, key: string, practiceId: string, ev
   await env.CHAT_SESSIONS.put(idempotencyKey, eventId, { expirationTtl: 86400 }); // 24 hours
 }
 
-async function getEventById(env: Env, eventId: string, type: 'matter_event' | 'session_event'): Promise<ActivityEvent | null> {
+async function getEventById(env: Env, eventId: string, type: 'matter_event' | 'conversation_event'): Promise<ActivityEvent | null> {
   try {
     if (type === 'matter_event') {
       const stmt = env.DB.prepare(`
@@ -385,8 +361,8 @@ async function getEventById(env: Env, eventId: string, type: 'matter_event' | 's
       if (row) {
         return {
           id: row.id,
-          uid: `session_evt_${row.id}_${row.created_at.replace(/[-:TZ]/g, '')}`,
-          type: 'session_event',
+          uid: `conversation_evt_${row.id}_${row.created_at.replace(/[-:TZ]/g, '')}`,
+          type: 'conversation_event',
           eventType: row.event_type,
           title: row.event_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
           description: row.payload || '',

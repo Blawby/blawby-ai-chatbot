@@ -17,12 +17,11 @@ import { resolvePracticeKind } from './utils/subscription';
 import type { UIPracticeConfig } from './hooks/usePracticeConfig';
 import { useMessageHandling } from './hooks/useMessageHandling';
 import { useFileUploadWithContext } from './hooks/useFileUpload';
-import { useChatSessionWithContext } from './hooks/useChatSession';
+// useChatSession removed - using conversations instead
 import { useConversations } from './hooks/useConversations';
-import { useCurrentConversation } from './hooks/useConversation';
 import { setupGlobalKeyboardListeners } from './utils/keyboard';
 import type { ChatMessageUI, FileAttachment } from '../worker/types';
-import { getApiConfig } from './config/api';
+import { getConversationsEndpoint } from './config/api';
 import { getTokenAsync } from './lib/tokenStorage';
 // Settings components
 import { SettingsLayout } from './components/settings/SettingsLayout';
@@ -37,7 +36,6 @@ import { useToastContext } from './contexts/ToastContext';
 import { usePracticeConfig } from './hooks/usePracticeConfig';
 import { usePracticeManagement } from './hooks/usePracticeManagement';
 import { useMobileDetection } from './hooks/useMobileDetection';
-import { isDevelopment } from './utils/environment';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -97,14 +95,9 @@ function MainApp({
                 onError: (error) => showErrorRef.current?.(error)
         });
 
-        const {
-                sessionId,
-                error: sessionError
-        } = useChatSessionWithContext();
-
+        // useChatSession removed - using conversations directly
         const realMessageHandling = useMessageHandling({
                 practiceId,
-                sessionId,
                 conversationId: conversationId ?? undefined,
                 onError: (error) => {
                         console.error('Message handling error:', error);
@@ -125,7 +118,6 @@ function MainApp({
 
                 try {
                         setIsCreatingConversation(true);
-                        const config = getApiConfig();
                         const token = await getTokenAsync();
                         const headers: Record<string, string> = {
                                 'Content-Type': 'application/json'
@@ -134,7 +126,7 @@ function MainApp({
                                 headers.Authorization = `Bearer ${token}`;
                         }
 
-                        const response = await fetch(`${config.baseUrl}/api/conversations`, {
+                        const response = await fetch(getConversationsEndpoint(), {
                                 method: 'POST',
                                 headers,
                                 credentials: 'include',
@@ -203,7 +195,7 @@ function MainApp({
 		cancelUpload,
 		isReadyToUpload
 	} = useFileUploadWithContext({
-		sessionId,
+		conversationId: conversationId ?? undefined,
 		onError: (error) => {
 			// Handle file upload error
 			 
@@ -211,13 +203,7 @@ function MainApp({
 		}
 	});
 
-	useEffect(() => {
-		if (sessionError) {
-			// Handle session initialization error
-			 
-			console.error('Session initialization error:', sessionError);
-		}
-	}, [sessionError]);
+	// Session error handling removed - no longer using sessions
 
     // Welcome modal state via server-truth + session debounce
     const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal();
@@ -335,7 +321,7 @@ function MainApp({
 
 	// User tier is now derived directly from practice - no need for custom event listeners
 
-        const isSessionReady = Boolean(sessionId && conversationId && !conversationsLoading && !isCreatingConversation);
+        const isSessionReady = Boolean(conversationId && !conversationsLoading && !isCreatingConversation);
 
 
         // Add intro message when practice config is loaded and no messages exist
@@ -524,7 +510,6 @@ function MainApp({
                                                                 description: practiceConfig?.description ?? ''
                                                         }}
                                                         onOpenSidebar={() => setIsMobileSidebarOpen(true)}
-                                                        sessionId={sessionId}
                                                         practiceId={practiceId}
                                                         onFeedbackSubmit={handleFeedbackSubmit}
 							previewFiles={previewFiles}

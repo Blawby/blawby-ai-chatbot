@@ -42,14 +42,14 @@ export async function postStreamViaPage(page: Page, url: string, body: unknown):
   }, { url, body });
 }
 
-export async function uploadFileViaPage(page: Page, url: string, params: { orgId: string; sessionId: string; fileName: string; fileType?: string; content: string; }): Promise<{ status: number; data?: any; error?: string }> {
-  const { orgId, sessionId, fileName, fileType = 'text/plain', content } = params;
-  return page.evaluate(async ({ url, orgId, sessionId, fileName, fileType, content }) => {
+export async function uploadFileViaPage(page: Page, url: string, params: { practiceId: string; conversationId: string; fileName: string; fileType?: string; content: string; }): Promise<{ status: number; data?: any; error?: string }> {
+  const { practiceId, conversationId, fileName, fileType = 'text/plain', content } = params;
+  return page.evaluate(async ({ url, practiceId, conversationId, fileName, fileType, content }) => {
     try {
       const formData = new FormData();
       formData.append('file', new Blob([content], { type: fileType }), fileName);
-      formData.append('organizationId', orgId);
-      formData.append('sessionId', sessionId);
+      formData.append('practiceId', practiceId);
+      formData.append('conversationId', conversationId);
 
       const response = await fetch(url, { method: 'POST', credentials: 'include', body: formData });
       if (!response.ok) {
@@ -61,5 +61,5 @@ export async function uploadFileViaPage(page: Page, url: string, params: { orgId
     } catch (err) {
       return { status: 0, error: err instanceof Error ? err.message : String(err) };
     }
-  }, { url, orgId, sessionId, fileName, fileType, content });
+  }, { url, practiceId, conversationId, fileName, fileType, content });
 }

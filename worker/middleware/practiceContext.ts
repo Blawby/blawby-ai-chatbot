@@ -1,20 +1,17 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
-import { SessionService } from '../services/SessionService.js';
 import { optionalAuth } from './auth.js'; // Uses remote auth validation
 
 export interface PracticeContext {
   practiceId: string;
-  source: 'auth' | 'session' | 'url' | 'default';
-  sessionId?: string;
+  source: 'auth' | 'url' | 'default';
   isAuthenticated: boolean;
   userId?: string;
 }
 
 export interface OptionalPracticeContext {
   practiceId: string | null;
-  source: 'auth' | 'session' | 'url' | 'default' | 'none';
-  sessionId?: string;
+  source: 'auth' | 'url' | 'default' | 'none';
   isAuthenticated: boolean;
   userId?: string;
 }
@@ -66,10 +63,9 @@ function validateNoAuthQueryParams(url: URL): void {
 
 /**
  * Middleware that extracts practice context from multiple sources:
- * 1. Better-Auth session (authenticated users)
- * 2. Session cookie (anonymous users with session)
- * 3. URL query param (fallback)
- * 4. Default practice (last resort)
+ * 1. Better-Auth session (authenticated and anonymous users)
+ * 2. URL query param (fallback)
+ * 3. Default practice (last resort)
  * 
  * SECURITY: This function explicitly preserves all authentication-related
  * properties (headers, cookies, tokens) and only extracts practice metadata.
@@ -97,110 +93,45 @@ export async function extractPracticeContext(
   
   const urlPracticeId = url.searchParams.get('practiceId');
 
-  // Try to get auth context first (for authenticated users)
+  // Try to get auth context (works for both authenticated and anonymous users via Better Auth)
   try {
     const authContext = await optionalAuth(request, env);
     if (authContext) {
-      // For authenticated users, we could potentially get practice from their membership
-      // For now, we'll still use URL param or session as primary source
-      // This could be enhanced to get the user's active practice from better-auth
-      
-      // Check if user has a session with practice context
-      const sessionToken = SessionService.getSessionTokenFromCookie(request);
-      if (sessionToken) {
-        try {
-          // Compute target practice ID and ensure it's defined
-          const targetPracticeId = urlPracticeId ?? defaultPracticeId;
-          if (!targetPracticeId) {
-            // No practice ID available, skip session resolution
-            if (requirePractice) {
-              throw HttpErrors.badRequest('Practice context is required but could not be determined');
-            }
-            return {
-              practiceId: null,
-              source: 'none',
-              isAuthenticated: true,
-              userId: authContext.user.id
-            };
-          }
-          
-          // Try to resolve session by token to get practice
-          const sessionResolution = await SessionService.resolveSession(env, {
-            request,
-            sessionToken,
-            practiceId: targetPracticeId,
-            createIfMissing: false
-          });
-
-          return {
-            practiceId: sessionResolution.session.practiceId,
-            source: 'session',
-            sessionId: sessionResolution.session.id,
-            isAuthenticated: true,
-            userId: authContext.user.id
-          };
-        } catch (sessionError) {
-          // Session resolution failed, fall back to URL param
-          console.warn('Session resolution failed for authenticated user:', sessionError);
-        }
-      }
-
-      // Fall back to URL param for authenticated users
+      // Both authenticated and anonymous users have a user.id from Better Auth
+      // Use URL param or default for practice context
       if (urlPracticeId) {
         return {
           practiceId: urlPracticeId,
           source: 'url',
-          isAuthenticated: true,
+          isAuthenticated: !authContext.isAnonymous,
           userId: authContext.user.id
         };
       }
+      
+      // If no URL param, try default
+      if (defaultPracticeId) {
+        return {
+          practiceId: defaultPracticeId,
+          source: 'default',
+          isAuthenticated: !authContext.isAnonymous,
+          userId: authContext.user.id
+        };
+      }
+      
+      // No practice ID available
+      if (requirePractice) {
+        throw HttpErrors.badRequest('Practice context is required but could not be determined');
+      }
+      return {
+        practiceId: null,
+        source: 'none',
+        isAuthenticated: !authContext.isAnonymous,
+        userId: authContext.user.id
+      };
     }
   } catch (authError) {
-    // Auth failed, continue with anonymous flow
-    console.debug('Auth check failed, continuing with anonymous flow:', authError);
-  }
-
-  // For anonymous users, try session cookie first
-  const sessionToken = SessionService.getSessionTokenFromCookie(request);
-  if (sessionToken) {
-    // Check if this is a read-only request that doesn't need session resolution
-    const isReadOnlyRequest = request.method === 'GET' || request.method === 'HEAD';
-    
-    if (!isReadOnlyRequest) {
-      // Only resolve session for endpoints that actually need it
-      try {
-        // Try to resolve session with URL param or default
-        const targetPracticeId = urlPracticeId ?? defaultPracticeId;
-        if (!targetPracticeId) {
-          // No practice ID available, return without session resolution
-          if (requirePractice) {
-            throw HttpErrors.badRequest('Practice context is required but could not be determined');
-          }
-          return {
-            practiceId: null,
-            source: 'none',
-            isAuthenticated: false
-          };
-        }
-        
-        const sessionResolution = await SessionService.resolveSession(env, {
-          request,
-          sessionToken,
-          practiceId: targetPracticeId,
-          createIfMissing: false
-        });
-
-        return {
-          practiceId: sessionResolution.session.practiceId,
-          source: 'session',
-          sessionId: sessionResolution.session.id,
-          isAuthenticated: false
-        };
-      } catch (sessionError) {
-        // Session resolution failed, fall back to URL param
-        console.warn('Session resolution failed for anonymous user:', sessionError);
-      }
-    }
+    // Auth failed, continue with fallback flow
+    console.debug('Auth check failed, continuing with fallback flow:', authError);
   }
 
   // Fall back to URL parameter
@@ -321,9 +252,4 @@ export function getUserId(request: Request): string | undefined {
   return getPracticeContext(request).userId;
 }
 
-/**
- * Helper to get the session ID if available
- */
-export function getSessionId(request: Request): string | undefined {
-  return getPracticeContext(request).sessionId;
-}
+// getSessionId removed - sessions are no longer used

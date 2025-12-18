@@ -4,7 +4,6 @@ import {
   handleHealth,
   handleRoot,
   handleForms,
-  handleSessions,
   handleActivity,
   handleFiles,
   handleAnalyze,
@@ -91,8 +90,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
-    } else if (path.startsWith('/api/sessions')) {
-      response = await handleSessions(request, env);
     } else if (path.startsWith('/api/activity')) {
       response = await handleActivity(request, env);
     } else if (path.startsWith('/api/files')) {

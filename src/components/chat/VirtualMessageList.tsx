@@ -20,7 +20,6 @@ interface VirtualMessageListProps {
     onContactFormSubmit?: (data: ContactData) => void;
 
     // Feedback props
-    sessionId?: string;
     practiceId?: string;
     onFeedbackSubmit?: (feedback: unknown) => void;
 }
@@ -34,7 +33,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     practiceConfig,
     onOpenSidebar,
     onContactFormSubmit,
-    sessionId,
     practiceId,
     onFeedbackSubmit
 }) => {
@@ -185,7 +183,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             // REMOVED: aiState - AI functionality removed
                             toolMessage={message.toolMessage}
                             id={message.id}
-                            sessionId={sessionId}
                             practiceId={practiceId}
                             onFeedbackSubmit={onFeedbackSubmit}
                         />

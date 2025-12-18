@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS ai_feedback (
 -- Chat messages table for storing conversation messages
 -- Note: chat_sessions table removed - Better Auth sessions managed by staging API
 -- Note: session_id removed from chat_messages - messages linked to conversations only
+-- Note: session_audit_events table now uses conversation_id instead of session_id
 CREATE TABLE IF NOT EXISTS chat_messages (
   id TEXT PRIMARY KEY,
   conversation_id TEXT NOT NULL,
@@ -210,6 +211,24 @@ CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_practice ON chat_messages(practice_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
+
+-- Session audit events table (now uses conversation_id instead of session_id)
+-- Note: Table name kept as session_audit_events for backward compatibility
+-- but it now tracks conversation events, not session events
+CREATE TABLE IF NOT EXISTS session_audit_events (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  practice_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  actor_type TEXT,
+  actor_id TEXT,
+  payload TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for session_audit_events
+CREATE INDEX IF NOT EXISTS idx_session_audit_events_conversation ON session_audit_events(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_session_audit_events_practice ON session_audit_events(practice_id, created_at);
 
 -- Create indexes for matters
 CREATE INDEX IF NOT EXISTS idx_matters_practice ON matters(practice_id);

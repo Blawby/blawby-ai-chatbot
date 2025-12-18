@@ -4,7 +4,7 @@ import type { Env } from '../types';
 export interface ActivityEvent {
   id: string;
   uid: string; // Globally unique identifier across all sources (e.g., prefixed or UUID)
-  type: 'matter_event' | 'session_event';
+  type: 'matter_event' | 'conversation_event';
   eventType: string; // 'payment', 'status_change', 'document_added', etc.
   title: string;
   description: string;
@@ -17,7 +17,7 @@ export interface ActivityEvent {
 
 export interface ActivityQueryOptions {
   matterId?: string;
-  sessionId?: string;
+  conversationId?: string;
   limit?: number; // default 25, max 50
   cursor?: string; // opaque pagination token
   since?: string; // ISO 8601 timestamp
@@ -72,7 +72,7 @@ export class ActivityService {
     }));
   }
 
-  async getSessionEvents(sessionId: string, practiceId: string): Promise<ActivityEvent[]> {
+  async getConversationEvents(conversationId: string, practiceId: string): Promise<ActivityEvent[]> {
     const stmt = this.env.DB.prepare(`
       SELECT 
         id,
@@ -82,19 +82,19 @@ export class ActivityService {
         payload,
         created_at
       FROM session_audit_events 
-      WHERE session_id = ? AND session_id IN (
-        SELECT id FROM chat_sessions WHERE organization_id = ?
+      WHERE conversation_id = ? AND conversation_id IN (
+        SELECT id FROM conversations WHERE practice_id = ?
       )
       ORDER BY created_at DESC
     `);
     
-    const result = await stmt.bind(sessionId, practiceId).all();
+    const result = await stmt.bind(conversationId, practiceId).all();
     const rows = result.results as Record<string, unknown>[];
     
     return rows.map(row => ({
       id: String(row.id),
-      uid: `session_evt_${row.id}_${String(row.created_at).replace(/[-:TZ]/g, '')}`,
-      type: 'session_event' as const,
+      uid: `conversation_evt_${row.id}_${String(row.created_at).replace(/[-:TZ]/g, '')}`,
+      type: 'conversation_event' as const,
       eventType: String(row.event_type),
       title: String(row.event_type).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
       description: String(row.payload || ''),
@@ -106,15 +106,15 @@ export class ActivityService {
     }));
   }
 
-  async getCombinedActivity(matterId?: string, sessionId?: string, practiceId?: string): Promise<ActivityEvent[]> {
+  async getCombinedActivity(matterId?: string, conversationId?: string, practiceId?: string): Promise<ActivityEvent[]> {
     if (!practiceId) {
       throw new Error('Practice ID is required for activity queries');
     }
 
     const matterEvents = matterId ? await this.getMatterEvents(matterId, practiceId) : [];
-    const sessionEvents = sessionId ? await this.getSessionEvents(sessionId, practiceId) : [];
+    const conversationEvents = conversationId ? await this.getConversationEvents(conversationId, practiceId) : [];
     
-    const combined = [...matterEvents, ...sessionEvents];
+    const combined = [...matterEvents, ...conversationEvents];
     return combined.sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
   }
 
@@ -122,7 +122,7 @@ export class ActivityService {
     const {
       practiceId,
       matterId,
-      sessionId,
+      conversationId,
       limit = 25,
       cursor,
       since,
@@ -169,7 +169,7 @@ export class ActivityService {
         UNION ALL
 
         SELECT 
-          'session_event' as type,
+          'conversation_event' as type,
           id,
           event_type,
           event_type as title,
@@ -180,8 +180,8 @@ export class ActivityService {
           json_object('payload', payload) as metadata,
           created_at
         FROM session_audit_events 
-        WHERE (? IS NULL OR session_id = ?)
-          AND session_id IN (SELECT id FROM chat_sessions WHERE organization_id = ?)
+        WHERE (? IS NULL OR conversation_id = ?)
+          AND conversation_id IN (SELECT id FROM conversations WHERE practice_id = ?)
           AND (? IS NULL OR created_at >= ?)
           AND (? IS NULL OR created_at <= ?)
           AND (? IS NULL OR event_type IN (SELECT value FROM json_each(?)))
@@ -201,8 +201,8 @@ export class ActivityService {
     const params = [
       // Matter events filters - convert undefined to null for D1 compatibility
       matterId ?? null, matterId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
-      // Session events filters - convert undefined to null for D1 compatibility
-      sessionId ?? null, sessionId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
+      // Conversation events filters - convert undefined to null for D1 compatibility
+      conversationId ?? null, conversationId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
       // Cursor pagination - ensure null instead of undefined
       cursorData?.lastEventDate || null, cursorData?.lastEventDate || null, cursorData?.lastEventDate || null, 
       cursorData?.lastCreatedAt || null, cursorData?.lastCreatedAt || null, cursorData?.lastId || null,
@@ -218,7 +218,7 @@ export class ActivityService {
     const items: ActivityEvent[] = rows.map(row => ({
       id: String(row.id),
       uid: `${row.type}_${row.id}_${String(row.event_date).replace(/[-:TZ]/g, '')}`,
-      type: row.type as 'matter_event' | 'session_event',
+      type: row.type as 'matter_event' | 'conversation_event',
       eventType: String(row.event_type),
       title: String(row.title),
       description: String(row.description || ''),
@@ -255,8 +255,8 @@ export class ActivityService {
           UNION ALL
 
           SELECT id FROM session_audit_events 
-          WHERE (? IS NULL OR session_id = ?)
-            AND session_id IN (SELECT id FROM chat_sessions WHERE organization_id = ?)
+          WHERE (? IS NULL OR conversation_id = ?)
+            AND conversation_id IN (SELECT id FROM conversations WHERE practice_id = ?)
             AND (? IS NULL OR created_at >= ?)
             AND (? IS NULL OR created_at <= ?)
             AND (? IS NULL OR event_type IN (SELECT value FROM json_each(?)))
@@ -268,7 +268,7 @@ export class ActivityService {
       const countStmt = this.env.DB.prepare(countQuery);
       const countResult = await countStmt.bind(
         matterId ?? null, matterId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null,
-        sessionId ?? null, sessionId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null
+        conversationId ?? null, conversationId ?? null, practiceId, since ?? null, since ?? null, until ?? null, until ?? null, typeFilter, typeFilter, actorType ?? null, actorType ?? null
       ).first() as Record<string, unknown> | null;
       
       total = Number(countResult?.total) || 0;
@@ -309,16 +309,16 @@ export class ActivityService {
         now,
         now
       ).run();
-    } else if (event.type === 'session_event') {
+    } else if (event.type === 'conversation_event') {
       const stmt = this.env.DB.prepare(`
         INSERT INTO session_audit_events (
-          id, session_id, event_type, actor_type, actor_id, payload, created_at
+          id, conversation_id, event_type, actor_type, actor_id, payload, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
       
       await stmt.bind(
         eventId,
-        event.metadata?.sessionId,
+        event.metadata?.conversationId,
         event.eventType,
         event.actorType || 'system',
         event.actorId || null,

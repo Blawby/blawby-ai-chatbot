@@ -38,7 +38,6 @@ interface ChatMessageHistoryEntry {
 
 interface UseMessageHandlingOptions {
   practiceId?: string;
-  sessionId?: string;
   conversationId?: string; // Required for user-to-user chat
   onError?: (error: string) => void;
 }
@@ -59,7 +58,7 @@ export const useMessageHandlingWithContext = ({ sessionId, conversationId, onErr
  * Note: For user-to-user chat, conversationId is required.
  * This hook will fetch messages on mount if conversationId is provided.
  */
-export const useMessageHandling = ({ practiceId, sessionId, conversationId, onError }: UseMessageHandlingOptions) => {
+export const useMessageHandling = ({ practiceId, conversationId, onError }: UseMessageHandlingOptions) => {
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const isDisposedRef = useRef(false);

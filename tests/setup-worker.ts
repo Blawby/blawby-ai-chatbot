@@ -37,22 +37,18 @@ beforeAll(async () => {
   try {
     const db = (env as { DB: D1Database }).DB;
     
-    // Create chat_sessions table
+    // chat_sessions table removed - using conversations instead
+    // Create session_audit_events table for activity tracking
     await db.prepare(`
-      CREATE TABLE IF NOT EXISTS chat_sessions (
+      CREATE TABLE IF NOT EXISTS session_audit_events (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
-        user_id TEXT,
-        token_hash TEXT,
-        state TEXT NOT NULL DEFAULT 'active',
-        status_reason TEXT,
-        retention_horizon_days INTEGER NOT NULL DEFAULT 180,
-        is_hold INTEGER NOT NULL DEFAULT 0,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_active DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        closed_at DATETIME,
-        UNIQUE(id, organization_id)
+        conversation_id TEXT NOT NULL,
+        practice_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        actor_type TEXT,
+        actor_id TEXT,
+        payload TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
 

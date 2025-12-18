@@ -27,14 +27,14 @@ export const chatRequestSchema = z.object({
     role: z.enum(['user', 'assistant', 'system']),
     content: z.string().min(1)
   })).min(1),
-  sessionId: idSchema.optional(),
+  conversationId: idSchema.optional(),
   practiceId: idSchema.optional(),
   context: z.record(z.string(), z.any()).optional()
 });
 
 export const chatResponseSchema = z.object({
   message: z.string(),
-  sessionId: idSchema,
+  conversationId: idSchema,
   timestamp: timestampSchema
 });
 
@@ -111,22 +111,15 @@ export const fileUploadSchema = z.object({
 // Feedback schemas
 export const feedbackSchema = z.object({
   practiceId: idSchema,
-  sessionId: idSchema,
+  conversationId: idSchema,
   rating: z.number().int().min(1).max(5),
   comment: z.string().max(500).optional()
 });
 
 
 
-// Session schemas
-export const sessionSchema = z.object({
-  id: idSchema,
-  organizationId: idSchema,
-  messages: z.array(chatMessageSchema),
-  createdAt: timestampSchema,
-  updatedAt: timestampSchema,
-  metadata: z.record(z.string(), z.unknown()).optional()
-});
+// Session schemas removed - using conversations instead
+// Legacy sessionSchema kept for backward compatibility but not used
 
 // Export schemas
 export const exportRequestSchema = z.object({
@@ -150,12 +143,7 @@ export const practiceIdQuerySchema = z.object({
 });
 
 // Session request body schema
-export const sessionRequestBodySchema = z.object({
-  practiceId: z.string().min(1).optional(),
-  sessionId: z.string().min(1).optional(),
-  sessionToken: z.string().min(1).optional(),
-  retentionHorizonDays: z.number().int().positive().optional()
-});
+// sessionRequestBodySchema removed - sessions endpoint removed
 
 // Headers schemas
 export const authHeadersSchema = z.object({

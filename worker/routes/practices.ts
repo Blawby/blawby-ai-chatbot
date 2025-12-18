@@ -164,34 +164,49 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
         const limit = parseLimit(url.searchParams.get('limit'));
 
         if (resource === 'sessions') {
-          const stateFilter = url.searchParams.get('state');
+          // Sessions removed - returning conversations instead
+          // Note: This endpoint may need to be renamed to 'conversations' in the future
+          const statusFilter = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
           const baseQuery = `
             SELECT id,
-                   state,
-                   status_reason as statusReason,
-                   is_hold as isHold,
+                   status,
+                   practice_id as practiceId,
+                   user_id as userId,
+                   matter_id as matterId,
+                   participants,
+                   user_info as userInfo,
+                   assigned_to as assignedTo,
+                   priority,
+                   tags,
+                   internal_notes as internalNotes,
+                   last_message_at as lastMessageAt,
+                   first_response_at as firstResponseAt,
                    created_at as createdAt,
-                   updated_at as updatedAt,
-                   last_active as lastActive,
-                   closed_at as closedAt,
-                   user_id as userId
-              FROM chat_sessions
-             WHERE organization_id = ?
-             ${stateFilter ? 'AND state = ?' : ''}
-             ORDER BY last_active DESC
+                   updated_at as updatedAt
+              FROM conversations
+             WHERE practice_id = ?
+             ${statusFilter ? 'AND status = ?' : ''}
+             ORDER BY updated_at DESC
              LIMIT ?`;
 
-          const bindings = stateFilter
-            ? [practice.id, stateFilter, limit]
+          const bindings = statusFilter
+            ? [practice.id, statusFilter, limit]
             : [practice.id, limit];
 
-          const sessions = await env.DB.prepare(baseQuery).bind(...bindings).all();
+          const conversations = await env.DB.prepare(baseQuery).bind(...bindings).all();
 
           // Preact usage: feed conversation list or analytics widgets.
           return createSuccessResponse({
-            sessions: sessions.results?.map(session => ({
-              ...session,
-              isHold: Boolean(session.isHold)
+            sessions: conversations.results?.map(conv => ({
+              id: conv.id,
+              state: conv.status, // Map status to state for backward compatibility
+              statusReason: null,
+              isHold: false,
+              createdAt: conv.createdAt,
+              updatedAt: conv.updatedAt,
+              lastActive: conv.lastMessageAt || conv.updatedAt,
+              closedAt: conv.status === 'closed' ? conv.updatedAt : null,
+              userId: conv.userId
             })) ?? []
           });
         }
