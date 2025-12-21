@@ -10,11 +10,64 @@ function isValidRole(role: unknown): role is Role {
 }
 
 function findPractice(practiceId: string) {
-  return mockDb.practices.find((practice) => practice.id === practiceId || practice.slug === practiceId);
+  const byId = mockDb.practices.find((practice) => practice.id === practiceId);
+  if (byId) {
+    return byId;
+  }
+  return mockDb.practices.find((practice) => practice.slug === practiceId);
 }
 
 function notFound(message: string) {
   return HttpResponse.json({ success: false, error: message }, { status: 404 });
+}
+
+function getOrCreateConversation(request: Request): { conversation: MockConversation } | { error: HttpResponse } {
+  const url = new URL(request.url);
+  const practiceId = url.searchParams.get('practiceId');
+
+  if (!practiceId) {
+    return { error: HttpResponse.json({ error: 'practiceId is required' }, { status: 400 }) };
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { error: HttpResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const token = authHeader.replace('Bearer ', '').trim();
+  const user = getOrCreateAnonymousUser(token);
+  const isAnonymous = !user.email || user.email === '';
+
+  let conversation = findConversationByPracticeAndUser(practiceId, user.id, isAnonymous);
+
+  if (!conversation) {
+    const convId = randomId('conv');
+    const now = new Date().toISOString();
+    conversation = {
+      id: convId,
+      practice_id: practiceId,
+      user_id: isAnonymous ? null : user.id,
+      matter_id: null,
+      participants: [user.id],
+      user_info: null,
+      status: 'active',
+      assigned_to: null,
+      priority: 'normal',
+      tags: undefined,
+      internal_notes: null,
+      last_message_at: null,
+      first_response_at: null,
+      closed_at: null,
+      created_at: now,
+      updated_at: now
+    };
+    mockDb.conversations.set(convId, conversation);
+    mockDb.messages.set(convId, []);
+  } else if (!mockDb.messages.has(conversation.id)) {
+    mockDb.messages.set(conversation.id, []);
+  }
+
+  return { conversation };
 }
 
 export const handlers = [
@@ -415,109 +468,29 @@ export const handlers = [
   // GET /api/conversations - Get or create conversation for anonymous users
   http.get('/api/conversations', async ({ request }) => {
     console.log('[MSW] Intercepted GET /api/conversations', request.url);
-    const url = new URL(request.url);
-    const practiceId = url.searchParams.get('practiceId');
-    
-    if (!practiceId) {
-      return HttpResponse.json({ error: 'practiceId is required' }, { status: 400 });
-    }
-
-    // Get auth token from header
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[MSW] No auth header found');
-      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const token = authHeader.replace('Bearer ', '').trim();
-    const user = getOrCreateAnonymousUser(token);
-    const isAnonymous = !user.email || user.email === '';
-    
-    // Find existing conversation or create new one
-    let conversation = findConversationByPracticeAndUser(practiceId, user.id, isAnonymous);
-    
-    if (!conversation) {
-      // Create new conversation
-      const convId = randomId('conv');
-      const now = new Date().toISOString();
-      conversation = {
-        id: convId,
-        practice_id: practiceId,
-        user_id: isAnonymous ? null : user.id,
-        matter_id: null,
-        participants: [user.id],
-        user_info: null,
-        status: 'active',
-        assigned_to: null,
-        priority: 'normal',
-        tags: undefined,
-        internal_notes: null,
-        last_message_at: null,
-        first_response_at: null,
-        closed_at: null,
-        created_at: now,
-        updated_at: now
-      };
-      mockDb.conversations.set(convId, conversation);
-      mockDb.messages.set(convId, []);
+    const result = getOrCreateConversation(request);
+    if ('error' in result) {
+      return result.error;
     }
     
     // Return single conversation object for anonymous users (matches real API)
     // But wrap it in an array for consistency with useConversations hook
     return HttpResponse.json({
       success: true,
-      data: { conversations: [conversation] }
+      data: { conversations: [result.conversation] }
     });
   }),
 
   // GET /api/conversations/active - Same as above
   http.get('/api/conversations/active', async ({ request }) => {
-    const url = new URL(request.url);
-    const practiceId = url.searchParams.get('practiceId');
-    
-    if (!practiceId) {
-      return HttpResponse.json({ error: 'practiceId is required' }, { status: 400 });
-    }
-
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const token = authHeader.replace('Bearer ', '').trim();
-    const user = getOrCreateAnonymousUser(token);
-    const isAnonymous = !user.email || user.email === '';
-    
-    let conversation = findConversationByPracticeAndUser(practiceId, user.id, isAnonymous);
-    
-    if (!conversation) {
-      const convId = randomId('conv');
-      const now = new Date().toISOString();
-      conversation = {
-        id: convId,
-        practice_id: practiceId,
-        user_id: isAnonymous ? null : user.id,
-        matter_id: null,
-        participants: [user.id],
-        user_info: null,
-        status: 'active',
-        assigned_to: null,
-        priority: 'normal',
-        tags: undefined,
-        internal_notes: null,
-        last_message_at: null,
-        first_response_at: null,
-        closed_at: null,
-        created_at: now,
-        updated_at: now
-      };
-      mockDb.conversations.set(convId, conversation);
-      mockDb.messages.set(convId, []);
+    const result = getOrCreateConversation(request);
+    if ('error' in result) {
+      return result.error;
     }
     
     return HttpResponse.json({
       success: true,
-      data: { conversation }
+      data: { conversation: result.conversation }
     });
   }),
 
