@@ -4,6 +4,7 @@ import { ChatMessageUI, FileAttachment } from '../../worker/types';
 import { ContactData } from '../components/ContactForm';
 import { getTokenAsync } from '../lib/tokenStorage';
 import { getApiConfig, getChatMessagesEndpoint } from '../config/api';
+import { submitContactForm } from '../utils/forms';
 import type { ConversationMessage } from '../types/conversation';
 
 // Tool name to user-friendly message mapping
@@ -38,6 +39,7 @@ interface ChatMessageHistoryEntry {
 
 interface UseMessageHandlingOptions {
   practiceId?: string;
+  practiceSlug?: string;
   conversationId?: string; // Required for user-to-user chat
   onError?: (error: string) => void;
 }
@@ -58,7 +60,7 @@ export const useMessageHandlingWithContext = ({ conversationId, onError }: Omit<
  * Note: For user-to-user chat, conversationId is required.
  * This hook will fetch messages on mount if conversationId is provided.
  */
-export const useMessageHandling = ({ practiceId, conversationId, onError }: UseMessageHandlingOptions) => {
+export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, onError }: UseMessageHandlingOptions) => {
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const isDisposedRef = useRef(false);
@@ -301,6 +303,21 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
 
+      const resolvedPracticeSlug = (practiceSlug ?? practiceId ?? '').trim();
+      if (!resolvedPracticeSlug) {
+        throw new Error('Practice slug is required to submit intake');
+      }
+
+      await submitContactForm(
+        {
+          ...contactData,
+          sessionId: conversationId
+        },
+        resolvedPracticeSlug,
+        () => {},
+        () => {}
+      );
+
       const response = await fetch(getChatMessagesEndpoint(), {
         method: 'POST',
         headers,
@@ -358,7 +375,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
       throw error; // Re-throw so form can handle the error state
     }
-  }, [conversationId, toUIMessage, onError, logDev]);
+  }, [conversationId, practiceId, practiceSlug, toUIMessage, onError, logDev]);
 
   // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {

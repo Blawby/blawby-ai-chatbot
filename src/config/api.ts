@@ -73,8 +73,7 @@ export const getChatEndpoint = () => {
 };
 
 export const getFormsEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/forms`;
+  return `${getRemoteApiUrl()}/api/practice-client-intakes/submit`;
 };
 
 // Practice workspace endpoints (chatbot data) - still local

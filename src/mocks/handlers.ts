@@ -688,11 +688,16 @@ export const handlers = [
     });
   }),
 
-  http.post('/api/forms', async () => {
+  http.post('/api/practice-client-intakes/submit', async ({ request }) => {
+    const body = await request.json().catch(() => ({})) as { slug?: string };
     return HttpResponse.json({
       success: true,
       data: {
-        id: randomId('form')
+        matter_id: randomId('matter'),
+        matter_number: `MAT-${randomId('num')}`,
+        practice_id: body.slug || randomId('practice'),
+        status: 'lead',
+        message: 'Lead submitted successfully. A team member will follow up soon.'
       }
     });
   }),

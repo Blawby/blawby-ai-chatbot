@@ -3,7 +3,6 @@
 import {
   handleHealth,
   handleRoot,
-  handleForms,
   handleActivity,
   handleFiles,
   handleAnalyze,
@@ -82,8 +81,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       });
     } else if (path.startsWith('/api/practice')) {
       response = await proxyPracticeRequest(request, env, path, url.search);
-    } else if (path.startsWith('/api/forms')) {
-      response = await handleForms(request, env);
     } else if (path.startsWith('/api/auth')) {
       // Auth requests are handled by remote auth server
       response = new Response(JSON.stringify({ error: 'Auth endpoints are handled by remote auth server' }), {

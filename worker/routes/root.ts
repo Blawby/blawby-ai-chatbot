@@ -12,7 +12,6 @@ export async function handleRoot(_request: Request, _env: Env): Promise<Response
     <h1>Blawby Chatbot API</h1>
     <p>Legal assistance with matter building (AI functionality removed - user-to-user chat coming soon)</p>
     <ul>
-        <li><strong>POST</strong> /api/forms - Contact submissions</li>
         <li><strong>POST</strong> /api/analyze - Document analysis (Adobe PDF Services)</li>
         <li><strong>POST</strong> /api/files - File uploads</li>
         <li><strong>GET/POST</strong> /api/conversations - Conversation management</li>
