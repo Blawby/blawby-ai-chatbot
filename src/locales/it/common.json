@@ -101,10 +101,12 @@
     "contactForm": {
       "location": "Località",
       "opposingParty": "Parte avversa (facoltativo)",
+      "description": "Dettagli del caso (facoltativo)",
       "submit": "Invia informazioni di contatto",
       "placeholders": {
         "location": "Città, regione (es. Roma, Lazio)",
-        "opposingParty": "Nome dell'altra parte (se applicabile)"
+        "opposingParty": "Nome dell'altra parte (se applicabile)",
+        "description": "Si prega di descrivere la tua situazione legale e qualsiasi dettaglio rilevante"
       }
     }
   },

@@ -4,13 +4,14 @@ import { Input } from './ui/input/Input';
 import { EmailInput } from './ui/input/EmailInput';
 import { PhoneInput } from './ui/input/PhoneInput';
 import { LocationInput } from './ui/input/LocationInput';
+import { Textarea } from './ui/input/Textarea';
 import { Button } from './ui/Button';
 import { useTranslation } from '@/i18n/hooks';
 import { schemas } from './ui/validation/schemas';
 import type { JSX } from 'preact';
 
 // Constants for allowed field names
-export const ALLOWED_FIELDS = ['name', 'email', 'phone', 'location', 'opposingParty'] as const;
+export const ALLOWED_FIELDS = ['name', 'email', 'phone', 'location', 'opposingParty', 'description'] as const;
 export type AllowedField = typeof ALLOWED_FIELDS[number];
 
 export interface ContactFormProps {
@@ -27,6 +28,7 @@ export interface ContactData {
   phone: string;
   location: string;
   opposingParty?: string;
+  description?: string;
 }
 
 interface ValidatedProps {
@@ -111,7 +113,8 @@ function normalizeInitialValues(values?: Partial<ContactData>): Partial<ContactD
     email: typeof values?.email === 'string' && values.email.trim() ? values.email.trim() : undefined,
     phone: typeof values?.phone === 'string' && values.phone.trim() ? values.phone.trim() : undefined,
     location: typeof values?.location === 'string' && values.location.trim() ? values.location.trim() : undefined,
-    opposingParty: typeof values?.opposingParty === 'string' && values.opposingParty.trim() ? values.opposingParty.trim() : undefined
+    opposingParty: typeof values?.opposingParty === 'string' && values.opposingParty.trim() ? values.opposingParty.trim() : undefined,
+    description: typeof values?.description === 'string' && values.description.trim() ? values.description.trim() : undefined
   };
 }
 
@@ -150,7 +153,8 @@ export function ContactForm({
     email: normalizedInitialValues.email ?? '',
     phone: normalizedInitialValues.phone ?? '',
     location: normalizedInitialValues.location ?? '',
-    opposingParty: normalizedInitialValues.opposingParty ?? ''
+    opposingParty: normalizedInitialValues.opposingParty ?? '',
+    description: normalizedInitialValues.description ?? ''
   };
 
   return (
@@ -170,7 +174,8 @@ export function ContactForm({
             email: (formData.email as string) || '',
             phone: (formData.phone as string) || '',
             location: (formData.location as string) || '',
-            opposingParty: formData.opposingParty as string | undefined
+            opposingParty: formData.opposingParty as string | undefined,
+            description: formData.description as string | undefined
           };
           return onSubmit(contactData);
         }}
@@ -269,6 +274,26 @@ export function ContactForm({
                   required={false}
                   error={error?.message}
                   variant={error ? 'error' : 'default'}
+                />
+              )}
+            </FormField>
+          </FormItem>
+        )}
+
+        {validFields.includes('description') && (
+          <FormItem>
+            <FormField name="description">
+              {({ value, error, onChange }) => (
+                <Textarea
+                  value={value as string || ''}
+                  onChange={onChange}
+                  label={t('forms.contactForm.description')}
+                  placeholder={t('forms.contactForm.placeholders.description')}
+                  required={false}
+                  error={error?.message}
+                  variant={error ? 'error' : 'default'}
+                  rows={4}
+                  resize="vertical"
                 />
               )}
             </FormField>

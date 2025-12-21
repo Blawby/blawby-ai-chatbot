@@ -122,7 +122,7 @@ export interface SendMessageRequest {
 export interface GetMessagesResponse {
   messages: ConversationMessage[];
   hasMore: boolean;
-  nextCursor: string | null;
+  nextCursor?: string | null;
 }
 
 /**
@@ -134,4 +134,3 @@ export interface GetMessagesOptions {
   cursor?: string;
   since?: string; // ISO timestamp for polling new messages
 }
-

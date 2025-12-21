@@ -1,161 +1,163 @@
 {
   "app": {
-    "loading": "[NEEDS TRANSLATION] Loading…"
+    "loading": "กำลังโหลด…"
   },
   "notifications": {
-    "settingsSavedTitle": "[NEEDS TRANSLATION] Settings saved",
-    "settingsSavedBody": "[NEEDS TRANSLATION] Your preferences have been updated."
+    "settingsSavedTitle": "บันทึกการตั้งค่าแล้ว",
+    "settingsSavedBody": "การตั้งค่าของคุณได้รับการอัปเดตแล้ว"
   },
   "language": {
-    "auto": "[NEEDS TRANSLATION] Auto-detect",
-    "en": "[NEEDS TRANSLATION] English",
-    "vi": "[NEEDS TRANSLATION] Tiếng Việt",
-    "es": "[NEEDS TRANSLATION] Español",
-    "fr": "[NEEDS TRANSLATION] Français",
-    "de": "[NEEDS TRANSLATION] Deutsch",
-    "zh": "[NEEDS TRANSLATION] 中文",
-    "ja": "[NEEDS TRANSLATION] 日本語",
-    "pt": "[NEEDS TRANSLATION] Português",
-    "ar": "[NEEDS TRANSLATION] العربية",
-    "ru": "[NEEDS TRANSLATION] Русский",
-    "it": "[NEEDS TRANSLATION] Italiano",
-    "ko": "[NEEDS TRANSLATION] 한국어",
-    "nl": "[NEEDS TRANSLATION] Nederlands",
-    "pl": "[NEEDS TRANSLATION] Polski",
-    "tr": "[NEEDS TRANSLATION] Türkçe",
-    "th": "[NEEDS TRANSLATION] ไทย",
-    "id": "[NEEDS TRANSLATION] Bahasa Indonesia",
-    "hi": "[NEEDS TRANSLATION] हिन्दी",
-    "uk": "[NEEDS TRANSLATION] Українська"
+    "auto": "ตรวจจับอัตโนมัติ",
+    "en": "English",
+    "vi": "Tiếng Việt",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "pt": "Português",
+    "ar": "العربية",
+    "ru": "Русский",
+    "it": "Italiano",
+    "ko": "한국어",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "tr": "Türkçe",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "hi": "हिन्दी",
+    "uk": "Українська"
   },
   "forms": {
     "labels": {
-      "name": "[NEEDS TRANSLATION] Full Name",
-      "email": "[NEEDS TRANSLATION] Email Address",
-      "phone": "[NEEDS TRANSLATION] Phone Number",
-      "password": "[NEEDS TRANSLATION] Password",
-      "confirmPassword": "[NEEDS TRANSLATION] Confirm Password",
-      "birthday": "[NEEDS TRANSLATION] Birthday",
-      "terms": "[NEEDS TRANSLATION] Terms and Conditions",
-      "privacy": "[NEEDS TRANSLATION] Privacy Policy",
-      "search": "[NEEDS TRANSLATION] Search",
-      "select": "[NEEDS TRANSLATION] Select an option",
-      "upload": "[NEEDS TRANSLATION] Upload File",
-      "message": "[NEEDS TRANSLATION] Message",
-      "subject": "[NEEDS TRANSLATION] Subject"
+      "name": "ชื่อเต็ม",
+      "email": "ที่อยู่อีเมล",
+      "phone": "หมายเลขโทรศัพท์",
+      "password": "รหัสผ่าน",
+      "confirmPassword": "ยืนยันรหัสผ่าน",
+      "birthday": "วันเกิด",
+      "terms": "ข้อกำหนดและเงื่อนไข",
+      "privacy": "นโยบายความเป็นส่วนตัว",
+      "search": "ค้นหา",
+      "select": "เลือกตัวเลือก",
+      "upload": "อัปโหลดไฟล์",
+      "message": "ข้อความ",
+      "subject": "หัวข้อ"
     },
     "placeholders": {
-      "name": "[NEEDS TRANSLATION] Enter your full name",
-      "email": "[NEEDS TRANSLATION] Enter your email address",
-      "phone": "[NEEDS TRANSLATION] Enter your phone number",
-      "password": "[NEEDS TRANSLATION] Enter your password",
-      "confirmPassword": "[NEEDS TRANSLATION] Confirm your password",
-      "birthday": "[NEEDS TRANSLATION] Select your birthday",
-      "search": "[NEEDS TRANSLATION] Search...",
-      "select": "[NEEDS TRANSLATION] Select an option",
-      "message": "[NEEDS TRANSLATION] Enter your message",
-      "subject": "[NEEDS TRANSLATION] Enter your subject"
+      "name": "กรุณากรอกชื่อเต็ม",
+      "email": "กรุณากรอกที่อยู่อีเมล",
+      "phone": "กรุณากรอกหมายเลขโทรศัพท์",
+      "password": "กรุณากรอกรหัสผ่าน",
+      "confirmPassword": "กรุณายืนยันรหัสผ่าน",
+      "birthday": "เลือกวันเกิด",
+      "search": "ค้นหา...",
+      "select": "เลือกตัวเลือก",
+      "message": "กรุณากรอกข้อความ",
+      "subject": "กรุณากรอกหัวข้อ"
     },
     "descriptions": {
-      "optional": "[NEEDS TRANSLATION] Optional",
-      "required": "[NEEDS TRANSLATION] Required",
-      "passwordHelp": "[NEEDS TRANSLATION] Must be at least 8 characters long",
-      "phoneHelp": "[NEEDS TRANSLATION] Include country code for international numbers",
-      "fileHelp": "[NEEDS TRANSLATION] Supported formats: PDF, DOC, DOCX"
+      "optional": "ไม่บังคับ",
+      "required": "จำเป็น",
+      "passwordHelp": "ต้องมีความยาวอย่างน้อย 8 ตัวอักษร",
+      "phoneHelp": "กรุณาใส่รหัสประเทศสำหรับหมายเลขโทรศัพท์ต่างประเทศ",
+      "fileHelp": "รูปแบบที่รองรับ: PDF, DOC, DOCX"
     },
     "validation": {
-      "required": "[NEEDS TRANSLATION] This field is required",
-      "email": "[NEEDS TRANSLATION] Please enter a valid email address",
-      "phone": "[NEEDS TRANSLATION] Please enter a valid phone number",
-      "password": "[NEEDS TRANSLATION] Password must be at least 8 characters",
-      "confirmPassword": "[NEEDS TRANSLATION] Passwords do not match",
-      "date": "[NEEDS TRANSLATION] Please enter a valid date (MM/DD/YYYY)",
-      "futureDate": "[NEEDS TRANSLATION] Date cannot be in the future",
-      "fileType": "[NEEDS TRANSLATION] Please select a valid file type",
-      "fileSize": "[NEEDS TRANSLATION] File size must be less than 10MB",
-      "termsRequired": "[NEEDS TRANSLATION] You must agree to the terms"
+      "required": "ช่องนี้จำเป็นต้องกรอก",
+      "email": "กรุณากรอกที่อยู่อีเมลที่ถูกต้อง",
+      "phone": "กรุณากรอกหมายเลขโทรศัพท์ที่ถูกต้อง",
+      "password": "รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร",
+      "confirmPassword": "รหัสผ่านไม่ตรงกัน",
+      "date": "กรุณากรอกวันที่ที่ถูกต้อง (วว/ดด/ปปปป)",
+      "futureDate": "วันที่ไม่สามารถเป็นอนาคตได้",
+      "fileType": "กรุณาเลือกประเภทไฟล์ที่ถูกต้อง",
+      "fileSize": "ขนาดไฟล์ต้องน้อยกว่า 10MB",
+      "termsRequired": "คุณต้องยอมรับข้อกำหนด"
     },
     "accessibility": {
-      "togglePassword": "[NEEDS TRANSLATION] Toggle password visibility",
-      "clearSearch": "[NEEDS TRANSLATION] Clear search",
-      "selectOption": "[NEEDS TRANSLATION] Select option",
-      "removeOption": "[NEEDS TRANSLATION] Remove option",
-      "uploadFile": "[NEEDS TRANSLATION] Upload file",
-      "removeFile": "[NEEDS TRANSLATION] Remove file",
-      "calendarOpen": "[NEEDS TRANSLATION] Open calendar",
-      "calendarClose": "[NEEDS TRANSLATION] Close calendar"
+      "togglePassword": "สลับการแสดงรหัสผ่าน",
+      "clearSearch": "ล้างการค้นหา",
+      "selectOption": "เลือกตัวเลือก",
+      "removeOption": "ลบตัวเลือก",
+      "uploadFile": "อัปโหลดไฟล์",
+      "removeFile": "ลบไฟล์",
+      "calendarOpen": "เปิดปฏิทิน",
+      "calendarClose": "ปิดปฏิทิน"
     },
     "actions": {
-      "submit": "[NEEDS TRANSLATION] Submit",
-      "submitting": "[NEEDS TRANSLATION] Submitting...",
-      "reset": "[NEEDS TRANSLATION] Reset",
-      "cancel": "[NEEDS TRANSLATION] Cancel",
-      "save": "[NEEDS TRANSLATION] Save",
-      "saving": "[NEEDS TRANSLATION] Saving..."
+      "submit": "ส่ง",
+      "submitting": "กำลังส่ง...",
+      "reset": "รีเซ็ต",
+      "cancel": "ยกเลิก",
+      "save": "บันทึก",
+      "saving": "กำลังบันทึก..."
     },
     "examples": {
       "validatedForm": {
-        "title": "[NEEDS TRANSLATION] Validated Form Example"
+        "title": "ตัวอย่างแบบฟอร์มที่ตรวจสอบแล้ว"
       }
     },
     "contactForm": {
-      "location": "[NEEDS TRANSLATION] Location",
-      "opposingParty": "[NEEDS TRANSLATION] Opposing Party (Optional)",
-      "submit": "[NEEDS TRANSLATION] Submit Contact Information",
+      "location": "สถานที่",
+      "opposingParty": "คู่กรณี (ไม่บังคับ)",
+      "description": "รายละเอียดคดี (ไม่บังคับ)",
+      "submit": "ส่งข้อมูลติดต่อ",
       "placeholders": {
-        "location": "[NEEDS TRANSLATION] City, State (e.g., New York, NY)",
-        "opposingParty": "[NEEDS TRANSLATION] Name of the other party involved (if any)"
+        "location": "เมือง, จังหวัด (เช่น กรุงเทพมหานคร)",
+        "opposingParty": "ชื่อของอีกฝ่ายที่เกี่ยวข้อง (ถ้ามี)",
+        "description": "กรุณาอธิบายสถานการณ์ทางกฎหมายและรายละเอียดที่เกี่ยวข้อง"
       }
     }
   },
   "onboarding": {
-    "title": "[NEEDS TRANSLATION] Welcome to Blawby AI",
-    "subtitle": "[NEEDS TRANSLATION] Let's get you set up",
+    "title": "ยินดีต้อนรับสู่ Blawby AI",
+    "subtitle": "มาเริ่มตั้งค่ากันเลย",
     "step1": {
-      "title": "[NEEDS TRANSLATION] Tell us about you",
-      "subtitle": "[NEEDS TRANSLATION] Help us personalize your experience",
-      "fullName": "[NEEDS TRANSLATION] Full name",
-      "fullNamePlaceholder": "[NEEDS TRANSLATION] Enter your full name",
-      "birthday": "[NEEDS TRANSLATION] Birthday",
-      "birthdayPlaceholder": "[NEEDS TRANSLATION] MM/DD/YYYY",
-      "termsAgreement": "[NEEDS TRANSLATION] By clicking \"Continue\", you agree to our <termsLink>Terms</termsLink> and have read our <privacyLink>Privacy Policy</privacyLink>.",
-      "continue": "[NEEDS TRANSLATION] Continue",
-      "back": "[NEEDS TRANSLATION] Back",
-      "required": "[NEEDS TRANSLATION] This field is required"
+      "title": "บอกเราเกี่ยวกับคุณ",
+      "subtitle": "ช่วยเราปรับแต่งประสบการณ์ของคุณ",
+      "fullName": "ชื่อเต็ม",
+      "fullNamePlaceholder": "กรุณากรอกชื่อเต็ม",
+      "birthday": "วันเกิด",
+      "birthdayPlaceholder": "วว/ดด/ปปปป",
+      "termsAgreement": "โดยการคลิก \"ดำเนินการต่อ\" คุณยอมรับ <termsLink>ข้อกำหนด</termsLink> ของเราและได้อ่าน <privacyLink>นโยบายความเป็นส่วนตัว</privacyLink> ของเราแล้ว",
+      "continue": "ดำเนินการต่อ",
+      "back": "ย้อนกลับ",
+      "required": "ช่องนี้จำเป็นต้องกรอก"
     },
     "step2": {
-      "title": "[NEEDS TRANSLATION] What do you want to use Blawby AI for?",
-      "subtitle": "[NEEDS TRANSLATION] This helps us provide more relevant suggestions",
+      "title": "คุณต้องการใช้ Blawby AI เพื่ออะไร?",
+      "subtitle": "สิ่งนี้ช่วยให้เราสามารถให้คำแนะนำที่เกี่ยวข้องมากขึ้น",
       "options": {
-        "personal": "[NEEDS TRANSLATION] Personal Legal Issues",
-        "business": "[NEEDS TRANSLATION] Business Legal Needs",
-        "research": "[NEEDS TRANSLATION] Legal Research",
-        "documents": "[NEEDS TRANSLATION] Document Review",
-        "other": "[NEEDS TRANSLATION] Other"
+        "personal": "ปัญหาทางกฎหมายส่วนตัว",
+        "business": "ความต้องการทางกฎหมายทางธุรกิจ",
+        "research": "การวิจัยทางกฎหมาย",
+        "documents": "การตรวจสอบเอกสาร",
+        "other": "อื่นๆ"
       },
-      "otherPlaceholder": "[NEEDS TRANSLATION] Tell us more...",
-      "next": "[NEEDS TRANSLATION] Next",
-      "skip": "[NEEDS TRANSLATION] Skip"
+      "otherPlaceholder": "บอกเราเพิ่มเติม...",
+      "next": "ถัดไป",
+      "skip": "ข้าม"
     },
     "welcome": {
-      "title": "[NEEDS TRANSLATION] Blawby AI",
-      "subtitle": "[NEEDS TRANSLATION] Tips for getting started",
+      "title": "Blawby AI",
+      "subtitle": "เคล็ดลับสำหรับการเริ่มต้น",
       "tips": {
         "askAway": {
-          "title": "[NEEDS TRANSLATION] Ask away",
-          "description": "[NEEDS TRANSLATION] Blawby AI can answer legal questions, help you understand legal concepts, review documents, and much more."
+          "title": "ถามได้เลย",
+          "description": "Blawby AI สามารถตอบคำถามทางกฎหมาย ช่วยให้คุณเข้าใจแนวคิดทางกฎหมาย ตรวจสอบเอกสาร และอื่นๆ อีกมากมาย"
         },
         "privacy": {
-          "title": "[NEEDS TRANSLATION] Don't share sensitive info",
-          "description": "[NEEDS TRANSLATION] Chat history may be reviewed or used to improve our services. Learn more about your choices in our <helpCenterLink>Help Center</helpCenterLink>."
+          "title": "อย่าแชร์ข้อมูลที่ละเอียดอ่อน",
+          "description": "ประวัติการสนทนาอาจถูกตรวจสอบหรือใช้เพื่อปรับปรุงบริการของเรา เรียนรู้เพิ่มเติมเกี่ยวกับตัวเลือกของคุณใน <helpCenterLink>ศูนย์ช่วยเหลือ</helpCenterLink> ของเรา"
         },
         "accuracy": {
-          "title": "[NEEDS TRANSLATION] Check your facts",
-          "description": "[NEEDS TRANSLATION] While we have safeguards, Blawby AI may give you inaccurate information. It's not intended to give legal advice."
+          "title": "ตรวจสอบข้อเท็จจริงของคุณ",
+          "description": "แม้ว่าเราจะมีการป้องกัน แต่ Blawby AI อาจให้ข้อมูลที่ไม่ถูกต้องแก่คุณ ไม่ได้มีวัตถุประสงค์เพื่อให้คำแนะนำทางกฎหมาย"
         }
       },
-      "helpCenter": "[NEEDS TRANSLATION] Help Center",
-      "letsGo": "[NEEDS TRANSLATION] Okay, let's go"
+      "helpCenter": "ศูนย์ช่วยเหลือ",
+      "letsGo": "โอเค ไปกันเลย"
     }
   }
 }

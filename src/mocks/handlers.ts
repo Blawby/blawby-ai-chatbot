@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
-import { mockDb, ensurePracticeCollections, randomId } from './mockData';
-import type { MockPractice, MockInvitation } from './mockData';
+import { mockDb, ensurePracticeCollections, randomId, getAnonymousUserByToken, getOrCreateAnonymousUser, findConversationByPracticeAndUser } from './mockData';
+import type { MockPractice, MockInvitation, MockConversation, MockMessage } from './mockData';
 
 const ALLOWED_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal'] as const);
 type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -10,11 +10,64 @@ function isValidRole(role: unknown): role is Role {
 }
 
 function findPractice(practiceId: string) {
-  return mockDb.practices.find((practice) => practice.id === practiceId);
+  const byId = mockDb.practices.find((practice) => practice.id === practiceId);
+  if (byId) {
+    return byId;
+  }
+  return mockDb.practices.find((practice) => practice.slug === practiceId);
 }
 
 function notFound(message: string) {
   return HttpResponse.json({ success: false, error: message }, { status: 404 });
+}
+
+function getOrCreateConversation(request: Request): { conversation: MockConversation } | { error: HttpResponse } {
+  const url = new URL(request.url);
+  const practiceId = url.searchParams.get('practiceId');
+
+  if (!practiceId) {
+    return { error: HttpResponse.json({ error: 'practiceId is required' }, { status: 400 }) };
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { error: HttpResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const token = authHeader.replace('Bearer ', '').trim();
+  const user = getOrCreateAnonymousUser(token);
+  const isAnonymous = !user.email || user.email === '';
+
+  let conversation = findConversationByPracticeAndUser(practiceId, user.id, isAnonymous);
+
+  if (!conversation) {
+    const convId = randomId('conv');
+    const now = new Date().toISOString();
+    conversation = {
+      id: convId,
+      practice_id: practiceId,
+      user_id: isAnonymous ? null : user.id,
+      matter_id: null,
+      participants: [user.id],
+      user_info: null,
+      status: 'active',
+      assigned_to: null,
+      priority: 'normal',
+      tags: undefined,
+      internal_notes: null,
+      last_message_at: null,
+      first_response_at: null,
+      closed_at: null,
+      created_at: now,
+      updated_at: now
+    };
+    mockDb.conversations.set(convId, conversation);
+    mockDb.messages.set(convId, []);
+  } else if (!mockDb.messages.has(conversation.id)) {
+    mockDb.messages.set(conversation.id, []);
+  }
+
+  return { conversation };
 }
 
 export const handlers = [
@@ -65,8 +118,10 @@ export const handlers = [
   }),
 
   http.get('/api/practice/:practiceId', ({ params }) => {
+    console.log('[MSW] Intercepted GET /api/practice/:practiceId', params.practiceId);
     const practice = findPractice(String(params.practiceId));
     if (!practice) {
+      console.log('[MSW] Practice not found:', params.practiceId, 'Available:', mockDb.practices.map(p => ({ id: p.id, slug: p.slug })));
       return notFound('Practice not found');
     }
     return HttpResponse.json({ practice });
@@ -318,9 +373,530 @@ export const handlers = [
     });
   }),
 
+  http.get('*/api/auth/subscription/list', async () => {
+    return HttpResponse.json({
+      subscriptions: []
+    });
+  }),
+
+  http.post('*/api/auth/subscription/cancel', async () => {
+    return HttpResponse.json({
+      success: true
+    });
+  }),
+
   http.post('*/api/subscription/cancel', async () => {
     return HttpResponse.json({
       success: true
+    });
+  }),
+
+  // ============================================
+  // Guest Chat Flow Mocks
+  // ============================================
+  // Note: These handlers use same-origin paths because getRemoteApiUrl() 
+  // returns window.location.origin in development, allowing MSW to intercept
+
+  // Better Auth anonymous sign-in
+  // Better Auth returns { data: { user, session } } format
+  http.post('/api/auth/sign-in/anonymous', async () => {
+    console.log('[MSW] Intercepted POST /api/auth/sign-in/anonymous');
+    const token = `mock-anonymous-token-${randomId('token')}`;
+    const user = getAnonymousUserByToken(token);
+    if (!user) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Better Auth expects { data: { user, session } } format
+    // The client will transform this appropriately
+    return HttpResponse.json({
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          emailVerified: false,
+          email_verified: false,
+          image: null
+        },
+        session: {
+          id: `session-${user.id}`,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          userId: user.id,
+          user_id: user.id,
+          activeOrganizationId: null,
+          active_organization_id: null
+        }
+      }
+    }, {
+      headers: {
+        'set-auth-token': token,
+        'Set-Auth-Token': token, // Some clients use different case
+        'Set-Cookie': `better-auth.session_token=${token}; Path=/; HttpOnly; SameSite=Lax` // Also set as cookie for compatibility
+      }
+    });
+  }),
+
+  // Better Auth get-session (for token validation)
+  http.get('/api/auth/get-session', async ({ request }) => {
+    console.log('[MSW] Intercepted GET /api/auth/get-session', request.url);
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[MSW] No auth header in get-session request');
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '').trim();
+    
+    const user = getOrCreateAnonymousUser(token);
+    
+    return HttpResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        email_verified: false,
+        image: null
+      },
+      session: {
+        id: `session-${user.id}`,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        user_id: user.id,
+        active_organization_id: null
+      }
+    });
+  }),
+
+  // GET /api/conversations - Get or create conversation for anonymous users
+  http.get('/api/conversations', async ({ request }) => {
+    console.log('[MSW] Intercepted GET /api/conversations', request.url);
+    const result = getOrCreateConversation(request);
+    if ('error' in result) {
+      return result.error;
+    }
+    
+    // Return single conversation object for anonymous users (matches real API)
+    // But wrap it in an array for consistency with useConversations hook
+    return HttpResponse.json({
+      success: true,
+      data: { conversations: [result.conversation] }
+    });
+  }),
+
+  // GET /api/conversations/active - Same as above
+  http.get('/api/conversations/active', async ({ request }) => {
+    const result = getOrCreateConversation(request);
+    if ('error' in result) {
+      return result.error;
+    }
+    
+    return HttpResponse.json({
+      success: true,
+      data: { conversation: result.conversation }
+    });
+  }),
+
+  // POST /api/conversations - Create conversation
+  http.post('/api/conversations', async ({ request }) => {
+    console.log('[MSW] Intercepted POST /api/conversations', request.url);
+    const body = (await request.json().catch(() => ({}))) as {
+      participantUserIds?: string[];
+      matterId?: string;
+      metadata?: Record<string, unknown>;
+      practiceId?: string;
+    };
+    
+    const url = new URL(request.url);
+    // Check both query params and body for practiceId
+    const practiceId = url.searchParams.get('practiceId') || body.practiceId;
+    
+    console.log('[MSW] POST /api/conversations - practiceId:', practiceId, 'from query:', url.searchParams.get('practiceId'), 'from body:', body.practiceId);
+    
+    if (!practiceId) {
+      return HttpResponse.json({ error: 'practiceId is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    console.log('[MSW] POST /api/conversations - auth header:', authHeader ? 'present' : 'missing');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '').trim();
+    const user = getOrCreateAnonymousUser(token);
+    const isAnonymous = !user.email || user.email === '';
+    
+    const convId = randomId('conv');
+    const now = new Date().toISOString();
+    const participants = Array.from(new Set([user.id, ...(body.participantUserIds || [])]));
+    
+    const conversation: MockConversation = {
+      id: convId,
+      practice_id: practiceId,
+      user_id: isAnonymous ? null : user.id,
+      matter_id: body.matterId || null,
+      participants,
+      user_info: body.metadata || null,
+      status: 'active',
+      assigned_to: null,
+      priority: 'normal',
+      tags: undefined,
+      internal_notes: null,
+      last_message_at: null,
+      first_response_at: null,
+      closed_at: null,
+      created_at: now,
+      updated_at: now
+    };
+    
+    mockDb.conversations.set(convId, conversation);
+    mockDb.messages.set(convId, []);
+    
+    return HttpResponse.json({
+      success: true,
+      data: conversation
+    });
+  }),
+
+  // GET /api/chat/messages - Fetch messages for a conversation
+  http.get('/api/chat/messages', async ({ request }) => {
+    const url = new URL(request.url);
+    const conversationId = url.searchParams.get('conversationId');
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const since = url.searchParams.get('since');
+    
+    if (!conversationId) {
+      return HttpResponse.json({ error: 'conversationId is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const conversation = mockDb.conversations.get(conversationId);
+    if (!conversation) {
+      return HttpResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+    
+    let conversationMessages = mockDb.messages.get(conversationId) || [];
+    
+    // Filter by since timestamp if provided (for polling)
+    if (since) {
+      const sinceDate = new Date(since);
+      conversationMessages = conversationMessages.filter(msg => new Date(msg.created_at) > sinceDate);
+    }
+    
+    // Sort by created_at descending (newest first)
+    conversationMessages.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    // Apply limit
+    const limitedMessages = conversationMessages.slice(0, limit);
+    
+    // Reverse to oldest first (for display)
+    limitedMessages.reverse();
+    
+    return HttpResponse.json({
+      success: true,
+      data: {
+        messages: limitedMessages,
+        hasMore: conversationMessages.length > limit
+      }
+    });
+  }),
+
+  // POST /api/chat/messages - Send a message
+  http.post('/api/chat/messages', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      conversationId?: string;
+      content?: string;
+      attachments?: string[];
+      metadata?: Record<string, unknown>;
+    };
+    
+    if (!body.conversationId || !body.content) {
+      return HttpResponse.json({ error: 'conversationId and content are required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '').trim();
+    const user = getOrCreateAnonymousUser(token);
+    
+    const conversation = mockDb.conversations.get(body.conversationId);
+    if (!conversation) {
+      return HttpResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+    
+    // Verify user is a participant
+    if (!conversation.participants.includes(user.id)) {
+      return HttpResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+    
+    // Create message
+    const messageId = randomId('msg');
+    const now = new Date().toISOString();
+    const message: MockMessage = {
+      id: messageId,
+      conversation_id: body.conversationId,
+      practice_id: conversation.practice_id,
+      user_id: user.id,
+      role: 'user',
+      content: body.content,
+      metadata: body.metadata || (body.attachments ? { attachments: body.attachments } : null),
+      token_count: null,
+      created_at: now
+    };
+    
+    // Add message to conversation
+    const conversationMessages = mockDb.messages.get(body.conversationId) || [];
+    conversationMessages.push(message);
+    mockDb.messages.set(body.conversationId, conversationMessages);
+    
+    // Update conversation last_message_at
+    conversation.last_message_at = now;
+    conversation.updated_at = now;
+    
+    return HttpResponse.json({
+      success: true,
+      data: message
+    });
+  }),
+
+  // ============================================
+  // Additional dev-only mocks
+  // ============================================
+
+  http.post('/api/chat', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        message: 'ok'
+      }
+    });
+  }),
+
+  http.get('/api/health', async () => {
+    return HttpResponse.json({
+      status: 'ok'
+    });
+  }),
+
+  http.post('/api/forms', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        id: randomId('form')
+      }
+    });
+  }),
+
+  http.post('/api/users/welcome', async () => {
+    return HttpResponse.json({
+      success: true
+    });
+  }),
+
+  http.post('/api/matter-creation', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        id: randomId('matter')
+      }
+    });
+  }),
+
+  http.get('/api/lawyers', async ({ request }) => {
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1', 10);
+    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    return HttpResponse.json({
+      success: true,
+      data: {
+        lawyers: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          pages: 0
+        },
+        source: 'mock',
+        query: Object.fromEntries(url.searchParams.entries())
+      }
+    });
+  }),
+
+  http.get('/api/activity', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        items: [],
+        hasMore: false,
+        total: 0
+      }
+    });
+  }),
+
+  http.get('/api/inbox/conversations', async ({ request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+    const conversations = Array.from(mockDb.conversations.values());
+    const paged = conversations.slice(offset, offset + limit);
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        conversations: paged,
+        total: conversations.length,
+        limit,
+        offset
+      }
+    });
+  }),
+
+  http.get('/api/inbox/stats', async ({ request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const conversations = Array.from(mockDb.conversations.values());
+    const total = conversations.length;
+    return HttpResponse.json({
+      success: true,
+      data: {
+        total,
+        active: total,
+        unassigned: total,
+        assignedToMe: 0,
+        highPriority: 0,
+        archived: 0,
+        closed: 0
+      }
+    });
+  }),
+
+  http.post('/api/inbox/conversations/:conversationId/assign', async ({ params, request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as { assigned_to?: string | null };
+    const conversationId = String(params.conversationId);
+    const conversation = mockDb.conversations.get(conversationId);
+    if (!conversation) {
+      return notFound('Conversation not found');
+    }
+    conversation.assigned_to = body.assigned_to ?? null;
+    conversation.updated_at = new Date().toISOString();
+    mockDb.conversations.set(conversationId, conversation);
+
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.patch('/api/inbox/conversations/:conversationId', async ({ params, request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as Partial<MockConversation>;
+    const conversationId = String(params.conversationId);
+    const conversation = mockDb.conversations.get(conversationId);
+    if (!conversation) {
+      return notFound('Conversation not found');
+    }
+
+    const updatedConversation = {
+      ...conversation,
+      ...body,
+      updated_at: new Date().toISOString()
+    };
+    mockDb.conversations.set(conversationId, updatedConversation);
+
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post('/api/inbox/conversations/:conversationId/messages', async ({ params, request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as { content?: string; metadata?: Record<string, unknown> };
+    const conversationId = String(params.conversationId);
+    const conversation = mockDb.conversations.get(conversationId);
+    if (!conversation) {
+      return notFound('Conversation not found');
+    }
+
+    const messageId = randomId('msg');
+    const now = new Date().toISOString();
+    const message: MockMessage = {
+      id: messageId,
+      conversation_id: conversationId,
+      practice_id: conversation.practice_id,
+      user_id: 'mock-agent',
+      role: 'assistant',
+      content: body.content || '',
+      metadata: body.metadata || null,
+      token_count: null,
+      created_at: now
+    };
+
+    const conversationMessages = mockDb.messages.get(conversationId) || [];
+    conversationMessages.push(message);
+    mockDb.messages.set(conversationId, conversationMessages);
+
+    conversation.last_message_at = now;
+    conversation.updated_at = now;
+    mockDb.conversations.set(conversationId, conversation);
+
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post('/api/files/upload', async ({ request }) => {
+    const formData = await request.formData();
+    const file = formData.get('file');
+    const fileName = file instanceof File ? file.name : 'upload.bin';
+    const fileType = file instanceof File ? file.type || 'application/octet-stream' : 'application/octet-stream';
+    const fileSize = file instanceof File ? file.size : 0;
+    const fileId = randomId('file');
+    const storageKey = `uploads/mock/${fileId}/${fileName}`;
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        fileId,
+        fileName,
+        fileType,
+        fileSize,
+        url: `/api/files/${fileId}`,
+        storageKey
+      }
+    });
+  }),
+
+  http.get('/api/files/:fileId', async ({ params }) => {
+    const fileId = String(params.fileId);
+    return new HttpResponse(`Mock file ${fileId}`, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain'
+      }
     });
   })
 ];

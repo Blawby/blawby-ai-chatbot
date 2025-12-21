@@ -13,6 +13,22 @@ let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
 
 function ensureApiBaseUrl(): string {
+  // NEVER cache in development - always get fresh URL to support MSW
+  // In dev mode, ALWAYS use window.location.origin for MSW interception
+  // This overrides any env vars to ensure MSW can intercept
+  if (import.meta.env.DEV) {
+    if (typeof window !== 'undefined' && window.location && window.location.origin) {
+      // In dev, always use same origin for MSW, ignore env vars
+      const origin = window.location.origin;
+      console.log('[ensureApiBaseUrl] DEV mode - forcing window.location.origin for MSW:', origin);
+      return origin;
+    }
+    // Fallback if window isn't available (shouldn't happen in browser)
+    console.warn('[ensureApiBaseUrl] window not available in DEV, using localhost fallback');
+    return 'http://localhost:5173';
+  }
+  
+  // In production, check env vars and cache
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
@@ -21,11 +37,25 @@ function ensureApiBaseUrl(): string {
   return cachedBaseUrl;
 }
 
-export const apiClient = axios.create();
+// Create axios instance without default baseURL
+// We'll set it dynamically in the interceptor to support MSW in dev
+export const apiClient = axios.create({
+  // Don't set baseURL here - let interceptor handle it dynamically
+});
 
 apiClient.interceptors.request.use(
   async (config) => {
-    config.baseURL = config.baseURL ?? ensureApiBaseUrl();
+    // Always get fresh baseURL in development to support MSW
+    // Force override any cached baseURL - this is critical for MSW interception
+    const baseUrl = ensureApiBaseUrl();
+    // Always set baseURL fresh - don't rely on existing value
+    if (config.baseURL !== baseUrl) {
+      config.baseURL = baseUrl;
+      if (import.meta.env.DEV) {
+        console.log('[apiClient] Updated baseURL to:', baseUrl, 'for request:', config.url);
+      }
+    }
+    
     // Follow Better Auth guide assumptions: calls to staging-api are authenticated.
     // Ensure cookies can be sent cross-origin when backend is configured to allow it.
     config.withCredentials = true;
@@ -37,6 +67,11 @@ apiClient.interceptors.request.use(
         ...(config.headers as any),
         Authorization: `Bearer ${token}`
       } as any;
+      if (import.meta.env.DEV) {
+        console.log('[apiClient] Added token to request:', config.url);
+      }
+    } else if (import.meta.env.DEV) {
+      console.warn('[apiClient] No token available for request:', config.url, 'baseURL:', baseUrl);
     }
     return config;
   },

@@ -76,6 +76,8 @@ const MessageComposer = ({
     return 'Blawby can make mistakes. Check for important information.';
   })();
 
+  // Only block if session is explicitly not ready (conversation not created yet)
+  // Once session is ready, guests can chat freely - intake flow is conversational, not blocking
   const sendDisabled = (
     (!inputValue.trim() && previewFiles.length === 0) ||
     isSessionReady === false

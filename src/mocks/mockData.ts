@@ -51,6 +51,37 @@ export interface OnboardingState {
   stripeAccountId: string | null;
 }
 
+export interface MockConversation {
+  id: string;
+  practice_id: string;
+  user_id: string | null; // null for anonymous users
+  matter_id: string | null;
+  participants: string[]; // Array of user IDs
+  user_info: Record<string, unknown> | null;
+  status: 'active' | 'archived' | 'completed' | 'closed';
+  assigned_to: string | null;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  tags: string[] | undefined;
+  internal_notes: string | null;
+  last_message_at: string | null;
+  first_response_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MockMessage {
+  id: string;
+  conversation_id: string;
+  practice_id: string;
+  user_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  metadata: Record<string, unknown> | null;
+  token_count: number | null;
+  created_at: string;
+}
+
 const personalPracticeId = 'practice-personal';
 const businessPracticeId = 'practice-business';
 const now = Date.now();
@@ -92,6 +123,33 @@ const businessPractice: MockPractice = {
     },
     availableServices: ['Business Formation', 'Contracts', 'Employment'],
     serviceQuestions: {}
+  }
+};
+
+// Mock practice for guest testing
+const mockPracticeId = 'mock-practice-guest';
+const mockPractice: MockPractice = {
+  id: mockPracticeId,
+  slug: 'mock-practice-guest',
+  name: 'Mock Law Firm',
+  description: 'A mock practice for testing guest chat flow.',
+  kind: 'business',
+  subscriptionStatus: 'active',
+  subscriptionTier: 'business',
+  seats: 1,
+  config: {
+    ownerEmail: 'owner@mock-law.test',
+    profileImage: null,
+    introMessage: 'Hello! Welcome to Mock Law Firm. How can we help you today?',
+    description: 'We provide excellent legal services for testing purposes.',
+    availableServices: ['Family Law', 'Business Law', 'Employment Law'],
+    serviceQuestions: {},
+    brandColor: '#000000',
+    accentColor: '#000000',
+    metadata: {
+      subscriptionPlan: 'business',
+      planStatus: 'active'
+    }
   }
 };
 
@@ -169,15 +227,29 @@ const defaultPreferences: UserPreferences = {
   typingIndicators: true
 };
 
+// Storage for anonymous users (keyed by session/token)
+const anonymousUsers = new Map<string, { id: string; email: string; name: string }>();
+
+// Storage for conversations (keyed by conversation ID)
+const conversations = new Map<string, MockConversation>();
+
+// Storage for messages (keyed by conversation ID, array of messages)
+const messages = new Map<string, MockMessage[]>();
+
 export const mockDb = {
-  practices: [personalPractice, businessPractice],
+  practices: [personalPractice, businessPractice, mockPractice],
   members: { ...defaultMembers } as Record<string, MockMember[]>,
   invitations: [defaultInvitation] as MockInvitation[],
   onboarding: {
     [businessPracticeId]: { ...defaultOnboarding },
-    [personalPracticeId]: { ...defaultOnboarding }
+    [personalPracticeId]: { ...defaultOnboarding },
+    [mockPracticeId]: { ...defaultOnboarding }
   } as Record<string, OnboardingState>,
-  userPreferences: { ...defaultPreferences }
+  userPreferences: { ...defaultPreferences },
+  // Guest chat mocks
+  anonymousUsers,
+  conversations,
+  messages
 };
 
 export const MOCK_REMOTE_BASE = 'https://staging-api.blawby.com';
@@ -197,4 +269,43 @@ export function ensurePracticeCollections(practiceId: string): void {
   if (!mockDb.onboarding[practiceId]) {
     mockDb.onboarding[practiceId] = { ...defaultOnboarding };
   }
+}
+
+// Helper to get or create anonymous user
+export function getOrCreateAnonymousUser(token: string): { id: string; email: string; name: string } {
+  if (mockDb.anonymousUsers.has(token)) {
+    return mockDb.anonymousUsers.get(token)!;
+  }
+  const userId = `anonymous-${randomId('user')}`;
+  const user = {
+    id: userId,
+    email: '',
+    name: 'Anonymous User'
+  };
+  mockDb.anonymousUsers.set(token, user);
+  return user;
+}
+
+// Helper to get anonymous user by token without creating
+export function getAnonymousUserByToken(token: string): { id: string; email: string; name: string } | null {
+  return mockDb.anonymousUsers.get(token) ?? null;
+}
+
+// Helper to find conversation by practice and user (for anonymous users)
+export function findConversationByPracticeAndUser(
+  practiceId: string,
+  userId: string,
+  isAnonymous: boolean
+): MockConversation | null {
+  for (const conv of mockDb.conversations.values()) {
+    if (conv.practice_id === practiceId && conv.status === 'active') {
+      if (isAnonymous && conv.user_id === null && conv.participants.includes(userId)) {
+        return conv;
+      }
+      if (!isAnonymous && conv.user_id === userId) {
+        return conv;
+      }
+    }
+  }
+  return null;
 }

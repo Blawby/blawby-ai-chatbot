@@ -101,10 +101,12 @@
     "contactForm": {
       "location": "Lokalizacja",
       "opposingParty": "Strona przeciwna (opcjonalnie)",
+      "description": "Szczegóły sprawy (opcjonalnie)",
       "submit": "Wyślij dane kontaktowe",
       "placeholders": {
         "location": "Miasto, województwo (np. Warszawa, mazowieckie)",
-        "opposingParty": "Imię drugiej strony (jeśli dotyczy)"
+        "opposingParty": "Imię drugiej strony (jeśli dotyczy)",
+        "description": "Proszę opisać swoją sytuację prawną i wszelkie istotne szczegóły"
       }
     }
   },

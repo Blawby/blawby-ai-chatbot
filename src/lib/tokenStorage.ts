@@ -128,6 +128,9 @@ export async function setToken(token: string): Promise<void> {
                 // Update cache immediately when token is set
                 cachedToken = token;
                 cacheInitialized = true;
+                if (import.meta.env.DEV) {
+                    console.log('[TokenStorage] Token saved to IndexedDB and cache updated');
+                }
                 resolve();
             };
             request.onerror = () => reject(request.error);

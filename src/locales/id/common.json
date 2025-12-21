@@ -101,10 +101,12 @@
     "contactForm": {
       "location": "Lokasi",
       "opposingParty": "Pihak Lawan (Opsional)",
+      "description": "Detail Kasus (Opsional)",
       "submit": "Kirim Informasi Kontak",
       "placeholders": {
         "location": "Kota, Provinsi (contoh: Jakarta, DKI)",
-        "opposingParty": "Nama pihak lain yang terlibat (jika ada)"
+        "opposingParty": "Nama pihak lain yang terlibat (jika ada)",
+        "description": "Silakan jelaskan situasi hukum Anda dan detail relevan lainnya"
       }
     }
   },

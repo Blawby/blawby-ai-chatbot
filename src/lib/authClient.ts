@@ -24,8 +24,14 @@ function getAuthBaseUrl(): string {
     return 'https://placeholder-auth-server.com';
   }
   
+  // In development, use same origin so MSW can intercept requests
+  // MSW service workers can only intercept same-origin requests
+  if (isDevelopment()) {
+    return window.location.origin;
+  }
+  
   // Browser runtime - validate and throw if missing
-  const finalAuthUrl = AUTH_BASE_URL || (isDevelopment() ? FALLBACK_AUTH_URL : null);
+  const finalAuthUrl = AUTH_BASE_URL || null;
   
   if (!finalAuthUrl) {
     throw new Error(
@@ -96,12 +102,27 @@ function getAuthClient(): AuthClientType {
       },
       onSuccess: async (ctx) => {
         // Better Auth Bearer plugin sends token in lowercase header name
-        const authToken = ctx.response.headers.get("set-auth-token");
+        // Check both lowercase and capitalized versions
+        const authToken = ctx.response.headers.get("set-auth-token") || 
+                         ctx.response.headers.get("Set-Auth-Token");
         if (authToken) {
-          await setToken(authToken);
-          if (isDevelopment()) {
-            console.debug('[Auth] Token saved from response header');
+          try {
+            await setToken(authToken);
+            if (isDevelopment()) {
+              console.log('[Auth] Token saved from response header:', authToken.substring(0, 20) + '...');
+              // Verify it was saved
+              const verifyToken = await getTokenAsync();
+              if (verifyToken === authToken) {
+                console.log('[Auth] Token verified in storage');
+              } else {
+                console.error('[Auth] Token save verification failed. Expected:', authToken.substring(0, 20), 'Got:', verifyToken?.substring(0, 20));
+              }
+            }
+          } catch (error) {
+            console.error('[Auth] Failed to save token:', error);
           }
+        } else if (isDevelopment()) {
+          console.warn('[Auth] No token in response headers. Available headers:', Array.from(ctx.response.headers.keys()));
         }
       }
     }

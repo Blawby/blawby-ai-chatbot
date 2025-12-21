@@ -101,10 +101,12 @@
     "contactForm": {
       "location": "위치",
       "opposingParty": "상대방 (선택사항)",
+      "description": "사건 세부사항 (선택사항)",
       "submit": "연락처 정보 제출",
       "placeholders": {
         "location": "도시, 지역 (예: 서울, 경기도)",
-        "opposingParty": "상대방 이름 (해당하는 경우)"
+        "opposingParty": "상대방 이름 (해당하는 경우)",
+        "description": "법적 상황 및 관련 세부사항을 설명해 주세요"
       }
     }
   },
