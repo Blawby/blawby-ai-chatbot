@@ -286,6 +286,11 @@ export function getOrCreateAnonymousUser(token: string): { id: string; email: st
   return user;
 }
 
+// Helper to get anonymous user by token without creating
+export function getAnonymousUserByToken(token: string): { id: string; email: string; name: string } | null {
+  return mockDb.anonymousUsers.get(token) ?? null;
+}
+
 // Helper to find conversation by practice and user (for anonymous users)
 export function findConversationByPracticeAndUser(
   practiceId: string,

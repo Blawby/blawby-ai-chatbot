@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { mockDb, ensurePracticeCollections, randomId, getOrCreateAnonymousUser, findConversationByPracticeAndUser } from './mockData';
+import { mockDb, ensurePracticeCollections, randomId, getAnonymousUserByToken, getOrCreateAnonymousUser, findConversationByPracticeAndUser } from './mockData';
 import type { MockPractice, MockInvitation, MockConversation, MockMessage } from './mockData';
 
 const ALLOWED_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal'] as const);
@@ -402,7 +402,10 @@ export const handlers = [
   http.post('/api/auth/sign-in/anonymous', async () => {
     console.log('[MSW] Intercepted POST /api/auth/sign-in/anonymous');
     const token = `mock-anonymous-token-${randomId('token')}`;
-    const user = getOrCreateAnonymousUser(token);
+    const user = getAnonymousUserByToken(token);
+    if (!user) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     
     // Better Auth expects { data: { user, session } } format
     // The client will transform this appropriately
