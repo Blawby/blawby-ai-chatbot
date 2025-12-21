@@ -36,6 +36,7 @@ import { useToastContext } from './contexts/ToastContext';
 import { usePracticeConfig } from './hooks/usePracticeConfig';
 import { usePracticeManagement } from './hooks/usePracticeManagement';
 import { useMobileDetection } from './hooks/useMobileDetection';
+import { handleError } from './utils/errorHandler';
 import './index.css';
 import { i18n, initI18n } from './i18n';
 
@@ -175,12 +176,14 @@ function MainApp({
 
         const [conversationCreationFailed, setConversationCreationFailed] = useState(false);
         const conversationCreationAttempted = useRef<string | null>(null);
+        const conversationCreationInProgress = useRef(false);
         
         useEffect(() => {
                 if (conversationsLoading || isCreatingConversation) return;
                 
-                // Prevent infinite loops - if we already tried to create for this practiceId and failed, don't retry
-                if (conversationCreationFailed && conversationCreationAttempted.current === practiceId) {
+                // Prevent infinite loops and race conditions
+                if ((conversationCreationFailed && conversationCreationAttempted.current === practiceId) ||
+                        conversationCreationInProgress.current) {
                         return;
                 }
 
@@ -210,8 +213,10 @@ function MainApp({
                         });
                         setConversationCreationFailed(false); // Reset on success
                         conversationCreationAttempted.current = null;
+                        conversationCreationInProgress.current = false;
                 } else if (practiceId && session?.user && !conversationCreationFailed) {
                         conversationCreationAttempted.current = practiceId;
+                        conversationCreationInProgress.current = true;
                         createConversation().then((id) => {
                                 if (!id) {
                                         setConversationCreationFailed(true);
@@ -219,8 +224,10 @@ function MainApp({
                                         setConversationCreationFailed(false);
                                         conversationCreationAttempted.current = null;
                                 }
+                                conversationCreationInProgress.current = false;
                         }).catch(() => {
                                 setConversationCreationFailed(true);
+                                conversationCreationInProgress.current = false;
                         });
                 }
         }, [conversationsLoading, isCreatingConversation, conversations, practiceId, session?.user, createConversation, conversationCreationFailed]);
@@ -708,13 +715,22 @@ function AppWithPractice() {
     // If no session and practiceId is available (widget context), sign in anonymously
     if (!session?.user && practiceId) {
       const key = `anonymous_signin_attempted_${practiceId}`;
+      const retryCountKey = `anonymous_signin_retries_${practiceId}`;
       let attempted = sessionStorage.getItem(key);
+      let retryCount = parseInt(sessionStorage.getItem(retryCountKey) || '0', 10);
+      
+      // Max retries to prevent infinite loops even in dev
+      if (retryCount >= 3) {
+        console.error('[Auth] Max anonymous sign-in retries reached', { practiceId, retryCount });
+        return;
+      }
       
       // If we marked it as successful but there's no actual session, clear it and retry
       // This handles cases where sign-in appeared to succeed but session isn't valid
       if (attempted === '1' && !session?.user) {
         console.log('[Auth] Session invalid despite successful sign-in, clearing flag and retrying');
         sessionStorage.removeItem(key);
+        sessionStorage.setItem(retryCountKey, String(retryCount + 1));
         attempted = null;
       }
       
@@ -722,6 +738,7 @@ function AppWithPractice() {
       if (import.meta.env.DEV && attempted === 'failed') {
         console.log('[Auth] Clearing failed anonymous sign-in attempt for retry in dev mode');
         sessionStorage.removeItem(key);
+        sessionStorage.setItem(retryCountKey, String(retryCount + 1));
         attempted = null;
       }
       
@@ -751,6 +768,10 @@ function AppWithPractice() {
                 signInKeys: signIn ? Object.keys(signIn) : null,
                 message: 'Better Auth anonymous plugin may not be configured correctly.'
               });
+              handleError('Anonymous sign-in method not available', {
+                practiceId,
+                signInKeys: signIn ? Object.keys(signIn) : null,
+              }, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
               sessionStorage.setItem(key, 'failed');
               return;
             }
@@ -768,12 +789,16 @@ function AppWithPractice() {
                 practiceId,
                 message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
               });
+              handleError(result.error, {
+                practiceId,
+              }, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
               // Set key to prevent retry loops, but log error clearly
               sessionStorage.setItem(key, 'failed');
             } else {
               // Success - no error means sign-in worked
               // Better Auth will update the session automatically
               sessionStorage.setItem(key, '1');
+              sessionStorage.removeItem(retryCountKey);
               console.log('[Auth] Anonymous sign-in successful for widget user', {
                 practiceId,
                 hasData: !!result?.data
@@ -789,6 +814,9 @@ function AppWithPractice() {
               message: 'CRITICAL: Better Auth anonymous plugin must be configured on the API server. ' +
                        'Check server logs and ensure anonymous() plugin is added to Better Auth config.'
             });
+            handleError(error, {
+              practiceId,
+            }, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
             // Set key to prevent retry loops
             sessionStorage.setItem(key, 'failed');
           }

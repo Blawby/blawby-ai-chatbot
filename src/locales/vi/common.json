@@ -101,10 +101,12 @@
     "contactForm": {
       "location": "Vị trí",
       "opposingParty": "Bên đối lập (Tùy chọn)",
+      "description": "Chi tiết vụ việc (Tùy chọn)",
       "submit": "Gửi thông tin liên hệ",
       "placeholders": {
         "location": "Thành phố, Tỉnh (ví dụ: Hà Nội, Hà Nội)",
-        "opposingParty": "Tên của bên khác liên quan (nếu có)"
+        "opposingParty": "Tên của bên khác liên quan (nếu có)",
+        "description": "Vui lòng mô tả tình huống pháp lý của bạn và bất kỳ chi tiết liên quan nào"
       }
     }
   },

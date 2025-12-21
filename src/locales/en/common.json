@@ -101,10 +101,12 @@
     "contactForm": {
       "location": "Location",
       "opposingParty": "Opposing Party (Optional)",
+      "description": "Case Details (Optional)",
       "submit": "Submit Contact Information",
       "placeholders": {
         "location": "City, State (e.g., New York, NY)",
-        "opposingParty": "Name of the other party involved (if any)"
+        "opposingParty": "Name of the other party involved (if any)",
+        "description": "Please describe your legal situation and any relevant details"
       }
     }
   },

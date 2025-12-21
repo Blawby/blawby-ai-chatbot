@@ -381,23 +381,7 @@ export const handlers = [
     
     const token = authHeader.replace('Bearer ', '').trim();
     
-    // Find user by token - check exact match first, then try prefix match for mock tokens
-    let user = mockDb.anonymousUsers.get(token);
-    
-    if (!user && token.startsWith('mock-anonymous-token-')) {
-      // If exact match fails but it's a mock token, try to find any anonymous user
-      // (In real implementation, tokens would be properly validated)
-      const users = Array.from(mockDb.anonymousUsers.values());
-      if (users.length > 0) {
-        // Use the most recently created user (last in map)
-        user = users[users.length - 1];
-        console.log('[MSW] Using fallback user lookup for mock token');
-      }
-    }
-    
-    if (!user) {
-      return HttpResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const user = getOrCreateAnonymousUser(token);
     
     return HttpResponse.json({
       user: {
@@ -592,7 +576,6 @@ export const handlers = [
     const url = new URL(request.url);
     const conversationId = url.searchParams.get('conversationId');
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
-    const cursor = url.searchParams.get('cursor');
     const since = url.searchParams.get('since');
     
     if (!conversationId) {
@@ -632,8 +615,7 @@ export const handlers = [
       success: true,
       data: {
         messages: limitedMessages,
-        hasMore: conversationMessages.length > limit,
-        nextCursor: limitedMessages.length > 0 ? limitedMessages[limitedMessages.length - 1].id : null
+        hasMore: conversationMessages.length > limit
       }
     });
   }),

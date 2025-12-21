@@ -207,20 +207,6 @@ export function getTokenSync(): string {
 // Export async version for cases where we need to wait for the token
 export async function getTokenAsync(): Promise<string | null> {
     await initializeCache();
-    // If cache is null but we should have a token, try reading directly from IndexedDB
-    if (!cachedToken && typeof window !== 'undefined') {
-        try {
-            const directToken = await getToken();
-            if (directToken) {
-                cachedToken = directToken;
-                if (import.meta.env.DEV) {
-                    console.log('[TokenStorage] Token retrieved directly from IndexedDB');
-                }
-            }
-        } catch (error) {
-            console.warn('[TokenStorage] Failed to read token directly:', error);
-        }
-    }
     return cachedToken;
 }
 

@@ -283,7 +283,7 @@ export function useConversation({
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore: boolean; nextCursor: string | null } };
+      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore: boolean; nextCursor?: string | null } };
       if (!data.success || !data.data) {
         throw new Error(data.error || 'Failed to fetch messages');
       }
@@ -303,7 +303,7 @@ export function useConversation({
         }
 
         setHasMore(data.data.hasMore);
-        setNextCursor(data.data.nextCursor);
+        setNextCursor(data.data.nextCursor ?? null);
         setError(null);
       }
     } catch (err) {
