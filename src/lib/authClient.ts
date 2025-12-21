@@ -24,10 +24,21 @@ function getAuthBaseUrl(): string {
     return 'https://placeholder-auth-server.com';
   }
   
-  // In development, use same origin so MSW can intercept requests
+  // In development, use same origin ONLY if MSW is enabled
   // MSW service workers can only intercept same-origin requests
+  // If MSW is disabled, use staging-api directly
   if (isDevelopment()) {
-    return window.location.origin;
+    const enableMocks = import.meta.env.VITE_ENABLE_MSW === 'true';
+    
+    if (enableMocks) {
+      // MSW enabled - use same origin for interception
+      console.log('[getAuthBaseUrl] DEV mode with MSW - using window.location.origin');
+      return window.location.origin;
+    } else {
+      // MSW disabled - use staging-api directly
+      console.log('[getAuthBaseUrl] DEV mode without MSW - using staging-api');
+      return FALLBACK_AUTH_URL;
+    }
   }
   
   // Browser runtime - validate and throw if missing

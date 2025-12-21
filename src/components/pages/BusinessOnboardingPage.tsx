@@ -8,7 +8,6 @@ import { resolvePracticeKind, normalizeSubscriptionStatus } from '../../utils/su
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
 import {
-  syncSubscription as syncSubscriptionRequest,
   updatePractice
 } from '../../lib/apiClient';
 import {
@@ -25,11 +24,8 @@ export const BusinessOnboardingPage = () => {
   const { showSuccess, showError } = useToastContext();
   const devForcePaid = isForcePaidEnabled();
   const [isOpen] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [ready, setReady] = useState(false);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
-  // Track in-flight sync status across renders (separate from UI state)
-  const isSyncInProgressRef = useRef(false);
   const completionRef = useRef(false);
 
   // Derive step from URL path like /business-onboarding/:step
@@ -51,7 +47,6 @@ export const BusinessOnboardingPage = () => {
   }, [practices, currentPractice]);
   
   const targetPracticeId = targetPractice?.id ?? practiceId;
-  const shouldSync = (Array.isArray(location.query?.sync) ? location.query?.sync[0] : location.query?.sync) === '1';
   const metadataSource = targetPractice?.config?.metadata;
   const onboardingProgress = useMemo(
     () => extractProgressFromPracticeMetadata(metadataSource),
@@ -96,52 +91,20 @@ export const BusinessOnboardingPage = () => {
     }
   }, [targetPracticeId]);
 
-  // Sync subscription data on mount if needed
+  // Refetch practice data on mount to get latest subscription status
+  // Staging-api handles all Stripe webhooks, so subscription should already be updated
   useEffect(() => {
-    const inFlightRef = isSyncInProgressRef;
-    const syncSubscription = async () => {
-      // If no sync is needed, mark as ready so downstream guards can run
-      if (!shouldSync) {
-        setReady(true);
-        return;
-      }
-
-      if (!targetPracticeId || inFlightRef.current) return;
-      console.debug('[ONBOARDING][SYNC] Starting subscription sync for practice:', targetPracticeId);
-      
-      inFlightRef.current = true;
-      setSyncing(true);
-      try {
-        const result = await syncSubscriptionRequest(targetPracticeId, {
-          headers: devForcePaid ? { 'x-test-force-paid': '1' } : undefined
-        });
-
-        await refetch();
-
-        if (result.synced) {
-          showSuccess('Payment Successful', 'Your subscription has been activated!');
-        }
-      } catch (error) {
-        console.error('Sync failed:', error);
-        showError('Sync Failed', 'Could not refresh subscription status');
-      } finally {
-        inFlightRef.current = false;
-        setSyncing(false);
-        // Clean up URL
-        try {
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('sync');
-          window.history.replaceState({}, '', newUrl.toString());
-          console.debug('[ONBOARDING][SYNC] Sync done. Cleaned URL.');
-        } catch (_e) {
-          // noop
-        }
-        setReady(true);
-      }
-    };
-
-    syncSubscription();
-  }, [shouldSync, targetPracticeId, refetch, showSuccess, showError, devForcePaid]);
+    if (!targetPracticeId) return;
+    
+    // Refetch to ensure we have latest subscription status from staging-api
+    // No explicit sync needed - staging-api webhooks handle subscription updates
+    refetch().then(() => {
+      setReady(true);
+    }).catch((error) => {
+      console.error('[ONBOARDING] Failed to refetch practice data:', error);
+      setReady(true); // Still mark as ready to allow guards to run
+    });
+  }, [targetPracticeId, refetch]);
 
   
 
@@ -226,16 +189,6 @@ export const BusinessOnboardingPage = () => {
     }
   }, [navigate, currentStepFromUrl]);
 
-  if (syncing) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
-          <p className="text-gray-600">Activating your subscription...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!targetPracticeId) {
     if (error || loadTimedOut) {

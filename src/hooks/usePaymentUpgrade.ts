@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'preact/hooks';
 import { useToastContext } from '../contexts/ToastContext';
-import { getClient } from '../lib/authClient';
 import {
   requestBillingPortalSession,
   requestSubscriptionCancellation,
-  syncSubscription as syncSubscriptionRequest
+  syncSubscription as syncSubscriptionRequest,
+  createSubscription
 } from '../lib/apiClient';
 
 
@@ -15,76 +15,67 @@ const DEFAULT_RETURN_URL = typeof window !== 'undefined'
 
 // Allowlist of trusted hosts for return URLs (beyond same-origin)
 // Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
-const TRUSTED_RETURN_URL_HOSTS: string[] = [];
+// staging-api.blawby.com is trusted for subscription callback URLs in development
+const TRUSTED_RETURN_URL_HOSTS: string[] = ['staging-api.blawby.com'];
 
 // Helper function to ensure a safe, validated return URL
 // Prevents open-redirect vulnerabilities by validating URLs before returning them
+// Throws errors instead of silently falling back
 function ensureValidReturnUrl(url: string | undefined | null, practiceId?: string): string {
-  // Treat undefined/null/invalid inputs as unsafe
+  // Treat undefined/null/invalid inputs as errors
   if (!url || typeof url !== 'string') {
-    return getFallbackUrl(practiceId);
+    throw new Error(`Invalid return URL: ${url === null ? 'null' : url === undefined ? 'undefined' : 'not a string'}`);
   }
 
   const trimmed = url.trim();
   if (trimmed.length === 0) {
-    return getFallbackUrl(practiceId);
+    throw new Error('Invalid return URL: empty string');
+  }
+
+  // Guard against SSR - need window.location.origin for validation
+  if (typeof window === 'undefined') {
+    throw new Error('Cannot validate return URL in SSR context');
   }
 
   // Parse and validate the URL
+  let parsed: URL;
   try {
-    // Guard against SSR - need window.location.origin for validation
-    if (typeof window === 'undefined') {
-      return getFallbackUrl(practiceId);
-    }
-
     // Parse the URL - this will throw for invalid URLs
     // Use window.location.origin as base to handle relative URLs
-    const parsed = new URL(trimmed, window.location.origin);
+    parsed = new URL(trimmed, window.location.origin);
+  } catch (error) {
+    throw new Error(`Invalid return URL format: ${trimmed}`, { cause: error });
+  }
 
-    // Guard against dangerous schemes (javascript:, data:, vbscript:, etc.)
-    const allowedProtocols = ['http:', 'https:'];
-    if (!allowedProtocols.includes(parsed.protocol)) {
-      return getFallbackUrl(practiceId);
-    }
+  // Guard against dangerous schemes (javascript:, data:, vbscript:, etc.)
+  const allowedProtocols = ['http:', 'https:'];
+  if (!allowedProtocols.includes(parsed.protocol)) {
+    throw new Error(`Invalid return URL protocol: ${parsed.protocol}. Only http: and https: are allowed.`);
+  }
 
-    // Ensure it's an absolute URL (not relative)
-    // If the URL was relative, it will have been resolved to an absolute URL by the URL constructor
-    // But we need to verify it's actually absolute by checking it has a protocol
-    if (!parsed.protocol || !parsed.host) {
-      return getFallbackUrl(practiceId);
-    }
+  // Ensure it's an absolute URL (not relative)
+  if (!parsed.protocol || !parsed.host) {
+    throw new Error(`Invalid return URL: missing protocol or host: ${trimmed}`);
+  }
 
-    // Primary validation: allow same-origin URLs
-    if (parsed.origin === window.location.origin) {
+  // Primary validation: allow same-origin URLs
+  if (parsed.origin === window.location.origin) {
+    return parsed.toString();
+  }
+
+  // Secondary validation: check against allowlist of trusted hosts
+  if (TRUSTED_RETURN_URL_HOSTS.length > 0 && parsed.host) {
+    const hostname = parsed.hostname.toLowerCase();
+    const isTrusted = TRUSTED_RETURN_URL_HOSTS.some(
+      trustedHost => hostname === trustedHost.toLowerCase() || hostname.endsWith(`.${trustedHost.toLowerCase()}`)
+    );
+    if (isTrusted) {
       return parsed.toString();
     }
-
-    // Secondary validation: check against allowlist of trusted hosts
-    if (TRUSTED_RETURN_URL_HOSTS.length > 0 && parsed.host) {
-      const hostname = parsed.hostname.toLowerCase();
-      const isTrusted = TRUSTED_RETURN_URL_HOSTS.some(
-        trustedHost => hostname === trustedHost.toLowerCase() || hostname.endsWith(`.${trustedHost.toLowerCase()}`)
-      );
-      if (isTrusted) {
-        return parsed.toString();
-      }
-    }
-
-    // URL is not same-origin and not in allowlist - reject it
-    return getFallbackUrl(practiceId);
-  } catch {
-    // URL parsing failed or any other error - treat as unsafe
-    return getFallbackUrl(practiceId);
   }
-}
 
-// Helper function to get the fallback URL
-function getFallbackUrl(practiceId?: string): string {
-  // Fallback to business onboarding with practice ID if available
-  if (practiceId && typeof window !== 'undefined') {
-    return `${window.location.origin}/business-onboarding?sync=1&practiceId=${encodeURIComponent(practiceId)}`;
-  }
-  return DEFAULT_RETURN_URL;
+  // URL is not same-origin and not in allowlist - reject it
+  throw new Error(`Invalid return URL: origin ${parsed.origin} is not allowed. Allowed origins: ${window.location.origin}, ${TRUSTED_RETURN_URL_HOSTS.join(', ')}`);
 }
 
 // Helper functions for safe type extraction from API responses
@@ -185,7 +176,11 @@ function getErrorTitle(errorCode: SubscriptionErrorCode): string {
 
 export interface SubscriptionUpgradeRequest {
   practiceId?: string;
-  plan: string; // Plan name from API (e.g., "professional", "business_seat")
+  planId?: string; // UUID of the subscription plan (required for staging-api)
+  plan?: string; // Plan name as fallback (optional)
+  // TODO: seats and annual are not yet supported by staging-api /api/subscriptions/create endpoint
+  // These need to be implemented in staging-api. For now, different planIds should be used
+  // for monthly/annual and different seat counts.
   seats?: number | null;
   annual?: boolean;
   successUrl?: string;
@@ -203,26 +198,26 @@ export const usePaymentUpgrade = () => {
   const [error, setError] = useState<string | null>(null);
   const { showError, showSuccess } = useToastContext();
 
-  const ensureActivePractice = useCallback(async (practiceId: string) => {
-    try {
-      // Use getClient() directly to bypass proxy issues
-      const client = getClient();
-      if (client.organization?.setActive) {
-        await client.organization.setActive({ organizationId: practiceId });
-      } else {
-        console.warn('[UPGRADE] organization.setActive not available, skipping');
-      }
-    } catch (activeErr) {
-      const message = activeErr instanceof Error ? activeErr.message : 'Unknown error when setting active practice.';
-      console.warn('[UPGRADE] Active practice setup error:', activeErr instanceof Error ? activeErr : message);
-      // Don't throw - allow subscription to proceed even if setActive fails
-    }
-  }, []);
-
   const buildSuccessUrl = useCallback((practiceId?: string) => {
-    if (typeof window === 'undefined') return '/business-onboarding?sync=1';
-    const url = new URL(`${window.location.origin}/business-onboarding`);
-    url.searchParams.set('sync', '1');
+    if (typeof window === 'undefined') return '/dashboard';
+    
+    // As per Kaze's instructions: use staging-api.blawby.com domain, path after .com can be anything
+    // Example: https://staging-api.blawby.com/dashboard?subscription=success&redirectTo=http://localhost:5173/business-onboarding
+    const isDev = import.meta.env.DEV;
+    const baseOrigin = isDev 
+      ? 'https://staging-api.blawby.com'
+      : window.location.origin;
+    
+    // Build the final destination (where we want to end up after staging-api processes)
+    const finalDestination = new URL('/business-onboarding', window.location.origin);
+    if (practiceId) {
+      finalDestination.searchParams.set('practiceId', practiceId);
+    }
+    
+    // Use /dashboard endpoint as per Kaze's example - staging-api will redirect to finalDestination
+    const url = new URL('/dashboard', baseOrigin);
+    url.searchParams.set('subscription', 'success');
+    url.searchParams.set('redirectTo', finalDestination.toString());
     if (practiceId) {
       url.searchParams.set('practiceId', practiceId);
     }
@@ -230,8 +225,22 @@ export const usePaymentUpgrade = () => {
   }, []);
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
-    if (typeof window === 'undefined') return '/';
-    const url = new URL(`${window.location.origin}/`);
+    if (typeof window === 'undefined') return '/pricing';
+    
+    // As per Kaze's instructions: use staging-api.blawby.com domain, path after .com can be anything
+    // Example: https://staging-api.blawby.com/pricing?subscription=cancelled&redirectTo=http://localhost:5173/
+    const isDev = import.meta.env.DEV;
+    const baseOrigin = isDev 
+      ? 'https://staging-api.blawby.com'
+      : window.location.origin;
+    
+    // Build the final destination (home page)
+    const finalDestination = new URL('/', window.location.origin);
+    
+    // Use /pricing endpoint as per Kaze's example - staging-api will redirect to finalDestination
+    const url = new URL('/pricing', baseOrigin);
+    url.searchParams.set('subscription', 'cancelled');
+    url.searchParams.set('redirectTo', finalDestination.toString());
     return url.toString();
   }, []);
 
@@ -315,129 +324,100 @@ export const usePaymentUpgrade = () => {
   );
 
   const submitUpgrade = useCallback(
-    async ({ practiceId, plan, seats = 1, annual = false, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
+    async ({ practiceId, planId, plan, successUrl, cancelUrl, returnUrl }: SubscriptionUpgradeRequest): Promise<void> => {
       setSubmitting(true);
       setError(null);
 
-      // We only resolve a practiceId if one was explicitly passed (existing user with org)
-      // Otherwise we leave it undefined so Better Auth can auto-create the org
+      // planId (UUID) is required for staging-api
+      if (!planId) {
+        setError('Plan ID is required');
+        showError('Invalid Request', 'Plan ID is required to create a subscription.');
+        setSubmitting(false);
+        return;
+      }
+
       const resolvedPracticeId = practiceId || undefined; 
 
       try {
-        // Step 1: Set active practice IF we have one
-        // This is good practice but not strictly required for the upgrade call if we pass referenceId
-        if (resolvedPracticeId) {
-            await ensureActivePractice(resolvedPracticeId);
-        }
-
-        // Build URLs 
-        // Note: If no practiceId, we can't put it in the URL yet, but that's fine for initial creation
-        // The success page will need to handle "just created" state or we rely on the sync param
+        // Build URLs as per Kaze's instructions
         const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
         
+        if (import.meta.env.DEV) {
+          console.log('[UPGRADE] Raw URLs before validation:', {
+            rawSuccessUrl,
+            rawCancelUrl,
+            practiceId: resolvedPracticeId,
+            planId
+          });
+        }
+        
         // Ensure URLs are valid
-        // If resolvedPracticeId is undefined, validation might be slightly looser or use default
         const validatedSuccessUrl = ensureValidReturnUrl(rawSuccessUrl, resolvedPracticeId);
         const validatedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
-        const validatedReturnUrl = ensureValidReturnUrl(returnUrl ?? validatedSuccessUrl, resolvedPracticeId);
-
-
-        // Step 2: Create or upgrade subscription using Better Auth
-        // Use getClient() directly to bypass proxy issues with subscription methods
-        const client = getClient();
-        if (!client.subscription?.upgrade) {
-          throw new Error('Subscription upgrade not available. Please ensure Better Auth Stripe plugin is configured.');
+        
+        if (import.meta.env.DEV) {
+          console.log('[UPGRADE] Validated URLs being sent to staging-api:', {
+            validatedSuccessUrl,
+            validatedCancelUrl
+          });
         }
 
-        // Just call upgrade - middleware handles:
-        // 1. Org creation (if referenceId missing)
-        // 2. Org selection (if existing orgs)
-        // 3. Duplicate checks (if active sub exists)
-        const upgradeParams = {
-          plan, // Plan name from API (e.g., "professional", "business_seat")
-          // subscriptionId is handled automatically by middleware now
+        // Step 2: Create subscription using staging-api /api/subscriptions/create
+        const createPayload = {
+          planId, // UUID of the subscription plan (required)
+          ...(plan && { plan }), // Plan name as fallback (optional)
           successUrl: validatedSuccessUrl,
           cancelUrl: validatedCancelUrl,
-          annual,
-          seats: seats > 1 ? seats : undefined,
           disableRedirect: false, // Auto-redirect to Stripe Checkout
-          ...(resolvedPracticeId && { referenceId: resolvedPracticeId }),
-        } as Parameters<typeof client.subscription.upgrade>[0];
+        };
         
-        const { data, error: subscriptionError } = await client.subscription.upgrade(upgradeParams);
+        const result = await createSubscription(createPayload);
 
-        if (subscriptionError) {
-          // Handle Better Auth error format
-          const errorMessage = subscriptionError.message || 'Subscription upgrade failed';
-          const errorCode = (subscriptionError as { code?: string }).code;
-
-          // Handle specific Better Auth error codes
-          if (errorCode && errorCode.toUpperCase() === 'YOURE_ALREADY_SUBSCRIBED_TO_THIS_PLAN') {
-             // If we have a practice ID, we can try to manage billing
-             if (resolvedPracticeId) {
-                await handleAlreadySubscribed(resolvedPracticeId, validatedReturnUrl);
-                return;
-             }
-             // If we don't have a practice ID (new flow), we can't easily redirect to portal yet
-             // Just show the error
-          }
-
-          if (import.meta.env.DEV) {
-            console.error('❌ Subscription upgrade failed:', {
-              error: errorMessage,
-              code: errorCode,
-            });
-          }
-
-          // Check for email verification requirement
-          if (errorMessage.toLowerCase().includes('email verification') || errorCode === 'EMAIL_VERIFICATION_REQUIRED') {
-            setError(errorMessage);
-            showError(
-              'Verify Email',
-              'Please verify your email address before upgrading. Check your inbox for the verification link.'
-            );
-            return;
-          }
-
-          setError(errorMessage);
-          showError('Upgrade Failed', errorMessage);
-          return;
+        if (!result.checkoutUrl) {
+          throw new Error('No checkout URL returned from subscription creation');
         }
 
-        // If disableRedirect is false, Better Auth will auto-redirect
-        if (data?.url && import.meta.env.DEV) {
-          console.debug('[UPGRADE] Checkout URL:', data.url);
+        // Redirect to Stripe Checkout
+        if (import.meta.env.DEV) {
+          console.log('[UPGRADE] Redirecting to Stripe Checkout:', result.checkoutUrl);
         }
+        window.location.href = result.checkoutUrl;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Upgrade failed';
+        const message = err instanceof Error ? err.message : 'Subscription creation failed';
 
-        // Try to parse structured error response; if detected, rethrow to bubble up
-        {
-          try {
-            const parsedError = JSON.parse(message);
-            if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
-              const code = (parsedError as { errorCode?: string }).errorCode;
-              if (code && Object.values(SubscriptionErrorCode).includes(code as SubscriptionErrorCode)) {
-                throw err; // bubble structured errors
-              }
+        // Try to parse structured error response from staging-api
+        let errorCode: SubscriptionErrorCode | null = null;
+        let errorMessage = message;
+
+        try {
+          const parsedError = JSON.parse(message);
+          if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
+            const code = (parsedError as { errorCode?: string }).errorCode;
+            if (code && Object.values(SubscriptionErrorCode).includes(code as SubscriptionErrorCode)) {
+              errorCode = code as SubscriptionErrorCode;
+              errorMessage = (parsedError as { message?: string }).message || message;
             }
-          } catch {
-            // JSON.parse failed or not structured; continue with legacy handling below
+          }
+        } catch {
+          // Not a structured error - use the original message
+        }
+
+        // Handle specific error codes
+        if (errorCode === SubscriptionErrorCode.SUBSCRIPTION_ALREADY_ACTIVE && resolvedPracticeId) {
+          try {
+            const safeReturnUrl = ensureValidReturnUrl(returnUrl, resolvedPracticeId);
+            await handleAlreadySubscribed(resolvedPracticeId, safeReturnUrl);
+            return;
+          } catch (urlError) {
+            // URL validation failed - show error
+            const urlErrorMessage = urlError instanceof Error ? urlError.message : 'Invalid return URL';
+            console.error('[UPGRADE] URL validation failed:', urlErrorMessage);
           }
         }
 
-        // Fallback to original string matching for backward compatibility
-        const normalizedMessage = message.toLowerCase();
-        if (normalizedMessage.includes("already subscribed to this plan") && resolvedPracticeId) {
-          // Only attempt portal redirect if we have a practice ID
-           const safeReturnUrl = ensureValidReturnUrl(returnUrl, resolvedPracticeId);
-           await handleAlreadySubscribed(resolvedPracticeId, safeReturnUrl);
-           return;
-        }
-
-        if (normalizedMessage.includes('email verification is required')) {
-          setError(message);
+        if (errorCode === SubscriptionErrorCode.EMAIL_VERIFICATION_REQUIRED) {
+          setError(errorMessage);
           showError(
             'Verify Email',
             'Please verify your email address before upgrading. Check your inbox for the verification link.'
@@ -445,13 +425,14 @@ export const usePaymentUpgrade = () => {
           return;
         }
 
-        setError(message);
-        showError('Upgrade Failed', message);
+        const title = errorCode ? getErrorTitle(errorCode) : 'Upgrade Failed';
+        setError(errorMessage);
+        showError(title, errorMessage);
       } finally {
         setSubmitting(false);
       }
     },
-    [buildCancelUrl, buildSuccessUrl, ensureActivePractice, handleAlreadySubscribed, showError]
+    [buildCancelUrl, buildSuccessUrl, handleAlreadySubscribed, showError]
   );
 
   const syncSubscription = useCallback(

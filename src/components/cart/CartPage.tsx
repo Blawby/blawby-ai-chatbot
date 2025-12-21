@@ -297,8 +297,9 @@ export const CartPage = () => {
     }
 
     const upgradeParams = {
-      practiceId: practiceId || undefined, // pass undefined if no practice yet to trigger middleware auto-creation
-      plan: selectedPlan.name, // Plan name from API (e.g., "professional", "business_seat")
+      practiceId: practiceId || undefined,
+      planId: selectedPlan.id, // UUID of the subscription plan (required for staging-api)
+      plan: selectedPlan.name, // Plan name as fallback (optional)
       seats: quantity,
       annual: isAnnual,
       cancelUrl: typeof window !== 'undefined' ? window.location.href : undefined,

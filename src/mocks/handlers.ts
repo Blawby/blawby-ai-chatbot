@@ -910,5 +910,32 @@ export const handlers = [
         'Content-Type': 'text/plain'
       }
     });
+  }),
+
+  http.get('/api/subscriptions/plans', () => {
+    return HttpResponse.json({
+      plans: [
+        {
+          id: 'business_seat',
+          name: 'business_seat',
+          display_name: 'Business',
+          description: 'Professional plan for businesses',
+          stripe_product_id: 'prod_business',
+          stripe_monthly_price_id: 'price_monthly_business',
+          stripe_yearly_price_id: 'price_yearly_business',
+          monthly_price: '99.00',
+          yearly_price: '990.00',
+          currency: 'usd',
+          features: ['Unlimited conversations', 'Team collaboration', 'Priority support'],
+          limits: {
+            users: 10,
+            invoices_per_month: 100,
+            storage_gb: 100
+          },
+          is_active: true,
+          is_public: true
+        }
+      ]
+    });
   })
 ];
