@@ -13,6 +13,9 @@ const getTrimmedString = (value: unknown): string | undefined => {
 export function formatFormData(formData: Record<string, unknown>, practiceSlug: string) {
   const name = getTrimmedString(formData.name);
   const email = getTrimmedString(formData.email);
+  if (!name || !email) {
+    throw new Error('Name and email are required fields');
+  }
   const phone = getTrimmedString(formData.phoneNumber) ?? getTrimmedString(formData.phone);
   const description =
     getTrimmedString(formData.matterDetails) ??
@@ -38,14 +41,14 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
 export async function submitContactForm(
   formData: Record<string, unknown>, 
   practiceSlug: string, 
-  onLoadingMessage: (messageId: string) => void,
-  onUpdateMessage: (messageId: string, content: string, isLoading: boolean) => void,
+  onLoadingMessage?: (messageId: string) => void,
+  onUpdateMessage?: (messageId: string, content: string, isLoading: boolean) => void,
   onError?: (error: string) => void
 ) {
   const loadingMessageId = crypto.randomUUID();
   
   try {
-    onLoadingMessage(loadingMessageId);
+    onLoadingMessage?.(loadingMessageId);
     
     const formPayload = formatFormData(formData, practiceSlug);
     const response = await fetch(getFormsEndpoint(), {
@@ -74,18 +77,11 @@ export async function submitContactForm(
         confirmationContent = '✅ Perfect! Your matter details have been submitted successfully and updated below.';
       }
 
-      // Update the loading message with confirmation
-      setTimeout(() => {
-        onUpdateMessage(loadingMessageId, confirmationContent, false);
-      }, 300);
-      
-      // Show updated matter canvas with contact information (only if from matter creation)
-      if (hasMatter) {
+      // Update the loading message with confirmation (if callback provided)
+      if (onUpdateMessage) {
         setTimeout(() => {
-          // Find the last message with a matter canvas to get the matter data
-          // This would need to be handled by the parent component
-          // For now, we'll just show the confirmation message
-        }, 1000);
+          onUpdateMessage(loadingMessageId, confirmationContent, false);
+        }, 300);
       }
       
       return result;
@@ -95,13 +91,20 @@ export async function submitContactForm(
     }
   } catch (error) {
     console.error('Error submitting form:', error);
+    const errorMessage = error instanceof Error && error.message ? error.message : 'Form submission failed';
     
-    // Update loading message with error content
-    setTimeout(() => {
-      onUpdateMessage(loadingMessageId, "Sorry, there was an error submitting your information. Please try again or contact us directly.", false);
-    }, 300);
+    // Update loading message with error content (if callback provided)
+    if (onUpdateMessage) {
+      setTimeout(() => {
+        onUpdateMessage(
+          loadingMessageId,
+          `Sorry, there was an error submitting your information: ${errorMessage}. Please try again or contact us directly.`,
+          false
+        );
+      }, 300);
+    }
     
-    onError?.('Form submission failed');
-    throw error instanceof Error ? error : new Error('Form submission failed');
+    onError?.(errorMessage);
+    throw error instanceof Error ? error : new Error(errorMessage);
   }
 } 
