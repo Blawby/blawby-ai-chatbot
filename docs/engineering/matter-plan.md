@@ -17,7 +17,7 @@
 **Existing Contact Form Flow:**
 
 1. AI shows contact form via `show_contact_form` tool
-2. User submits contact form → Frontend calls `POST /api/forms`
+2. User submits contact form → Frontend calls `POST /api/practice-client-intakes/submit`
 3. Server creates a `matter` directly with `status='lead'` (no `contact_forms` table)
 4. AI can also call `create_matter` tool which creates the same `matter` shape
 
@@ -52,12 +52,12 @@ Use existing matters table to manage leads - contact form creates matter with st
 
 **Contact form creates matter directly:**
 
-- Update `POST /api/forms` to create matter with status='lead'
+- Update `POST /api/practice-client-intakes/submit` to create matter with status='lead'
 - Matter created immediately but with lead status
 
 **Files to Modify:**
 
-- `worker/routes/forms.ts` - Update to create matter instead of just saving to contact_forms
+- `staging-api` intake submission endpoint - Update to create matter instead of just saving to contact_forms
 
 ### Phase 2: Matter Status Transition API
 
@@ -78,7 +78,7 @@ Use existing matters table to manage leads - contact form creates matter with st
 **Notifications (Email) on Status Changes:**
 
 - Service: `worker/services/NotificationService.ts`
-  - `sendMatterCreatedNotification` on `POST /api/forms` (already called in forms route)
+  - `sendMatterCreatedNotification` on `POST /api/practice-client-intakes/submit`
   - `sendMatterUpdateNotification` for `accept`, `reject`, and generic `status_change`
 - Wiring points (org workspace route): `worker/routes/organizations.ts`
   - Accept handler → calls `sendMatterUpdateNotification({ update: { action: 'accept', fromStatus, toStatus, actorId } })`

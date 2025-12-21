@@ -3,32 +3,19 @@ import { useSessionContext } from '../contexts/SessionContext.js';
 import { ChatMessageUI, FileAttachment } from '../../worker/types';
 import { ContactData } from '../components/ContactForm';
 import { getTokenAsync } from '../lib/tokenStorage';
-import { getApiConfig, getChatMessagesEndpoint } from '../config/api';
+import { getChatMessagesEndpoint } from '../config/api';
+import { submitContactForm } from '../utils/forms';
 import type { ConversationMessage } from '../types/conversation';
 
-// Tool name to user-friendly message mapping
-const TOOL_LOADING_MESSAGES: Record<string, string> = {
-  'show_contact_form': 'Preparing contact form...',
-  'create_matter': 'Creating your case file...',
-  'request_lawyer_review': 'Requesting lawyer review...'
-};
 // Global interface for window API base override and debug properties
 declare global {
   interface Window {
     __API_BASE__?: string;
     __DEBUG_AI_MESSAGES__?: (messages: ChatMessageUI[]) => void;
-    __DEBUG_SSE_EVENTS__?: (data: unknown) => void;
     __DEBUG_SEND_MESSAGE__?: (message: string, attachments: FileAttachment[]) => void;
     __DEBUG_CONTACT_FORM__?: (contactData: ContactData | Record<string, boolean>, message: string) => void;
-    __toolCalls?: unknown[];
-    __conversationState?: unknown;
   }
 }
-
-// REMOVED: AI agent stream endpoint - will be replaced with user-to-user chat in future PR
-// const getAgentStreamEndpoint = (): string => {
-//   // AI endpoint removed - see git history for previous implementation
-// };
 
 // Define proper types for message history
 interface ChatMessageHistoryEntry {
@@ -38,6 +25,7 @@ interface ChatMessageHistoryEntry {
 
 interface UseMessageHandlingOptions {
   practiceId?: string;
+  practiceSlug?: string;
   conversationId?: string; // Required for user-to-user chat
   onError?: (error: string) => void;
 }
@@ -58,7 +46,7 @@ export const useMessageHandlingWithContext = ({ conversationId, onError }: Omit<
  * Note: For user-to-user chat, conversationId is required.
  * This hook will fetch messages on mount if conversationId is provided.
  */
-export const useMessageHandling = ({ practiceId, conversationId, onError }: UseMessageHandlingOptions) => {
+export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, onError }: UseMessageHandlingOptions) => {
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const isDisposedRef = useRef(false);
@@ -79,20 +67,6 @@ export const useMessageHandling = ({ practiceId, conversationId, onError }: UseM
     if (import.meta.env.DEV) {
       console.log(message, data);
     }
-  }, []);
-
-  // Helper function to update AI message with aiState
-  const updateAIMessage = useCallback((messageId: string, updates: Partial<ChatMessageUI & { isUser: false }>) => {
-    setMessages(prev => {
-      const updated = prev.map(msg => 
-        msg.id === messageId && !msg.isUser ? { ...msg, ...updates } as ChatMessageUI : msg
-      );
-      // Debug hook for test environment
-      if (import.meta.env.MODE !== 'production' && typeof window !== 'undefined' && window.__DEBUG_AI_MESSAGES__) {
-        window.__DEBUG_AI_MESSAGES__(updated);
-      }
-      return updated;
-    });
   }, []);
 
   // Create message history from existing messages
@@ -138,15 +112,6 @@ export const useMessageHandling = ({ practiceId, conversationId, onError }: UseM
       return { ...baseMessage, role: 'assistant', isUser: false } as ChatMessageUI;
     }
   }, []);
-
-  // REMOVED: AI streaming functionality - will be replaced with user-to-user chat in future PR
-  // const sendMessageWithStreaming = useCallback(async (
-  //   messageHistory: ChatMessageHistoryEntry[], 
-  //   placeholderId: string,
-  //   attachments: FileAttachment[] = []
-  // ) => {
-  //   // AI streaming code removed - see git history for previous implementation
-  // }, [practiceId, sessionId, onError, updateAIMessage]);
 
   // Main message sending function
   const sendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
@@ -301,6 +266,19 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
 
+      const resolvedPracticeSlug = (practiceSlug ?? practiceId ?? '').trim();
+      if (!resolvedPracticeSlug) {
+        throw new Error('Practice slug is required to submit intake');
+      }
+
+      await submitContactForm(
+        {
+          ...contactData,
+          sessionId: conversationId
+        },
+        resolvedPracticeSlug
+      );
+
       const response = await fetch(getChatMessagesEndpoint(), {
         method: 'POST',
         headers,
@@ -358,7 +336,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
       throw error; // Re-throw so form can handle the error state
     }
-  }, [conversationId, toUIMessage, onError, logDev]);
+  }, [conversationId, practiceId, practiceSlug, toUIMessage, onError, logDev]);
 
   // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {
@@ -375,13 +353,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   // Clear all messages
   const clearMessages = useCallback(() => {
     setMessages([]);
-  }, []);
-
-  // Cancel any ongoing streaming request
-  const cancelStreaming = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
   }, []);
 
   // Fetch messages from conversation
@@ -613,7 +584,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     addMessage,
     updateMessage,
     clearMessages,
-    cancelStreaming,
     intakeStatus: {
       step: currentStep
     }

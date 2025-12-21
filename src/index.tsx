@@ -103,6 +103,7 @@ function MainApp({
         
         const realMessageHandling = useMessageHandling({
                 practiceId,
+                practiceSlug: practiceConfig.slug ?? undefined,
                 conversationId: conversationId ?? undefined,
                 onError: handleMessageError
         });

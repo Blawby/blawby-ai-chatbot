@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, type StrictRequest, type DefaultBodyType } from 'msw';
 import { mockDb, ensurePracticeCollections, randomId, getAnonymousUserByToken, getOrCreateAnonymousUser, findConversationByPracticeAndUser } from './mockData';
 import type { MockPractice, MockInvitation, MockConversation, MockMessage } from './mockData';
 
@@ -21,7 +21,7 @@ function notFound(message: string) {
   return HttpResponse.json({ success: false, error: message }, { status: 404 });
 }
 
-function getOrCreateConversation(request: Request): { conversation: MockConversation } | { error: HttpResponse } {
+function getOrCreateConversation(request: StrictRequest<DefaultBodyType>): { conversation: MockConversation } | { error: HttpResponse<unknown> } {
   const url = new URL(request.url);
   const practiceId = url.searchParams.get('practiceId');
 
@@ -688,11 +688,23 @@ export const handlers = [
     });
   }),
 
-  http.post('/api/forms', async () => {
+  http.post('/api/practice-client-intakes/submit', async ({ request }) => {
+    const body = await request.json().catch(() => ({})) as { slug?: string };
+    let practiceId = randomId('practice');
+    if (body.slug) {
+      const practice = findPractice(body.slug);
+      if (practice) {
+        practiceId = practice.id;
+      }
+    }
     return HttpResponse.json({
       success: true,
       data: {
-        id: randomId('form')
+        matter_id: randomId('matter'),
+        matter_number: `MAT-${randomId('num')}`,
+        practice_id: practiceId,
+        status: 'lead',
+        message: 'Lead submitted successfully. A team member will follow up soon.'
       }
     });
   }),
