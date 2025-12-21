@@ -128,12 +128,22 @@ export const contactSchemas = {
   contactForm: z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
     email: commonSchemas.email,
-    phone: commonSchemas.phone,
+    phone: z.string()
+      .optional()
+      .or(z.literal(''))
+      .refine(
+        (val) => {
+          if (!val || val === '') return true; // Empty is valid (optional field)
+          return /^\+?[\d\s\-()]+$/.test(val) && val.replace(/\D/g, '').length >= 10;
+        },
+        'Please enter a valid phone number (at least 10 digits)'
+      ),
     location: z.string().optional().refine(
       (val) => val === undefined || val === '' || val.length >= 2,
       'Location must be at least 2 characters'
     ),
     opposingParty: z.string().optional(),
+    description: z.string().optional(),
   }),
 };
 
