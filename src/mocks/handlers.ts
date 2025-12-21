@@ -320,6 +320,18 @@ export const handlers = [
     });
   }),
 
+  http.get('*/api/auth/subscription/list', async () => {
+    return HttpResponse.json({
+      subscriptions: []
+    });
+  }),
+
+  http.post('*/api/auth/subscription/cancel', async () => {
+    return HttpResponse.json({
+      success: true
+    });
+  }),
+
   http.post('*/api/subscription/cancel', async () => {
     return HttpResponse.json({
       success: true
@@ -678,6 +690,237 @@ export const handlers = [
     return HttpResponse.json({
       success: true,
       data: message
+    });
+  }),
+
+  // ============================================
+  // Additional dev-only mocks
+  // ============================================
+
+  http.post('/api/chat', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        message: 'ok'
+      }
+    });
+  }),
+
+  http.get('/api/health', async () => {
+    return HttpResponse.json({
+      status: 'ok'
+    });
+  }),
+
+  http.post('/api/forms', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        id: randomId('form')
+      }
+    });
+  }),
+
+  http.post('/api/users/welcome', async () => {
+    return HttpResponse.json({
+      success: true
+    });
+  }),
+
+  http.post('/api/matter-creation', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        id: randomId('matter')
+      }
+    });
+  }),
+
+  http.get('/api/lawyers', async ({ request }) => {
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1', 10);
+    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+    return HttpResponse.json({
+      success: true,
+      data: {
+        lawyers: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          pages: 0
+        },
+        source: 'mock',
+        query: Object.fromEntries(url.searchParams.entries())
+      }
+    });
+  }),
+
+  http.get('/api/activity', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        items: [],
+        hasMore: false,
+        total: 0
+      }
+    });
+  }),
+
+  http.get('/api/inbox/conversations', async ({ request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+    const conversations = Array.from(mockDb.conversations.values());
+    const paged = conversations.slice(offset, offset + limit);
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        conversations: paged,
+        total: conversations.length,
+        limit,
+        offset
+      }
+    });
+  }),
+
+  http.get('/api/inbox/stats', async ({ request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const conversations = Array.from(mockDb.conversations.values());
+    const total = conversations.length;
+    return HttpResponse.json({
+      success: true,
+      data: {
+        total,
+        active: total,
+        unassigned: total,
+        assignedToMe: 0,
+        highPriority: 0,
+        archived: 0,
+        closed: 0
+      }
+    });
+  }),
+
+  http.post('/api/inbox/conversations/:conversationId/assign', async ({ params, request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as { assigned_to?: string | null };
+    const conversationId = String(params.conversationId);
+    const conversation = mockDb.conversations.get(conversationId);
+    if (!conversation) {
+      return notFound('Conversation not found');
+    }
+    conversation.assigned_to = body.assigned_to ?? null;
+    conversation.updated_at = new Date().toISOString();
+    mockDb.conversations.set(conversationId, conversation);
+
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.patch('/api/inbox/conversations/:conversationId', async ({ params, request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as Partial<MockConversation>;
+    const conversationId = String(params.conversationId);
+    const conversation = mockDb.conversations.get(conversationId);
+    if (!conversation) {
+      return notFound('Conversation not found');
+    }
+
+    const updatedConversation = {
+      ...conversation,
+      ...body,
+      updated_at: new Date().toISOString()
+    };
+    mockDb.conversations.set(conversationId, updatedConversation);
+
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post('/api/inbox/conversations/:conversationId/messages', async ({ params, request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as { content?: string; metadata?: Record<string, unknown> };
+    const conversationId = String(params.conversationId);
+    const conversation = mockDb.conversations.get(conversationId);
+    if (!conversation) {
+      return notFound('Conversation not found');
+    }
+
+    const messageId = randomId('msg');
+    const now = new Date().toISOString();
+    const message: MockMessage = {
+      id: messageId,
+      conversation_id: conversationId,
+      practice_id: conversation.practice_id,
+      user_id: 'mock-agent',
+      role: 'assistant',
+      content: body.content || '',
+      metadata: body.metadata || null,
+      token_count: null,
+      created_at: now
+    };
+
+    const conversationMessages = mockDb.messages.get(conversationId) || [];
+    conversationMessages.push(message);
+    mockDb.messages.set(conversationId, conversationMessages);
+
+    conversation.last_message_at = now;
+    conversation.updated_at = now;
+    mockDb.conversations.set(conversationId, conversation);
+
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post('/api/files/upload', async ({ request }) => {
+    const formData = await request.formData();
+    const file = formData.get('file');
+    const fileName = file instanceof File ? file.name : 'upload.bin';
+    const fileType = file instanceof File ? file.type || 'application/octet-stream' : 'application/octet-stream';
+    const fileSize = file instanceof File ? file.size : 0;
+    const fileId = randomId('file');
+    const storageKey = `uploads/mock/${fileId}/${fileName}`;
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        fileId,
+        fileName,
+        fileType,
+        fileSize,
+        url: `/api/files/${fileId}`,
+        storageKey
+      }
+    });
+  }),
+
+  http.get('/api/files/:fileId', async ({ params }) => {
+    const fileId = String(params.fileId);
+    return new HttpResponse(`Mock file ${fileId}`, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain'
+      }
     });
   })
 ];
