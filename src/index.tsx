@@ -8,7 +8,6 @@ import AppLayout from './components/AppLayout';
 import AuthPage from './components/AuthPage';
 import { SEOHead } from './components/SEOHead';
 import { ConversationHeader } from './components/chat/ConversationHeader';
-import { AuthGateOverlay } from './components/chat/AuthGateOverlay';
 import { ToastProvider } from './contexts/ToastContext';
 import { SessionProvider } from './contexts/SessionContext';
 import { useSession, getClient } from './lib/authClient';
@@ -97,22 +96,23 @@ function MainApp({
         });
 
         // useChatSession removed - using conversations directly
+        const handleMessageError = useCallback((error: string | Error) => {
+                console.error('Message handling error:', error);
+                showErrorRef.current?.(typeof error === 'string' ? error : 'We hit a snag sending that message.');
+        }, []);
+        
         const realMessageHandling = useMessageHandling({
                 practiceId,
                 conversationId: conversationId ?? undefined,
-                onError: (error) => {
-                        console.error('Message handling error:', error);
-                        showError(typeof error === 'string' ? error : 'We hit a snag sending that message.');
-                }
+                onError: handleMessageError
         });
 
         const messages = realMessageHandling.messages;
         const addMessage = realMessageHandling.addMessage;
-        const intakeStatus = realMessageHandling.intakeStatus;
 
         useEffect(() => {
                 realMessageHandling.clearMessages();
-        }, [practiceId, realMessageHandling.clearMessages]);
+        }, [practiceId, realMessageHandling]);
 
         const createConversation = useCallback(async () => {
                 if (!practiceId || !session?.user || isCreatingConversation) return null;
@@ -397,10 +397,14 @@ function MainApp({
 
         // Add intro message when practice config is loaded and no messages exist
         useEffect(() => {
-                if (practiceConfig && practiceConfig.introMessage && messages.length === 0) {
-                        if (addMessage) {
+                if (practiceConfig && practiceConfig.introMessage && addMessage) {
+                        // Check if intro message already exists to prevent duplicates
+                        const introMessageId = 'system-intro';
+                        const hasIntroMessage = messages.some(m => m.id === introMessageId);
+                        
+                        if (!hasIntroMessage && messages.length === 0) {
                                 const introMessage: ChatMessageUI = {
-                                        id: crypto.randomUUID(),
+                                        id: introMessageId, // Use stable ID to prevent duplicates
                                         content: practiceConfig.introMessage,
                                         isUser: false,
                                         role: 'assistant',
@@ -409,7 +413,7 @@ function MainApp({
                                 addMessage(introMessage);
                         }
                 }
-        }, [practiceConfig, messages.length, addMessage]);
+        }, [practiceConfig, messages, addMessage]);
 
 	// Create stable callback references for keyboard handlers
 	const handleEscape = useCallback(() => {
@@ -590,15 +594,6 @@ function MainApp({
 							isReadyToUpload={isReadyToUpload}
 							isSessionReady={isSessionReady}
 						/>
-						{intakeStatus.showAuthGate && (
-							<AuthGateOverlay
-								onSignIn={() => {
-									// Navigate to auth page
-									window.location.href = '/auth?mode=signin';
-								}}
-								practiceName={practiceConfig.name ?? undefined}
-							/>
-						)}
 					</div>
 				</div>
 			</AppLayout>
@@ -717,7 +712,7 @@ function AppWithPractice() {
       const key = `anonymous_signin_attempted_${practiceId}`;
       const retryCountKey = `anonymous_signin_retries_${practiceId}`;
       let attempted = sessionStorage.getItem(key);
-      let retryCount = parseInt(sessionStorage.getItem(retryCountKey) || '0', 10);
+      const retryCount = parseInt(sessionStorage.getItem(retryCountKey) || '0', 10);
       
       // Max retries to prevent infinite loops even in dev
       if (retryCount >= 3) {

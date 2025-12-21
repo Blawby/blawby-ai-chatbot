@@ -46,9 +46,9 @@ interface UseMessageHandlingOptions {
  * Hook that uses blawby-ai practice for all message handling
  * This is the preferred way to use message handling in components
  */
-export const useMessageHandlingWithContext = ({ sessionId, conversationId, onError }: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
+export const useMessageHandlingWithContext = ({ conversationId, onError }: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
   const { activePracticeId } = useSessionContext();
-  return useMessageHandling({ practiceId: activePracticeId ?? undefined, sessionId, conversationId, onError });
+  return useMessageHandling({ practiceId: activePracticeId ?? undefined, conversationId, onError });
 };
 
 /**
@@ -63,6 +63,7 @@ export const useMessageHandling = ({ practiceId, conversationId, onError }: UseM
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const isDisposedRef = useRef(false);
   const lastConversationIdRef = useRef<string | undefined>();
+  const conversationIdRef = useRef<string | undefined>();
   
   // Debug hooks for test environment (development only)
   useEffect(() => {
@@ -73,6 +74,12 @@ export const useMessageHandling = ({ practiceId, conversationId, onError }: UseM
       window.__DEBUG_AI_MESSAGES__?.(messages);
     }
   }, [messages]);
+
+  const logDev = useCallback((message: string, data?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.log(message, data);
+    }
+  }, []);
 
   // Helper function to update AI message with aiState
   const updateAIMessage = useCallback((messageId: string, updates: Partial<ChatMessageUI & { isUser: false }>) => {
@@ -210,7 +217,14 @@ export const useMessageHandling = ({ practiceId, conversationId, onError }: UseM
 
       // Replace temp message with real message from server
       if (!isDisposedRef.current) {
-        setMessages(prev => prev.map(m => m.id === tempMessage.id ? toUIMessage(data.data!) : m));
+        const uiMessage = toUIMessage(data.data!);
+        logDev('[sendMessage] Converting server message to UI message', {
+          serverRole: data.data!.role,
+          uiMessageRole: uiMessage.role,
+          uiMessageIsUser: uiMessage.isUser,
+          messageId: uiMessage.id
+        });
+        setMessages(prev => prev.map(m => m.id === tempMessage.id ? uiMessage : m));
       }
     } catch (error) {
       // Check if this is an AbortError (user cancelled request)
@@ -235,10 +249,18 @@ export const useMessageHandling = ({ practiceId, conversationId, onError }: UseM
       
       onError?.(errorMessage);
     }
-  }, [practiceId, conversationId, toUIMessage, onError]);
+  }, [practiceId, conversationId, toUIMessage, onError, logDev]);
 
   // Handle contact form submission
   const handleContactFormSubmit = useCallback(async (contactData: ContactData) => {
+    logDev('[useMessageHandling] handleContactFormSubmit called with:', {
+      name: !!contactData.name,
+      email: !!contactData.email,
+      phone: !!contactData.phone,
+      location: !!contactData.location,
+      opposingParty: !!contactData.opposingParty,
+      description: !!contactData.description
+    });
     try {
       // Format contact data as a structured message
       const contactMessage = `Contact Information:
@@ -305,7 +327,26 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
       // Add the message to local state
       if (!isDisposedRef.current) {
-        setMessages(prev => [...prev, toUIMessage(data.data!)]);
+        const uiMessage = toUIMessage(data.data!);
+        logDev('[handleContactFormSubmit] Adding contact form message to state', {
+          messageId: uiMessage.id,
+          role: uiMessage.role,
+          isUser: uiMessage.isUser,
+          hasMetadata: !!uiMessage.metadata,
+          hasContactFormFlag: !!uiMessage.metadata?.isContactFormSubmission,
+          serverMetadata: data.data!.metadata,
+          serverRole: data.data!.role,
+          fullServerMessage: data.data!
+        });
+        setMessages(prev => {
+          const updated = [...prev, uiMessage];
+          logDev('[handleContactFormSubmit] Messages after adding contact form message', {
+            totalMessages: updated.length,
+            lastMessage: updated[updated.length - 1],
+            lastMessageMetadata: updated[updated.length - 1]?.metadata
+          });
+          return updated;
+        });
       }
 
       // Show success feedback
@@ -317,7 +358,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
       throw error; // Re-throw so form can handle the error state
     }
-  }, [conversationId, toUIMessage, onError]);
+  }, [conversationId, toUIMessage, onError, logDev]);
 
   // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {
@@ -344,11 +385,12 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   }, []);
 
   // Fetch messages from conversation
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (signal?: AbortSignal) => {
     if (!conversationId || !practiceId) {
       return;
     }
 
+    const activeConversationId = conversationId;
     try {
       const token = await getTokenAsync();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -364,6 +406,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         method: 'GET',
         headers,
         credentials: 'include',
+        signal,
       });
 
       if (!response.ok) {
@@ -376,12 +419,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         throw new Error(data.error || 'Failed to fetch messages');
       }
 
-      if (!isDisposedRef.current) {
+      if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         const uiMessages = data.data.messages.map(toUIMessage);
         setMessages(uiMessages);
       }
     } catch (err) {
       if (isDisposedRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
       onError?.(errorMessage);
     }
@@ -389,13 +433,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
   // Fetch messages on mount if conversationId is provided
   useEffect(() => {
+    conversationIdRef.current = conversationId;
     if (conversationId && practiceId) {
-      fetchMessages();
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      fetchMessages(controller.signal);
     }
-
-    return () => {
-      isDisposedRef.current = true;
-    };
   }, [conversationId, practiceId, fetchMessages]);
 
   // Clear UI state when switching to a different conversation to avoid showing stale messages
@@ -431,24 +475,30 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   const isAnonymous = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
   const userMessages = messages.filter(m => m.isUser);
   
-  if (import.meta.env.DEV && messages.length > 0) {
-    console.log('[IntakeFlow] Message analysis', {
+  // Check if contact form has been submitted by looking for the submission flag
+  const hasSubmittedContactForm = messages.some(m => 
+    m.isUser && m.metadata?.isContactFormSubmission
+  );
+  
+  if (messages.length > 0) {
+    logDev('[IntakeFlow] Message analysis', {
       totalMessages: messages.length,
       userMessagesCount: userMessages.length,
+      hasSubmittedContactForm,
       messagesWithIsUser: messages.map(m => ({ 
         id: m.id, 
         isUser: m.isUser, 
         role: m.role, 
         content: m.content.substring(0, 50),
-        hasIsUserProperty: 'isUser' in m
+        hasIsUserProperty: 'isUser' in m,
+        isUserType: typeof m.isUser,
+        isUserValue: m.isUser,
+        hasMetadata: !!m.metadata,
+        hasContactFormFlag: !!m.metadata?.isContactFormSubmission,
+        metadataKeys: m.metadata ? Object.keys(m.metadata) : []
       }))
     });
   }
-  
-  // Check if contact form has been submitted by looking for the submission flag
-  const hasSubmittedContactForm = messages.some(m => 
-    m.isUser && m.metadata?.isContactFormSubmission
-  );
   
   const intakeStep = useCallback(() => {
     // Authenticated users skip intake flow
@@ -466,15 +516,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
   const currentStep = intakeStep();
   
-  if (import.meta.env.DEV) {
-    console.log('[IntakeFlow] Step calculation', {
-      isAnonymous,
-      userMessagesCount: userMessages.length,
-      hasSubmittedContactForm,
-      currentStep,
-      messagesCount: messages.length
-    });
-  }
+  logDev('[IntakeFlow] Step calculation', {
+    isAnonymous,
+    userMessagesCount: userMessages.length,
+    hasSubmittedContactForm,
+    currentStep,
+    messagesCount: messages.length
+  });
 
   // Inject system messages based on step
   useEffect(() => {
@@ -485,7 +533,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const hasWelcome = prev.some(m => m.id === 'system-welcome');
       const hasContactForm = prev.some(m => m.id === 'system-contact-form');
       const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
-      const hasAuth = prev.some(m => m.id === 'system-auth');
 
       let newMessages = [...prev];
       let changed = false;
@@ -545,10 +592,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       // Submission confirmation (after contact form submitted - conversational)
       if (currentStep === 'auth_gate') {
         if (!hasSubmissionConfirm) {
-          addMsg('system-submission-confirm', 'Perfect! I\'ve shared your information with our team. A legal professional will review your case and join this conversation soon.');
-        }
-        if (!hasAuth) {
-          addMsg('system-auth', '💡 Tip: Sign up to save your conversation and case details for easy access later.');
+          addMsg('system-submission-confirm', 'Perfect! I\'ve shared your information with our team. A legal professional will review your case and join this conversation soon. 💡 [Sign up to save your conversation](/auth?mode=signin) and case details for easy access later.');
         }
       }
 
@@ -561,10 +605,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     });
   }, [currentStep, isAnonymous]);
 
-  // Expose auth gate status - but don't block chat, just show the overlay as a suggestion
   // The intake flow is now conversational and non-blocking
-  const showAuthGate = isAnonymous && currentStep === 'auth_gate';
-
   return {
     messages,
     sendMessage,
@@ -574,8 +615,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     clearMessages,
     cancelStreaming,
     intakeStatus: {
-      step: currentStep,
-      showAuthGate
+      step: currentStep
     }
   };
 }; 

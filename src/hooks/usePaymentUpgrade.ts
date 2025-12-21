@@ -354,7 +354,7 @@ export const usePaymentUpgrade = () => {
         // 1. Org creation (if referenceId missing)
         // 2. Org selection (if existing orgs)
         // 3. Duplicate checks (if active sub exists)
-        const upgradeParams: Parameters<typeof client.subscription.upgrade>[0] = {
+        const upgradeParams = {
           plan, // Plan name from API (e.g., "professional", "business_seat")
           // subscriptionId is handled automatically by middleware now
           successUrl: validatedSuccessUrl,
@@ -362,12 +362,8 @@ export const usePaymentUpgrade = () => {
           annual,
           seats: seats > 1 ? seats : undefined,
           disableRedirect: false, // Auto-redirect to Stripe Checkout
-        };
-        
-        // Only include referenceId if we have one (allows middleware to auto-create org if omitted)
-        if (resolvedPracticeId) {
-          upgradeParams.referenceId = resolvedPracticeId;
-        }
+          ...(resolvedPracticeId && { referenceId: resolvedPracticeId }),
+        } as Parameters<typeof client.subscription.upgrade>[0];
         
         const { data, error: subscriptionError } = await client.subscription.upgrade(upgradeParams);
 

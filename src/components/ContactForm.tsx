@@ -53,9 +53,11 @@ function validateContactFormProps(
     }
     
     const valid = [...new Set(fields)]
-      .filter((f): f is AllowedField => 
-        typeof f === 'string' && ALLOWED_FIELDS.includes(f as AllowedField)
-      );
+      .filter((f): f is AllowedField => {
+        if (typeof f !== 'string') return false;
+        // Use a more explicit check that works with readonly arrays
+        return (ALLOWED_FIELDS as readonly string[]).includes(f);
+      });
     
     if (valid.length === 0) {
       console.error('[ContactForm] No valid fields. Using defaults.');
@@ -64,7 +66,7 @@ function validateContactFormProps(
     
     if (valid.length !== fields.length) {
       const invalidFields = fields.filter(field => 
-        !ALLOWED_FIELDS.includes(field as AllowedField)
+        typeof field === 'string' && !(ALLOWED_FIELDS as readonly string[]).includes(field)
       );
       console.warn('[ContactForm] Some invalid field names were filtered out:', invalidFields);
     }
@@ -121,7 +123,7 @@ function normalizeInitialValues(values?: Partial<ContactData>): Partial<ContactD
 export function ContactForm({
   onSubmit,
   fields = [...ALLOWED_FIELDS], // Copy readonly array to mutable
-  required = ['name', 'email', 'phone'],
+  required = ['name', 'email'],
   message,
   initialValues
 }: ContactFormProps): JSX.Element {
@@ -167,7 +169,17 @@ export function ContactForm({
       
       <Form
         initialData={initialData}
-        onSubmit={(formData: FormDataType) => {
+        onSubmit={async (formData: FormDataType) => {
+          if (import.meta.env.DEV) {
+            console.log('[ContactForm] Form submitted with data:', {
+              name: !!formData.name,
+              email: !!formData.email,
+              phone: !!formData.phone,
+              location: !!formData.location,
+              opposingParty: !!formData.opposingParty,
+              description: !!formData.description
+            });
+          }
           // Convert FormData to ContactData
           const contactData: ContactData = {
             name: (formData.name as string) || '',
@@ -177,7 +189,15 @@ export function ContactForm({
             opposingParty: formData.opposingParty as string | undefined,
             description: formData.description as string | undefined
           };
-          return onSubmit(contactData);
+          try {
+            await onSubmit(contactData);
+            if (import.meta.env.DEV) {
+              console.log('[ContactForm] onSubmit completed successfully');
+            }
+          } catch (error) {
+            console.error('[ContactForm] onSubmit error:', error);
+            throw error;
+          }
         }}
         schema={schemas.contact.contactForm}
         className="space-y-4"

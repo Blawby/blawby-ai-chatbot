@@ -122,7 +122,11 @@ function getAuthClient(): AuthClientType {
             console.error('[Auth] Failed to save token:', error);
           }
         } else if (isDevelopment()) {
-          console.warn('[Auth] No token in response headers. Available headers:', Array.from(ctx.response.headers.keys()));
+          const headerEntries: string[] = [];
+          ctx.response.headers.forEach((_value, key) => {
+            headerEntries.push(key);
+          });
+          console.warn('[Auth] No token in response headers. Available headers:', headerEntries);
         }
       }
     }
@@ -160,7 +164,7 @@ export const authClient = new Proxy({} as AuthClientType, {
         get(_target, subProp) {
           // When accessing properties (like subscription.upgrade), get them from the original value
           // Properties are on the original function, not the bound one
-          const subValue = (value as Record<PropertyKey, unknown>)[subProp];
+          const subValue = (value as unknown as Record<PropertyKey, unknown>)[subProp];
           
           if (typeof subValue === 'function') {
             // Bind nested functions to the original value to preserve 'this'
