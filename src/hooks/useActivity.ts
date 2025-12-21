@@ -4,7 +4,7 @@ import { features } from '../config/features';
 export interface ActivityEvent {
   id: string;
   uid: string;
-  type: 'matter_event' | 'session_event';
+  type: 'matter_event' | 'conversation_event';
   eventType: string;
   title: string;
   description: string;
@@ -17,7 +17,7 @@ export interface ActivityEvent {
 
 export interface UseActivityOptions {
   matterId?: string;
-  sessionId?: string;
+  conversationId?: string;
   practiceId?: string;
   limit?: number; // default 25, max 50
   since?: string; // ISO 8601 timestamp
@@ -46,7 +46,7 @@ export interface UseActivityResult {
 export function useActivity(options: UseActivityOptions): UseActivityResult {
   const {
     matterId,
-    sessionId,
+    conversationId,
     practiceId,
     limit = 25,
     since,
@@ -74,7 +74,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
     
     if (practiceId) params.set('practiceId', practiceId);
     if (matterId) params.set('matterId', matterId);
-    if (sessionId) params.set('sessionId', sessionId);
+    if (conversationId) params.set('conversationId', conversationId);
     if (limit) params.set('limit', limit.toString());
     if (since) params.set('since', since);
     if (until) params.set('until', until);
@@ -83,7 +83,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
     if (nextCursorRef.current) params.set('cursor', nextCursorRef.current);
     
     return params.toString();
-  }, [practiceId, matterId, sessionId, limit, since, until, type, actorType]);
+  }, [practiceId, matterId, conversationId, limit, since, until, type, actorType]);
 
   const fetchActivity = useCallback(async (isLoadMore = false) => {
     if (!enabled) {

@@ -147,6 +147,18 @@ Perfect! Now I have the complete schema picture. This is extremely helpful. Let 
 
 ## Phase 2: Session Integration
 
+### Endpoint rename: `/api/conversations/current` → `/api/conversations/active`
+
+- **Reason**: Align the get-or-create endpoint name with the "active conversation" concept used elsewhere in the product and unblock future `/api/conversations/:status` collection endpoints.
+- **Backward compatibility**: The worker now accepts both `/active` and `/current`. Requests to `/current` succeed but return `Warning: 299 - "Deprecated path /api/conversations/current; use /api/conversations/active"` so clients can detect the old path at runtime.
+- **Migration steps**:
+  1. Update all client helpers (e.g. `getCurrentConversationEndpoint`) to call `/active` (done).
+  2. Deploy the worker change so `/current` keeps working temporarily.
+  3. Monitor worker logs/WAF metrics for hits on `/current`. The warning header allows tracing remaining legacy clients.
+  4. Communicate deprecation to external consumers with a removal date (target: 30 days after release once metrics show no `/current` traffic).
+  5. Remove the compatibility branch and the warning header once no `/current` usage remains.
+- **Terminology**: "Active conversation" here refers to the single conversation tied to a session/user that we auto-create; it does **not** mean "all conversations with `status = 'active'`". Future list/filter endpoints should continue using the `status` query parameter for that use case to avoid ambiguity.
+
 ### Issue #4: Bridge Better Auth Sessions with Chat Sessions
 **Type:** Enhancement  
 **Priority:** High  

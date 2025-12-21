@@ -2,7 +2,7 @@ import type { Env } from '../types.js';
 
 export interface StatusUpdate {
   id: string;
-  sessionId: string;
+  conversationId: string;
   practiceId: string;
   type: 'file_processing' | 'document_analysis' | 'background_task' | 'system_notification' | 'matter_update';
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -15,7 +15,7 @@ export interface StatusUpdate {
 }
 
 export interface StatusSubscription {
-  sessionId: string;
+  conversationId: string;
   practiceId: string;
   lastSeen: number;
 }
@@ -54,7 +54,7 @@ export class StatusService {
       expirationTtl: StatusService.STATUS_TTL
     });
 
-    console.log(`Status updated: ${status.type} - ${status.status} for session ${status.sessionId}`);
+    console.log(`Status updated: ${status.type} - ${status.status} for conversation ${status.conversationId}`);
   }
 
   /**
@@ -85,9 +85,9 @@ export class StatusService {
   }
 
   /**
-   * Get all status updates for a session
+   * Get all status updates for a conversation
    */
-  static async getSessionStatuses(env: Env, sessionId: string): Promise<StatusUpdate[]> {
+  static async getConversationStatuses(env: Env, conversationId: string): Promise<StatusUpdate[]> {
     const prefix = `${StatusService.STATUS_PREFIX}`;
     const list = await env.CHAT_SESSIONS.list({ prefix });
     
@@ -100,7 +100,7 @@ export class StatusService {
       
       try {
         const status = JSON.parse(value) as StatusUpdate;
-        if (status.sessionId === sessionId) {
+        if (status.conversationId === conversationId) {
           return status;
         }
       } catch (error) {
@@ -117,32 +117,32 @@ export class StatusService {
   }
 
   /**
-   * Get recent status updates for a session (since lastSeen timestamp)
+   * Get recent status updates for a conversation (since lastSeen timestamp)
    */
   static async getRecentStatuses(
     env: Env, 
-    sessionId: string, 
+    conversationId: string, 
     lastSeen: number
   ): Promise<StatusUpdate[]> {
-    const allStatuses = await StatusService.getSessionStatuses(env, sessionId);
+    const allStatuses = await StatusService.getConversationStatuses(env, conversationId);
     return allStatuses.filter(status => status.updatedAt > lastSeen);
   }
 
   /**
-   * Register a session subscription for real-time updates
+   * Register a conversation subscription for real-time updates
    */
-  static async subscribeSession(
+  static async subscribeConversation(
     env: Env,
-    sessionId: string,
+    conversationId: string,
     practiceId: string
   ): Promise<void> {
     const subscription: StatusSubscription = {
-      sessionId,
+      conversationId,
       practiceId,
       lastSeen: Date.now()
     };
 
-    const key = `${StatusService.SUBSCRIPTION_PREFIX}${sessionId}`;
+    const key = `${StatusService.SUBSCRIPTION_PREFIX}${conversationId}`;
     await env.CHAT_SESSIONS.put(key, JSON.stringify(subscription), {
       expirationTtl: StatusService.SUBSCRIPTION_TTL
     });
@@ -153,10 +153,10 @@ export class StatusService {
    */
   static async updateSubscriptionLastSeen(
     env: Env,
-    sessionId: string,
+    conversationId: string,
     lastSeen?: number
   ): Promise<void> {
-    const key = `${StatusService.SUBSCRIPTION_PREFIX}${sessionId}`;
+    const key = `${StatusService.SUBSCRIPTION_PREFIX}${conversationId}`;
     const existing = await env.CHAT_SESSIONS.get(key);
     
     if (existing) {
@@ -200,10 +200,10 @@ export class StatusService {
   }
 
   /**
-   * Unsubscribe a session
+   * Unsubscribe a conversation
    */
-  static async unsubscribeSession(env: Env, sessionId: string): Promise<void> {
-    const key = `${StatusService.SUBSCRIPTION_PREFIX}${sessionId}`;
+  static async unsubscribeConversation(env: Env, conversationId: string): Promise<void> {
+    const key = `${StatusService.SUBSCRIPTION_PREFIX}${conversationId}`;
     await env.CHAT_SESSIONS.delete(key);
   }
 
@@ -250,7 +250,7 @@ export class StatusService {
    */
   static async createFileProcessingStatus(
     env: Env,
-    sessionId: string,
+    conversationId: string,
     practiceId: string,
     fileName: string,
     status: StatusUpdate['status'] = 'pending',
@@ -260,7 +260,7 @@ export class StatusService {
 
     await StatusService.setStatus(env, {
       id: statusId,
-      sessionId,
+      conversationId,
       practiceId,
       type: 'file_processing',
       status,
@@ -277,15 +277,15 @@ export class StatusService {
    */
   static async createDocumentAnalysisStatus(
     env: Env,
-    sessionId: string,
+    conversationId: string,
     practiceId: string,
     fileName: string,
     status: StatusUpdate['status'] = 'processing',
     priority: number = 10
   ): Promise<string> {
     // Validate inputs
-    if (!sessionId || !practiceId || !fileName) {
-      throw new Error('sessionId, practiceId, and fileName are required');
+    if (!conversationId || !practiceId || !fileName) {
+      throw new Error('conversationId, practiceId, and fileName are required');
     }
     
     if (!['pending', 'processing', 'completed', 'failed'].includes(status)) {
@@ -301,7 +301,7 @@ export class StatusService {
     
     const statusUpdate: Omit<StatusUpdate, 'createdAt' | 'updatedAt' | 'expiresAt'> = {
       id: statusId,
-      sessionId,
+      conversationId,
       practiceId,
       type: 'document_analysis',
       status,
@@ -319,7 +319,7 @@ export class StatusService {
    */
   static async createSystemNotification(
     env: Env,
-    sessionId: string,
+    conversationId: string,
     practiceId: string,
     message: string,
     data?: Record<string, unknown>
@@ -328,7 +328,7 @@ export class StatusService {
     
     await StatusService.setStatus(env, {
       id: statusId,
-      sessionId,
+      conversationId,
       practiceId,
       type: 'system_notification',
       status: 'completed',

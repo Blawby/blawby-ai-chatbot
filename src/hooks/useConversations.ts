@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '../contexts/SessionContext.js';
 import { getTokenAsync } from '../lib/tokenStorage';
-import { getApiConfig } from '../config/api';
+import { getConversationsEndpoint, getConversationParticipantsEndpoint } from '../config/api';
 import type { Conversation, ConversationStatus } from '../types/conversation';
 
 interface UseConversationsOptions {
@@ -86,8 +86,7 @@ export function useConversations({
         params.set('status', status);
       }
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/conversations?${params.toString()}`, {
+      const response = await fetch(`${getConversationsEndpoint()}?${params.toString()}`, {
         method: 'GET',
         headers,
         credentials: 'include',
@@ -188,8 +187,7 @@ export function useConversations({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/conversations/${conversationId}/participants`, {
+      const response = await fetch(getConversationParticipantsEndpoint(conversationId), {
         method: 'POST',
         headers,
         credentials: 'include',

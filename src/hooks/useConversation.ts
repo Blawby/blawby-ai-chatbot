@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '../contexts/SessionContext.js';
 import { getTokenAsync } from '../lib/tokenStorage';
-import { getApiConfig } from '../config/api';
+import { getCurrentConversationEndpoint, getConversationEndpoint, getChatMessagesEndpoint } from '../config/api';
 import type { Conversation, ConversationMessage, ConversationMessageUI, GetMessagesOptions } from '../types/conversation';
 
 interface UseConversationOptions {
@@ -69,9 +69,8 @@ export function useCurrentConversation(
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers.Authorization = `Bearer ${token}`;
         
-        const config = getApiConfig();
         const response = await fetch(
-          `${config.baseUrl}/api/conversations/current?practiceId=${encodeURIComponent(practiceId)}`,
+          `${getCurrentConversationEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`,
           {
             method: 'GET',
             headers,
@@ -208,8 +207,7 @@ export function useConversation({
         Authorization: `Bearer ${token}`
       };
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/conversations/${conversationId}?practiceId=${encodeURIComponent(practiceId)}`, {
+      const response = await fetch(`${getConversationEndpoint(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'GET',
         headers,
         credentials: 'include',
@@ -274,8 +272,7 @@ export function useConversation({
         params.set('cursor', options.cursor);
       }
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/chat/messages?${params.toString()}`, {
+      const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
         method: 'GET',
         headers,
         credentials: 'include',
@@ -365,8 +362,7 @@ export function useConversation({
 
       setMessages(prev => [...prev, tempMessage]);
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/chat/messages`, {
+      const response = await fetch(getChatMessagesEndpoint(), {
         method: 'POST',
         headers,
         credentials: 'include',

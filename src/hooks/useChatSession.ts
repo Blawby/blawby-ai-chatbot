@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '../contexts/SessionContext.js';
+import { getSessionsEndpoint } from '../config/api';
 
 const STORAGE_PREFIX = 'session:';
 
@@ -107,7 +108,7 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
       }
 
     try {
-      const response = await fetch('/api/sessions', {
+      const response = await fetch(getSessionsEndpoint(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -1,7 +1,7 @@
 import type { Env } from '../types';
 import { HttpErrors, handleError } from '../errorHandler';
 import { z } from 'zod';
-import { SessionService } from '../services/SessionService.js';
+// SessionService removed - using conversations instead
 import { ActivityService } from '../services/ActivityService';
 import { StatusService, type StatusUpdate } from '../services/StatusService.js';
 import { Logger } from '../utils/logger';
@@ -50,7 +50,7 @@ async function updateStatusWithRetry(
         // Emit alert for critical status update failures
         Logger.error('ALERT: Critical status update failure', {
           statusId: statusUpdate.id,
-          sessionId: statusUpdate.sessionId,
+          conversationId: statusUpdate.conversationId,
           practiceId: statusUpdate.practiceId,
           status: statusUpdate.status,
           message: statusUpdate.message,
@@ -81,7 +81,7 @@ async function updateStatusWithRetry(
 const fileUploadValidationSchema = z.object({
   file: z.instanceof(File, { message: 'File is required' }),
   practiceId: z.string().optional(), // Make practiceId optional to allow practice-context fallback
-  sessionId: z.string().min(1, 'Session ID is required')
+  conversationId: z.string().min(1, 'Conversation ID is required')
 });
 
 // File type validation
@@ -147,15 +147,15 @@ function validateFile(file: File): { isValid: boolean; error?: string } {
   return { isValid: true };
 }
 
-async function storeFile(file: File, practiceId: string, sessionId: string, env: Env): Promise<{ fileId: string; url: string; storageKey: string }> {
+async function storeFile(file: File, practiceId: string, conversationId: string, env: Env): Promise<{ fileId: string; url: string; storageKey: string }> {
   if (!env.FILES_BUCKET) {
     throw HttpErrors.internalServerError('File storage is not configured');
   }
 
   // Generate unique file ID
-  const fileId = `${practiceId}-${sessionId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const fileId = `${practiceId}-${conversationId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const fileExtension = file.name.split('.').pop() || '';
-  const storageKey = `uploads/${practiceId}/${sessionId}/${fileId}.${fileExtension}`;
+  const storageKey = `uploads/${practiceId}/${conversationId}/${fileId}.${fileExtension}`;
 
   // Check if the practice exists - this is required for file operations
   // This check MUST happen before any R2 upload to prevent orphaned files
@@ -165,7 +165,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
     // Log anomaly for monitoring and alerting
     Logger.error('Practice not found during file upload - this indicates a data integrity issue', {
       practiceId,
-      sessionId,
+      conversationId,
       fileId,
       fileName: file.name,
       fileSize: file.size,
@@ -179,7 +179,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
     // In production, this would integrate with your monitoring system (e.g., DataDog, New Relic, etc.)
     console.error('🚨 MONITORING ALERT: Missing practice during file upload', {
       practiceId,
-      sessionId,
+      conversationId,
       fileId,
       alertType: 'missing_practice',
       severity: 'high',
@@ -194,7 +194,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
     fileId,
     storageKey,
     practiceId,
-    sessionId,
+    conversationId,
     fileName: file.name,
     fileSize: file.size,
     fileType: file.type
@@ -211,7 +211,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
     customMetadata: {
       originalName: file.name,
       practiceId,
-      sessionId,
+      conversationId,
       uploadedAt: new Date().toISOString()
     }
   });
@@ -224,7 +224,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
   try {
     const stmt = env.DB.prepare(`
       INSERT INTO files (
-        id, organization_id, session_id, original_name, file_name, file_path, 
+        id, practice_id, conversation_id, original_name, file_name, file_path, 
         file_type, file_size, mime_type, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `);
@@ -232,7 +232,7 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
     await stmt.bind(
       fileId,
       practiceId,
-      sessionId,
+      conversationId,
       file.name,
       `${fileId}.${fileExtension}`,
       storageKey,
@@ -259,15 +259,15 @@ async function storeFile(file: File, practiceId: string, sessionId: string, env:
       const eventTitle = 'File Uploaded';
       
       await activityService.createEvent({
-        type: 'session_event',
+        type: 'conversation_event',
         eventType,
         title: eventTitle,
         description: `${eventTitle}: ${file.name}`,
         eventDate: new Date().toISOString(),
         actorType: 'user',
-        actorId: undefined, // Don't populate created_by_lawyer_id with sessionId
+        actorId: undefined, // Don't populate created_by_lawyer_id with conversationId
         metadata: {
-          sessionId,
+          conversationId,
           practiceId,
           fileId,
           fileName: file.name,
@@ -308,7 +308,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
   if (path === '/api/files/upload' && request.method === 'POST') {
     // Declare variables in outer scope for rollback capability
     let resolvedPracticeId: string;
-    let resolvedSessionId: string;
+    let resolvedConversationId: string;
 
     try {
       // Parse form data
@@ -318,14 +318,14 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       const file = formData.get('file') as File;
       const rawPracticeId = formData.get('practiceId');
       const practiceId = typeof rawPracticeId === 'string' && rawPracticeId.trim() ? rawPracticeId.trim() : undefined;
-      const sessionId = formData.get('sessionId') as string;
+      const conversationId = formData.get('conversationId') as string;
       
       // Extract optional metadata fields
       const description = formData.get('description') as string | null;
       const category = formData.get('category') as string | null;
 
       // Validate input
-      const validationResult = fileUploadValidationSchema.safeParse({ file, practiceId, sessionId });
+      const validationResult = fileUploadValidationSchema.safeParse({ file, practiceId, conversationId });
       if (!validationResult.success) {
         throw HttpErrors.badRequest('Invalid upload data', validationResult.error.issues);
       }
@@ -362,33 +362,38 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       
       const normalizedPracticeId = contextPracticeId;
       
-      const normalizedSessionId = sessionId.trim();
+      const normalizedConversationId = conversationId.trim();
 
       // Validate that trimmed IDs are not empty
       if (!normalizedPracticeId) {
         throw HttpErrors.badRequest('practiceId cannot be empty after trimming');
       }
-      if (!normalizedSessionId) {
-        throw HttpErrors.badRequest('sessionId cannot be empty after trimming');
+      if (!normalizedConversationId) {
+        throw HttpErrors.badRequest('conversationId cannot be empty after trimming');
       }
 
-      const sessionResolution = await SessionService.resolveSession(env, {
-        request,
-        sessionId: normalizedSessionId,
-        practiceId: normalizedPracticeId,
-        createIfMissing: true
-      });
-
-      resolvedPracticeId = sessionResolution.session.practiceId;
-      resolvedSessionId = sessionResolution.session.id;
+      // Validate conversation exists and belongs to practice
+      const { ConversationService } = await import('../services/ConversationService.js');
+      const conversationService = new ConversationService(env);
+      try {
+        const conversation = await conversationService.getConversation(normalizedConversationId, normalizedPracticeId);
+        resolvedPracticeId = conversation.practice_id;
+        resolvedConversationId = conversation.id;
+      } catch (error) {
+        throw HttpErrors.badRequest(`Conversation not found or does not belong to practice: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
 
       // Update status to indicate file stored
       let statusId: string | null = null;
       let statusCreatedAt: number | null = null;
       try {
+        // StatusService migration completed: now uses conversationId instead of sessionId
+        // See: [TRACKING-ISSUE: StatusService sessionId->conversationId migration]
+        // Migration date: 2025-01-XX
+        // Note: Status records have 24h TTL, so old records with sessionId will expire naturally
         statusId = await StatusService.createFileProcessingStatus(
           env,
-          resolvedSessionId,
+          resolvedConversationId,
           resolvedPracticeId,
           file.name,
           'processing',
@@ -404,18 +409,22 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       }
 
       // Store file with error handling
-      let fileId: string, url: string, storageKey: string;
-      const result = await storeFile(file, resolvedPracticeId, resolvedSessionId, env);
+      let fileId: string, url: string;
+      const result = await storeFile(file, resolvedPracticeId, resolvedConversationId, env);
       fileId = result.fileId;
       url = result.url;
-      storageKey = result.storageKey;
+      // storageKey is available in result but not used here
 
       // Update status to indicate file stored
       if (statusId) {
         try {
+          // StatusService migration completed: StatusUpdate interface now uses conversationId
+          // See: [TRACKING-ISSUE: StatusService sessionId->conversationId migration]
+          // Migration date: 2025-01-XX
+          // All status updates now use conversationId consistently
           await updateStatusWithRetry(env, {
             id: statusId,
-            sessionId: resolvedSessionId,
+            conversationId: resolvedConversationId,
             practiceId: resolvedPracticeId,
             type: 'file_processing',
             status: 'processing',
@@ -435,7 +444,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         fileType: file.type,
         fileSize: file.size,
         practiceId: resolvedPracticeId,
-        sessionId: resolvedSessionId,
+        conversationId: resolvedConversationId,
         url,
         statusId
       });
@@ -465,9 +474,6 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       };
 
       const responseHeaders = new Headers({ 'Content-Type': 'application/json' });
-      if (sessionResolution.cookie) {
-        responseHeaders.append('Set-Cookie', sessionResolution.cookie);
-      }
 
       return new Response(JSON.stringify(responseBody), {
         status: 200,

@@ -17,6 +17,7 @@ export interface Conversation {
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // Timestamp of last message
   first_response_at?: string | null; // Timestamp of first practice member response
+  closed_at?: string | null; // Timestamp when conversation was closed
   created_at: string;
   updated_at: string;
 }
@@ -115,7 +116,7 @@ export class ConversationService {
       SELECT 
         id, practice_id, user_id, matter_id, participants, user_info, status,
         assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        created_at, updated_at
+        closed_at, created_at, updated_at
       FROM conversations
       WHERE id = ? AND practice_id = ?
     `).bind(conversationId, practiceId).first<{
@@ -132,6 +133,7 @@ export class ConversationService {
       internal_notes: string | null;
       last_message_at: string | null;
       first_response_at: string | null;
+      closed_at: string | null;
       created_at: string;
       updated_at: string;
     } | null>();
@@ -154,6 +156,7 @@ export class ConversationService {
       internal_notes: record.internal_notes || null,
       last_message_at: record.last_message_at || null,
       first_response_at: record.first_response_at || null,
+      closed_at: record.closed_at || null,
       created_at: record.created_at,
       updated_at: record.updated_at
     };
@@ -183,7 +186,7 @@ export class ConversationService {
       SELECT 
         id, practice_id, user_id, matter_id, participants, user_info, status,
         assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        created_at, updated_at
+        closed_at, created_at, updated_at
       FROM conversations
       WHERE practice_id = ? 
         AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
@@ -206,6 +209,7 @@ export class ConversationService {
       internal_notes: string | null;
       last_message_at: string | null;
       first_response_at: string | null;
+      closed_at: string | null;
       created_at: string;
       updated_at: string;
     } | null>();
@@ -225,6 +229,7 @@ export class ConversationService {
         internal_notes: existing.internal_notes || null,
         last_message_at: existing.last_message_at || null,
         first_response_at: existing.first_response_at || null,
+        closed_at: existing.closed_at || null,
         created_at: existing.created_at,
         updated_at: existing.updated_at
       };
@@ -254,7 +259,7 @@ export class ConversationService {
     const limit = Math.min(options.limit || 50, 100); // Max 100
     let query = `
       SELECT 
-        id, practice_id, user_id, matter_id, participants, user_info, status, created_at, updated_at
+        id, practice_id, user_id, matter_id, participants, user_info, status, closed_at, created_at, updated_at
       FROM conversations
       WHERE practice_id = ?
     `;
@@ -287,6 +292,7 @@ export class ConversationService {
       participants: string;
       user_info: string | null;
       status: string;
+      closed_at: string | null;
       created_at: string;
       updated_at: string;
     }>();
@@ -299,6 +305,7 @@ export class ConversationService {
       participants: JSON.parse(record.participants || '[]') as string[],
       user_info: record.user_info ? JSON.parse(record.user_info) : null,
       status: record.status as Conversation['status'],
+      closed_at: record.closed_at || null,
       created_at: record.created_at,
       updated_at: record.updated_at
     }));
@@ -316,7 +323,7 @@ export class ConversationService {
     }
   ): Promise<Conversation> {
     // Verify conversation exists and belongs to practice
-    await this.getConversation(conversationId, practiceId);
+    const currentConversation = await this.getConversation(conversationId, practiceId);
 
     const now = new Date().toISOString();
     const updatesList: string[] = [];
@@ -325,6 +332,16 @@ export class ConversationService {
     if (updates.status) {
       updatesList.push('status = ?');
       bindings.push(updates.status);
+      
+      // Set closed_at when transitioning to 'closed' status
+      if (updates.status === 'closed' && currentConversation.status !== 'closed') {
+        updatesList.push('closed_at = ?');
+        bindings.push(now);
+      }
+      // Clear closed_at when transitioning away from 'closed' status
+      else if (updates.status !== 'closed' && currentConversation.status === 'closed') {
+        updatesList.push('closed_at = NULL');
+      }
     }
 
     if (updates.metadata !== undefined) {
@@ -687,7 +704,7 @@ export class ConversationService {
       SELECT 
         id, practice_id, user_id, matter_id, participants, user_info, status,
         assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
-        created_at, updated_at
+        closed_at, created_at, updated_at
       FROM conversations
       WHERE practice_id = ?${filters.whereClause}
     `;
@@ -728,6 +745,7 @@ export class ConversationService {
       internal_notes: string | null;
       last_message_at: string | null;
       first_response_at: string | null;
+      closed_at: string | null;
       created_at: string;
       updated_at: string;
     }>();
@@ -746,6 +764,7 @@ export class ConversationService {
       internal_notes: record.internal_notes || null,
       last_message_at: record.last_message_at || null,
       first_response_at: record.first_response_at || null,
+      closed_at: record.closed_at || null,
       created_at: record.created_at,
       updated_at: record.updated_at
     }));
@@ -787,7 +806,7 @@ export class ConversationService {
       status?: 'active' | 'archived' | 'closed';
     }
   ): Promise<Conversation> {
-    await this.getConversation(conversationId, practiceId);
+    const currentConversation = await this.getConversation(conversationId, practiceId);
 
     const now = new Date().toISOString();
     const updatesList: string[] = [];
@@ -816,6 +835,16 @@ export class ConversationService {
     if (updates.status) {
       updatesList.push('status = ?');
       bindings.push(updates.status);
+      
+      // Set closed_at when transitioning to 'closed' status
+      if (updates.status === 'closed' && currentConversation.status !== 'closed') {
+        updatesList.push('closed_at = ?');
+        bindings.push(now);
+      }
+      // Clear closed_at when transitioning away from 'closed' status
+      else if (updates.status !== 'closed' && currentConversation.status === 'closed') {
+        updatesList.push('closed_at = NULL');
+      }
     }
 
     if (updatesList.length === 0) {

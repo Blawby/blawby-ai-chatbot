@@ -20,9 +20,7 @@ interface ChatContainerProps {
     description?: string | null;
   };
   onOpenSidebar?: () => void;
-  sessionId?: string;
   practiceId?: string;
-  onFeedbackSubmit?: (feedback: unknown) => void;
 
   // File handling props
   previewFiles: FileAttachment[];
@@ -48,9 +46,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onContactFormSubmit,
   practiceConfig,
   onOpenSidebar,
-  sessionId,
   practiceId,
-  onFeedbackSubmit,
   previewFiles,
   uploadingFiles,
   removePreviewFile,
@@ -144,9 +140,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           practiceConfig={practiceConfig}
           onOpenSidebar={onOpenSidebar}
           onContactFormSubmit={onContactFormSubmit}
-          sessionId={sessionId}
           practiceId={practiceId}
-          onFeedbackSubmit={onFeedbackSubmit}
         />
         
         <MessageComposer

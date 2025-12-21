@@ -22,7 +22,7 @@ export interface UploadResult {
 
 export interface UploadOptions {
   practiceId: string;
-  sessionId: string;
+  conversationId: string;
   onProgress?: (progress: UploadProgress) => void;
   onSuccess?: (result: UploadResult) => void;
   onError?: (error: Error) => void;
@@ -40,7 +40,7 @@ export async function uploadWithProgress(
   file: File,
   options: UploadOptions
 ): Promise<UploadResult> {
-  const { practiceId, sessionId, onProgress, onSuccess, onError, signal } = options;
+  const { practiceId, conversationId, onProgress, onSuccess, onError, signal } = options;
 
   return new Promise((resolve, reject) => {
     // Preflight abort check - if already aborted, don't create XHR
@@ -108,8 +108,8 @@ export async function uploadWithProgress(
               fileSize: response.data.fileSize,
               url: response.data.url,
               storageKey: response.data.storageKey || (response.data.fileExtension 
-                ? `uploads/${practiceId}/${sessionId}/${response.data.fileId}.${response.data.fileExtension}`
-                : `uploads/${practiceId}/${sessionId}/${response.data.fileId}`)
+                ? `uploads/${practiceId}/${conversationId}/${response.data.fileId}.${response.data.fileExtension}`
+                : `uploads/${practiceId}/${conversationId}/${response.data.fileId}`)
             };
 
             // Final progress update to 100%
@@ -176,7 +176,7 @@ export async function uploadWithProgress(
     const formData = new FormData();
     formData.append('file', file);
     formData.append('practiceId', practiceId);
-    formData.append('sessionId', sessionId);
+    formData.append('conversationId', conversationId);
 
     // Send request to existing endpoint
     xhr.open('POST', '/api/files/upload');

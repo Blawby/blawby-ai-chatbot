@@ -90,12 +90,8 @@ interface MessageProps {
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	isLoading?: boolean;
 	toolMessage?: string;
-	// Feedback props
 	id?: string;
-	sessionId?: string;
 	practiceId?: string;
-	showFeedback?: boolean;
-	onFeedbackSubmit?: (feedback: { rating: number; comment?: string }) => void;
 	// Styling
 	className?: string;
 }
@@ -118,10 +114,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isLoading,
 	toolMessage,
 	id: _id,
-	sessionId: _sessionId,
 	practiceId: _practiceId,
-	showFeedback: _showFeedback = true,
-	onFeedbackSubmit: _onFeedbackSubmit,
 	className = ''
 }) => {
 	const hasContent = Boolean(content);

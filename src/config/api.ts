@@ -60,11 +60,6 @@ export const getFormsEndpoint = () => {
   return `${config.baseUrl}/api/forms`;
 };
 
-export const getFeedbackEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}/api/feedback`;
-};
-
 // Practice workspace endpoints (chatbot data) - still local
 export const getPracticesEndpoint = () => {
   const config = getApiConfig();
@@ -114,4 +109,36 @@ export const getPracticeManagementEndpoint = (practiceId: string) => {
 export const getPracticeWorkspaceEndpoint = (practiceId: string, resource: string) => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/practices/${encodeURIComponent(practiceId)}/workspace/${encodeURIComponent(resource)}`;
+};
+
+// Session endpoints - now handled by remote API
+// Session endpoints removed - using conversations instead
+/**
+ * @deprecated Sessions have been migrated to conversations. Use getConversationsEndpoint() instead.
+ * This function is kept for backward compatibility with legacy code.
+ */
+export const getSessionsEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/conversations`;
+};
+
+// Conversation endpoints - now handled by remote API
+export const getConversationsEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/conversations`;
+};
+
+export const getConversationEndpoint = (conversationId: string) => {
+  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}`;
+};
+
+export const getCurrentConversationEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/conversations/active`;
+};
+
+export const getConversationParticipantsEndpoint = (conversationId: string) => {
+  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/participants`;
+};
+
+// Chat message endpoints - now handled by remote API
+export const getChatMessagesEndpoint = () => {
+  return `${getRemoteApiUrl()}/api/chat/messages`;
 };
