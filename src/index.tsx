@@ -110,9 +110,9 @@ function MainApp({
         const messages = realMessageHandling.messages;
         const addMessage = realMessageHandling.addMessage;
 
-        useEffect(() => {
-                realMessageHandling.clearMessages();
-        }, [practiceId, realMessageHandling]);
+	useEffect(() => {
+		realMessageHandling.clearMessages();
+	}, [practiceId, realMessageHandling.clearMessages]);
 
         const createConversation = useCallback(async () => {
                 if (!practiceId || !session?.user || isCreatingConversation) return null;
