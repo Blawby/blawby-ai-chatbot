@@ -118,21 +118,36 @@ function MainApp({
 
                 try {
                         setIsCreatingConversation(true);
-                        const token = await getTokenAsync();
+                        
+                        // Wait for token to be available - retry a few times if needed
+                        let token: string | null = null;
+                        for (let i = 0; i < 5; i++) {
+                                token = await getTokenAsync();
+                                if (token) break;
+                                // Wait a bit before retrying (token might still be saving to IndexedDB)
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                        }
+                        
                         const headers: Record<string, string> = {
                                 'Content-Type': 'application/json'
                         };
                         if (token) {
                                 headers.Authorization = `Bearer ${token}`;
+                        } else {
+                                console.error('[createConversation] No token available after retries - conversation creation will fail');
+                                throw new Error('Authentication token not available');
                         }
 
-                        const response = await fetch(getConversationsEndpoint(), {
+                        const url = `${getConversationsEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`;
+                        
+                        const response = await fetch(url, {
                                 method: 'POST',
                                 headers,
                                 credentials: 'include',
                                 body: JSON.stringify({
                                         participantUserIds: [session.user.id],
-                                        metadata: { source: 'chat' }
+                                        metadata: { source: 'chat' },
+                                        practiceId
                                 })
                         });
 
@@ -158,17 +173,57 @@ function MainApp({
                 }
         }, [practiceId, session?.user, isCreatingConversation, refreshConversations]);
 
+        const [conversationCreationFailed, setConversationCreationFailed] = useState(false);
+        const conversationCreationAttempted = useRef<string | null>(null);
+        
         useEffect(() => {
                 if (conversationsLoading || isCreatingConversation) return;
+                
+                // Prevent infinite loops - if we already tried to create for this practiceId and failed, don't retry
+                if (conversationCreationFailed && conversationCreationAttempted.current === practiceId) {
+                        return;
+                }
 
                 const practiceConversation = conversations.find((c) => c.practice_id === practiceId);
+                
+                if (import.meta.env.DEV) {
+                        console.log('[Conversation] Looking for conversation', {
+                                practiceId,
+                                conversationsCount: conversations.length,
+                                conversationIds: conversations.map(c => c.id),
+                                practiceIds: conversations.map(c => c.practice_id),
+                                found: !!practiceConversation,
+                                conversationId: practiceConversation?.id
+                        });
+                }
 
                 if (practiceConversation) {
-                        setConversationId((prev) => prev ?? practiceConversation.id);
-                } else if (practiceId && session?.user) {
-                        void createConversation();
+                        const newConversationId = practiceConversation.id;
+                        setConversationId((prev) => {
+                                if (prev !== newConversationId) {
+                                        if (import.meta.env.DEV) {
+                                                console.log('[Conversation] Setting conversationId:', newConversationId);
+                                        }
+                                        return newConversationId;
+                                }
+                                return prev;
+                        });
+                        setConversationCreationFailed(false); // Reset on success
+                        conversationCreationAttempted.current = null;
+                } else if (practiceId && session?.user && !conversationCreationFailed) {
+                        conversationCreationAttempted.current = practiceId;
+                        createConversation().then((id) => {
+                                if (!id) {
+                                        setConversationCreationFailed(true);
+                                } else {
+                                        setConversationCreationFailed(false);
+                                        conversationCreationAttempted.current = null;
+                                }
+                        }).catch(() => {
+                                setConversationCreationFailed(true);
+                        });
                 }
-        }, [conversationsLoading, isCreatingConversation, conversations, practiceId, session?.user, createConversation]);
+        }, [conversationsLoading, isCreatingConversation, conversations, practiceId, session?.user, createConversation, conversationCreationFailed]);
 
         const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
                 if (!conversationId) {
@@ -322,6 +377,15 @@ function MainApp({
 	// User tier is now derived directly from practice - no need for custom event listeners
 
         const isSessionReady = Boolean(conversationId && !conversationsLoading && !isCreatingConversation);
+        
+        if (import.meta.env.DEV) {
+                console.log('[Session] isSessionReady check', {
+                        conversationId,
+                        conversationsLoading,
+                        isCreatingConversation,
+                        isSessionReady
+                });
+        }
 
 
         // Add intro message when practice config is loaded and no messages exist
@@ -517,7 +581,7 @@ function MainApp({
 							setIsRecording={setIsRecording}
 							clearInput={clearInputTrigger}
 							isReadyToUpload={isReadyToUpload}
-							isSessionReady={isSessionReady && !intakeStatus.showAuthGate}
+							isSessionReady={isSessionReady}
 						/>
 						{intakeStatus.showAuthGate && (
 							<AuthGateOverlay
@@ -644,34 +708,62 @@ function AppWithPractice() {
     // If no session and practiceId is available (widget context), sign in anonymously
     if (!session?.user && practiceId) {
       const key = `anonymous_signin_attempted_${practiceId}`;
-      if (!sessionStorage.getItem(key)) {
+      let attempted = sessionStorage.getItem(key);
+      
+      // If we marked it as successful but there's no actual session, clear it and retry
+      // This handles cases where sign-in appeared to succeed but session isn't valid
+      if (attempted === '1' && !session?.user) {
+        console.log('[Auth] Session invalid despite successful sign-in, clearing flag and retrying');
+        sessionStorage.removeItem(key);
+        attempted = null;
+      }
+      
+      // In development with mocks, only allow retries for failed attempts
+      if (import.meta.env.DEV && attempted === 'failed') {
+        console.log('[Auth] Clearing failed anonymous sign-in attempt for retry in dev mode');
+        sessionStorage.removeItem(key);
+        attempted = null;
+      }
+      
+      if (!attempted) {
+        console.log('[Auth] Attempting anonymous sign-in', { practiceId });
         (async () => {
           try {
             const client = getClient();
+            console.log('[Auth] Client obtained, checking for anonymous method...');
+            
             // Type assertion needed: Better Auth anonymous plugin types may not be fully exposed
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const anonymousSignIn = (client.signIn as any).anonymous;
+            const signIn = client.signIn as any;
+            console.log('[Auth] signIn object:', { 
+              hasSignIn: !!signIn, 
+              signInKeys: signIn ? Object.keys(signIn) : null,
+              hasAnonymous: !!(signIn?.anonymous),
+              anonymousType: typeof signIn?.anonymous
+            });
+            
+            const anonymousSignIn = signIn?.anonymous;
             
             // Check if anonymous method exists before calling
             if (typeof anonymousSignIn !== 'function') {
-              console.error('[Auth] Anonymous sign-in method not available - Better Auth anonymous plugin may not be configured', {
+              console.error('[Auth] Anonymous sign-in method not available', {
                 practiceId,
-                message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+                signInKeys: signIn ? Object.keys(signIn) : null,
+                message: 'Better Auth anonymous plugin may not be configured correctly.'
               });
               sessionStorage.setItem(key, 'failed');
               return;
             }
             
+            console.log('[Auth] Calling anonymous sign-in...');
             const result = await anonymousSignIn();
-            if (result?.data?.user) {
-              sessionStorage.setItem(key, '1');
-              console.log('[Auth] Anonymous sign-in successful for widget user', {
-                userId: result.data.user.id,
-                practiceId
-              });
-            } else if (result?.error) {
+            
+            // Better Auth returns { data, error } format
+            // If there's no error, the sign-in succeeded
+            // Better Auth will automatically update the session via useSession()
+            if (result?.error) {
               // Fail loudly - Better Auth anonymous plugin may not be configured
-              console.error('[Auth] Anonymous sign-in failed - Better Auth anonymous plugin may not be configured', {
+              console.error('[Auth] Anonymous sign-in failed', {
                 error: result.error,
                 practiceId,
                 message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
@@ -679,18 +771,18 @@ function AppWithPractice() {
               // Set key to prevent retry loops, but log error clearly
               sessionStorage.setItem(key, 'failed');
             } else {
-              // Handle case where result is undefined or doesn't have expected structure
-              console.error('[Auth] Anonymous sign-in returned unexpected result', {
+              // Success - no error means sign-in worked
+              // Better Auth will update the session automatically
+              sessionStorage.setItem(key, '1');
+              console.log('[Auth] Anonymous sign-in successful for widget user', {
                 practiceId,
-                result,
-                message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
+                hasData: !!result?.data
               });
-              sessionStorage.setItem(key, 'failed');
             }
           } catch (error) {
             // Fail loudly with detailed error information
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error('[Auth] Anonymous sign-in exception - server configuration issue', {
+            console.error('[Auth] Anonymous sign-in exception', {
               error: errorMessage,
               practiceId,
               stack: error instanceof Error ? error.stack : undefined,
@@ -701,6 +793,11 @@ function AppWithPractice() {
             sessionStorage.setItem(key, 'failed');
           }
         })();
+      } else {
+        console.log('[Auth] Anonymous sign-in already attempted, skipping', { 
+          practiceId, 
+          status: sessionStorage.getItem(key) 
+        });
       }
     }
   }, [session?.user, practiceId, sessionIsPending]);
@@ -854,9 +951,18 @@ if (typeof window !== 'undefined') {
 	const bootstrap = () => mountClientApp();
 	if (import.meta.env.DEV) {
 		import('./mocks')
-			.then(({ setupMocks }) => setupMocks())
-			.catch(() => {})
-			.finally(bootstrap);
+			.then(({ setupMocks }) => {
+				console.log('[App] Setting up MSW mocks...');
+				return setupMocks();
+			})
+			.then(() => {
+				console.log('[App] MSW mocks ready, bootstrapping app...');
+				bootstrap();
+			})
+			.catch((err) => {
+				console.error('[App] Failed to setup mocks, bootstrapping anyway:', err);
+				bootstrap();
+			});
 	} else {
 		bootstrap();
 	}

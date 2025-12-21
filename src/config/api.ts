@@ -30,11 +30,28 @@ function getBaseUrl(): string {
  * Get the base URL for remote API requests (practice/subscription management)
  * - Uses staging-api.blawby.com for management endpoints
  * - Can be overridden with VITE_REMOTE_API_URL environment variable
+ * - In development with mocks: Uses same origin so MSW can intercept
  */
 export function getRemoteApiUrl(): string {
   if (import.meta.env.VITE_REMOTE_API_URL) {
     return import.meta.env.VITE_REMOTE_API_URL;
   }
+  
+  // In development, ALWAYS use same origin so MSW can intercept requests
+  // MSW service workers can only intercept same-origin requests
+  // This is critical - never return staging-api in dev mode
+  if (import.meta.env.DEV) {
+    if (typeof window !== 'undefined' && window.location && window.location.origin) {
+      const origin = window.location.origin;
+      console.log('[getRemoteApiUrl] DEV mode - returning window.location.origin for MSW:', origin);
+      return origin;
+    }
+    // If window isn't available, this is a problem - log it
+    console.error('[getRemoteApiUrl] CRITICAL: window not available in DEV mode! This will break MSW interception.');
+    // Still return localhost as fallback rather than staging-api
+    return 'http://localhost:5173';
+  }
+  
   return 'https://staging-api.blawby.com';
 }
 

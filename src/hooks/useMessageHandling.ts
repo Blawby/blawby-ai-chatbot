@@ -3,7 +3,7 @@ import { useSessionContext } from '../contexts/SessionContext.js';
 import { ChatMessageUI, FileAttachment } from '../../worker/types';
 import { ContactData } from '../components/ContactForm';
 import { getTokenAsync } from '../lib/tokenStorage';
-import { getApiConfig } from '../config/api';
+import { getApiConfig, getChatMessagesEndpoint } from '../config/api';
 import type { ConversationMessage } from '../types/conversation';
 
 // Tool name to user-friendly message mapping
@@ -184,8 +184,7 @@ export const useMessageHandling = ({ practiceId, conversationId, onError }: UseM
       // Convert file attachments to file IDs (assuming attachments have id or need to be uploaded first)
       const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/chat/messages`, {
+      const response = await fetch(getChatMessagesEndpoint(), {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -246,7 +245,7 @@ export const useMessageHandling = ({ practiceId, conversationId, onError }: UseM
 Name: ${contactData.name}
 Email: ${contactData.email}
 Phone: ${contactData.phone}
-Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party: ${contactData.opposingParty}` : ''}`;
+Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party: ${contactData.opposingParty}` : ''}${contactData.description ? `\nDescription: ${contactData.description}` : ''}`;
 
       // Debug hook for test environment (development only, PII-safe)
       if (import.meta.env.MODE === 'development' && typeof window !== 'undefined' && window.__DEBUG_CONTACT_FORM__) {
@@ -256,7 +255,8 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
           emailProvided: !!contactData.email,
           phoneProvided: !!contactData.phone,
           locationProvided: !!contactData.location,
-          opposingPartyProvided: !!contactData.opposingParty
+          opposingPartyProvided: !!contactData.opposingParty,
+          descriptionProvided: !!contactData.description
         };
         
         // Create redacted contact message indicating sections without actual values
@@ -264,7 +264,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
 Name: ${contactData.name ? '[PROVIDED]' : '[NOT PROVIDED]'}
 Email: ${contactData.email ? '[PROVIDED]' : '[NOT PROVIDED]'}
 Phone: ${contactData.phone ? '[PROVIDED]' : '[NOT PROVIDED]'}
-Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.opposingParty ? '\nOpposing Party: [PROVIDED]' : ''}`;
+Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData.opposingParty ? '\nOpposing Party: [PROVIDED]' : ''}${contactData.description ? '\nDescription: [PROVIDED]' : ''}`;
         
         window.__DEBUG_CONTACT_FORM__(sanitizedContactData, redactedContactMessage);
       }
@@ -279,8 +279,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/chat/messages`, {
+      const response = await fetch(getChatMessagesEndpoint(), {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -308,9 +307,15 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       if (!isDisposedRef.current) {
         setMessages(prev => [...prev, toUIMessage(data.data!)]);
       }
+
+      // Show success feedback
+      if (import.meta.env.DEV) {
+        console.log('[ContactForm] Successfully submitted contact information');
+      }
     } catch (error) {
       console.error('Error submitting contact form:', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
+      throw error; // Re-throw so form can handle the error state
     }
   }, [conversationId, toUIMessage, onError]);
 
@@ -355,8 +360,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         limit: '50',
       });
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/chat/messages?${params.toString()}`, {
+      const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
         method: 'GET',
         headers,
         credentials: 'include',
@@ -422,8 +426,24 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   // 1 message -> Show Contact Form
   // 2+ messages (after contact form submitted) -> Auth Gate
   const { session } = useSessionContext();
-  const isAnonymous = !session?.user;
+  // Anonymous users have a session and user object, but no email (empty string or null)
+  // Check email to determine if user is anonymous vs authenticated
+  const isAnonymous = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
   const userMessages = messages.filter(m => m.isUser);
+  
+  if (import.meta.env.DEV && messages.length > 0) {
+    console.log('[IntakeFlow] Message analysis', {
+      totalMessages: messages.length,
+      userMessagesCount: userMessages.length,
+      messagesWithIsUser: messages.map(m => ({ 
+        id: m.id, 
+        isUser: m.isUser, 
+        role: m.role, 
+        content: m.content.substring(0, 50),
+        hasIsUserProperty: 'isUser' in m
+      }))
+    });
+  }
   
   // Check if contact form has been submitted by looking for the submission flag
   const hasSubmittedContactForm = messages.some(m => 
@@ -431,16 +451,30 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   );
   
   const intakeStep = useCallback(() => {
+    // Authenticated users skip intake flow
     if (!isAnonymous) return 'completed';
-    if (userMessages.length === 0) return 'issue';
-    // If contact form hasn't been submitted, stay on contact_form step
-    if (!hasSubmittedContactForm) return 'contact_form';
-    // Once contact form is submitted, move to auth gate
+    
+    // Allow first message to be sent without blocking
+    // After first message, show contact form (which includes case details field)
+    if (userMessages.length === 0) return 'ready'; // 'ready' means they can chat freely
+    // After first message, show contact form (we collect case details in the form itself)
+    if (userMessages.length >= 1 && !hasSubmittedContactForm) return 'contact_form';
+    // Once contact form is submitted, show auth gate (but don't block chat)
     if (hasSubmittedContactForm) return 'auth_gate';
     return 'completed';
   }, [isAnonymous, userMessages.length, hasSubmittedContactForm]);
 
   const currentStep = intakeStep();
+  
+  if (import.meta.env.DEV) {
+    console.log('[IntakeFlow] Step calculation', {
+      isAnonymous,
+      userMessagesCount: userMessages.length,
+      hasSubmittedContactForm,
+      currentStep,
+      messagesCount: messages.length
+    });
+  }
 
   // Inject system messages based on step
   useEffect(() => {
@@ -449,7 +483,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     setMessages(prev => {
       // Check for existence of local system messages
       const hasWelcome = prev.some(m => m.id === 'system-welcome');
-      const hasIssue = prev.some(m => m.id === 'system-issue');
       const hasContactForm = prev.some(m => m.id === 'system-contact-form');
       const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
       const hasAuth = prev.some(m => m.id === 'system-auth');
@@ -465,6 +498,20 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
       // Helper to add message if missing
       const addMsg = (id: string, content: string, metadata?: Record<string, unknown>) => {
+        // Extract contactForm from metadata if present (for proper typing)
+        const contactForm = metadata?.contactForm as {
+          fields: string[];
+          required: string[];
+          message?: string;
+          initialValues?: {
+            name?: string;
+            email?: string;
+            phone?: string;
+            location?: string;
+            opposingParty?: string;
+          };
+        } | undefined;
+        
         // Construct a message that strictly matches ChatMessageUI (specifically the assistant variant)
         const msg: ChatMessageUI = {
           id,
@@ -473,38 +520,35 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
           timestamp: nextTimestamp++,
           isUser: false,
           metadata,
-          files: undefined
+          files: undefined,
+          contactForm // Set contactForm directly (not just in metadata)
         };
         newMessages.push(msg);
         changed = true;
       };
 
-      // Welcome and Issue (shown at start)
-      if (currentStep === 'issue' || currentStep === 'contact_form' || currentStep === 'auth_gate') {
-        if (!hasWelcome) addMsg('system-welcome', 'Hi! I can help you find the right legal help.');
-        if (!hasIssue) addMsg('system-issue', 'Please briefly describe your legal issue.');
-      }
-      
-      // Contact form (after issue answered)
+      // Contact form (present the form conversationally after first message)
+      // We collect case details in the form itself, so no need for separate "issue" step
       if (currentStep === 'contact_form' || currentStep === 'auth_gate') {
         if (!hasContactForm) {
-          addMsg('system-contact-form', 'To help you better, please provide your contact information.', {
+          // Present the contact form with a conversational message
+          addMsg('system-contact-form', 'Could you share your contact details? It will help us find the best lawyer for your case.', {
             contactForm: {
-              fields: ['name', 'email', 'phone', 'location'],
+              fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
               required: ['name', 'email'],
-              message: 'We\'ll use this to connect you with the right attorney.'
+              message: undefined // Remove message from form - it's now in the main message text
             }
           });
         }
       }
 
-      // Submission confirmation (after contact form submitted)
+      // Submission confirmation (after contact form submitted - conversational)
       if (currentStep === 'auth_gate') {
         if (!hasSubmissionConfirm) {
-          addMsg('system-submission-confirm', 'Thank you! Your request has been submitted. A legal professional will join this conversation as soon as possible.');
+          addMsg('system-submission-confirm', 'Perfect! I\'ve shared your information with our team. A legal professional will review your case and join this conversation soon.');
         }
         if (!hasAuth) {
-          addMsg('system-auth', 'Sign up to save your conversation and case details.');
+          addMsg('system-auth', '💡 Tip: Sign up to save your conversation and case details for easy access later.');
         }
       }
 
@@ -517,7 +561,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     });
   }, [currentStep, isAnonymous]);
 
-  // Expose auth gate status
+  // Expose auth gate status - but don't block chat, just show the overlay as a suggestion
+  // The intake flow is now conversational and non-blocking
   const showAuthGate = isAnonymous && currentStep === 'auth_gate';
 
   return {

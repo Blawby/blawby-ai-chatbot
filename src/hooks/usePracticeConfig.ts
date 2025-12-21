@@ -72,14 +72,6 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const practiceIdParam = urlParams.get('practiceId');
-      const hostname = window.location.hostname;
-      
-
-      // Domain-based practice routing
-      if (hostname === 'northcarolinalegalservices.blawby.com') {
-        setPracticeId('north-carolina-legal-services');
-        return;
-      }
 
       // Priority: URL param > explicit param > active practice > constant (only if authenticated)
       if (practiceIdParam) {

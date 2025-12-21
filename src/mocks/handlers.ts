@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
-import { mockDb, ensurePracticeCollections, randomId } from './mockData';
-import type { MockPractice, MockInvitation } from './mockData';
+import { mockDb, ensurePracticeCollections, randomId, getOrCreateAnonymousUser, findConversationByPracticeAndUser } from './mockData';
+import type { MockPractice, MockInvitation, MockConversation, MockMessage } from './mockData';
 
 const ALLOWED_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal'] as const);
 type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -10,7 +10,7 @@ function isValidRole(role: unknown): role is Role {
 }
 
 function findPractice(practiceId: string) {
-  return mockDb.practices.find((practice) => practice.id === practiceId);
+  return mockDb.practices.find((practice) => practice.id === practiceId || practice.slug === practiceId);
 }
 
 function notFound(message: string) {
@@ -65,8 +65,10 @@ export const handlers = [
   }),
 
   http.get('/api/practice/:practiceId', ({ params }) => {
+    console.log('[MSW] Intercepted GET /api/practice/:practiceId', params.practiceId);
     const practice = findPractice(String(params.practiceId));
     if (!practice) {
+      console.log('[MSW] Practice not found:', params.practiceId, 'Available:', mockDb.practices.map(p => ({ id: p.id, slug: p.slug })));
       return notFound('Practice not found');
     }
     return HttpResponse.json({ practice });
@@ -321,6 +323,379 @@ export const handlers = [
   http.post('*/api/subscription/cancel', async () => {
     return HttpResponse.json({
       success: true
+    });
+  }),
+
+  // ============================================
+  // Guest Chat Flow Mocks
+  // ============================================
+  // Note: These handlers use same-origin paths because getRemoteApiUrl() 
+  // returns window.location.origin in development, allowing MSW to intercept
+
+  // Better Auth anonymous sign-in
+  // Better Auth returns { data: { user, session } } format
+  http.post('/api/auth/sign-in/anonymous', async () => {
+    console.log('[MSW] Intercepted POST /api/auth/sign-in/anonymous');
+    const token = `mock-anonymous-token-${randomId('token')}`;
+    const user = getOrCreateAnonymousUser(token);
+    
+    // Better Auth expects { data: { user, session } } format
+    // The client will transform this appropriately
+    return HttpResponse.json({
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          emailVerified: false,
+          email_verified: false,
+          image: null
+        },
+        session: {
+          id: `session-${user.id}`,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          userId: user.id,
+          user_id: user.id,
+          activeOrganizationId: null,
+          active_organization_id: null
+        }
+      }
+    }, {
+      headers: {
+        'set-auth-token': token,
+        'Set-Auth-Token': token, // Some clients use different case
+        'Set-Cookie': `better-auth.session_token=${token}; Path=/; HttpOnly; SameSite=Lax` // Also set as cookie for compatibility
+      }
+    });
+  }),
+
+  // Better Auth get-session (for token validation)
+  http.get('/api/auth/get-session', async ({ request }) => {
+    console.log('[MSW] Intercepted GET /api/auth/get-session', request.url);
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[MSW] No auth header in get-session request');
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '').trim();
+    
+    // Find user by token - check exact match first, then try prefix match for mock tokens
+    let user = mockDb.anonymousUsers.get(token);
+    
+    if (!user && token.startsWith('mock-anonymous-token-')) {
+      // If exact match fails but it's a mock token, try to find any anonymous user
+      // (In real implementation, tokens would be properly validated)
+      const users = Array.from(mockDb.anonymousUsers.values());
+      if (users.length > 0) {
+        // Use the most recently created user (last in map)
+        user = users[users.length - 1];
+        console.log('[MSW] Using fallback user lookup for mock token');
+      }
+    }
+    
+    if (!user) {
+      return HttpResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    
+    return HttpResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        email_verified: false,
+        image: null
+      },
+      session: {
+        id: `session-${user.id}`,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        user_id: user.id,
+        active_organization_id: null
+      }
+    });
+  }),
+
+  // GET /api/conversations - Get or create conversation for anonymous users
+  http.get('/api/conversations', async ({ request }) => {
+    console.log('[MSW] Intercepted GET /api/conversations', request.url);
+    const url = new URL(request.url);
+    const practiceId = url.searchParams.get('practiceId');
+    
+    if (!practiceId) {
+      return HttpResponse.json({ error: 'practiceId is required' }, { status: 400 });
+    }
+
+    // Get auth token from header
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[MSW] No auth header found');
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '').trim();
+    const user = getOrCreateAnonymousUser(token);
+    const isAnonymous = !user.email || user.email === '';
+    
+    // Find existing conversation or create new one
+    let conversation = findConversationByPracticeAndUser(practiceId, user.id, isAnonymous);
+    
+    if (!conversation) {
+      // Create new conversation
+      const convId = randomId('conv');
+      const now = new Date().toISOString();
+      conversation = {
+        id: convId,
+        practice_id: practiceId,
+        user_id: isAnonymous ? null : user.id,
+        matter_id: null,
+        participants: [user.id],
+        user_info: null,
+        status: 'active',
+        assigned_to: null,
+        priority: 'normal',
+        tags: undefined,
+        internal_notes: null,
+        last_message_at: null,
+        first_response_at: null,
+        closed_at: null,
+        created_at: now,
+        updated_at: now
+      };
+      mockDb.conversations.set(convId, conversation);
+      mockDb.messages.set(convId, []);
+    }
+    
+    // Return single conversation object for anonymous users (matches real API)
+    // But wrap it in an array for consistency with useConversations hook
+    return HttpResponse.json({
+      success: true,
+      data: { conversations: [conversation] }
+    });
+  }),
+
+  // GET /api/conversations/active - Same as above
+  http.get('/api/conversations/active', async ({ request }) => {
+    const url = new URL(request.url);
+    const practiceId = url.searchParams.get('practiceId');
+    
+    if (!practiceId) {
+      return HttpResponse.json({ error: 'practiceId is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '').trim();
+    const user = getOrCreateAnonymousUser(token);
+    const isAnonymous = !user.email || user.email === '';
+    
+    let conversation = findConversationByPracticeAndUser(practiceId, user.id, isAnonymous);
+    
+    if (!conversation) {
+      const convId = randomId('conv');
+      const now = new Date().toISOString();
+      conversation = {
+        id: convId,
+        practice_id: practiceId,
+        user_id: isAnonymous ? null : user.id,
+        matter_id: null,
+        participants: [user.id],
+        user_info: null,
+        status: 'active',
+        assigned_to: null,
+        priority: 'normal',
+        tags: undefined,
+        internal_notes: null,
+        last_message_at: null,
+        first_response_at: null,
+        closed_at: null,
+        created_at: now,
+        updated_at: now
+      };
+      mockDb.conversations.set(convId, conversation);
+      mockDb.messages.set(convId, []);
+    }
+    
+    return HttpResponse.json({
+      success: true,
+      data: { conversation }
+    });
+  }),
+
+  // POST /api/conversations - Create conversation
+  http.post('/api/conversations', async ({ request }) => {
+    console.log('[MSW] Intercepted POST /api/conversations', request.url);
+    const body = (await request.json().catch(() => ({}))) as {
+      participantUserIds?: string[];
+      matterId?: string;
+      metadata?: Record<string, unknown>;
+      practiceId?: string;
+    };
+    
+    const url = new URL(request.url);
+    // Check both query params and body for practiceId
+    const practiceId = url.searchParams.get('practiceId') || body.practiceId;
+    
+    console.log('[MSW] POST /api/conversations - practiceId:', practiceId, 'from query:', url.searchParams.get('practiceId'), 'from body:', body.practiceId);
+    
+    if (!practiceId) {
+      return HttpResponse.json({ error: 'practiceId is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    console.log('[MSW] POST /api/conversations - auth header:', authHeader ? 'present' : 'missing');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '').trim();
+    const user = getOrCreateAnonymousUser(token);
+    const isAnonymous = !user.email || user.email === '';
+    
+    const convId = randomId('conv');
+    const now = new Date().toISOString();
+    const participants = Array.from(new Set([user.id, ...(body.participantUserIds || [])]));
+    
+    const conversation: MockConversation = {
+      id: convId,
+      practice_id: practiceId,
+      user_id: isAnonymous ? null : user.id,
+      matter_id: body.matterId || null,
+      participants,
+      user_info: body.metadata || null,
+      status: 'active',
+      assigned_to: null,
+      priority: 'normal',
+      tags: undefined,
+      internal_notes: null,
+      last_message_at: null,
+      first_response_at: null,
+      closed_at: null,
+      created_at: now,
+      updated_at: now
+    };
+    
+    mockDb.conversations.set(convId, conversation);
+    mockDb.messages.set(convId, []);
+    
+    return HttpResponse.json({
+      success: true,
+      data: conversation
+    });
+  }),
+
+  // GET /api/chat/messages - Fetch messages for a conversation
+  http.get('/api/chat/messages', async ({ request }) => {
+    const url = new URL(request.url);
+    const conversationId = url.searchParams.get('conversationId');
+    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const cursor = url.searchParams.get('cursor');
+    const since = url.searchParams.get('since');
+    
+    if (!conversationId) {
+      return HttpResponse.json({ error: 'conversationId is required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const conversation = mockDb.conversations.get(conversationId);
+    if (!conversation) {
+      return HttpResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+    
+    let conversationMessages = mockDb.messages.get(conversationId) || [];
+    
+    // Filter by since timestamp if provided (for polling)
+    if (since) {
+      const sinceDate = new Date(since);
+      conversationMessages = conversationMessages.filter(msg => new Date(msg.created_at) > sinceDate);
+    }
+    
+    // Sort by created_at descending (newest first)
+    conversationMessages.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    // Apply limit
+    const limitedMessages = conversationMessages.slice(0, limit);
+    
+    // Reverse to oldest first (for display)
+    limitedMessages.reverse();
+    
+    return HttpResponse.json({
+      success: true,
+      data: {
+        messages: limitedMessages,
+        hasMore: conversationMessages.length > limit,
+        nextCursor: limitedMessages.length > 0 ? limitedMessages[limitedMessages.length - 1].id : null
+      }
+    });
+  }),
+
+  // POST /api/chat/messages - Send a message
+  http.post('/api/chat/messages', async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      conversationId?: string;
+      content?: string;
+      attachments?: string[];
+      metadata?: Record<string, unknown>;
+    };
+    
+    if (!body.conversationId || !body.content) {
+      return HttpResponse.json({ error: 'conversationId and content are required' }, { status: 400 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '').trim();
+    const user = getOrCreateAnonymousUser(token);
+    
+    const conversation = mockDb.conversations.get(body.conversationId);
+    if (!conversation) {
+      return HttpResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+    
+    // Verify user is a participant
+    if (!conversation.participants.includes(user.id)) {
+      return HttpResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+    
+    // Create message
+    const messageId = randomId('msg');
+    const now = new Date().toISOString();
+    const message: MockMessage = {
+      id: messageId,
+      conversation_id: body.conversationId,
+      practice_id: conversation.practice_id,
+      user_id: user.id,
+      role: 'user',
+      content: body.content,
+      metadata: body.metadata || (body.attachments ? { attachments: body.attachments } : null),
+      token_count: null,
+      created_at: now
+    };
+    
+    // Add message to conversation
+    const conversationMessages = mockDb.messages.get(body.conversationId) || [];
+    conversationMessages.push(message);
+    mockDb.messages.set(body.conversationId, conversationMessages);
+    
+    // Update conversation last_message_at
+    conversation.last_message_at = now;
+    conversation.updated_at = now;
+    
+    return HttpResponse.json({
+      success: true,
+      data: message
     });
   })
 ];

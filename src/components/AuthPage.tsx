@@ -179,7 +179,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       const client = getClient();
       const result = await client.signIn.social({
         provider: 'google',
-        callbackURL: `${window.location.origin}/`,
+        // Let Better Auth handle the callback URL automatically
       });
 
       if (result.error) {
