@@ -99,7 +99,7 @@ export const BusinessOnboardingPage = () => {
     // Refetch to ensure we have latest subscription status from staging-api
     // No explicit sync needed - staging-api webhooks handle subscription updates
     refetch().then(() => {
-      setReady(true);
+        setReady(true);
     }).catch((error) => {
       console.error('[ONBOARDING] Failed to refetch practice data:', error);
       setReady(true); // Still mark as ready to allow guards to run

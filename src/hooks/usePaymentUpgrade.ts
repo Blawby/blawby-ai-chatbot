@@ -4,9 +4,9 @@ import {
   requestBillingPortalSession,
   requestSubscriptionCancellation,
   syncSubscription as syncSubscriptionRequest,
-  createSubscription,
   setActivePractice
 } from '../lib/apiClient';
+import { apiClient } from '../lib/apiClient';
 
 
 // Default return URL for billing portal redirects
@@ -177,11 +177,8 @@ function getErrorTitle(errorCode: SubscriptionErrorCode): string {
 
 export interface SubscriptionUpgradeRequest {
   practiceId?: string;
-  planId?: string; // UUID of the subscription plan (required for staging-api)
-  plan?: string; // Plan name as fallback (optional)
-  // TODO: seats and annual are not yet supported by staging-api /api/subscriptions/create endpoint
-  // These need to be implemented in staging-api. For now, different planIds should be used
-  // for monthly/annual and different seat counts.
+  planId?: string; // UUID of the subscription plan (optional)
+  plan?: string; // Stripe price ID (required for staging-api /api/subscriptions/create)
   seats?: number | null;
   annual?: boolean;
   successUrl?: string;
@@ -329,98 +326,104 @@ export const usePaymentUpgrade = () => {
       setSubmitting(true);
       setError(null);
 
-      // planId (UUID) is required for staging-api
-      if (!planId) {
-        setError('Plan ID is required');
-        showError('Invalid Request', 'Plan ID is required to create a subscription.');
+      // Stripe price ID is required for staging-api /api/subscriptions/create
+      if (!plan) {
+        setError('Stripe price ID is required');
+        showError('Invalid Request', 'Stripe price ID is required to create a subscription.');
         setSubmitting(false);
         return;
       }
 
       const resolvedPracticeId = practiceId || undefined; 
 
-      if (import.meta.env.DEV) {
-        console.log('[UPGRADE] Starting upgrade flow:', {
-          practiceId,
-          resolvedPracticeId,
-          planId,
-          plan
-        });
-      }
-
       try {
         // Step 1: Set active practice if we have one
-        // staging-api will auto-create a practice/organization if one doesn't exist when creating subscription
+        // staging-api will auto-create and set active practice/organization if one doesn't exist
         if (resolvedPracticeId) {
-          if (import.meta.env.DEV) {
-            console.log('[UPGRADE] Setting active practice via staging-api:', resolvedPracticeId);
-          }
           // Set active practice using staging-api endpoint
           // This sets the active organization in the staging-api session
           await setActivePractice(resolvedPracticeId);
-          
-          if (import.meta.env.DEV) {
-            console.log('[UPGRADE] Active practice set successfully');
-          }
-        } else {
-          if (import.meta.env.DEV) {
-            console.log('[UPGRADE] No practiceId provided - staging-api will auto-create practice/organization');
-          }
         }
 
         // Step 2: Build URLs as per Kaze's instructions
-        // Note: resolvedPracticeId may be undefined - staging-api will auto-create practice/organization if needed
+        // Note: resolvedPracticeId may be undefined - staging-api will handle practice creation
         const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
-        
-        if (import.meta.env.DEV) {
-          console.log('[UPGRADE] Raw URLs before validation:', {
-            rawSuccessUrl,
-            rawCancelUrl,
-            practiceId: resolvedPracticeId,
-            planId
-          });
-        }
         
         // Ensure URLs are valid
         const validatedSuccessUrl = ensureValidReturnUrl(rawSuccessUrl, resolvedPracticeId);
         const validatedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
-        
-        if (import.meta.env.DEV) {
-          console.log('[UPGRADE] Validated URLs being sent to staging-api:', {
-            validatedSuccessUrl,
-            validatedCancelUrl
-          });
-        }
 
-        // Step 3: Create subscription using staging-api /api/subscriptions/create
+        // Step 3: Create subscription using staging-api /api/subscriptions/create endpoint
         const createPayload = {
-          planId, // UUID of the subscription plan (required)
-          ...(plan && { plan }), // Plan name as fallback (optional)
+          planId: planId || undefined, // UUID of the subscription plan (optional)
+          plan: plan, // Stripe price ID (required)
           successUrl: validatedSuccessUrl,
           cancelUrl: validatedCancelUrl,
-          disableRedirect: false, // Auto-redirect to Stripe Checkout
+          disableRedirect: false // Auto-redirect to Stripe Checkout
         };
         
-        if (import.meta.env.DEV) {
-          console.log('[UPGRADE] Payload being sent to staging-api:', createPayload);
+        try {
+          const response = await apiClient.post('/api/subscriptions/create', createPayload);
+          const data = response.data;
+          
+          // Log response for debugging
+          if (import.meta.env.DEV) {
+            console.log('[UPGRADE] Subscription creation response:', data);
+          }
+          
+          // Handle different response structures
+          let checkoutUrl: string | undefined;
+          
+          if (data && typeof data === 'object') {
+            // Try different possible response formats
+            checkoutUrl = (data.checkoutUrl as string) || 
+                         (data.checkout_url as string) ||
+                         (data.url as string) ||
+                         (data.data?.checkoutUrl as string) ||
+                         (data.data?.checkout_url as string) ||
+                         (data.data?.url as string);
+          }
+          
+          if (!checkoutUrl || typeof checkoutUrl !== 'string') {
+            throw new Error(`Invalid response from subscription creation. Expected checkoutUrl, got: ${JSON.stringify(data)}`);
+          }
+          
+          // Redirect to Stripe Checkout
+          window.location.href = checkoutUrl;
+        } catch (error) {
+          // Re-throw with more context if it's an axios error
+          if (error && typeof error === 'object' && 'response' in error) {
+            const axiosError = error as { response?: { data?: unknown; status?: number } };
+            const errorData = axiosError.response?.data;
+            const status = axiosError.response?.status;
+            
+            if (import.meta.env.DEV) {
+              console.error('[UPGRADE] Subscription creation error:', {
+                status,
+                data: errorData,
+                payload: createPayload
+              });
+            }
+            
+            let errorMessage = 'Failed to create subscription';
+            if (errorData && typeof errorData === 'object') {
+              if (typeof (errorData as { error?: string }).error === 'string') {
+                errorMessage = (errorData as { error: string }).error;
+              } else if (typeof (errorData as { message?: string }).message === 'string') {
+                errorMessage = (errorData as { message: string }).message;
+              }
+            }
+            
+            throw new Error(status ? `${errorMessage} (${status})` : errorMessage);
+          }
+          
+          throw error;
         }
-        
-        const result = await createSubscription(createPayload);
-
-        if (!result.checkoutUrl) {
-          throw new Error('No checkout URL returned from subscription creation');
-        }
-
-        // Redirect to Stripe Checkout
-        if (import.meta.env.DEV) {
-          console.log('[UPGRADE] Redirecting to Stripe Checkout:', result.checkoutUrl);
-        }
-        window.location.href = result.checkoutUrl;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Subscription creation failed';
 
-        // Try to parse structured error response from staging-api
+        // Try to parse structured error response
         let errorCode: SubscriptionErrorCode | null = null;
         let errorMessage = message;
 

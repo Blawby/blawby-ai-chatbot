@@ -162,19 +162,6 @@ export interface SubscriptionSyncResponse {
   updatedAt?: string | null;
 }
 
-export interface SubscriptionCreatePayload {
-  planId: string; // UUID of the subscription plan (required)
-  plan?: string; // Plan name as fallback (optional)
-  successUrl?: string;
-  cancelUrl?: string;
-  disableRedirect?: boolean;
-}
-
-export interface SubscriptionCreateResponse {
-  subscriptionId: string;
-  checkoutUrl: string;
-  message?: string;
-}
 
 export interface BillingPortalPayload {
   practiceId: string;
@@ -580,59 +567,6 @@ export async function updateUserPreferences(
     signal: config?.signal
   });
   return extractApiData<UserPreferences>(response.data);
-}
-
-export async function createSubscription(
-  payload: SubscriptionCreatePayload
-): Promise<SubscriptionCreateResponse> {
-  try {
-    const response = await apiClient.post('/api/subscriptions/create', payload);
-    const data = isRecord(response.data) ? response.data : {};
-    return {
-      subscriptionId: (data.subscriptionId as string) || '',
-      checkoutUrl: (data.checkoutUrl as string) || '',
-      message: typeof data.message === 'string' ? data.message : undefined
-    };
-  } catch (error) {
-    // Handle axios errors - extract error message from response
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { response?: { data?: unknown; status?: number } };
-      const errorData = axiosError.response?.data;
-      const status = axiosError.response?.status;
-      
-      // Log full error for debugging
-      if (import.meta.env.DEV) {
-        console.error('[createSubscription] Error response:', {
-          status,
-          data: errorData,
-          payload
-        });
-        // Also log the full error data as JSON for easier reading
-        try {
-          console.error('[createSubscription] Full error data:', JSON.stringify(errorData, null, 2));
-        } catch {
-          // Ignore JSON stringify errors
-        }
-      }
-      
-      // Try to extract error message from response
-      let errorMessage = 'Failed to create subscription';
-      if (isRecord(errorData)) {
-        if (typeof errorData.error === 'string') {
-          errorMessage = errorData.error;
-        } else if (typeof errorData.message === 'string') {
-          errorMessage = errorData.message;
-        }
-      }
-      
-      // Include status code in error for debugging
-      const fullMessage = status ? `${errorMessage} (${status})` : errorMessage;
-      throw new Error(fullMessage);
-    }
-    
-    // Re-throw if not an axios error
-    throw error;
-  }
 }
 
 export async function requestBillingPortalSession(

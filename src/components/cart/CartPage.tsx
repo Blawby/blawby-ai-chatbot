@@ -268,11 +268,15 @@ export const CartPage = () => {
   const annualSeatPricePerYear = parseFloat(selectedPlan.yearlyPrice);
   const annualSeatPricePerMonth = annualSeatPricePerYear / 12;
 
-  const subtotal = isAnnual
-    ? monthlySeatPrice * quantity * 12 // baseline yearly cost at monthly rate
-    : monthlySeatPrice * quantity;
+  // TODO: Restore seats when Better Auth Stripe plugin supports seats/quantity
+  // For now, hardcode quantity to 1 since Better Auth doesn't support seats parameter
+  const effectiveQuantity = 1; // quantity;
 
-  const annualTotal = annualSeatPricePerYear * quantity;
+  const subtotal = isAnnual
+    ? monthlySeatPrice * effectiveQuantity * 12 // baseline yearly cost at monthly rate
+    : monthlySeatPrice * effectiveQuantity;
+
+  const annualTotal = annualSeatPricePerYear * effectiveQuantity;
   const discount = isAnnual ? subtotal - annualTotal : 0;
   const total = isAnnual ? annualTotal : subtotal;
 
@@ -290,15 +294,6 @@ export const CartPage = () => {
     // which uses Better Auth middleware auto-creation if practiceId is undefined.
     // We just pass currentPractice?.id if it exists.
     const practiceId = currentPractice?.id;
-    
-    if (import.meta.env.DEV) {
-      console.log('[CART] Practice state:', {
-        practiceId,
-        currentPractice: currentPractice ? { id: currentPractice.id, name: currentPractice.name } : null,
-        practicesLoading,
-        hasSession: !!session?.user
-      });
-    }
 
     if (!selectedPlan) {
       showError('Setup Required', 'Please select a plan.');
@@ -307,20 +302,24 @@ export const CartPage = () => {
 
     const upgradeParams = {
       practiceId: practiceId || undefined,
-      planId: selectedPlan.id, // UUID of the subscription plan (required for staging-api)
-      plan: selectedPlan.name, // Plan name as fallback (optional)
-      seats: quantity,
+      planId: selectedPlan.id, // UUID of the subscription plan (optional)
+      plan: isAnnual && selectedPlan.stripeYearlyPriceId 
+        ? selectedPlan.stripeYearlyPriceId 
+        : selectedPlan.stripeMonthlyPriceId, // Stripe price ID (required for Better Auth Stripe plugin)
+      // TODO: Restore seats when Better Auth Stripe plugin supports seats/quantity
+      // seats: quantity,
       annual: isAnnual,
       // cancelUrl and returnUrl are handled by usePaymentUpgrade.buildCancelUrl() and buildSuccessUrl()
       // which use staging-api.blawby.com domain in dev mode as per Kaze's requirements
     };
 
     try {
-      console.debug('[CART][UPGRADE] Calling submitUpgrade with params:', {
-        practiceId,
-        seats: quantity,
-        annual: isAnnual
-      });
+      // TODO: Restore seats when Better Auth Stripe plugin supports seats/quantity
+      // console.debug('[CART][UPGRADE] Calling submitUpgrade with params:', {
+      //   practiceId,
+      //   seats: quantity,
+      //   annual: isAnnual
+      // });
     } catch (e) {
       console.warn('[CART][UPGRADE] debug params failed:', e);
     }
@@ -412,7 +411,7 @@ export const CartPage = () => {
                 }}
                 role="radio"
                 aria-checked={selectedPlan ? selectedPriceId === selectedPlan.stripeYearlyPriceId : false}
-                aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per user per year. Features: Billed annually, Minimum 1 user, Add and reassign users`}
+                aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per year. Features: Billed annually`}
                 tabIndex={selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId ? 0 : -1}
                 className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
                   selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId 
@@ -442,13 +441,16 @@ export const CartPage = () => {
                   {currencyFormatter.format(annualSeatPricePerMonth)}
                   <span className="text-xs md:text-sm text-gray-400 line-through ml-1">{currencyFormatter.format(monthlySeatPrice)}</span>
                 </div>
-                <div className="text-xs md:text-sm text-gray-400 mb-3">per user/month</div>
+                {/* TODO: Restore seats UI when Better Auth Stripe plugin supports seats/quantity */}
+                {/* <div className="text-xs md:text-sm text-gray-400 mb-3">per user/month</div> */}
+                <div className="text-xs md:text-sm text-gray-400 mb-3">per month</div>
 
                 {/* Feature list */}
                 <ul className="text-xs md:text-sm text-gray-400 space-y-1">
                   <li>• Billed annually</li>
-                  <li>• Minimum 1 user</li>
-                  <li>• Add and reassign users</li>
+                  {/* TODO: Restore seats UI when Better Auth Stripe plugin supports seats/quantity */}
+                  {/* <li>• Minimum 1 user</li>
+                  <li>• Add and reassign users</li> */}
                 </ul>
               </button>
               
@@ -462,7 +464,7 @@ export const CartPage = () => {
                 }}
                 role="radio"
                 aria-checked={selectedPlan ? selectedPriceId === selectedPlan.stripeMonthlyPriceId : false}
-                aria-label={`Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per user per month. Features: Billed monthly, Minimum 1 user, Add or remove users`}
+                aria-label={`Monthly plan - ${currencyFormatter.format(monthlySeatPrice)} per month. Features: Billed monthly`}
                 tabIndex={selectedPlan && selectedPriceId === selectedPlan.stripeMonthlyPriceId ? 0 : -1}
                 className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
                   selectedPlan && selectedPriceId === selectedPlan.stripeMonthlyPriceId
@@ -482,23 +484,28 @@ export const CartPage = () => {
 
                 {/* Pricing */}
                 <div className="text-xs md:text-sm text-white mb-1">{currencyFormatter.format(monthlySeatPrice)}</div>
-                <div className="text-xs md:text-sm text-gray-400 mb-3">per user / month</div>
+                {/* TODO: Restore seats UI when Better Auth Stripe plugin supports seats/quantity */}
+                {/* <div className="text-xs md:text-sm text-gray-400 mb-3">per user / month</div> */}
+                <div className="text-xs md:text-sm text-gray-400 mb-3">per month</div>
 
                 {/* Feature list */}
                 <ul className="text-xs md:text-sm text-gray-400 space-y-1">
                   <li>• Billed monthly</li>
-                  <li>• Minimum 1 user</li>
-                  <li>• Add or remove users</li>
+                  {/* TODO: Restore seats UI when Better Auth Stripe plugin supports seats/quantity */}
+                  {/* <li>• Minimum 1 user</li>
+                  <li>• Add or remove users</li> */}
                 </ul>
               </button>
             </div>
 
+            {/* TODO: Restore seats UI when Better Auth Stripe plugin supports seats/quantity
             <QuantitySelector
               quantity={quantity}
               onChange={setQuantity}
               min={1}
               helperText="Minimum of 1 seat"
             />
+            */}
           </div>
 
           {/* Right: Summary */}
@@ -508,8 +515,10 @@ export const CartPage = () => {
             <PricingSummary
               heading="Summary"
               planName={selectedPlan.displayName}
-              planDescription={`${quantity} ${quantity === 1 ? 'user' : 'users'} • ${isAnnual ? 'Billed annually' : 'Billed monthly'}`}
-              pricePerSeat={`${currencyFormatter.format(isAnnual ? annualSeatPricePerMonth : monthlySeatPrice)} per user / month`}
+              planDescription={`${isAnnual ? 'Billed annually' : 'Billed monthly'}`}
+              // TODO: Restore seats when Better Auth Stripe plugin supports seats/quantity
+              // planDescription={`${quantity} ${quantity === 1 ? 'user' : 'users'} • ${isAnnual ? 'Billed annually' : 'Billed monthly'}`}
+              // pricePerSeat={`${currencyFormatter.format(isAnnual ? annualSeatPricePerMonth : monthlySeatPrice)} per user / month`}
               isAnnual={isAnnual}
               planFeatures={selectedPlan.features}
               billingNote={
