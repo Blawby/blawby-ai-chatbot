@@ -4,7 +4,8 @@ import {
   requestBillingPortalSession,
   requestSubscriptionCancellation,
   syncSubscription as syncSubscriptionRequest,
-  createSubscription
+  createSubscription,
+  setActivePractice
 } from '../lib/apiClient';
 
 
@@ -338,8 +339,37 @@ export const usePaymentUpgrade = () => {
 
       const resolvedPracticeId = practiceId || undefined; 
 
+      if (import.meta.env.DEV) {
+        console.log('[UPGRADE] Starting upgrade flow:', {
+          practiceId,
+          resolvedPracticeId,
+          planId,
+          plan
+        });
+      }
+
       try {
-        // Build URLs as per Kaze's instructions
+        // Step 1: Set active practice if we have one
+        // staging-api will auto-create a practice/organization if one doesn't exist when creating subscription
+        if (resolvedPracticeId) {
+          if (import.meta.env.DEV) {
+            console.log('[UPGRADE] Setting active practice via staging-api:', resolvedPracticeId);
+          }
+          // Set active practice using staging-api endpoint
+          // This sets the active organization in the staging-api session
+          await setActivePractice(resolvedPracticeId);
+          
+          if (import.meta.env.DEV) {
+            console.log('[UPGRADE] Active practice set successfully');
+          }
+        } else {
+          if (import.meta.env.DEV) {
+            console.log('[UPGRADE] No practiceId provided - staging-api will auto-create practice/organization');
+          }
+        }
+
+        // Step 2: Build URLs as per Kaze's instructions
+        // Note: resolvedPracticeId may be undefined - staging-api will auto-create practice/organization if needed
         const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
         
@@ -363,7 +393,7 @@ export const usePaymentUpgrade = () => {
           });
         }
 
-        // Step 2: Create subscription using staging-api /api/subscriptions/create
+        // Step 3: Create subscription using staging-api /api/subscriptions/create
         const createPayload = {
           planId, // UUID of the subscription plan (required)
           ...(plan && { plan }), // Plan name as fallback (optional)
@@ -371,6 +401,10 @@ export const usePaymentUpgrade = () => {
           cancelUrl: validatedCancelUrl,
           disableRedirect: false, // Auto-redirect to Stripe Checkout
         };
+        
+        if (import.meta.env.DEV) {
+          console.log('[UPGRADE] Payload being sent to staging-api:', createPayload);
+        }
         
         const result = await createSubscription(createPayload);
 

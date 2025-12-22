@@ -22,7 +22,7 @@ export const CartPage = () => {
   const { navigate, navigateToAuth } = useNavigation();
   const { data: session, isPending: isSessionPending } = useSession();
   const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
-  const { currentPractice } = usePracticeManagement();
+  const { currentPractice, loading: practicesLoading } = usePracticeManagement();
   const { showError } = useToastContext();
   const { i18n, t } = useTranslation(['settings']);
 
@@ -290,6 +290,15 @@ export const CartPage = () => {
     // which uses Better Auth middleware auto-creation if practiceId is undefined.
     // We just pass currentPractice?.id if it exists.
     const practiceId = currentPractice?.id;
+    
+    if (import.meta.env.DEV) {
+      console.log('[CART] Practice state:', {
+        practiceId,
+        currentPractice: currentPractice ? { id: currentPractice.id, name: currentPractice.name } : null,
+        practicesLoading,
+        hasSession: !!session?.user
+      });
+    }
 
     if (!selectedPlan) {
       showError('Setup Required', 'Please select a plan.');
@@ -302,8 +311,8 @@ export const CartPage = () => {
       plan: selectedPlan.name, // Plan name as fallback (optional)
       seats: quantity,
       annual: isAnnual,
-      cancelUrl: typeof window !== 'undefined' ? window.location.href : undefined,
-      returnUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+      // cancelUrl and returnUrl are handled by usePaymentUpgrade.buildCancelUrl() and buildSuccessUrl()
+      // which use staging-api.blawby.com domain in dev mode as per Kaze's requirements
     };
 
     try {
