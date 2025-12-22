@@ -9,7 +9,7 @@ async function fetchStagingApi(endpoint: string, options: RequestInit = {}) {
   const token = await getTokenAsync();
   const baseUrl = getRemoteApiUrl();
   const url = `${baseUrl}${endpoint}`;
-  
+
   return fetch(url, {
     ...options,
     headers: {
@@ -23,8 +23,8 @@ async function fetchStagingApi(endpoint: string, options: RequestInit = {}) {
 
 
 // Default return URL for billing portal redirects
-const DEFAULT_RETURN_URL = typeof window !== 'undefined' 
-  ? `${window.location.origin}/` 
+const DEFAULT_RETURN_URL = typeof window !== 'undefined'
+  ? `${window.location.origin}/`
   : '/';
 
 // Allowlist of trusted hosts for return URLs (beyond same-origin)
@@ -213,20 +213,20 @@ export const usePaymentUpgrade = () => {
     if (typeof window === 'undefined') {
       throw new Error('buildSuccessUrl cannot be called in SSR context - window is undefined');
     }
-    
+
     // As per Kaze's instructions: use staging-api.blawby.com domain, path after .com can be anything
     // Example: https://staging-api.blawby.com/dashboard?subscription=success&redirectTo=http://localhost:5173/business-onboarding
     const isDev = import.meta.env.DEV;
-    const baseOrigin = isDev 
+    const baseOrigin = isDev
       ? 'https://staging-api.blawby.com'
       : window.location.origin;
-    
+
     // Build the final destination (where we want to end up after staging-api processes)
     const finalDestination = new URL('/business-onboarding', window.location.origin);
     if (practiceId) {
       finalDestination.searchParams.set('practiceId', practiceId);
     }
-    
+
     // Use /dashboard endpoint as per Kaze's example - staging-api will redirect to finalDestination
     const url = new URL('/dashboard', baseOrigin);
     url.searchParams.set('subscription', 'success');
@@ -241,17 +241,17 @@ export const usePaymentUpgrade = () => {
     if (typeof window === 'undefined') {
       throw new Error('buildCancelUrl cannot be called in SSR context - window is undefined');
     }
-    
+
     // As per Kaze's instructions: use staging-api.blawby.com domain, path after .com can be anything
     // Example: https://staging-api.blawby.com/pricing?subscription=cancelled&redirectTo=http://localhost:5173/
     const isDev = import.meta.env.DEV;
-    const baseOrigin = isDev 
+    const baseOrigin = isDev
       ? 'https://staging-api.blawby.com'
       : window.location.origin;
-    
+
     // Build the final destination (home page)
     const finalDestination = new URL('/', window.location.origin);
-    
+
     // Use /pricing endpoint as per Kaze's example - staging-api will redirect to finalDestination
     const url = new URL('/pricing', baseOrigin);
     url.searchParams.set('subscription', 'cancelled');
@@ -278,7 +278,7 @@ export const usePaymentUpgrade = () => {
             extractProperty<string>(result.data, 'errorCode');
 
           let mappedErrorCode: SubscriptionErrorCode | null = null;
-        if (errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
+          if (errorCode === 'NO_STRIPE_CUSTOMER_FOUND_FOR_THIS_USER') {
             mappedErrorCode = SubscriptionErrorCode.STRIPE_CUSTOMER_NOT_FOUND;
           } else if (typeof errorCode === 'string') {
             const upperCode = errorCode.toUpperCase();
@@ -351,7 +351,7 @@ export const usePaymentUpgrade = () => {
         return;
       }
 
-      const resolvedPracticeId = practiceId || undefined; 
+      const resolvedPracticeId = practiceId || undefined;
 
       try {
         // Step 1: Set active practice if we have one using Better Auth organization plugin
@@ -367,7 +367,7 @@ export const usePaymentUpgrade = () => {
         // Note: resolvedPracticeId may be undefined - staging-api will handle practice creation
         const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
-        
+
         // Ensure URLs are valid
         const validatedSuccessUrl = ensureValidReturnUrl(rawSuccessUrl, resolvedPracticeId);
         const validatedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
@@ -375,10 +375,7 @@ export const usePaymentUpgrade = () => {
         // Step 3: Create subscription using staging-api /api/subscriptions/create endpoint
         try {
           // Use staging-api /api/subscriptions/create endpoint with fetch (not axios)
-          const token = await getTokenAsync();
-          const baseUrl = getRemoteApiUrl();
-          const url = `${baseUrl}/api/subscriptions/create`;
-          
+
           const createPayload = {
             planId: planId || undefined, // UUID of the subscription plan (optional)
             plan: plan, // Stripe price ID (required for staging-api)
@@ -386,28 +383,19 @@ export const usePaymentUpgrade = () => {
             cancelUrl: validatedCancelUrl,
             disableRedirect: false // Auto-redirect to Stripe Checkout
           };
-          
+
           // Use fetch with Better Auth token (not axios)
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token || ''}`
-            },
-            credentials: 'include',
-            body: JSON.stringify(createPayload),
-            redirect: 'manual' // Don't follow redirects - we need the Location header
-          });
-          
+          const response = await getClient().subscription.upgrade(createPayload);
+
           // Log response for debugging
           if (import.meta.env.DEV) {
             console.log('[UPGRADE] Response status:', response.status);
             console.log('[UPGRADE] Response headers:', Object.fromEntries(response.headers.entries()));
           }
-          
+
           // Check for Location header (in case of redirect)
           const locationHeader = response.headers.get('location') || response.headers.get('Location');
-          
+
           // Parse response body
           let data: unknown;
           const contentType = response.headers.get('content-type');
@@ -417,24 +405,24 @@ export const usePaymentUpgrade = () => {
             const text = await response.text();
             data = text ? JSON.parse(text) : null;
           }
-          
+
           if (import.meta.env.DEV) {
             console.log('[UPGRADE] Response data:', data);
           }
-          
+
           // Handle different response structures
           let checkoutUrl: string | undefined;
-          
+
           if (data && typeof data === 'object') {
             // Try different possible response formats
-            checkoutUrl = (data as { checkoutUrl?: string }).checkoutUrl || 
-                         (data as { checkout_url?: string }).checkout_url ||
-                         (data as { url?: string }).url ||
-                         ((data as { data?: { checkoutUrl?: string } }).data?.checkoutUrl) ||
-                         ((data as { data?: { checkout_url?: string } }).data?.checkout_url) ||
-                         ((data as { data?: { url?: string } }).data?.url);
+            checkoutUrl = (data as { checkoutUrl?: string }).checkoutUrl ||
+              (data as { checkout_url?: string }).checkout_url ||
+              (data as { url?: string }).url ||
+              ((data as { data?: { checkoutUrl?: string } }).data?.checkoutUrl) ||
+              ((data as { data?: { checkout_url?: string } }).data?.checkout_url) ||
+              ((data as { data?: { url?: string } }).data?.url);
           }
-          
+
           // Also check Location header if checkoutUrl not in body (for redirects)
           if (!checkoutUrl && locationHeader) {
             checkoutUrl = locationHeader;
@@ -442,7 +430,7 @@ export const usePaymentUpgrade = () => {
               console.log('[UPGRADE] Using checkoutUrl from Location header:', checkoutUrl);
             }
           }
-          
+
           if (!checkoutUrl || typeof checkoutUrl !== 'string') {
             console.error('[UPGRADE] Missing checkoutUrl. Full response:', {
               status: response.status,
@@ -451,7 +439,7 @@ export const usePaymentUpgrade = () => {
             });
             throw new Error(`Invalid response from subscription creation. Expected checkoutUrl, got: ${JSON.stringify(data)}`);
           }
-          
+
           // Redirect to Stripe Checkout
           window.location.href = checkoutUrl;
         } catch (error) {

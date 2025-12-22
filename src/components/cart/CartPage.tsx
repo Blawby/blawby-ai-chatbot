@@ -302,10 +302,7 @@ export const CartPage = () => {
 
     const upgradeParams = {
       practiceId: practiceId || undefined,
-      planId: selectedPlan.id, // UUID of the subscription plan (optional)
-      plan: isAnnual && selectedPlan.stripeYearlyPriceId 
-        ? selectedPlan.stripeYearlyPriceId 
-        : selectedPlan.stripeMonthlyPriceId, // Stripe price ID (required for Better Auth Stripe plugin)
+      plan: selectedPlan.name, // Stripe price ID (required for Better Auth Stripe plugin)
       // TODO: Restore seats when Better Auth Stripe plugin supports seats/quantity
       // seats: quantity,
       annual: isAnnual,
