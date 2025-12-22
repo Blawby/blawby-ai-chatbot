@@ -1,12 +1,25 @@
 import { useState, useCallback } from 'preact/hooks';
 import { useToastContext } from '../contexts/ToastContext';
-import {
-  requestBillingPortalSession,
-  requestSubscriptionCancellation,
-  syncSubscription as syncSubscriptionRequest,
-  setActivePractice
-} from '../lib/apiClient';
-import { apiClient } from '../lib/apiClient';
+import { authClient, getClient } from '../lib/authClient';
+import { getTokenAsync } from '../lib/tokenStorage';
+import { getRemoteApiUrl } from '../config/api';
+
+// Helper to make fetch requests to staging-api with Better Auth token
+async function fetchStagingApi(endpoint: string, options: RequestInit = {}) {
+  const token = await getTokenAsync();
+  const baseUrl = getRemoteApiUrl();
+  const url = `${baseUrl}${endpoint}`;
+  
+  return fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token || ''}`,
+      ...options.headers
+    },
+    credentials: 'include'
+  });
+}
 
 
 // Default return URL for billing portal redirects
@@ -197,7 +210,9 @@ export const usePaymentUpgrade = () => {
   const { showError, showSuccess } = useToastContext();
 
   const buildSuccessUrl = useCallback((practiceId?: string) => {
-    if (typeof window === 'undefined') return '/dashboard';
+    if (typeof window === 'undefined') {
+      throw new Error('buildSuccessUrl cannot be called in SSR context - window is undefined');
+    }
     
     // As per Kaze's instructions: use staging-api.blawby.com domain, path after .com can be anything
     // Example: https://staging-api.blawby.com/dashboard?subscription=success&redirectTo=http://localhost:5173/business-onboarding
@@ -223,7 +238,9 @@ export const usePaymentUpgrade = () => {
   }, []);
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
-    if (typeof window === 'undefined') return '/pricing';
+    if (typeof window === 'undefined') {
+      throw new Error('buildCancelUrl cannot be called in SSR context - window is undefined');
+    }
     
     // As per Kaze's instructions: use staging-api.blawby.com domain, path after .com can be anything
     // Example: https://staging-api.blawby.com/pricing?subscription=cancelled&redirectTo=http://localhost:5173/
@@ -337,12 +354,13 @@ export const usePaymentUpgrade = () => {
       const resolvedPracticeId = practiceId || undefined; 
 
       try {
-        // Step 1: Set active practice if we have one
+        // Step 1: Set active practice if we have one using Better Auth organization plugin
         // staging-api will auto-create and set active practice/organization if one doesn't exist
         if (resolvedPracticeId) {
-          // Set active practice using staging-api endpoint
+          // Set active practice using Better Auth organization plugin
           // This sets the active organization in the staging-api session
-          await setActivePractice(resolvedPracticeId);
+          const client = getClient();
+          await client.organization.setActive({ organizationId: resolvedPracticeId });
         }
 
         // Step 2: Build URLs as per Kaze's instructions
@@ -355,21 +373,53 @@ export const usePaymentUpgrade = () => {
         const validatedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
 
         // Step 3: Create subscription using staging-api /api/subscriptions/create endpoint
-        const createPayload = {
-          planId: planId || undefined, // UUID of the subscription plan (optional)
-          plan: plan, // Stripe price ID (required)
-          successUrl: validatedSuccessUrl,
-          cancelUrl: validatedCancelUrl,
-          disableRedirect: false // Auto-redirect to Stripe Checkout
-        };
-        
         try {
-          const response = await apiClient.post('/api/subscriptions/create', createPayload);
-          const data = response.data;
+          // Use staging-api /api/subscriptions/create endpoint with fetch (not axios)
+          const token = await getTokenAsync();
+          const baseUrl = getRemoteApiUrl();
+          const url = `${baseUrl}/api/subscriptions/create`;
+          
+          const createPayload = {
+            planId: planId || undefined, // UUID of the subscription plan (optional)
+            plan: plan, // Stripe price ID (required for staging-api)
+            successUrl: validatedSuccessUrl,
+            cancelUrl: validatedCancelUrl,
+            disableRedirect: false // Auto-redirect to Stripe Checkout
+          };
+          
+          // Use fetch with Better Auth token (not axios)
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token || ''}`
+            },
+            credentials: 'include',
+            body: JSON.stringify(createPayload),
+            redirect: 'manual' // Don't follow redirects - we need the Location header
+          });
           
           // Log response for debugging
           if (import.meta.env.DEV) {
-            console.log('[UPGRADE] Subscription creation response:', data);
+            console.log('[UPGRADE] Response status:', response.status);
+            console.log('[UPGRADE] Response headers:', Object.fromEntries(response.headers.entries()));
+          }
+          
+          // Check for Location header (in case of redirect)
+          const locationHeader = response.headers.get('location') || response.headers.get('Location');
+          
+          // Parse response body
+          let data: unknown;
+          const contentType = response.headers.get('content-type');
+          if (contentType?.includes('application/json')) {
+            data = await response.json();
+          } else {
+            const text = await response.text();
+            data = text ? JSON.parse(text) : null;
+          }
+          
+          if (import.meta.env.DEV) {
+            console.log('[UPGRADE] Response data:', data);
           }
           
           // Handle different response structures
@@ -377,48 +427,40 @@ export const usePaymentUpgrade = () => {
           
           if (data && typeof data === 'object') {
             // Try different possible response formats
-            checkoutUrl = (data.checkoutUrl as string) || 
-                         (data.checkout_url as string) ||
-                         (data.url as string) ||
-                         (data.data?.checkoutUrl as string) ||
-                         (data.data?.checkout_url as string) ||
-                         (data.data?.url as string);
+            checkoutUrl = (data as { checkoutUrl?: string }).checkoutUrl || 
+                         (data as { checkout_url?: string }).checkout_url ||
+                         (data as { url?: string }).url ||
+                         ((data as { data?: { checkoutUrl?: string } }).data?.checkoutUrl) ||
+                         ((data as { data?: { checkout_url?: string } }).data?.checkout_url) ||
+                         ((data as { data?: { url?: string } }).data?.url);
+          }
+          
+          // Also check Location header if checkoutUrl not in body (for redirects)
+          if (!checkoutUrl && locationHeader) {
+            checkoutUrl = locationHeader;
+            if (import.meta.env.DEV) {
+              console.log('[UPGRADE] Using checkoutUrl from Location header:', checkoutUrl);
+            }
           }
           
           if (!checkoutUrl || typeof checkoutUrl !== 'string') {
+            console.error('[UPGRADE] Missing checkoutUrl. Full response:', {
+              status: response.status,
+              headers: Object.fromEntries(response.headers.entries()),
+              data: data
+            });
             throw new Error(`Invalid response from subscription creation. Expected checkoutUrl, got: ${JSON.stringify(data)}`);
           }
           
           // Redirect to Stripe Checkout
           window.location.href = checkoutUrl;
         } catch (error) {
-          // Re-throw with more context if it's an axios error
-          if (error && typeof error === 'object' && 'response' in error) {
-            const axiosError = error as { response?: { data?: unknown; status?: number } };
-            const errorData = axiosError.response?.data;
-            const status = axiosError.response?.status;
-            
-            if (import.meta.env.DEV) {
-              console.error('[UPGRADE] Subscription creation error:', {
-                status,
-                data: errorData,
-                payload: createPayload
-              });
-            }
-            
-            let errorMessage = 'Failed to create subscription';
-            if (errorData && typeof errorData === 'object') {
-              if (typeof (errorData as { error?: string }).error === 'string') {
-                errorMessage = (errorData as { error: string }).error;
-              } else if (typeof (errorData as { message?: string }).message === 'string') {
-                errorMessage = (errorData as { message: string }).message;
-              }
-            }
-            
-            throw new Error(status ? `${errorMessage} (${status})` : errorMessage);
+          // Handle fetch errors
+          if (error instanceof Error) {
+            console.error('[UPGRADE] Subscription creation error:', error);
+            throw error;
           }
-          
-          throw error;
+          throw new Error('Failed to create subscription');
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Subscription creation failed';
@@ -442,15 +484,9 @@ export const usePaymentUpgrade = () => {
 
         // Handle specific error codes
         if (errorCode === SubscriptionErrorCode.SUBSCRIPTION_ALREADY_ACTIVE && resolvedPracticeId) {
-          try {
-            const safeReturnUrl = ensureValidReturnUrl(returnUrl, resolvedPracticeId);
-            await handleAlreadySubscribed(resolvedPracticeId, safeReturnUrl);
-            return;
-          } catch (urlError) {
-            // URL validation failed - show error
-            const urlErrorMessage = urlError instanceof Error ? urlError.message : 'Invalid return URL';
-            console.error('[UPGRADE] URL validation failed:', urlErrorMessage);
-          }
+          const safeReturnUrl = ensureValidReturnUrl(returnUrl, resolvedPracticeId);
+          await handleAlreadySubscribed(resolvedPracticeId, safeReturnUrl);
+          return;
         }
 
         if (errorCode === SubscriptionErrorCode.EMAIL_VERIFICATION_REQUIRED) {
