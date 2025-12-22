@@ -50,9 +50,9 @@ export function getRemoteApiUrl(): string {
         console.log('[getRemoteApiUrl] DEV mode with MSW - returning window.location.origin:', origin);
         return origin;
       }
-      // If window isn't available, this is a problem - log it
-      console.error('[getRemoteApiUrl] CRITICAL: window not available in DEV mode! This will break MSW interception.');
-      return 'http://localhost:5173';
+      // If window isn't available (SSR), MSW can't intercept anyway
+      console.warn('[getRemoteApiUrl] MSW enabled but window unavailable (SSR context). Falling back to staging-api.');
+      return 'https://staging-api.blawby.com';
     } else {
       // MSW disabled - use staging-api directly
       console.log('[getRemoteApiUrl] DEV mode without MSW - using staging-api directly');
