@@ -37,19 +37,27 @@ export function getRemoteApiUrl(): string {
     return import.meta.env.VITE_REMOTE_API_URL;
   }
   
-  // In development, ALWAYS use same origin so MSW can intercept requests
+  // In development, use same origin ONLY if MSW is enabled
   // MSW service workers can only intercept same-origin requests
-  // This is critical - never return staging-api in dev mode
+  // If MSW is disabled, use staging-api directly
   if (import.meta.env.DEV) {
-    if (typeof window !== 'undefined' && window.location && window.location.origin) {
-      const origin = window.location.origin;
-      console.log('[getRemoteApiUrl] DEV mode - returning window.location.origin for MSW:', origin);
-      return origin;
+    const enableMocks = import.meta.env.VITE_ENABLE_MSW === 'true';
+    
+    if (enableMocks) {
+      // MSW enabled - use same origin for interception
+      if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        const origin = window.location.origin;
+        console.log('[getRemoteApiUrl] DEV mode with MSW - returning window.location.origin:', origin);
+        return origin;
+      }
+      // If window isn't available (SSR), MSW can't intercept anyway
+      console.warn('[getRemoteApiUrl] MSW enabled but window unavailable (SSR context). Falling back to staging-api.');
+      return 'https://staging-api.blawby.com';
+    } else {
+      // MSW disabled - use staging-api directly
+      console.log('[getRemoteApiUrl] DEV mode without MSW - using staging-api directly');
+      return 'https://staging-api.blawby.com';
     }
-    // If window isn't available, this is a problem - log it
-    console.error('[getRemoteApiUrl] CRITICAL: window not available in DEV mode! This will break MSW interception.');
-    // Still return localhost as fallback rather than staging-api
-    return 'http://localhost:5173';
   }
   
   return 'https://staging-api.blawby.com';
@@ -93,10 +101,6 @@ export const getMatterCreationEndpoint = () => {
 };
 
 // Subscription endpoints - now handled by remote API
-export const getSubscriptionUpgradeEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/auth/subscription/upgrade`;
-};
-
 export const getSubscriptionBillingPortalEndpoint = () => {
   return `${getRemoteApiUrl()}/api/auth/subscription/billing-portal`;
 };

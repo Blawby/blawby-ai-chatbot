@@ -8,7 +8,6 @@ import { resolvePracticeKind, normalizeSubscriptionStatus } from '../../utils/su
 import { isForcePaidEnabled } from '../../utils/devFlags';
 import type { OnboardingStep } from '../onboarding/hooks/useStepValidation';
 import {
-  syncSubscription as syncSubscriptionRequest,
   updatePractice
 } from '../../lib/apiClient';
 import {
@@ -25,11 +24,10 @@ export const BusinessOnboardingPage = () => {
   const { showSuccess, showError } = useToastContext();
   const devForcePaid = isForcePaidEnabled();
   const [isOpen] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [ready, setReady] = useState(false);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
-  // Track in-flight sync status across renders (separate from UI state)
-  const isSyncInProgressRef = useRef(false);
+  const [refetchError, setRefetchError] = useState<Error | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
   const completionRef = useRef(false);
 
   // Derive step from URL path like /business-onboarding/:step
@@ -51,7 +49,6 @@ export const BusinessOnboardingPage = () => {
   }, [practices, currentPractice]);
   
   const targetPracticeId = targetPractice?.id ?? practiceId;
-  const shouldSync = (Array.isArray(location.query?.sync) ? location.query?.sync[0] : location.query?.sync) === '1';
   const metadataSource = targetPractice?.config?.metadata;
   const onboardingProgress = useMemo(
     () => extractProgressFromPracticeMetadata(metadataSource),
@@ -96,52 +93,68 @@ export const BusinessOnboardingPage = () => {
     }
   }, [targetPracticeId]);
 
-  // Sync subscription data on mount if needed
-  useEffect(() => {
-    const inFlightRef = isSyncInProgressRef;
-    const syncSubscription = async () => {
-      // If no sync is needed, mark as ready so downstream guards can run
-      if (!shouldSync) {
-        setReady(true);
-        return;
-      }
+  // Retry function with exponential backoff (3 attempts: 500ms, 1000ms, 2000ms)
+  const refetchWithRetry = useCallback(async (): Promise<void> => {
+    const delays = [500, 1000, 2000];
+    let lastError: Error | null = null;
 
-      if (!targetPracticeId || inFlightRef.current) return;
-      console.debug('[ONBOARDING][SYNC] Starting subscription sync for practice:', targetPracticeId);
-      
-      inFlightRef.current = true;
-      setSyncing(true);
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await syncSubscriptionRequest(targetPracticeId, {
-          headers: devForcePaid ? { 'x-test-force-paid': '1' } : undefined
-        });
-
         await refetch();
-
-        if (result.synced) {
-          showSuccess('Payment Successful', 'Your subscription has been activated!');
-        }
-      } catch (error) {
-        console.error('Sync failed:', error);
-        showError('Sync Failed', 'Could not refresh subscription status');
-      } finally {
-        inFlightRef.current = false;
-        setSyncing(false);
-        // Clean up URL
-        try {
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('sync');
-          window.history.replaceState({}, '', newUrl.toString());
-          console.debug('[ONBOARDING][SYNC] Sync done. Cleaned URL.');
-        } catch (_e) {
-          // noop
-        }
         setReady(true);
-      }
-    };
+        setRefetchError(null);
+        setIsRetrying(false);
+        return; // Success - exit early
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`[ONBOARDING] Refetch attempt ${attempt + 1}/3 failed:`, lastError);
 
-    syncSubscription();
-  }, [shouldSync, targetPracticeId, refetch, showSuccess, showError, devForcePaid]);
+        // If this is not the last attempt, wait before retrying
+        if (attempt < 2) {
+          const delay = delays[attempt];
+          console.log(`[ONBOARDING] Retrying in ${delay}ms...`);
+          setIsRetrying(true);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // All retries failed
+    console.error('[ONBOARDING] All refetch attempts failed after 3 retries:', lastError);
+    setRefetchError(lastError);
+    setIsRetrying(false);
+    setReady(false); // Keep ready=false to prevent guards from running with stale data
+  }, [refetch]);
+
+  // Refetch practice data on mount to get latest subscription status
+  // Staging-api handles all Stripe webhooks, so subscription should already be updated
+  useEffect(() => {
+    if (!targetPracticeId) return;
+    
+    // Reset error state when targetPracticeId changes
+    setRefetchError(null);
+    setIsRetrying(false);
+    setReady(false);
+    
+    // Refetch to ensure we have latest subscription status from staging-api
+    // No explicit sync needed - staging-api webhooks handle subscription updates
+    void refetchWithRetry();
+  }, [targetPracticeId, refetchWithRetry]);
+
+  // Manual retry handler for user-triggered retry
+  const handleRetryRefetch = useCallback(() => {
+    setRefetchError(null);
+    setIsRetrying(true);
+    void refetchWithRetry();
+  }, [refetchWithRetry]);
+
+  // Cancel handler - allow user to proceed with potentially stale data
+  const handleCancelRefetch = useCallback(() => {
+    console.warn('[ONBOARDING] User chose to proceed with potentially stale subscription data');
+    setRefetchError(null);
+    setIsRetrying(false);
+    setReady(true); // Allow guards to run, but user is aware of potential stale data
+  }, []);
 
   
 
@@ -226,16 +239,6 @@ export const BusinessOnboardingPage = () => {
     }
   }, [navigate, currentStepFromUrl]);
 
-  if (syncing) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
-          <p className="text-gray-600">Activating your subscription...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!targetPracticeId) {
     if (error || loadTimedOut) {
@@ -296,16 +299,77 @@ export const BusinessOnboardingPage = () => {
   }
 
   return (
-    <BusinessOnboardingModal
-      isOpen={isOpen}
-      practiceId={targetPracticeId}
-      practiceName={targetPractice?.name}
-      fallbackContactEmail={targetPractice?.config?.ownerEmail}
-      onClose={handleClose}
-      onCompleted={handleComplete}
-      currentStepFromUrl={currentStepFromUrl}
-      onStepChange={handleStepChangeFromModal}
-    />
+    <>
+      {/* Retry banner for refetch errors */}
+      {(refetchError || isRetrying) && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-50 border-b border-yellow-200 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {isRetrying ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600" />
+                    <p className="text-yellow-800 text-sm font-medium">
+                      Retrying to fetch latest subscription data...
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="h-5 w-5 text-yellow-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-yellow-800 text-sm font-medium">
+                        Failed to fetch latest subscription data
+                      </p>
+                      <p className="text-yellow-700 text-xs mt-1">
+                        {refetchError?.message || 'Unable to refresh subscription status. You may proceed, but data may be stale.'}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+              {!isRetrying && (
+                <div className="flex items-center gap-2 ml-4">
+                  <button
+                    onClick={handleRetryRefetch}
+                    className="px-3 py-1.5 bg-yellow-600 text-white text-sm font-medium rounded hover:bg-yellow-700 transition-colors"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    onClick={handleCancelRefetch}
+                    className="px-3 py-1.5 bg-yellow-100 text-yellow-800 text-sm font-medium rounded hover:bg-yellow-200 transition-colors"
+                  >
+                    Proceed Anyway
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      <BusinessOnboardingModal
+        isOpen={isOpen}
+        practiceId={targetPracticeId}
+        practiceName={targetPractice?.name}
+        fallbackContactEmail={targetPractice?.config?.ownerEmail}
+        onClose={handleClose}
+        onCompleted={handleComplete}
+        currentStepFromUrl={currentStepFromUrl}
+        onStepChange={handleStepChangeFromModal}
+      />
+    </>
   );
 };
 

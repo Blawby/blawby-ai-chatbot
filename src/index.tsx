@@ -973,7 +973,10 @@ async function mountClientApp() {
 
 if (typeof window !== 'undefined') {
 	const bootstrap = () => mountClientApp();
-	if (import.meta.env.DEV) {
+	// Only enable MSW if explicitly enabled via VITE_ENABLE_MSW env var
+	const enableMocks = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW === 'true';
+	
+	if (enableMocks) {
 		import('./mocks')
 			.then(({ setupMocks }) => {
 				console.log('[App] Setting up MSW mocks...');
@@ -988,6 +991,9 @@ if (typeof window !== 'undefined') {
 				bootstrap();
 			});
 	} else {
+		if (import.meta.env.DEV) {
+			console.log('[App] Running without MSW mocks - using real staging-api endpoints');
+		}
 		bootstrap();
 	}
 }

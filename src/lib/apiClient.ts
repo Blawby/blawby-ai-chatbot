@@ -1,7 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import { getTokenAsync, clearToken } from './tokenStorage';
 import {
-  getSubscriptionUpgradeEndpoint,
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
   getSubscriptionListEndpoint,
@@ -14,18 +13,26 @@ let isHandling401: Promise<void> | null = null;
 
 function ensureApiBaseUrl(): string {
   // NEVER cache in development - always get fresh URL to support MSW
-  // In dev mode, ALWAYS use window.location.origin for MSW interception
-  // This overrides any env vars to ensure MSW can intercept
+  // In dev mode, use window.location.origin ONLY if MSW is enabled
+  // If MSW is disabled, use staging-api directly
   if (import.meta.env.DEV) {
-    if (typeof window !== 'undefined' && window.location && window.location.origin) {
-      // In dev, always use same origin for MSW, ignore env vars
-      const origin = window.location.origin;
-      console.log('[ensureApiBaseUrl] DEV mode - forcing window.location.origin for MSW:', origin);
-      return origin;
+    const enableMocks = import.meta.env.VITE_ENABLE_MSW === 'true';
+    
+    if (enableMocks) {
+      // MSW enabled - use same origin for interception
+      if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        const origin = window.location.origin;
+        console.log('[ensureApiBaseUrl] DEV mode with MSW - using window.location.origin:', origin);
+        return origin;
+      }
+      // Fallback if window isn't available (shouldn't happen in browser)
+      console.warn('[ensureApiBaseUrl] window not available in DEV, using localhost fallback');
+      return 'http://localhost:5173';
+    } else {
+      // MSW disabled - use staging-api directly
+      console.log('[ensureApiBaseUrl] DEV mode without MSW - using staging-api');
+      return getRemoteApiUrl();
     }
-    // Fallback if window isn't available (shouldn't happen in browser)
-    console.warn('[ensureApiBaseUrl] window not available in DEV, using localhost fallback');
-    return 'http://localhost:5173';
   }
   
   // In production, check env vars and cache
@@ -155,15 +162,6 @@ export interface SubscriptionSyncResponse {
   updatedAt?: string | null;
 }
 
-export interface SubscriptionUpgradePayload {
-  referenceId: string;
-  successUrl: string;
-  cancelUrl: string;
-  returnUrl: string;
-  plan?: string;
-  annual?: boolean;
-  seats?: number;
-}
 
 export interface BillingPortalPayload {
   practiceId: string;
@@ -569,12 +567,6 @@ export async function updateUserPreferences(
     signal: config?.signal
   });
   return extractApiData<UserPreferences>(response.data);
-}
-
-export async function requestSubscriptionUpgrade(
-  payload: SubscriptionUpgradePayload
-): Promise<SubscriptionEndpointResult> {
-  return postSubscriptionEndpoint(getSubscriptionUpgradeEndpoint(), payload as unknown as Record<string, unknown>);
 }
 
 export async function requestBillingPortalSession(
