@@ -99,7 +99,8 @@ export function MainApp({
 
   useEffect(() => {
     realMessageHandling.clearMessages();
-  }, [practiceId, realMessageHandling]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clearMessages should be stable; re-run only on practiceId change
+  }, [practiceId]);
 
   const createConversation = useCallback(async () => {
     if (!practiceId || !session?.user || isCreatingConversation) return null;
@@ -259,6 +260,7 @@ export function MainApp({
       // Handle file upload error
 
       console.error('File upload error:', error);
+      showErrorRef.current?.(typeof error === 'string' ? error : 'File upload failed. Please try again.');
     }
   });
 
@@ -502,14 +504,13 @@ export function MainApp({
       const uploadedFiles = await handleFileSelect([file]);
 
       // Send a message with the uploaded file metadata
-      handleSendMessage(`I've recorded a ${type} message.`, uploadedFiles);
+      await handleSendMessage(`I've recorded a ${type} message.`, uploadedFiles);
 
     } catch (_error) {
       // Handle media upload error
 
       console.error('Failed to upload captured media:', _error);
-      // Show error message to user
-      handleSendMessage("I'm sorry, I couldn't upload the recorded media. Please try again.", []);
+      showErrorRef.current?.('Failed to upload recording. Please try again.');
     }
   };
 
@@ -633,7 +634,7 @@ export function MainApp({
             console.error('Error initiating subscription upgrade:', _error);
             const message = _error instanceof Error ? _error.message : 'Unable to start upgrade.';
             showError('Upgrade failed', message);
-            shouldNavigateToCart = true;
+            shouldNavigateToCart = false;
           } finally {
             setShowPricingModal(false);
             window.location.hash = '';
