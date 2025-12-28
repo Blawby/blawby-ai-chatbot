@@ -25,7 +25,6 @@ vi.mock("../../hooks/usePaymentUpgrade", () => ({
   usePaymentUpgrade: () => ({
     openBillingPortal: vi.fn(),
     upgradeSubscription: vi.fn(),
-    syncSubscription: vi.fn(),
     cancelSubscription: vi.fn(),
   }),
 }));

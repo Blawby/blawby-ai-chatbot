@@ -41,7 +41,7 @@ export const AccountPage = ({
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
-  const { syncSubscription, openBillingPortal, submitting } = usePaymentUpgrade();
+  const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: orgLoading, refetch, getMembers, fetchMembers } = usePracticeManagement();
   const { data: session, isPending } = useSession();
   const [links, setLinks] = useState<UserLinks | null>(null);
@@ -232,18 +232,18 @@ export const AccountPage = ({
       });
   }, [currentPractice?.id, fetchMembers, membersRefreshToken]);
 
-  // Auto-sync on return from Stripe portal or checkout
+  // Refetch after return from Stripe portal or checkout
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('sync') === '1' && currentPractice?.id) {
-      syncSubscription(currentPractice.id)
+      refetch()
         .then(() => {
-          refetch();
           showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
         })
         .catch((error) => {
-          console.error('Auto-sync failed:', error);
-          // Error already handled by syncSubscription hook
+          console.error('Failed to refresh subscription:', error);
+          // Don't show error toast - refetch failure is not critical
         })
         .finally(() => {
           // Remove sync param to prevent re-trigger (URL hygiene)
@@ -252,8 +252,7 @@ export const AccountPage = ({
           window.history.replaceState({}, '', newUrl.toString());
         });
     }
-  }, [currentPractice?.id, syncSubscription, refetch, showSuccess]);
-
+  }, [currentPractice?.id, refetch, showSuccess]);
 
   // Cleanup verification timeout on unmount
   useEffect(() => {

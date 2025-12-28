@@ -346,21 +346,6 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
-  http.post('/api/subscription/sync', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { practiceId?: string };
-    if (!body.practiceId) {
-      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
-    }
-    return HttpResponse.json({
-      synced: true,
-      subscription: {
-        status: 'active',
-        practiceId: body.practiceId,
-        updatedAt: Date.now()
-      }
-    });
-  }),
-
   http.post('*/api/auth/subscription/upgrade', async () => {
     return HttpResponse.json({
       url: 'https://checkout.mock.local/stripe-session'

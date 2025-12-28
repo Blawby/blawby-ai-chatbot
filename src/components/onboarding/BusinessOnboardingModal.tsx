@@ -55,6 +55,7 @@ interface BusinessOnboardingModalProps {
   isOpen: boolean;
   practiceId: string;
   practiceName?: string;
+  practiceSlug?: string;
   fallbackContactEmail?: string | undefined;
   onClose: () => void;
   onCompleted?: () => Promise<void> | void;
@@ -66,6 +67,7 @@ const BusinessOnboardingModal = ({
   isOpen,
   practiceId,
   practiceName,
+  practiceSlug,
   fallbackContactEmail,
   onClose,
   onCompleted,
@@ -411,7 +413,7 @@ const BusinessOnboardingModal = ({
           onContinue={handleStepContinue}
           onBack={handleBack}
           errors={errors && errors.length > 0 ? errors[0].message : null}
-          practiceSlug={practiceName?.toLowerCase().replace(/\s+/g, '-')}
+          practiceSlug={practiceSlug || practiceName?.toLowerCase().replace(/\s+/g, '-') || 'your-firm'}
           disabled={isLoadingData}
           onSkip={handleSkip}
           stripeStatus={stripeStatus}

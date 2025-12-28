@@ -34,9 +34,14 @@ export interface UIPracticeConfig extends PracticeConfig {
 interface UsePracticeConfigOptions {
   onError?: (error: string) => void;
   practiceId?: string; // Optional explicit override
+  allowUnauthenticated?: boolean;
 }
 
-export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: UsePracticeConfigOptions = {}) => {
+export const usePracticeConfig = ({
+  onError,
+  practiceId: explicitPracticeId,
+  allowUnauthenticated = false
+}: UsePracticeConfigOptions = {}) => {
   const { activePracticeId } = useSessionContext();
   const { data: session } = useSession();
   const isAuthenticated = Boolean(session?.user);
@@ -73,15 +78,10 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
       const urlParams = new URLSearchParams(window.location.search);
       const practiceIdParam = urlParams.get('practiceId');
 
-      // Priority: URL param > explicit param > active practice > constant (only if authenticated)
-      if (practiceIdParam) {
-        setPracticeId(practiceIdParam);
-      } else {
-        // Only default to DEFAULT_PRACTICE_ID if user is authenticated
-        // Unauthenticated users should have empty practiceId (will show auth page)
-        const resolved = (explicitPracticeId ?? activePracticeId ?? (isAuthenticated ? DEFAULT_PRACTICE_ID : ''));
-        setPracticeId(resolved);
-      }
+      // Priority: explicit param (slug from path) > URL query param > active practice > constant (only if authenticated)
+      // explicitPracticeId takes priority because it comes from path-based routing (guest routes)
+      const resolved = (explicitPracticeId ?? practiceIdParam ?? activePracticeId ?? (isAuthenticated ? DEFAULT_PRACTICE_ID : ''));
+      setPracticeId(resolved);
     }
   }, [explicitPracticeId, activePracticeId, isAuthenticated]);
 
@@ -144,32 +144,25 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
     };
 
     try {
-      // Try to get specific practice by ID first, then fall back to listing all practices
+      // Try to get specific practice by ID or slug first, then fall back to listing all practices
       let practice: z.infer<typeof PracticeSchema> | undefined;
-      
-      // If practiceId looks like a UUID, try to fetch it directly
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentPracticeId) ||
-                     /^[0-9A-HJKMNP-TV-Z]{26}$/i.test(currentPracticeId); // Also support shorter IDs (ULID with Crockford Base32)
-      
-      if (isUuid) {
-        try {
-          const practiceData = await getPractice(currentPracticeId, { signal: controller.signal });
-          if (isStaleRequest()) {
-            return;
-          }
-          if (practiceData) {
-            practice = PracticeSchema.parse(practiceData as unknown as Record<string, unknown>);
-          }
-        } catch (e) {
-          // If direct fetch fails, fall through to list approach
-          console.debug('[usePracticeConfig] Direct practice fetch failed, falling back to list', e);
+      try {
+        const practiceData = await getPractice(currentPracticeId, { signal: controller.signal });
+        if (isStaleRequest()) {
+          return;
         }
+        if (practiceData) {
+          practice = PracticeSchema.parse(practiceData as unknown as Record<string, unknown>);
+        }
+      } catch (e) {
+        // If direct fetch fails, fall through to list approach when authenticated
+        console.debug('[usePracticeConfig] Direct practice fetch failed, falling back to list', e);
       }
-      
+
       // If we don't have the practice yet, list all practices and find the matching one
-      if (!practice) {
+      if (!practice && isAuthenticated) {
         const practices = await listPractices({ signal: controller.signal, scope: 'all' });
-        
+
         if (isStaleRequest()) {
           return;
         }
@@ -210,6 +203,10 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
           }
         };
         setPracticeConfig(config);
+        if (practice.id && practice.id !== currentPracticeId) {
+          fetchedPracticeIds.current.add(practice.id);
+          setPracticeId(practice.id);
+        }
         setPracticeNotFound(false);
       } else {
         // Practice not found in the list - this indicates a 404-like scenario
@@ -236,7 +233,7 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
         setIsLoading(false);
       }
     }
-  }, [onError]);
+  }, [onError, isAuthenticated]);
 
   // Retry function for practice config
   const handleRetryPracticeConfig = useCallback(() => {
@@ -257,12 +254,12 @@ export const usePracticeConfig = ({ onError, practiceId: explicitPracticeId }: U
   }, [parseUrlParams]);
 
   // Fetch practice config when practiceId changes
-  // Only fetch if authenticated and practiceId is not empty
+  // Only fetch if authenticated (or guest access enabled) and practiceId is not empty
   useEffect(() => {
-    if (isAuthenticated && practiceId) {
+    if ((isAuthenticated || allowUnauthenticated) && practiceId) {
       fetchPracticeConfig(practiceId);
     }
-  }, [practiceId, isAuthenticated, fetchPracticeConfig]);
+  }, [practiceId, isAuthenticated, allowUnauthenticated, fetchPracticeConfig]);
 
   return {
     practiceId,

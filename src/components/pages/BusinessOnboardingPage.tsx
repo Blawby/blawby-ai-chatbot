@@ -363,6 +363,7 @@ export const BusinessOnboardingPage = () => {
         isOpen={isOpen}
         practiceId={targetPracticeId}
         practiceName={targetPractice?.name}
+        practiceSlug={targetPractice?.slug}
         fallbackContactEmail={targetPractice?.config?.ownerEmail}
         onClose={handleClose}
         onCompleted={handleComplete}

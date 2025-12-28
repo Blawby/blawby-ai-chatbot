@@ -105,10 +105,6 @@ export const getSubscriptionBillingPortalEndpoint = () => {
   return `${getRemoteApiUrl()}/api/auth/subscription/billing-portal`;
 };
 
-export const getSubscriptionSyncEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/subscription/sync`;
-};
-
 export const getSubscriptionCancelEndpoint = () => {
   return `${getRemoteApiUrl()}/api/subscription/cancel`;
 };

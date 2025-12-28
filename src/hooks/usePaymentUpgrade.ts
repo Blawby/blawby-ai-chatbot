@@ -1,31 +1,8 @@
 import { useState, useCallback } from 'preact/hooks';
 import { useToastContext } from '../contexts/ToastContext';
-import { authClient, getClient } from '../lib/authClient';
-import { getTokenAsync } from '../lib/tokenStorage';
-import { getRemoteApiUrl } from '../config/api';
+import { getClient } from '../lib/authClient';
+import { requestBillingPortalSession, requestSubscriptionCancellation } from '../lib/apiClient';
 
-// Helper to make fetch requests to staging-api with Better Auth token
-async function fetchStagingApi(endpoint: string, options: RequestInit = {}) {
-  const token = await getTokenAsync();
-  const baseUrl = getRemoteApiUrl();
-  const url = `${baseUrl}${endpoint}`;
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token || ''}`,
-      ...options.headers
-    },
-    credentials: 'include'
-  });
-}
-
-
-// Default return URL for billing portal redirects
-const DEFAULT_RETURN_URL = typeof window !== 'undefined'
-  ? `${window.location.origin}/`
-  : '/';
 
 // Allowlist of trusted hosts for return URLs (beyond same-origin)
 // Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
@@ -35,7 +12,7 @@ const TRUSTED_RETURN_URL_HOSTS: string[] = ['staging-api.blawby.com'];
 // Helper function to ensure a safe, validated return URL
 // Prevents open-redirect vulnerabilities by validating URLs before returning them
 // Throws errors instead of silently falling back
-function ensureValidReturnUrl(url: string | undefined | null, practiceId?: string): string {
+function ensureValidReturnUrl(url: string | undefined | null, _practiceId?: string): string {
   // Treat undefined/null/invalid inputs as errors
   if (!url || typeof url !== 'string') {
     throw new Error(`Invalid return URL: ${url === null ? 'null' : url === undefined ? 'undefined' : 'not a string'}`);
@@ -211,26 +188,10 @@ export const usePaymentUpgrade = () => {
 
   const buildSuccessUrl = useCallback((practiceId?: string) => {
     if (typeof window === 'undefined') {
-      throw new Error('buildSuccessUrl cannot be called in SSR context - window is undefined');
+      return '/business-onboarding?subscription=success';
     }
-
-    // As per Kaze's instructions: use staging-api.blawby.com domain, path after .com can be anything
-    // Example: https://staging-api.blawby.com/dashboard?subscription=success&redirectTo=http://localhost:5173/business-onboarding
-    const isDev = import.meta.env.DEV;
-    const baseOrigin = isDev
-      ? 'https://staging-api.blawby.com'
-      : window.location.origin;
-
-    // Build the final destination (where we want to end up after staging-api processes)
-    const finalDestination = new URL('/business-onboarding', window.location.origin);
-    if (practiceId) {
-      finalDestination.searchParams.set('practiceId', practiceId);
-    }
-
-    // Use /dashboard endpoint as per Kaze's example - staging-api will redirect to finalDestination
-    const url = new URL('/dashboard', baseOrigin);
+    const url = new URL('/business-onboarding', window.location.origin);
     url.searchParams.set('subscription', 'success');
-    url.searchParams.set('redirectTo', finalDestination.toString());
     if (practiceId) {
       url.searchParams.set('practiceId', practiceId);
     }
@@ -239,23 +200,10 @@ export const usePaymentUpgrade = () => {
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
     if (typeof window === 'undefined') {
-      throw new Error('buildCancelUrl cannot be called in SSR context - window is undefined');
+      return '/';
     }
-
-    // As per Kaze's instructions: use staging-api.blawby.com domain, path after .com can be anything
-    // Example: https://staging-api.blawby.com/pricing?subscription=cancelled&redirectTo=http://localhost:5173/
-    const isDev = import.meta.env.DEV;
-    const baseOrigin = isDev
-      ? 'https://staging-api.blawby.com'
-      : window.location.origin;
-
-    // Build the final destination (home page)
-    const finalDestination = new URL('/', window.location.origin);
-
-    // Use /pricing endpoint as per Kaze's example - staging-api will redirect to finalDestination
-    const url = new URL('/pricing', baseOrigin);
+    const url = new URL('/', window.location.origin);
     url.searchParams.set('subscription', 'cancelled');
-    url.searchParams.set('redirectTo', finalDestination.toString());
     return url.toString();
   }, []);
 
@@ -378,7 +326,7 @@ export const usePaymentUpgrade = () => {
 
           const createPayload = {
             planId: planId || undefined, // UUID of the subscription plan (optional)
-            plan: plan, // Stripe price ID (required for staging-api)
+            plan, // Stripe price ID (required for staging-api)
             successUrl: validatedSuccessUrl,
             cancelUrl: validatedCancelUrl,
             disableRedirect: false // Auto-redirect to Stripe Checkout
@@ -435,7 +383,7 @@ export const usePaymentUpgrade = () => {
             console.error('[UPGRADE] Missing checkoutUrl. Full response:', {
               status: response.status,
               headers: Object.fromEntries(response.headers.entries()),
-              data: data
+              data
             });
             throw new Error(`Invalid response from subscription creation. Expected checkoutUrl, got: ${JSON.stringify(data)}`);
           }
@@ -496,45 +444,6 @@ export const usePaymentUpgrade = () => {
     [buildCancelUrl, buildSuccessUrl, handleAlreadySubscribed, showError]
   );
 
-  const syncSubscription = useCallback(
-    async (practiceId: string) => {
-      try {
-        const result = await syncSubscriptionRequest(practiceId);
-
-        if (!result.synced) {
-          throw new Error('Failed to refresh subscription status');
-        }
-
-        showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        return result.subscription ?? null;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to refresh subscription status';
-
-        let errorCode: SubscriptionErrorCode | null = null;
-        let errorMessage = message;
-
-        try {
-          const parsedError = JSON.parse(message);
-          if (parsedError && typeof parsedError === 'object' && 'errorCode' in parsedError) {
-            const parsedCode = (parsedError as { errorCode?: string }).errorCode;
-            if (parsedCode && Object.values(SubscriptionErrorCode).includes(parsedCode as SubscriptionErrorCode)) {
-              errorCode = parsedCode as SubscriptionErrorCode;
-              errorMessage = (parsedError as { message?: string }).message || message;
-            }
-          }
-        } catch {
-          // Not a structured error, use original message
-        }
-
-        const title = errorCode ? getErrorTitle(errorCode) : 'Subscription Sync Error';
-        showError(title, errorMessage);
-        return null;
-      }
-    },
-    [showError, showSuccess]
-  );
-
-
   const cancelSubscription = useCallback(
     async (practiceId: string) => {
       try {
@@ -586,7 +495,6 @@ export const usePaymentUpgrade = () => {
     error,
     submitUpgrade,
     openBillingPortal,
-    syncSubscription,
     cancelSubscription,
   };
 };
