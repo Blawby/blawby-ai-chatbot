@@ -156,13 +156,6 @@ export interface OnboardingStatus {
   completed?: boolean;
 }
 
-export interface SubscriptionSyncResponse {
-  synced: boolean;
-  subscription?: unknown;
-  updatedAt?: string | null;
-}
-
-
 export interface BillingPortalPayload {
   practiceId: string;
   returnUrl?: string;
@@ -526,28 +519,6 @@ export async function createConnectedAccount(
   });
 
   return normalizeConnectedAccountResponse(response.data);
-}
-
-export async function syncSubscription(
-  practiceId: string,
-  options?: { headers?: Record<string, string> }
-): Promise<SubscriptionSyncResponse> {
-  if (!practiceId) {
-    throw new Error('practiceId is required');
-  }
-  const response = await apiClient.post(
-    '/api/subscription/sync',
-    { practiceId },
-    {
-      headers: options?.headers
-    }
-  );
-  const data = isRecord(response.data) ? response.data : {};
-  return {
-    synced: Boolean('synced' in data ? data.synced : data.success ?? false),
-    subscription: 'subscription' in data ? data.subscription : undefined,
-    updatedAt: toNullableString(data.updatedAt ?? data.updated_at)
-  };
 }
 
 export async function getUserPreferences(

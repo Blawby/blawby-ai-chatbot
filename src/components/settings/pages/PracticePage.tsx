@@ -54,7 +54,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const location = useLocation();
-  const { openBillingPortal, syncSubscription, submitting } = usePaymentUpgrade();
+  const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { t } = useTranslation(['settings']);
   
   // Get current user email from session
@@ -148,7 +148,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     }
   }, [currentPractice, fetchMembers, showError]);
 
-  // Auto-sync on return from portal
+  // Refetch after return from portal
   useEffect(() => {
     const syncParam = (() => {
       const q = (location as unknown as { query?: Record<string, unknown> } | undefined)?.query;
@@ -163,14 +163,13 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
       return undefined;
     })();
     if (String(syncParam) === '1' && currentPractice?.id) {
-      syncSubscription(currentPractice.id)
+      refetch()
         .then(() => {
-          refetch();
           showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
         })
         .catch((error) => {
-          console.error('Auto-sync failed:', error);
-          // Error already handled by syncSubscription hook
+          console.error('Failed to refresh subscription:', error);
+          // Don't show error toast - refetch failure is not critical
         })
         .finally(() => {
           // Remove sync param to prevent re-trigger (URL hygiene)
@@ -179,7 +178,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
           window.history.replaceState({}, '', newUrl.toString());
         });
     }
-  }, [location, currentPractice?.id, syncSubscription, refetch, showSuccess]);
+  }, [location, currentPractice?.id, refetch, showSuccess]);
 
   const handleCreatePractice = async () => {
     if (!createForm.name.trim()) {
