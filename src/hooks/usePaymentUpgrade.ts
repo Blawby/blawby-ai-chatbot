@@ -1,31 +1,8 @@
 import { useState, useCallback } from 'preact/hooks';
 import { useToastContext } from '../contexts/ToastContext';
-import { authClient, getClient } from '../lib/authClient';
-import { getTokenAsync } from '../lib/tokenStorage';
-import { getRemoteApiUrl } from '../config/api';
+import { getClient } from '../lib/authClient';
+import { requestBillingPortalSession, requestSubscriptionCancellation } from '../lib/apiClient';
 
-// Helper to make fetch requests to staging-api with Better Auth token
-async function fetchStagingApi(endpoint: string, options: RequestInit = {}) {
-  const token = await getTokenAsync();
-  const baseUrl = getRemoteApiUrl();
-  const url = `${baseUrl}${endpoint}`;
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token || ''}`,
-      ...options.headers
-    },
-    credentials: 'include'
-  });
-}
-
-
-// Default return URL for billing portal redirects
-const DEFAULT_RETURN_URL = typeof window !== 'undefined'
-  ? `${window.location.origin}/`
-  : '/';
 
 // Allowlist of trusted hosts for return URLs (beyond same-origin)
 // Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
@@ -35,7 +12,7 @@ const TRUSTED_RETURN_URL_HOSTS: string[] = ['staging-api.blawby.com'];
 // Helper function to ensure a safe, validated return URL
 // Prevents open-redirect vulnerabilities by validating URLs before returning them
 // Throws errors instead of silently falling back
-function ensureValidReturnUrl(url: string | undefined | null, practiceId?: string): string {
+function ensureValidReturnUrl(url: string | undefined | null, _practiceId?: string): string {
   // Treat undefined/null/invalid inputs as errors
   if (!url || typeof url !== 'string') {
     throw new Error(`Invalid return URL: ${url === null ? 'null' : url === undefined ? 'undefined' : 'not a string'}`);
@@ -162,6 +139,7 @@ enum SubscriptionErrorCode {
   INVALID_PRACTICE_ID = 'INVALID_PRACTICE_ID',
   INVALID_SEAT_COUNT = 'INVALID_SEAT_COUNT',
   INVALID_PLAN_TYPE = 'INVALID_PLAN_TYPE',
+  SUBSCRIPTION_SYNC_FAILED = 'SUBSCRIPTION_SYNC_FAILED',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
 }
 
@@ -178,6 +156,7 @@ const ERROR_TITLES: Record<SubscriptionErrorCode, string> = {
   [SubscriptionErrorCode.INVALID_PRACTICE_ID]: 'Invalid Request',
   [SubscriptionErrorCode.INVALID_SEAT_COUNT]: 'Invalid Request',
   [SubscriptionErrorCode.INVALID_PLAN_TYPE]: 'Invalid Request',
+  [SubscriptionErrorCode.SUBSCRIPTION_SYNC_FAILED]: 'Subscription Sync Error',
   [SubscriptionErrorCode.INTERNAL_ERROR]: 'System Error',
 };
 
@@ -209,24 +188,10 @@ export const usePaymentUpgrade = () => {
 
   const buildSuccessUrl = useCallback((practiceId?: string) => {
     if (typeof window === 'undefined') {
-      throw new Error('buildSuccessUrl cannot be called in SSR context - window is undefined');
+      return '/business-onboarding?subscription=success';
     }
-
-    // Always use staging-api.blawby.com (serves both dev and production)
-    // staging-api processes subscription webhook, then redirects to frontend
-    // Example: https://staging-api.blawby.com/dashboard?subscription=success&redirectTo=https://ai.blawby.com/business-onboarding
-    const baseOrigin = 'https://staging-api.blawby.com';
-
-    // Build the final destination (where we want to end up after staging-api processes)
-    const finalDestination = new URL('/business-onboarding', window.location.origin);
-    if (practiceId) {
-      finalDestination.searchParams.set('practiceId', practiceId);
-    }
-
-    // Use /dashboard endpoint as per Kaze's example - staging-api will redirect to finalDestination
-    const url = new URL('/dashboard', baseOrigin);
+    const url = new URL('/business-onboarding', window.location.origin);
     url.searchParams.set('subscription', 'success');
-    url.searchParams.set('redirectTo', finalDestination.toString());
     if (practiceId) {
       url.searchParams.set('practiceId', practiceId);
     }
@@ -235,21 +200,10 @@ export const usePaymentUpgrade = () => {
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
     if (typeof window === 'undefined') {
-      throw new Error('buildCancelUrl cannot be called in SSR context - window is undefined');
+      return '/';
     }
-
-    // Always use staging-api.blawby.com (serves both dev and production)
-    // staging-api processes cancellation, then redirects to frontend
-    // Example: https://staging-api.blawby.com/pricing?subscription=cancelled&redirectTo=https://ai.blawby.com/
-    const baseOrigin = 'https://staging-api.blawby.com';
-
-    // Build the final destination (home page)
-    const finalDestination = new URL('/', window.location.origin);
-
-    // Use /pricing endpoint as per Kaze's example - staging-api will redirect to finalDestination
-    const url = new URL('/pricing', baseOrigin);
+    const url = new URL('/', window.location.origin);
     url.searchParams.set('subscription', 'cancelled');
-    url.searchParams.set('redirectTo', finalDestination.toString());
     return url.toString();
   }, []);
 
@@ -372,7 +326,7 @@ export const usePaymentUpgrade = () => {
 
           const createPayload = {
             planId: planId || undefined, // UUID of the subscription plan (optional)
-            plan: plan, // Stripe price ID (required for staging-api)
+            plan, // Stripe price ID (required for staging-api)
             successUrl: validatedSuccessUrl,
             cancelUrl: validatedCancelUrl,
             disableRedirect: false // Auto-redirect to Stripe Checkout
@@ -429,7 +383,7 @@ export const usePaymentUpgrade = () => {
             console.error('[UPGRADE] Missing checkoutUrl. Full response:', {
               status: response.status,
               headers: Object.fromEntries(response.headers.entries()),
-              data: data
+              data
             });
             throw new Error(`Invalid response from subscription creation. Expected checkoutUrl, got: ${JSON.stringify(data)}`);
           }
