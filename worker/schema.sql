@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS contact_forms (
 -- Matters table to represent legal matters
 CREATE TABLE IF NOT EXISTS matters (
   id TEXT PRIMARY KEY,
-  practice_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
   user_id TEXT,
   client_name TEXT NOT NULL,
   client_email TEXT,
@@ -90,6 +90,10 @@ CREATE TABLE IF NOT EXISTS matters (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   closed_at DATETIME
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS matters_session_id_unique
+ON matters (organization_id, json_extract(custom_fields, '$.sessionId'))
+WHERE json_extract(custom_fields, '$.sessionId') IS NOT NULL;
 
 -- Matter events table for matter activity logs
 CREATE TABLE IF NOT EXISTS matter_events (

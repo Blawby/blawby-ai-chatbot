@@ -13,6 +13,17 @@ function createJsonResponse(data: unknown): Response {
   });
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const err = error as { message?: string; code?: string };
+  if (err.code === 'SQLITE_CONSTRAINT') {
+    return true;
+  }
+  return typeof err.message === 'string' && err.message.includes('UNIQUE constraint');
+}
+
 export async function handleChat(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const segments = url.pathname.split('/').filter(Boolean);
@@ -101,17 +112,30 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
             if (existingMatterId) {
               await conversationService.attachMatter(body.conversationId, practiceId, existingMatterId);
             } else {
-              const lead = await matterService.createLeadFromContactForm({
-                practiceId,
-                sessionId: body.conversationId,
-                name: contactData.name,
-                email: contactData.email,
-                phoneNumber,
-                matterDetails,
-                leadSource: 'contact_form_chat'
-              });
+              try {
+                const lead = await matterService.createLeadFromContactForm({
+                  practiceId,
+                  sessionId: body.conversationId,
+                  name: contactData.name,
+                  email: contactData.email,
+                  phoneNumber,
+                  matterDetails,
+                  leadSource: 'contact_form_chat'
+                });
 
-              await conversationService.attachMatter(body.conversationId, practiceId, lead.matterId);
+                await conversationService.attachMatter(body.conversationId, practiceId, lead.matterId);
+              } catch (createError) {
+                if (isUniqueConstraintError(createError)) {
+                  const retryMatterId = await matterService.getMatterIdBySessionId(practiceId, body.conversationId);
+                  if (retryMatterId) {
+                    await conversationService.attachMatter(body.conversationId, practiceId, retryMatterId);
+                  } else {
+                    throw createError;
+                  }
+                } else {
+                  throw createError;
+                }
+              }
             }
           }
         } catch (matterError) {

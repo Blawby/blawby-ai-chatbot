@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { SettingHeader } from '../atoms';
 import { SettingSection, SettingToggle } from '../molecules';
@@ -32,7 +32,10 @@ export default function PrivacyPage() {
   const [settings, setSettings] = useState<PrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingToggle, setPendingToggle] = useState<{ key: keyof PrivacySettings; value: boolean } | null>(null);
+  const isInitialLoad = useRef(true);
+  const shouldPersist = useRef(false);
 
+  // Load settings from localStorage on mount
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -62,8 +65,29 @@ export default function PrivacyPage() {
       }
     } catch (error) {
       console.warn('Failed to load privacy preferences:', error);
+    } finally {
+      isInitialLoad.current = false;
     }
   }, []);
+
+  // Sync settings to localStorage when they change (but not on initial load)
+  useEffect(() => {
+    if (isInitialLoad.current || !shouldPersist.current) {
+      return;
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(PRIVACY_STORAGE_KEY, JSON.stringify(settings));
+        showSuccess('Privacy updated', 'Your privacy preferences have been saved.');
+      }
+    } catch (error) {
+      console.error('Failed to update privacy settings:', error);
+      showError('Update failed', 'We could not save your privacy preferences. Please try again.');
+    } finally {
+      shouldPersist.current = false;
+    }
+  }, [settings, showError, showSuccess]);
 
   const handleToggle = useCallback(async (key: keyof PrivacySettings, value: boolean) => {
     // If disabling a critical consent, show confirmation dialog
@@ -74,47 +98,19 @@ export default function PrivacyPage() {
     }
 
     // For enabling or non-critical toggles, proceed directly
-    setSettings(prev => {
-      const nextSettings = { ...prev, [key]: value };
-      
-      // Persist after state update using the new value
-      try {
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(PRIVACY_STORAGE_KEY, JSON.stringify(nextSettings));
-        }
-        showSuccess('Privacy updated', 'Your privacy preferences have been saved.');
-      } catch (error) {
-        console.error('Failed to update privacy settings:', error);
-        showError('Update failed', 'We could not save your privacy preferences. Please try again.');
-      }
-      
-      return nextSettings;
-    });
-  }, [showError, showSuccess]);
+    shouldPersist.current = true;
+    setSettings(prev => ({ ...prev, [key]: value }));
+  }, []);
 
   const handleConfirmToggle = useCallback(() => {
     if (!pendingToggle) return;
 
-    setSettings(prev => {
-      const nextSettings = { ...prev, [pendingToggle.key]: pendingToggle.value };
-      
-      // Persist after state update using the new value
-      try {
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(PRIVACY_STORAGE_KEY, JSON.stringify(nextSettings));
-        }
-        showSuccess('Privacy updated', 'Your privacy preferences have been saved.');
-      } catch (error) {
-        console.error('Failed to update privacy settings:', error);
-        showError('Update failed', 'We could not save your privacy preferences. Please try again.');
-      }
-      
-      return nextSettings;
-    });
+    shouldPersist.current = true;
+    setSettings(prev => ({ ...prev, [pendingToggle.key]: pendingToggle.value }));
 
     setShowConfirmDialog(false);
     setPendingToggle(null);
-  }, [pendingToggle, showError, showSuccess]);
+  }, [pendingToggle]);
 
   const handleCancelToggle = useCallback(() => {
     setShowConfirmDialog(false);

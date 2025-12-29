@@ -440,9 +440,8 @@ export function MainApp({
   useEffect(() => {
     if (!currentPractice?.id) return;
     void fetchMembers(currentPractice.id).catch((error) => {
-      if (import.meta.env.DEV) {
-        console.warn('[Members] Failed to fetch practice members:', error);
-      }
+      console.warn('[Members] Failed to fetch practice members:', error);
+      showErrorRef.current?.('Team members unavailable', 'Unable to load team members.');
     });
   }, [currentPractice?.id, fetchMembers]);
 

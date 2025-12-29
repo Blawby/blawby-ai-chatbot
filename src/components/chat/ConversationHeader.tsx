@@ -268,7 +268,7 @@ export const ConversationHeader = ({
                   </>
                 ) : (
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Only admins can accept or reject leads.
+                    You don't have permission to accept or reject leads.
                   </span>
                 )
               ) : (
