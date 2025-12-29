@@ -82,6 +82,11 @@ async function notifyIntakeDecision(options: {
 
   const conversationService = new ConversationService(env);
   try {
+    await conversationService.attachMatter(sessionId, practiceId, matterId);
+  } catch {
+    // ignore attach failures; still try to post the system message
+  }
+  try {
     await conversationService.addParticipants(sessionId, practiceId, [actorUserId]);
   } catch {
     // ignore participant add failures; still try to post the system message

@@ -69,7 +69,9 @@ export function MainApp({
     refetch: refetchPractices,
     acceptMatter,
     rejectMatter,
-    updateMatterStatus
+    updateMatterStatus,
+    getMembers,
+    fetchMembers
   } = usePracticeManagement();
 
   const {
@@ -391,6 +393,21 @@ export function MainApp({
     return conversations.length === 1 ? conversations[0] : null;
   }, [conversationId, conversations]);
 
+  const currentUserEmail = session?.user?.email || null;
+  const members = useMemo(
+    () => (currentPractice ? getMembers(currentPractice.id) : []),
+    [currentPractice, getMembers]
+  );
+  const currentMember = useMemo(() => {
+    if (!currentPractice || !currentUserEmail) return null;
+    return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) ||
+      members.find(m => m.userId === session?.user?.id) ||
+      null;
+  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
+  const isOwner = currentMember?.role === 'owner';
+  const isAdmin = currentMember?.role === 'admin' || isOwner;
+  const canReviewLeads = Boolean(isAdmin);
+
   if (import.meta.env.DEV) {
     console.log('[Session] isSessionReady check', {
       conversationId,
@@ -419,6 +436,15 @@ export function MainApp({
       }
     }
   }, [practiceConfig, messages, addMessage]);
+
+  useEffect(() => {
+    if (!currentPractice?.id) return;
+    void fetchMembers(currentPractice.id).catch((error) => {
+      if (import.meta.env.DEV) {
+        console.warn('[Members] Failed to fetch practice members:', error);
+      }
+    });
+  }, [currentPractice?.id, fetchMembers]);
 
   // Create stable callback references for keyboard handlers
   const handleEscape = useCallback(() => {
@@ -557,6 +583,7 @@ export function MainApp({
             <ConversationHeader
               practiceId={practiceId}
               matterId={activeConversation?.matter_id ?? null}
+              canReviewLeads={canReviewLeads}
               acceptMatter={acceptMatter}
               rejectMatter={rejectMatter}
               updateMatterStatus={updateMatterStatus}

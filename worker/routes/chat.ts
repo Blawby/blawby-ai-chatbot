@@ -97,17 +97,22 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
         try {
           const conversation = await conversationService.getConversation(body.conversationId, practiceId);
           if (!conversation.matter_id) {
-            const lead = await matterService.createLeadFromContactForm({
-              practiceId,
-              sessionId: body.conversationId,
-              name: contactData.name,
-              email: contactData.email,
-              phoneNumber,
-              matterDetails,
-              leadSource: 'contact_form_chat'
-            });
+            const existingMatterId = await matterService.getMatterIdBySessionId(practiceId, body.conversationId);
+            if (existingMatterId) {
+              await conversationService.attachMatter(body.conversationId, practiceId, existingMatterId);
+            } else {
+              const lead = await matterService.createLeadFromContactForm({
+                practiceId,
+                sessionId: body.conversationId,
+                name: contactData.name,
+                email: contactData.email,
+                phoneNumber,
+                matterDetails,
+                leadSource: 'contact_form_chat'
+              });
 
-            await conversationService.attachMatter(body.conversationId, practiceId, lead.matterId);
+              await conversationService.attachMatter(body.conversationId, practiceId, lead.matterId);
+            }
           }
         } catch (matterError) {
           console.error('[Chat] Failed to create lead from contact form:', matterError);

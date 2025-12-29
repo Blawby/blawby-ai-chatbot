@@ -7,6 +7,7 @@ import type { MatterWorkflowStatus, MatterTransitionResult } from '../../hooks/u
 interface ConversationHeaderProps {
   practiceId?: string;
   matterId?: string | null;
+  canReviewLeads?: boolean;
   acceptMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
   rejectMatter: (practiceId: string, matterId: string) => Promise<MatterTransitionResult>;
   updateMatterStatus: (practiceId: string, matterId: string, status: MatterWorkflowStatus) => Promise<MatterTransitionResult>;
@@ -44,6 +45,7 @@ const STATUS_TRANSITIONS: Record<MatterWorkflowStatus, MatterWorkflowStatus[]> =
 export const ConversationHeader = ({
   practiceId,
   matterId,
+  canReviewLeads = false,
   acceptMatter,
   rejectMatter,
   updateMatterStatus
@@ -196,6 +198,8 @@ export const ConversationHeader = ({
     return null;
   }
 
+  const canUpdateMatter = Boolean(canReviewLeads);
+
   return (
     <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
       {loading && (
@@ -243,29 +247,35 @@ export const ConversationHeader = ({
 
             <div className="flex items-center gap-2">
               {matter.status === 'lead' ? (
-                <>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleAccept}
-                    disabled={actionLoading}
-                  >
-                    Accept Lead
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleReject}
-                    disabled={actionLoading}
-                  >
-                    Reject
-                  </Button>
-                </>
+                canUpdateMatter ? (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleAccept}
+                      disabled={actionLoading}
+                    >
+                      Accept Lead
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleReject}
+                      disabled={actionLoading}
+                    >
+                      Reject
+                    </Button>
+                  </>
+                ) : (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Only admins can accept or reject leads.
+                  </span>
+                )
               ) : (
                 <select
                   value={matter.status}
                   onChange={(event) => handleStatusChange(event.currentTarget.value as MatterWorkflowStatus)}
-                  disabled={actionLoading}
+                  disabled={actionLoading || !canUpdateMatter}
                   aria-label="Matter status"
                   className="text-sm border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-accent-500"
                 >
@@ -283,4 +293,3 @@ export const ConversationHeader = ({
     </div>
   );
 };
-

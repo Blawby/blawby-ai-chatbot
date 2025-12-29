@@ -310,8 +310,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
               }`}
             >
               {intakeDecision === 'accepted'
-                ? 'Your intake was accepted. Sign in to join the conversation.'
-                : 'Your intake was declined. You can still sign in to follow up or submit a new request.'}
+                ? t('intake.accepted')
+                : t('intake.rejected')}
             </div>
           )}
           {/* Google Sign In Button */}

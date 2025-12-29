@@ -203,10 +203,6 @@ export const usePaymentUpgrade = () => {
   const { showError, showSuccess } = useToastContext();
 
   const buildSuccessUrl = useCallback((practiceId?: string) => {
-    if (typeof window === 'undefined') {
-      return `${BILLING_CALLBACK_BASE_URL}/business-onboarding?subscription=success`;
-    }
-    // Use billing callback base domain for return URL (Better Auth requires same domain)
     const url = new URL('/business-onboarding', BILLING_CALLBACK_BASE_URL);
     url.searchParams.set('subscription', 'success');
     if (practiceId) {

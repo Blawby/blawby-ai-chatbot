@@ -50,6 +50,23 @@ export class MatterService {
     this.activityService = new ActivityService(env);
   }
 
+  async getMatterIdBySessionId(practiceId: string, sessionId: string): Promise<string | null> {
+    if (!practiceId || !sessionId) {
+      return null;
+    }
+
+    const record = await this.env.DB.prepare(
+      `SELECT id
+         FROM matters
+        WHERE organization_id = ?
+          AND json_extract(custom_fields, '$.sessionId') = ?
+        ORDER BY created_at DESC
+        LIMIT 1`
+    ).bind(practiceId, sessionId).first<{ id: string } | null>();
+
+    return record?.id ?? null;
+  }
+
   async createLeadFromContactForm(input: CreateLeadInput): Promise<{ matterId: string; matterNumber: string; createdAt: string }> {
     const now = new Date();
     const matterId = crypto.randomUUID();
@@ -307,4 +324,3 @@ export class MatterService {
     return normalized;
   }
 }
-

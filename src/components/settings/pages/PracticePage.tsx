@@ -181,8 +181,8 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     setDecisionReason('');
   };
 
-  const closeDecisionModal = () => {
-    if (decisionSubmitting) return;
+  const closeDecisionModal = (force = false) => {
+    if (decisionSubmitting && !force) return;
     setDecisionLead(null);
     setDecisionAction(null);
     setDecisionReason('');
@@ -199,12 +199,12 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
         await rejectMatter(currentPractice.id, decisionLead.id, decisionReason);
         showSuccess('Lead rejected', 'The client has been notified.');
       }
-      closeDecisionModal();
+      setDecisionSubmitting(false);
+      closeDecisionModal(true);
       await loadLeadQueue();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update lead';
       showError('Action failed', message);
-    } finally {
       setDecisionSubmitting(false);
     }
   };
