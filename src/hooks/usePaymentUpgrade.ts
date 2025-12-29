@@ -3,7 +3,6 @@ import { useToastContext } from '../contexts/ToastContext';
 import { getClient } from '../lib/authClient';
 import { requestBillingPortalSession, requestSubscriptionCancellation } from '../lib/apiClient';
 
-
 // Allowlist of trusted hosts for return URLs (beyond same-origin)
 // Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
 // staging-api.blawby.com is trusted for subscription callback URLs in development
@@ -188,9 +187,10 @@ export const usePaymentUpgrade = () => {
 
   const buildSuccessUrl = useCallback((practiceId?: string) => {
     if (typeof window === 'undefined') {
-      return '/business-onboarding?subscription=success';
+      return 'https://staging-api.blawby.com/business-onboarding?subscription=success';
     }
-    const url = new URL('/business-onboarding', window.location.origin);
+    // Use staging-api.blawby.com domain for callback URL (Better Auth requires same domain)
+    const url = new URL('/business-onboarding', 'https://staging-api.blawby.com');
     url.searchParams.set('subscription', 'success');
     if (practiceId) {
       url.searchParams.set('practiceId', practiceId);
@@ -200,9 +200,10 @@ export const usePaymentUpgrade = () => {
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
     if (typeof window === 'undefined') {
-      return '/';
+      return 'https://staging-api.blawby.com/?subscription=cancelled';
     }
-    const url = new URL('/', window.location.origin);
+    // Use staging-api.blawby.com domain for callback URL (Better Auth requires same domain)
+    const url = new URL('/', 'https://staging-api.blawby.com');
     url.searchParams.set('subscription', 'cancelled');
     return url.toString();
   }, []);
