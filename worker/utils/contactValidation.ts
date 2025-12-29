@@ -13,7 +13,8 @@ export const contactDataSchema = z.object({
     .optional()
     .or(z.literal('')),
   location: z.string().min(2, 'Location must be at least 2 characters').optional().or(z.literal('')),
-  opposingParty: z.string().optional().or(z.literal(''))
+  opposingParty: z.string().optional().or(z.literal('')),
+  description: z.string().optional().or(z.literal(''))
 });
 
 export type ContactData = z.infer<typeof contactDataSchema>;
@@ -43,6 +44,9 @@ export function parseContactData(content: string): ContactData | null {
     
     const opposingMatch = line.match(/^Opposing Party:\s*(.+)$/i);
     if (opposingMatch) contactData.opposingParty = opposingMatch[1].trim();
+
+    const descriptionMatch = line.match(/^Description:\s*(.+)$/i);
+    if (descriptionMatch) contactData.description = descriptionMatch[1].trim();
   }
   
   // Validate using Zod schema

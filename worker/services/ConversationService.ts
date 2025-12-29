@@ -367,6 +367,29 @@ export class ConversationService {
   }
 
   /**
+   * Attach a matter to a conversation
+   */
+  async attachMatter(
+    conversationId: string,
+    practiceId: string,
+    matterId: string
+  ): Promise<Conversation> {
+    const conversation = await this.getConversation(conversationId, practiceId);
+    if (conversation.matter_id === matterId) {
+      return conversation;
+    }
+
+    const now = new Date().toISOString();
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET matter_id = ?, updated_at = ?
+      WHERE id = ? AND practice_id = ?
+    `).bind(matterId, now, conversationId, practiceId).run();
+
+    return this.getConversation(conversationId, practiceId);
+  }
+
+  /**
    * Add one or more participants to a conversation
    *
    * Ensures uniqueness, preserves existing participants, and updates the
@@ -947,4 +970,3 @@ export class ConversationService {
     }
   }
 }
-

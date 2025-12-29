@@ -245,6 +245,11 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
           </div>
           <p>All required information has been provided</p>
           <div>
+            {onPayNow && (
+              <button onClick={onPayNow}>
+                Pay Now
+              </button>
+            )}
             <button onClick={onViewPDF}>
               View PDF
             </button>

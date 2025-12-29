@@ -19,6 +19,9 @@ interface VirtualMessageListProps {
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
     practiceId?: string;
+    intakeStatus?: {
+        step: string;
+    };
 }
 
 const BATCH_SIZE = 20;
@@ -30,7 +33,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     practiceConfig,
     onOpenSidebar,
     onContactFormSubmit,
-    practiceId
+    practiceId,
+    intakeStatus
 }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
@@ -120,6 +124,21 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
 
     const visibleMessages = messages.slice(startIndex, endIndex);
+    const intakeStep = intakeStatus?.step;
+    const showIntakeBanner =
+        intakeStep === 'pending_review' ||
+        intakeStep === 'accepted_needs_auth' ||
+        intakeStep === 'rejected';
+
+    const intakeBannerText = (() => {
+        if (intakeStep === 'accepted_needs_auth') {
+            return 'Your matter was accepted. Sign in to continue the conversation.';
+        }
+        if (intakeStep === 'rejected') {
+            return 'This intake was declined. You can submit a new request any time.';
+        }
+        return 'Intake submitted. A practice member will review and reply here.';
+    })();
 
     return (
         <div
@@ -137,6 +156,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         variant="welcome"
                         showVerified={true}
                     />
+                </div>
+            )}
+
+            {showIntakeBanner && (
+                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-100">
+                    {intakeBannerText}
                 </div>
             )}
 

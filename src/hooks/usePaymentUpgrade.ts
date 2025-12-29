@@ -5,8 +5,25 @@ import { requestBillingPortalSession, requestSubscriptionCancellation } from '..
 
 // Allowlist of trusted hosts for return URLs (beyond same-origin)
 // Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
+// Default callback host in dev/prod; prefer the existing API base URL env
+const BILLING_CALLBACK_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? 'https://production-api.blawby.com' : 'https://staging-api.blawby.com');
+
+const BILLING_CALLBACK_HOST = (() => {
+  try {
+    return new URL(BILLING_CALLBACK_BASE_URL).host;
+  } catch {
+    return 'staging-api.blawby.com';
+  }
+})();
+
 // staging-api.blawby.com is trusted for subscription callback URLs in development
-const TRUSTED_RETURN_URL_HOSTS: string[] = ['staging-api.blawby.com'];
+// production-api.blawby.com is trusted for production callbacks
+const TRUSTED_RETURN_URL_HOSTS: string[] = Array.from(
+  new Set(['staging-api.blawby.com', 'production-api.blawby.com', BILLING_CALLBACK_HOST])
+);
 
 // Helper function to ensure a safe, validated return URL
 // Prevents open-redirect vulnerabilities by validating URLs before returning them
@@ -187,10 +204,10 @@ export const usePaymentUpgrade = () => {
 
   const buildSuccessUrl = useCallback((practiceId?: string) => {
     if (typeof window === 'undefined') {
-      return 'https://staging-api.blawby.com/business-onboarding?subscription=success';
+      return `${BILLING_CALLBACK_BASE_URL}/business-onboarding?subscription=success`;
     }
-    // Use staging-api.blawby.com domain for callback URL (Better Auth requires same domain)
-    const url = new URL('/business-onboarding', 'https://staging-api.blawby.com');
+    // Use billing callback base domain for return URL (Better Auth requires same domain)
+    const url = new URL('/business-onboarding', BILLING_CALLBACK_BASE_URL);
     url.searchParams.set('subscription', 'success');
     if (practiceId) {
       url.searchParams.set('practiceId', practiceId);
@@ -200,18 +217,32 @@ export const usePaymentUpgrade = () => {
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
     if (typeof window === 'undefined') {
-      return 'https://staging-api.blawby.com/?subscription=cancelled';
+      return `${BILLING_CALLBACK_BASE_URL}/?subscription=cancelled`;
     }
-    // Use staging-api.blawby.com domain for callback URL (Better Auth requires same domain)
-    const url = new URL('/', 'https://staging-api.blawby.com');
+    // Use billing callback base domain for return URL (Better Auth requires same domain)
+    const url = new URL('/', BILLING_CALLBACK_BASE_URL);
     url.searchParams.set('subscription', 'cancelled');
     return url.toString();
   }, []);
 
+  const resolveReturnUrl = useCallback(
+    (returnUrl: string | undefined, practiceId?: string) => {
+      if (returnUrl) {
+        return returnUrl;
+      }
+      if (typeof window !== 'undefined') {
+        return window.location.href;
+      }
+      return buildSuccessUrl(practiceId);
+    },
+    [buildSuccessUrl]
+  );
+
   const openBillingPortal = useCallback(
     async ({ practiceId, returnUrl }: BillingPortalRequest) => {
       try {
-        const safeReturnUrl = ensureValidReturnUrl(returnUrl, practiceId);
+        const rawReturnUrl = resolveReturnUrl(returnUrl, practiceId);
+        const safeReturnUrl = ensureValidReturnUrl(rawReturnUrl, practiceId);
         const result = await requestBillingPortalSession({
           practiceId,
           returnUrl: safeReturnUrl
@@ -269,7 +300,7 @@ export const usePaymentUpgrade = () => {
         showError(title, errorMessage);
       }
     },
-    [showError]
+    [resolveReturnUrl, showError]
   );
 
 
@@ -421,7 +452,7 @@ export const usePaymentUpgrade = () => {
 
         // Handle specific error codes
         if (errorCode === SubscriptionErrorCode.SUBSCRIPTION_ALREADY_ACTIVE && resolvedPracticeId) {
-          const safeReturnUrl = ensureValidReturnUrl(returnUrl, resolvedPracticeId);
+          const safeReturnUrl = ensureValidReturnUrl(resolveReturnUrl(returnUrl, resolvedPracticeId), resolvedPracticeId);
           await handleAlreadySubscribed(resolvedPracticeId, safeReturnUrl);
           return;
         }
@@ -442,7 +473,7 @@ export const usePaymentUpgrade = () => {
         setSubmitting(false);
       }
     },
-    [buildCancelUrl, buildSuccessUrl, handleAlreadySubscribed, showError]
+    [buildCancelUrl, buildSuccessUrl, handleAlreadySubscribed, resolveReturnUrl, showError]
   );
 
   const cancelSubscription = useCallback(

@@ -1,40 +1,126 @@
-// TODO: Create privacy settings page with PII consent management
-// TODO: Integrate with PIIEncryptionService for consent tracking
-// TODO: Add UI for managing PII consent, data retention, marketing consent
-// TODO: Add GDPR compliance features (data export, deletion requests)
+import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useToastContext } from '../../../contexts/ToastContext';
+import { SettingHeader } from '../atoms';
+import { SettingSection, SettingToggle } from '../molecules';
+import { SectionDivider } from '../../ui';
+import { Button } from '../../ui/Button';
+import { useNavigation } from '../../../utils/navigation';
 
-// import { h } from 'preact'; // Unused
+type PrivacySettings = {
+  piiConsentGiven: boolean;
+  dataProcessingConsent: boolean;
+  dataRetentionConsent: boolean;
+  marketingConsent: boolean;
+};
+
+const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
+  piiConsentGiven: false,
+  dataProcessingConsent: false,
+  dataRetentionConsent: false,
+  marketingConsent: false
+};
+
+const PRIVACY_STORAGE_KEY = 'privacyPreferences';
 
 export default function PrivacyPage() {
+  const { showSuccess, showError } = useToastContext();
+  const { navigate } = useNavigation();
+  const [settings, setSettings] = useState<PrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(PRIVACY_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Partial<PrivacySettings>;
+      setSettings(prev => ({
+        ...prev,
+        ...parsed
+      }));
+    } catch (error) {
+      console.warn('Failed to load privacy preferences:', error);
+    }
+  }, []);
+
+  const handleToggle = useCallback(async (key: keyof PrivacySettings, value: boolean) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+
+    try {
+      if (typeof window !== 'undefined') {
+        const nextSettings = { ...settings, [key]: value };
+        window.localStorage.setItem(PRIVACY_STORAGE_KEY, JSON.stringify(nextSettings));
+      }
+      showSuccess('Privacy updated', 'Your privacy preferences have been saved.');
+    } catch (error) {
+      console.error('Failed to update privacy settings:', error);
+      showError('Update failed', 'We could not save your privacy preferences. Please try again.');
+    }
+  }, [settings, showError, showSuccess]);
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-medium text-gray-900">Privacy Settings</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Manage your personal information and privacy preferences.
-        </p>
-      </div>
-      
-      {/* TODO: Add PII consent management UI */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-        <div className="flex">
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-yellow-800">
-              PII Encryption Integration Pending
-            </h3>
-            <div className="mt-2 text-sm text-yellow-700">
-              <p>
-                Privacy settings will be available once PIIEncryptionService is integrated
-                into the user data flows. This will include:
-              </p>
-              <ul className="mt-2 list-disc list-inside space-y-1">
-                <li>PII consent management</li>
-                <li>Data retention preferences</li>
-                <li>Marketing consent controls</li>
-                <li>GDPR compliance features</li>
-              </ul>
+    <div className="h-full flex flex-col">
+      <SettingHeader title="Privacy" />
+
+      <div className="flex-1 overflow-y-auto px-6">
+        <div className="space-y-0">
+          <SettingSection
+            title="Consent & data use"
+            description="Control how Blawby processes and retains your personal data."
+          >
+            <SettingToggle
+              id="privacy-pii-consent"
+              label="Allow handling of sensitive personal data"
+              description="Required for storing intake details and supporting documents."
+              value={settings.piiConsentGiven}
+              onChange={(value) => handleToggle('piiConsentGiven', value)}
+            />
+            <SettingToggle
+              id="privacy-processing-consent"
+              label="Allow data processing for service delivery"
+              description="Lets us use your data to provide case analysis and communications."
+              value={settings.dataProcessingConsent}
+              onChange={(value) => handleToggle('dataProcessingConsent', value)}
+            />
+            <SettingToggle
+              id="privacy-retention-consent"
+              label="Allow data retention for ongoing matters"
+              description="Keeps your records available across future sessions."
+              value={settings.dataRetentionConsent}
+              onChange={(value) => handleToggle('dataRetentionConsent', value)}
+            />
+            <SettingToggle
+              id="privacy-marketing-consent"
+              label="Allow product updates and marketing"
+              description="Receive product updates, tips, and service announcements."
+              value={settings.marketingConsent}
+              onChange={(value) => handleToggle('marketingConsent', value)}
+            />
+          </SettingSection>
+
+          <SectionDivider />
+
+          <SettingSection
+            title="Data requests"
+            description="Need a copy of your data or want to delete your account?"
+          >
+            <div className="flex flex-col gap-3 py-3 sm:flex-row">
+              <Button
+                variant="secondary"
+                onClick={() => window.open('https://blawby.com/privacy', '_blank', 'noopener,noreferrer')}
+              >
+                View privacy policy
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => navigate('/settings/account')}
+              >
+                Manage account deletion
+              </Button>
             </div>
-          </div>
+          </SettingSection>
         </div>
       </div>
     </div>

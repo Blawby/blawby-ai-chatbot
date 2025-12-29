@@ -1,4 +1,5 @@
 import { MatterService } from '../services/MatterService.js';
+import { ConversationService } from '../services/ConversationService.js';
 import { Env } from '../types.js';
 import { requireAuth, requireOrgMember } from '../middleware/auth.js';
 import { handleError, HttpErrors } from '../errorHandler.js';
@@ -56,6 +57,53 @@ function parseJsonField<T = unknown>(value: unknown): T | null {
     return JSON.parse(value) as T;
   } catch {
     return null;
+  }
+}
+
+async function notifyIntakeDecision(options: {
+  env: Env;
+  practiceId: string;
+  matterId: string;
+  actorUserId: string;
+  decision: 'accepted' | 'rejected';
+  reason?: string | null;
+}): Promise<void> {
+  const { env, practiceId, matterId, actorUserId, decision, reason } = options;
+
+  const record = await env.DB.prepare(
+    `SELECT custom_fields
+       FROM matters
+      WHERE id = ? AND organization_id = ?`
+  ).bind(matterId, practiceId).first<{ custom_fields?: string | null } | null>();
+
+  const customFields = parseJsonField<Record<string, unknown>>(record?.custom_fields ?? null);
+  const sessionId = typeof customFields?.sessionId === 'string' ? customFields.sessionId : null;
+  if (!sessionId) return;
+
+  const conversationService = new ConversationService(env);
+  try {
+    await conversationService.addParticipants(sessionId, practiceId, [actorUserId]);
+  } catch {
+    // ignore participant add failures; still try to post the system message
+  }
+
+  const content = decision === 'accepted'
+    ? "Your intake has been accepted. [Sign in](/auth?mode=signin&intake=accepted) to continue this conversation and share more details."
+    : `Your intake was reviewed and declined.${reason ? ` Reason: ${reason}` : ''} If you'd like to follow up, you can [sign in](/auth?mode=signin&intake=rejected) or submit another request at any time.`;
+
+  try {
+    await conversationService.sendMessage({
+      conversationId: sessionId,
+      practiceId,
+      senderUserId: actorUserId,
+      content,
+      role: 'system',
+      metadata: {
+        intakeDecision: decision
+      }
+    });
+  } catch (error) {
+    console.error('[Practice] Failed to notify intake decision in conversation:', error);
   }
 }
 
@@ -282,7 +330,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
 
             if (action === 'accept' && request.method === 'POST') {
               const authContext = await requireAuth(request, env);
-              await requireOrgMember(request, env, practice.id, 'attorney');
+              await requireOrgMember(request, env, practice.id, 'admin');
 
               let idempotencyKey = request.headers.get('Idempotency-Key');
               if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -321,12 +369,20 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
                 });
               } catch (error) { void error; }
 
+              await notifyIntakeDecision({
+                env,
+                practiceId: practice.id,
+                matterId,
+                actorUserId: authContext.user.id,
+                decision: 'accepted'
+              });
+
               return createSuccessResponse(result);
             }
 
             if (action === 'reject' && request.method === 'POST') {
               const authContext = await requireAuth(request, env);
-              await requireOrgMember(request, env, practice.id, 'attorney');
+              await requireOrgMember(request, env, practice.id, 'admin');
 
               let idempotencyKey = request.headers.get('Idempotency-Key');
               if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -368,6 +424,15 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
                   }
                 });
               } catch (error) { void error; }
+
+              await notifyIntakeDecision({
+                env,
+                practiceId: practice.id,
+                matterId,
+                actorUserId: authContext.user.id,
+                decision: 'rejected',
+                reason
+              });
 
               return createSuccessResponse(result);
             }

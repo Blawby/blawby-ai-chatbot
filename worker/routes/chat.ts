@@ -4,6 +4,7 @@ import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
+import { MatterService } from '../services/MatterService.js';
 
 function createJsonResponse(data: unknown): Response {
   return new Response(JSON.stringify({ success: true, data }), {
@@ -35,6 +36,7 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
   const practiceId = getPracticeId(requestWithContext);
 
   const conversationService = new ConversationService(env);
+  const matterService = new MatterService(env);
 
   // POST /api/chat/messages - Send message
   if (segments.length === 3 && segments[2] === 'messages' && request.method === 'POST') {
@@ -66,6 +68,13 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     if (body.metadata?.isContactFormSubmission) {
       try {
         const { parseContactData } = await import('../utils/contactValidation.js');
+        const extractDescription = (content: string): string | null => {
+          const lines = content.split(/\r?\n/);
+          const descriptionLine = lines.find(line => /^Description:/i.test(line));
+          if (!descriptionLine) return null;
+          const match = descriptionLine.match(/^Description:\s*(.+)$/i);
+          return match ? match[1].trim() : null;
+        };
         
         // Parse and validate contact data from message content
         const contactData = parseContactData(body.content);
@@ -75,6 +84,33 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
             messageLength: body.content.length
           });
           return createJsonResponse(message);
+        }
+
+        const description = extractDescription(body.content);
+        const phoneNumber = contactData.phone && contactData.phone.trim().length > 0
+          ? contactData.phone.trim()
+          : 'Not provided';
+        const matterDetails = description && description.trim().length > 0
+          ? description.trim()
+          : 'No additional case details were provided.';
+
+        try {
+          const conversation = await conversationService.getConversation(body.conversationId, practiceId);
+          if (!conversation.matter_id) {
+            const lead = await matterService.createLeadFromContactForm({
+              practiceId,
+              sessionId: body.conversationId,
+              name: contactData.name,
+              email: contactData.email,
+              phoneNumber,
+              matterDetails,
+              leadSource: 'contact_form_chat'
+            });
+
+            await conversationService.attachMatter(body.conversationId, practiceId, lead.matterId);
+          }
+        } catch (matterError) {
+          console.error('[Chat] Failed to create lead from contact form:', matterError);
         }
 
         // contactData is now fully validated with proper types
@@ -148,4 +184,3 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
 
   throw HttpErrors.methodNotAllowed('Unsupported method for chat endpoint');
 }
-

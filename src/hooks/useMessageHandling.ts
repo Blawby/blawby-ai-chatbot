@@ -437,9 +437,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   }, []);
 
   // Determine intake status based on user message count (for anonymous users)
-  // 0 messages -> Ask Issue (location auto-detected via Cloudflare)
+  // 0 messages -> Welcome prompt
   // 1 message -> Show Contact Form
-  // 2+ messages (after contact form submitted) -> Auth Gate
+  // After contact form -> Pending review until practice decision
   const { session } = useSessionContext();
   // Anonymous users have a session and user object, but no email (empty string or null)
   // Check email to determine if user is anonymous vs authenticated
@@ -471,19 +471,27 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     });
   }
   
+  const intakeDecision = messages.find(m => {
+    const decision = m.metadata?.intakeDecision;
+    return decision === 'accepted' || decision === 'rejected';
+  })?.metadata?.intakeDecision as 'accepted' | 'rejected' | undefined;
+
   const intakeStep = useCallback(() => {
     // Authenticated users skip intake flow
     if (!isAnonymous) return 'completed';
+
+    if (intakeDecision === 'accepted') return 'accepted_needs_auth';
+    if (intakeDecision === 'rejected') return 'rejected';
     
     // Allow first message to be sent without blocking
     // After first message, show contact form (which includes case details field)
     if (userMessages.length === 0) return 'ready'; // 'ready' means they can chat freely
     // After first message, show contact form (we collect case details in the form itself)
     if (userMessages.length >= 1 && !hasSubmittedContactForm) return 'contact_form';
-    // Once contact form is submitted, show auth gate (but don't block chat)
-    if (hasSubmittedContactForm) return 'auth_gate';
+    // Once contact form is submitted, wait for practice review
+    if (hasSubmittedContactForm) return 'pending_review';
     return 'completed';
-  }, [isAnonymous, userMessages.length, hasSubmittedContactForm]);
+  }, [isAnonymous, intakeDecision, userMessages.length, hasSubmittedContactForm]);
 
   const currentStep = intakeStep();
   
@@ -545,9 +553,17 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         changed = true;
       };
 
+      // Welcome message on new intake threads
+      if (!hasWelcome && newMessages.length === 0) {
+        addMsg(
+          'system-welcome',
+          "Hi! I'm Blawby AI. Share a quick summary of your case and I'll guide you to the right next step."
+        );
+      }
+
       // Contact form (present the form conversationally after first message)
       // We collect case details in the form itself, so no need for separate "issue" step
-      if (currentStep === 'contact_form' || currentStep === 'auth_gate') {
+      if (currentStep === 'contact_form' || currentStep === 'pending_review') {
         if (!hasContactForm) {
           // Present the contact form with a conversational message
           addMsg('system-contact-form', 'Could you share your contact details? It will help us find the best lawyer for your case.', {
@@ -561,9 +577,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       }
 
       // Submission confirmation (after contact form submitted - conversational)
-      if (currentStep === 'auth_gate') {
+      if (currentStep === 'pending_review') {
         if (!hasSubmissionConfirm) {
-          addMsg('system-submission-confirm', 'Perfect! I\'ve shared your information with our team. A legal professional will review your case and join this conversation soon. 💡 [Sign up to save your conversation](/auth?mode=signin) and case details for easy access later.');
+          addMsg('system-submission-confirm', "Thanks! I've sent your intake to the practice. A legal professional will review it and reply here. You'll receive in-app updates as soon as there's a decision.");
         }
       }
 
@@ -585,7 +601,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     updateMessage,
     clearMessages,
     intakeStatus: {
-      step: currentStep
+      step: currentStep,
+      decision: intakeDecision
     }
   };
 }; 

@@ -35,6 +35,9 @@ interface ChatContainerProps {
   setIsRecording: (v: boolean) => void;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
+  intakeStatus?: {
+    step: string;
+  };
 
   // Input control prop
   clearInput?: number;
@@ -59,6 +62,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   setIsRecording,
   isReadyToUpload,
   isSessionReady,
+  intakeStatus,
   clearInput
 }) => {
   const [inputValue, setInputValue] = useState('');
@@ -141,6 +145,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           onOpenSidebar={onOpenSidebar}
           onContactFormSubmit={onContactFormSubmit}
           practiceId={practiceId}
+          intakeStatus={intakeStatus}
         />
         
         <MessageComposer
@@ -160,6 +165,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           textareaRef={textareaRef}
           isReadyToUpload={isReadyToUpload}
           isSessionReady={isSessionReady}
+          intakeStatus={intakeStatus}
         />
       </main>
     </div>

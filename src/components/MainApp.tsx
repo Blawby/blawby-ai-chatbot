@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import ChatContainer from './chat/ChatContainer';
 import DragDropOverlay from './DragDropOverlay';
@@ -96,6 +96,7 @@ export function MainApp({
 
   const messages = realMessageHandling.messages;
   const addMessage = realMessageHandling.addMessage;
+  const intakeStatus = realMessageHandling.intakeStatus;
 
   useEffect(() => {
     realMessageHandling.clearMessages();
@@ -381,6 +382,14 @@ export function MainApp({
   // User tier is now derived directly from practice - no need for custom event listeners
 
   const isSessionReady = Boolean(conversationId && !conversationsLoading && !isCreatingConversation);
+  const showMatterControls = currentPractice?.id === practiceId;
+
+  const activeConversation = useMemo(() => {
+    if (conversationId) {
+      return conversations.find(c => c.id === conversationId) ?? null;
+    }
+    return conversations.length === 1 ? conversations[0] : null;
+  }, [conversationId, conversations]);
 
   if (import.meta.env.DEV) {
     console.log('[Session] isSessionReady check', {
@@ -544,13 +553,15 @@ export function MainApp({
         }}
       >
         <div className="relative h-full flex flex-col">
-          <ConversationHeader
-            practiceId={practiceId}
-            matterId={null}
-            acceptMatter={acceptMatter}
-            rejectMatter={rejectMatter}
-            updateMatterStatus={updateMatterStatus}
-          />
+          {showMatterControls && (
+            <ConversationHeader
+              practiceId={practiceId}
+              matterId={activeConversation?.matter_id ?? null}
+              acceptMatter={acceptMatter}
+              rejectMatter={rejectMatter}
+              updateMatterStatus={updateMatterStatus}
+            />
+          )}
           <div className="flex-1 min-h-0">
             <ChatContainer
               messages={messages}
@@ -579,6 +590,7 @@ export function MainApp({
               clearInput={clearInputTrigger}
               isReadyToUpload={isReadyToUpload}
               isSessionReady={isSessionReady}
+              intakeStatus={intakeStatus}
             />
           </div>
         </div>
