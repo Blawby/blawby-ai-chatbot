@@ -396,9 +396,12 @@ export function useConversation({
 
       // Replace temp message with real message
       if (!isDisposedRef.current) {
-        setMessages(prev => prev.map(m => m.id === tempMessage.id ? toUIMessage(data.data!) : m));
-        // Refresh conversation to update updated_at
-        await fetchConversation();
+        const serverMessage = data.data;
+        if (serverMessage) {
+          setMessages(prev => prev.map(m => m.id === tempMessage.id ? toUIMessage(serverMessage) : m));
+          // Refresh conversation to update updated_at
+          await fetchConversation();
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
@@ -460,6 +463,7 @@ export function useConversation({
         abortControllerRef.current.abort();
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, practiceId]); // Only run on mount or when IDs change
 
   // Set up polling

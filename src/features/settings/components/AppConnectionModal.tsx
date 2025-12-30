@@ -26,6 +26,48 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
   const titleId = `app-connection-title-${app.id}`;
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    const container = dialogRef.current;
+    if (!container) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+
+      const focusableElements = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute('aria-hidden'));
+  
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        container.focus();
+        return;
+      }
+  
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement as HTMLElement | null;
+  
+      if (event.shiftKey) {
+        if (activeElement === first || activeElement === container) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    container.addEventListener('keydown', handleKeyDown);
+    return () => {
+      container.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isOpen) {
       previouslyFocusedRef.current?.focus();
       return;
@@ -36,39 +78,6 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
       closeButtonRef.current?.focus();
     });
   }, [isOpen]);
-
-  const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== 'Tab') return;
-
-    const container = dialogRef.current;
-    if (!container) return;
-
-    const focusableElements = Array.from(
-      container.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((element) => !element.hasAttribute('aria-hidden'));
-
-    if (focusableElements.length === 0) {
-      event.preventDefault();
-      container.focus();
-      return;
-    }
-
-    const first = focusableElements[0];
-    const last = focusableElements[focusableElements.length - 1];
-    const activeElement = document.activeElement as HTMLElement | null;
-
-    if (event.shiftKey) {
-      if (activeElement === first || activeElement === container) {
-        event.preventDefault();
-        last.focus();
-      }
-    } else if (activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
 
   return (
     <Modal
@@ -83,7 +92,6 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        onKeyDown={handleKeyDown}
         className="flex flex-col h-full max-h-[90vh] w-full max-w-md mx-auto bg-white dark:bg-dark-bg"
       >
         {/* Header */}
@@ -155,16 +163,15 @@ export const AppConnectionModal: FunctionComponent<AppConnectionModalProps> = ({
             <p className="text-sm text-gray-600 dark:text-gray-400 pl-7">
               {t('settings:apps.clio.connectModal.risk.description')}
               {' '}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
+              <button
+                type="button"
+                onClick={() => {
                   // TODO: Link to security guide
                 }}
-                className="text-accent-600 dark:text-accent-400 hover:underline"
+                className="text-accent-600 dark:text-accent-400 hover:underline bg-transparent p-0 font-medium"
               >
                 {t('settings:apps.clio.connectModal.risk.learnMore')}
-              </a>
+              </button>
             </p>
           </div>
 

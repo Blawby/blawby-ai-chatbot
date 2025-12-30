@@ -17,15 +17,27 @@ export interface DatePickerProps {
   min?: string;
   max?: string;
   format?: 'date' | 'datetime-local' | 'time' | 'month' | 'week';
+  isBirthday?: boolean;
+  inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
+  autoComplete?: string;
+  name?: string;
+  pattern?: string;
+  enterKeyHint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send';
   labelKey?: string;
   descriptionKey?: string;
   placeholderKey?: string;
   errorKey?: string;
   namespace?: string;
   id?: string;
+  'aria-label'?: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
+  'aria-required'?: boolean;
+  'aria-disabled'?: boolean;
+  'data-testid'?: string;
 }
 
-export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
+export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({ 
   value = '',
   onChange,
   placeholder,
@@ -40,12 +52,24 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   min,
   max,
   format = 'date',
+  isBirthday = false,
+  inputMode,
+  autoComplete,
+  name,
+  pattern,
+  enterKeyHint,
   labelKey: _labelKey,
   descriptionKey: _descriptionKey,
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
   namespace: _namespace = 'common',
-  id
+  id,
+  'aria-label': ariaLabel,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+  'aria-required': ariaRequired,
+  'aria-disabled': ariaDisabled,
+  ...restProps
 }, ref) => {
   // Generate stable ID for accessibility
   const generatedId = useUniqueId('datepicker');
@@ -67,6 +91,15 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   const descriptionId = displayDescription ? `${inputId}-description` : undefined;
   const errorId = _displayError ? `${inputId}-error` : undefined;
 
+  const computedAriaDescribedBy = [
+    ariaDescribedBy,
+    descriptionId,
+    errorId
+  ].filter(Boolean).join(' ') || undefined;
+  const resolvedInputMode = inputMode ?? (format === 'date' ? 'numeric' : undefined);
+  const resolvedPattern = pattern ?? (format === 'date' ? '\\d{4}-\\d{2}-\\d{2}' : undefined);
+  const resolvedAutoComplete = isBirthday ? 'bday' : autoComplete;
+
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',
     md: 'px-3 py-2 text-sm',
@@ -80,8 +113,9 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
+    'w-full min-h-[44px] border rounded-lg bg-white dark:bg-dark-input-bg text-gray-900 dark:text-white',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'appearance-none',
     sizeClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
@@ -108,9 +142,18 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
         required={required}
         min={min}
         max={max}
+        name={name}
+        inputMode={resolvedInputMode}
+        autoComplete={resolvedAutoComplete}
+        pattern={resolvedPattern}
+        enterKeyHint={enterKeyHint}
         className={inputClasses}
-        aria-describedby={[descriptionId, errorId].filter(Boolean).join(' ') || undefined}
-        aria-invalid={_displayError ? 'true' : 'false'}
+        aria-label={ariaLabel}
+        aria-describedby={computedAriaDescribedBy}
+        aria-invalid={ariaInvalid !== undefined ? ariaInvalid : Boolean(_displayError)}
+        aria-required={ariaRequired}
+        aria-disabled={ariaDisabled}
+        {...restProps}
       />
       
       {_displayError && (

@@ -4,8 +4,7 @@ import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
 import {
   DocumentIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
-  CreditCardIcon
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import { MatterData, MatterStatus } from '@/shared/types/matter';
 import { getDefaultDocumentSuggestions } from '@/shared/hooks/useMatterState';

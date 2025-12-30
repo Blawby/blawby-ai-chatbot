@@ -162,12 +162,14 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 								)}
 							</div>
 						</div>
-						{generatedPDF.storageKey && (
-							<button
-								onClick={() => {
-									const downloadUrl = generatedPDF.storageKey!.startsWith('http') 
-										? generatedPDF.storageKey! 
-										: `/api/files/${generatedPDF.storageKey}`;
+							{generatedPDF.storageKey && (
+								<button
+									onClick={() => {
+										const storageKey = generatedPDF.storageKey;
+										if (!storageKey) return;
+										const downloadUrl = storageKey.startsWith('http') 
+											? storageKey 
+											: `/api/files/${storageKey}`;
 									const link = globalThis.document.createElement('a');
 									link.href = downloadUrl;
 									link.download = generatedPDF.filename;

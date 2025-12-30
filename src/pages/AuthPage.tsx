@@ -7,7 +7,7 @@ import { Logo } from '@/shared/ui/Logo';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
 import { Input, EmailInput, PasswordInput } from '@/shared/ui/input';
 import { handleError } from '@/shared/utils/errorHandler';
-import { authClient, getClient } from '@/shared/lib/authClient';
+import { getClient } from '@/shared/lib/authClient';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';

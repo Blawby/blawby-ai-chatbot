@@ -4,7 +4,6 @@ import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
 import { SecurityPage } from './SecurityPage';
-import { MFAEnrollmentPage } from './MFAEnrollmentPage';
 import { HelpPage } from './HelpPage';
 import { PracticePage } from './PracticePage';
 import { AppsPage } from './AppsPage';
@@ -69,16 +68,21 @@ export const SettingsPage = ({
   const currentPage = getCurrentPage();
 
   // Redirect legacy 'organization' URLs to 'practice'
-  if (currentPage === 'organization') {
-    navigate('/settings/practice');
-    return null;
-  }
-
+  useEffect(() => {
+    if (currentPage === 'organization') {
+      navigate('/settings/practice');
+    }
+  }, [currentPage, navigate]);
+  
   useEffect(() => {
     if (!practicesLoading && !hasPractice && (currentPage === 'practice' || currentPage === 'apps')) {
       navigate('/settings');
     }
   }, [currentPage, hasPractice, navigate, practicesLoading]);
+
+  if (currentPage === 'organization') {
+    return null;
+  }
 
   const handleNavigation = (page: string) => {
     navigate(`/settings/${page}`);

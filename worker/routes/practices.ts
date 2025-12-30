@@ -178,11 +178,10 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
   await env.CHAT_SESSIONS.put(storageKey, JSON.stringify(value), { expirationTtl: 60 * 60 * 24 });
 }
 
-export async function handlePractices(request: Request, env: Env): Promise<Response> {
+  export async function handlePractices(request: Request, env: Env): Promise<Response> {
   try {
     const url = new URL(request.url);
     const path = url.pathname.replace('/api/practices', '');
-    const pathSegments = path.split('/').filter(segment => segment.length > 0);
     
     // Only handle workspace endpoints - all other practice management is handled by remote API
     const isWorkspaceEndpoint = path.includes('/workspace');

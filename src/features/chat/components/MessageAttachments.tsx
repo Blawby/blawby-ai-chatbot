@@ -8,13 +8,11 @@ import { getDocumentIcon, formatDocumentIconSize } from '@/features/chat/utils/f
 
 interface MessageAttachmentsProps {
 	files: FileAttachment[];
-	variant?: 'default' | 'compact' | 'detailed';
 	className?: string;
 }
 
 export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 	files,
-	variant = 'default',
 	className = ''
 }) => {
 	const [isModalOpen, setIsModalOpen] = useState(false);
