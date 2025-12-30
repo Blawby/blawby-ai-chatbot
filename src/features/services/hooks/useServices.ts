@@ -38,6 +38,8 @@ export function useServices({
   const isInitialMount = useRef(true);
 
   useEffect(() => {
+    // Intentionally only sync once to avoid overwriting in-progress edits.
+    // Callers that need a reset should remount the hook or add an explicit reset.
     if (!isInitialMount.current) return;
     isInitialMount.current = false;
     setServicesState(normalizeServices(initialServices, catalog));
