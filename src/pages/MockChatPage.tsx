@@ -4,6 +4,7 @@ import { MockChatControls } from '@/features/chat/mock/components/MockChatContro
 import { DebugPanel } from '@/features/chat/mock/components/DebugPanel';
 import { MockChatInfo } from '@/features/chat/mock/components/MockChatInfo';
 import { useMockChat } from '@/features/chat/mock/useMockChat';
+import type { ChatMessageUI } from '../../worker/types';
 
 export function MockChatPage() {
   const [isDevMode, setIsDevMode] = useState(import.meta.env.DEV || import.meta.env.MODE === 'development');
@@ -39,7 +40,7 @@ export function MockChatPage() {
       <div className="flex-1 flex flex-col">
         <div className="flex-1 min-h-0 flex flex-col">
           <ChatContainer
-            messages={mock.state.messages}
+            messages={mock.state.messages as ChatMessageUI[]}
             onSendMessage={async (message, attachments) => {
               await mock.simulateUserMessage(message, attachments);
               if (!mock.state.isAnonymous) {
@@ -55,7 +56,9 @@ export function MockChatPage() {
             uploadingFiles={mock.uploadingFiles}
             removePreviewFile={mock.removePreviewFile}
             clearPreviewFiles={mock.clearPreviewFiles}
-            handleFileSelect={mock.handleFileSelect}
+            handleFileSelect={async (files) => {
+              await mock.handleFileSelect(files);
+            }}
             handleCameraCapture={mock.handleCameraCapture}
             cancelUpload={mock.cancelUpload}
             handleMediaCapture={mock.handleMediaCapture}

@@ -1,4 +1,5 @@
 import type { FileAttachment } from '../../../../worker/types';
+import type { DeliveryState } from './types';
 
 export const randomId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
 
@@ -16,6 +17,6 @@ export function formatTimestamp(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-export function applyDeliveryState(metadata: Record<string, unknown> | undefined, deliveryState: string) {
+export function applyDeliveryState(metadata: Record<string, unknown> | undefined, deliveryState: DeliveryState): { deliveryState: DeliveryState } {
   return { ...(metadata ?? {}), deliveryState };
 }

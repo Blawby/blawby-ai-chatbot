@@ -69,11 +69,11 @@ apiClient.interceptors.request.use(
 
     const token = await getTokenAsync();
     if (token) {
-      const headers = (config.headers ?? {}) as AxiosRequestHeaders;
-      config.headers = {
-        ...headers,
-        Authorization: `Bearer ${token}`
-      };
+      if (!config.headers) {
+        config.headers = {} as AxiosRequestHeaders;
+      }
+      const headers = config.headers as AxiosRequestHeaders;
+      headers.Authorization = `Bearer ${token}`;
       if (import.meta.env.DEV) {
         console.log('[apiClient] Added token to request:', config.url);
       }

@@ -56,7 +56,7 @@ describe('handleConversations - participants endpoint', () => {
     });
 
     const response = await handleConversations(request, env);
-    const payload = await response.json();
+    const payload = await response.json() as { success?: boolean };
 
     expect(response.status).toBe(200);
     expect(payload.success).toBe(true);
