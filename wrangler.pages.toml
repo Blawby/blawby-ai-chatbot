@@ -1,6 +1,0 @@
-name = "blawby-ai-chatbot-frontend"
-pages_build_output_dir = "dist"
-
-[env.preview]
-
-[env.production]

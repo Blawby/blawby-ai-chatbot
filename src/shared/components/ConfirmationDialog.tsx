@@ -110,16 +110,13 @@ export default function ConfirmationDialog({
       disableBackdropClick={true}
     >
       <form onSubmit={handleSubmit} noValidate>
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
           {/* Warning Content */}
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
               <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                {title}
-              </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 {description}
               </p>
