@@ -94,7 +94,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   
   // Show inbox tab for all authenticated users
   // API will enforce member-only access (requires practice member role)
-  const showInboxTab = !!session?.user;
+  const isAuthenticated = !!session?.user;
+  const showInboxTab = isAuthenticated;
 
   // Activity is feature-flagged off by default while we decide the final architecture.
   // TODO(activity): migrate activity source-of-truth to staging-api and remove Worker/D1 dependency.
@@ -238,6 +239,12 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const handleGoToInbox = () => {
     onTabChange('inbox');
   };
+
+  useEffect(() => {
+    if (!isAuthenticated && currentTab === 'inbox') {
+      onTabChange('chats');
+    }
+  }, [isAuthenticated, currentTab, onTabChange]);
   const { isNavbarVisible } = useNavbarScroll({ 
     threshold: 50, 
     debounceMs: 0

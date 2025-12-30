@@ -37,7 +37,7 @@ interface InboxPageProps {
 }
 
 export const InboxPage = ({ className = '' }: InboxPageProps) => {
-  const { activePracticeId } = useSessionContext();
+  const { activePracticeId, isAnonymous } = useSessionContext();
   const { showError } = useToastContext();
   
   const [filters, setFilters] = useState<InboxFilters>({
@@ -133,7 +133,19 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
   if (!activePracticeId) {
     return (
       <div className={cn('p-6', className)}>
-        <p className="text-gray-500 dark:text-gray-400">Please select a practice to view inbox.</p>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-dark-card-bg p-6">
+          <div className="flex items-start gap-3">
+            <EnvelopeIcon className="h-6 w-6 text-blue-500 dark:text-blue-400" />
+            <div>
+              <p className="text-base font-semibold text-gray-900 dark:text-white">Inbox unavailable</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {isAnonymous
+                  ? 'Sign in to unlock the inbox and keep more than one conversation.'
+                  : 'Select or create a practice to route conversations to your inbox.'}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -236,8 +248,41 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
               {error}
             </div>
           ) : conversations.length === 0 ? (
-            <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-              No conversations found
+            <div className="p-6 h-full flex flex-col items-center justify-center text-center gap-4 text-gray-500 dark:text-gray-400">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/30">
+                <EnvelopeIcon className="h-6 w-6 text-blue-600 dark:text-blue-300" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-gray-900 dark:text-white">
+                  No inbox conversations yet
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                  {isAnonymous
+                    ? 'Sign in to start saving conversations to the inbox. Guests keep one active conversation at a time.'
+                    : 'New client conversations will appear here once you save or assign them from chat.'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 max-w-xs">
+                  Check your filters or refresh to see the latest messages.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => refresh()}
+                  disabled={isLoading}
+                >
+                  Refresh inbox
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleFilterChange('status', 'active')}
+                  disabled={isLoading}
+                >
+                  Reset filters
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="divide-y divide-gray-200 dark:divide-gray-800">
@@ -419,4 +464,3 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
     </div>
   );
 };
-
