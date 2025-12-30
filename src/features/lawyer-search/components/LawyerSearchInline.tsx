@@ -8,6 +8,7 @@ import { useTheme } from '@/shared/hooks/useTheme';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import LawyerSearchResults from './LawyerSearchResults';
 import type { LawyerProfile } from '../../../../worker/schemas/lawyer';
+import { handleContactLawyer } from '@/shared/utils/lawyerContact';
 
 interface LawyerApiRecord extends Record<string, unknown> {
   id?: number | string;
@@ -56,17 +57,6 @@ const normalizeList = (value: unknown): string[] => {
   return [];
 };
 
-const safeOpenUrl = (url: string) => {
-  try {
-    const urlWithProtocol = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-    const parsed = new URL(urlWithProtocol);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      globalThis.open(parsed.toString(), '_blank', 'noopener,noreferrer');
-    }
-  } catch {
-    // Invalid URL, ignore
-  }
-};
 
 const mapLawyerRecord = (record: LawyerApiRecord, index: number): LawyerProfile => {
   const name = record.name?.trim() || record.website_title?.trim() || 'Attorney';
@@ -264,15 +254,7 @@ const LawyerSearchInline: FunctionComponent = () => {
               emptyDescription="Try expanding your search location or practice area."
               showSearchAgain={false}
               onContactLawyer={(lawyer) => {
-                if (lawyer.phone) {
-                  globalThis.open(`tel:${lawyer.phone}`, '_self');
-                } else if (lawyer.email) {
-                  globalThis.open(`mailto:${lawyer.email}?subject=Legal Consultation Request`, '_self');
-                } else if (lawyer.website) {
-                  safeOpenUrl(lawyer.website);
-                } else {
-                  showInfo('Contact Information', `Contact ${lawyer.name} at ${lawyer.firm || 'their firm'} for a consultation.`);
-                }
+                handleContactLawyer(lawyer, { showInfo });
               }}
               onSearchAgain={handleSearchAgain}
             />
@@ -352,16 +334,8 @@ const LawyerSearchInline: FunctionComponent = () => {
                   total={total}
                   showCount={false}
                   onContactLawyer={(lawyer) => {
-                    if (lawyer.phone) {
-                      globalThis.open(`tel:${lawyer.phone}`, '_self');
-                    } else if (lawyer.email) {
-                      globalThis.open(`mailto:${lawyer.email}?subject=Legal Consultation Request`, '_self');
-                  } else if (lawyer.website) {
-                    safeOpenUrl(lawyer.website);
-                  } else {
-                    showInfo('Contact Information', `Contact ${lawyer.name} at ${lawyer.firm || 'their firm'} for a consultation.`);
-                  }
-                }}
+                    handleContactLawyer(lawyer, { showInfo });
+                  }}
                   onSearchAgain={handleSearchAgain}
                   onLoadMore={visibleCount < total ? handleLoadMore : undefined}
                 />

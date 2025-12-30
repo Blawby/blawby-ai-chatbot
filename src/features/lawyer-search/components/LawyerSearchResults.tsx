@@ -121,7 +121,7 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
           {emptyTitle || 'No Lawyers Found'}
         </h3>
         <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          {emptyDescription || `We couldn&apos;t find any lawyers in your area for ${matterType}. Try searching again or contact us for assistance.`}
+          {emptyDescription || `We couldn't find any lawyers in your area for ${matterType}. Try searching again or contact us for assistance.`}
         </p>
         {showSearchAgain && (
           <Button variant="primary" onClick={onSearchAgain}>

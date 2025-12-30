@@ -6,6 +6,7 @@ import LawyerSearchResults from '@/features/lawyer-search/components/LawyerSearc
 import MatterCanvas from '@/features/matters/components/MatterCanvas';
 import { DocumentIcon } from "@heroicons/react/24/outline";
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
+import { handleContactLawyer } from '@/shared/utils/lawyerContact';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -135,15 +136,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					lawyers={lawyerSearchResults.lawyers}
 					total={lawyerSearchResults.total}
 					onContactLawyer={(lawyer) => {
-						if (lawyer.phone) {
-							globalThis.open(`tel:${lawyer.phone}`, '_self');
-						} else if (lawyer.email) {
-							globalThis.open(`mailto:${lawyer.email}?subject=Legal Consultation Request`, '_self');
-						} else if (lawyer.website) {
-							globalThis.open(lawyer.website, '_blank');
-						} else {
-							showInfo('Contact Information', `Contact ${lawyer.name} at ${lawyer.firm || 'their firm'} for a consultation.`);
-						}
+						handleContactLawyer(lawyer, { showInfo, openWebsiteInNewTab: true });
 					}}
 					onSearchAgain={() => {
 						showInfo('New Search', 'Please ask the AI to search for lawyers again with different criteria.');
