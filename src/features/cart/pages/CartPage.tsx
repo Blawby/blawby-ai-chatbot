@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
-import { PRODUCTS, PRICES } from '@/shared/utils/stripe-products';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -7,7 +6,6 @@ import { useLocation } from 'preact-iso';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
-import { QuantitySelector } from '@/features/cart/components/QuantitySelector';
 import { PricingSummary } from '@/shared/ui/cards/PricingSummary';
 import {
   describeSubscriptionPlan,
@@ -22,7 +20,7 @@ export const CartPage = () => {
   const { navigate, navigateToAuth } = useNavigation();
   const { data: session, isPending: isSessionPending } = useSession();
   const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
-  const { currentPractice, loading: practicesLoading } = usePracticeManagement();
+  const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
   const { i18n, t } = useTranslation(['settings']);
 
@@ -35,7 +33,6 @@ export const CartPage = () => {
 
   const [selectedPriceId, setSelectedPriceId] = useState<string>('');
   const [quantity, setQuantity] = useState(initialSeats);
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -51,7 +48,6 @@ export const CartPage = () => {
       const publicPlans = availablePlans.filter(
         (plan) => plan.isActive && plan.isPublic
       );
-      setPlans(publicPlans);
       
       if (publicPlans.length === 0) {
         const errorMsg = 'No subscription plans available';
@@ -268,9 +264,7 @@ export const CartPage = () => {
   const annualSeatPricePerYear = parseFloat(selectedPlan.yearlyPrice);
   const annualSeatPricePerMonth = annualSeatPricePerYear / 12;
 
-  // TODO: Restore seats when Better Auth Stripe plugin supports seats/quantity
-  // For now, hardcode quantity to 1 since Better Auth doesn't support seats parameter
-  const effectiveQuantity = 1; // quantity;
+  const effectiveQuantity = quantity;
 
   const subtotal = isAnnual
     ? monthlySeatPrice * effectiveQuantity * 12 // baseline yearly cost at monthly rate

@@ -120,7 +120,7 @@ function getAuthClient(): AuthClientType {
           try {
             await setToken(authToken);
             if (isDevelopment()) {
-              console.log('[Auth] Token saved from response header:', authToken.substring(0, 20) + '...');
+              console.log('[Auth] Token saved from response header:', `${authToken.substring(0, 20)}...`);
               // Verify it was saved
               const verifyToken = await getTokenAsync();
               if (verifyToken === authToken) {

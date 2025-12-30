@@ -17,12 +17,6 @@ declare global {
   }
 }
 
-// Define proper types for message history
-interface ChatMessageHistoryEntry {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
 interface UseMessageHandlingOptions {
   practiceId?: string;
   practiceSlug?: string;
@@ -67,23 +61,6 @@ export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, o
     if (import.meta.env.DEV) {
       console.log(message, data);
     }
-  }, []);
-
-  // Create message history from existing messages
-  const createMessageHistory = useCallback((messages: ChatMessageUI[], currentMessage?: string): ChatMessageHistoryEntry[] => {
-    const history = messages.map(msg => ({
-      role: (msg.isUser ? 'user' : 'assistant') as 'user' | 'assistant',
-      content: msg.content
-    }));
-    
-    if (currentMessage) {
-      history.push({
-        role: 'user',
-        content: currentMessage
-      });
-    }
-    
-    return history;
   }, []);
 
   // Convert API message to UI message
@@ -182,9 +159,10 @@ export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, o
 
       // Replace temp message with real message from server
       if (!isDisposedRef.current) {
-        const uiMessage = toUIMessage(data.data!);
+        const serverMessage = data.data;
+        const uiMessage = toUIMessage(serverMessage);
         logDev('[sendMessage] Converting server message to UI message', {
-          serverRole: data.data!.role,
+          serverRole: serverMessage.role,
           uiMessageRole: uiMessage.role,
           uiMessageIsUser: uiMessage.isUser,
           messageId: uiMessage.id
@@ -305,16 +283,17 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
       // Add the message to local state
       if (!isDisposedRef.current) {
-        const uiMessage = toUIMessage(data.data!);
+        const serverMessage = data.data;
+        const uiMessage = toUIMessage(serverMessage);
         logDev('[handleContactFormSubmit] Adding contact form message to state', {
           messageId: uiMessage.id,
           role: uiMessage.role,
           isUser: uiMessage.isUser,
           hasMetadata: !!uiMessage.metadata,
           hasContactFormFlag: !!uiMessage.metadata?.isContactFormSubmission,
-          serverMetadata: data.data!.metadata,
-          serverRole: data.data!.role,
-          fullServerMessage: data.data!
+          serverMetadata: serverMessage.metadata,
+          serverRole: serverMessage.role,
+          fullServerMessage: serverMessage
         });
         setMessages(prev => {
           const updated = [...prev, uiMessage];
@@ -513,7 +492,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const hasContactForm = prev.some(m => m.id === 'system-contact-form');
       const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
 
-      let newMessages = [...prev];
+      const newMessages = [...prev];
       let changed = false;
       
       // Use monotonically increasing timestamps to ensure stable ordering

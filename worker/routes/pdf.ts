@@ -13,32 +13,6 @@ interface PDFDownloadRequest {
   practiceId?: string;
 }
 
-/**
- * Sanitize filename to prevent header injection attacks
- * Removes or replaces potentially dangerous characters
- */
-function sanitizeFilename(filename: string): string {
-  if (!filename || typeof filename !== 'string') {
-    return 'document.pdf';
-  }
-  
-  // Remove or replace potentially dangerous characters
-  // Keep only alphanumeric, dots, hyphens, underscores, and spaces
-  const sanitized = filename
-    .replace(/[^a-zA-Z0-9._\s-]/g, '_')  // Replace dangerous chars with underscore
-    .replace(/\s+/g, '_')                 // Replace spaces with underscores
-    .replace(/_{2,}/g, '_')               // Replace multiple underscores with single
-    .replace(/^_+|_+$/g, '')              // Remove leading/trailing underscores
-    .substring(0, 255);                   // Limit length to prevent buffer overflow
-  
-  // Ensure it has a valid extension
-  if (!sanitized.toLowerCase().endsWith('.pdf')) {
-    return `${sanitized}.pdf`;
-  }
-  
-  return sanitized || 'document.pdf';
-}
-
 export async function handlePDF(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;

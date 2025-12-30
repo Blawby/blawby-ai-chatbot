@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, afterEach, test } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { isRTLLocale, RTL_LOCALES, type AnyLocale } from '@/shared/i18n';
 
 describe('RTL (Right-to-Left) Support', () => {

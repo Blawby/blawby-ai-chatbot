@@ -11,8 +11,7 @@ import {
   respondToPracticeInvitation,
   listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
-  deletePracticeMember as apiDeletePracticeMember,
-  type UpdatePracticeRequest
+  deletePracticeMember as apiDeletePracticeMember
 } from '@/shared/lib/apiClient';
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { extractPracticeOnboardingMetadata } from '@/shared/utils/practiceOnboarding';

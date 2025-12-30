@@ -33,7 +33,7 @@ export const AuthGateOverlay: FunctionComponent<AuthGateOverlayProps> = ({
           Save Your Conversation
         </h2>
         <p className="text-gray-600 dark:text-gray-300 mb-6">
-          Sign up to save your conversation and case details. We'll notify you when {practiceName || 'the practice'} responds.
+          Sign up to save your conversation and case details. We&apos;ll notify you when {practiceName || 'the practice'} responds.
         </p>
         <Button
           ref={buttonRef}

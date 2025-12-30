@@ -273,8 +273,9 @@ export function ensurePracticeCollections(practiceId: string): void {
 
 // Helper to get or create anonymous user
 export function getOrCreateAnonymousUser(token: string): { id: string; email: string; name: string } {
-  if (mockDb.anonymousUsers.has(token)) {
-    return mockDb.anonymousUsers.get(token)!;
+  const existingUser = mockDb.anonymousUsers.get(token);
+  if (existingUser) {
+    return existingUser;
   }
   const userId = `anonymous-${randomId('user')}`;
   const user = {
