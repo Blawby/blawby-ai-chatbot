@@ -153,6 +153,9 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.forbidden('Cannot link conversation to a different user');
     }
 
+    // Validate user has access to the conversation
+    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+
     const conversation = await conversationService.linkConversationToUser(
       conversationId,
       practiceId,

@@ -39,7 +39,9 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
             {t('authPrompt.title')}
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            {t('authPrompt.description')} {!practiceName ? null : `We'll notify ${practiceName} when you're signed in.`}
+            {t('authPrompt.description')}
+            {practiceName && ' '}
+            {practiceName && t('authPrompt.notificationWithPractice', { practiceName })}
           </p>
         </div>
 

@@ -107,7 +107,9 @@ async function notifyIntakeDecision(options: {
     ? (isConversationLinked
       ? 'Your intake has been accepted. Continue the conversation below.'
       : `Your intake has been accepted. [Sign in](${signInPath}) to continue this conversation and share more details.`)
-    : `Your intake was reviewed and declined.${reason ? ` Reason: ${reason}` : ''} If you'd like to follow up, you can [sign in](${signInPath}) or submit another request at any time.`;
+    : (isConversationLinked
+      ? `Your intake was reviewed and declined.${reason ? ` Reason: ${reason}` : ''} If you'd like to follow up, you can submit another request at any time.`
+      : `Your intake was reviewed and declined.${reason ? ` Reason: ${reason}` : ''} If you'd like to follow up, you can [sign in](${signInPath}) or submit another request at any time.`);
 
   try {
     await conversationService.sendMessage({

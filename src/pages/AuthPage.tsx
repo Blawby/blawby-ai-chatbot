@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { UserIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import OnboardingModal from '@/features/onboarding/components/OnboardingModal';
@@ -32,6 +32,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [conversationContext, setConversationContext] = useState<{ conversationId: string; practiceId: string } | null>(null);
   const [conversationLinked, setConversationLinked] = useState(false);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
+  const linkingInProgress = useRef(false);
 
   const getSafeRedirectPath = (decodedRedirect: string): string | null => {
     if (!decodedRedirect || decodedRedirect.startsWith('//')) {
@@ -91,7 +92,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   }, [conversationContext?.conversationId, conversationContext?.practiceId]);
 
   const linkConversationIfNeeded = useCallback(async () => {
-    if (!conversationContext || conversationLinked) return;
+    if (!conversationContext || conversationLinked || linkingInProgress.current) return;
+    linkingInProgress.current = true;
 
     try {
       await linkConversationToUser(conversationContext.conversationId, conversationContext.practiceId);
@@ -99,6 +101,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     } catch (err) {
       console.error('Failed to link conversation to user:', err);
       setError((prev) => prev || 'We could not automatically save your conversation. You can continue after signing in.');
+    } finally {
+      linkingInProgress.current = false;
     }
   }, [conversationContext, conversationLinked]);
 
