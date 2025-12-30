@@ -1,5 +1,5 @@
 import { useLocation } from 'preact-iso';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
@@ -28,6 +28,7 @@ import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
 
 export interface SettingsPageProps {
@@ -46,6 +47,8 @@ export const SettingsPage = ({
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
   const [apps, setApps] = useState<App[]>(mockApps);
+  const { practices, currentPractice, loading: practicesLoading } = usePracticeManagement({ autoFetchPractices: true });
+  const hasPractice = practices.length > 0 || currentPractice !== null;
   
   // Get current page from URL path
   const getCurrentPage = () => {
@@ -70,6 +73,12 @@ export const SettingsPage = ({
     navigate('/settings/practice');
     return null;
   }
+
+  useEffect(() => {
+    if (!practicesLoading && !hasPractice && (currentPage === 'practice' || currentPage === 'apps')) {
+      navigate('/settings');
+    }
+  }, [currentPage, hasPractice, navigate, practicesLoading]);
 
   const handleNavigation = (page: string) => {
     navigate(`/settings/${page}`);
@@ -103,8 +112,10 @@ export const SettingsPage = ({
     { id: 'general', label: t('settings:navigation.items.general'), icon: Cog6ToothIcon },
     { id: 'notifications', label: t('settings:navigation.items.notifications'), icon: BellIcon },
     { id: 'account', label: t('settings:navigation.items.account'), icon: UserIcon },
-    { id: 'practice', label: t('settings:navigation.items.practice'), icon: BuildingOfficeIcon },
-    { id: 'apps', label: t('settings:navigation.items.apps'), icon: PuzzlePieceIcon },
+    ...(hasPractice ? [
+      { id: 'practice', label: t('settings:navigation.items.practice'), icon: BuildingOfficeIcon },
+      { id: 'apps', label: t('settings:navigation.items.apps'), icon: PuzzlePieceIcon },
+    ] : []),
     { id: 'security', label: t('settings:navigation.items.security'), icon: ShieldCheckIcon },
     { id: 'help', label: t('settings:navigation.items.help'), icon: QuestionMarkCircleIcon },
     { id: 'signout', label: t('settings:navigation.items.signOut'), icon: ArrowRightOnRectangleIcon, isAction: true, onClick: handleSignOut, variant: 'danger' }
