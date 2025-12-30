@@ -39,7 +39,15 @@ export function MockServicesInfo({ mock }: MockServicesInfoProps) {
           {state.error && (
             <>
               <StateTile label="Error" value="Yes" />
-              <StateTile label="Error msg" value={state.error.substring(0, 10)} />
+              <StateTile label="Error msg" value={(() => {
+                const error = state.error as unknown;
+                const errorStr = error instanceof Error 
+                  ? error.message 
+                  : error == null 
+                    ? '' 
+                    : String(error);
+                return errorStr.slice(0, 10).trim();
+              })()} />
             </>
           )}
         </div>

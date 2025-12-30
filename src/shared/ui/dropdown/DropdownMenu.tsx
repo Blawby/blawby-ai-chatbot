@@ -28,7 +28,7 @@ export const DropdownMenu = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Generate stable unique IDs for accessibility
-  const dropdownId = useMemo(() => `dropdown-${Math.random().toString(36).substr(2, 9)}`, []);
+  const dropdownId = useMemo(() => `dropdown-${Math.random().toString(36).slice(2, 11)}`, []);
   
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   

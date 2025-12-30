@@ -153,7 +153,7 @@ async function storeFile(file: File, practiceId: string, conversationId: string,
   }
 
   // Generate unique file ID
-  const fileId = `${practiceId}-${conversationId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const fileId = `${practiceId}-${conversationId}-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   const fileExtension = file.name.split('.').pop() || '';
   const storageKey = `uploads/${practiceId}/${conversationId}/${fileId}.${fileExtension}`;
 
