@@ -24,7 +24,7 @@ interface ServicesStepProps {
 export function ServicesStep({ data, onChange, onContinue, onBack, errors }: ServicesStepProps) {
   const addService = () => {
     const newService: Service = {
-      id: `service-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `service-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       title: '',
       description: ''
     };

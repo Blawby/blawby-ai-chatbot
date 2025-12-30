@@ -51,7 +51,7 @@ export const Select = ({
   const buttonRef = useRef<HTMLButtonElement>(null);
   
   // Generate stable unique IDs for accessibility
-  const dropdownId = useMemo(() => `select-${Math.random().toString(36).substr(2, 9)}`, []);
+  const dropdownId = useMemo(() => `select-${Math.random().toString(36).slice(2, 11)}`, []);
   const listboxId = `${dropdownId}-listbox`;
 
   const { t } = useTranslation(namespace);
