@@ -139,6 +139,7 @@ const originalUseSession = authClient.useSession;
 export function MockServicesPage() {
   const [isDevMode, setIsDevMode] = useState(import.meta.env.DEV || import.meta.env.MODE === 'development');
   const mock = useMockServices();
+  const { updateServices } = mock;
 
   useEffect(() => {
     const dev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
@@ -226,13 +227,16 @@ export function MockServicesPage() {
             };
           }
           const updatedServices = resolveServiceDetails(conversationConfig);
-          mock.updateServices(updatedServices);
+          updateServices(updatedServices);
         }
       }
     };
     
     // Override authClient.useSession to return mock session
-    (authClient as any).useSession = () => mockSession;
+    const authClientOverrideTarget = authClient as unknown as {
+      useSession: () => typeof mockSession;
+    };
+    authClientOverrideTarget.useSession = () => mockSession;
 
     // Add request interceptor to change baseURL to same origin for MSW interception
     const requestInterceptor = apiClient.interceptors.request.use(
@@ -347,6 +351,7 @@ export function MockServicesPage() {
         ) {
           const payload = parsePayload(error.config?.data);
           if (payload) {
+            // Intentionally apply updates in dev mocks to keep UI state consistent.
             applyPracticeUpdate(payload);
           }
           console.log('[MockServicesPage] Returning mock practice update data');
@@ -421,9 +426,12 @@ export function MockServicesPage() {
       apiClient.interceptors.request.eject(requestInterceptor);
       apiClient.interceptors.response.eject(responseInterceptor);
       // Restore original useSession
-      (authClient as any).useSession = originalUseSession;
+      const authClientRestoreTarget = authClient as unknown as {
+        useSession: typeof originalUseSession;
+      };
+      authClientRestoreTarget.useSession = originalUseSession;
     };
-  }, [isDevMode]);
+  }, [isDevMode, updateServices]);
 
   if (!isDevMode) {
     return (

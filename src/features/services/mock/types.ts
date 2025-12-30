@@ -10,6 +10,7 @@ export interface MockServicesState {
 }
 
 export type { DebugEvent };
+export type { Service };
 
 export interface UseMockServicesResult {
   state: MockServicesState;

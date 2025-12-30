@@ -1,4 +1,4 @@
-import type { ComponentType } from 'preact';
+import type { ComponentType, JSX } from 'preact';
 
 export interface Service {
   id: string;
@@ -7,7 +7,7 @@ export interface Service {
 }
 
 export interface ServiceTemplate extends Service {
-  icon?: ComponentType<{ className?: string }>;
+  icon?: ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
 }
 
 const DEFAULT_PREFIX = 'service';

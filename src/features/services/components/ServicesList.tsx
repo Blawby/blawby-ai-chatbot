@@ -1,8 +1,8 @@
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import type { Service } from '../types';
 import { SERVICE_CATALOG } from '../data/serviceCatalog';
-import { findTemplateForService } from '../utils';
+import { buildCatalogIndex, findTemplateForService } from '../utils';
 import { ServiceCard } from './ServiceCard';
 import { ServiceForm } from './ServiceForm';
 
@@ -30,6 +30,7 @@ export function ServicesList({
     title: '',
     description: ''
   });
+  const catalogIndex = useMemo(() => buildCatalogIndex(SERVICE_CATALOG), []);
 
   const startEdit = (service: Service) => {
     setEditingId(service.id);
@@ -94,7 +95,7 @@ export function ServicesList({
             <ServiceCard
               title={service.title}
               description={service.description}
-              icon={findTemplateForService(service, SERVICE_CATALOG)?.icon}
+              icon={findTemplateForService(service, catalogIndex)?.icon}
               actions={(
                 <>
                   <Button variant="secondary" size="sm" onClick={() => startEdit(service)}>

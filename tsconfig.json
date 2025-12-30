@@ -53,6 +53,7 @@
 		"dist",
 		"playwright/results",
 		"playwright/reports",
+		"public/mockServiceWorker.js",
 		"public/sw.js",
 		"**/*.stories.tsx",
 		"**/*.stories.ts"

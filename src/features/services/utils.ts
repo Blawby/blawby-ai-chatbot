@@ -1,7 +1,7 @@
 import type { Service, ServiceTemplate } from './types';
 import { createServiceId } from './types';
 
-interface CatalogIndex {
+export interface CatalogIndex {
   byId: Map<string, ServiceTemplate>;
   byTitle: Map<string, ServiceTemplate>;
 }
@@ -26,9 +26,9 @@ export function buildCatalogIndex(catalog: ServiceTemplate[]): CatalogIndex {
 
 export function findTemplateForService(
   service: Service,
-  catalog: ServiceTemplate[]
+  catalog: ServiceTemplate[] | CatalogIndex
 ): ServiceTemplate | undefined {
-  const index = buildCatalogIndex(catalog);
+  const index = Array.isArray(catalog) ? buildCatalogIndex(catalog) : catalog;
   const byId = service.id ? index.byId.get(service.id) : undefined;
   if (byId) return byId;
   const titleKey = service.title ? normalizeTitleKey(service.title) : '';
@@ -37,8 +37,8 @@ export function findTemplateForService(
 
 export function doesServiceMatchTemplate(service: Service, template: ServiceTemplate): boolean {
   if (service.id && service.id === template.id) return true;
-  const serviceTitle = service.title.trim().toLowerCase();
-  const templateTitle = template.title.trim().toLowerCase();
+  const serviceTitle = service.title?.trim().toLowerCase() || '';
+  const templateTitle = template.title?.trim().toLowerCase() || '';
   return serviceTitle.length > 0 && serviceTitle === templateTitle;
 }
 
@@ -72,7 +72,7 @@ export function getServiceTitles(services: Service[]): string[] {
   const result: string[] = [];
 
   services.forEach((service) => {
-    const title = service.title.trim();
+    const title = service.title?.trim() || '';
     if (!title) return;
     const key = normalizeTitleKey(title);
     if (seen.has(key)) return;
@@ -88,7 +88,7 @@ export function getServiceDetailsForSave(services: Service[]): Service[] {
   const result: Service[] = [];
 
   services.forEach((service) => {
-    const title = service.title.trim();
+    const title = service.title?.trim() || '';
     if (!title) return;
     const key = normalizeTitleKey(title);
     if (seen.has(key)) return;
@@ -96,7 +96,7 @@ export function getServiceDetailsForSave(services: Service[]): Service[] {
     result.push({
       id: service.id?.trim() || createServiceId(),
       title,
-      description: service.description.trim()
+      description: service.description?.trim() || ''
     });
   });
 

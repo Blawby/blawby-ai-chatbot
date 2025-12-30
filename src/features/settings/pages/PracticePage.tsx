@@ -65,21 +65,23 @@ const resolveConversationConfig = (practice: Practice | null): PracticeConfig | 
   if (isPlainObject(metadata)) {
     const candidate = metadata.conversationConfig;
     if (isPlainObject(candidate)) {
-      return candidate as PracticeConfig;
+      if ('availableServices' in candidate || 'serviceQuestions' in candidate) {
+        return candidate as unknown as PracticeConfig;
+      }
     }
   }
   const config = practice.config;
   if (isPlainObject(config)) {
     const nestedCandidate = (config as Record<string, unknown>).conversationConfig;
     if (isPlainObject(nestedCandidate)) {
-      return nestedCandidate as PracticeConfig;
+      return nestedCandidate as unknown as PracticeConfig;
     }
     if (
       'availableServices' in config ||
       'serviceQuestions' in config ||
       'introMessage' in config
     ) {
-      return config as PracticeConfig;
+      return config as unknown as PracticeConfig;
     }
   }
   return null;

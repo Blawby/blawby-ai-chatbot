@@ -656,17 +656,17 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     let metadataNext: Record<string, unknown> | null = null;
 
+    if (isPlainObject(data.metadata)) {
+      metadataNext = {
+        ...metadataBase,
+        ...data.metadata
+      };
+    }
+
     if (typeof data.description === 'string') {
       metadataNext = {
         ...(metadataNext ?? metadataBase),
         description: data.description
-      };
-    }
-
-    if (isPlainObject(data.metadata)) {
-      metadataNext = {
-        ...(metadataNext ?? metadataBase),
-        ...data.metadata
       };
     }
 

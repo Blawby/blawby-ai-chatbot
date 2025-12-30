@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Service, ServiceTemplate } from '../types';
 import {
   buildCatalogIndex,
@@ -35,8 +35,11 @@ export function useServices({
   const [services, setServicesState] = useState<Service[]>(() =>
     normalizeServices(initialServices, catalog)
   );
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
+    if (!isInitialMount.current) return;
+    isInitialMount.current = false;
     setServicesState(normalizeServices(initialServices, catalog));
   }, [initialServices, catalog]);
 
