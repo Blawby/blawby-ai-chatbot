@@ -7,6 +7,7 @@
       "notifications": "Notifications",
       "account": "Account",
       "practice": "Practice",
+      "apps": "Apps",
       "security": "Security",
       "help": "Help",
       "signOut": "Sign Out"
@@ -47,6 +48,45 @@
     "spokenLanguage": {
       "label": "Spoken language",
       "description": "For best results, select the language you mainly speak. If it's not listed, auto-detection may still work."
+    }
+  },
+  "apps": {
+    "title": "Apps",
+    "description": "Connect third-party services to enhance your workflow",
+    "clio": {
+      "name": "Clio",
+      "description": "Connect your Clio account to sync matters, contacts, and calendar events.",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "connected": "Connected",
+      "notConnected": "Not Connected",
+      "connectedOn": "Connected on",
+      "category": "Category",
+      "developer": "Developer",
+      "website": "Website",
+      "privacyPolicy": "Privacy Policy",
+      "information": "Information",
+      "actions": "Actions",
+      "disconnectConfirm": {
+        "title": "Disconnect Clio",
+        "message": "Are you sure you want to disconnect your Clio app? This will stop syncing data.",
+        "confirm": "Disconnect",
+        "cancel": "Cancel"
+      },
+      "toasts": {
+        "connectSuccess": {
+          "title": "Clio connected",
+          "body": "Your Clio account has been successfully connected."
+        },
+        "disconnectSuccess": {
+          "title": "Clio disconnected",
+          "body": "Your Clio app has been disconnected."
+        },
+        "error": {
+          "title": "Connection error",
+          "body": "Failed to connect Clio. Please try again."
+        }
+      }
     }
   },
   "account": {
