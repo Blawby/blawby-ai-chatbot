@@ -22,6 +22,9 @@ A production-ready legal intake chatbot built with Cloudflare Workers AI, featur
    ```bash
    cp dev.vars.example .dev.vars
    # Edit .dev.vars with your API keys
+   
+   # Copy .dev.vars to worker directory (required for wrangler to read secrets)
+   cp .dev.vars worker/.dev.vars
    ```
 
 3. **Set up local database**
@@ -35,11 +38,13 @@ A production-ready legal intake chatbot built with Cloudflare Workers AI, featur
 
 4. **Start development**
    ```bash
-   # Option 1: Start both frontend and worker
+   # Option 1: Start both frontend and worker (recommended)
    npm run dev:full
    
    # Option 2: Start worker only
-   wrangler dev --port 8787
+   npm run dev:worker
+   # OR manually:
+   # wrangler dev --port 8787 --config worker/wrangler.toml
    
    # Option 3: Start frontend only
    npm run dev
@@ -123,7 +128,12 @@ Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
 - `CLOUDFLARE_API_TOKEN` - Cloudflare operations API key
 - `RESEND_API_KEY` - Email notifications API key
 
-**Note:** Wrangler automatically loads `.dev.vars` during local development - no additional setup required.
+**Important:** After creating `.dev.vars` in the root directory, copy it to `worker/.dev.vars`:
+```bash
+cp .dev.vars worker/.dev.vars
+```
+
+**Note:** Wrangler reads `.dev.vars` from the same directory as `wrangler.toml`. Since we use `--config worker/wrangler.toml`, the secrets file must be in the `worker/` directory.
 
 #### Frontend Environment Variables
 
@@ -206,8 +216,9 @@ npm run dev:worker:clean
 ```
 
 **Environment variables not loading:**
-- Ensure `.dev.vars` exists and contains your API keys
-- Wrangler automatically loads `.dev.vars` - no custom scripts needed
+- Ensure `.dev.vars` exists in the root directory and contains your API keys
+- Copy `.dev.vars` to `worker/.dev.vars` (wrangler reads from the same directory as `wrangler.toml`)
+- Wrangler automatically loads `worker/.dev.vars` when using `--config worker/wrangler.toml`
 
 **Database connection issues:**
 ```bash
@@ -220,9 +231,18 @@ npm run db:reset
 # Check wrangler installation
 wrangler --version
 
+# Ensure you're using the correct config file
+npm run dev:worker
+# OR manually:
+# wrangler dev --port 8787 --config worker/wrangler.toml
+
 # Start with verbose logging
-wrangler dev --port 8787 --log-level debug
+wrangler dev --port 8787 --config worker/wrangler.toml --log-level debug
 ```
+
+**Worker shows "Pages project" error:**
+- This happens when wrangler picks up the root `wrangler.toml` (configured for Pages)
+- Always use `--config worker/wrangler.toml` or `npm run dev:worker` which includes this flag
 
 ## 🤝 **Contributing**
 
