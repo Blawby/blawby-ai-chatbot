@@ -453,7 +453,8 @@ export function useConversation({
         abortControllerRef.current.abort();
       }
     };
-  }, [conversationId, practiceId, fetchConversation, fetchMessages, messages]); // Only run on mount or when IDs change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, practiceId]); // Only run on mount or when IDs change
 
   // Set up polling
   useEffect(() => {
