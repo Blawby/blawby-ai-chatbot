@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { UserIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import OnboardingModal from '@/features/onboarding/components/OnboardingModal';
@@ -8,6 +8,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { Input, EmailInput, PasswordInput } from '@/shared/ui/input';
 import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
+import { linkConversationToUser } from '@/shared/lib/apiClient';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -28,27 +29,49 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [intakeDecision, setIntakeDecision] = useState<'accepted' | 'rejected' | null>(null);
+  const [conversationContext, setConversationContext] = useState<{ conversationId: string; practiceId: string } | null>(null);
+  const [conversationLinked, setConversationLinked] = useState(false);
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+  const linkingInProgress = useRef(false);
+
+  const getSafeRedirectPath = (decodedRedirect: string): string | null => {
+    if (!decodedRedirect || decodedRedirect.startsWith('//')) {
+      return null;
+    }
+
+    try {
+      const url = new URL(decodedRedirect, window.location.origin);
+      if (url.origin !== window.location.origin || !url.pathname.startsWith('/')) {
+        return null;
+      }
+
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return null;
+    }
+  };
 
   // Check URL params for mode and onboarding (guarded by server truth)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlMode = urlParams.get('mode');
     const needsOnboarding = urlParams.get('onboarding') === 'true';
-    const intake = urlParams.get('intake');
+    const conversationId = urlParams.get('conversationId');
+    const practiceId = urlParams.get('practiceId');
+    const redirect = urlParams.get('redirect');
 
     if (urlMode === 'signin' || urlMode === 'signup') {
       setIsSignUp(urlMode === 'signup');
     }
 
-    if (intake === 'accepted' || intake === 'rejected') {
-      setIntakeDecision(intake);
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('intake');
-        window.history.replaceState({}, '', url.toString());
-        // eslint-disable-next-line no-empty
-      } catch {}
+    if (conversationId && practiceId) {
+      setConversationContext({ conversationId, practiceId });
+    }
+
+    if (redirect) {
+      const decodedRedirect = decodeURIComponent(redirect);
+      const safeRedirect = getSafeRedirectPath(decodedRedirect);
+      setRedirectPath(safeRedirect ?? '/');
     }
 
     // Only open onboarding when explicitly requested via URL param
@@ -63,6 +86,25 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       } catch {}
     }
   }, []);
+
+  useEffect(() => {
+    setConversationLinked(false);
+  }, [conversationContext?.conversationId, conversationContext?.practiceId]);
+
+  const linkConversationIfNeeded = useCallback(async () => {
+    if (!conversationContext || conversationLinked || linkingInProgress.current) return;
+    linkingInProgress.current = true;
+
+    try {
+      await linkConversationToUser(conversationContext.conversationId, conversationContext.practiceId);
+      setConversationLinked(true);
+    } catch (err) {
+      console.error('Failed to link conversation to user:', err);
+      setError((prev) => prev || 'We could not automatically save your conversation. You can continue after signing in.');
+    } finally {
+      linkingInProgress.current = false;
+    }
+  }, [conversationContext, conversationLinked]);
 
   // Helper function to handle redirect with proper onSuccess awaiting
   const handleRedirect = async () => {
@@ -91,10 +133,12 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     
     if (delay > 0) {
       setTimeout(() => {
-        window.location.href = '/';
+        const destination = redirectPath && redirectPath.startsWith('/') ? redirectPath : '/';
+        window.location.href = destination;
       }, delay);
     } else {
-      window.location.href = '/';
+      const destination = redirectPath && redirectPath.startsWith('/') ? redirectPath : '/';
+      window.location.href = destination;
     }
   };
 
@@ -135,6 +179,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
         // After successful signup, show onboarding immediately
         setMessage(t('messages.accountCreated'));
+        await linkConversationIfNeeded();
         setShowOnboarding(true);
       } else {
         // Use Better Auth for sign-in
@@ -161,6 +206,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         }
 
         setMessage(t('messages.signedIn'));
+        await linkConversationIfNeeded();
         
         // Redirect to home page after successful sign in
         await handleRedirect();
@@ -255,6 +301,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     setShowOnboarding(false);
     
     // Redirect to main app where the welcome modal will show, waiting for onSuccess if provided
+    await linkConversationIfNeeded();
     await handleRedirect();
   };
 
@@ -269,6 +316,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     }
     
     // Redirect to home page if onboarding is closed, waiting for onSuccess if provided
+    await linkConversationIfNeeded();
     await handleRedirect();
   };
 
@@ -301,19 +349,6 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-light-card-bg dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {intakeDecision && (
-            <div
-              className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
-                intakeDecision === 'accepted'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100'
-                  : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100'
-              }`}
-            >
-              {intakeDecision === 'accepted'
-                ? t('intake.accepted')
-                : t('intake.rejected')}
-            </div>
-          )}
           {/* Google Sign In Button */}
           <div className="mb-6">
             <button

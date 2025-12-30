@@ -163,6 +163,10 @@ export const getConversationParticipantsEndpoint = (conversationId: string) => {
   return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}/participants`;
 };
 
+export const getConversationLinkEndpoint = (conversationId: string) => {
+  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/link`;
+};
+
 // Chat message endpoints - handled by local worker
 export const getChatMessagesEndpoint = () => {
   const config = getApiConfig();

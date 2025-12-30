@@ -79,7 +79,7 @@ export function useMockChat(): UseMockChatResult {
     })?.metadata?.intakeDecision as 'accepted' | 'rejected' | undefined;
 
     if (intakeDecision === 'accepted') {
-      return { step: 'accepted_needs_auth' };
+      return { step: 'accepted' };
     }
     if (intakeDecision === 'rejected') {
       return { step: 'rejected' };

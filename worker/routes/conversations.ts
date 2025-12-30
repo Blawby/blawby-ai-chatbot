@@ -135,6 +135,36 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(conversation);
   }
 
+  // PATCH /api/conversations/:id/link - Link anonymous conversation to authenticated user
+  if (
+    segments.length === 4 &&
+    segments[3] === 'link' &&
+    request.method === 'PATCH'
+  ) {
+    const conversationId = segments[2];
+    const body = await parseJsonBody(request) as { userId?: string | null };
+
+    if (authContext.isAnonymous) {
+      throw HttpErrors.unauthorized('Sign in is required to link a conversation');
+    }
+
+    const targetUserId = body.userId || userId;
+    if (targetUserId !== userId) {
+      throw HttpErrors.forbidden('Cannot link conversation to a different user');
+    }
+
+    // Validate user has access to the conversation
+    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+
+    const conversation = await conversationService.linkConversationToUser(
+      conversationId,
+      practiceId,
+      targetUserId
+    );
+
+    return createJsonResponse(conversation);
+  }
+
   // PATCH /api/conversations/:id - Update conversation
   if (segments.length === 3 && segments[2] !== 'active' && segments[2] !== 'current' && request.method === 'PATCH') {
     const conversationId = segments[2];

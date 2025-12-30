@@ -3,6 +3,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getConversationsEndpoint, getConversationParticipantsEndpoint } from '@/config/api';
 import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
+import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
 
 interface UseConversationsOptions {
   practiceId?: string;
@@ -17,6 +18,7 @@ interface UseConversationsReturn {
   error: string | null;
   refresh: () => Promise<void>;
   addParticipants: (conversationId: string, participantUserIds: string[]) => Promise<Conversation | null>;
+  linkConversationToUser: (conversationId: string, userId?: string) => Promise<Conversation | null>;
 }
 
 /**
@@ -217,6 +219,37 @@ export function useConversations({
     }
   }, [practiceId, onError, refresh]);
 
+  const linkConversationToUser = useCallback(async (
+    conversationId: string,
+    userId?: string
+  ): Promise<Conversation | null> => {
+    if (!practiceId) {
+      const errorMessage = 'Practice ID is required to link conversation';
+      setError(errorMessage);
+      onError?.(errorMessage);
+      return null;
+    }
+
+    if (!conversationId) {
+      const errorMessage = 'Conversation ID is required to link conversation';
+      setError(errorMessage);
+      onError?.(errorMessage);
+      return null;
+    }
+
+    try {
+      const conversation = await apiLinkConversationToUser(conversationId, practiceId, userId);
+      await refresh();
+      return conversation;
+    } catch (err) {
+      if (isDisposedRef.current) return null;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to link conversation';
+      setError(errorMessage);
+      onError?.(errorMessage);
+      return null;
+    }
+  }, [practiceId, onError, refresh]);
+
   // Initial load and refetch when filters change
   useEffect(() => {
     if (!practiceId) {
@@ -240,6 +273,6 @@ export function useConversations({
     error,
     refresh,
     addParticipants,
+    linkConversationToUser,
   };
 }
-

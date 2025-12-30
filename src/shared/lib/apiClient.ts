@@ -4,9 +4,11 @@ import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
   getSubscriptionListEndpoint,
-  getRemoteApiUrl
+  getRemoteApiUrl,
+  getConversationLinkEndpoint
 } from '@/config/api';
 import { isPlatformPractice } from '@/shared/utils/practice';
+import type { Conversation } from '@/shared/types/conversation';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -197,6 +199,33 @@ function unwrapApiData(payload: unknown): unknown {
   }
 
   return current;
+}
+
+export async function linkConversationToUser(
+  conversationId: string,
+  practiceId: string,
+  userId?: string | null
+): Promise<Conversation> {
+  if (!conversationId) {
+    throw new Error('conversationId is required to link conversation');
+  }
+  if (!practiceId) {
+    throw new Error('practiceId is required to link conversation');
+  }
+
+  const response = await apiClient.patch(
+    `${getConversationLinkEndpoint(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
+    {
+      userId: userId || undefined
+    }
+  );
+
+  const conversation = unwrapApiData(response.data) as Conversation | null;
+  if (!conversation) {
+    throw new Error('Failed to link conversation');
+  }
+
+  return conversation;
 }
 
 function extractApiData<T>(payload: unknown): T | null {

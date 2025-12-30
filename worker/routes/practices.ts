@@ -92,9 +92,24 @@ async function notifyIntakeDecision(options: {
     // ignore participant add failures; still try to post the system message
   }
 
+  let isConversationLinked = false;
+  try {
+    const conversation = await conversationService.getConversation(sessionId, practiceId);
+    isConversationLinked = Boolean(conversation.user_id);
+  } catch {
+    // If we can't read the conversation, fall back to anonymous messaging
+    isConversationLinked = false;
+  }
+
+  const signInPath = `/auth?mode=signin&conversationId=${encodeURIComponent(sessionId)}&practiceId=${encodeURIComponent(practiceId)}`;
+
   const content = decision === 'accepted'
-    ? "Your intake has been accepted. [Sign in](/auth?mode=signin&intake=accepted) to continue this conversation and share more details."
-    : `Your intake was reviewed and declined.${reason ? ` Reason: ${reason}` : ''} If you'd like to follow up, you can [sign in](/auth?mode=signin&intake=rejected) or submit another request at any time.`;
+    ? (isConversationLinked
+      ? 'Your intake has been accepted. Continue the conversation below.'
+      : `Your intake has been accepted. [Sign in](${signInPath}) to continue this conversation and share more details.`)
+    : (isConversationLinked
+      ? `Your intake was reviewed and declined.${reason ? ` Reason: ${reason}` : ''} If you'd like to follow up, you can submit another request at any time.`
+      : `Your intake was reviewed and declined.${reason ? ` Reason: ${reason}` : ''} If you'd like to follow up, you can [sign in](${signInPath}) or submit another request at any time.`);
 
   try {
     await conversationService.sendMessage({
