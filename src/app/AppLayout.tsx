@@ -8,7 +8,6 @@ import LeftSidebar from '@/shared/components/LeftSidebar';
 // Onboarding is now routed via /business-onboarding
 import MobileTopNav from '@/shared/components/MobileTopNav';
 import MediaSidebar from '@/features/media/components/MediaSidebar';
-import PrivacySupportSidebar from '@/features/intake/components/PrivacySupportSidebar';
 import PracticeProfile from '@/features/practice/components/PracticeProfile';
 import { DebugOverlay } from '@/shared/components/DebugOverlay';
 import { features } from '@/config/features';
@@ -439,9 +438,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 
           {/* Media Section */}
           <MediaSidebar messages={chatMessages} />
-
-          {/* Privacy & Support Section */}
-          <PrivacySupportSidebar />
         </div>
       </div>
 
