@@ -14,6 +14,24 @@ import { DebugPanel } from '@/features/chat/mock/components/DebugPanel';
 // Mock practice data - reflects exact state after completing onboarding + Stripe
 const MOCK_PRACTICE_ID = 'mock-practice-services';
 const onboardingCompletedAt = Date.now() - 1000 * 60 * 60 * 24 * 20; // 20 days ago
+const mockServiceDetails = [
+  {
+    id: 'service-1',
+    title: 'Personal Injury',
+    description: 'Representation for accident victims seeking compensation'
+  },
+  {
+    id: 'service-2',
+    title: 'Family Law',
+    description: 'Divorce, custody, and family matters'
+  },
+  {
+    id: 'service-3',
+    title: 'Business Law',
+    description: 'Corporate formation, contracts, and compliance'
+  }
+];
+
 const mockPractice: Practice = {
   id: MOCK_PRACTICE_ID,
   slug: 'mock-law-firm',
@@ -38,7 +56,7 @@ const mockPractice: Practice = {
     profileImage: null,
     introMessage: 'Welcome to Mock Law Firm. How can we help you today?',
     description: 'We provide excellent legal services',
-    availableServices: ['Personal Injury Law', 'Family Law', 'Business Law'],
+    availableServices: ['Personal Injury', 'Family Law', 'Business Law'],
     serviceQuestions: {},
     brandColor: '#2563eb',
     accentColor: '#3b82f6',
@@ -48,6 +66,27 @@ const mockPractice: Practice = {
     }
   },
   metadata: {
+    conversationConfig: {
+      ownerEmail: 'owner@mock-law.test',
+      introMessage: 'Welcome to Mock Law Firm. How can we help you today?',
+      description: 'We provide excellent legal services',
+      availableServices: ['Personal Injury', 'Family Law', 'Business Law'],
+      serviceQuestions: {},
+      domain: '',
+      brandColor: '#2563eb',
+      accentColor: '#3b82f6',
+      profileImage: null,
+      voice: {
+        enabled: false,
+        provider: 'cloudflare',
+        voiceId: null,
+        displayName: null,
+        previewUrl: null
+      },
+      metadata: {
+        serviceDetails: mockServiceDetails
+      }
+    },
     onboarding: {
       status: 'completed', // This drives businessOnboardingStatus = 'completed'
       completed: true,
@@ -70,23 +109,7 @@ const mockPractice: Practice = {
         introMessage: 'Welcome to Mock Law Firm. How can we help you today?',
         overview: 'We provide excellent legal services',
         isPublic: true,
-        services: [
-          {
-            id: 'service-1',
-            title: 'Personal Injury Law',
-            description: 'Representation for accident victims seeking compensation'
-          },
-          {
-            id: 'service-2',
-            title: 'Family Law',
-            description: 'Divorce, custody, and family matters'
-          },
-          {
-            id: 'service-3',
-            title: 'Business Law',
-            description: 'Corporate formation, contracts, and compliance'
-          }
-        ],
+        services: mockServiceDetails,
         __meta: {
           resumeStep: 'review-and-launch',
           savedAt: onboardingCompletedAt
@@ -130,6 +153,83 @@ export function MockServicesPage() {
     if (!isDevMode) return;
 
     console.log('[MockServicesPage] Setting up mock interceptors and session');
+
+    const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+      typeof value === 'object' && value !== null && !Array.isArray(value);
+
+    const parsePayload = (data: unknown): Record<string, unknown> | null => {
+      if (!data) return null;
+      if (typeof data === 'string') {
+        try {
+          return JSON.parse(data) as Record<string, unknown>;
+        } catch (err) {
+          console.warn('[MockServicesPage] Failed to parse payload', err);
+          return null;
+        }
+      }
+      return isPlainObject(data) ? data : null;
+    };
+
+    const resolveServiceDetails = (config: Record<string, unknown>): typeof mockServiceDetails => {
+      const metadata = isPlainObject(config.metadata) ? (config.metadata as Record<string, unknown>) : {};
+      const serviceDetails = metadata.serviceDetails;
+      if (Array.isArray(serviceDetails)) {
+        const parsed = serviceDetails
+          .map((item) => {
+            if (!isPlainObject(item)) return null;
+            const title = typeof item.title === 'string' ? item.title : '';
+            if (!title.trim()) return null;
+            return {
+              id: typeof item.id === 'string' ? item.id : `service-${Date.now()}`,
+              title,
+              description: typeof item.description === 'string' ? item.description : ''
+            };
+          })
+          .filter((item): item is (typeof mockServiceDetails)[number] => item !== null);
+        if (parsed.length > 0) return parsed;
+      }
+
+      const available = Array.isArray(config.availableServices)
+        ? config.availableServices.filter((item): item is string => typeof item === 'string')
+        : [];
+      return available.map((title, index) => ({
+        id: `service-${index + 1}`,
+        title,
+        description: ''
+      }));
+    };
+
+    const applyPracticeUpdate = (payload: Record<string, unknown>) => {
+      if (typeof payload.name === 'string') {
+        mockPractice.name = payload.name;
+      }
+      if (isPlainObject(payload.metadata)) {
+        mockPractice.metadata = {
+          ...(mockPractice.metadata ?? {}),
+          ...payload.metadata
+        };
+
+        const conversationConfig = (payload.metadata as Record<string, unknown>).conversationConfig;
+        if (isPlainObject(conversationConfig)) {
+          mockPractice.metadata = {
+            ...(mockPractice.metadata ?? {}),
+            conversationConfig
+          };
+          mockPractice.config = {
+            ...(mockPractice.config ?? {}),
+            ...conversationConfig
+          };
+          if (Array.isArray(conversationConfig.availableServices)) {
+            mockPractice.config = {
+              ...(mockPractice.config ?? {}),
+              availableServices: conversationConfig.availableServices
+            };
+          }
+          const updatedServices = resolveServiceDetails(conversationConfig);
+          mock.updateServices(updatedServices);
+        }
+      }
+    };
     
     // Override authClient.useSession to return mock session
     (authClient as any).useSession = () => mockSession;
@@ -161,6 +261,22 @@ export function MockServicesPage() {
           };
         }
         
+        // Mock practice update endpoint
+        if (
+          url.includes(`/api/practice/${mockPractice.id}`) &&
+          response.config.method?.toLowerCase() === 'put'
+        ) {
+          const payload = parsePayload(response.config.data);
+          if (payload) {
+            applyPracticeUpdate(payload);
+          }
+          console.log('[MockServicesPage] Intercepting practice update, returning mock data');
+          return {
+            ...response,
+            data: { practice: mockPractice }
+          };
+        }
+
         // Mock single practice endpoint
         if (url.includes(`/api/practice/${mockPractice.id}`) && !url.includes('/members') && !url.includes('/invitations')) {
           console.log('[MockServicesPage] Intercepting practice get, returning mock data');
@@ -225,6 +341,24 @@ export function MockServicesPage() {
           });
         }
         
+        if (
+          url.includes(`/api/practice/${mockPractice.id}`) &&
+          error.config?.method?.toLowerCase() === 'put'
+        ) {
+          const payload = parsePayload(error.config?.data);
+          if (payload) {
+            applyPracticeUpdate(payload);
+          }
+          console.log('[MockServicesPage] Returning mock practice update data');
+          return Promise.resolve({
+            data: { practice: mockPractice },
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: error.config
+          });
+        }
+
         if (url.includes(`/api/practice/${mockPractice.id}`) && !url.includes('/members') && !url.includes('/invitations')) {
           console.log('[MockServicesPage] Returning mock practice data');
           return Promise.resolve({

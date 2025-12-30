@@ -6,7 +6,7 @@ import {
   TrashIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
-import { usePracticeManagement, type Role, type MatterWorkflowStatus } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeManagement, type Role, type MatterWorkflowStatus, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { features } from '@/config/features';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
@@ -25,6 +25,13 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { PracticeLogo } from '@/shared/ui/sidebar/atoms/PracticeLogo';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
+import { ServicesList } from '@/features/services/components/ServicesList';
+import { ServiceCard } from '@/features/services/components/ServiceCard';
+import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
+import { useServices } from '@/features/services/hooks/useServices';
+import type { Service } from '@/features/services/types';
+import { normalizeServices } from '@/features/services/utils';
+import type { PracticeConfig } from '../../../../worker/types';
 
 interface PracticePageProps {
   className?: string;
@@ -41,6 +48,97 @@ interface LeadSummary {
   createdAt: string;
   updatedAt: string;
 }
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const resolveVoiceProvider = (value: unknown): PracticeConfig['voice']['provider'] => {
+  if (value === 'cloudflare' || value === 'elevenlabs' || value === 'custom') {
+    return value;
+  }
+  return 'cloudflare';
+};
+
+const resolveConversationConfig = (practice: Practice | null): PracticeConfig | null => {
+  if (!practice) return null;
+  const metadata = practice.metadata;
+  if (isPlainObject(metadata)) {
+    const candidate = metadata.conversationConfig;
+    if (isPlainObject(candidate)) {
+      return candidate as PracticeConfig;
+    }
+  }
+  const config = practice.config;
+  if (isPlainObject(config)) {
+    const nestedCandidate = (config as Record<string, unknown>).conversationConfig;
+    if (isPlainObject(nestedCandidate)) {
+      return nestedCandidate as PracticeConfig;
+    }
+    if (
+      'availableServices' in config ||
+      'serviceQuestions' in config ||
+      'introMessage' in config
+    ) {
+      return config as PracticeConfig;
+    }
+  }
+  return null;
+};
+
+const buildBaseConversationConfig = (config: PracticeConfig | null): PracticeConfig => {
+  const voice = isPlainObject(config?.voice) ? (config?.voice as Record<string, unknown>) : {};
+  return {
+    ownerEmail: typeof config?.ownerEmail === 'string' ? config.ownerEmail : undefined,
+    availableServices: Array.isArray(config?.availableServices) ? config.availableServices : [],
+    serviceQuestions: isPlainObject(config?.serviceQuestions)
+      ? (config?.serviceQuestions as Record<string, string[]>)
+      : {},
+    domain: typeof config?.domain === 'string' ? config.domain : '',
+    description: typeof config?.description === 'string' ? config.description : '',
+    brandColor: typeof config?.brandColor === 'string' ? config.brandColor : '#000000',
+    accentColor: typeof config?.accentColor === 'string' ? config.accentColor : '#000000',
+    introMessage: typeof config?.introMessage === 'string' ? config.introMessage : '',
+    profileImage: typeof config?.profileImage === 'string' ? config.profileImage : undefined,
+    voice: {
+      enabled: typeof voice.enabled === 'boolean' ? voice.enabled : false,
+      provider: resolveVoiceProvider(voice.provider),
+      voiceId: typeof voice.voiceId === 'string' ? voice.voiceId : null,
+      displayName: typeof voice.displayName === 'string' ? voice.displayName : null,
+      previewUrl: typeof voice.previewUrl === 'string' ? voice.previewUrl : null
+    },
+    metadata: isPlainObject(config?.metadata) ? (config?.metadata as Record<string, unknown>) : {}
+  };
+};
+
+const coerceServiceDetails = (value: unknown): Service[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!isPlainObject(item)) return null;
+      const title = typeof item.title === 'string' ? item.title : '';
+      if (!title.trim()) return null;
+      return {
+        id: typeof item.id === 'string' ? item.id : '',
+        title,
+        description: typeof item.description === 'string' ? item.description : ''
+      } as Service;
+    })
+    .filter((item): item is Service => item !== null);
+};
+
+const resolveServiceDetails = (config: PracticeConfig | null): Service[] => {
+  if (!config) return [];
+  const metadata = isPlainObject(config.metadata) ? (config.metadata as Record<string, unknown>) : null;
+  const details = metadata ? coerceServiceDetails(metadata.serviceDetails) : [];
+  if (details.length > 0) {
+    return normalizeServices(details, SERVICE_CATALOG);
+  }
+  const available = Array.isArray(config.availableServices)
+    ? config.availableServices.filter((item): item is string => typeof item === 'string')
+    : [];
+  const fallback = available.map((title) => ({ id: '', title, description: '' }));
+  return normalizeServices(fallback, SERVICE_CATALOG);
+};
 
 export const PracticePage = ({ className = '' }: PracticePageProps) => {
   const { data: session } = authClient.useSession();
@@ -127,6 +225,31 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   const isOwner = currentUserRole === 'owner';
   const isAdmin = (currentUserRole === 'admin' || isOwner) ?? false;
   const canReviewLeads = isAdmin || isOwner;
+  const canManageServices = isAdmin || isOwner;
+
+  const conversationConfig = useMemo(
+    () => resolveConversationConfig(currentPractice),
+    [currentPractice]
+  );
+  const initialServiceDetails = useMemo(
+    () => resolveServiceDetails(conversationConfig),
+    [conversationConfig]
+  );
+
+  const {
+    services: serviceDrafts,
+    addCustomService,
+    updateService,
+    removeService,
+    getServiceTitlesForSave,
+    getServiceDetailsForSave
+  } = useServices({
+    initialServices: initialServiceDetails,
+    catalog: SERVICE_CATALOG
+  });
+
+  const [isSavingServices, setIsSavingServices] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
 
   const loadLeadQueue = useCallback(async () => {
     if (!currentPractice?.id || !canReviewLeads) {
@@ -332,6 +455,43 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
       setIsEditingPractice(false);
 		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update practice');
+    }
+  };
+
+  const handleSaveServices = async () => {
+    if (!currentPractice) return;
+    setIsSavingServices(true);
+    setServicesError(null);
+
+    try {
+      const baseConfig = buildBaseConversationConfig(conversationConfig);
+      const updatedConfig: PracticeConfig = {
+        ...baseConfig,
+        availableServices: getServiceTitlesForSave(),
+        metadata: {
+          ...(baseConfig.metadata || {}),
+          serviceDetails: getServiceDetailsForSave()
+        }
+      };
+
+      const metadataBase = isPlainObject(currentPractice.metadata)
+        ? currentPractice.metadata
+        : {};
+
+      await updatePractice(currentPractice.id, {
+        metadata: {
+          ...metadataBase,
+          conversationConfig: updatedConfig
+        }
+      });
+
+      showSuccess('Services updated', 'Your practice services have been saved.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update services';
+      setServicesError(message);
+      showError('Services update failed', message);
+    } finally {
+      setIsSavingServices(false);
     }
   };
 
@@ -687,6 +847,57 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                   </div>
                 </>
               )}
+
+              <div className="border-t border-gray-200 dark:border-dark-border" />
+
+              {/* Services Section */}
+              <div className="py-3">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Services</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Manage the legal services shown to clients during intake.
+                    </p>
+                  </div>
+                  {canManageServices && (
+                    <Button size="sm" onClick={handleSaveServices} disabled={isSavingServices}>
+                      {isSavingServices ? 'Saving...' : 'Save Services'}
+                    </Button>
+                  )}
+                </div>
+
+                {servicesError && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mb-3">
+                    {servicesError}
+                  </p>
+                )}
+
+                {canManageServices ? (
+                  <ServicesList
+                    services={serviceDrafts}
+                    onUpdateService={updateService}
+                    onRemoveService={removeService}
+                    onAddService={(service) => addCustomService(service)}
+                    emptyMessage="Select from the catalog or add a custom service."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {serviceDrafts.length > 0 ? (
+                      serviceDrafts.map((service) => (
+                        <ServiceCard
+                          key={service.id}
+                          title={service.title}
+                          description={service.description}
+                        />
+                      ))
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        No services configured yet.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
 

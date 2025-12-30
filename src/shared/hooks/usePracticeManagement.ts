@@ -101,6 +101,7 @@ export interface UpdatePracticeData {
   name?: string;
   slug?: string;
   description?: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface UsePracticeManagementOptions {
@@ -325,6 +326,7 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     seats,
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
+    metadata: metadataRecord,
     config: cfg,
     betterAuthOrgId,
     kind: resolvedKind,
@@ -633,16 +635,43 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       payload.slug = data.slug.trim();
     }
 
+    const existingPractice = practices.find(practice => practice.id === id);
+    const metadataBase = (() => {
+      const direct = existingPractice?.metadata;
+      if (isPlainObject(direct)) {
+        return direct;
+      }
+      const config = existingPractice?.config;
+      if (isPlainObject(config)) {
+        const configMetadata = (config as Record<string, unknown>).metadata;
+        if (isPlainObject(configMetadata)) {
+          return configMetadata;
+        }
+        if ('conversationConfig' in config || 'onboarding' in config) {
+          return config;
+        }
+      }
+      return {};
+    })();
+
+    let metadataNext: Record<string, unknown> | null = null;
+
     if (typeof data.description === 'string') {
-      const existingPractice = practices.find(practice => practice.id === id);
-      const existingMetadata = existingPractice?.config?.metadata;
-      const metadataBase = existingMetadata && typeof existingMetadata === 'object' && !Array.isArray(existingMetadata)
-        ? existingMetadata
-        : {};
-      payload.metadata = {
-        ...metadataBase,
+      metadataNext = {
+        ...(metadataNext ?? metadataBase),
         description: data.description
       };
+    }
+
+    if (isPlainObject(data.metadata)) {
+      metadataNext = {
+        ...(metadataNext ?? metadataBase),
+        ...data.metadata
+      };
+    }
+
+    if (metadataNext) {
+      payload.metadata = metadataNext;
     }
 
     if (Object.keys(payload).length === 0) {

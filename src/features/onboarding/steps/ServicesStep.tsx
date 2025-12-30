@@ -2,16 +2,15 @@
  * Services Step Component
  */
 
-import { Input, Textarea } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { ValidationAlert } from '../components/ValidationAlert';
 import { OnboardingActions } from '../components/OnboardingActions';
-
-interface Service {
-  id: string;
-  title: string;
-  description: string;
-}
+import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
+import { ServiceCard } from '@/features/services/components/ServiceCard';
+import { ServiceForm } from '@/features/services/components/ServiceForm';
+import { useServices } from '@/features/services/hooks/useServices';
+import { isCatalogService } from '@/features/services/utils';
+import type { Service } from '@/features/services/types';
 
 interface ServicesStepProps {
   data: Service[];
@@ -22,28 +21,20 @@ interface ServicesStepProps {
 }
 
 export function ServicesStep({ data, onChange, onContinue, onBack, errors }: ServicesStepProps) {
-  const addService = () => {
-    const newService: Service = {
-      id: `service-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-      title: '',
-      description: ''
-    };
-    onChange([...data, newService]);
-  };
+  const {
+    services,
+    toggleCatalogService,
+    addCustomService,
+    updateService,
+    removeService,
+    selectedCatalogIds
+  } = useServices({
+    initialServices: data,
+    catalog: SERVICE_CATALOG,
+    onChange
+  });
 
-  const updateService = (id: string, field: keyof Omit<Service, 'id'>, value: string) => {
-    const updated = data.map(service => 
-      service.id === id 
-        ? { ...service, [field]: value }
-        : service
-    );
-    onChange(updated);
-  };
-
-  const removeService = (id: string) => {
-    const updated = data.filter(service => service.id !== id);
-    onChange(updated);
-  };
+  const customServices = services.filter((service) => !isCatalogService(service, SERVICE_CATALOG));
 
   return (
     <div className="space-y-6">
@@ -58,30 +49,53 @@ export function ServicesStep({ data, onChange, onContinue, onBack, errors }: Ser
           <h3 className="text-lg font-medium text-gray-900 dark:text-white">
             Practice Areas & Services
           </h3>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={addService}
-          >
-            Add Service
-          </Button>
         </div>
 
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Add the legal services you offer. This helps the AI assistant provide more relevant guidance to potential clients.
+          Select the legal services you offer. We&apos;ll prefill descriptions and you can edit them later in settings.
         </p>
 
-        {data.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <p>No services added yet. Click &quot;Add Service&quot; to get started.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {SERVICE_CATALOG.map((service) => (
+            <ServiceCard
+              key={service.id}
+              title={service.title}
+              description={service.description}
+              icon={service.icon}
+              selected={selectedCatalogIds.has(service.id)}
+              onSelect={() => toggleCatalogService(service)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Custom Services</h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Add anything not listed above. You can edit these now.
+            </p>
           </div>
+          <Button variant="secondary" size="sm" onClick={() => addCustomService()}>
+            Add Custom Service
+          </Button>
+        </div>
+
+        {customServices.length === 0 ? (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            No custom services added yet.
+          </p>
         ) : (
           <div className="space-y-4">
-            {data.map((service, index) => (
-              <div key={service.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+            {customServices.map((service, index) => (
+              <div
+                key={service.id}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3"
+              >
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                    Service {index + 1}
+                    Custom Service {index + 1}
                   </h4>
                   <Button
                     variant="ghost"
@@ -92,20 +106,10 @@ export function ServicesStep({ data, onChange, onContinue, onBack, errors }: Ser
                     Remove
                   </Button>
                 </div>
-                
-                <Input
-                  label="Service Title"
-                  value={service.title}
-                  onChange={(value) => updateService(service.id, 'title', value)}
-                  placeholder="e.g., Personal Injury Law"
-                />
-                
-                <Textarea
-                  label="Description (optional)"
-                  value={service.description}
-                  onChange={(value) => updateService(service.id, 'description', value)}
-                  placeholder="Brief description of this service..."
-                  rows={2}
+
+                <ServiceForm
+                  value={{ title: service.title, description: service.description }}
+                  onChange={(value) => updateService(service.id, value)}
                 />
               </div>
             ))}
