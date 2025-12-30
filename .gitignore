@@ -50,6 +50,8 @@ test-logs-*/
 
 # Cloudflare configuration (contains sensitive IDs)
 wrangler.toml
+!wrangler.toml
+!worker/wrangler.toml
 .wrangler/
 
 # Temporary migration files (may contain sensitive data)
