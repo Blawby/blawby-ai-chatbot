@@ -109,6 +109,7 @@ const PersonalInfoStep = ({ data: _data, onComplete, onBack }: PersonalInfoStepP
                         value={(value as string) || ''}
                         onChange={(date) => onChange(date as string)}
                         placeholder={t('onboarding.step1.birthdayPlaceholder')}
+                        isBirthday
                         format="date"
                         max={new Date().toISOString().split('T')[0]} // Prevent future dates
                         required
