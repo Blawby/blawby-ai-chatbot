@@ -7,8 +7,8 @@
   "scripts": {
     "dev": "vite",
     "dev:mock": "cross-env VITE_ENABLE_MSW=true vite",
-    "dev:worker": "wrangler dev --port 8787",
-    "dev:worker:clean": "lsof -ti:8787 | xargs kill -9 2>/dev/null || true && wrangler dev --port 8787",
+    "dev:worker": "wrangler dev --port 8787 --config worker/wrangler.toml",
+    "dev:worker:clean": "lsof -ti:8787 | xargs kill -9 2>/dev/null || true && wrangler dev --port 8787 --config worker/wrangler.toml",
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:worker\"",
     "build": "vite build",
     "preview": "vite preview",

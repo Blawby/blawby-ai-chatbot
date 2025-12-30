@@ -431,26 +431,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     m.isUser && m.metadata?.isContactFormSubmission
   );
   
-  if (messages.length > 0) {
-    logDev('[IntakeFlow] Message analysis', {
-      totalMessages: messages.length,
-      userMessagesCount: userMessages.length,
-      hasSubmittedContactForm,
-      messagesWithIsUser: messages.map(m => ({ 
-        id: m.id, 
-        isUser: m.isUser, 
-        role: m.role, 
-        content: m.content.substring(0, 50),
-        hasIsUserProperty: 'isUser' in m,
-        isUserType: typeof m.isUser,
-        isUserValue: m.isUser,
-        hasMetadata: !!m.metadata,
-        hasContactFormFlag: !!m.metadata?.isContactFormSubmission,
-        metadataKeys: m.metadata ? Object.keys(m.metadata) : []
-      }))
-    });
-  }
-  
   const intakeDecision = messages.find(m => {
     const decision = m.metadata?.intakeDecision;
     return decision === 'accepted' || decision === 'rejected';
@@ -475,13 +455,38 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
   const currentStep = intakeStep();
   
-  logDev('[IntakeFlow] Step calculation', {
-    isAnonymous,
-    userMessagesCount: userMessages.length,
-    hasSubmittedContactForm,
-    currentStep,
-    messagesCount: messages.length
-  });
+  // Memoize logging to prevent excessive console output
+  useEffect(() => {
+    if (messages.length > 0) {
+      logDev('[IntakeFlow] Message analysis', {
+        totalMessages: messages.length,
+        userMessagesCount: userMessages.length,
+        hasSubmittedContactForm,
+        messagesWithIsUser: messages.map(m => ({ 
+          id: m.id, 
+          isUser: m.isUser, 
+          role: m.role, 
+          content: m.content.substring(0, 50),
+          hasIsUserProperty: 'isUser' in m,
+          isUserType: typeof m.isUser,
+          isUserValue: m.isUser,
+          hasMetadata: !!m.metadata,
+          hasContactFormFlag: !!m.metadata?.isContactFormSubmission,
+          metadataKeys: m.metadata ? Object.keys(m.metadata) : []
+        }))
+      });
+    }
+  }, [messages, userMessages.length, hasSubmittedContactForm, logDev]);
+  
+  useEffect(() => {
+    logDev('[IntakeFlow] Step calculation', {
+      isAnonymous,
+      userMessagesCount: userMessages.length,
+      hasSubmittedContactForm,
+      currentStep,
+      messagesCount: messages.length
+    });
+  }, [isAnonymous, userMessages.length, hasSubmittedContactForm, currentStep, messages.length, logDev]);
 
   // Inject system messages based on step
   useEffect(() => {
