@@ -7,13 +7,21 @@ interface MockChatControlsProps {
 }
 
 export function MockChatControls({ mock }: MockChatControlsProps) {
-  const { state, resetConversation, simulateScenario, setSimulationSpeed, setSimulateDeliveryDelay, setSimulateTyping } = mock;
+  const {
+    state,
+    resetConversation,
+    simulateScenario,
+    setSimulationSpeed,
+    setSimulateDeliveryDelay,
+    setSimulateTyping,
+    setIsAnonymous
+  } = mock;
   const userCount = state.messages.filter((m) => m.isUser).length;
   const practiceCount = state.messages.length - userCount;
   const lastActivity = state.messages[state.messages.length - 1]?.timestamp;
 
   return (
-    <div className="w-80 border-r border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-surface p-4 flex flex-col gap-4">
+    <div className="w-80 border-r border-gray-200 dark:border-dark-border bg-light-card-bg dark:bg-dark-card-bg p-4 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Mock Chat Controls</p>
@@ -39,6 +47,15 @@ export function MockChatControls({ mock }: MockChatControlsProps) {
       </div>
 
       <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm text-gray-700 dark:text-gray-200" htmlFor="anonymous-toggle">Anonymous Intake</label>
+          <input
+            id="anonymous-toggle"
+            type="checkbox"
+            checked={state.isAnonymous}
+            onChange={(e) => setIsAnonymous((e.target as HTMLInputElement).checked)}
+          />
+        </div>
         <div className="flex items-center justify-between">
           <label className="text-sm text-gray-700 dark:text-gray-200" htmlFor="simulate-typing-toggle">Simulate Typing</label>
           <input

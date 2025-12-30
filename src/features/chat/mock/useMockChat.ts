@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { FileAttachment } from '../../../../worker/types';
 import type { DebugEvent, MockChatState, MockMessage, UseMockChatResult } from './types';
 import { scenarios } from './scenarios';
@@ -8,22 +9,15 @@ const DEFAULT_DELAY = 600;
 
 export function useMockChat(): UseMockChatResult {
   const [state, setState] = useState<MockChatState>({
-    messages: [
-      {
-        id: randomId(),
-        content: 'Welcome to the mock chat! Use the controls on the left to run scenarios.',
-        isUser: false,
-        role: 'assistant',
-        timestamp: Date.now()
-      }
-    ],
+    messages: [],
     conversationId: randomId(),
     status: 'ready',
     isTyping: false,
     errorMessage: null,
     simulationSpeed: 1,
     simulateDeliveryDelay: true,
-    simulateTyping: true
+    simulateTyping: true,
+    isAnonymous: true
   });
   const [debugEvents, setDebugEvents] = useState<DebugEvent[]>([]);
   const [previewFiles, setPreviewFiles] = useState<FileAttachment[]>([]);
@@ -69,6 +63,101 @@ export function useMockChat(): UseMockChatResult {
     }));
   }, []);
 
+  const intakeStatus = useMemo(() => {
+    if (!state.isAnonymous) {
+      return { step: 'completed' };
+    }
+
+    const intakeDecision = state.messages.find((message) => {
+      const decision = message.metadata?.intakeDecision;
+      return decision === 'accepted' || decision === 'rejected';
+    })?.metadata?.intakeDecision as 'accepted' | 'rejected' | undefined;
+
+    if (intakeDecision === 'accepted') {
+      return { step: 'accepted_needs_auth' };
+    }
+    if (intakeDecision === 'rejected') {
+      return { step: 'rejected' };
+    }
+
+    const userMessages = state.messages.filter((message) => message.isUser);
+    const hasSubmittedContactForm = state.messages.some(
+      (message) => message.isUser && message.metadata?.isContactFormSubmission
+    );
+
+    if (userMessages.length === 0) return { step: 'ready' };
+    if (userMessages.length >= 1 && !hasSubmittedContactForm) return { step: 'contact_form' };
+    if (hasSubmittedContactForm) return { step: 'pending_review' };
+    return { step: 'completed' };
+  }, [state.isAnonymous, state.messages]);
+
+  useEffect(() => {
+    if (!state.isAnonymous) return;
+
+    setState((prev) => {
+      const hasWelcome = prev.messages.some((message) => message.id === 'system-welcome');
+      const hasContactForm = prev.messages.some((message) => message.id === 'system-contact-form');
+      const hasSubmissionConfirm = prev.messages.some((message) => message.id === 'system-submission-confirm');
+      const userMessages = prev.messages.filter((message) => message.isUser);
+      const hasSubmittedContactForm = prev.messages.some(
+        (message) => message.isUser && message.metadata?.isContactFormSubmission
+      );
+
+      let messages = [...prev.messages];
+      let changed = false;
+
+      const maxTimestamp = messages.length > 0 ? Math.max(...messages.map((message) => message.timestamp)) : Date.now();
+      let nextTimestamp = maxTimestamp + 1;
+
+      const addSystemMessage = (id: string, content: string, extras?: Partial<MockMessage>) => {
+        messages = [
+          ...messages,
+          {
+            id,
+            content,
+            isUser: false,
+            role: 'assistant',
+            timestamp: nextTimestamp++,
+            ...extras
+          }
+        ];
+        changed = true;
+      };
+
+      if (!hasWelcome && messages.length === 0) {
+        addSystemMessage(
+          'system-welcome',
+          "Hi! I'm Blawby AI. Share a quick summary of your case and I'll guide you to the right next step."
+        );
+      }
+
+      if (userMessages.length >= 1 && !hasContactForm) {
+        addSystemMessage('system-contact-form', 'Could you share your contact details? It will help us find the best lawyer for your case.', {
+          contactForm: {
+            fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
+            required: ['name', 'email'],
+            message: undefined
+          }
+        });
+      }
+
+      if (hasSubmittedContactForm && !hasSubmissionConfirm) {
+        addSystemMessage(
+          'system-submission-confirm',
+          "Thanks! I've sent your intake to the practice. A legal professional will review it and reply here. You'll receive in-app updates as soon as there's a decision."
+        );
+      }
+
+      if (!changed) return prev;
+
+      messages = messages.sort((a, b) => a.timestamp - b.timestamp);
+      return {
+        ...prev,
+        messages
+      };
+    });
+  }, [state.isAnonymous, state.messages]);
+
   const simulateUserMessage = useCallback(
     async (messageText: string, attachments: FileAttachment[] = []) => {
       const id = randomId();
@@ -106,6 +195,84 @@ export function useMockChat(): UseMockChatResult {
       return id;
     },
     [addDebugEvent, delay, setStatus, state.simulateDeliveryDelay, updateMessageMetadata]
+  );
+
+  const simulateContactFormSubmit = useCallback(
+    async (contactData: ContactData) => {
+      const id = randomId();
+      const contactMessage = `Contact Information:
+Name: ${contactData.name}
+Email: ${contactData.email}
+Phone: ${contactData.phone}
+Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party: ${contactData.opposingParty}` : ''}${contactData.description ? `\nDescription: ${contactData.description}` : ''}`;
+
+      const message: MockMessage = {
+        id,
+        content: contactMessage,
+        isUser: true,
+        role: 'user',
+        timestamp: Date.now(),
+        metadata: {
+          isContactFormSubmission: true
+        }
+      };
+
+      setState((prev) => {
+        const hasContactForm = prev.messages.some((existing) => existing.id === 'system-contact-form');
+        let messages = [...prev.messages];
+        let nextTimestamp = Math.max(Date.now(), messages.length > 0 ? Math.max(...messages.map((m) => m.timestamp)) + 1 : Date.now());
+
+        if (prev.isAnonymous && !hasContactForm) {
+          messages = [
+            ...messages,
+            {
+              id: 'system-contact-form',
+              content: 'Could you share your contact details? It will help us find the best lawyer for your case.',
+              isUser: false,
+              role: 'assistant',
+              timestamp: nextTimestamp++,
+              contactForm: {
+                fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
+                required: ['name', 'email'],
+                message: undefined
+              }
+            }
+          ];
+        }
+
+        messages = [
+          ...messages,
+          {
+            ...message,
+            timestamp: nextTimestamp++
+          }
+        ];
+
+        return {
+          ...prev,
+          messages,
+          status: 'submitting'
+        };
+      });
+      addDebugEvent('contact_form:submitted', {
+        id,
+        fields: {
+          name: !!contactData.name,
+          email: !!contactData.email,
+          phone: !!contactData.phone,
+          location: !!contactData.location,
+          opposingParty: !!contactData.opposingParty,
+          description: !!contactData.description
+        }
+      });
+
+      if (state.simulateDeliveryDelay) {
+        await delay(DEFAULT_DELAY / 1.5);
+      }
+
+      setStatus('ready');
+    },
+    [addDebugEvent, delay, setStatus, state.simulateDeliveryDelay]
   );
 
   const simulatePracticeMemberResponse = useCallback(
@@ -153,32 +320,81 @@ export function useMockChat(): UseMockChatResult {
 
       isRunningScenario.current = true;
       addDebugEvent('scenario:start', { scenarioId });
-      setState((prev) => ({ ...prev, messages: [], status: 'ready', isTyping: false }));
+      setState((prev) => ({
+        ...prev,
+        messages: [],
+        status: 'ready',
+        isTyping: false,
+        isAnonymous: scenario.mode !== 'authenticated'
+      }));
+
+      const ensurePrefilledContactForm = async (contactData: ContactData) => {
+        setState((prev) => {
+          if (!prev.isAnonymous) return prev;
+
+          const contactFormPayload = {
+            fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
+            required: ['name', 'email'],
+            message: undefined,
+            initialValues: {
+              name: contactData.name,
+              email: contactData.email,
+              phone: contactData.phone,
+              location: contactData.location,
+              opposingParty: contactData.opposingParty
+            }
+          };
+
+          let changed = false;
+          let messages = prev.messages.map((message) => {
+            if (message.id !== 'system-contact-form') return message;
+            changed = true;
+            return {
+              ...message,
+              contactForm: contactFormPayload
+            };
+          });
+
+          if (!changed) {
+            const nextTimestamp =
+              messages.length > 0 ? Math.max(...messages.map((message) => message.timestamp)) + 1 : Date.now();
+            messages = [
+              ...messages,
+              {
+                id: 'system-contact-form',
+                content: 'Could you share your contact details? It will help us find the best lawyer for your case.',
+                isUser: false,
+                role: 'assistant',
+                timestamp: nextTimestamp,
+                contactForm: contactFormPayload
+              }
+            ];
+            changed = true;
+          }
+
+          return changed ? { ...prev, messages } : prev;
+        });
+      };
 
       for (const step of scenario.steps) {
         if (step.type === 'user') {
-          const messageId = await simulateUserMessage(step.content, step.attachments ?? []);
-          if (scenario.id === 'error-state') {
-            updateMessageMetadata(messageId, applyDeliveryState(undefined, 'error'));
-            addDebugEvent('message:error', { id: messageId });
-          }
+          if (!step.content) continue;
+          await simulateUserMessage(step.content, step.attachments ?? []);
+        } else if (step.type === 'contact_form_submit') {
+          if (!step.contactData) continue;
+          await ensurePrefilledContactForm(step.contactData);
+          await delay(DEFAULT_DELAY / 1.5);
+          await simulateContactFormSubmit(step.contactData);
         } else {
-          const avatarName =
-            scenario.id === 'multiple-participants'
-              ? step.content.includes('Taylor')
-                ? 'Taylor'
-                : step.content.includes('Alex')
-                  ? 'Alex'
-                  : 'Practice Member'
-              : undefined;
-          await simulatePracticeMemberResponse(step.content, step.delay ?? DEFAULT_DELAY, avatarName);
+          if (!step.content) continue;
+          await simulatePracticeMemberResponse(step.content, step.delay ?? DEFAULT_DELAY);
         }
       }
 
       addDebugEvent('scenario:complete', { scenarioId });
       isRunningScenario.current = false;
     },
-    [addDebugEvent, simulatePracticeMemberResponse, simulateUserMessage, updateMessageMetadata]
+    [addDebugEvent, simulateContactFormSubmit, simulatePracticeMemberResponse, simulateUserMessage]
   );
 
   const resetConversation = useCallback(() => {
@@ -234,6 +450,10 @@ export function useMockChat(): UseMockChatResult {
     setState((prev) => ({ ...prev, simulationSpeed: Math.max(0.1, Math.min(speed, 2)) }));
   }, []);
 
+  const setIsAnonymous = useCallback((value: boolean) => {
+    setState((prev) => ({ ...prev, isAnonymous: value }));
+  }, []);
+
   const setSimulateDeliveryDelay = useCallback((value: boolean) => {
     setState((prev) => ({ ...prev, simulateDeliveryDelay: value }));
   }, []);
@@ -259,11 +479,14 @@ export function useMockChat(): UseMockChatResult {
     setIsRecording,
     isReadyToUpload,
     isSessionReady,
+    intakeStatus,
     simulateUserMessage,
     simulatePracticeMemberResponse,
+    simulateContactFormSubmit,
     simulateScenario,
     resetConversation,
     clearDebugEvents,
+    setIsAnonymous,
     setSimulationSpeed,
     setSimulateDeliveryDelay,
     setSimulateTyping

@@ -5,12 +5,12 @@ interface MockChatInfoProps {
 }
 
 export function MockChatInfo({ mock }: MockChatInfoProps) {
-  const { state, previewFiles } = mock;
+  const { state, previewFiles, intakeStatus } = mock;
   const userCount = state.messages.filter((m) => m.isUser).length;
   const practiceCount = state.messages.length - userCount;
 
   return (
-    <div className="w-80 border-l border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-surface p-4 flex flex-col gap-4">
+    <div className="w-80 border-l border-gray-200 dark:border-dark-border bg-light-card-bg dark:bg-dark-card-bg p-4 flex flex-col gap-4">
       <div>
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Active Components</p>
         <ul className="mt-2 space-y-2 text-xs text-gray-700 dark:text-gray-200">
@@ -44,6 +44,8 @@ export function MockChatInfo({ mock }: MockChatInfoProps) {
           <StateTile label="Status" value={state.status} />
           <StateTile label="Typing" value={state.isTyping ? 'Yes' : 'No'} />
           <StateTile label="Simulation speed" value={`${state.simulationSpeed.toFixed(1)}x`} />
+          <StateTile label="Anonymous" value={state.isAnonymous ? 'Yes' : 'No'} />
+          <StateTile label="Intake step" value={intakeStatus.step} />
         </div>
       </div>
 

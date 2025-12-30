@@ -42,9 +42,12 @@ export function MockChatPage() {
             messages={mock.state.messages}
             onSendMessage={async (message, attachments) => {
               await mock.simulateUserMessage(message, attachments);
-              await mock.simulatePracticeMemberResponse('Thanks for sharing! We are reviewing your message.', 900);
+              if (!mock.state.isAnonymous) {
+                await mock.simulatePracticeMemberResponse('Thanks for sharing! We are reviewing your message.', 900);
+              }
               mock.clearPreviewFiles();
             }}
+            onContactFormSubmit={mock.simulateContactFormSubmit}
             practiceConfig={practiceConfig}
             onOpenSidebar={() => undefined}
             practiceId={practiceConfig.practiceId}
@@ -60,7 +63,7 @@ export function MockChatPage() {
             setIsRecording={mock.setIsRecording}
             isReadyToUpload={mock.isReadyToUpload}
             isSessionReady={mock.isSessionReady}
-            intakeStatus={{ step: 'pending_review' }}
+            intakeStatus={mock.intakeStatus}
           />
         </div>
 

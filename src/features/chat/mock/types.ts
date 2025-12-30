@@ -1,4 +1,5 @@
 import type { ChatMessageUI, FileAttachment } from '../../../../worker/types';
+import type { ContactData } from '@/features/intake/components/ContactForm';
 
 export type DeliveryState = 'sending' | 'sent' | 'delivered' | 'error';
 
@@ -18,6 +19,7 @@ export interface MockChatState {
   simulationSpeed: number;
   simulateDeliveryDelay: boolean;
   simulateTyping: boolean;
+  isAnonymous: boolean;
 }
 
 export interface DebugEvent {
@@ -28,10 +30,11 @@ export interface DebugEvent {
 }
 
 export interface ScenarioStep {
-  type: 'user' | 'practice_member';
-  content: string;
+  type: 'user' | 'practice_member' | 'contact_form_submit';
+  content?: string;
   delay?: number;
   attachments?: FileAttachment[];
+  contactData?: ContactData;
 }
 
 export interface Scenario {
@@ -39,6 +42,7 @@ export interface Scenario {
   name: string;
   description: string;
   steps: ScenarioStep[];
+  mode?: 'anonymous' | 'authenticated';
 }
 
 export interface UseMockChatResult {
@@ -56,11 +60,14 @@ export interface UseMockChatResult {
   setIsRecording: (value: boolean) => void;
   isReadyToUpload: boolean;
   isSessionReady: boolean;
+  intakeStatus: { step: string };
   simulateUserMessage: (messageText: string, attachments?: FileAttachment[]) => Promise<string>;
   simulatePracticeMemberResponse: (messageText: string, delay?: number, avatarName?: string) => Promise<void>;
+  simulateContactFormSubmit: (contactData: ContactData) => Promise<void>;
   simulateScenario: (scenarioId: string) => Promise<void>;
   resetConversation: () => void;
   clearDebugEvents: () => void;
+  setIsAnonymous: (value: boolean) => void;
   setSimulationSpeed: (speed: number) => void;
   setSimulateDeliveryDelay: (value: boolean) => void;
   setSimulateTyping: (value: boolean) => void;

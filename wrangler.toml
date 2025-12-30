@@ -3,6 +3,9 @@ main = "worker/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Pages build output directory for frontend deployments
+pages_build_output_dir = "dist"
+
 # Fresh resources for AI chatbot
 [[kv_namespaces]]
 binding = "CHAT_SESSIONS"
