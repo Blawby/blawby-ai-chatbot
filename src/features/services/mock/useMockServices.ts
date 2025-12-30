@@ -6,7 +6,7 @@ const initialOnboardingServices: Service[] = [];
 const initialEditingServices: Service[] = [
   {
     id: 'service-1',
-    title: 'Personal Injury Law',
+    title: 'Personal Injury',
     description: 'Representation for accident victims seeking compensation'
   },
   {
@@ -107,4 +107,3 @@ export function useMockServices(): UseMockServicesResult {
     addDebugEvent
   };
 }
-

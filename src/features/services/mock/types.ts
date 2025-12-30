@@ -1,10 +1,5 @@
 import type { DebugEvent } from '@/features/chat/mock/types';
-
-export interface Service {
-  id: string;
-  title: string;
-  description: string;
-}
+import type { Service } from '@/features/services/types';
 
 export interface MockServicesState {
   scenario: 'onboarding' | 'editing';
@@ -15,6 +10,7 @@ export interface MockServicesState {
 }
 
 export type { DebugEvent };
+export type { Service };
 
 export interface UseMockServicesResult {
   state: MockServicesState;
@@ -25,4 +21,3 @@ export interface UseMockServicesResult {
   clearDebugEvents: () => void;
   addDebugEvent: (type: string, data?: Record<string, unknown>) => void;
 }
-
