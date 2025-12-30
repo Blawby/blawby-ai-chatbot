@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 // Common validation schemas
+const FileClass = typeof File !== 'undefined' ? File : undefined;
+
 export const commonSchemas = {
   // Text validation
   required: z.string().min(1, 'This field is required'),
@@ -53,11 +55,15 @@ export const commonSchemas = {
   positiveNumber: z.number().positive('Number must be positive'),
   
   // File validation
-  file: z.instanceof(File, { message: 'Please select a valid file' }),
-  imageFile: z.instanceof(File).refine(
-    (file) => file.type.startsWith('image/'),
-    'Please select an image file'
-  ),
+  file: FileClass
+    ? z.instanceof(FileClass, { message: 'Please select a valid file' })
+    : z.any(),
+  imageFile: FileClass
+    ? z.instanceof(FileClass).refine(
+        (file) => file.type.startsWith('image/'),
+        'Please select an image file'
+      )
+    : z.any(),
   
   // Terms agreement
   termsAgreement: z.boolean().refine((val) => val === true, 'You must agree to the terms'),
