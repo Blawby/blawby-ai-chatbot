@@ -70,8 +70,8 @@ vi.mock('../pages/HelpPage', () => ({
 
 
 // Mock the practice management hook
-const mockLoadPractices = vi.fn();
-const mockLoadInvitations = vi.fn();
+const mockFetchPractices = vi.fn();
+const mockFetchInvitations = vi.fn();
 
 // Create mutable mock object
 const usePracticeMgmtMock = {
@@ -80,8 +80,8 @@ const usePracticeMgmtMock = {
   loading: false,
   error: null,
   currentPractice: null,
-  loadPractices: mockLoadPractices,
-  loadInvitations: mockLoadInvitations,
+  fetchPractices: mockFetchPractices,
+  fetchInvitations: mockFetchInvitations,
   acceptMatter: vi.fn(),
   rejectMatter: vi.fn(),
   updateMatterStatus: vi.fn(),
@@ -169,8 +169,8 @@ describe('SettingsPage Integration Tests', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLoadPractices.mockClear();
-    mockLoadInvitations.mockClear();
+    mockFetchPractices.mockClear();
+    mockFetchInvitations.mockClear();
     mockRoute.mockClear();
     mockOnClose.mockClear();
     
@@ -180,8 +180,8 @@ describe('SettingsPage Integration Tests', () => {
     usePracticeMgmtMock.loading = false;
     usePracticeMgmtMock.error = null;
     usePracticeMgmtMock.currentPractice = null;
-    usePracticeMgmtMock.loadPractices = mockLoadPractices;
-    usePracticeMgmtMock.loadInvitations = mockLoadInvitations;
+    usePracticeMgmtMock.fetchPractices = mockFetchPractices;
+    usePracticeMgmtMock.fetchInvitations = mockFetchInvitations;
     usePracticeMgmtMock.acceptMatter = vi.fn();
     usePracticeMgmtMock.rejectMatter = vi.fn();
     usePracticeMgmtMock.updateMatterStatus = vi.fn();
