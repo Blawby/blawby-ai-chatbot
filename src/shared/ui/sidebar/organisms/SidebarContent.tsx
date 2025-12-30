@@ -8,9 +8,8 @@
 import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
-import { ChatBubbleOvalLeftEllipsisIcon, DocumentIcon, RocketLaunchIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleOvalLeftEllipsisIcon, RocketLaunchIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import UserProfile from '@/shared/components/UserProfile';
-import { MatterStatus } from '@/shared/types/matter';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 
 interface SidebarContentProps {
@@ -21,11 +20,9 @@ interface SidebarContentProps {
   };
   currentRoute: string;
   onGoToChats?: () => void;
-  onGoToMatter?: () => void;
   onGoToInbox?: () => void;
   onOpenOnboarding?: () => void;
   onClose?: () => void;
-  matterStatus?: MatterStatus;
   currentPractice?: {
     id: string;
     subscriptionTier?: string;
@@ -40,11 +37,9 @@ export const SidebarContent = ({
   practiceConfig,
   currentRoute,
   onGoToChats,
-  onGoToMatter,
   onGoToInbox,
   onOpenOnboarding,
   onClose,
-  matterStatus,
   currentPractice,
   onboardingStatus,
   onboardingHasDraft = false,

@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig } from 'axios';
+import axios, { type AxiosRequestConfig, type AxiosRequestHeaders } from 'axios';
 import { getTokenAsync, clearToken } from './tokenStorage';
 import {
   getSubscriptionBillingPortalEndpoint,
@@ -69,11 +69,11 @@ apiClient.interceptors.request.use(
 
     const token = await getTokenAsync();
     if (token) {
+      const headers = (config.headers ?? {}) as AxiosRequestHeaders;
       config.headers = {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(config.headers as any),
+        ...headers,
         Authorization: `Bearer ${token}`
-      } as any;
+      };
       if (import.meta.env.DEV) {
         console.log('[apiClient] Added token to request:', config.url);
       }
@@ -249,17 +249,6 @@ function toNullableString(value: unknown): string | null {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
-  }
-  return null;
-}
-
-function toNullableNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
 }

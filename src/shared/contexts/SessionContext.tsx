@@ -1,8 +1,7 @@
-import { FunctionComponent, createContext, useContext, useMemo } from 'preact/compat';
+import { createContext, useContext, useMemo } from 'preact/compat';
 import { ComponentChildren } from 'preact';
 import { authClient } from '@/shared/lib/authClient';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { DEFAULT_PRACTICE_ID } from '@/shared/utils/constants';
 
 interface SessionContextValue {
   session: ReturnType<typeof authClient.useSession>['data'];
@@ -16,7 +15,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData } = authClient.useSession();
 
   const isAnonymous = !sessionData?.user;
-  const { practices, currentPractice } = usePracticeManagement();
+  const { currentPractice } = usePracticeManagement();
 
   const activePracticeIdFromSession =
     (sessionData?.user as { practiceId?: string; activePracticeId?: string })?.practiceId ?? 

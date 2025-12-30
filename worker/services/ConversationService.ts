@@ -803,7 +803,6 @@ export class ConversationService {
     practiceId: string,
     assignedTo: string | null
   ): Promise<Conversation> {
-    const conversation = await this.getConversation(conversationId, practiceId);
     const now = new Date().toISOString();
 
     await this.env.DB.prepare(`

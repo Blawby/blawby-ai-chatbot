@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getCurrentConversationEndpoint, getConversationEndpoint, getChatMessagesEndpoint } from '@/config/api';
-import type { Conversation, ConversationMessage, ConversationMessageUI, GetMessagesOptions } from '@/shared/types/conversation';
+import type { Conversation, ConversationMessage, ConversationMessageUI } from '@/shared/types/conversation';
 
 interface UseConversationOptions {
   conversationId: string;
@@ -388,9 +388,12 @@ export function useConversation({
 
       // Replace temp message with real message
       if (!isDisposedRef.current) {
-        setMessages(prev => prev.map(m => m.id === tempMessage.id ? toUIMessage(data.data!) : m));
-        // Refresh conversation to update updated_at
-        await fetchConversation();
+        const serverMessage = data.data;
+        if (serverMessage) {
+          setMessages(prev => prev.map(m => m.id === tempMessage.id ? toUIMessage(serverMessage) : m));
+          // Refresh conversation to update updated_at
+          await fetchConversation();
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
@@ -450,6 +453,7 @@ export function useConversation({
         abortControllerRef.current.abort();
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, practiceId]); // Only run on mount or when IDs change
 
   // Set up polling

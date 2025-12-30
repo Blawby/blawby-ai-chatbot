@@ -45,11 +45,12 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [internalNotes, setInternalNotes] = useState<string>('');
+  const internalNotesId = 'internal-notes';
+  const tagsLabelId = 'conversation-tags-label';
 
   const {
     conversations,
     stats,
-    total,
     isLoading,
     error,
     refresh,
@@ -109,7 +110,7 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
   const handleAssign = async (conversationId: string, assignedTo: string | null | 'me') => {
     try {
       await assignConversation(conversationId, assignedTo);
-    } catch (err) {
+    } catch (_err) {
       // Error already handled by hook
     }
   };
@@ -117,7 +118,7 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
   const handleUpdatePriority = async (conversationId: string, priority: 'low' | 'normal' | 'high' | 'urgent') => {
     try {
       await updateConversation(conversationId, { priority });
-    } catch (err) {
+    } catch (_err) {
       // Error already handled by hook
     }
   };
@@ -125,7 +126,7 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
   const handleUpdateStatus = async (conversationId: string, status: 'active' | 'archived' | 'closed') => {
     try {
       await updateConversation(conversationId, { status });
-    } catch (err) {
+    } catch (_err) {
       // Error already handled by hook
     }
   };
@@ -414,10 +415,11 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
 
                 {/* Internal Notes */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label htmlFor={internalNotesId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Internal Notes
                   </label>
                   <textarea
+                    id={internalNotesId}
                     value={internalNotes}
                     onChange={(e) => {
                       const value = e.currentTarget.value;
@@ -436,9 +438,9 @@ export const InboxPage = ({ className = '' }: InboxPageProps) => {
                 {/* Tags */}
                 {selectedConversation.tags && selectedConversation.tags.length > 0 && (
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <p id={tagsLabelId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Tags
-                    </label>
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {selectedConversation.tags.map((tag, idx) => (
                         <span

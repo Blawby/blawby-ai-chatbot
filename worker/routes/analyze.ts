@@ -1,7 +1,7 @@
 import type { Env } from '../types';
 import { HttpErrors, createSuccessResponse } from '../errorHandler';
 import { rateLimit, getClientId } from '../middleware/rateLimit.js';
-import { AdobeDocumentService, type AdobeExtractSuccess, type IAdobeExtractor } from '../services/AdobeDocumentService.js';
+import { AdobeDocumentService, type IAdobeExtractor } from '../services/AdobeDocumentService.js';
 import { type AnalysisResult } from '../types.js';
 import { 
   log, 
@@ -11,106 +11,6 @@ import {
 } from '../utils/logging.js';
 import { parseEnvBool } from '../utils/safeStringUtils.js';
 import { createRateLimitResponse } from '../errorHandler';
-
-// Legal keywords for relevance scoring
-const LEGAL_KEYWORDS = [
-  'contract', 'agreement', 'payment', 'amount', 'date', 'party', 'obligation', 
-  'liability', 'damages', 'settlement', 'court', 'judge', 'plaintiff', 'defendant', 
-  'signature', 'witness'
-];
-
-// Safe JSON serialization utility to prevent OOM and handle cyclic objects
-function safeStringify(obj: unknown, maxLength: number = 10000): string {
-  try {
-    const seen = new WeakSet();
-    const replacer = (key: string, value: unknown) => {
-      if (typeof value === 'object' && value !== null) {
-        if (seen.has(value)) {
-          return '[Circular]';
-        }
-        seen.add(value);
-      }
-      return value;
-    };
-    
-    const result = JSON.stringify(obj, replacer);
-    
-    // Truncate if too long to prevent OOM
-    if (result.length > maxLength) {
-      return result.substring(0, maxLength) + '...[truncated]';
-    }
-    
-    return result;
-  } catch (_error) {
-    return '<unserializable-table>';
-  }
-}
-
-// Helper functions for prioritizing tables and elements by relevance
-function calculateTableRelevance(table: { rows?: unknown[]; [key: string]: unknown }, _documentText: string): number {
-  let score = 0;
-  
-  // Base score for table size (larger tables often more important)
-  if (table.rows && Array.isArray(table.rows)) {
-    score += Math.min(table.rows.length * 0.1, 2); // Cap at 2 points
-  }
-  
-  // Check for legal keywords in table content - use safe serialization
-  const tableText = safeStringify(table).toLowerCase();
-  
-  LEGAL_KEYWORDS.forEach(keyword => {
-    if (tableText.includes(keyword)) {
-      score += 1;
-    }
-  });
-  
-  // Bonus for tables with monetary values
-  if (/\$[\d,]+\.?\d*/.test(tableText)) {
-    score += 1.5;
-  }
-  
-  // Bonus for tables with dates
-  if (/\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{2}-\d{2}/.test(tableText)) {
-    score += 1;
-  }
-  
-  return score;
-}
-
-function calculateElementRelevance(element: { text?: string; [key: string]: unknown }, _documentText: string): number {
-  let score = 0;
-  
-  // Base score for element size
-  if (element.text && element.text.length > 0) {
-    score += Math.min(element.text.length / 100, 2); // Cap at 2 points
-  }
-  
-  // Check for legal keywords in element content
-  const elementText = (element.text || '').toLowerCase();
-  
-  LEGAL_KEYWORDS.forEach(keyword => {
-    if (elementText.includes(keyword)) {
-      score += 1;
-    }
-  });
-  
-  // Bonus for elements with monetary values
-  if (/\$[\d,]+\.?\d*/.test(elementText)) {
-    score += 1.5;
-  }
-  
-  // Bonus for elements with dates
-  if (/\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{2}-\d{2}/.test(elementText)) {
-    score += 1;
-  }
-  
-  // Bonus for signature-related elements
-  if (elementText.includes('signature') || elementText.includes('signed') || elementText.includes('witness')) {
-    score += 2;
-  }
-  
-  return score;
-}
 
 // Extended AnalysisResult for debugging purposes
 interface ExtendedAnalysisResult extends AnalysisResult {
@@ -288,136 +188,14 @@ async function attemptAdobeExtract(
   }
 }
 
-// REMOVED: summarizeAdobeExtract function - AI summarization removed, returning raw Adobe extraction instead
 
-// Helper function to safely parse JSON responses with hardened truncation handling
-function safeJson(response: unknown): AnalysisResult {
-  log('debug', 'safe_json_debug', {
-    phase: 'safeJson',
-    inputType: typeof response,
-    keys: typeof response === 'object' && response !== null ? Object.keys(response) : [],
-    snippet: typeof response === "string"
-      ? response.slice(0, 200)
-      : JSON.stringify(response || {}).slice(0, 200)
-  });
-  
-  try {
-    // Handle structured AI output - look for the actual JSON in the response
-    if (response && typeof response === 'object' && 'output' in response && Array.isArray((response as Record<string, unknown>).output)) {
-      const output = (response as Record<string, unknown>).output as unknown[];
-      // Find the message with the actual content (prefer message type over reasoning type)
-      const message = output.find((msg: unknown) => 
-        (msg as Record<string, unknown>).content && Array.isArray((msg as Record<string, unknown>).content) && (msg as Record<string, unknown>).type === 'message'
-      ) || output.find((msg: unknown) => 
-        (msg as Record<string, unknown>).content && Array.isArray((msg as Record<string, unknown>).content)
-      );
-      
-      if (message && typeof message === 'object' && message !== null && 'content' in message) {
-        const messageContent = (message as Record<string, unknown>).content;
-        if (Array.isArray(messageContent)) {
-          // Find the output_text content (the actual response)
-          const outputTextContent = messageContent.find((content: unknown) => 
-            (content as Record<string, unknown>).type === 'output_text' && (content as Record<string, unknown>).text
-          );
-        
-          if (outputTextContent && typeof outputTextContent === 'object' && outputTextContent !== null && 'text' in outputTextContent) {
-            log('debug', 'safe_json_found_output', {
-              phase: 'safeJson',
-              snippet: (outputTextContent.text as string).substring(0, 200) + '...'
-            });
-            
-            // Extract and clean the JSON text
-            let text = (outputTextContent.text as string).trim();
-            
-            // Remove quotes if wrapped
-            if (text.startsWith('"') && text.endsWith('"')) {
-              text = text.slice(1, -1);
-            }
-            
-            // Apply the hardened JSON extraction logic
-            return extractValidJson(text);
-          }
-        }
-      }
-    }
 
-    // Handle direct string input
-    if (typeof response === "string") {
-      return extractValidJson(response);
-    }
 
-    // Handle object with nested output_text
-    if (response && typeof response === 'object' && 'result' in response && 
-        response.result && typeof response.result === 'object' && 'output_text' in response.result) {
-      return extractValidJson((response.result as Record<string, unknown>).output_text as string);
-    }
-    if (response && typeof response === 'object' && 'output_text' in response) {
-      return extractValidJson((response as Record<string, unknown>).output_text as string);
-    }
-
-    // Handle already-parsed object
-    if (typeof response === "object" && response && 'summary' in response) {
-      return response as unknown as AnalysisResult;
-    }
-
-    // Fallback
-    logWarning('analyze', 'safe_json_unexpected_format', 'Unexpected format in safeJson', { response });
-    return {
-      summary: "Analysis completed but response format was unexpected",
-      key_facts: ["Document processed successfully"],
-      entities: { people: [], orgs: [], dates: [] },
-      action_items: [],
-      confidence: 0.3
-    };
-  } catch (err) {
-    logError('analyze', 'safe_json_parse_error', err as Error, { response });
-    return {
-      summary: "Analysis completed but response format was unexpected",
-      key_facts: ["Document processed successfully"],
-      entities: { people: [], orgs: [], dates: [] },
-      action_items: [],
-      confidence: 0.5
-    };
-  }
-}
-
-// Hardened JSON extraction that handles truncated/concatenated responses
-function extractValidJson(input: string): AnalysisResult {
-  try {
-    const raw = typeof input === "string" ? input : JSON.stringify(input);
-
-    // Find the first JSON object in the string, accounting for quoted braces and escapes.
-    const jsonBlock = extractFirstJsonObject(raw);
-    if (!jsonBlock) {
-      throw new Error("No JSON object boundaries found");
-    }
-
-    const parsed = JSON.parse(jsonBlock);
-    if (parsed && typeof parsed === "object" && parsed.summary) {
-      log('debug', 'safe_json_valid_parsed', { phase: 'extractValidJson' });
-      return parsed;
-    }
-
-    throw new Error("Parsed JSON does not contain expected structure");
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    logError('analyze', 'safe_json_final_fallback', new Error(errorMessage), { phase: 'extractValidJson', snippet: String(input).slice(0, 200) });
-  }
-
-  // Final fallback — return structured failure
-  return {
-    summary: "Document analysis completed but JSON parsing failed",
-    key_facts: ["Document processed successfully"],
-    entities: { people: [], orgs: [], dates: [] },
-    action_items: ["Review document format and retry analysis"],
-    confidence: 0.3,
-  };
-}
 
 /**
  * Extracts the first complete JSON object from a string, handling escaped characters.
  */
-function extractFirstJsonObject(text: string): string | null {
+function _extractFirstJsonObject(text: string): string | null {
   let start = text.indexOf("{");
   if (start === -1) {
     return null;
