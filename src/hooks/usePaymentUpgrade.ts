@@ -330,11 +330,11 @@ export const usePaymentUpgrade = () => {
       const resolvedPracticeId = practiceId || undefined;
 
       try {
-        // Step 1: Set active practice if we have one using Better Auth organization plugin
-        // staging-api will auto-create and set active practice/organization if one doesn't exist
+        // Step 1: Set active practice if we have one using the Better Auth organization plugin
+        // staging-api will auto-create and set the active practice if one doesn't exist
         if (resolvedPracticeId) {
-          // Set active practice using Better Auth organization plugin
-          // This sets the active organization in the staging-api session
+          // Set active practice using the Better Auth organization plugin
+          // This sets the active practice in the staging-api session
           const client = getClient();
           await client.organization.setActive({ organizationId: resolvedPracticeId });
         }

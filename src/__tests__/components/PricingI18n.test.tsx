@@ -29,7 +29,7 @@ vi.mock("../../hooks/usePaymentUpgrade", () => ({
   }),
 }));
 
-// Mock useOrganizationManagement hook
+// Mock usePracticeManagement hook
 vi.mock("../../hooks/usePracticeManagement", () => ({
   usePracticeManagement: () => ({
     currentPractice: { id: "practice-1", subscriptionTier: "free" },

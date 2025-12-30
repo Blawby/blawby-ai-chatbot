@@ -7,6 +7,7 @@ import { debounce } from '../../utils/debounce';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { ChatMessageUI } from '../../../worker/types';
 import { ContactData } from '../ContactForm';
+import { useTranslation } from '@/i18n/hooks';
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
@@ -36,6 +37,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     practiceId,
     intakeStatus
 }) => {
+    const { t } = useTranslation('auth');
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(messages.length);
@@ -132,12 +134,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
     const intakeBannerText = (() => {
         if (intakeStep === 'accepted_needs_auth') {
-            return 'Your matter was accepted. Sign in to continue the conversation.';
+            return t('intake.accepted');
         }
         if (intakeStep === 'rejected') {
-            return 'This intake was declined. You can submit a new request any time.';
+            return t('intake.rejected');
         }
-        return 'Intake submitted. A practice member will review and reply here.';
+        return t('intake.pending');
     })();
 
     return (

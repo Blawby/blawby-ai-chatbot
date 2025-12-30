@@ -6,7 +6,7 @@ type MatterStatus = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
 
 interface MatterRecord {
   id: string;
-  organization_id: string;
+  practice_id: string;
   status: string;
   title?: string | null;
   client_name?: string | null;
@@ -58,7 +58,7 @@ export class MatterService {
     const record = await this.env.DB.prepare(
       `SELECT id
          FROM matters
-        WHERE organization_id = ?
+        WHERE practice_id = ?
           AND json_extract(custom_fields, '$.sessionId') = ?
         ORDER BY created_at DESC
         LIMIT 1`
@@ -86,7 +86,7 @@ export class MatterService {
     await this.env.DB.prepare(
       `INSERT INTO matters (
          id,
-         organization_id,
+         practice_id,
          client_name,
          client_email,
          client_phone,
@@ -253,7 +253,7 @@ export class MatterService {
 
   private async getMatter(practiceId: string, matterId: string): Promise<MatterRecord> {
     const record = await this.env.DB.prepare(
-      `SELECT id, organization_id, status, title, client_name
+      `SELECT id, practice_id, status, title, client_name
          FROM matters
         WHERE id = ?`
     ).bind(matterId).first<MatterRecord | null>();
@@ -262,7 +262,7 @@ export class MatterService {
       throw HttpErrors.notFound('Matter not found');
     }
 
-    if (record.organization_id !== practiceId) {
+    if (record.practice_id !== practiceId) {
       throw HttpErrors.forbidden('Matter does not belong to this practice');
     }
 
@@ -290,7 +290,7 @@ export class MatterService {
               updated_at = ?,
               closed_at = ?
         WHERE id = ?
-          AND organization_id = ?`
+          AND practice_id = ?`
     ).bind(
       nextStatus,
       now,

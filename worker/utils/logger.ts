@@ -61,29 +61,29 @@ export class Logger {
   }
 
   /**
-   * Safely logs organization configuration data by redacting sensitive information
+   * Safely logs practice configuration data by redacting sensitive information
    */
-  static logOrganizationConfig(organization: Record<string, unknown>, includeConfig: boolean = false): void {
-    if (!organization) {
-      this.warn('logOrganizationConfig called with null/undefined organization');
+  static logPracticeConfig(practice: Record<string, unknown>, includeConfig: boolean = false): void {
+    if (!practice) {
+      this.warn('logPracticeConfig called with null/undefined practice');
       return;
     }
 
-    const safeOrganizationData = {
-      id: organization.id,
-      slug: organization.slug,
-      name: organization.name,
-      createdAt: organization.createdAt,
-      updatedAt: organization.updatedAt
+    const safePracticeData = {
+      id: practice.id,
+      slug: practice.slug,
+      name: practice.name,
+      createdAt: practice.createdAt,
+      updatedAt: practice.updatedAt
     };
 
     if (includeConfig && this.isDebugEnabled()) {
       // Create a sanitized version of the config
-      const sanitizedConfig = this.sanitizeConfig(organization.config);
-      (safeOrganizationData as Record<string, unknown>).config = sanitizedConfig;
+      const sanitizedConfig = this.sanitizeConfig(practice.config);
+      (safePracticeData as Record<string, unknown>).config = sanitizedConfig;
     }
 
-    this.info('Organization data:', safeOrganizationData);
+    this.info('Practice data:', safePracticeData);
   }
 
   /**

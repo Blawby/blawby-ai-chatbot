@@ -38,13 +38,13 @@ export const BusinessSetupPrompt = ({ isOpen, onClose }: BusinessSetupPromptProp
 
   const handleContinue = () => {
     onClose();
-    // Remove the flag and navigate to organization settings
+    // Remove the flag and navigate to practice settings
     try {
       localStorage.removeItem('businessSetupPending');
     } catch (error) {
       console.warn('Failed to remove business setup flag:', error);
     }
-    navigate('/settings/organization');
+    navigate('/settings/practice');
   };
 
   const setupSteps = [

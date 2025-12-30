@@ -416,7 +416,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   // Ensure current practice is always included if it exists
   const practicesWithCurrent = useMemo(() => {
     if (!currentPractice) return practices;
-    const hasCurrent = practices.some(org => org.id === currentPractice.id);
+    const hasCurrent = practices.some(practice => practice.id === currentPractice.id);
     if (hasCurrent) return practices;
     return [currentPractice, ...practices];
   }, [practices, currentPractice]);
@@ -485,26 +485,26 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-64 max-h-96">
                         <div className="max-h-64 overflow-y-auto">
-                          {practicesWithCurrent.map((org) => {
-                            const orgProfileImage = org.config ? (org.config as { profileImage?: string | null }).profileImage ?? null : null;
-                            const isActive = org.id === activePracticeId;
+                          {practicesWithCurrent.map((practice) => {
+                            const practiceProfileImage = practice.config ? (practice.config as { profileImage?: string | null }).profileImage ?? null : null;
+                            const isActive = practice.id === activePracticeId;
                             return (
                               <DropdownMenuItem
-                                key={org.id}
-                                onSelect={() => handlePracticeSwitch(org.id)}
+                                key={practice.id}
+                                onSelect={() => handlePracticeSwitch(practice.id)}
                                 disabled={isSwitchingPractice}
                                 className="flex items-center gap-2"
                               >
-                                {orgProfileImage ? (
+                                {practiceProfileImage ? (
                                   <PracticeLogo 
-                                    src={orgProfileImage} 
-                                    alt={org.name}
+                                    src={practiceProfileImage} 
+                                    alt={practice.name}
                                     size="sm"
                                   />
                                 ) : (
                                   <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
                                 )}
-                                <span className="flex-1 text-sm">{org.name}</span>
+                                <span className="flex-1 text-sm">{practice.name}</span>
                                 {isActive && (
                                   <CheckIcon className="w-4 h-4 text-accent-500" />
                                 )}
@@ -545,18 +545,18 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
               {isEditingPractice && (
                 <div className="mt-4 space-y-4">
                   <div>
-                    <FormLabel htmlFor="edit-org-name">Practice Name</FormLabel>
+                    <FormLabel htmlFor="edit-practice-name">Practice Name</FormLabel>
                     <Input
-                      id="edit-org-name"
+                      id="edit-practice-name"
                       value={editPracticeForm.name}
                       onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
                     />
                   </div>
                   
                   <div>
-                    <FormLabel htmlFor="edit-org-description">Description (optional)</FormLabel>
+                    <FormLabel htmlFor="edit-practice-description">Description (optional)</FormLabel>
                     <Input
-                      id="edit-org-description"
+                      id="edit-practice-description"
                       value={editPracticeForm.description}
                       onChange={(value) => setEditPracticeForm(prev => ({ ...prev, description: value }))}
                       placeholder="Brief description of your practice"
@@ -858,7 +858,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
               {/* Delete Practice Section (Owner only) */}
               {isOwner && (
                 <>
-                  <div className="flex items-center justify-between py-3" data-testid="org-delete-section">
+                  <div className="flex items-center justify-between py-3" data-testid="practice-delete-section">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Practice</h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -878,7 +878,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                             });
                           }}
                           disabled={submitting}
-                          data-testid="org-delete-action"
+                          data-testid="practice-delete-action"
                         >
                           {t('settings:account.plan.manage')}
                         </Button>
@@ -888,7 +888,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                           size="sm"
                           onClick={() => setShowDeleteModal(true)}
                           className="text-red-600 hover:text-red-700"
-                          data-testid="org-delete-action"
+                          data-testid="practice-delete-action"
                         >
                           <TrashIcon className="w-4 h-4 mr-2" />
                           Delete
@@ -1009,9 +1009,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
       >
         <div className="space-y-4">
           <div>
-            <FormLabel htmlFor="org-name">Practice Name *</FormLabel>
+            <FormLabel htmlFor="practice-name">Practice Name *</FormLabel>
             <Input
-              id="org-name"
+              id="practice-name"
               value={createForm.name}
               onChange={(value) => setCreateForm(prev => ({ ...prev, name: value }))}
               placeholder="Your Law Firm Name"
@@ -1020,9 +1020,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
           </div>
           
           <div>
-            <FormLabel htmlFor="org-slug">Slug (optional)</FormLabel>
+            <FormLabel htmlFor="practice-slug">Slug (optional)</FormLabel>
             <Input
-              id="org-slug"
+              id="practice-slug"
               value={createForm.slug}
               onChange={(value) => setCreateForm(prev => ({ ...prev, slug: value }))}
               placeholder="your-law-firm"
@@ -1033,9 +1033,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
           </div>
           
           <div>
-            <FormLabel htmlFor="org-description">Description (optional)</FormLabel>
+            <FormLabel htmlFor="practice-description">Description (optional)</FormLabel>
             <Input
-              id="org-description"
+              id="practice-description"
               value={createForm.description}
               onChange={(value) => setCreateForm(prev => ({ ...prev, description: value }))}
               placeholder="Brief description of your practice"

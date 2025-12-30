@@ -1,7 +1,7 @@
 import { MatterService } from '../services/MatterService.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { Env } from '../types.js';
-import { requireAuth, requireOrgMember } from '../middleware/auth.js';
+import { requireAuth, requirePracticeMemberRole } from '../middleware/auth.js';
 import { handleError, HttpErrors } from '../errorHandler.js';
 import { parseJsonBody } from '../utils.js';
 import { NotificationService } from '../services/NotificationService.js';
@@ -73,7 +73,7 @@ async function notifyIntakeDecision(options: {
   const record = await env.DB.prepare(
     `SELECT custom_fields
        FROM matters
-      WHERE id = ? AND organization_id = ?`
+      WHERE id = ? AND practice_id = ?`
   ).bind(matterId, practiceId).first<{ custom_fields?: string | null } | null>();
 
   const customFields = parseJsonField<Record<string, unknown>>(record?.custom_fields ?? null);
@@ -212,7 +212,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
         }
 
         // Require at least admin access for dashboard data
-        await requireOrgMember(request, env, practice.id, 'admin');
+        await requirePracticeMemberRole(request, env, practice.id, 'admin');
 
         const limit = parseLimit(url.searchParams.get('limit'));
 
@@ -304,7 +304,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
                            LIMIT 1
                         ) AS acceptedAt
                    FROM matters
-                  WHERE organization_id = ?
+                  WHERE practice_id = ?
                     AND id = ?`
               ).bind(practice.id, matterId).first<WorkspaceMatterRow | null>();
 
@@ -335,7 +335,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
 
             if (action === 'accept' && request.method === 'POST') {
               const authContext = await requireAuth(request, env);
-              await requireOrgMember(request, env, practice.id, 'admin');
+              await requirePracticeMemberRole(request, env, practice.id, 'admin');
 
               let idempotencyKey = request.headers.get('Idempotency-Key');
               if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -387,7 +387,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
 
             if (action === 'reject' && request.method === 'POST') {
               const authContext = await requireAuth(request, env);
-              await requireOrgMember(request, env, practice.id, 'admin');
+              await requirePracticeMemberRole(request, env, practice.id, 'admin');
 
               let idempotencyKey = request.headers.get('Idempotency-Key');
               if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -444,7 +444,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
 
             if (action === 'status' && request.method === 'PATCH') {
               const authContext = await requireAuth(request, env);
-              await requireOrgMember(request, env, practice.id, 'attorney');
+              await requirePracticeMemberRole(request, env, practice.id, 'attorney');
 
               let idempotencyKey = request.headers.get('Idempotency-Key');
               if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -513,7 +513,7 @@ export async function handlePractices(request: Request, env: Env): Promise<Respo
 
           const cursor = cursorParam ? decodeMattersCursor(cursorParam) : null;
 
-          const conditions: string[] = ['organization_id = ?'];
+          const conditions: string[] = ['practice_id = ?'];
           const bindings: unknown[] = [practice.id];
 
           if (statusFilter) {

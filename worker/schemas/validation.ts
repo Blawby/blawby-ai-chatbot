@@ -6,8 +6,8 @@ export const emailSchema = z.string().email();
 export const phoneSchema = z.string().optional();
 export const timestampSchema = z.number().int().positive();
 
-// Practice role schema (formerly organizationRoleSchema)
-export const organizationRoleSchema = z.enum(['owner', 'admin', 'attorney', 'paralegal']);
+// Practice role schema
+export const practiceRoleSchema = z.enum(['owner', 'admin', 'attorney', 'paralegal']);
 
 // Subscription and billing schemas (handled by remote API)
 export const subscriptionTierSchema = z.enum(['free', 'plus', 'business', 'enterprise']);

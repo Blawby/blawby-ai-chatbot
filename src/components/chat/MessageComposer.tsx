@@ -9,6 +9,7 @@ import { ArrowUpIcon } from "@heroicons/react/24/outline";
 import { features } from '../../config/features';
 import { FileAttachment } from '../../../worker/types';
 import type { UploadingFile } from '../../hooks/useFileUpload';
+import { useTranslation } from '@/i18n/hooks';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -51,6 +52,7 @@ const MessageComposer = ({
   isSessionReady,
   intakeStatus,
 }: MessageComposerProps) => {
+  const { t } = useTranslation('auth');
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked =
     intakeStep === 'pending_review' ||
@@ -82,12 +84,12 @@ const MessageComposer = ({
   const statusMessage = (() => {
     if (isIntakeLocked) {
       if (intakeStep === 'accepted_needs_auth') {
-        return 'Your matter was accepted. Sign in to continue the conversation.';
+        return t('intake.accepted');
       }
       if (intakeStep === 'rejected') {
-        return 'This intake was declined. You can submit a new request anytime.';
+        return t('intake.rejected');
       }
-      return 'Intake submitted. A practice member will review and reply here.';
+      return t('intake.pending');
     }
     if (isSessionReady === false) {
       return 'Setting up a secure session...';

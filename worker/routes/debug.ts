@@ -14,8 +14,8 @@ export async function handleDebug(request: Request, env: Env): Promise<Response>
     return await testAdobeExtraction(request, env);
   }
 
-  // Note: Test endpoint /api/test/convert-org-to-business removed
-  // Organizations table has been removed - all organization management is handled by remote API
+  // Note: Test endpoint /api/test/convert-practice-to-business removed
+  // Practices table has been removed - all practice management is handled by remote API
 
   return new Response('Debug endpoint not found', { status: 404 });
 }

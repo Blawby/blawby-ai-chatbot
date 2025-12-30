@@ -217,8 +217,8 @@ export class ContactIntakeOrchestrator {
         caseDraft: pdfCaseDraft,
         clientName: matter.name,
         clientEmail: matter.email,
-        organizationName: practiceName,
-        organizationBrandColor: brandColor
+        practiceName,
+        practiceBrandColor: brandColor
       }, env);
 
       if (pdfResponse.success && pdfResponse.pdfBuffer) {

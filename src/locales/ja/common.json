@@ -162,21 +162,21 @@
   },
   "businessWelcome": {
     "title": "ビジネスへようこそ！",
-    "subtitle": "あなたの組織がアップグレードされました。今できることは次のとおりです：",
+    "subtitle": "あなたの事務所がアップグレードされました。今できることは次のとおりです：",
     "features": {
       "teamManagement": {
         "title": "チーム管理",
         "description": "メンバーを招待"
       },
-      "organizationSettings": {
-        "title": "組織設定",
-        "description": "組織を設定"
+      "practiceSettings": {
+        "title": "事務所設定",
+        "description": "事務所を設定"
       },
       "apiAccess": {
         "title": "APIアクセス",
         "description": "トークンを生成"
       }
     },
-    "goToSettings": "組織設定に移動"
+    "goToSettings": "事務所設定に移動"
   }
 }

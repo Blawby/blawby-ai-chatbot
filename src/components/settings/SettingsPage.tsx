@@ -52,6 +52,7 @@ export const SettingsPage = ({
   };
   
   const currentPage = getCurrentPage();
+  const normalizedPage = currentPage === 'organization' ? 'practice' : currentPage;
 
   const handleNavigation = (page: string) => {
     navigate(`/settings/${page}`);
@@ -85,7 +86,7 @@ export const SettingsPage = ({
     { id: 'general', label: t('settings:navigation.items.general'), icon: Cog6ToothIcon },
     { id: 'notifications', label: t('settings:navigation.items.notifications'), icon: BellIcon },
     { id: 'account', label: t('settings:navigation.items.account'), icon: UserIcon },
-    { id: 'organization', label: t('settings:navigation.items.organization'), icon: BuildingOfficeIcon },
+    { id: 'practice', label: t('settings:navigation.items.practice'), icon: BuildingOfficeIcon },
     { id: 'security', label: t('settings:navigation.items.security'), icon: ShieldCheckIcon },
     { id: 'help', label: t('settings:navigation.items.help'), icon: QuestionMarkCircleIcon },
     { id: 'signout', label: t('settings:navigation.items.signOut'), icon: ArrowRightOnRectangleIcon, isAction: true, onClick: handleSignOut, variant: 'danger' }
@@ -94,14 +95,14 @@ export const SettingsPage = ({
 
   // Render content based on current page
   const renderContent = () => {
-    switch (currentPage) {
+    switch (normalizedPage) {
       case 'general':
         return <GeneralPage isMobile={isMobile} onClose={onClose} className="h-full" />;
       case 'notifications':
         return <NotificationsPage className="h-full" />;
       case 'account':
         return <AccountPage isMobile={isMobile} onClose={onClose} className="h-full" />;
-      case 'organization':
+      case 'practice':
         return <PracticePage className="h-full" />;
       case 'security':
         return <SecurityPage isMobile={isMobile} onClose={onClose} className="h-full" />;
@@ -115,7 +116,7 @@ export const SettingsPage = ({
   };
 
   // For MFA enrollment, render as full page without sidebar
-  if (currentPage === 'mfa-enrollment') {
+  if (normalizedPage === 'mfa-enrollment') {
     return (
       <div className={cn('h-full', className)}>
         {renderContent()}
@@ -127,7 +128,7 @@ export const SettingsPage = ({
   if (isMobile) {
     return (
       <div className={cn('h-full flex flex-col', className)}>
-        {currentPage === 'navigation' ? (
+        {normalizedPage === 'navigation' ? (
           // Main settings page (navigation)
           <>
             {/* Mobile Header */}
@@ -150,7 +151,7 @@ export const SettingsPage = ({
               <div className="px-4 py-2">
                 <SidebarNavigation
                   items={navigationItems}
-                  activeItem={currentPage}
+                  activeItem={normalizedPage}
                   onItemClick={handleNavigation}
                   mobile={true}
                 />
@@ -171,7 +172,7 @@ export const SettingsPage = ({
               </button>
               <div className="flex-1 flex justify-center">
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {navigationItems.find(item => item.id === currentPage)?.label || 'Settings'}
+                  {navigationItems.find(item => item.id === normalizedPage)?.label || 'Settings'}
                 </h1>
               </div>
               <div className="w-9" /> {/* Spacer to center the title */}
@@ -209,7 +210,7 @@ export const SettingsPage = ({
         <div>
           <SidebarNavigation
             items={navigationItems}
-            activeItem={currentPage}
+            activeItem={normalizedPage}
             onItemClick={handleNavigation}
           />
         </div>

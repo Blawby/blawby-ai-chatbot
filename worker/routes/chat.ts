@@ -79,13 +79,6 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     if (body.metadata?.isContactFormSubmission) {
       try {
         const { parseContactData } = await import('../utils/contactValidation.js');
-        const extractDescription = (content: string): string | null => {
-          const lines = content.split(/\r?\n/);
-          const descriptionLine = lines.find(line => /^Description:/i.test(line));
-          if (!descriptionLine) return null;
-          const match = descriptionLine.match(/^Description:\s*(.+)$/i);
-          return match ? match[1].trim() : null;
-        };
         
         // Parse and validate contact data from message content
         const contactData = parseContactData(body.content);
@@ -97,12 +90,14 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
           return createJsonResponse(message);
         }
 
-        const description = extractDescription(body.content);
+        const description = typeof contactData.description === 'string'
+          ? contactData.description.trim()
+          : '';
         const phoneNumber = contactData.phone && contactData.phone.trim().length > 0
           ? contactData.phone.trim()
           : 'Not provided';
-        const matterDetails = description && description.trim().length > 0
-          ? description.trim()
+        const matterDetails = description.length > 0
+          ? description
           : 'No additional case details were provided.';
 
         try {

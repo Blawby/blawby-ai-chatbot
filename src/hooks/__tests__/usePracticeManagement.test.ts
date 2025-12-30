@@ -105,7 +105,7 @@ describe('usePracticeManagement', () => {
 
   it('loads practices via listPractices helper', async () => {
     mockPracticeApi.listPractices.mockResolvedValueOnce([
-      { id: 'org-1', name: 'Test Practice', slug: 'test-practice' }
+      { id: 'practice-1', name: 'Test Practice', slug: 'test-practice' }
     ]);
 
     const { result } = renderHook(() =>
@@ -122,18 +122,18 @@ describe('usePracticeManagement', () => {
     expect(mockPracticeApi.listPractices).toHaveBeenCalled();
     expect(result.current.practices).toHaveLength(1);
     expect(result.current.practices[0]).toMatchObject({
-      id: 'org-1',
+      id: 'practice-1',
       name: 'Test Practice'
     });
   });
 
   it('creates a practice through the practice helper API', async () => {
     mockPracticeApi.listPractices.mockResolvedValueOnce([
-      { id: 'org-new', name: 'New Practice', slug: 'new-practice' }
+      { id: 'practice-new', name: 'New Practice', slug: 'new-practice' }
     ]);
 
     mockPracticeApi.createPractice.mockResolvedValueOnce({
-      id: 'org-new',
+      id: 'practice-new',
       name: 'New Practice',
       slug: 'new-practice'
     });

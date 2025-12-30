@@ -2,7 +2,7 @@ import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
-import { requireOrganizationMember } from '../middleware/auth.js';
+import { requirePracticeMember } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
 function createJsonResponse(data: unknown): Response {
@@ -14,7 +14,7 @@ function createJsonResponse(data: unknown): Response {
 
 /**
  * Team inbox routes for practice members to manage conversations
- * Requires organization membership (practice member role)
+ * Requires practice membership (practice member role)
  */
 export async function handleInbox(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -39,18 +39,18 @@ export async function handleInbox(request: Request, env: Env): Promise<Response>
   // The allowUrlOverride: true setting allows practiceId to be influenced by URL parameters,
   // which could enable authorization bypass if not properly validated.
   //
-  // This approach is safe ONLY because requireOrganizationMember validates that the authenticated
+  // This approach is safe ONLY because requirePracticeMember validates that the authenticated
   // user (from the original request's Authorization header) is actually a member of the specific
   // practiceId provided. If an attacker manipulates practiceId via URL parameters, 
-  // requireOrganizationMember will fail with 403 Forbidden if they are not a member of that practice.
+  // requirePracticeMember will fail with 403 Forbidden if they are not a member of that practice.
   // 
-  // REVIEWER NOTE: Verify that requireOrganizationMember actually checks that the authenticated
+  // REVIEWER NOTE: Verify that requirePracticeMember actually checks that the authenticated
   // user (from the original request Authorization header) is a member of the specific practiceId
   // before allowing access. The safety of allowUrlOverride: true depends on that membership validation.
   //
-  // If requireOrganizationMember did not validate membership against the provided practiceId,
+  // If requirePracticeMember did not validate membership against the provided practiceId,
   // this would be a critical authorization bypass vulnerability.
-  const memberContext = await requireOrganizationMember(request, env, practiceId, 'paralegal');
+  const memberContext = await requirePracticeMember(request, env, practiceId, 'paralegal');
   const userId = memberContext.user.id;
   const conversationService = new ConversationService(env);
 
@@ -200,4 +200,3 @@ export async function handleInbox(request: Request, env: Env): Promise<Response>
 
   throw HttpErrors.methodNotAllowed('Unsupported method for inbox endpoint');
 }
-

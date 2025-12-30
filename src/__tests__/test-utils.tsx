@@ -1,7 +1,7 @@
 import { render, RenderOptions } from '@testing-library/preact';
 import { ComponentChildren } from 'preact';
 // import { ToastProvider } from '../contexts/ToastContext';
-// import { OrganizationProvider } from '../contexts/OrganizationContext';
+// import { PracticeProvider } from '../contexts/PracticeContext';
 import { vi } from 'vitest';
 
 // Mock useLocation hook with dynamic path

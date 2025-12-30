@@ -7,7 +7,7 @@
 -- - invitations (invitation management now handled by remote API)
 --
 -- Note: Membership verification is now done via /api/practice/{orgId}/members endpoint
--- using the caller's Bearer token. The requireOrgMember middleware has been updated
+-- using the caller's Bearer token. The requirePracticeMemberRole middleware has been updated
 -- to trust the staging API for RBAC.
 
 PRAGMA foreign_keys = OFF;
@@ -23,4 +23,3 @@ DROP INDEX IF EXISTS idx_invitations_organization_id;
 DROP INDEX IF EXISTS idx_invitations_email;
 
 PRAGMA foreign_keys = ON;
-

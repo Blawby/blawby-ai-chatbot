@@ -152,8 +152,8 @@ export async function handlePDF(request: Request, env: Env): Promise<Response> {
       const pdfResult = await PDFGenerationService.generateCaseSummaryPDF({
         caseDraft: pdfCaseDraft,
         clientName: clientName,
-        organizationName: practice?.name || conversationConfig?.description || 'Legal Services',
-        organizationBrandColor: conversationConfig?.brandColor || '#2563eb'
+        practiceName: practice?.name || conversationConfig?.description || 'Legal Services',
+        practiceBrandColor: conversationConfig?.brandColor || '#2563eb'
       }, env);
 
       if (pdfResult.success && pdfResult.pdfBuffer) {
