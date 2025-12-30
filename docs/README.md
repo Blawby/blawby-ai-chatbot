@@ -16,7 +16,9 @@
 - **Engineering**
   - [Frontend API Implementation](./engineering/2025-11-29-FRONTEND_API_IMPLEMENTATION.md) - Frontend API client setup
   - [Testing Guide](./engineering/testing-guide.md)
-  - [Notification Implementation Plan](./engineering/notification-implementation-plan.md)
+  - [Conversation Plan](./engineering/conversation-plan.md) - Chat/conversation architecture (Worker-based)
+  - [Layout and Overlays](./engineering/layout-and-overlays.md) - Frontend UI/UX architecture
+  - [SPA SEO/SSR Plan](./engineering/spa-seo-ssr-plan.md) - Frontend SEO strategy
 
 - **Archive**
   - [Archived Docs Index](./archive/README.md) - Historical docs for removed features (AI, subscriptions, etc.)

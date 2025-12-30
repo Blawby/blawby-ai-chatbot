@@ -80,14 +80,15 @@ export const SidebarContent = ({
               isCollapsed={isCollapsed}
             />
 
-            <NavigationItem
+            {/* Matter navigation temporarily hidden */}
+            {/* <NavigationItem
               icon={<DocumentIcon />}
               label="Matter"
               isActive={currentRoute === 'matter'}
               onClick={onGoToMatter || (() => {})}
               isCollapsed={isCollapsed}
               matterStatus={matterStatus}
-            />
+            /> */}
 
             {onGoToInbox && (
               <NavigationItem

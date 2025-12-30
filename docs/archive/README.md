@@ -23,6 +23,16 @@ This directory contains archived documentation for features that have been remov
 - API token management - Removed entirely
 - See: `docs/archive/organization/` for organization-related docs
 
+### Matters & Notifications (Migrated to staging-api)
+- Matters management - Migrated to staging-api (except conversation-related matter creation)
+- Notification system - Migrated to staging-api
+- See: `docs/archive/misc/matter-plan.md` and `docs/archive/misc/notification-implementation-plan.md`
+
+### Test Coverage Analysis (Legacy Worker Tests)
+- Test coverage gap analysis for subscription sync, Stripe webhooks, and feature guard tests
+- These tests covered functionality that has been migrated to staging-api or removed
+- See: `docs/archive/misc/test-coverage-gap-analysis.md`
+
 ### Current Status
 
 **Active Documentation:**
@@ -32,7 +42,7 @@ This directory contains archived documentation for features that have been remov
 - `docs/archive/stripe/` - Stripe/Subscription architecture (migrated to remote API)
 - `docs/archive/organization/` - Organization architecture (migrated to remote API)
 - `docs/archive/i18n/` - Internationalization planning docs
-- `docs/archive/misc/` - Miscellaneous archived docs
+- `docs/archive/misc/` - Miscellaneous archived docs (matters, notifications, etc.)
 
 ## Migration Notes
 
@@ -40,7 +50,9 @@ This directory contains archived documentation for features that have been remov
 - Removed all AI features (agent, summarization, analysis)
 - Migrated subscription management to remote API
 - Migrated organization/member management to remote API
+- Migrated matters management to staging-api (except conversation-related matter creation)
+- Migrated notification system to staging-api
 - Removed API token functionality
-- Worker now focuses on chatbot-specific functionality only
+- Worker now focuses on chatbot-specific functionality only (conversations/chat, file uploads, agent streaming)
 
 Current Worker responsibilities are described inline within each active document (primarily the Frontend API guide).
