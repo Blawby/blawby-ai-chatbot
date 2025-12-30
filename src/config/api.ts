@@ -36,9 +36,6 @@ export function getRemoteApiUrl(): string {
   if (import.meta.env.VITE_REMOTE_API_URL) {
     return import.meta.env.VITE_REMOTE_API_URL;
   }
-  if (import.meta.env.VITE_AUTH_SERVER_URL) {
-    return import.meta.env.VITE_AUTH_SERVER_URL;
-  }
   
   // In development, use same origin ONLY if MSW is enabled
   // MSW service workers can only intercept same-origin requests

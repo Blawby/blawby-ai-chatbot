@@ -58,7 +58,8 @@ const normalizeList = (value: unknown): string[] => {
 
 const safeOpenUrl = (url: string) => {
   try {
-    const parsed = new URL(url, window.location.origin);
+    const urlWithProtocol = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    const parsed = new URL(urlWithProtocol);
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
       globalThis.open(parsed.toString(), '_blank', 'noopener,noreferrer');
     }

@@ -39,7 +39,7 @@ function ensureApiBaseUrl(): string {
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
-  const explicit = import.meta.env.VITE_REMOTE_API_URL || import.meta.env.VITE_AUTH_SERVER_URL;
+  const explicit = import.meta.env.VITE_REMOTE_API_URL;
   cachedBaseUrl = explicit || getRemoteApiUrl();
   return cachedBaseUrl;
 }

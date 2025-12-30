@@ -5,7 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_BETTER_AUTH_URL?: string;
   readonly VITE_AUTH_SERVER_URL?: string;
-  readonly VITE_API_BASE_URL?: string;
+  readonly VITE_REMOTE_API_URL?: string;
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
   readonly VITE_DEFAULT_PRACTICE_PHONE?: string;
   readonly [key: string]: string | undefined;
