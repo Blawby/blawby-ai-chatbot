@@ -473,7 +473,7 @@ export class ConversationService {
     const updatedParticipants = Array.from(participantSet);
     const now = new Date().toISOString();
 
-    await this.env.DB.prepare(`
+    const updateResult = await this.env.DB.prepare(`
       UPDATE conversations
       SET user_id = ?, participants = ?, updated_at = ?
       WHERE id = ? AND practice_id = ? AND (user_id IS NULL OR user_id = ?)
@@ -485,6 +485,16 @@ export class ConversationService {
       practiceId,
       userId
     ).run();
+
+    const changes = updateResult.meta?.changes ?? updateResult.meta?.rows_written ?? 0;
+    if (changes === 0) {
+      const refreshedConversation = await this.getConversation(conversationId, practiceId);
+      if (refreshedConversation.user_id === userId) {
+        return refreshedConversation;
+      }
+
+      throw HttpErrors.conflict('Conversation already linked to a different user');
+    }
 
     return this.getConversation(conversationId, practiceId);
   }

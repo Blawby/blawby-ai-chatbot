@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ContactData } from '@/features/intake/components/ContactForm';
-import type { FileAttachment } from '../../../../worker/types';
+import type { FileAttachment, UIMessageExtras } from '../../../../worker/types';
 import type { DebugEvent, MockChatState, MockMessage, UseMockChatResult } from './types';
 import { scenarios } from './scenarios';
 import { applyDeliveryState, randomId } from './utils';
@@ -136,17 +136,17 @@ export function useMockChat(): UseMockChatResult {
         : Date.now();
       let nextTimestamp = maxTimestamp + 1;
 
-      const addSystemMessage = (id: string, content: string, extras?: Partial<MockMessage>) => {
+      const addSystemMessage = (id: string, content: string, extras?: Partial<UIMessageExtras>) => {
         messages = [
           ...messages,
           {
             id,
             content,
             isUser: false,
-            role: 'assistant',
+            role: 'assistant' as const,
             timestamp: nextTimestamp++,
             ...extras
-          }
+          } as MockMessage
         ];
         changed = true;
       };
@@ -202,7 +202,7 @@ export function useMockChat(): UseMockChatResult {
         role: 'user',
         timestamp,
         files: attachments,
-        metadata: applyDeliveryState(undefined, 'sending')
+        metadata: applyDeliveryState(undefined, 'sending') as MockMessage['metadata']
       };
 
       setState((prev) => ({
@@ -265,14 +265,14 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
               id: 'system-contact-form',
               content: 'Could you share your contact details? It will help us find the best lawyer for your case.',
               isUser: false,
-              role: 'assistant',
+              role: 'assistant' as const,
               timestamp: nextTimestamp++,
               contactForm: {
                 fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
                 required: ['name', 'email'],
                 message: undefined
               }
-            }
+            } as MockMessage
           ];
         }
 
@@ -281,7 +281,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
           {
             ...message,
             timestamp: nextTimestamp++
-          }
+          } as MockMessage
         ];
 
         return {
@@ -402,10 +402,10 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
                 id: 'system-contact-form',
                 content: 'Could you share your contact details? It will help us find the best lawyer for your case.',
                 isUser: false,
-                role: 'assistant',
+                role: 'assistant' as const,
                 timestamp: nextTimestamp,
                 contactForm: contactFormPayload
-              }
+              } as MockMessage
             ];
             changed = true;
           }

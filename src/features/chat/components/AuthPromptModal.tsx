@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { THEME } from '@/shared/utils/constants';
 
 interface AuthPromptModalProps {
   isOpen: boolean;
@@ -23,7 +24,8 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+      className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+      style={{ zIndex: THEME.zIndex.modal }}
       role="presentation"
     >
       <div

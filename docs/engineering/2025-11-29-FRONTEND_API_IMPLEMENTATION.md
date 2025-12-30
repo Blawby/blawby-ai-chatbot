@@ -384,41 +384,39 @@ Check that:
 
 ## Environment Variables
 
-The API client supports two environment variables for flexibility:
+The API client uses the Node backend base URL (auth, practices, memberships, forms):
 
-- **`VITE_API_BASE_URL`**: Explicit API base URL (recommended for production)
-- **`VITE_API_URL`**: Alternative variable name (automatically set in development)
+- **`VITE_REMOTE_API_URL`**: Base URL for the Node backend API
+
+**Note:** `VITE_API_URL` is reserved for the Worker (conversations/chat) and is not used by axios.
 
 ### Variable Priority and Purpose
 
 The client checks for environment variables in this order:
-1. `VITE_API_BASE_URL` (checked first)
-2. `VITE_API_URL` (checked second, fallback)
-
-**Why two variables?**
-- `VITE_API_URL` is automatically set by `vite.config.ts` in development mode to `http://localhost:8787`
-- `VITE_API_BASE_URL` is the preferred variable name for explicit configuration
-- This dual-variable approach allows automatic development setup while providing explicit control when needed
+1. `VITE_REMOTE_API_URL` (checked first)
+2. Default `getRemoteApiUrl()` fallback (staging in dev, production in prod)
 
 ### Development Setup
 
-In development, `VITE_API_URL` is automatically set to `http://localhost:8787` by `vite.config.ts`. You typically don't need to set either variable manually.
-
-**Optional Override**: If you need to override the default development URL, set `VITE_API_BASE_URL` in your `.env` file:
+In development, set `VITE_REMOTE_API_URL` to the staging backend:
 
 ```bash
-VITE_API_BASE_URL=http://localhost:8787
+VITE_REMOTE_API_URL=https://staging-api.blawby.com
 ```
 
 ### Production Setup
 
-For production, set `VITE_API_BASE_URL` in your deployment environment (e.g., Cloudflare Pages):
+For production, set `VITE_REMOTE_API_URL`:
 
 ```bash
-VITE_API_BASE_URL=https://your-api-server.com
+VITE_REMOTE_API_URL=https://production-api.blawby.com
 ```
 
-If neither variable is set, the client automatically falls back to the remote management API (`https://staging-api.blawby.com`). This keeps development environments working out of the box, but you should still configure `VITE_API_BASE_URL` explicitly for production deployments.
+If neither variable is set, the client falls back to the default remote backend based on environment (staging for dev, production for prod). Explicit configuration is still recommended for production deployments.
+
+### Migration Note
+
+`VITE_API_BASE_URL` is deprecated. Replace it with `VITE_REMOTE_API_URL`.
 
 ## Axios Configuration File
 
@@ -436,9 +434,9 @@ function ensureApiBaseUrl(): string {
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
-  // Check both VITE_API_BASE_URL and VITE_API_URL for flexibility, then fall back to staging API
-  const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
-  cachedBaseUrl = explicit || getRemoteApiUrl(); // Defaults to https://staging-api.blawby.com
+  // Prefer the Node backend API env, then fall back to remote defaults
+  const explicit = import.meta.env.VITE_REMOTE_API_URL;
+  cachedBaseUrl = explicit || getRemoteApiUrl(); // Defaults to staging/prod remote backend
   return cachedBaseUrl;
 }
 
@@ -485,7 +483,7 @@ apiClient.interceptors.response.use(
 2. **Caching**: The resolved base URL is cached to avoid repeated environment variable lookups
 3. **Automatic Token Injection**: Bearer token is automatically added to all requests from IndexedDB
 4. **401 Handling**: Unauthorized responses automatically clear the token and redirect to login
-5. **Flexible Variable Names**: Supports both `VITE_API_BASE_URL` and `VITE_API_URL` for compatibility
+5. **Backend URL Fallbacks**: Prefers `VITE_REMOTE_API_URL`, then defaults based on environment
 
 ## Usage
 

@@ -51,6 +51,7 @@ jobs:
         run: npm run build
         env:
           VITE_AUTH_SERVER_URL: ${{ secrets.VITE_AUTH_SERVER_URL }}
+          VITE_REMOTE_API_URL: ${{ secrets.VITE_REMOTE_API_URL }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

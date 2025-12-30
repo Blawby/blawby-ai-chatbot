@@ -991,10 +991,10 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={closeDecisionModal} disabled={decisionSubmitting}>
+            <Button variant="secondary" onClick={() => closeDecisionModal()} disabled={decisionSubmitting}>
               Cancel
             </Button>
-            <Button onClick={handleDecision} disabled={decisionSubmitting}>
+            <Button onClick={() => void handleDecision()} disabled={decisionSubmitting}>
               {decisionAction === 'accept' ? 'Accept Lead' : 'Reject Lead'}
             </Button>
           </div>

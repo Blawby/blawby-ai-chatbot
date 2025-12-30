@@ -33,6 +33,23 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [conversationLinked, setConversationLinked] = useState(false);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
 
+  const getSafeRedirectPath = (decodedRedirect: string): string | null => {
+    if (!decodedRedirect || decodedRedirect.startsWith('//')) {
+      return null;
+    }
+
+    try {
+      const url = new URL(decodedRedirect, window.location.origin);
+      if (url.origin !== window.location.origin || !url.pathname.startsWith('/')) {
+        return null;
+      }
+
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return null;
+    }
+  };
+
   // Check URL params for mode and onboarding (guarded by server truth)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -52,8 +69,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
     if (redirect) {
       const decodedRedirect = decodeURIComponent(redirect);
-      const normalizedRedirect = decodedRedirect.startsWith('/') ? decodedRedirect : `/${decodedRedirect}`;
-      setRedirectPath(normalizedRedirect);
+      const safeRedirect = getSafeRedirectPath(decodedRedirect);
+      setRedirectPath(safeRedirect ?? '/');
     }
 
     // Only open onboarding when explicitly requested via URL param

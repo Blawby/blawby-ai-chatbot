@@ -1,7 +1,4 @@
-import { getRemoteApiUrl } from '@/config/api';
-
-// API endpoints - intake submissions now handled by staging-api
-const getFormsEndpoint = () => `${getRemoteApiUrl()}/api/practice-client-intakes/submit`;
+import { getFormsEndpoint } from '@/config/api';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;

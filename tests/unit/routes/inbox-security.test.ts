@@ -143,6 +143,9 @@ describe('Inbox Route Security Tests', () => {
       vi.mocked(ConversationService.prototype.getInboxStats).mockResolvedValue({
         total: 0,
         active: 0,
+        unassigned: 0,
+        assignedToMe: 0,
+        highPriority: 0,
         archived: 0,
         closed: 0
       });

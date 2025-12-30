@@ -187,7 +187,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{files.length > 0 && (
 					<MessageAttachments
 						files={files}
-						variant={variant}
 					/>
 				)}
 			</MessageBubble>

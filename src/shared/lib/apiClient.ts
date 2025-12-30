@@ -41,7 +41,7 @@ function ensureApiBaseUrl(): string {
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
-  const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+  const explicit = import.meta.env.VITE_REMOTE_API_URL;
   cachedBaseUrl = explicit || getRemoteApiUrl();
   return cachedBaseUrl;
 }
@@ -71,11 +71,11 @@ apiClient.interceptors.request.use(
 
     const token = await getTokenAsync();
     if (token) {
-      const headers = (config.headers ?? {}) as AxiosRequestHeaders;
-      config.headers = {
-        ...headers,
-        Authorization: `Bearer ${token}`
-      };
+      if (!config.headers) {
+        config.headers = {} as AxiosRequestHeaders;
+      }
+      const headers = config.headers as AxiosRequestHeaders;
+      headers.Authorization = `Bearer ${token}`;
       if (import.meta.env.DEV) {
         console.log('[apiClient] Added token to request:', config.url);
       }

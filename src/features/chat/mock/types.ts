@@ -1,9 +1,10 @@
-import type { ChatMessageUI, FileAttachment } from '../../../../worker/types';
+import type { ChatMessage, UIMessageExtras, FileAttachment } from '../../../../worker/types';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 
 export type DeliveryState = 'sending' | 'sent' | 'delivered' | 'error';
 
-export interface MockMessage extends ChatMessageUI {
+export interface MockMessage extends ChatMessage, UIMessageExtras {
+  isUser: boolean;
   metadata?: Record<string, unknown> & {
     deliveryState?: DeliveryState;
     avatar?: { src?: string | null; name: string };
