@@ -88,9 +88,6 @@ const usePracticeMgmtMock = {
   createPractice: vi.fn(),
   updatePractice: vi.fn(),
   deletePractice: vi.fn(),
-  createPractice: vi.fn(),
-  updatePractice: vi.fn(),
-  deletePractice: vi.fn(),
   inviteMember: vi.fn(),
   acceptInvitation: vi.fn(),
   declineInvitation: vi.fn(),
@@ -213,9 +210,6 @@ describe('SettingsPage Integration Tests', () => {
     usePracticeMgmtMock.getWorkspaceData = vi.fn();
     usePracticeMgmtMock.fetchWorkspaceData = vi.fn();
     usePracticeMgmtMock.refetch = vi.fn();
-    usePracticeMgmtMock.createPractice = vi.fn();
-    usePracticeMgmtMock.updatePractice = vi.fn();
-    usePracticeMgmtMock.deletePractice = vi.fn();
     
     // Set up the mock return value
     vi.mocked(usePracticeManagement).mockReturnValue(usePracticeMgmtMock);

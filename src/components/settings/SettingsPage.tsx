@@ -52,7 +52,12 @@ export const SettingsPage = ({
   };
   
   const currentPage = getCurrentPage();
-  const normalizedPage = currentPage === 'organization' ? 'practice' : currentPage;
+
+  // Redirect legacy 'organization' URLs to 'practice'
+  if (currentPage === 'organization') {
+    navigate('/settings/practice');
+    return null;
+  }
 
   const handleNavigation = (page: string) => {
     navigate(`/settings/${page}`);
@@ -95,7 +100,7 @@ export const SettingsPage = ({
 
   // Render content based on current page
   const renderContent = () => {
-    switch (normalizedPage) {
+    switch (currentPage) {
       case 'general':
         return <GeneralPage isMobile={isMobile} onClose={onClose} className="h-full" />;
       case 'notifications':
@@ -116,7 +121,7 @@ export const SettingsPage = ({
   };
 
   // For MFA enrollment, render as full page without sidebar
-  if (normalizedPage === 'mfa-enrollment') {
+  if (currentPage === 'mfa-enrollment') {
     return (
       <div className={cn('h-full', className)}>
         {renderContent()}
@@ -128,7 +133,7 @@ export const SettingsPage = ({
   if (isMobile) {
     return (
       <div className={cn('h-full flex flex-col', className)}>
-        {normalizedPage === 'navigation' ? (
+        {currentPage === 'navigation' ? (
           // Main settings page (navigation)
           <>
             {/* Mobile Header */}
@@ -151,7 +156,7 @@ export const SettingsPage = ({
               <div className="px-4 py-2">
                 <SidebarNavigation
                   items={navigationItems}
-                  activeItem={normalizedPage}
+                  activeItem={currentPage}
                   onItemClick={handleNavigation}
                   mobile={true}
                 />
@@ -172,7 +177,7 @@ export const SettingsPage = ({
               </button>
               <div className="flex-1 flex justify-center">
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {navigationItems.find(item => item.id === normalizedPage)?.label || 'Settings'}
+                  {navigationItems.find(item => item.id === currentPage)?.label || 'Settings'}
                 </h1>
               </div>
               <div className="w-9" /> {/* Spacer to center the title */}
@@ -210,7 +215,7 @@ export const SettingsPage = ({
         <div>
           <SidebarNavigation
             items={navigationItems}
-            activeItem={normalizedPage}
+            activeItem={currentPage}
             onItemClick={handleNavigation}
           />
         </div>
