@@ -179,7 +179,7 @@ const LawyerSearchInline: FunctionComponent = () => {
       setCertifiedLoaded(true);
       setLoading(false);
     }
-  }, [certifiedResults.length, searchParams, standardResults.length]);
+  }, [searchParams]);
 
   useEffect(() => {
     if (initialLoadRef.current) return;

@@ -232,9 +232,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     }
   };
   
-  const handleGoToMatter = () => {
-    onTabChange('matter');
-  };
 
   const handleGoToInbox = () => {
     onTabChange('inbox');

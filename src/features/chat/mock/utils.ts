@@ -17,6 +17,9 @@ export function formatTimestamp(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-export function applyDeliveryState(metadata: Record<string, unknown> | undefined, deliveryState: DeliveryState): { deliveryState: DeliveryState } {
+export function applyDeliveryState(
+  metadata: Record<string, unknown> | undefined,
+  deliveryState: DeliveryState
+): Record<string, unknown> & { deliveryState: DeliveryState } {
   return { ...(metadata ?? {}), deliveryState };
 }
