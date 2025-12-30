@@ -5,6 +5,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { motion, AnimatePresence } from 'framer-motion';
 import { THEME } from '@/shared/utils/constants';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import { lockBodyScroll, unlockBodyScroll } from '@/shared/utils/modalStack';
 
 interface ModalProps {
     isOpen: boolean;
@@ -38,7 +39,7 @@ const Modal: FunctionComponent<ModalProps> = ({
 
     useEffect(() => {
         // Only run in browser environment
-        if (!isBrowser) return;
+        if (!isBrowser || !isOpen) return;
 
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -46,14 +47,12 @@ const Modal: FunctionComponent<ModalProps> = ({
             }
         };
 
-        if (isOpen) {
-            document.addEventListener('keydown', handleEscape);
-            document.body.style.overflow = 'hidden';
-        }
+        document.addEventListener('keydown', handleEscape);
+        lockBodyScroll();
 
         return () => {
             document.removeEventListener('keydown', handleEscape);
-            document.body.style.overflow = '';
+            unlockBodyScroll();
         };
     }, [isOpen, onClose, isBrowser]);
 

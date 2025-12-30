@@ -1,4 +1,5 @@
 import { useLocation } from 'preact-iso';
+import { useState } from 'preact/hooks';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
@@ -6,6 +7,8 @@ import { SecurityPage } from './SecurityPage';
 import { MFAEnrollmentPage } from './MFAEnrollmentPage';
 import { HelpPage } from './HelpPage';
 import { PracticePage } from './PracticePage';
+import { AppsPage } from './AppsPage';
+import { AppDetailPage } from './AppDetailPage';
 import { SidebarNavigation, SidebarNavigationItem } from '@/shared/ui/SidebarNavigation';
 import { 
   UserIcon, 
@@ -16,13 +19,15 @@ import {
   ArrowRightOnRectangleIcon,
   QuestionMarkCircleIcon,
   ArrowLeftIcon,
-  BuildingOfficeIcon
+  BuildingOfficeIcon,
+  PuzzlePieceIcon
 } from '@heroicons/react/24/outline';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { signOut } from '@/shared/utils/auth';
+import { mockApps, type App } from './appsData';
 
 
 export interface SettingsPageProps {
@@ -40,6 +45,7 @@ export const SettingsPage = ({
   const { navigate } = useNavigation();
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
+  const [apps, setApps] = useState<App[]>(mockApps);
   
   // Get current page from URL path
   const getCurrentPage = () => {
@@ -51,6 +57,12 @@ export const SettingsPage = ({
     return segments[1] || 'navigation'; // Get the page from /settings/page
   };
   
+  const getCurrentAppId = () => {
+    const segments = location.path.split('/').filter(Boolean);
+    return segments[2];
+  };
+
+  const currentAppId = getCurrentAppId();
   const currentPage = getCurrentPage();
 
   // Redirect legacy 'organization' URLs to 'practice'
@@ -92,11 +104,16 @@ export const SettingsPage = ({
     { id: 'notifications', label: t('settings:navigation.items.notifications'), icon: BellIcon },
     { id: 'account', label: t('settings:navigation.items.account'), icon: UserIcon },
     { id: 'practice', label: t('settings:navigation.items.practice'), icon: BuildingOfficeIcon },
+    { id: 'apps', label: t('settings:navigation.items.apps'), icon: PuzzlePieceIcon },
     { id: 'security', label: t('settings:navigation.items.security'), icon: ShieldCheckIcon },
     { id: 'help', label: t('settings:navigation.items.help'), icon: QuestionMarkCircleIcon },
     { id: 'signout', label: t('settings:navigation.items.signOut'), icon: ArrowRightOnRectangleIcon, isAction: true, onClick: handleSignOut, variant: 'danger' }
   ];
 
+
+  const handleAppUpdate = (appId: string, updates: Partial<App>) => {
+    setApps((prev) => prev.map((app) => app.id === appId ? { ...app, ...updates } : app));
+  };
 
   // Render content based on current page
   const renderContent = () => {
@@ -109,6 +126,26 @@ export const SettingsPage = ({
         return <AccountPage isMobile={isMobile} onClose={onClose} className="h-full" />;
       case 'practice':
         return <PracticePage className="h-full" />;
+      case 'apps': {
+        const currentApp = apps.find(app => app.id === currentAppId);
+        if (currentAppId && currentApp) {
+          return (
+            <AppDetailPage
+              app={currentApp}
+              onBack={() => navigate('/settings/apps')}
+              onUpdate={handleAppUpdate}
+            />
+          );
+        }
+
+        return (
+          <AppsPage
+            apps={apps}
+            onSelect={(appId) => navigate(`/settings/apps/${appId}`)}
+            className="h-full"
+          />
+        );
+      }
       case 'security':
         return <SecurityPage isMobile={isMobile} onClose={onClose} className="h-full" />;
       case 'help':

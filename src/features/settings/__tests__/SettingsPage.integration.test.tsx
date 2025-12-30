@@ -45,6 +45,11 @@ vi.mock('@heroicons/react/24/outline', () => ({
   ArrowRightOnRectangleIcon: () => 'ArrowRightOnRectangleIcon',
   QuestionMarkCircleIcon: () => 'QuestionMarkCircleIcon',
   ArrowLeftIcon: () => 'ArrowLeftIcon',
+  PuzzlePieceIcon: () => 'PuzzlePieceIcon',
+  EllipsisVerticalIcon: () => 'EllipsisVerticalIcon',
+  GlobeAltIcon: () => 'GlobeAltIcon',
+  LockClosedIcon: () => 'LockClosedIcon',
+  CheckBadgeIcon: () => 'CheckBadgeIcon',
 }));
 
 // Mock the page components to avoid complex dependencies
@@ -227,6 +232,8 @@ describe('SettingsPage Integration Tests', () => {
     expect(screen.getByText('General')).toBeInTheDocument();
     expect(screen.getByText('Notifications')).toBeInTheDocument();
     expect(screen.getByText('Account')).toBeInTheDocument();
+    expect(screen.getByText('Practice')).toBeInTheDocument();
+    expect(screen.getByText('Apps')).toBeInTheDocument();
     expect(screen.getByText('Security')).toBeInTheDocument();
     expect(screen.getByText('Help')).toBeInTheDocument();
     expect(screen.getByText('Sign Out')).toBeInTheDocument();
