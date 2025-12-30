@@ -54,6 +54,7 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     const body = await parseJsonBody(request) as {
       conversationId: string;
       content: string;
+      attachments?: string[];
       role?: 'user' | 'assistant' | 'system';
       metadata?: Record<string, unknown>;
     };
@@ -66,13 +67,21 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
       throw HttpErrors.badRequest('content is required and cannot be empty');
     }
 
+    const attachments = Array.isArray(body.attachments)
+      ? body.attachments.filter((attachment) => typeof attachment === 'string' && attachment.trim().length > 0)
+      : [];
+    let metadata = body.metadata ? { ...body.metadata } : undefined;
+    if (attachments.length > 0) {
+      metadata = { ...(metadata ?? {}), attachments };
+    }
+
     const message = await conversationService.sendMessage({
       conversationId: body.conversationId,
       practiceId,
       senderUserId: userId,
       content: body.content.trim(),
       role: body.role || 'user',
-      metadata: body.metadata
+      metadata
     });
 
     // Check if this is a contact form submission and send email notifications

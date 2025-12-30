@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getCurrentConversationEndpoint, getConversationEndpoint, getChatMessagesEndpoint } from '@/config/api';
-import type { Conversation, ConversationMessage, ConversationMessageUI, GetMessagesOptions } from '@/shared/types/conversation';
+import type { Conversation, ConversationMessage, ConversationMessageUI } from '@/shared/types/conversation';
 
 interface UseConversationOptions {
   conversationId: string;
@@ -236,7 +236,7 @@ export function useConversation({
   }, [conversationId, practiceId, onError]);
 
   // Fetch messages
-  const fetchMessages = useCallback(async (options?: { since?: string; cursor?: string; isLoadMore?: boolean }) => {
+  const fetchMessages = useCallback(async (options?: { since?: number; cursor?: string; isLoadMore?: boolean }) => {
     if (!conversationId || !practiceId) {
       return;
     }
@@ -266,8 +266,8 @@ export function useConversation({
         limit: '50',
       });
 
-      if (options?.since) {
-        params.set('since', options.since);
+      if (options?.since !== undefined) {
+        params.set('since', options.since.toString());
       } else if (options?.cursor) {
         params.set('cursor', options.cursor);
       }
@@ -283,7 +283,16 @@ export function useConversation({
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore: boolean; nextCursor?: string | null } };
+      const data = await response.json() as {
+        success: boolean;
+        error?: string;
+        data?: {
+          messages: ConversationMessage[];
+          hasMore: boolean;
+          nextCursor?: string | null;
+          cursor?: string | null;
+        };
+      };
       if (!data.success || !data.data) {
         throw new Error(data.error || 'Failed to fetch messages');
       }
@@ -303,7 +312,7 @@ export function useConversation({
         }
 
         setHasMore(data.data.hasMore);
-        setNextCursor(data.data.nextCursor ?? null);
+        setNextCursor(data.data.nextCursor ?? data.data.cursor ?? null);
         setError(null);
       }
     } catch (err) {
@@ -362,7 +371,7 @@ export function useConversation({
 
       setMessages(prev => [...prev, tempMessage]);
 
-      const response = await fetch(getChatMessagesEndpoint(), {
+      const response = await fetch(`${getChatMessagesEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -419,9 +428,11 @@ export function useConversation({
       return;
     }
 
-    const since = lastPollTime || (messages.length > 0 ? messages[messages.length - 1].created_at : undefined);
-    if (since) {
-      await fetchMessages({ since, isLoadMore: false });
+    const lastMessageTimestamp = lastPollTime
+      ? new Date(lastPollTime).getTime()
+      : (messages.length > 0 ? new Date(messages[messages.length - 1].created_at).getTime() : undefined);
+    if (typeof lastMessageTimestamp === 'number' && Number.isFinite(lastMessageTimestamp)) {
+      await fetchMessages({ since: lastMessageTimestamp, isLoadMore: false });
       if (!isDisposedRef.current && messages.length > 0) {
         setLastPollTime(messages[messages.length - 1].created_at);
       }

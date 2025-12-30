@@ -156,7 +156,7 @@ export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, o
       // Convert file attachments to file IDs (assuming attachments have id or need to be uploaded first)
       const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
-      const response = await fetch(getChatMessagesEndpoint(), {
+      const response = await fetch(`${getChatMessagesEndpoint()}?practiceId=${encodeURIComponent(effectivePracticeId)}`, {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -279,7 +279,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         resolvedPracticeSlug
       );
 
-      const response = await fetch(getChatMessagesEndpoint(), {
+      const practiceContextId = practiceId || resolvedPracticeSlug;
+      const response = await fetch(`${getChatMessagesEndpoint()}?practiceId=${encodeURIComponent(practiceContextId)}`, {
         method: 'POST',
         headers,
         credentials: 'include',

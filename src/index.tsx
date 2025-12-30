@@ -13,7 +13,6 @@ import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
 import { BusinessOnboardingPage } from '@/pages/BusinessOnboardingPage';
-import LawyerSearchPage from '@/pages/LawyerSearchPage';
 import { MockChatPage } from '@/pages/MockChatPage';
 import { CartPage } from '@/features/cart/pages/CartPage';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -48,9 +47,11 @@ function AppWithPractice() {
     const segments = location.path.split('/').filter(Boolean);
     if (segments.length !== 1) return null;
     const slug = segments[0];
-    const reserved = ['auth', 'cart', 'lawyers', 'business-onboarding', 'settings'];
+    const reserved = ['auth', 'cart', 'business-onboarding', 'settings'];
     return reserved.includes(slug) ? null : slug;
   }, [location.path]);
+  const practiceIdQuery = location.query.practiceId || location.query.practice_id || '';
+  const isPracticeView = Boolean(slugFromPath || practiceIdQuery);
 
   // Load practice config for authenticated users or guest slug routes
   const {
@@ -203,6 +204,7 @@ function AppWithPractice() {
       practiceNotFound={practiceNotFound}
       handleRetryPracticeConfig={handleRetryPracticeConfig}
       session={session}
+      isPracticeView={isPracticeView}
     />
   );
 }
@@ -213,12 +215,14 @@ function AppWithSEO({
   practiceNotFound,
   handleRetryPracticeConfig,
   session,
+  isPracticeView,
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
   practiceNotFound: boolean;
   handleRetryPracticeConfig: () => void;
   session: ReturnType<typeof useSession>['data'];
+  isPracticeView: boolean;
 }) {
   const location = useLocation();
   const { navigate } = useNavigation();
@@ -242,11 +246,12 @@ function AppWithSEO({
 					practiceConfig={practiceConfig}
 					practiceNotFound={practiceNotFound}
 					handleRetryPracticeConfig={handleRetryPracticeConfig}
+					isPracticeView={isPracticeView}
 					{...props}
 				/>
 			);
 		};
-	}, [practiceId, practiceConfig, practiceNotFound, handleRetryPracticeConfig]);
+	}, [practiceId, practiceConfig, practiceNotFound, handleRetryPracticeConfig, isPracticeView]);
 
 	return (
 		<>
@@ -258,7 +263,6 @@ function AppWithSEO({
 				<Router>
    					<Route path="/auth" component={AuthPage} />
 					<Route path="/cart" component={CartPage} />
-					<Route path="/lawyers" component={LawyerSearchPage} />
 					<Route path="/dev/mock-chat" component={MockChatPage} />
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
 					<Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
@@ -269,6 +273,7 @@ function AppWithSEO({
 							practiceConfig={practiceConfig}
 							practiceNotFound={practiceNotFound}
 							handleRetryPracticeConfig={handleRetryPracticeConfig}
+							isPracticeView={isPracticeView}
 							{...props}
 						/>
 					)} />
@@ -283,6 +288,7 @@ function AppWithSEO({
 								practiceConfig={practiceConfig}
 								practiceNotFound={practiceNotFound}
 								handleRetryPracticeConfig={handleRetryPracticeConfig}
+								isPracticeView={isPracticeView}
 								{...props}
 							/>
 						);

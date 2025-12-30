@@ -40,6 +40,12 @@ interface LawyerSearchResultsProps {
   onContactLawyer: (lawyer: LawyerProfile) => void;
   onSearchAgain: () => void;
   onLoadMore?: () => void;
+  title?: string;
+  description?: string;
+  showCount?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  showSearchAgain?: boolean;
 }
 
 const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
@@ -48,7 +54,13 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
   total,
   onContactLawyer,
   onSearchAgain,
-  onLoadMore
+  onLoadMore,
+  title,
+  description,
+  showCount = true,
+  emptyTitle,
+  emptyDescription,
+  showSearchAgain = true
 }) => {
   const { isDark } = useTheme();
   const [selectedLawyer, setSelectedLawyer] = useState<LawyerProfile | null>(null);
@@ -106,14 +118,16 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
     return (
       <div className={`p-6 rounded-lg shadow-md ${isDark ? 'bg-dark-card border border-dark-border' : 'bg-white border border-gray-200'}`}>
         <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          No Lawyers Found
+          {emptyTitle || 'No Lawyers Found'}
         </h3>
         <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          We couldn&apos;t find any lawyers in your area for {matterType}. Try searching again or contact us for assistance.
+          {emptyDescription || `We couldn&apos;t find any lawyers in your area for ${matterType}. Try searching again or contact us for assistance.`}
         </p>
-        <Button variant="primary" onClick={onSearchAgain}>
-          Search Again
-        </Button>
+        {showSearchAgain && (
+          <Button variant="primary" onClick={onSearchAgain}>
+            Search Again
+          </Button>
+        )}
       </div>
     );
   }
@@ -122,12 +136,19 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
     <div className={`p-6 rounded-lg shadow-md ${isDark ? 'bg-dark-card border border-dark-border' : 'bg-white border border-gray-200'}`}>
       <div className="flex justify-between items-center mb-4">
         <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Lawyers for {matterType}
+          {title || `Lawyers for ${matterType}`}
         </h3>
-        <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-          {lawyers.length} of {total} results
-        </span>
+        {showCount && (
+          <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            {lawyers.length} of {total} results
+          </span>
+        )}
       </div>
+      {description && (
+        <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          {description}
+        </p>
+      )}
 
       <div className="space-y-4">
         {lawyers.map((lawyer) => (
@@ -142,7 +163,7 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
             <div className="flex justify-between items-start mb-3">
               <div className="flex items-center space-x-3">
                 <div className={`p-2 rounded-full ${isDark ? 'bg-dark-card' : 'bg-white'}`}>
-                  <UserIcon className="w-6 h-6 text-blue-500" />
+                  <UserIcon className={`w-6 h-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`} />
                 </div>
                 <div>
                   <h4 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -202,9 +223,9 @@ const LawyerSearchResults: FunctionComponent<LawyerSearchResultsProps> = ({
                     <span
                       key={area}
                       className={`px-2 py-1 text-xs rounded-full ${
-                        isDark 
-                          ? 'bg-blue-900 text-blue-200' 
-                          : 'bg-blue-100 text-blue-800'
+                        isDark
+                          ? 'bg-gray-800 text-gray-200'
+                          : 'bg-gray-100 text-gray-700'
                       }`}
                     >
                       {area}

@@ -123,6 +123,7 @@ export interface GetMessagesResponse {
   messages: ConversationMessage[];
   hasMore: boolean;
   nextCursor?: string | null;
+  cursor?: string | null;
 }
 
 /**
@@ -132,5 +133,5 @@ export interface GetMessagesOptions {
   conversationId: string;
   limit?: number;
   cursor?: string;
-  since?: string; // ISO timestamp for polling new messages
+  since?: number; // Timestamp in milliseconds for polling new messages
 }

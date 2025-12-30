@@ -28,12 +28,14 @@ export function MainApp({
   practiceId,
   practiceConfig,
   practiceNotFound,
-  handleRetryPracticeConfig
+  handleRetryPracticeConfig,
+  isPracticeView
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
   practiceNotFound: boolean;
   handleRetryPracticeConfig: () => void;
+  isPracticeView: boolean;
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
@@ -385,6 +387,7 @@ export function MainApp({
   // User tier is now derived directly from practice - no need for custom event listeners
 
   const isSessionReady = Boolean(conversationId && !conversationsLoading && !isCreatingConversation);
+  const canChat = Boolean(isPracticeView && practiceId);
   const showMatterControls = currentPractice?.id === practiceId;
 
   const activeConversation = useMemo(() => {
@@ -618,6 +621,7 @@ export function MainApp({
               isReadyToUpload={isReadyToUpload}
               isSessionReady={isSessionReady}
               intakeStatus={intakeStatus}
+              canChat={canChat}
             />
           </div>
         </div>
