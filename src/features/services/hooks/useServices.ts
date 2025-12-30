@@ -59,8 +59,8 @@ export function useServices({
         selected.add(service.id);
         return;
       }
+      if (typeof service.title !== 'string' || !service.title.trim()) return;
       const titleKey = service.title.trim().toLowerCase();
-      if (!titleKey) return;
       const template = index.byTitle.get(titleKey);
       if (template) {
         selected.add(template.id);
