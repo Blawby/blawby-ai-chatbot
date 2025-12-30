@@ -8,6 +8,7 @@ import { ContactData } from '@/features/intake/components/ContactForm';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import AuthPromptModal from './AuthPromptModal';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -38,6 +39,8 @@ interface ChatContainerProps {
   intakeStatus?: {
     step: string;
   };
+  conversationId?: string | null;
+  isAnonymousUser?: boolean;
 
   // Input control prop
   clearInput?: number;
@@ -63,11 +66,15 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isReadyToUpload,
   isSessionReady,
   intakeStatus,
-  clearInput
+  clearInput,
+  conversationId,
+  isAnonymousUser
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobileDetection();
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
 
 
   // Simple resize handler for window size changes
@@ -93,6 +100,26 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       textareaRef.current.style.height = `${newHeight}px`;
     }
   }, []);
+
+  // Reset auth prompt dismissal when conversation changes
+  useEffect(() => {
+    setHasDismissedAuthPrompt(false);
+    setShowAuthPrompt(false);
+  }, [conversationId]);
+
+  // Show auth prompt when intake enters pending review for anonymous users
+  useEffect(() => {
+    const shouldShow =
+      isAnonymousUser &&
+      intakeStatus?.step === 'pending_review' &&
+      !hasDismissedAuthPrompt;
+
+    setShowAuthPrompt(Boolean(shouldShow));
+
+    if (!shouldShow && intakeStatus?.step !== 'pending_review') {
+      setHasDismissedAuthPrompt(false);
+    }
+  }, [intakeStatus?.step, isAnonymousUser, hasDismissedAuthPrompt]);
 
   // Clear input when clearInput prop changes (numeric change counter)
   useEffect(() => {
@@ -136,6 +163,28 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
+  const handleAuthPromptClose = () => {
+    setHasDismissedAuthPrompt(true);
+    setShowAuthPrompt(false);
+  };
+
+  const handleAuthRedirect = () => {
+    setShowAuthPrompt(false);
+    const authUrl = new URL('/auth', window.location.origin);
+    authUrl.searchParams.set('mode', 'signup');
+    if (conversationId) {
+      authUrl.searchParams.set('conversationId', conversationId);
+    }
+    if (practiceId) {
+      authUrl.searchParams.set('practiceId', practiceId);
+    }
+    const redirectPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (redirectPath) {
+      authUrl.searchParams.set('redirect', redirectPath);
+    }
+    window.location.href = authUrl.toString();
+  };
+
   return (
     <div className="flex flex-col h-screen md:h-screen w-full m-0 p-0 relative overflow-hidden bg-white dark:bg-dark-bg" data-testid="chat-container">
       <main className="flex flex-col h-full w-full overflow-hidden relative bg-white dark:bg-dark-bg">
@@ -168,6 +217,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           intakeStatus={intakeStatus}
         />
       </main>
+
+      <AuthPromptModal
+        isOpen={showAuthPrompt}
+        onSignIn={handleAuthRedirect}
+        onClose={handleAuthPromptClose}
+        practiceName={practiceConfig?.name}
+      />
     </div>
   );
 };

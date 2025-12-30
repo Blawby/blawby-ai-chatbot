@@ -55,6 +55,7 @@ export function MainApp({
 
   // Use session from Better Auth
   const { data: session, isPending: sessionIsPending } = useSession();
+  const isAnonymousUser = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
 
   // Practice data is now passed as props
 
@@ -618,6 +619,8 @@ export function MainApp({
               isReadyToUpload={isReadyToUpload}
               isSessionReady={isSessionReady}
               intakeStatus={intakeStatus}
+              conversationId={conversationId}
+              isAnonymousUser={isAnonymousUser}
             />
           </div>
         </div>

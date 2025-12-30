@@ -129,11 +129,11 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const intakeStep = intakeStatus?.step;
     const showIntakeBanner =
         intakeStep === 'pending_review' ||
-        intakeStep === 'accepted_needs_auth' ||
+        intakeStep === 'accepted' ||
         intakeStep === 'rejected';
 
     const intakeBannerText = (() => {
-        if (intakeStep === 'accepted_needs_auth') {
+        if (intakeStep === 'accepted') {
             return t('intake.accepted');
         }
         if (intakeStep === 'rejected') {

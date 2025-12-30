@@ -459,7 +459,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     // Authenticated users skip intake flow
     if (!isAnonymous) return 'completed';
 
-    if (intakeDecision === 'accepted') return 'accepted_needs_auth';
+    if (intakeDecision === 'accepted') return 'accepted';
     if (intakeDecision === 'rejected') return 'rejected';
     
     // Allow first message to be sent without blocking

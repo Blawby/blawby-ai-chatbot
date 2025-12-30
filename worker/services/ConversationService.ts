@@ -444,6 +444,52 @@ export class ConversationService {
   }
 
   /**
+   * Link an anonymous conversation to an authenticated user account.
+   * Updates user_id from null to userId and ensures user is in participants.
+   */
+  async linkConversationToUser(
+    conversationId: string,
+    practiceId: string,
+    userId: string
+  ): Promise<Conversation> {
+    const conversation = await this.getConversation(conversationId, practiceId);
+
+    if (conversation.practice_id !== practiceId) {
+      throw HttpErrors.forbidden('Conversation does not belong to this practice');
+    }
+
+    if (conversation.user_id && conversation.user_id !== userId) {
+      throw HttpErrors.conflict('Conversation already linked to a different user');
+    }
+
+    // If already linked to this user and participant list already contains them, return early
+    const participantSet = new Set(conversation.participants);
+    const alreadyLinkedToUser = conversation.user_id === userId;
+    if (alreadyLinkedToUser && participantSet.has(userId)) {
+      return conversation;
+    }
+
+    participantSet.add(userId);
+    const updatedParticipants = Array.from(participantSet);
+    const now = new Date().toISOString();
+
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET user_id = ?, participants = ?, updated_at = ?
+      WHERE id = ? AND practice_id = ? AND (user_id IS NULL OR user_id = ?)
+    `).bind(
+      userId,
+      JSON.stringify(updatedParticipants),
+      now,
+      conversationId,
+      practiceId,
+      userId
+    ).run();
+
+    return this.getConversation(conversationId, practiceId);
+  }
+
+  /**
    * Validate that a user has access to a conversation
    */
   async validateParticipantAccess(

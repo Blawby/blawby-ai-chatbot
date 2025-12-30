@@ -56,7 +56,7 @@ const MessageComposer = ({
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked =
     intakeStep === 'pending_review' ||
-    intakeStep === 'accepted_needs_auth' ||
+    intakeStep === 'accepted' ||
     intakeStep === 'rejected';
 
   const handleInput = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
@@ -83,7 +83,7 @@ const MessageComposer = ({
 
   const statusMessage = (() => {
     if (isIntakeLocked) {
-      if (intakeStep === 'accepted_needs_auth') {
+      if (intakeStep === 'accepted') {
         return t('intake.accepted');
       }
       if (intakeStep === 'rejected') {

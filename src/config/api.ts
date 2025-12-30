@@ -154,6 +154,10 @@ export const getConversationParticipantsEndpoint = (conversationId: string) => {
   return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/participants`;
 };
 
+export const getConversationLinkEndpoint = (conversationId: string) => {
+  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/link`;
+};
+
 // Chat message endpoints - now handled by remote API
 export const getChatMessagesEndpoint = () => {
   return `${getRemoteApiUrl()}/api/chat/messages`;

@@ -8,6 +8,7 @@ import { useMockChat } from '@/features/chat/mock/useMockChat';
 export function MockChatPage() {
   const [isDevMode, setIsDevMode] = useState(import.meta.env.DEV || import.meta.env.MODE === 'development');
   const mock = useMockChat();
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
 
   useEffect(() => {
     const dev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
@@ -16,6 +17,12 @@ export function MockChatPage() {
       window.location.href = '/';
     }
   }, []);
+
+  useEffect(() => {
+    if (!isDevMode || hasAutoStarted) return;
+    setHasAutoStarted(true);
+    void mock.simulateScenario('guest-intake');
+  }, [hasAutoStarted, isDevMode, mock]);
 
   const practiceConfig = useMemo(() => ({
     name: 'Mock Practice',
@@ -64,6 +71,7 @@ export function MockChatPage() {
             isReadyToUpload={mock.isReadyToUpload}
             isSessionReady={mock.isSessionReady}
             intakeStatus={mock.intakeStatus}
+            isAnonymousUser={mock.state.isAnonymous}
           />
         </div>
 
