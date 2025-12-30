@@ -1,7 +1,7 @@
 import { render, RenderOptions } from '@testing-library/preact';
 import { ComponentChildren } from 'preact';
-// import { ToastProvider } from '../contexts/ToastContext';
-// import { PracticeProvider } from '../contexts/PracticeContext';
+// import { ToastProvider } from '@/shared/contexts/ToastContext';
+// import { PracticeProvider } from '@/shared/contexts/PracticeContext';
 import { vi } from 'vitest';
 
 // Mock useLocation hook with dynamic path
@@ -22,7 +22,7 @@ export const getMockPath = () => mockCurrentPath;
 const mockNavigate = vi.fn((url: string) => {
   mockCurrentPath = url;
 });
-vi.mock('../hooks/useNavigation', () => ({
+vi.mock('@/shared/hooks/useNavigation', () => ({
   useNavigation: () => ({
     navigate: mockNavigate,
   }),
@@ -44,7 +44,7 @@ vi.mock('preact-iso', () => ({
 }));
 
 // Mock the feature flags
-vi.mock('../config/features', () => ({
+vi.mock('@/config/features', () => ({
   useFeatureFlag: (flag: string) => {
     if (flag === 'enableMultiplePractices') return false;
     return false;
@@ -52,7 +52,7 @@ vi.mock('../config/features', () => ({
 }));
 
 // Mock the auth client
-vi.mock('../lib/authClient', () => ({
+vi.mock('@/shared/lib/authClient', () => ({
   authClient: {
     getSession: vi.fn().mockResolvedValue({
       user: { id: 'test-user-id', email: 'test@example.com' },
@@ -90,7 +90,7 @@ vi.mock('@heroicons/react/24/outline', () => ({
 }));
 
 // Mock ToastContext
-vi.mock('../contexts/ToastContext', () => ({
+vi.mock('@/shared/contexts/ToastContext', () => ({
   ToastProvider: ({ children }: { children: ComponentChildren }) => children,
   useToast: () => ({
     showSuccess: vi.fn(),
@@ -109,7 +109,7 @@ vi.mock('../contexts/ToastContext', () => ({
 }));
 
 // Mock features config
-vi.mock('../config/features', () => ({
+vi.mock('@/config/features', () => ({
   features: {
     enableAudioRecording: false,
     enableVideoRecording: false,
@@ -127,27 +127,27 @@ vi.mock('../config/features', () => ({
 }));
 
 // Mock settings page components
-vi.mock('../components/settings/pages/GeneralPage', () => ({
+vi.mock('@/features/settings/pages/GeneralPage', () => ({
   GeneralPage: () => <div>General Settings</div>,
 }));
 
-vi.mock('../components/settings/pages/NotificationsPage', () => ({
+vi.mock('@/features/settings/pages/NotificationsPage', () => ({
   NotificationsPage: () => <div>Notification Settings</div>,
 }));
 
-vi.mock('../components/settings/pages/AccountPage', () => ({
+vi.mock('@/features/settings/pages/AccountPage', () => ({
   AccountPage: () => <div>Account Settings</div>,
 }));
 
-vi.mock('../components/settings/pages/SecurityPage', () => ({
+vi.mock('@/features/settings/pages/SecurityPage', () => ({
   SecurityPage: () => <div>Security Settings</div>,
 }));
 
-vi.mock('../components/settings/pages/MFAEnrollmentPage', () => ({
+vi.mock('@/features/settings/pages/MFAEnrollmentPage', () => ({
   MFAEnrollmentPage: () => <div>MFA Enrollment</div>,
 }));
 
-vi.mock('../components/settings/pages/HelpPage', () => ({
+vi.mock('@/features/settings/pages/HelpPage', () => ({
   HelpPage: () => <div>Help & Support</div>,
 }));
 

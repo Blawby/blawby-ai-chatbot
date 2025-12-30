@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "../utils/test-utils";
-import PricingComparison from "../../components/PricingComparison";
-import { PricingModal } from "../../components/modals/organisms";
-import { i18n, changeLanguage } from "@/i18n/hooks";
-import { formatCurrency } from "../../utils/currencyFormatter";
+import PricingComparison from "@/features/cart/components/PricingComparison";
+import PricingModal from "@/features/modals/components/PricingModal";
+import { i18n, changeLanguage } from "@/shared/i18n/hooks";
+import { formatCurrency } from "@/shared/utils/currencyFormatter";
 
 // Mock the i18n hook - keep real i18n and changeLanguage, only mock useTranslation
-vi.mock("@/i18n/hooks", async () => {
-  const actual = await vi.importActual<typeof import("@/i18n/hooks")>("@/i18n/hooks");
+vi.mock("@/shared/i18n/hooks", async () => {
+  const actual = await vi.importActual<typeof import("@/shared/i18n/hooks")>("@/shared/i18n/hooks");
   return {
     ...actual,
     useTranslation: (namespace?: string) => {
@@ -21,7 +21,7 @@ vi.mock("@/i18n/hooks", async () => {
 });
 
 // Mock usePaymentUpgrade hook
-vi.mock("../../hooks/usePaymentUpgrade", () => ({
+vi.mock("@/shared/hooks/usePaymentUpgrade", () => ({
   usePaymentUpgrade: () => ({
     openBillingPortal: vi.fn(),
     upgradeSubscription: vi.fn(),
@@ -30,7 +30,7 @@ vi.mock("../../hooks/usePaymentUpgrade", () => ({
 }));
 
 // Mock usePracticeManagement hook
-vi.mock("../../hooks/usePracticeManagement", () => ({
+vi.mock("@/shared/hooks/usePracticeManagement", () => ({
   usePracticeManagement: () => ({
     currentPractice: { id: "practice-1", subscriptionTier: "free" },
     practices: [],
@@ -40,7 +40,7 @@ vi.mock("../../hooks/usePracticeManagement", () => ({
 }));
 
 // Mock useToastContext
-vi.mock("../../contexts/ToastContext", () => ({
+vi.mock("@/shared/contexts/ToastContext", () => ({
   useToastContext: () => ({
     showSuccess: vi.fn(),
     showError: vi.fn(),
@@ -48,7 +48,7 @@ vi.mock("../../contexts/ToastContext", () => ({
 }));
 
 // Mock SessionContext
-vi.mock("../../contexts/SessionContext", () => ({
+vi.mock("@/shared/contexts/SessionContext", () => ({
   useSessionContext: () => ({
     activePracticeId: "practice-1",
   }),

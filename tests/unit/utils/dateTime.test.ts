@@ -6,7 +6,7 @@ import {
   getDateGrid, 
   getTimeSlots, 
   formatTimeSlot 
-} from '../../../src/utils/dateTime';
+} from '../../../src/shared/utils/dateTime';
 
 describe('dateTime', () => {
   describe('formatDateForSelector', () => {

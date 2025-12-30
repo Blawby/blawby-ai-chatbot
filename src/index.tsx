@@ -2,24 +2,24 @@ import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider
 import { useCallback, useEffect, useMemo } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
-import AuthPage from './components/AuthPage';
-import { SEOHead } from './components/SEOHead';
-import { ToastProvider } from './contexts/ToastContext';
-import { SessionProvider } from './contexts/SessionContext';
-import { useSession, getClient } from './lib/authClient';
-import type { UIPracticeConfig } from './hooks/usePracticeConfig';
-import { MainApp } from './components/MainApp';
+import AuthPage from '@/pages/AuthPage';
+import { SEOHead } from '@/app/SEOHead';
+import { ToastProvider } from '@/shared/contexts/ToastContext';
+import { SessionProvider } from '@/shared/contexts/SessionContext';
+import { useSession, getClient } from '@/shared/lib/authClient';
+import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import { MainApp } from '@/app/MainApp';
 // Settings components
-import { SettingsLayout } from './components/settings/SettingsLayout';
-import { useNavigation } from './utils/navigation';
-import { BusinessOnboardingPage } from './components/pages/BusinessOnboardingPage';
-import LawyerSearchPage from './components/pages/LawyerSearchPage';
-import { CartPage } from './components/cart/CartPage';
-import { usePracticeConfig } from './hooks/usePracticeConfig';
-import { useMobileDetection } from './hooks/useMobileDetection';
-import { handleError } from './utils/errorHandler';
+import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
+import { useNavigation } from '@/shared/utils/navigation';
+import { BusinessOnboardingPage } from '@/pages/BusinessOnboardingPage';
+import LawyerSearchPage from '@/pages/LawyerSearchPage';
+import { CartPage } from '@/features/cart/pages/CartPage';
+import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import { handleError } from '@/shared/utils/errorHandler';
 import './index.css';
-import { i18n, initI18n } from './i18n';
+import { i18n, initI18n } from '@/shared/i18n';
 
 
 

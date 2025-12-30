@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SUPPORTED_LOCALES, AVAILABLE_LOCALES, DEFAULT_LOCALE, isRTLLocale, RTL_LOCALES } from '../i18n/index';
+import { SUPPORTED_LOCALES, AVAILABLE_LOCALES, DEFAULT_LOCALE, isRTLLocale, RTL_LOCALES } from '@/shared/i18n/index';
 
 // Mock localStorage for node environment
 const localStorageMock = (() => {

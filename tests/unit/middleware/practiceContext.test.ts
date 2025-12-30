@@ -5,13 +5,13 @@ import {
   getPracticeId 
 } from '../../../worker/middleware/practiceContext';
 import { optionalAuth } from '../../../worker/middleware/auth';
-import { SessionService } from '../../../worker/services/SessionService';
+// SessionService removed - using optionalAuth directly
 import { HttpErrors } from '../../../worker/errorHandler';
 import type { Env } from '../../../worker/types';
 
 // Mock dependencies
 vi.mock('../../../worker/middleware/auth');
-vi.mock('../../../worker/services/SessionService');
+// SessionService mock removed
 
 const mockEnv: Env = {
   DB: {} as any,
@@ -79,7 +79,6 @@ describe('PracticeContext Middleware Security Tests', () => {
 
     it('should allow practiceId query parameter (non-auth param)', async () => {
       vi.mocked(optionalAuth).mockResolvedValue(null);
-      vi.mocked(SessionService.getSessionTokenFromCookie).mockReturnValue(null);
 
       const request = new Request('https://example.com/api/test?practiceId=valid-practice-id', {
         method: 'GET'
@@ -111,7 +110,6 @@ describe('PracticeContext Middleware Security Tests', () => {
         session: { id: 'session-1', expiresAt: new Date() },
         token: 'original-auth-token-12345'
       });
-      vi.mocked(SessionService.getSessionTokenFromCookie).mockReturnValue(null);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
         allowUrlOverride: true,
@@ -139,7 +137,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       vi.mocked(optionalAuth).mockResolvedValue(null);
-      vi.mocked(SessionService.getSessionTokenFromCookie).mockReturnValue(null);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
         allowUrlOverride: true,
@@ -164,7 +161,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       vi.mocked(optionalAuth).mockResolvedValue(null);
-      vi.mocked(SessionService.getSessionTokenFromCookie).mockReturnValue(null);
 
       // Mock a scenario where headers might be modified (shouldn't happen in real code)
       // We'll test by manually modifying after the fact to verify the check works
@@ -207,7 +203,6 @@ describe('PracticeContext Middleware Security Tests', () => {
         }
         return null;
       });
-      vi.mocked(SessionService.getSessionTokenFromCookie).mockReturnValue(null);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
         allowUrlOverride: true,
@@ -266,7 +261,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       };
 
       vi.mocked(optionalAuth).mockResolvedValue(mockAuthContext);
-      vi.mocked(SessionService.getSessionTokenFromCookie).mockReturnValue(null);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
         allowUrlOverride: true,
@@ -302,7 +296,6 @@ describe('PracticeContext Middleware Security Tests', () => {
         session: { id: 'session-1', expiresAt: new Date() },
         token: 'valid-token'
       });
-      vi.mocked(SessionService.getSessionTokenFromCookie).mockReturnValue(null);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
         allowUrlOverride: true,

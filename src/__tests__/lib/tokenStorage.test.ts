@@ -180,7 +180,7 @@ describe('tokenStorage', () => {
     // Reset module-level state by clearing the cache
     vi.resetModules();
     // Re-import after setting up mocks
-    await import('../../lib/tokenStorage');
+    await import('@/shared/lib/tokenStorage');
   });
 
   afterEach(() => {
@@ -192,7 +192,7 @@ describe('tokenStorage', () => {
 
   describe('setToken', () => {
     it('should store a token in IndexedDB', async () => {
-      const { setToken, getToken } = await import('../../lib/tokenStorage');
+      const { setToken, getToken } = await import('@/shared/lib/tokenStorage');
       const testToken = 'test-token-123';
       await setToken(testToken);
       
@@ -201,7 +201,7 @@ describe('tokenStorage', () => {
     });
 
     it('should overwrite existing token', async () => {
-      const { setToken, getToken } = await import('../../lib/tokenStorage');
+      const { setToken, getToken } = await import('@/shared/lib/tokenStorage');
       await setToken('old-token');
       await setToken('new-token');
       
@@ -210,7 +210,7 @@ describe('tokenStorage', () => {
     });
 
     it('should handle empty string token', async () => {
-      const { setToken, getToken } = await import('../../lib/tokenStorage');
+      const { setToken, getToken } = await import('@/shared/lib/tokenStorage');
       await setToken('');
       const token = await getToken();
       // Empty string is stored, but getToken returns null for empty strings
@@ -220,13 +220,13 @@ describe('tokenStorage', () => {
 
   describe('getToken', () => {
     it('should return null when no token is stored', async () => {
-      const { getToken } = await import('../../lib/tokenStorage');
+      const { getToken } = await import('@/shared/lib/tokenStorage');
       const token = await getToken();
       expect(token).toBeNull();
     });
 
     it('should retrieve stored token', async () => {
-      const { setToken, getToken } = await import('../../lib/tokenStorage');
+      const { setToken, getToken } = await import('@/shared/lib/tokenStorage');
       const testToken = 'test-token-456';
       await setToken(testToken);
       
@@ -240,7 +240,7 @@ describe('tokenStorage', () => {
       
       // Reset module to allow migration to run
       vi.resetModules();
-      const { getToken: getTokenFresh } = await import('../../lib/tokenStorage');
+      const { getToken: getTokenFresh } = await import('@/shared/lib/tokenStorage');
       
       // First call should migrate and return the token
       const token = await getTokenFresh();
@@ -259,7 +259,7 @@ describe('tokenStorage', () => {
       
       // Reset module to allow migration to run
       vi.resetModules();
-      const { getToken: getTokenFresh } = await import('../../lib/tokenStorage');
+      const { getToken: getTokenFresh } = await import('@/shared/lib/tokenStorage');
       
       const token = await getTokenFresh();
       expect(token).toBe('legacy-auth-token');
@@ -269,7 +269,7 @@ describe('tokenStorage', () => {
 
   describe('clearToken', () => {
     it('should remove token from IndexedDB', async () => {
-      const { setToken, clearToken, getToken } = await import('../../lib/tokenStorage');
+      const { setToken, clearToken, getToken } = await import('@/shared/lib/tokenStorage');
       await setToken('test-token');
       await clearToken();
       
@@ -278,7 +278,7 @@ describe('tokenStorage', () => {
     });
 
     it('should handle clearing when no token exists', async () => {
-      const { clearToken } = await import('../../lib/tokenStorage');
+      const { clearToken } = await import('@/shared/lib/tokenStorage');
       await expect(clearToken()).resolves.not.toThrow();
     });
   });
@@ -286,7 +286,7 @@ describe('tokenStorage', () => {
   describe('getTokenSync', () => {
     it('should return empty string when cache is not initialized', async () => {
       vi.resetModules();
-      const { getTokenSync } = await import('../../lib/tokenStorage');
+      const { getTokenSync } = await import('@/shared/lib/tokenStorage');
       // Cache won't be initialized immediately, so should return empty string
       const token = getTokenSync();
       expect(token).toBe('');
@@ -295,7 +295,7 @@ describe('tokenStorage', () => {
     it('should return cached token after initialization', async () => {
       // Reset modules to start fresh
       vi.resetModules();
-      const { setToken, getToken, getTokenSync } = await import('../../lib/tokenStorage');
+      const { setToken, getToken, getTokenSync } = await import('@/shared/lib/tokenStorage');
       // Set token first, then let cache initialize
       await setToken('sync-test-token');
       // Trigger cache initialization by calling getToken
@@ -313,7 +313,7 @@ describe('tokenStorage', () => {
     it('should wait for cache initialization and return token', async () => {
       // Reset modules to start fresh
       vi.resetModules();
-      const { setToken, getTokenAsync } = await import('../../lib/tokenStorage');
+      const { setToken, getTokenAsync } = await import('@/shared/lib/tokenStorage');
       // Set token first
       await setToken('async-test-token');
       
@@ -325,7 +325,7 @@ describe('tokenStorage', () => {
 
     it('should return null when no token exists', async () => {
       vi.resetModules();
-      const { getTokenAsync } = await import('../../lib/tokenStorage');
+      const { getTokenAsync } = await import('@/shared/lib/tokenStorage');
       const token = await getTokenAsync();
       expect(token).toBeNull();
     });
@@ -347,7 +347,7 @@ describe('tokenStorage', () => {
       }
 
       vi.resetModules();
-      const { getToken } = await import('../../lib/tokenStorage');
+      const { getToken } = await import('@/shared/lib/tokenStorage');
       const token = await getToken();
       expect(token).toBeNull();
 

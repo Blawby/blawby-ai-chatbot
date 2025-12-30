@@ -31,7 +31,7 @@
 				"./node_modules/preact/jsx-runtime/"
 			],
 			"@i18n": [
-				"./src/i18n/index.ts"
+				"./src/shared/i18n/index.ts"
 			],
 			"@locales/*": [
 				"./src/locales/*"

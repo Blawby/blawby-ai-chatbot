@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleInbox } from '../../../worker/routes/inbox';
-import { requireOrganizationMember } from '../../../worker/middleware/auth';
+import { requirePracticeMember } from '../../../worker/middleware/auth';
 import { withPracticeContext, getPracticeId } from '../../../worker/middleware/practiceContext';
 import { HttpErrors } from '../../../worker/errorHandler';
 import type { Env } from '../../../worker/types';
@@ -55,7 +55,7 @@ describe('Inbox Route Security Tests', () => {
       vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext as any);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
-      // Mock requireOrganizationMember to verify it's called with original request
+      // Mock requirePracticeMember to verify it's called with original request
       const mockMemberContext = {
         user: { 
           id: originalUserId, 
@@ -68,7 +68,7 @@ describe('Inbox Route Security Tests', () => {
         memberRole: 'paralegal'
       };
 
-      vi.mocked(requireOrganizationMember).mockResolvedValue(mockMemberContext);
+      vi.mocked(requirePracticeMember).mockResolvedValue(mockMemberContext);
 
       // Import ConversationService after mocking
       const { ConversationService } = await import('../../../worker/services/ConversationService');
@@ -79,9 +79,9 @@ describe('Inbox Route Security Tests', () => {
 
       await handleInbox(originalRequest, mockEnv);
 
-      // CRITICAL: requireOrganizationMember must be called with the ORIGINAL request,
+      // CRITICAL: requirePracticeMember must be called with the ORIGINAL request,
       // not requestWithContext, to ensure URL params cannot affect authentication
-      expect(requireOrganizationMember).toHaveBeenCalledWith(
+      expect(requirePracticeMember).toHaveBeenCalledWith(
         originalRequest, // Original request with auth headers
         mockEnv,
         practiceId,
@@ -89,7 +89,7 @@ describe('Inbox Route Security Tests', () => {
       );
 
       // Verify it was NOT called with requestWithContext
-      expect(requireOrganizationMember).not.toHaveBeenCalledWith(
+      expect(requirePracticeMember).not.toHaveBeenCalledWith(
         mockRequestWithContext,
         expect.anything(),
         expect.anything(),
@@ -137,7 +137,7 @@ describe('Inbox Route Security Tests', () => {
         memberRole: 'paralegal'
       };
 
-      vi.mocked(requireOrganizationMember).mockResolvedValue(mockMemberContext);
+      vi.mocked(requirePracticeMember).mockResolvedValue(mockMemberContext);
 
       const { ConversationService } = await import('../../../worker/services/ConversationService');
       vi.mocked(ConversationService.prototype.getInboxStats).mockResolvedValue({
@@ -150,15 +150,15 @@ describe('Inbox Route Security Tests', () => {
       await handleInbox(request, mockEnv);
 
       // Verify the authenticated user ID is used, not the URL param
-      expect(requireOrganizationMember).toHaveBeenCalled();
-      const callArgs = vi.mocked(requireOrganizationMember).mock.calls[0];
+      expect(requirePracticeMember).toHaveBeenCalled();
+      const callArgs = vi.mocked(requirePracticeMember).mock.calls[0];
       const authRequest = callArgs[0];
       
       // The request used for auth should have the original Authorization header
       expect(authRequest.headers.get('Authorization')).toBe('Bearer valid-token-for-authenticated-user');
       
       // Verify the mock was called with the correct user ID from the auth context
-      // (The meaningful assertion is that requireOrganizationMember was called with the original request,
+      // (The meaningful assertion is that requirePracticeMember was called with the original request,
       // not requestWithContext, which ensures URL params cannot affect authentication)
     });
 
@@ -182,7 +182,7 @@ describe('Inbox Route Security Tests', () => {
     });
   });
 
-  describe('Practice Context Cannot Bypass requireOrganizationMember', () => {
+  describe('Practice Context Cannot Bypass requirePracticeMember', () => {
     it('should require valid organization membership even with practice context', async () => {
       const practiceId = 'practice-789';
       const request = new Request(
@@ -207,15 +207,15 @@ describe('Inbox Route Security Tests', () => {
       vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext as any);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
-      // requireOrganizationMember should fail for invalid token
-      vi.mocked(requireOrganizationMember).mockRejectedValue(
+      // requirePracticeMember should fail for invalid token
+      vi.mocked(requirePracticeMember).mockRejectedValue(
         HttpErrors.unauthorized('Invalid or expired token')
       );
 
       await expect(handleInbox(request, mockEnv)).rejects.toThrow('Invalid or expired token');
 
-      // Verify requireOrganizationMember was called (attempted)
-      expect(requireOrganizationMember).toHaveBeenCalledWith(
+      // Verify requirePracticeMember was called (attempted)
+      expect(requirePracticeMember).toHaveBeenCalledWith(
         request, // Original request
         mockEnv,
         practiceId,
@@ -248,14 +248,14 @@ describe('Inbox Route Security Tests', () => {
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
       // User has insufficient role
-      vi.mocked(requireOrganizationMember).mockRejectedValue(
+      vi.mocked(requirePracticeMember).mockRejectedValue(
         HttpErrors.forbidden('Insufficient permissions. Required role: paralegal, user role: guest')
       );
 
       await expect(handleInbox(request, mockEnv)).rejects.toThrow('Insufficient permissions');
 
       // Verify it checked for minimum role
-      expect(requireOrganizationMember).toHaveBeenCalledWith(
+      expect(requirePracticeMember).toHaveBeenCalledWith(
         request,
         mockEnv,
         practiceId,
@@ -301,7 +301,7 @@ describe('Inbox Route Security Tests', () => {
         memberRole: 'paralegal'
       };
 
-      vi.mocked(requireOrganizationMember).mockResolvedValue(mockMemberContext);
+      vi.mocked(requirePracticeMember).mockResolvedValue(mockMemberContext);
 
       const { ConversationService } = await import('../../../worker/services/ConversationService');
       vi.mocked(ConversationService.prototype.getInboxConversations).mockResolvedValue({
@@ -315,7 +315,7 @@ describe('Inbox Route Security Tests', () => {
       expect(getPracticeId).toHaveBeenCalled();
       
       // But membership is validated separately using auth headers
-      expect(requireOrganizationMember).toHaveBeenCalledWith(
+      expect(requirePracticeMember).toHaveBeenCalledWith(
         request, // Original request with auth
         mockEnv,
         practiceIdFromUrl, // Practice ID from URL (safe as metadata)

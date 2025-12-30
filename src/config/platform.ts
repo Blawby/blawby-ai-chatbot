@@ -1,4 +1,4 @@
-import { DEFAULT_PLATFORM_SLUG } from '../utils/constants';
+import { DEFAULT_PLATFORM_SLUG } from '@/shared/utils/constants';
 
 export interface PlatformSettings {
   id: string;

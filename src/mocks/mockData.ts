@@ -1,4 +1,4 @@
-import type { UserPreferences } from '../lib/apiClient';
+import type { UserPreferences } from '@/shared/lib/apiClient';
 
 type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
 

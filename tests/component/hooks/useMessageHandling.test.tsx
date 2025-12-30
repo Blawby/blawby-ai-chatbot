@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, act, waitFor } from '@testing-library/preact';
 import { useEffect } from 'preact/hooks';
-import { useMessageHandling } from '@/hooks/useMessageHandling';
-import type { ChatMessageUI } from '~/worker/types';
-import { getTokenAsync } from '@/lib/tokenStorage';
+import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
+import type { ChatMessageUI } from '../../../worker/types';
+import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
-vi.mock('@/lib/tokenStorage', () => ({
+vi.mock('@/shared/lib/tokenStorage', () => ({
   getTokenAsync: vi.fn().mockResolvedValue('test-token'),
 }));
 

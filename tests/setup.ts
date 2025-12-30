@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import { vi, beforeAll } from 'vitest';
-import { initI18n } from '../src/i18n';
+import { initI18n } from '../src/shared/i18n';
 
 // Only mock fetch if it's not already available (for real API tests)
 if (!global.fetch) {
