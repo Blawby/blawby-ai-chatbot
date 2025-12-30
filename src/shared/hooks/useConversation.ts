@@ -289,7 +289,6 @@ export function useConversation({
         data?: {
           messages: ConversationMessage[];
           hasMore: boolean;
-          nextCursor?: string | null;
           cursor?: string | null;
         };
       };
@@ -312,7 +311,7 @@ export function useConversation({
         }
 
         setHasMore(data.data.hasMore);
-        setNextCursor(data.data.nextCursor ?? data.data.cursor ?? null);
+        setNextCursor(data.data.cursor ?? null);
         setError(null);
       }
     } catch (err) {

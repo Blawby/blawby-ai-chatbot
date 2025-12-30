@@ -56,6 +56,17 @@ const normalizeList = (value: unknown): string[] => {
   return [];
 };
 
+const safeOpenUrl = (url: string) => {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      globalThis.open(parsed.toString(), '_blank', 'noopener,noreferrer');
+    }
+  } catch {
+    // Invalid URL, ignore
+  }
+};
+
 const mapLawyerRecord = (record: LawyerApiRecord, index: number): LawyerProfile => {
   const name = record.name?.trim() || record.website_title?.trim() || 'Attorney';
   const locationParts = [record.city, record.state].filter((part) => typeof part === 'string' && part.trim().length > 0);
@@ -68,9 +79,10 @@ const mapLawyerRecord = (record: LawyerApiRecord, index: number): LawyerProfile 
   const experience = typeof record.experience === 'number'
     ? String(record.experience)
     : record.experience?.toString();
+  const fallbackSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   return {
-    id: String(record.id ?? `${name}-${index}`),
+    id: String(record.id ?? `${name}-${index}-${fallbackSuffix}`),
     name,
     firm: record.firm ?? undefined,
     location,
@@ -105,6 +117,13 @@ const LawyerSearchInline: FunctionComponent = () => {
   const [showOutOfNetwork, setShowOutOfNetwork] = useState(false);
   const [hasOutOfNetworkSearched, setHasOutOfNetworkSearched] = useState(false);
   const initialLoadRef = useRef(false);
+  const certifiedLengthRef = useRef(0);
+  const standardLengthRef = useRef(0);
+
+  useEffect(() => {
+    certifiedLengthRef.current = certifiedResults.length;
+    standardLengthRef.current = standardResults.length;
+  }, [certifiedResults.length, standardResults.length]);
 
   const performSearch = useCallback(async (page: number, append: boolean, includeStandardResults: boolean) => {
     setLoading(true);
@@ -130,7 +149,7 @@ const LawyerSearchInline: FunctionComponent = () => {
       }
 
       const records = data.data.lawyers ?? [];
-      const offset = append ? certifiedResults.length + standardResults.length : 0;
+      const offset = append ? certifiedLengthRef.current + standardLengthRef.current : 0;
 
       const certifiedRecords = records.filter((record) => {
         const name = record.name?.toLowerCase() || '';
@@ -180,13 +199,13 @@ const LawyerSearchInline: FunctionComponent = () => {
   const handleSearch = (event: Event) => {
     event.preventDefault();
     setHasOutOfNetworkSearched(true);
-    performSearch(1, false, true);
+    void performSearch(1, false, true);
   };
 
   const handleLoadMore = () => {
     if (loading) return;
     setHasOutOfNetworkSearched(true);
-    performSearch(searchParams.page + 1, true, true);
+    void performSearch(searchParams.page + 1, true, true);
   };
 
   const handleSearchAgain = () => {
@@ -249,7 +268,7 @@ const LawyerSearchInline: FunctionComponent = () => {
                 } else if (lawyer.email) {
                   globalThis.open(`mailto:${lawyer.email}?subject=Legal Consultation Request`, '_self');
                 } else if (lawyer.website) {
-                  globalThis.open(lawyer.website, '_blank', 'noopener,noreferrer');
+                  safeOpenUrl(lawyer.website);
                 } else {
                   showInfo('Contact Information', `Contact ${lawyer.name} at ${lawyer.firm || 'their firm'} for a consultation.`);
                 }
@@ -336,12 +355,12 @@ const LawyerSearchInline: FunctionComponent = () => {
                       globalThis.open(`tel:${lawyer.phone}`, '_self');
                     } else if (lawyer.email) {
                       globalThis.open(`mailto:${lawyer.email}?subject=Legal Consultation Request`, '_self');
-                    } else if (lawyer.website) {
-                      globalThis.open(lawyer.website, '_blank', 'noopener,noreferrer');
-                    } else {
-                      showInfo('Contact Information', `Contact ${lawyer.name} at ${lawyer.firm || 'their firm'} for a consultation.`);
-                    }
-                  }}
+                  } else if (lawyer.website) {
+                    safeOpenUrl(lawyer.website);
+                  } else {
+                    showInfo('Contact Information', `Contact ${lawyer.name} at ${lawyer.firm || 'their firm'} for a consultation.`);
+                  }
+                }}
                   onSearchAgain={handleSearchAgain}
                   onLoadMore={visibleCount < total ? handleLoadMore : undefined}
                 />

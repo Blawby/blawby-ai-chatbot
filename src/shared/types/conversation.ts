@@ -122,7 +122,6 @@ export interface SendMessageRequest {
 export interface GetMessagesResponse {
   messages: ConversationMessage[];
   hasMore: boolean;
-  nextCursor?: string | null;
   cursor?: string | null;
 }
 
