@@ -1,3 +1,10 @@
+export interface AppAction {
+  name: string;
+  description: string;
+  hasMetadata?: boolean;
+  visibility?: 'public' | 'private';
+}
+
 export interface App {
   id: string;
   name: string;
@@ -9,7 +16,7 @@ export interface App {
   connected: boolean;
   connectedAt?: string;
   logo?: string;
-  actions?: string[];
+  actions?: AppAction[];
 }
 
 export const mockApps: App[] = [
@@ -23,9 +30,54 @@ export const mockApps: App[] = [
     privacyPolicy: 'https://www.clio.com/privacy',
     connected: false,
     actions: [
-      'Sync matters and cases',
-      'Sync contacts and clients',
-      'Sync calendar events',
+      {
+        name: 'GET /api/v4/matters',
+        description: 'Retrieve a list of matters (cases) from your Clio account.',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'GET /api/v4/contacts',
+        description: 'Retrieve a list of contacts (clients, opposing counsel, etc.) from your Clio account.',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'GET /api/v4/activities',
+        description: 'Retrieve a list of activities (time entries, events, tasks) from your Clio account.',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'GET /api/v4/documents',
+        description: 'Retrieve a list of documents from your Clio account.',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'POST /api/v4/matters',
+        description: 'Create a new matter in your Clio account.',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'POST /api/v4/contacts',
+        description: 'Create a new contact in your Clio account.',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'POST /api/v4/activities',
+        description: 'Create a new activity (time entry, event, or task) in your Clio account.',
+        hasMetadata: true,
+        visibility: 'public'
+      },
+      {
+        name: 'GET /api/v4/billings',
+        description: 'Retrieve billing information and invoices from your Clio account.',
+        hasMetadata: true,
+        visibility: 'public'
+      }
     ],
   },
 ];

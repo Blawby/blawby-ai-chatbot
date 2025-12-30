@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SettingsPage } from '@/features/settings/pages/SettingsPage';
 import { THEME } from '@/shared/utils/constants';
+import { getModalStackCount, lockBodyScroll, unlockBodyScroll } from '@/shared/utils/modalStack';
 
 interface SettingsLayoutProps {
   isMobile?: boolean;
@@ -48,21 +49,19 @@ export const SettingsLayout = ({
     if (!isModalVisible) return;
 
     const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && getModalStackCount() <= 1) {
         handleClose();
       }
     };
 
     const handleClickOutside = (event: MouseEvent) => {
+      if (getModalStackCount() > 1) return;
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         handleClose();
       }
     };
 
-    // Prevent body scroll when overlay is open
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    document.body.classList.add('modal-open');
+    lockBodyScroll();
 
     document.addEventListener('keydown', handleEscapeKey);
     document.addEventListener('mousedown', handleClickOutside);
@@ -71,10 +70,7 @@ export const SettingsLayout = ({
       document.removeEventListener('keydown', handleEscapeKey);
       document.removeEventListener('mousedown', handleClickOutside);
       
-      // Restore body scroll
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-      document.body.classList.remove('modal-open');
+      unlockBodyScroll();
     };
   }, [showSettings, handleClose]);
 

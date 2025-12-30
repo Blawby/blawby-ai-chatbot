@@ -1,6 +1,7 @@
 {
   "navigation": {
     "close": "Close settings",
+    "back": "Back",
     "backToSettings": "Back to settings",
     "items": {
       "general": "General",
@@ -58,6 +59,7 @@
       "description": "Connect your Clio account to sync matters, contacts, and calendar events.",
       "connect": "Connect",
       "disconnect": "Disconnect",
+      "settings": "Settings",
       "connected": "Connected",
       "notConnected": "Not Connected",
       "connectedOn": "Connected on",
@@ -72,6 +74,30 @@
         "message": "Are you sure you want to disconnect your Clio app? This will stop syncing data.",
         "confirm": "Disconnect",
         "cancel": "Cancel"
+      },
+      "connectModal": {
+        "title": "Connect {{app}}",
+        "developedBy": "Developed by {{developer}}",
+        "continue": "Continue to {{app}}",
+        "permissions": {
+          "title": "Permissions always respected",
+          "description": "{{app}} is strictly limited to permissions you've explicitly set. Disable access anytime to revoke permissions."
+        },
+        "control": {
+          "title": "You're in control",
+          "description": "{{app}} always respects your training data preferences. Data from {{app}} may be used to provide you relevant and useful information.",
+          "learnMore": "Learn more"
+        },
+        "risk": {
+          "title": "Connectors may introduce risk",
+          "description": "Connectors are designed to respect your privacy, but sites may attempt to steal your data.",
+          "learnMore": "Learn more on how to stay safe"
+        },
+        "auth": {
+          "description": "You use Google to authenticate",
+          "securityNote": "For added security, enable Multi-factor authentication (MFA) on your Google account or",
+          "mfaLink": "your account"
+        }
       },
       "toasts": {
         "connectSuccess": {

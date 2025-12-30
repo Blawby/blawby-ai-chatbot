@@ -1,15 +1,15 @@
 import { useState } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
-import { SettingHeader } from '@/features/settings/components/SettingHeader';
+import { AppConnectionModal } from '@/features/settings/components/AppConnectionModal';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui/layout';
-import { ArrowLeftIcon, EllipsisVerticalIcon, GlobeAltIcon, LockClosedIcon, CheckBadgeIcon, PuzzlePieceIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, EllipsisVerticalIcon, GlobeAltIcon, PuzzlePieceIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
-import Modal from '@/shared/components/Modal';
 import { formatDate } from '@/shared/utils/dateTime';
 import { cn } from '@/shared/utils/cn';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 
 interface AppDetailPageProps {
   app: App;
@@ -22,9 +22,14 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   const { showSuccess, showError } = useToastContext();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+
+  const handleConnectClick = () => {
+    setShowConnectModal(true);
+  };
 
   const handleConnect = async () => {
+    setShowConnectModal(false);
     setIsConnecting(true);
     try {
       const result = await mockConnectApp(app.id);
@@ -53,7 +58,6 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
         t('settings:apps.clio.toasts.disconnectSuccess.title'),
         t('settings:apps.clio.toasts.disconnectSuccess.body')
       );
-      setShowDisconnectConfirm(false);
     } catch (error) {
       console.error(error);
       showError(
@@ -65,108 +69,109 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
     }
   };
 
+  const handleOpenSettings = () => {
+    window.open(app.website, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="h-full flex flex-col">
-      <div className="px-6 pt-4 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
-          aria-label={t('settings:navigation.backToSettings')}
-        >
-          <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
-        </button>
-        <div className="flex-1" />
-      </div>
+      <div className="flex-1 overflow-y-auto px-6 pb-6">
+        {/* Header */}
+        <div className="pt-4 pb-6">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-2 mb-4 text-gray-600 dark:text-gray-300"
+            aria-label={t('settings:navigation.backToSettings')}
+          >
+            <ArrowLeftIcon className="w-5 h-5" aria-hidden="true" />
+            <span className="text-sm font-medium">{t('settings:navigation.back')}</span>
+          </button>
 
-      <SettingHeader title={app.name} />
-
-      <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6">
-        {/* Header card */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-              <PuzzlePieceIcon className="w-7 h-7 text-gray-700 dark:text-gray-200" aria-hidden="true" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center border border-gray-200 dark:border-dark-border">
+                <PuzzlePieceIcon className="w-8 h-8 text-gray-700 dark:text-gray-200" aria-hidden="true" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{app.name}</h2>
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{app.name}</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{app.description}</p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            {app.connected && (
+            <div className="flex items-center gap-2">
               <Button
-                variant="ghost"
+                variant={app.connected ? 'secondary' : 'primary'}
                 size="sm"
-                onClick={() => setShowDisconnectConfirm(true)}
-                disabled={isDisconnecting}
+                onClick={app.connected ? handleDisconnect : handleConnectClick}
+                disabled={isConnecting || isDisconnecting}
               >
-                {isDisconnecting ? t('common:actions.loading') : t('settings:apps.clio.disconnect')}
+                {isConnecting
+                  ? t('common:actions.loading')
+                  : isDisconnecting
+                    ? t('common:actions.loading')
+                    : app.connected
+                      ? t('settings:apps.clio.disconnect')
+                      : t('settings:apps.clio.connect')}
               </Button>
-            )}
-            <Button
-              variant={app.connected ? 'secondary' : 'primary'}
-              size="sm"
-              onClick={app.connected ? () => setShowDisconnectConfirm(true) : handleConnect}
-              disabled={isConnecting || isDisconnecting}
-            >
-              {isConnecting
-                ? t('common:actions.loading')
-                : app.connected
-                  ? t('settings:apps.clio.disconnect')
-                  : t('settings:apps.clio.connect')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="More options"
-              icon={<EllipsisVerticalIcon className="w-5 h-5" />}
-            />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="More options"
+                    icon={<EllipsisVerticalIcon className="w-5 h-5" />}
+                  />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={handleOpenSettings}>
+                    <div className="flex items-center gap-2">
+                      <Cog6ToothIcon className="w-4 h-4" aria-hidden="true" />
+                      <span>{t('settings:apps.clio.settings')}</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
         <SectionDivider />
 
         {/* Information */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <LockClosedIcon className={cn('w-5 h-5', app.connected ? 'text-green-600' : 'text-gray-400')} aria-hidden="true" />
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {app.connected ? t('settings:apps.clio.connected') : t('settings:apps.clio.notConnected')}
-            </p>
+        <div className="py-6 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {t('settings:apps.clio.information')}
+          </h3>
+          
+          <div className="space-y-3">
             {app.connected && app.connectedAt && (
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {`${t('settings:apps.clio.connectedOn')} ${formatDate(app.connectedAt)}`}
-              </span>
+              <InfoRowSimple 
+                label={t('settings:apps.clio.connectedOn')} 
+                value={formatDate(app.connectedAt)} 
+              />
             )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InfoRow label={t('settings:apps.clio.category')} value={app.category} />
-            <InfoRow label={t('settings:apps.clio.developer')} value={app.developer} />
-            <InfoRow
+            <InfoRowSimple label={t('settings:apps.clio.category')} value={app.category} />
+            <InfoRowSimple label={t('settings:apps.clio.developer')} value={app.developer} />
+            <InfoRowSimple
               label={t('settings:apps.clio.website')}
               value={
                 <a
                   href={app.website}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-accent-600 hover:text-accent-700"
+                  className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
                 >
                   {app.website}
                   <GlobeAltIcon className="w-4 h-4" aria-hidden="true" />
                 </a>
               }
             />
-            <InfoRow
+            <InfoRowSimple
               label={t('settings:apps.clio.privacyPolicy')}
               value={
                 <a
                   href={app.privacyPolicy}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-accent-600 hover:text-accent-700"
+                  className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
                 >
                   {app.privacyPolicy}
                   <GlobeAltIcon className="w-4 h-4" aria-hidden="true" />
@@ -180,70 +185,64 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
 
         {/* Actions */}
         {app.actions && app.actions.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <CheckBadgeIcon className="w-5 h-5" aria-hidden="true" />
+          <div className="py-6 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               {t('settings:apps.clio.actions')}
             </h3>
-            <ul className="space-y-2">
+            <div className="space-y-6">
               {app.actions.map((action) => (
-                <li key={action} className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent-500" aria-hidden="true" />
-                  {action}
-                </li>
+                <div key={action.name} className="space-y-2 w-full">
+                  <code className="text-sm font-mono font-semibold text-gray-700 dark:text-gray-300 block w-full">
+                    {action.name}
+                  </code>
+                  {action.hasMetadata && (
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-500 block w-full">
+                      METADATA
+                    </span>
+                  )}
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-normal w-full">
+                    {action.description}
+                  </p>
+                  {action.visibility && (
+                    <div className="space-y-1 w-full">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 block font-normal w-full">Visibility</span>
+                      <input
+                        type="text"
+                        value={action.visibility}
+                        readOnly
+                        className="text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-dark-border rounded-md px-2 py-1 font-normal w-full"
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
       </div>
 
-      <Modal
-        isOpen={showDisconnectConfirm}
-        onClose={() => setShowDisconnectConfirm(false)}
-        title={t('settings:apps.clio.disconnectConfirm.title')}
-        disableBackdropClick={isDisconnecting}
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
-            {t('settings:apps.clio.disconnectConfirm.message')}
-          </p>
-
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowDisconnectConfirm(false)}
-              disabled={isDisconnecting}
-            >
-              {t('settings:apps.clio.disconnectConfirm.cancel')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDisconnect}
-              disabled={isDisconnecting}
-            >
-              {isDisconnecting ? t('common:actions.loading') : t('settings:apps.clio.disconnectConfirm.confirm')}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <AppConnectionModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        app={app}
+        onConnect={handleConnect}
+      />
     </div>
   );
 };
 
-interface InfoRowProps {
+interface InfoRowSimpleProps {
   label: string;
   value: string | ComponentChildren;
 }
 
-const InfoRow = ({ label, value }: InfoRowProps) => {
+const InfoRowSimple = ({ label, value }: InfoRowSimpleProps) => {
   return (
-    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-3">
-      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-      <div className="text-sm text-gray-900 dark:text-gray-100 mt-1 break-all">
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+      <span className="text-sm text-gray-900 dark:text-gray-100 text-right break-all">
         {value}
-      </div>
+      </span>
     </div>
   );
 };
