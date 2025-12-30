@@ -394,7 +394,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
       addDebugEvent('scenario:complete', { scenarioId });
       isRunningScenario.current = false;
     },
-    [addDebugEvent, simulateContactFormSubmit, simulatePracticeMemberResponse, simulateUserMessage]
+    [addDebugEvent, delay, simulateContactFormSubmit, simulatePracticeMemberResponse, simulateUserMessage]
   );
 
   const resetConversation = useCallback(() => {
