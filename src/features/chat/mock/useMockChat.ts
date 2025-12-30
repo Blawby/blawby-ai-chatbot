@@ -253,7 +253,10 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
       setState((prev) => {
         const hasContactForm = prev.messages.some((existing) => existing.id === 'system-contact-form');
         let messages = [...prev.messages];
-        let nextTimestamp = Math.max(Date.now(), messages.length > 0 ? Math.max(...messages.map((m) => m.timestamp)) + 1 : Date.now());
+        const maxTimestamp = messages.length > 0
+          ? messages.reduce((max, m) => Math.max(max, m.timestamp), -Infinity)
+          : Date.now();
+        let nextTimestamp = Math.max(Date.now(), maxTimestamp + 1);
 
         if (prev.isAnonymous && !hasContactForm) {
           messages = [
@@ -389,8 +392,10 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
           });
 
           if (!changed) {
-            const nextTimestamp =
-              messages.length > 0 ? Math.max(...messages.map((message) => message.timestamp)) + 1 : Date.now();
+            const maxTimestamp = messages.length > 0
+              ? messages.reduce((max, message) => Math.max(max, message.timestamp), -Infinity)
+              : Date.now();
+            const nextTimestamp = messages.length > 0 ? maxTimestamp + 1 : Date.now();
             messages = [
               ...messages,
               {
