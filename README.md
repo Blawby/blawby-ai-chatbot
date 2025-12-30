@@ -22,9 +22,7 @@ A production-ready legal intake chatbot built with Cloudflare Workers AI, featur
    ```bash
    cp dev.vars.example .dev.vars
    # Edit .dev.vars with your API keys
-   
-   # Copy .dev.vars to worker directory (required for wrangler to read secrets)
-   cp .dev.vars worker/.dev.vars
+   # Note: The dev:worker script will automatically copy .dev.vars to worker/.dev.vars if needed
    ```
 
 3. **Set up local database**
@@ -128,12 +126,7 @@ Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
 - `CLOUDFLARE_API_TOKEN` - Cloudflare operations API key
 - `RESEND_API_KEY` - Email notifications API key
 
-**Important:** After creating `.dev.vars` in the root directory, copy it to `worker/.dev.vars`:
-```bash
-cp .dev.vars worker/.dev.vars
-```
-
-**Note:** Wrangler reads `.dev.vars` from the same directory as `wrangler.toml`. Since we use `--config worker/wrangler.toml`, the secrets file must be in the `worker/` directory.
+**Note:** Wrangler reads `.dev.vars` from the same directory as `wrangler.toml`. Since we use `--config worker/wrangler.toml`, the secrets file must be in the `worker/` directory. The `dev:worker` script automatically copies `.dev.vars` from the root to `worker/.dev.vars` if it doesn't exist, so you only need to maintain the root `.dev.vars` file.
 
 #### Frontend Environment Variables
 
@@ -217,8 +210,8 @@ npm run dev:worker:clean
 
 **Environment variables not loading:**
 - Ensure `.dev.vars` exists in the root directory and contains your API keys
-- Copy `.dev.vars` to `worker/.dev.vars` (wrangler reads from the same directory as `wrangler.toml`)
-- Wrangler automatically loads `worker/.dev.vars` when using `--config worker/wrangler.toml`
+- The `dev:worker` script automatically copies `.dev.vars` to `worker/.dev.vars` if it doesn't exist
+- Wrangler reads `.dev.vars` from the same directory as `wrangler.toml` (which is `worker/`)
 
 **Database connection issues:**
 ```bash
