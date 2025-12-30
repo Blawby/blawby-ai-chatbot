@@ -20,8 +20,9 @@ A production-ready legal intake chatbot built with Cloudflare Workers AI, featur
 
 2. **Set up environment**
    ```bash
-   cp dev.vars.example .dev.vars
-   # Edit .dev.vars with your API keys
+   cp dev.vars.example worker/.dev.vars
+   # Edit worker/.dev.vars with your API keys
+   # Note: .dev.vars must be in worker/ directory (same as wrangler.toml)
    ```
 
 3. **Set up local database**
@@ -35,11 +36,13 @@ A production-ready legal intake chatbot built with Cloudflare Workers AI, featur
 
 4. **Start development**
    ```bash
-   # Option 1: Start both frontend and worker
+   # Option 1: Start both frontend and worker (recommended)
    npm run dev:full
    
    # Option 2: Start worker only
-   wrangler dev --port 8787
+   npm run dev:worker
+   # OR manually:
+   # wrangler dev --port 8787 --config worker/wrangler.toml
    
    # Option 3: Start frontend only
    npm run dev
@@ -118,12 +121,12 @@ npm run lint:i18n          # Validate locale files stay in sync
 ### Environment Variables
 
 #### Worker Secrets (`.dev.vars`)
-Copy `.dev.vars.example` to `.dev.vars` and add your API keys:
+Copy `dev.vars.example` to `worker/.dev.vars` and add your API keys:
 - `LAWYER_SEARCH_API_KEY` - Lawyer search API key
 - `CLOUDFLARE_API_TOKEN` - Cloudflare operations API key
 - `RESEND_API_KEY` - Email notifications API key
 
-**Note:** Wrangler automatically loads `.dev.vars` during local development - no additional setup required.
+**Note:** Wrangler reads `.dev.vars` from the same directory as `wrangler.toml`. Since `wrangler.toml` is in the `worker/` directory, create `worker/.dev.vars` directly.
 
 #### Frontend Environment Variables
 
@@ -206,8 +209,8 @@ npm run dev:worker:clean
 ```
 
 **Environment variables not loading:**
-- Ensure `.dev.vars` exists and contains your API keys
-- Wrangler automatically loads `.dev.vars` - no custom scripts needed
+- Ensure `worker/.dev.vars` exists and contains your API keys
+- Wrangler reads `.dev.vars` from the same directory as `wrangler.toml` (which is `worker/`)
 
 **Database connection issues:**
 ```bash
@@ -220,9 +223,18 @@ npm run db:reset
 # Check wrangler installation
 wrangler --version
 
+# Ensure you're using the correct config file
+npm run dev:worker
+# OR manually:
+# wrangler dev --port 8787 --config worker/wrangler.toml
+
 # Start with verbose logging
-wrangler dev --port 8787 --log-level debug
+wrangler dev --port 8787 --config worker/wrangler.toml --log-level debug
 ```
+
+**Worker shows "Pages project" error:**
+- This happens when wrangler picks up the root `wrangler.toml` (configured for Pages)
+- Always use `--config worker/wrangler.toml` or `npm run dev:worker` which includes this flag
 
 ## 🤝 **Contributing**
 
