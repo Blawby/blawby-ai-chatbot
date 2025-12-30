@@ -23,6 +23,11 @@ export function useMockChat(): UseMockChatResult {
   const [previewFiles, setPreviewFiles] = useState<FileAttachment[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const isRunningScenario = useRef(false);
+  const systemMessagesInitialized = useRef({
+    welcome: false,
+    contactForm: false,
+    submissionConfirm: false
+  });
 
   const addDebugEvent = useCallback((type: string, data: Record<string, unknown> = {}) => {
     setDebugEvents((events) => [
@@ -92,21 +97,43 @@ export function useMockChat(): UseMockChatResult {
   }, [state.isAnonymous, state.messages]);
 
   useEffect(() => {
-    if (!state.isAnonymous) return;
+    if (!state.isAnonymous) {
+      // Reset initialization state when switching to authenticated mode
+      systemMessagesInitialized.current = {
+        welcome: false,
+        contactForm: false,
+        submissionConfirm: false
+      };
+      return;
+    }
+
+    // Check current state to determine what needs to be added
+    const hasWelcome = state.messages.some((message) => message.id === 'system-welcome');
+    const hasContactForm = state.messages.some((message) => message.id === 'system-contact-form');
+    const hasSubmissionConfirm = state.messages.some((message) => message.id === 'system-submission-confirm');
+    const userMessages = state.messages.filter((message) => message.isUser);
+    const hasSubmittedContactForm = state.messages.some(
+      (message) => message.isUser && message.metadata?.isContactFormSubmission
+    );
+
+    // Use ref to prevent re-initialization - only add if not already initialized
+    const shouldAddWelcome = !systemMessagesInitialized.current.welcome && !hasWelcome && state.messages.length === 0;
+    const shouldAddContactForm = !systemMessagesInitialized.current.contactForm && !hasContactForm && userMessages.length >= 1;
+    const shouldAddSubmissionConfirm = !systemMessagesInitialized.current.submissionConfirm && !hasSubmissionConfirm && hasSubmittedContactForm;
+
+    // Early return if nothing needs to be added
+    if (!shouldAddWelcome && !shouldAddContactForm && !shouldAddSubmissionConfirm) {
+      return;
+    }
 
     setState((prev) => {
-      const hasWelcome = prev.messages.some((message) => message.id === 'system-welcome');
-      const hasContactForm = prev.messages.some((message) => message.id === 'system-contact-form');
-      const hasSubmissionConfirm = prev.messages.some((message) => message.id === 'system-submission-confirm');
-      const userMessages = prev.messages.filter((message) => message.isUser);
-      const hasSubmittedContactForm = prev.messages.some(
-        (message) => message.isUser && message.metadata?.isContactFormSubmission
-      );
-
-      let messages = [...prev.messages];
+      let messages = prev.messages.length > 0 ? [...prev.messages] : [];
       let changed = false;
 
-      const maxTimestamp = messages.length > 0 ? Math.max(...messages.map((message) => message.timestamp)) : Date.now();
+      // Use reduce instead of Math.max with spread to avoid stack limits
+      const maxTimestamp = messages.length > 0 
+        ? messages.reduce((max, msg) => Math.max(max, msg.timestamp), 0)
+        : Date.now();
       let nextTimestamp = maxTimestamp + 1;
 
       const addSystemMessage = (id: string, content: string, extras?: Partial<MockMessage>) => {
@@ -124,14 +151,17 @@ export function useMockChat(): UseMockChatResult {
         changed = true;
       };
 
-      if (!hasWelcome && messages.length === 0) {
+      // Add welcome message only once when messages array is empty
+      if (shouldAddWelcome) {
         addSystemMessage(
           'system-welcome',
           "Hi! I'm Blawby AI. Share a quick summary of your case and I'll guide you to the right next step."
         );
+        systemMessagesInitialized.current.welcome = true;
       }
 
-      if (userMessages.length >= 1 && !hasContactForm) {
+      // Add contact form only once when user has sent first message
+      if (shouldAddContactForm) {
         addSystemMessage('system-contact-form', 'Could you share your contact details? It will help us find the best lawyer for your case.', {
           contactForm: {
             fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
@@ -139,13 +169,16 @@ export function useMockChat(): UseMockChatResult {
             message: undefined
           }
         });
+        systemMessagesInitialized.current.contactForm = true;
       }
 
-      if (hasSubmittedContactForm && !hasSubmissionConfirm) {
+      // Add submission confirm only once when contact form has been submitted
+      if (shouldAddSubmissionConfirm) {
         addSystemMessage(
           'system-submission-confirm',
           "Thanks! I've sent your intake to the practice. A legal professional will review it and reply here. You'll receive in-app updates as soon as there's a decision."
         );
+        systemMessagesInitialized.current.submissionConfirm = true;
       }
 
       if (!changed) return prev;
