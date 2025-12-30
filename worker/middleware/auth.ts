@@ -194,7 +194,7 @@ function extractMemberIdentifiers(member: RemoteMemberRecord): {
 async function fetchMemberRoleFromRemote(
   token: string,
   env: Env,
-  organizationId: string,
+  practiceId: string,
   userId: string,
   userEmail: string
 ): Promise<string> {
@@ -204,7 +204,7 @@ async function fetchMemberRoleFromRemote(
 
   try {
     const response = await fetch(
-      `${baseUrl}/api/practice/${encodeURIComponent(organizationId)}/members`,
+      `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}/members`,
       {
         method: 'GET',
         headers: {
@@ -217,7 +217,7 @@ async function fetchMemberRoleFromRemote(
     clearTimeout(timeoutId);
 
     if (response.status === 404) {
-      throw HttpErrors.notFound("Organization not found");
+      throw HttpErrors.notFound("Practice not found");
     }
 
     if (!response.ok) {
@@ -240,7 +240,7 @@ async function fetchMemberRoleFromRemote(
     });
 
     if (!match) {
-      throw HttpErrors.forbidden("User is not a member of this organization");
+      throw HttpErrors.forbidden("User is not a member of this practice");
     }
 
     const { role } = extractMemberIdentifiers(match);
@@ -257,22 +257,22 @@ async function fetchMemberRoleFromRemote(
     if (error instanceof Error && error.name === 'AbortError') {
       throw HttpErrors.gatewayTimeout("Membership verification timed out");
     }
-    console.error('Error verifying organization membership via remote API:', error);
-    throw HttpErrors.badGateway("Failed to verify organization membership");
+    console.error('Error verifying practice membership via remote API:', error);
+    throw HttpErrors.badGateway("Failed to verify practice membership");
   }
 }
 
-export async function requireOrganizationMember(
+export async function requirePracticeMember(
   request: Request,
   env: Env,
-  organizationId: string,
+  practiceId: string,
   minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
 ): Promise<AuthContext & { memberRole: string }> {
   const authContext = await requireAuth(request, env);
 
-  // 1. Validate organizationId
-  if (!organizationId || typeof organizationId !== 'string' || organizationId.trim() === '') {
-    throw HttpErrors.badRequest("Invalid or missing organizationId");
+  // 1. Validate practiceId
+  if (!practiceId || typeof practiceId !== 'string' || practiceId.trim() === '') {
+    throw HttpErrors.badRequest("Invalid or missing practiceId");
   }
 
   // 2. Fetch user's membership from remote API
@@ -280,7 +280,7 @@ export async function requireOrganizationMember(
     const userRole = await fetchMemberRoleFromRemote(
       authContext.token,
       env,
-      organizationId,
+      practiceId,
       authContext.user.id,
       authContext.user.email
     );
@@ -297,7 +297,7 @@ export async function requireOrganizationMember(
       // Validate that userRole exists in hierarchy
       const userRoleLevel = roleHierarchy[userRole];
       if (userRoleLevel === undefined) {
-        throw HttpErrors.forbidden(`Invalid user role: ${userRole}. User has an unknown role in this organization.`);
+        throw HttpErrors.forbidden(`Invalid user role: ${userRole}. User has an unknown role in this practice.`);
       }
 
       // Validate that minimumRole exists in hierarchy
@@ -320,8 +320,8 @@ export async function requireOrganizationMember(
     if (error instanceof HttpError) {
       throw error; // Re-throw HTTP errors
     }
-    console.error('Error checking organization membership:', error);
-    throw HttpErrors.internalServerError("Failed to verify organization membership");
+    console.error('Error checking practice membership:', error);
+    throw HttpErrors.internalServerError("Failed to verify practice membership");
   }
 }
 
@@ -337,41 +337,41 @@ export async function optionalAuth(
 }
 
 /**
- * Organization-based RBAC middleware
- * Verifies user is a member of the organization with the required role
+ * Practice-based RBAC middleware
+ * Verifies user is a member of the practice with the required role
  */
-export async function requireOrgMember(
+export async function requirePracticeMemberRole(
   request: Request,
   env: Env,
-  organizationId: string,
+  practiceId: string,
   minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
 ): Promise<AuthContext & { memberRole: string }> {
   // Delegate to the primary implementation to prevent drift
-  return requireOrganizationMember(request, env, organizationId, minimumRole);
+  return requirePracticeMember(request, env, practiceId, minimumRole);
 }
 
 /**
  * Shorthand for owner-only access
  */
-export async function requireOrgOwner(
+export async function requirePracticeOwner(
   request: Request,
   env: Env,
-  organizationId: string
+  practiceId: string
 ): Promise<AuthContext & { memberRole: string }> {
-  return requireOrgMember(request, env, organizationId, "owner");
+  return requirePracticeMemberRole(request, env, practiceId, "owner");
 }
 
 /**
- * Check if user has access to an organization
+ * Check if user has access to a practice
  * Returns the access type and role without throwing errors
  */
-export async function checkOrgAccess(
+export async function checkPracticeAccess(
   request: Request,
   env: Env,
-  organizationId: string
+  practiceId: string
 ): Promise<{ hasAccess: boolean; memberRole?: string }> {
   try {
-    const result = await requireOrgMember(request, env, organizationId);
+    const result = await requirePracticeMemberRole(request, env, practiceId);
     return {
       hasAccess: true,
       memberRole: result.memberRole,
@@ -384,7 +384,7 @@ export async function checkOrgAccess(
 /**
  * Check if user is a practice member (non-throwing)
  * Returns membership info without throwing errors
- * Alias for checkOrgAccess for consistency with practice terminology
+ * Alias for checkPracticeAccess for consistency with practice terminology
  */
 export async function checkPracticeMembership(
   request: Request,
@@ -392,7 +392,7 @@ export async function checkPracticeMembership(
   practiceId: string
 ): Promise<{ isMember: boolean; memberRole?: string }> {
   try {
-    const result = await requireOrgMember(request, env, practiceId);
+    const result = await requirePracticeMemberRole(request, env, practiceId);
     return {
       isMember: true,
       memberRole: result.memberRole,

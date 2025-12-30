@@ -22,7 +22,7 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
 
   const handleGoToSettings = () => {
     onClose();
-    navigate('/settings/organization');
+    navigate('/settings/practice');
   };
 
   const features = [
@@ -33,9 +33,9 @@ export const BusinessWelcomePrompt = ({ isOpen, onClose }: BusinessWelcomePrompt
       color: { bg: 'bg-blue-500/20', text: 'text-blue-400' }
     },
     {
-      text: t('businessWelcome.features.organizationSettings.description'),
+      text: t('businessWelcome.features.practiceSettings.description'),
       icon: <BuildingOfficeIcon className="w-6 h-6" />,
-      title: t('businessWelcome.features.organizationSettings.title'),
+      title: t('businessWelcome.features.practiceSettings.title'),
       color: { bg: 'bg-green-500/20', text: 'text-green-400' }
     },
     {

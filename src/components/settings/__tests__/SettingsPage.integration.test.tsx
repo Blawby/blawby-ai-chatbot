@@ -69,25 +69,22 @@ vi.mock('../pages/HelpPage', () => ({
 }));
 
 
-// Mock the organization management hook
-const mockLoadOrganizations = vi.fn();
-const mockLoadInvitations = vi.fn();
+// Mock the practice management hook
+const mockFetchPractices = vi.fn();
+const mockFetchInvitations = vi.fn();
 
 // Create mutable mock object
-const useOrgMgmtMock = {
+const usePracticeMgmtMock = {
   practices: [],
   invitations: [],
   loading: false,
   error: null,
   currentPractice: null,
-  loadOrganizations: mockLoadOrganizations,
-  loadInvitations: mockLoadInvitations,
+  fetchPractices: mockFetchPractices,
+  fetchInvitations: mockFetchInvitations,
   acceptMatter: vi.fn(),
   rejectMatter: vi.fn(),
   updateMatterStatus: vi.fn(),
-  createOrganization: vi.fn(),
-  updateOrganization: vi.fn(),
-  deleteOrganization: vi.fn(),
   createPractice: vi.fn(),
   updatePractice: vi.fn(),
   deletePractice: vi.fn(),
@@ -98,7 +95,7 @@ const useOrgMgmtMock = {
   removeMember: vi.fn(),
   updateMemberRole: vi.fn(),
   transferOwnership: vi.fn(),
-  leaveOrganization: vi.fn(),
+  leavePractice: vi.fn(),
   getInvitations: vi.fn(),
   resendInvitation: vi.fn(),
   cancelInvitation: vi.fn(),
@@ -172,53 +169,50 @@ describe('SettingsPage Integration Tests', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLoadOrganizations.mockClear();
-    mockLoadInvitations.mockClear();
+    mockFetchPractices.mockClear();
+    mockFetchInvitations.mockClear();
     mockRoute.mockClear();
     mockOnClose.mockClear();
     
     // Reset the mutable mock object to default values
-    useOrgMgmtMock.practices = [];
-    useOrgMgmtMock.invitations = [];
-    useOrgMgmtMock.loading = false;
-    useOrgMgmtMock.error = null;
-    useOrgMgmtMock.currentPractice = null;
-    useOrgMgmtMock.loadOrganizations = mockLoadOrganizations;
-    useOrgMgmtMock.loadInvitations = mockLoadInvitations;
-    useOrgMgmtMock.acceptMatter = vi.fn();
-    useOrgMgmtMock.rejectMatter = vi.fn();
-    useOrgMgmtMock.updateMatterStatus = vi.fn();
-    useOrgMgmtMock.createOrganization = vi.fn();
-    useOrgMgmtMock.updateOrganization = vi.fn();
-    useOrgMgmtMock.deleteOrganization = vi.fn();
-    useOrgMgmtMock.inviteMember = vi.fn();
-    useOrgMgmtMock.acceptInvitation = vi.fn();
-    useOrgMgmtMock.declineInvitation = vi.fn();
-    useOrgMgmtMock.getMembers = vi.fn();
-    useOrgMgmtMock.removeMember = vi.fn();
-    useOrgMgmtMock.updateMemberRole = vi.fn();
-    useOrgMgmtMock.transferOwnership = vi.fn();
-    useOrgMgmtMock.leaveOrganization = vi.fn();
-    useOrgMgmtMock.getInvitations = vi.fn();
-    useOrgMgmtMock.resendInvitation = vi.fn();
-    useOrgMgmtMock.cancelInvitation = vi.fn();
-    useOrgMgmtMock.fetchMembers = vi.fn();
-    useOrgMgmtMock.sendInvitation = vi.fn();
-    useOrgMgmtMock.getTokens = vi.fn();
-    useOrgMgmtMock.fetchTokens = vi.fn();
-    useOrgMgmtMock.createToken = vi.fn();
-    useOrgMgmtMock.revokeToken = vi.fn();
-    useOrgMgmtMock.updateToken = vi.fn();
-    useOrgMgmtMock.getUsage = vi.fn();
-    useOrgMgmtMock.getWorkspaceData = vi.fn();
-    useOrgMgmtMock.fetchWorkspaceData = vi.fn();
-    useOrgMgmtMock.refetch = vi.fn();
-    useOrgMgmtMock.createPractice = vi.fn();
-    useOrgMgmtMock.updatePractice = vi.fn();
-    useOrgMgmtMock.deletePractice = vi.fn();
+    usePracticeMgmtMock.practices = [];
+    usePracticeMgmtMock.invitations = [];
+    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.error = null;
+    usePracticeMgmtMock.currentPractice = null;
+    usePracticeMgmtMock.fetchPractices = mockFetchPractices;
+    usePracticeMgmtMock.fetchInvitations = mockFetchInvitations;
+    usePracticeMgmtMock.acceptMatter = vi.fn();
+    usePracticeMgmtMock.rejectMatter = vi.fn();
+    usePracticeMgmtMock.updateMatterStatus = vi.fn();
+    usePracticeMgmtMock.createPractice = vi.fn();
+    usePracticeMgmtMock.updatePractice = vi.fn();
+    usePracticeMgmtMock.deletePractice = vi.fn();
+    usePracticeMgmtMock.inviteMember = vi.fn();
+    usePracticeMgmtMock.acceptInvitation = vi.fn();
+    usePracticeMgmtMock.declineInvitation = vi.fn();
+    usePracticeMgmtMock.getMembers = vi.fn();
+    usePracticeMgmtMock.removeMember = vi.fn();
+    usePracticeMgmtMock.updateMemberRole = vi.fn();
+    usePracticeMgmtMock.transferOwnership = vi.fn();
+    usePracticeMgmtMock.leavePractice = vi.fn();
+    usePracticeMgmtMock.getInvitations = vi.fn();
+    usePracticeMgmtMock.resendInvitation = vi.fn();
+    usePracticeMgmtMock.cancelInvitation = vi.fn();
+    usePracticeMgmtMock.fetchMembers = vi.fn();
+    usePracticeMgmtMock.sendInvitation = vi.fn();
+    usePracticeMgmtMock.getTokens = vi.fn();
+    usePracticeMgmtMock.fetchTokens = vi.fn();
+    usePracticeMgmtMock.createToken = vi.fn();
+    usePracticeMgmtMock.revokeToken = vi.fn();
+    usePracticeMgmtMock.updateToken = vi.fn();
+    usePracticeMgmtMock.getUsage = vi.fn();
+    usePracticeMgmtMock.getWorkspaceData = vi.fn();
+    usePracticeMgmtMock.fetchWorkspaceData = vi.fn();
+    usePracticeMgmtMock.refetch = vi.fn();
     
     // Set up the mock return value
-    vi.mocked(usePracticeManagement).mockReturnValue(useOrgMgmtMock);
+    vi.mocked(usePracticeManagement).mockReturnValue(usePracticeMgmtMock);
     // Reset mocked path to base settings route
     resetMockPath();
   });

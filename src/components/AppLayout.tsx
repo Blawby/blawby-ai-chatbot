@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
-import { useRef, useEffect, useCallback } from 'preact/hooks';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'preact/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import { PracticeNotFound } from './PracticeNotFound';
@@ -28,6 +28,8 @@ import { useNavigation } from '../utils/navigation';
 import { useLocation } from 'preact-iso';
 import type { BusinessOnboardingStatus } from '../hooks/usePracticeManagement';
 import { useMobileDetection } from '../hooks/useMobileDetection';
+import Modal from './Modal';
+import { usePaymentUpgrade } from '../hooks/usePaymentUpgrade';
 
 // Simple messages object for localization
 const messages = {
@@ -87,6 +89,9 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const { navigate } = useNavigation();
   const location = useLocation();
   const { data: session } = useSession();
+  const { openBillingPortal } = usePaymentUpgrade();
+  const [matterAction, setMatterAction] = useState<'pay' | 'pdf' | 'share' | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
   
   // Show inbox tab for all authenticated users
   // API will enforce member-only access (requires practice member role)
@@ -98,6 +103,50 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   
   // Mobile detection using shared hook
   const isMobile = useMobileDetection();
+
+  const openMatterAction = useCallback((action: 'pay' | 'pdf' | 'share') => {
+    setShareCopied(false);
+    setMatterAction(action);
+  }, []);
+
+  const closeMatterAction = useCallback(() => {
+    setMatterAction(null);
+  }, []);
+
+  const shareText = useMemo(() => {
+    if (!matter) return '';
+    const summary = matter.matterSummary ? matter.matterSummary.trim() : '';
+    const header = `Matter ${matter.matterNumber || 'Summary'}: ${matter.service}`;
+    return [header, summary].filter(Boolean).join('\n\n');
+  }, [matter]);
+
+  const handleCopyShareText = useCallback(async () => {
+    if (!shareText) return;
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setShareCopied(true);
+    } catch (error) {
+      console.error('Failed to copy matter summary:', error);
+      showError('Copy failed', 'We could not copy the summary to your clipboard.');
+    }
+  }, [shareText, showError]);
+
+  const handleOpenBilling = useCallback(async () => {
+    if (!currentPractice?.id) {
+      showError('No practice selected', 'Select a practice to manage billing.');
+      return;
+    }
+    await openBillingPortal({
+      practiceId: currentPractice.id,
+      returnUrl: `${window.location.origin}/settings/account?sync=1`
+    });
+    closeMatterAction();
+  }, [closeMatterAction, currentPractice?.id, openBillingPortal, showError]);
+
+  const handleOpenChat = useCallback(() => {
+    onTabChange('chats');
+    closeMatterAction();
+  }, [closeMatterAction, onTabChange]);
   
   // Focus management for mobile sidebar
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -343,9 +392,15 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                 status={matterStatus}
                 onStartChat={handleGoToChats}
                 onViewInChat={handleContinueInChat}
-                onPayNow={() => {/* TODO: Implement payment flow */}}
-                onViewPDF={() => {/* TODO: Implement PDF viewing */}}
-                onShareMatter={() => {/* TODO: Implement matter sharing */}}
+                onPayNow={() => {
+                  openMatterAction('pay');
+                }}
+                onViewPDF={() => {
+                  openMatterAction('pdf');
+                }}
+                onShareMatter={() => {
+                  openMatterAction('share');
+                }}
                 onUploadDocument={onUploadDocument}
               />
             </div>
@@ -403,6 +458,72 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       {import.meta.env.VITE_DEBUG_OVERLAY === 'true' && (
         <DebugOverlay isVisible={true} />
       )}
+
+      <Modal
+        isOpen={Boolean(matterAction)}
+        onClose={closeMatterAction}
+        title={
+          matterAction === 'pay'
+            ? 'Matter Payment'
+            : matterAction === 'pdf'
+              ? 'Matter PDF'
+              : matterAction === 'share'
+                ? 'Share Matter'
+                : 'Matter Actions'
+        }
+        type="modal"
+      >
+        {matterAction === 'pay' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Use the billing portal to handle payments for this matter. We will keep your subscription and invoices in sync.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={() => navigate('/cart')}>
+                View plans
+              </Button>
+              <Button variant="primary" onClick={() => { void handleOpenBilling(); }}>
+                Open billing portal
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {matterAction === 'pdf' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Generate a case summary PDF from the current chat context.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={handleOpenChat}>
+                Open chat
+              </Button>
+              <Button variant="primary" onClick={handleOpenChat}>
+                Generate PDF in chat
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {matterAction === 'share' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Share a concise matter summary with your team or client.
+            </p>
+            <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg p-3 text-xs text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+              {shareText || 'No summary available yet.'}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={handleCopyShareText} disabled={!shareText}>
+                {shareCopied ? 'Copied' : 'Copy summary'}
+              </Button>
+              <Button variant="primary" onClick={() => navigate('/settings/practice')}>
+                Manage team access
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Onboarding modal handled by /business-onboarding route */}
     </div>

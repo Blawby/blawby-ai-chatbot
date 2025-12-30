@@ -53,6 +53,12 @@ export const SettingsPage = ({
   
   const currentPage = getCurrentPage();
 
+  // Redirect legacy 'organization' URLs to 'practice'
+  if (currentPage === 'organization') {
+    navigate('/settings/practice');
+    return null;
+  }
+
   const handleNavigation = (page: string) => {
     navigate(`/settings/${page}`);
   };
@@ -85,7 +91,7 @@ export const SettingsPage = ({
     { id: 'general', label: t('settings:navigation.items.general'), icon: Cog6ToothIcon },
     { id: 'notifications', label: t('settings:navigation.items.notifications'), icon: BellIcon },
     { id: 'account', label: t('settings:navigation.items.account'), icon: UserIcon },
-    { id: 'organization', label: t('settings:navigation.items.organization'), icon: BuildingOfficeIcon },
+    { id: 'practice', label: t('settings:navigation.items.practice'), icon: BuildingOfficeIcon },
     { id: 'security', label: t('settings:navigation.items.security'), icon: ShieldCheckIcon },
     { id: 'help', label: t('settings:navigation.items.help'), icon: QuestionMarkCircleIcon },
     { id: 'signout', label: t('settings:navigation.items.signOut'), icon: ArrowRightOnRectangleIcon, isAction: true, onClick: handleSignOut, variant: 'danger' }
@@ -101,7 +107,7 @@ export const SettingsPage = ({
         return <NotificationsPage className="h-full" />;
       case 'account':
         return <AccountPage isMobile={isMobile} onClose={onClose} className="h-full" />;
-      case 'organization':
+      case 'practice':
         return <PracticePage className="h-full" />;
       case 'security':
         return <SecurityPage isMobile={isMobile} onClose={onClose} className="h-full" />;

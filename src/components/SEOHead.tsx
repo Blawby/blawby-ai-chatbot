@@ -52,10 +52,10 @@ function generatePageTitle(
     return `${pageTitle.trim()} - AI Legal Assistant`;
   }
   
-  // Priority 1: Use organization name if available
+  // Priority 1: Use practice name if available
   if (practiceConfig?.name) {
-    const orgName = practiceConfig.name.trim();
-    return `${orgName} - AI Legal Assistant`;
+    const practiceName = practiceConfig.name.trim();
+    return `${practiceName} - AI Legal Assistant`;
   }
   
   // Priority 2: Use introMessage with word-aware truncation

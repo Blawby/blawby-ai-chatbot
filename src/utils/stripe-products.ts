@@ -59,7 +59,7 @@ export const TIER_FEATURES: Record<'free' | 'business', TierFeature[]> = {
     { icon: DocumentIcon, text: 'Limited document analysis' },
   ],
   business: [
-    { icon: UserGroupIcon, text: 'Organization collaboration & workflows' },
+    { icon: UserGroupIcon, text: 'Practice collaboration & workflows' },
     { icon: LockClosedIcon, text: 'Advanced security' },
     { icon: DocumentIcon, text: 'Personalized intake forms' },
     { icon: BoltIcon, text: 'Unlimited usage with guardrails' },

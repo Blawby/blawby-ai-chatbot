@@ -42,7 +42,7 @@ export const AccountPage = ({
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
-  const { currentPractice, loading: orgLoading, refetch, getMembers, fetchMembers } = usePracticeManagement();
+  const { currentPractice, loading: practiceLoading, refetch, getMembers, fetchMembers } = usePracticeManagement();
   const { data: session, isPending } = useSession();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
@@ -56,8 +56,8 @@ export const AccountPage = ({
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
   
 
-  const resolvedOrgKind = resolvePracticeKind(currentPractice?.kind, currentPractice?.isPersonal ?? null);
-  const resolvedSubscriptionStatus = normalizeSubscriptionStatus(currentPractice?.subscriptionStatus, resolvedOrgKind);
+  const resolvedPracticeKind = resolvePracticeKind(currentPractice?.kind, currentPractice?.isPersonal ?? null);
+  const resolvedSubscriptionStatus = normalizeSubscriptionStatus(currentPractice?.subscriptionStatus, resolvedPracticeKind);
   const managedSubscription = hasManagedSubscription(
     currentPractice?.kind,
     currentPractice?.subscriptionStatus,
@@ -143,10 +143,10 @@ export const AccountPage = ({
         securityAlerts: userWithExtendedProps.securityAlerts ?? true
       };
       
-      const orgTier = currentPractice?.subscriptionTier;
+      const practiceTier = currentPractice?.subscriptionTier;
       // Always default to 'free' when subscriptionTier is unset to prevent showing
       // paid-tier features to unsubscribed practices, regardless of practice kind
-      const displayTier = orgTier || 'free';
+      const displayTier = practiceTier || 'free';
       
       setLinks(linksData);
       setEmailSettings(emailData);
@@ -160,10 +160,10 @@ export const AccountPage = ({
   // Load account data when component mounts or practice changes
   // Only load when practice data is available (not loading) and session is available
   useEffect(() => {
-    if (!orgLoading && currentPractice !== undefined && session?.user) {
+    if (!practiceLoading && currentPractice !== undefined && session?.user) {
       loadAccountData();
     }
-  }, [loadAccountData, orgLoading, currentPractice, session?.user]);
+  }, [loadAccountData, practiceLoading, currentPractice, session?.user]);
 
   // Detect OAuth vs password users based on lastLoginMethod
   const userWithExtendedProps = session?.user as typeof session.user & {
@@ -570,7 +570,7 @@ export const AccountPage = ({
   // Add timeout protection - if loading for more than 10 seconds, show error with retry
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   useEffect(() => {
-    if (isPending || orgLoading) {
+    if (isPending || practiceLoading) {
       const timeout = setTimeout(() => {
         setLoadingTimeout(true);
       }, 10000); // 10 second timeout
@@ -578,9 +578,9 @@ export const AccountPage = ({
     } else {
       setLoadingTimeout(false);
     }
-  }, [isPending, orgLoading]);
+  }, [isPending, practiceLoading]);
 
-  if ((isPending || orgLoading) && !loadingTimeout) {
+  if ((isPending || practiceLoading) && !loadingTimeout) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />

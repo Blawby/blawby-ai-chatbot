@@ -172,7 +172,7 @@ export const CartPage = () => {
     }
   }, [tierFromQuery, setQuantity]);
 
-  // If org is already on paid tier, define paid UI state and return early (after all hooks)
+  // If practice is already on paid tier, define paid UI state and return early (after all hooks)
   const paidState = isPaidTier ? (
       <div className="min-h-screen bg-gray-900 text-white" data-testid="cart-page" data-paid="true" data-paid-state="cart-paid-state">
         <header className="py-4">

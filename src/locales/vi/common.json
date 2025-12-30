@@ -162,21 +162,21 @@
   },
   "businessWelcome": {
     "title": "Chào mừng đến với Business!",
-    "subtitle": "Tổ chức của bạn đã được nâng cấp. Đây là những gì bạn có thể làm bây giờ:",
+    "subtitle": "Văn phòng của bạn đã được nâng cấp. Đây là những gì bạn có thể làm bây giờ:",
     "features": {
       "teamManagement": {
         "title": "Quản lý Nhóm",
         "description": "Mời thành viên"
       },
-      "organizationSettings": {
-        "title": "Cài đặt Tổ chức",
-        "description": "Cấu hình tổ chức của bạn"
+      "practiceSettings": {
+        "title": "Cài đặt văn phòng",
+        "description": "Cấu hình văn phòng của bạn"
       },
       "apiAccess": {
         "title": "Truy cập API",
         "description": "Tạo token"
       }
     },
-    "goToSettings": "Đi đến Cài đặt Tổ chức"
+    "goToSettings": "Đi đến Cài đặt văn phòng"
   }
 }

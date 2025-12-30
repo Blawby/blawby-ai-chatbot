@@ -157,7 +157,7 @@ export interface ConversationConfig {
 // If extension is needed in the future, convert to interface with additional properties
 export type PracticeConfig = ConversationConfig;
 
-// Practice type (business organization - law firm)
+// Practice type (business practice - law firm)
 export interface Practice {
   id: string;
   name: string;
@@ -207,7 +207,7 @@ export type PracticeOrWorkspace = Practice | Workspace;
 // Form types
 export interface ContactForm {
   id: string;
-  organizationId: string;
+  practiceId: string;
   name: string;
   email: string;
   phone?: string;
@@ -219,7 +219,7 @@ export interface ContactForm {
 
 export interface Appointment {
   id: string;
-  organizationId: string;
+  practiceId: string;
   name: string;
   email: string;
   phone?: string;
@@ -234,7 +234,7 @@ export interface Appointment {
 // File upload types
 export interface FileUpload {
   id: string;
-  organizationId: string;
+  practiceId: string;
   filename: string;
   contentType: string;
   size: number;
@@ -246,7 +246,7 @@ export interface FileUpload {
 // Feedback types
 export interface Feedback {
   id: string;
-  organizationId: string;
+  practiceId: string;
   sessionId: string;
   rating: number;
   comment?: string;

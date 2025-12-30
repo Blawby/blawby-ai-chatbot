@@ -162,21 +162,21 @@
   },
   "businessWelcome": {
     "title": "Willkommen bei Business!",
-    "subtitle": "Ihre Organisation wurde aktualisiert. Hier ist, was Sie jetzt tun können:",
+    "subtitle": "Ihre Praxis wurde aktualisiert. Hier ist, was Sie jetzt tun können:",
     "features": {
       "teamManagement": {
         "title": "Team-Management",
         "description": "Mitglieder einladen"
       },
-      "organizationSettings": {
-        "title": "Organisationseinstellungen",
-        "description": "Ihre Organisation konfigurieren"
+      "practiceSettings": {
+        "title": "Praxis-Einstellungen",
+        "description": "Ihre Praxis konfigurieren"
       },
       "apiAccess": {
         "title": "API-Zugang",
         "description": "Token generieren"
       }
     },
-    "goToSettings": "Zu den Organisationseinstellungen"
+    "goToSettings": "Zu den Praxis-Einstellungen"
   }
 }

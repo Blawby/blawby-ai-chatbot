@@ -42,7 +42,7 @@
     },
     "business": {
       "name": "Business",
-      "description": "Secure, collaborative workspace for organizations",
+      "description": "Secure, collaborative workspace for practices",
       "buttonText": "Get Business",
       "features": {
         "teamCollaboration": {
@@ -82,7 +82,7 @@
     "enterprise": {
       "name": "Enterprise",
       "price": "Contact sales",
-      "description": "Custom solutions for large organizations",
+      "description": "Custom solutions for large practices",
       "buttonText": "Contact Sales"
     }
   },

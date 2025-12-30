@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'preact/hooks';
+import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
 import { 
   BuildingOfficeIcon, 
   PlusIcon, 
@@ -6,11 +6,11 @@ import {
   TrashIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
-import { usePracticeManagement, type Role } from '../../../hooks/usePracticeManagement';
+import { usePracticeManagement, type Role, type MatterWorkflowStatus } from '../../../hooks/usePracticeManagement';
 import { features } from '../../../config/features';
 import { Button } from '../../ui/Button';
 import Modal from '../../Modal';
-import { Input } from '../../ui/input';
+import { Input, Textarea } from '../../ui/input';
 import { FormLabel } from '../../ui/form/FormLabel';
 import { Select } from '../../ui/input/Select';
 import { useToastContext } from '../../../contexts/ToastContext';
@@ -24,9 +24,22 @@ import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/i18n/hooks';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../ui/dropdown';
 import { PracticeLogo } from '../../ui/sidebar/atoms/PracticeLogo';
+import { getPracticeWorkspaceEndpoint } from '../../../config/api';
 
 interface PracticePageProps {
   className?: string;
+}
+
+interface LeadSummary {
+  id: string;
+  title: string;
+  matterType: string;
+  status: MatterWorkflowStatus;
+  priority: string;
+  clientName?: string | null;
+  leadSource?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const PracticePage = ({ className = '' }: PracticePageProps) => {
@@ -48,7 +61,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     updateMemberRole,
     removeMember,
     sendInvitation,
-    refetch 
+    refetch,
+    acceptMatter,
+    rejectMatter
   } = usePracticeManagement();
   
   const { showSuccess, showError } = useToastContext();
@@ -89,6 +104,13 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [editMemberData, setEditMemberData] = useState<{ userId: string; email: string; name?: string; role: Role } | null>(null);
+  const [leadQueue, setLeadQueue] = useState<LeadSummary[]>([]);
+  const [leadLoading, setLeadLoading] = useState(false);
+  const [leadError, setLeadError] = useState<string | null>(null);
+  const [decisionLead, setDecisionLead] = useState<LeadSummary | null>(null);
+  const [decisionAction, setDecisionAction] = useState<'accept' | 'reject' | null>(null);
+  const [decisionReason, setDecisionReason] = useState('');
+  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
   const hasPractice = !!currentPractice;
   const members = useMemo(() => currentPractice ? getMembers(currentPractice.id) : [], [currentPractice, getMembers]);
@@ -104,6 +126,88 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   const currentUserRole = currentMember?.role || 'paralegal';
   const isOwner = currentUserRole === 'owner';
   const isAdmin = (currentUserRole === 'admin' || isOwner) ?? false;
+  const canReviewLeads = isAdmin || isOwner;
+
+  const loadLeadQueue = useCallback(async () => {
+    if (!currentPractice?.id || !canReviewLeads) {
+      setLeadQueue([]);
+      return;
+    }
+
+    setLeadLoading(true);
+    setLeadError(null);
+
+    try {
+      const endpoint = `${getPracticeWorkspaceEndpoint(currentPractice.id, 'matters')}?status=lead`;
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load leads (${response.status})`);
+      }
+
+      const payload = await response.json() as {
+        success?: boolean;
+        error?: string;
+        data?: { items?: LeadSummary[]; matters?: LeadSummary[] };
+      };
+
+      if (payload.success === false) {
+        throw new Error(payload.error || 'Failed to load leads');
+      }
+
+      const items = payload.data?.items || payload.data?.matters || [];
+      setLeadQueue(items);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load leads';
+      setLeadError(message);
+    } finally {
+      setLeadLoading(false);
+    }
+  }, [currentPractice?.id, canReviewLeads]);
+
+  useEffect(() => {
+    void loadLeadQueue();
+  }, [loadLeadQueue]);
+
+  const openDecisionModal = (lead: LeadSummary, action: 'accept' | 'reject') => {
+    setDecisionLead(lead);
+    setDecisionAction(action);
+    setDecisionReason('');
+  };
+
+  const closeDecisionModal = (force = false) => {
+    if (decisionSubmitting && !force) return;
+    setDecisionLead(null);
+    setDecisionAction(null);
+    setDecisionReason('');
+  };
+
+  const handleDecision = async () => {
+    if (!currentPractice?.id || !decisionLead || !decisionAction) return;
+    setDecisionSubmitting(true);
+    try {
+      if (decisionAction === 'accept') {
+        await acceptMatter(currentPractice.id, decisionLead.id);
+        showSuccess('Lead accepted', 'The client has been notified.');
+      } else {
+        await rejectMatter(currentPractice.id, decisionLead.id, decisionReason);
+        showSuccess('Lead rejected', 'The client has been notified.');
+      }
+      setDecisionSubmitting(false);
+      closeDecisionModal(true);
+      await loadLeadQueue();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update lead';
+      showError('Action failed', message);
+      setDecisionSubmitting(false);
+    }
+  };
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -312,7 +416,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   // Ensure current practice is always included if it exists
   const practicesWithCurrent = useMemo(() => {
     if (!currentPractice) return practices;
-    const hasCurrent = practices.some(org => org.id === currentPractice.id);
+    const hasCurrent = practices.some(practice => practice.id === currentPractice.id);
     if (hasCurrent) return practices;
     return [currentPractice, ...practices];
   }, [practices, currentPractice]);
@@ -381,26 +485,26 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-64 max-h-96">
                         <div className="max-h-64 overflow-y-auto">
-                          {practicesWithCurrent.map((org) => {
-                            const orgProfileImage = org.config ? (org.config as { profileImage?: string | null }).profileImage ?? null : null;
-                            const isActive = org.id === activePracticeId;
+                          {practicesWithCurrent.map((practice) => {
+                            const practiceProfileImage = practice.config ? (practice.config as { profileImage?: string | null }).profileImage ?? null : null;
+                            const isActive = practice.id === activePracticeId;
                             return (
                               <DropdownMenuItem
-                                key={org.id}
-                                onSelect={() => handlePracticeSwitch(org.id)}
+                                key={practice.id}
+                                onSelect={() => handlePracticeSwitch(practice.id)}
                                 disabled={isSwitchingPractice}
                                 className="flex items-center gap-2"
                               >
-                                {orgProfileImage ? (
+                                {practiceProfileImage ? (
                                   <PracticeLogo 
-                                    src={orgProfileImage} 
-                                    alt={org.name}
+                                    src={practiceProfileImage} 
+                                    alt={practice.name}
                                     size="sm"
                                   />
                                 ) : (
                                   <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
                                 )}
-                                <span className="flex-1 text-sm">{org.name}</span>
+                                <span className="flex-1 text-sm">{practice.name}</span>
                                 {isActive && (
                                   <CheckIcon className="w-4 h-4 text-accent-500" />
                                 )}
@@ -441,18 +545,18 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
               {isEditingPractice && (
                 <div className="mt-4 space-y-4">
                   <div>
-                    <FormLabel htmlFor="edit-org-name">Practice Name</FormLabel>
+                    <FormLabel htmlFor="edit-practice-name">Practice Name</FormLabel>
                     <Input
-                      id="edit-org-name"
+                      id="edit-practice-name"
                       value={editPracticeForm.name}
                       onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
                     />
                   </div>
                   
                   <div>
-                    <FormLabel htmlFor="edit-org-description">Description (optional)</FormLabel>
+                    <FormLabel htmlFor="edit-practice-description">Description (optional)</FormLabel>
                     <Input
-                      id="edit-org-description"
+                      id="edit-practice-description"
                       value={editPracticeForm.description}
                       onChange={(value) => setEditPracticeForm(prev => ({ ...prev, description: value }))}
                       placeholder="Brief description of your practice"
@@ -469,6 +573,78 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                   </div>
                 </div>
               )}
+
+              <div className="border-t border-gray-200 dark:border-dark-border" />
+
+              {/* Lead Review Queue */}
+              <div className="py-3">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  Lead Review Queue
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  Review new intake requests and decide whether to accept or decline.
+                </p>
+
+                {!canReviewLeads && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Only admins and owners can review leads.
+                  </div>
+                )}
+
+                {canReviewLeads && leadLoading && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Loading leads…
+                  </div>
+                )}
+
+                {canReviewLeads && leadError && (
+                  <div className="text-xs text-red-600 dark:text-red-400">
+                    {leadError}
+                  </div>
+                )}
+
+                {canReviewLeads && !leadLoading && !leadError && leadQueue.length === 0 && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    No leads waiting for review.
+                  </div>
+                )}
+
+                {canReviewLeads && leadQueue.length > 0 && (
+                  <div className="space-y-3">
+                    {leadQueue.map((lead) => (
+                      <div
+                        key={lead.id}
+                        className="rounded-lg border border-gray-200 dark:border-dark-border p-4 bg-white dark:bg-dark-card-bg"
+                      >
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {lead.clientName || lead.title}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {lead.matterType}
+                                {lead.leadSource ? ` · ${lead.leadSource}` : ''}
+                              </p>
+                            </div>
+                            <span className="text-xs text-gray-400">
+                              {formatDate(lead.createdAt)}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" onClick={() => openDecisionModal(lead, 'accept')}>
+                              Accept
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => openDecisionModal(lead, 'reject')}>
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
 
@@ -682,7 +858,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
               {/* Delete Practice Section (Owner only) */}
               {isOwner && (
                 <>
-                  <div className="flex items-center justify-between py-3" data-testid="org-delete-section">
+                  <div className="flex items-center justify-between py-3" data-testid="practice-delete-section">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delete Practice</h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -702,7 +878,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                             });
                           }}
                           disabled={submitting}
-                          data-testid="org-delete-action"
+                          data-testid="practice-delete-action"
                         >
                           {t('settings:account.plan.manage')}
                         </Button>
@@ -712,7 +888,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                           size="sm"
                           onClick={() => setShowDeleteModal(true)}
                           className="text-red-600 hover:text-red-700"
-                          data-testid="org-delete-action"
+                          data-testid="practice-delete-action"
                         >
                           <TrashIcon className="w-4 h-4 mr-2" />
                           Delete
@@ -784,6 +960,47 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
         </div>
       </div>
 
+      {/* Lead Decision Modal */}
+      <Modal
+        isOpen={Boolean(decisionAction && decisionLead)}
+        onClose={closeDecisionModal}
+        title={decisionAction === 'accept' ? 'Accept Lead' : 'Reject Lead'}
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-gray-200 dark:border-dark-border p-3 text-sm text-gray-700 dark:text-gray-200">
+            <p className="font-medium text-gray-900 dark:text-gray-100">
+              {decisionLead?.clientName || decisionLead?.title}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {decisionLead?.matterType}
+              {decisionLead?.leadSource ? ` · ${decisionLead.leadSource}` : ''}
+            </p>
+          </div>
+
+          {decisionAction === 'reject' && (
+            <div>
+              <FormLabel htmlFor="lead-reject-reason">Reason (optional)</FormLabel>
+              <Textarea
+                id="lead-reject-reason"
+                value={decisionReason}
+                onChange={(value) => setDecisionReason(value)}
+                placeholder="Add a short note to the client"
+                rows={3}
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={closeDecisionModal} disabled={decisionSubmitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleDecision} disabled={decisionSubmitting}>
+              {decisionAction === 'accept' ? 'Accept Lead' : 'Reject Lead'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Create Practice Modal */}
       <Modal
         isOpen={showCreateModal}
@@ -792,9 +1009,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
       >
         <div className="space-y-4">
           <div>
-            <FormLabel htmlFor="org-name">Practice Name *</FormLabel>
+            <FormLabel htmlFor="practice-name">Practice Name *</FormLabel>
             <Input
-              id="org-name"
+              id="practice-name"
               value={createForm.name}
               onChange={(value) => setCreateForm(prev => ({ ...prev, name: value }))}
               placeholder="Your Law Firm Name"
@@ -803,9 +1020,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
           </div>
           
           <div>
-            <FormLabel htmlFor="org-slug">Slug (optional)</FormLabel>
+            <FormLabel htmlFor="practice-slug">Slug (optional)</FormLabel>
             <Input
-              id="org-slug"
+              id="practice-slug"
               value={createForm.slug}
               onChange={(value) => setCreateForm(prev => ({ ...prev, slug: value }))}
               placeholder="your-law-firm"
@@ -816,9 +1033,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
           </div>
           
           <div>
-            <FormLabel htmlFor="org-description">Description (optional)</FormLabel>
+            <FormLabel htmlFor="practice-description">Description (optional)</FormLabel>
             <Input
-              id="org-description"
+              id="practice-description"
               value={createForm.description}
               onChange={(value) => setCreateForm(prev => ({ ...prev, description: value }))}
               placeholder="Brief description of your practice"

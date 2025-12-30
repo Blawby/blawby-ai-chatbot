@@ -162,21 +162,21 @@
   },
   "businessWelcome": {
     "title": "欢迎使用商业版！",
-    "subtitle": "您的组织已升级。现在您可以：",
+    "subtitle": "您的律所已升级。现在您可以：",
     "features": {
       "teamManagement": {
         "title": "团队管理",
         "description": "邀请成员"
       },
-      "organizationSettings": {
-        "title": "组织设置",
-        "description": "配置您的组织"
+      "practiceSettings": {
+        "title": "律所设置",
+        "description": "配置您的律所"
       },
       "apiAccess": {
         "title": "API访问",
         "description": "生成令牌"
       }
     },
-    "goToSettings": "前往组织设置"
+    "goToSettings": "前往律所设置"
   }
 }

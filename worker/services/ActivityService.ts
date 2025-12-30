@@ -49,7 +49,7 @@ export class ActivityService {
         created_at
       FROM matter_events 
       WHERE matter_id = ? AND matter_id IN (
-        SELECT id FROM matters WHERE organization_id = ?
+        SELECT id FROM matters WHERE practice_id = ?
       )
       ORDER BY event_date DESC, created_at DESC
     `);
@@ -160,7 +160,7 @@ export class ActivityService {
           created_at
         FROM matter_events 
         WHERE (? IS NULL OR matter_id = ?)
-          AND matter_id IN (SELECT id FROM matters WHERE organization_id = ?)
+          AND matter_id IN (SELECT id FROM matters WHERE practice_id = ?)
           AND (? IS NULL OR event_date >= ?)
           AND (? IS NULL OR event_date <= ?)
           AND (? IS NULL OR event_type IN (SELECT value FROM json_each(?)))
@@ -246,7 +246,7 @@ export class ActivityService {
         WITH combined_events AS (
           SELECT id FROM matter_events 
           WHERE (? IS NULL OR matter_id = ?)
-            AND matter_id IN (SELECT id FROM matters WHERE organization_id = ?)
+            AND matter_id IN (SELECT id FROM matters WHERE practice_id = ?)
             AND (? IS NULL OR event_date >= ?)
             AND (? IS NULL OR event_date <= ?)
             AND (? IS NULL OR event_type IN (SELECT value FROM json_each(?)))

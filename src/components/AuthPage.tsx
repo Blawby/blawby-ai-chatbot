@@ -28,15 +28,27 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [intakeDecision, setIntakeDecision] = useState<'accepted' | 'rejected' | null>(null);
 
   // Check URL params for mode and onboarding (guarded by server truth)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlMode = urlParams.get('mode');
     const needsOnboarding = urlParams.get('onboarding') === 'true';
+    const intake = urlParams.get('intake');
 
     if (urlMode === 'signin' || urlMode === 'signup') {
       setIsSignUp(urlMode === 'signup');
+    }
+
+    if (intake === 'accepted' || intake === 'rejected') {
+      setIntakeDecision(intake);
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('intake');
+        window.history.replaceState({}, '', url.toString());
+        // eslint-disable-next-line no-empty
+      } catch {}
     }
 
     // Only open onboarding when explicitly requested via URL param
@@ -289,6 +301,19 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-light-card-bg dark:bg-dark-card-bg py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {intakeDecision && (
+            <div
+              className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+                intakeDecision === 'accepted'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100'
+                  : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100'
+              }`}
+            >
+              {intakeDecision === 'accepted'
+                ? t('intake.accepted')
+                : t('intake.rejected')}
+            </div>
+          )}
           {/* Google Sign In Button */}
           <div className="mb-6">
             <button

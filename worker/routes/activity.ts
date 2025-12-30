@@ -5,7 +5,7 @@ import { createRateLimitResponse } from '../errorHandler';
 import { HttpErrors, handleError } from '../errorHandler';
 import { parseJsonBody } from '../utils.js';
 import type { Env } from '../types';
-import { requireOrganizationMember } from '../middleware/auth';
+import { requirePracticeMember } from '../middleware/auth';
 
 interface CreateActivityRequest {
   type: 'matter_event' | 'conversation_event';
@@ -80,15 +80,15 @@ async function handleGetActivity(request: Request, env: Env): Promise<Response> 
 
   // SECURITY: Validate practiceId format and user authorization before any data access
   // This ensures that:
-  // 1. The auth token/session is valid (via requireOrganizationMember -> requireAuth)
-  // 2. The practiceId format is valid (non-empty string, validated by requireOrganizationMember)
+  // 1. The auth token/session is valid (via requirePracticeMember -> requireAuth)
+  // 2. The practiceId format is valid (non-empty string, validated by requirePracticeMember)
   // 3. The authenticated user has access to the requested practiceId
   // 4. Returns 403 Forbidden if the user is not a member of the practice
   // 
   // CRITICAL: This authorization check runs BEFORE any data fetch to prevent
   // unauthorized access to arbitrary practiceIds. The original request is used
   // (not a modified one) to ensure URL parameters cannot affect authentication.
-  await requireOrganizationMember(request, env, practiceId, 'paralegal');
+  await requirePracticeMember(request, env, practiceId, 'paralegal');
   
   const resolvedPracticeId = practiceId;
 
@@ -211,15 +211,15 @@ async function handleCreateActivity(request: Request, env: Env): Promise<Respons
 
   // SECURITY: Validate practiceId format and user authorization before any data access
   // This ensures that:
-  // 1. The auth token/session is valid (via requireOrganizationMember -> requireAuth)
-  // 2. The practiceId format is valid (non-empty string, validated by requireOrganizationMember)
+  // 1. The auth token/session is valid (via requirePracticeMember -> requireAuth)
+  // 2. The practiceId format is valid (non-empty string, validated by requirePracticeMember)
   // 3. The authenticated user has access to the requested practiceId
   // 4. Returns 403 Forbidden if the user is not a member of the practice
   // 
   // CRITICAL: This authorization check runs BEFORE any data fetch or conversation validation
   // to prevent unauthorized access to arbitrary practiceIds. The original request is used
   // (not a modified one) to ensure URL parameters or body metadata cannot affect authentication.
-  await requireOrganizationMember(request, env, practiceId, 'paralegal');
+  await requirePracticeMember(request, env, practiceId, 'paralegal');
 
   // Validate conversation exists and belongs to practice (if conversation event)
   let resolvedPracticeId = practiceId;

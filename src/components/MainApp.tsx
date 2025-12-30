@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import ChatContainer from './chat/ChatContainer';
 import DragDropOverlay from './DragDropOverlay';
@@ -69,7 +69,9 @@ export function MainApp({
     refetch: refetchPractices,
     acceptMatter,
     rejectMatter,
-    updateMatterStatus
+    updateMatterStatus,
+    getMembers,
+    fetchMembers
   } = usePracticeManagement();
 
   const {
@@ -96,6 +98,7 @@ export function MainApp({
 
   const messages = realMessageHandling.messages;
   const addMessage = realMessageHandling.addMessage;
+  const intakeStatus = realMessageHandling.intakeStatus;
 
   useEffect(() => {
     realMessageHandling.clearMessages();
@@ -381,6 +384,29 @@ export function MainApp({
   // User tier is now derived directly from practice - no need for custom event listeners
 
   const isSessionReady = Boolean(conversationId && !conversationsLoading && !isCreatingConversation);
+  const showMatterControls = currentPractice?.id === practiceId;
+
+  const activeConversation = useMemo(() => {
+    if (conversationId) {
+      return conversations.find(c => c.id === conversationId) ?? null;
+    }
+    return conversations.length === 1 ? conversations[0] : null;
+  }, [conversationId, conversations]);
+
+  const currentUserEmail = session?.user?.email || null;
+  const members = useMemo(
+    () => (currentPractice ? getMembers(currentPractice.id) : []),
+    [currentPractice, getMembers]
+  );
+  const currentMember = useMemo(() => {
+    if (!currentPractice || !currentUserEmail) return null;
+    return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) ||
+      members.find(m => m.userId === session?.user?.id) ||
+      null;
+  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
+  const isOwner = currentMember?.role === 'owner';
+  const isAdmin = currentMember?.role === 'admin' || isOwner;
+  const canReviewLeads = Boolean(isAdmin);
 
   if (import.meta.env.DEV) {
     console.log('[Session] isSessionReady check', {
@@ -410,6 +436,14 @@ export function MainApp({
       }
     }
   }, [practiceConfig, messages, addMessage]);
+
+  useEffect(() => {
+    if (!currentPractice?.id) return;
+    void fetchMembers(currentPractice.id).catch((error) => {
+      console.warn('[Members] Failed to fetch practice members:', error);
+      showErrorRef.current?.('Team members unavailable', 'Unable to load team members.');
+    });
+  }, [currentPractice?.id, fetchMembers]);
 
   // Create stable callback references for keyboard handlers
   const handleEscape = useCallback(() => {
@@ -544,13 +578,16 @@ export function MainApp({
         }}
       >
         <div className="relative h-full flex flex-col">
-          <ConversationHeader
-            practiceId={practiceId}
-            matterId={null}
-            acceptMatter={acceptMatter}
-            rejectMatter={rejectMatter}
-            updateMatterStatus={updateMatterStatus}
-          />
+          {showMatterControls && (
+            <ConversationHeader
+              practiceId={practiceId}
+              matterId={activeConversation?.matter_id ?? null}
+              canReviewLeads={canReviewLeads}
+              acceptMatter={acceptMatter}
+              rejectMatter={rejectMatter}
+              updateMatterStatus={updateMatterStatus}
+            />
+          )}
           <div className="flex-1 min-h-0">
             <ChatContainer
               messages={messages}
@@ -579,6 +616,7 @@ export function MainApp({
               clearInput={clearInputTrigger}
               isReadyToUpload={isReadyToUpload}
               isSessionReady={isSessionReady}
+              intakeStatus={intakeStatus}
             />
           </div>
         </div>

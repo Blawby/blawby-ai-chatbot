@@ -213,21 +213,21 @@
   },
   "businessWelcome": {
     "title": "Welcome to Business!",
-    "subtitle": "Your organization has been upgraded. Here's what you can do now:",
+    "subtitle": "Your practice has been upgraded. Here's what you can do now:",
     "features": {
       "teamManagement": {
         "title": "Team Management",
         "description": "Invite members"
       },
-      "organizationSettings": {
-        "title": "Organization Settings",
-        "description": "Configure your org"
+      "practiceSettings": {
+        "title": "Practice Settings",
+        "description": "Configure your practice"
       },
       "apiAccess": {
         "title": "API Access",
         "description": "Generate tokens"
       }
     },
-    "goToSettings": "Go to Organization Settings"
+    "goToSettings": "Go to Practice Settings"
   }
 }

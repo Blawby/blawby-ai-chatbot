@@ -345,7 +345,7 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
     practiceIdRef.current = practiceId;
   }, [practiceId]);
 
-  // Auto fetch on organization/status change
+  // Auto fetch on practice/status change
   useEffect(() => {
     if (!autoFetch) {
       return;
@@ -396,4 +396,3 @@ export function useMattersSidebar(options: UseMattersSidebarOptions = {}): UseMa
 
   return result;
 }
-

@@ -162,21 +162,21 @@
   },
   "businessWelcome": {
     "title": "Bienvenue dans Business !",
-    "subtitle": "Votre organisation a été mise à niveau. Voici ce que vous pouvez faire maintenant :",
+    "subtitle": "Votre pratique a été mise à niveau. Voici ce que vous pouvez faire maintenant :",
     "features": {
       "teamManagement": {
         "title": "Gestion d'Équipe",
         "description": "Inviter des membres"
       },
-      "organizationSettings": {
-        "title": "Paramètres d'Organisation",
-        "description": "Configurer votre organisation"
+      "practiceSettings": {
+        "title": "Paramètres de pratique",
+        "description": "Configurer votre pratique"
       },
       "apiAccess": {
         "title": "Accès API",
         "description": "Générer des tokens"
       }
     },
-    "goToSettings": "Aller aux Paramètres d'Organisation"
+    "goToSettings": "Aller aux paramètres de pratique"
   }
 }

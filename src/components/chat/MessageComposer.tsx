@@ -9,6 +9,7 @@ import { ArrowUpIcon } from "@heroicons/react/24/outline";
 import { features } from '../../config/features';
 import { FileAttachment } from '../../../worker/types';
 import type { UploadingFile } from '../../hooks/useFileUpload';
+import { useTranslation } from '@/i18n/hooks';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -27,6 +28,9 @@ interface MessageComposerProps {
   textareaRef: RefObject<HTMLTextAreaElement>;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
+  intakeStatus?: {
+    step: string;
+  };
 }
 
 const MessageComposer = ({
@@ -46,7 +50,15 @@ const MessageComposer = ({
   textareaRef,
   isReadyToUpload,
   isSessionReady,
+  intakeStatus,
 }: MessageComposerProps) => {
+  const { t } = useTranslation('auth');
+  const intakeStep = intakeStatus?.step;
+  const isIntakeLocked =
+    intakeStep === 'pending_review' ||
+    intakeStep === 'accepted_needs_auth' ||
+    intakeStep === 'rejected';
+
   const handleInput = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
     const t = e.currentTarget;
     setInputValue(t.value);
@@ -70,17 +82,26 @@ const MessageComposer = ({
   }, [inputValue, textareaRef]);
 
   const statusMessage = (() => {
+    if (isIntakeLocked) {
+      if (intakeStep === 'accepted_needs_auth') {
+        return t('intake.accepted');
+      }
+      if (intakeStep === 'rejected') {
+        return t('intake.rejected');
+      }
+      return t('intake.pending');
+    }
     if (isSessionReady === false) {
       return 'Setting up a secure session...';
     }
     return 'Blawby can make mistakes. Check for important information.';
   })();
 
-  // Only block if session is explicitly not ready (conversation not created yet)
-  // Once session is ready, guests can chat freely - intake flow is conversational, not blocking
+  // Block when session is not ready or intake is awaiting review/decision
   const sendDisabled = (
     (!inputValue.trim() && previewFiles.length === 0) ||
-    isSessionReady === false
+    isSessionReady === false ||
+    isIntakeLocked
   );
 
   return (
@@ -123,7 +144,7 @@ const MessageComposer = ({
               <FileMenu
                 onFileSelect={handleFileSelect}
                 onCameraCapture={handleCameraCapture}
-                isReadyToUpload={isSessionReady === false ? false : isReadyToUpload}
+                isReadyToUpload={isSessionReady === false || isIntakeLocked ? false : isReadyToUpload}
               />
             </div>
           )}
@@ -139,7 +160,7 @@ const MessageComposer = ({
               onInput={handleInput}
               onKeyDown={onKeyDown}
               aria-label="Message input"
-              disabled={isSessionReady === false}
+              disabled={isSessionReady === false || isIntakeLocked}
             />
           </div>
 

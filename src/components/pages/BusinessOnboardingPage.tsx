@@ -44,7 +44,7 @@ export const BusinessOnboardingPage = () => {
     if (currentPractice) {
       return currentPractice;
     }
-    const upgraded = practices?.find(org => resolvePracticeKind(org.kind, org.isPersonal ?? null) === 'business');
+    const upgraded = practices?.find(practice => resolvePracticeKind(practice.kind, practice.isPersonal ?? null) === 'business');
     return upgraded ?? practices?.[0] ?? null;
   }, [practices, currentPractice]);
   
