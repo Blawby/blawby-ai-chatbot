@@ -17,6 +17,7 @@ export interface DatePickerProps {
   min?: string;
   max?: string;
   format?: 'date' | 'datetime-local' | 'time' | 'month' | 'week';
+  isBirthday?: boolean;
   inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
   autoComplete?: string;
   name?: string;
@@ -51,6 +52,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   min,
   max,
   format = 'date',
+  isBirthday = false,
   inputMode,
   autoComplete,
   name,
@@ -96,7 +98,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   ].filter(Boolean).join(' ') || undefined;
   const resolvedInputMode = inputMode ?? (format === 'date' ? 'numeric' : undefined);
   const resolvedPattern = pattern ?? (format === 'date' ? '\\d{4}-\\d{2}-\\d{2}' : undefined);
-  const resolvedAutoComplete = autoComplete ?? (format === 'date' ? 'bday' : undefined);
+  const resolvedAutoComplete = isBirthday ? 'bday' : autoComplete;
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',
