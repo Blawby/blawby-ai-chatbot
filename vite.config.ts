@@ -252,7 +252,7 @@ export default defineConfig({
 				// Manualchunks configuration for better code splitting
 				manualChunks: {
 					vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat'],
-					ui: ['./src/components/ErrorBoundary.tsx']
+					ui: ['./src/app/ErrorBoundary.tsx']
 				}
 			},
 		},
