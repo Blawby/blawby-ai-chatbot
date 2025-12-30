@@ -80,8 +80,13 @@ export const getChatEndpoint = () => {
   return `${config.baseUrl}${config.chatEndpoint}`;
 };
 
+// Forms share the same remote API base as auth/backend.
+export const getFormsApiUrl = () => {
+  return getRemoteApiUrl();
+};
+
 export const getFormsEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/practice-client-intakes/submit`;
+  return `${getFormsApiUrl()}/api/practice-client-intakes/submit`;
 };
 
 // Practice workspace endpoints (chatbot data) - still local
@@ -134,27 +139,32 @@ export const getPracticeWorkspaceEndpoint = (practiceId: string, resource: strin
  * This function is kept for backward compatibility with legacy code.
  */
 export const getSessionsEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/conversations`;
+  return getConversationsEndpoint();
 };
 
-// Conversation endpoints - now handled by remote API
+// Conversation endpoints - handled by local worker
 export const getConversationsEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/conversations`;
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/conversations`;
 };
 
 export const getConversationEndpoint = (conversationId: string) => {
-  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}`;
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}`;
 };
 
 export const getCurrentConversationEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/conversations/active`;
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/conversations/active`;
 };
 
 export const getConversationParticipantsEndpoint = (conversationId: string) => {
-  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/participants`;
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}/participants`;
 };
 
-// Chat message endpoints - now handled by remote API
+// Chat message endpoints - handled by local worker
 export const getChatMessagesEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/chat/messages`;
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/chat/messages`;
 };

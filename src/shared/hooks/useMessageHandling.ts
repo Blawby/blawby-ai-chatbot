@@ -133,7 +133,7 @@ export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, o
       // Convert file attachments to file IDs (assuming attachments have id or need to be uploaded first)
       const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
-      const response = await fetch(getChatMessagesEndpoint(), {
+      const response = await fetch(`${getChatMessagesEndpoint()}?practiceId=${encodeURIComponent(effectivePracticeId)}`, {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -257,7 +257,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         resolvedPracticeSlug
       );
 
-      const response = await fetch(getChatMessagesEndpoint(), {
+      const practiceContextId = practiceId || resolvedPracticeSlug;
+      const response = await fetch(`${getChatMessagesEndpoint()}?practiceId=${encodeURIComponent(practiceContextId)}`, {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -364,7 +365,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore: boolean; nextCursor?: string | null } };
+      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore: boolean; cursor?: string | null } };
       if (!data.success || !data.data) {
         throw new Error(data.error || 'Failed to fetch messages');
       }

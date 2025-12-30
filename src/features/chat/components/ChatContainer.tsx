@@ -8,6 +8,7 @@ import { ContactData } from '@/features/intake/components/ContactForm';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import LawyerSearchInline from '@/features/lawyer-search/components/LawyerSearchInline';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -38,6 +39,7 @@ interface ChatContainerProps {
   intakeStatus?: {
     step: string;
   };
+  canChat?: boolean;
 
   // Input control prop
   clearInput?: number;
@@ -63,7 +65,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isReadyToUpload,
   isSessionReady,
   intakeStatus,
-  clearInput
+  clearInput,
+  canChat = true
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -139,34 +142,40 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   return (
     <div className="flex flex-col h-screen md:h-screen w-full m-0 p-0 relative overflow-hidden bg-white dark:bg-dark-bg" data-testid="chat-container">
       <main className="flex flex-col h-full w-full overflow-hidden relative bg-white dark:bg-dark-bg">
-        <VirtualMessageList
-          messages={messages}
-          practiceConfig={practiceConfig}
-          onOpenSidebar={onOpenSidebar}
-          onContactFormSubmit={onContactFormSubmit}
-          practiceId={practiceId}
-          intakeStatus={intakeStatus}
-        />
-        
-        <MessageComposer
-          inputValue={inputValue}
-          setInputValue={setInputValue}
-          previewFiles={previewFiles}
-          uploadingFiles={uploadingFiles}
-          removePreviewFile={removePreviewFile}
-          handleFileSelect={handleFileSelect}
-          handleCameraCapture={handleCameraCapture}
-          cancelUpload={cancelUpload}
-          isRecording={isRecording}
-          handleMediaCapture={handleMediaCapture}
-          setIsRecording={setIsRecording}
-          onSubmit={handleSubmit}
-          onKeyDown={handleKeyDown}
-          textareaRef={textareaRef}
-          isReadyToUpload={isReadyToUpload}
-          isSessionReady={isSessionReady}
-          intakeStatus={intakeStatus}
-        />
+        {canChat ? (
+          <>
+            <VirtualMessageList
+              messages={messages}
+              practiceConfig={practiceConfig}
+              onOpenSidebar={onOpenSidebar}
+              onContactFormSubmit={onContactFormSubmit}
+              practiceId={practiceId}
+              intakeStatus={intakeStatus}
+            />
+            
+            <MessageComposer
+              inputValue={inputValue}
+              setInputValue={setInputValue}
+              previewFiles={previewFiles}
+              uploadingFiles={uploadingFiles}
+              removePreviewFile={removePreviewFile}
+              handleFileSelect={handleFileSelect}
+              handleCameraCapture={handleCameraCapture}
+              cancelUpload={cancelUpload}
+              isRecording={isRecording}
+              handleMediaCapture={handleMediaCapture}
+              setIsRecording={setIsRecording}
+              onSubmit={handleSubmit}
+              onKeyDown={handleKeyDown}
+              textareaRef={textareaRef}
+              isReadyToUpload={isReadyToUpload}
+              isSessionReady={isSessionReady}
+              intakeStatus={intakeStatus}
+            />
+          </>
+        ) : (
+          <LawyerSearchInline />
+        )}
       </main>
     </div>
   );

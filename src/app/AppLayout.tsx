@@ -232,9 +232,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     }
   };
   
-  const handleGoToMatter = () => {
-    onTabChange('matter');
-  };
 
   const handleGoToInbox = () => {
     onTabChange('inbox');
@@ -296,10 +293,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
             <LeftSidebar
               currentRoute={currentTab}
               onGoToChats={handleGoToChats}
-              onGoToMatter={handleGoToMatter}
               onGoToInbox={showInboxTab ? handleGoToInbox : undefined}
               onOpenOnboarding={handleOpenOnboarding}
-              matterStatus={matterStatus}
               practiceConfig={{
                 name: practiceConfig.name,
                 profileImage: practiceConfig.profileImage,
@@ -354,10 +349,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       handleGoToChats();
                       onToggleMobileSidebar(false);
                     }}
-                    onGoToMatter={() => {
-                      handleGoToMatter();
-                      onToggleMobileSidebar(false);
-                    }}
                     onGoToInbox={showInboxTab ? () => {
                       handleGoToInbox();
                       onToggleMobileSidebar(false);
@@ -367,7 +358,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       onToggleMobileSidebar(false);
                     }}
                     onClose={() => onToggleMobileSidebar(false)}
-                    matterStatus={matterStatus}
                     practiceConfig={{
                       name: practiceConfig.name,
                       profileImage: practiceConfig.profileImage,

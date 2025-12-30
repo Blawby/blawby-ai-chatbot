@@ -15,29 +15,12 @@ ALTER TABLE conversations ADD COLUMN closed_at DATETIME;
 CREATE INDEX IF NOT EXISTS idx_conversations_closed_at ON conversations(practice_id, closed_at DESC);
 
 -- Backfill closed_at for existing closed conversations
--- Strategy:
--- 1. Try to get the earliest status_change event to 'closed' from session_audit_events
--- 2. If no audit event exists, use updated_at as fallback (preserves existing behavior)
--- Note: This assumes session_audit_events.payload contains status information
--- If the audit events don't track status changes, we fall back to updated_at
+-- Strategy: Use updated_at as the closed_at timestamp for existing closed conversations
+-- Note: If session_audit_events table exists and has relevant data, it would be ideal to use that,
+-- but since the table may not exist in all environments, we use updated_at as a safe fallback.
+-- This preserves existing behavior where closedAt was approximated using updated_at.
 UPDATE conversations 
-SET closed_at = COALESCE(
-  (
-    SELECT MIN(created_at)
-    FROM session_audit_events
-    WHERE session_audit_events.conversation_id = conversations.id
-      AND session_audit_events.event_type = 'status_change'
-      AND (
-        json_extract(session_audit_events.payload, '$.status') = 'closed'
-        OR json_extract(session_audit_events.payload, '$.toStatus') = 'closed'
-      )
-  ),
-  -- Fallback: Use updated_at if conversation is currently closed
-  CASE 
-    WHEN status = 'closed' THEN updated_at
-    ELSE NULL
-  END
-)
+SET closed_at = updated_at
 WHERE status = 'closed' AND closed_at IS NULL;
 
 PRAGMA foreign_keys = ON;
