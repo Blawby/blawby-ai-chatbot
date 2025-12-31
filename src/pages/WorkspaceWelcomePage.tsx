@@ -52,6 +52,7 @@ const WorkspaceWelcomePage = () => {
               error: activationError
             });
             showError('Workspace activation failed', 'Could not activate the workspace. Please try again.');
+            setSubmitting(null);
             return;
           }
         }
