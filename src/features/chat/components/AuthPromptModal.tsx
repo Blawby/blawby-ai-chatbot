@@ -1,72 +1,79 @@
 import { FunctionComponent } from 'preact';
-import { Button } from '@/shared/ui/Button';
+import { useState, useEffect } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { THEME } from '@/shared/utils/constants';
+import Modal from '@/shared/components/Modal';
+import AuthForm from '@/shared/components/AuthForm';
 
 interface AuthPromptModalProps {
   isOpen: boolean;
-  onSignIn: () => void;
   onClose: () => void;
+  onSuccess?: () => void;
   practiceName?: string | null;
+  conversationId?: string | null;
+  practiceId?: string | null;
 }
 
 const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
   isOpen,
-  onSignIn,
   onClose,
-  practiceName
+  onSuccess,
+  practiceName,
+  conversationId,
+  practiceId
 }) => {
   const { t } = useTranslation('auth');
+  const [currentMode, setCurrentMode] = useState<'signin' | 'signup'>('signup');
 
-  if (!isOpen) {
-    return null;
-  }
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentMode('signup');
+    }
+  }, [isOpen]);
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-      style={{ zIndex: THEME.zIndex.modal }}
-      role="presentation"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t('authPrompt.title')}
+      type="modal"
+      showCloseButton
+      disableBackdropClick={false}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="auth-prompt-title"
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-dark-card-bg"
-      >
-        <div className="mb-4">
-          <h2 id="auth-prompt-title" className="text-xl font-semibold text-gray-900 dark:text-white">
-            {t('authPrompt.title')}
-          </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+      <div className="w-full max-w-xl mx-auto space-y-4">
+        <div className="space-y-2">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
             {t('authPrompt.description')}
             {practiceName && ' '}
             {practiceName && t('authPrompt.notificationWithPractice', { practiceName })}
           </p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <Button
-            onClick={onSignIn}
-            variant="primary"
-            size="md"
-            className="w-full"
-            aria-label={t('authPrompt.primaryCta')}
-          >
-            {t('authPrompt.primaryCta')}
-          </Button>
-          <Button
+        <AuthForm
+          mode={currentMode}
+          defaultMode="signup"
+          onModeChange={(mode) => setCurrentMode(mode)}
+          onSuccess={async () => {
+            if (onSuccess) {
+              await onSuccess();
+            }
+            onClose();
+          }}
+          conversationContext={{ conversationId: conversationId ?? undefined, practiceId: practiceId ?? undefined }}
+          showHeader={false}
+        />
+
+        <div className="flex justify-center">
+          <button
+            type="button"
             onClick={onClose}
-            variant="ghost"
-            size="md"
-            className="w-full text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+            className="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100 transition-colors"
             aria-label={t('authPrompt.secondaryCta')}
           >
             {t('authPrompt.secondaryCta')}
-          </Button>
+          </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
