@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useState, useMemo } from 'preact/hooks';
 import { ServicesStep } from '@/features/onboarding/steps/ServicesStep';
 import { PracticePage } from '@/features/settings/pages/PracticePage';
 import { PracticeServicesPage } from '@/features/settings/pages/PracticeServicesPage';
 import { PracticeTeamPage } from '@/features/settings/pages/PracticeTeamPage';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
-import { SessionProvider } from '@/shared/contexts/SessionContext';
-import { apiClient } from '@/shared/lib/apiClient';
-import { authClient } from '@/shared/lib/authClient';
+import { SessionContext, type SessionContextValue } from '@/shared/contexts/SessionContext';
 import type { Practice } from '@/shared/lib/apiClient';
 import { useMockServices } from '@/features/services/mock/useMockServices';
 import { MockServicesControls } from '@/features/services/mock/components/MockServicesControls';
@@ -59,7 +57,7 @@ const mockServiceDetails = [
   }
 ];
 
-const mockPractice: Practice = {
+const _mockPractice: Practice = {
   id: MOCK_PRACTICE_ID,
   slug: 'mock-law-firm',
   name: 'Mock Law Firm',
@@ -163,28 +161,51 @@ const mockPractice: Practice = {
   }
 };
 
-// Mock session data
+// Mock session data - matches Better Auth's expected format
 const mockSession = {
   data: {
     user: {
       id: 'mock-user-1',
-      email: 'owner@mock-law.test',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      emailVerified: true,
       name: 'Mock User',
+      email: 'owner@mock-law.test',
       practiceId: MOCK_PRACTICE_ID,
       activePracticeId: MOCK_PRACTICE_ID
+    },
+    session: {
+      id: 'mock-session-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      userId: 'mock-user-1',
+      token: 'mock-token'
     }
   },
   isPending: false
 };
 
-// Store original useSession
-const originalUseSession = authClient.useSession;
+// Mock SessionProvider that provides hardcoded data without API calls
+function MockSessionProvider({ children }: { children: preact.ComponentChildren }) {
+  const value = useMemo<SessionContextValue>(() => ({
+    session: mockSession.data,
+    activePracticeId: mockSession.data.user.activePracticeId,
+    isAnonymous: false
+  }), []);
+
+  return (
+    <SessionContext.Provider value={value}>
+      {children}
+    </SessionContext.Provider>
+  );
+}
 
 export function MockServicesPage() {
   const [isDevMode, setIsDevMode] = useState(import.meta.env.DEV || import.meta.env.MODE === 'development');
   const mock = useMockServices();
   const [settingsView, setSettingsView] = useState<'practice' | 'services' | 'team'>('practice');
-  const { updateServices } = mock;
+  const { updateServices: _updateServices } = mock;
 
   useEffect(() => {
     const dev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
@@ -194,289 +215,7 @@ export function MockServicesPage() {
     }
   }, []);
 
-  // Override useSession and mock axios requests
-  useEffect(() => {
-    if (!isDevMode) return;
-
-    console.log('[MockServicesPage] Setting up mock interceptors and session');
-
-    const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-      typeof value === 'object' && value !== null && !Array.isArray(value);
-
-    const parsePayload = (data: unknown): Record<string, unknown> | null => {
-      if (!data) return null;
-      if (typeof data === 'string') {
-        try {
-          return JSON.parse(data) as Record<string, unknown>;
-        } catch (err) {
-          console.warn('[MockServicesPage] Failed to parse payload', err);
-          return null;
-        }
-      }
-      return isPlainObject(data) ? data : null;
-    };
-
-    const resolveServiceDetails = (config: Record<string, unknown>): typeof mockServiceDetails => {
-      const metadata = isPlainObject(config.metadata) ? (config.metadata as Record<string, unknown>) : {};
-      const serviceDetails = metadata.serviceDetails;
-      if (Array.isArray(serviceDetails)) {
-        const parsed = serviceDetails
-          .map((item) => {
-            if (!isPlainObject(item)) return null;
-            const title = typeof item.title === 'string' ? item.title : '';
-            if (!title.trim()) return null;
-            return {
-              id: typeof item.id === 'string' ? item.id : `service-${Date.now()}`,
-              title,
-              description: typeof item.description === 'string' ? item.description : ''
-            };
-          })
-          .filter((item): item is (typeof mockServiceDetails)[number] => item !== null);
-        if (parsed.length > 0) return parsed;
-      }
-
-      const available = Array.isArray(config.availableServices)
-        ? config.availableServices.filter((item): item is string => typeof item === 'string')
-        : [];
-      return available.map((title, index) => ({
-        id: `service-${index + 1}`,
-        title,
-        description: ''
-      }));
-    };
-
-    const applyPracticeUpdate = (payload: Record<string, unknown>) => {
-      if (typeof payload.name === 'string') {
-        mockPractice.name = payload.name;
-      }
-      if (isPlainObject(payload.metadata)) {
-        mockPractice.metadata = {
-          ...(mockPractice.metadata ?? {}),
-          ...payload.metadata
-        };
-
-        const conversationConfig = (payload.metadata as Record<string, unknown>).conversationConfig;
-        if (isPlainObject(conversationConfig)) {
-          mockPractice.metadata = {
-            ...(mockPractice.metadata ?? {}),
-            conversationConfig
-          };
-          mockPractice.config = {
-            ...(mockPractice.config ?? {}),
-            ...conversationConfig
-          };
-          if (Array.isArray(conversationConfig.availableServices)) {
-            mockPractice.config = {
-              ...(mockPractice.config ?? {}),
-              availableServices: conversationConfig.availableServices
-            };
-          }
-          const updatedServices = resolveServiceDetails(conversationConfig);
-          updateServices(updatedServices);
-        }
-      }
-    };
-    
-    // Override authClient.useSession to return mock session
-    const authClientOverrideTarget = authClient as unknown as {
-      useSession: () => typeof mockSession;
-    };
-    authClientOverrideTarget.useSession = () => mockSession;
-
-    // Add request interceptor to change baseURL to same origin for MSW interception
-    const requestInterceptor = apiClient.interceptors.request.use(
-      (config) => {
-        // Force baseURL to same origin so MSW can intercept (if enabled)
-        // or our response interceptor can catch it
-        if (import.meta.env.DEV) {
-          config.baseURL = window.location.origin;
-        }
-        return config;
-      }
-    );
-
-    // Add response interceptor to apiClient - add it AFTER existing interceptors
-    const responseInterceptor = apiClient.interceptors.response.use(
-      (response) => {
-        // Intercept responses for practice endpoints
-        const url = response.config.url || '';
-        
-        // Mock practice list endpoint
-        if (url.includes('/api/practice/list')) {
-          console.log('[MockServicesPage] Intercepting practice list, returning mock data');
-          return {
-            ...response,
-            data: { practices: [mockPractice] }
-          };
-        }
-        
-        // Mock practice update endpoint
-        if (
-          url.includes(`/api/practice/${mockPractice.id}`) &&
-          response.config.method?.toLowerCase() === 'put'
-        ) {
-          const payload = parsePayload(response.config.data);
-          if (payload) {
-            applyPracticeUpdate(payload);
-          }
-          console.log('[MockServicesPage] Intercepting practice update, returning mock data');
-          return {
-            ...response,
-            data: { practice: mockPractice }
-          };
-        }
-
-        // Mock single practice endpoint
-        if (url.includes(`/api/practice/${mockPractice.id}`) && !url.includes('/members') && !url.includes('/invitations')) {
-          console.log('[MockServicesPage] Intercepting practice get, returning mock data');
-          return {
-            ...response,
-            data: { practice: mockPractice }
-          };
-        }
-        
-        // Mock members endpoint
-        if (url.includes(`/api/practice/${mockPractice.id}/members`)) {
-          console.log('[MockServicesPage] Intercepting members, returning mock data');
-          return {
-            ...response,
-            data: {
-              members: [
-                {
-                  userId: 'mock-user-1',
-                  role: 'owner',
-                  email: 'owner@mock-law.test',
-                  name: 'Mock Owner',
-                  image: null,
-                  createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30
-                },
-                {
-                  userId: 'mock-user-2',
-                  role: 'attorney',
-                  email: 'attorney@mock-law.test',
-                  name: 'Mock Attorney',
-                  image: null,
-                  createdAt: Date.now() - 1000 * 60 * 60 * 24 * 10
-                }
-              ]
-            }
-          };
-        }
-        
-        // Mock invitations endpoint
-        if (url.includes('/api/practice/invitations')) {
-          console.log('[MockServicesPage] Intercepting invitations, returning mock data');
-          return {
-            ...response,
-            data: { invitations: [] }
-          };
-        }
-        
-        return response;
-      },
-      (error) => {
-        // If it's a practice endpoint and we're mocking, return mock data instead of error
-        const url = error.config?.url || '';
-        console.log('[MockServicesPage] Request failed for:', url, error.response?.status);
-        
-        if (url.includes('/api/practice/list')) {
-          console.log('[MockServicesPage] Returning mock practice list data');
-          return Promise.resolve({
-            data: { practices: [mockPractice] },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config: error.config
-          });
-        }
-        
-        if (
-          url.includes(`/api/practice/${mockPractice.id}`) &&
-          error.config?.method?.toLowerCase() === 'put'
-        ) {
-          const payload = parsePayload(error.config?.data);
-          if (payload) {
-            // Intentionally apply updates in dev mocks to keep UI state consistent.
-            applyPracticeUpdate(payload);
-          }
-          console.log('[MockServicesPage] Returning mock practice update data');
-          return Promise.resolve({
-            data: { practice: mockPractice },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config: error.config
-          });
-        }
-
-        if (url.includes(`/api/practice/${mockPractice.id}`) && !url.includes('/members') && !url.includes('/invitations')) {
-          console.log('[MockServicesPage] Returning mock practice data');
-          return Promise.resolve({
-            data: { practice: mockPractice },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config: error.config
-          });
-        }
-        
-        if (url.includes(`/api/practice/${mockPractice.id}/members`)) {
-          console.log('[MockServicesPage] Returning mock members data');
-          return Promise.resolve({
-            data: {
-              members: [
-                {
-                  userId: 'mock-user-1',
-                  role: 'owner',
-                  email: 'owner@mock-law.test',
-                  name: 'Mock Owner',
-                  image: null,
-                  createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30
-                },
-                {
-                  userId: 'mock-user-2',
-                  role: 'attorney',
-                  email: 'attorney@mock-law.test',
-                  name: 'Mock Attorney',
-                  image: null,
-                  createdAt: Date.now() - 1000 * 60 * 60 * 24 * 10
-                }
-              ]
-            },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config: error.config
-          });
-        }
-        
-        if (url.includes('/api/practice/invitations')) {
-          console.log('[MockServicesPage] Returning mock invitations data');
-          return Promise.resolve({
-            data: { invitations: [] },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config: error.config
-          });
-        }
-        
-        console.log('[MockServicesPage] Not intercepting, passing through error');
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      // Clean up interceptors on unmount
-      apiClient.interceptors.request.eject(requestInterceptor);
-      apiClient.interceptors.response.eject(responseInterceptor);
-      // Restore original useSession
-      const authClientRestoreTarget = authClient as unknown as {
-        useSession: typeof originalUseSession;
-      };
-      authClientRestoreTarget.useSession = originalUseSession;
-    };
-  }, [isDevMode, updateServices]);
+  // No global interceptors - use hardcoded mock data only
 
   useEffect(() => {
     if (mock.state.scenario === 'editing') {
@@ -508,7 +247,7 @@ export function MockServicesPage() {
 
   return (
     <ToastProvider>
-      <SessionProvider>
+      <MockSessionProvider>
         <div className="flex h-screen bg-white dark:bg-dark-bg">
           {/* Left Sidebar - Controls */}
           <MockServicesControls mock={mock} />
@@ -586,7 +325,7 @@ export function MockServicesPage() {
           {/* Right Sidebar - Info */}
           <MockServicesInfo mock={mock} />
         </div>
-      </SessionProvider>
+      </MockSessionProvider>
     </ToastProvider>
   );
 }
