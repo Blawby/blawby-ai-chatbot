@@ -103,8 +103,7 @@ export function StripeOnboardingStep({
 
   useEffect(() => {
     onActionLoadingChange?.(actionLoading);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid re-running on callback identity changes
-  }, [actionLoading]);
+  }, [actionLoading, onActionLoadingChange]);
 
   return (
     <div className="space-y-6">
