@@ -436,12 +436,13 @@ function safeParseOnboardingData(value: unknown): OnboardingData | null {
 function validateRequiredFields(rawUser: Record<string, unknown>): void {
   const requiredFields = ['id', 'email'] as const;
   const missingFields: string[] = [];
+
+  const isMissingString = (value: unknown) =>
+    value === null || value === undefined || typeof value !== 'string' || value.trim() === '';
   
   for (const field of requiredFields) {
     const value = rawUser[field];
-    const isMissingId = field === 'id' && (value === null || value === undefined || typeof value !== 'string' || value.trim() === '');
-    const isMissingEmail = field === 'email' && (value === null || value === undefined || typeof value !== 'string');
-    if (isMissingId || isMissingEmail) {
+    if (isMissingString(value)) {
       missingFields.push(field);
     }
   }

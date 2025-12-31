@@ -8,6 +8,8 @@ import { Button } from '@/shared/ui/Button';
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  if (date > now) return 'Just now';
   const diffMs = now.getTime() - date.getTime();
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));

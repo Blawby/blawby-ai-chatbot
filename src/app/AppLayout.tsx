@@ -241,11 +241,13 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   
 
   useEffect(() => {
-    if (!showDashboardTab && currentTab === 'dashboard') {
-      onTabChange('chats');
-    }
-    if (!showChatsTab && currentTab === 'chats') {
-      onTabChange('dashboard');
+    const fallbackTab = showDashboardTab
+      ? 'dashboard'
+      : showChatsTab
+        ? 'chats'
+        : 'matter';
+    if (currentTab !== fallbackTab) {
+      onTabChange(fallbackTab);
     }
   }, [currentTab, onTabChange, showChatsTab, showDashboardTab]);
   const { isNavbarVisible } = useNavbarScroll({ 

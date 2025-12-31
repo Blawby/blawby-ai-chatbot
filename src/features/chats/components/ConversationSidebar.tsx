@@ -11,15 +11,27 @@ import type { Conversation } from '@/shared/types/conversation';
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (Number.isNaN(date.getTime())) return 'Unknown';
 
-  if (diffMinutes < 1) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  const diffMs = date.getTime() - now.getTime();
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (typeof Intl !== 'undefined' && 'RelativeTimeFormat' in Intl) {
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+    if (Math.abs(diffMinutes) < 60) return rtf.format(diffMinutes, 'minute');
+    if (Math.abs(diffHours) < 24) return rtf.format(diffHours, 'hour');
+    if (Math.abs(diffDays) < 7) return rtf.format(diffDays, 'day');
+  } else {
+    const pastMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    const pastHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    const pastDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (pastMinutes < 1) return 'Just now';
+    if (pastMinutes < 60) return `${pastMinutes}m ago`;
+    if (pastHours < 24) return `${pastHours}h ago`;
+    if (pastDays < 7) return `${pastDays}d ago`;
+  }
 
   return date.toLocaleDateString();
 }
@@ -39,7 +51,7 @@ export const ConversationSidebar = ({
 }: ConversationSidebarProps) => {
   const { showError } = useToastContext();
   const capabilities = useChatCapabilities({ workspace });
-  const isPracticeInbox = capabilities.canManageInbox;
+  const isPracticeInbox = capabilities.canManageInbox && Boolean(practiceId);
 
   const inboxData = useInbox({
     practiceId: isPracticeInbox ? practiceId : undefined,
@@ -100,15 +112,19 @@ export const ConversationSidebar = ({
     });
   }, [conversations]);
 
+  const onSelectConversationRef = useRef<typeof onSelectConversation>(onSelectConversation);
   useEffect(() => {
-    if (!onSelectConversation) return;
+    onSelectConversationRef.current = onSelectConversation;
+  }, [onSelectConversation]);
+
+  useEffect(() => {
     if (conversations.length === 0) return;
 
     const hasSelection = selectedConversationId && conversations.some((conversation) => conversation.id === selectedConversationId);
     if (!hasSelection) {
-      onSelectConversation(conversations[0].id);
+      onSelectConversationRef.current?.(conversations[0].id);
     }
-  }, [conversations, onSelectConversation, selectedConversationId]);
+  }, [conversations, selectedConversationId]);
 
   if (workspace === 'practice' && !practiceId) {
     return (
@@ -169,10 +185,13 @@ export const ConversationSidebar = ({
                 {section.items.map((conversation) => {
                   const timestamp = conversation.last_message_at || conversation.updated_at;
                   const cachedLabel = practiceLabelCacheRef.current.get(conversation.practice_id);
+                  const practiceIdLabel = typeof conversation.practice_id === 'string' && conversation.practice_id.length > 0
+                    ? conversation.practice_id.slice(0, 6)
+                    : 'Unknown';
                   const practiceLabel = conversation.practice?.name
                     || conversation.practice?.slug
                     || cachedLabel
-                    || conversation.practice_id.slice(0, 6);
+                    || practiceIdLabel;
 
                   return (
                     <button

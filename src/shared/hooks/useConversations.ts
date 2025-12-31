@@ -107,7 +107,7 @@ export function useConversations({
       if (limit) {
         params.set('limit', limit.toString());
       }
-      if (offset) {
+      if (offset !== undefined && offset !== null) {
         params.set('offset', offset.toString());
       }
 

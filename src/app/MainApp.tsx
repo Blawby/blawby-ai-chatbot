@@ -92,7 +92,16 @@ export function MainApp({
     if (!location.path.startsWith(`${chatsBasePath}/`)) return null;
     const raw = location.path.slice(`${chatsBasePath}/`.length);
     const id = raw.split('/')[0];
-    return id ? decodeURIComponent(id) : null;
+    if (!id) return null;
+    try {
+      return decodeURIComponent(id);
+    } catch (error) {
+      console.warn('[MainApp] Failed to decode conversation id from URL', {
+        id,
+        error
+      });
+      return id;
+    }
   }, [chatsBasePath, location.path]);
 
   useEffect(() => {

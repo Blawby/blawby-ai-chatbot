@@ -6,6 +6,8 @@ import { Logger } from '../utils/logger.js';
 export interface Conversation {
   id: string;
   practice_id: string;
+  // Only populated by aggregate routes (e.g., /api/conversations?scope=all).
+  // Most service methods return null for practice to avoid extra remote lookups.
   practice?: {
     id: string;
     name: string;
@@ -150,6 +152,7 @@ export class ConversationService {
     return {
       id: record.id,
       practice_id: record.practice_id,
+      practice: null,
       user_id: record.user_id,
       matter_id: record.matter_id,
       participants: JSON.parse(record.participants || '[]') as string[],
@@ -223,6 +226,7 @@ export class ConversationService {
       return {
         id: existing.id,
         practice_id: existing.practice_id,
+        practice: null,
         user_id: existing.user_id,
         matter_id: existing.matter_id,
         participants: JSON.parse(existing.participants || '[]') as string[],
@@ -305,6 +309,7 @@ export class ConversationService {
     return records.results.map(record => ({
       id: record.id,
       practice_id: record.practice_id,
+      practice: null,
       user_id: record.user_id,
       matter_id: record.matter_id,
       participants: JSON.parse(record.participants || '[]') as string[],
@@ -359,6 +364,7 @@ export class ConversationService {
     return records.results.map(record => ({
       id: record.id,
       practice_id: record.practice_id,
+      practice: null,
       user_id: record.user_id,
       matter_id: record.matter_id,
       participants: JSON.parse(record.participants || '[]') as string[],
