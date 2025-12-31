@@ -145,8 +145,8 @@ function filterAndSortConversations(conversations: MockConversation[], filters: 
   const sortOrder = searchParams.get('sortOrder') ?? 'desc';
 
   const sorted = [...filtered].sort((a, b) => {
-    const valueA = (a as Record<string, string>)[sortBy] ?? '';
-    const valueB = (b as Record<string, string>)[sortBy] ?? '';
+    const valueA = (a as unknown as Record<string, string>)[sortBy] ?? '';
+    const valueB = (b as unknown as Record<string, string>)[sortBy] ?? '';
     if (valueA === valueB) return 0;
     if (sortOrder === 'asc') return valueA > valueB ? 1 : -1;
     return valueA < valueB ? 1 : -1;
@@ -567,7 +567,10 @@ export function MockInboxPage() {
               </div>
             </div>
 
-            <DebugPanel events={mock.debugEvents} onClear={mock.clearDebugEvents} />
+            <DebugPanel 
+              events={mock.debugEvents.map(event => ({ ...event, data: event.data ?? {} }))} 
+              onClear={mock.clearDebugEvents} 
+            />
           </div>
 
           <MockInboxInfo mock={mock} />

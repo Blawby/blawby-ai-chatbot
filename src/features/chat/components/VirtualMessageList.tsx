@@ -34,7 +34,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onOpenSidebar,
     onContactFormSubmit,
     practiceId,
-    intakeStatus
+    intakeStatus: _intakeStatus
 }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
