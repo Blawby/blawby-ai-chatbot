@@ -42,18 +42,31 @@ const WorkspaceWelcomePage = () => {
     const nextPreferredPracticeId = choice === 'practice' ? resolvedPracticeId : null;
 
     try {
+      if (choice === 'practice') {
+        if (nextPreferredPracticeId) {
+          try {
+            await setActivePractice(nextPreferredPracticeId);
+          } catch (activationError) {
+            console.error('[WorkspaceWelcome] Failed to activate practice workspace', {
+              choice,
+              practiceId: nextPreferredPracticeId,
+              error: activationError
+            });
+            showError('Workspace activation failed', 'We saved your preference, but could not activate the workspace.');
+            return;
+          }
+        }
+      } else {
+        // No activation needed for client workspace.
+      }
+
       await updateUser({
         primaryWorkspace: choice,
         preferredPracticeId: nextPreferredPracticeId
       } as Parameters<typeof updateUser>[0]);
 
       if (choice === 'practice') {
-        if (nextPreferredPracticeId) {
-          await setActivePractice(nextPreferredPracticeId);
-          navigate('/practice', true);
-        } else {
-          navigate('/cart', true);
-        }
+        navigate(nextPreferredPracticeId ? '/practice' : '/cart', true);
       } else {
         navigate('/app', true);
       }

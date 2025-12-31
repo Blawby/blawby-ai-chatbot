@@ -8,7 +8,8 @@ const ClientHomePage = () => {
   const { navigate } = useNavigation();
   const { currentPractice, practices } = usePracticeManagement();
   const name = session?.user?.name || session?.user?.email || 'there';
-  const practiceSlug = currentPractice?.slug || practices.find(practice => practice.slug)?.slug || null;
+  const practiceList = practices ?? [];
+  const practiceSlug = currentPractice?.slug || practiceList.find(practice => practice.slug)?.slug || null;
 
   return (
     <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex items-center justify-center px-6 py-12">
