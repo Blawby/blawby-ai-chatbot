@@ -16,6 +16,10 @@
       "toastBody": "[NEEDS TRANSLATION] You have been signed out"
     }
   },
+  "practice": {
+    "services": "सेवाएं",
+    "team": "टीम के सदस्य"
+  },
   "general": {
     "title": "[NEEDS TRANSLATION] General",
     "theme": {

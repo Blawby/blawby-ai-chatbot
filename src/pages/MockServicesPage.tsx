@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { ServicesStep } from '@/features/onboarding/steps/ServicesStep';
 import { PracticePage } from '@/features/settings/pages/PracticePage';
+import { PracticeServicesPage } from '@/features/settings/pages/PracticeServicesPage';
+import { PracticeTeamPage } from '@/features/settings/pages/PracticeTeamPage';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider } from '@/shared/contexts/SessionContext';
 import { apiClient } from '@/shared/lib/apiClient';
@@ -18,17 +20,42 @@ const mockServiceDetails = [
   {
     id: 'service-1',
     title: 'Personal Injury',
-    description: 'Representation for accident victims seeking compensation'
+    description: 'Representation for accident victims seeking compensation.'
   },
   {
     id: 'service-2',
     title: 'Family Law',
-    description: 'Divorce, custody, and family matters'
+    description: 'Divorce, custody, and family matters.'
   },
   {
     id: 'service-3',
     title: 'Business Law',
-    description: 'Corporate formation, contracts, and compliance'
+    description: 'Corporate formation, contracts, and compliance.'
+  },
+  {
+    id: 'service-4',
+    title: 'Small Business and Nonprofits',
+    description: 'Legal support for small businesses and nonprofit leaders.'
+  },
+  {
+    id: 'service-5',
+    title: 'Employment Law',
+    description: 'Workplace rights and employment dispute assistance.'
+  },
+  {
+    id: 'service-6',
+    title: 'Tenant Rights',
+    description: 'Support for housing disputes and tenant protections.'
+  },
+  {
+    id: 'service-7',
+    title: 'Probate and Estate Planning',
+    description: 'Estate planning and administration services.'
+  },
+  {
+    id: 'service-8',
+    title: 'Special Education and IEP Advocacy',
+    description: 'Guidance for IEP planning and education rights.'
   }
 ];
 
@@ -56,7 +83,16 @@ const mockPractice: Practice = {
     profileImage: null,
     introMessage: 'Welcome to Mock Law Firm. How can we help you today?',
     description: 'We provide excellent legal services',
-    availableServices: ['Personal Injury', 'Family Law', 'Business Law'],
+    availableServices: [
+      'Personal Injury',
+      'Family Law',
+      'Business Law',
+      'Small Business and Nonprofits',
+      'Employment Law',
+      'Tenant Rights',
+      'Probate and Estate Planning',
+      'Special Education and IEP Advocacy'
+    ],
     serviceQuestions: {},
     brandColor: '#2563eb',
     accentColor: '#3b82f6',
@@ -70,7 +106,16 @@ const mockPractice: Practice = {
       ownerEmail: 'owner@mock-law.test',
       introMessage: 'Welcome to Mock Law Firm. How can we help you today?',
       description: 'We provide excellent legal services',
-      availableServices: ['Personal Injury', 'Family Law', 'Business Law'],
+      availableServices: [
+        'Personal Injury',
+        'Family Law',
+        'Business Law',
+        'Small Business and Nonprofits',
+        'Employment Law',
+        'Tenant Rights',
+        'Probate and Estate Planning',
+        'Special Education and IEP Advocacy'
+      ],
       serviceQuestions: {},
       domain: '',
       brandColor: '#2563eb',
@@ -97,6 +142,7 @@ const mockPractice: Practice = {
         firmName: 'Mock Law Firm',
         contactEmail: 'owner@mock-law.test',
         contactPhone: '+1-555-0123',
+        website: 'https://mocklawfirm.com',
         profileImage: null,
         addressLine1: '123 Main St',
         addressLine2: 'Suite 100',
@@ -104,8 +150,6 @@ const mockPractice: Practice = {
         state: 'CA',
         postalCode: '94102',
         country: 'US',
-        primaryColor: '#2563eb',
-        accentColor: '#3b82f6',
         introMessage: 'Welcome to Mock Law Firm. How can we help you today?',
         overview: 'We provide excellent legal services',
         isPublic: true,
@@ -139,6 +183,7 @@ const originalUseSession = authClient.useSession;
 export function MockServicesPage() {
   const [isDevMode, setIsDevMode] = useState(import.meta.env.DEV || import.meta.env.MODE === 'development');
   const mock = useMockServices();
+  const [settingsView, setSettingsView] = useState<'practice' | 'services' | 'team'>('practice');
   const { updateServices } = mock;
 
   useEffect(() => {
@@ -433,6 +478,26 @@ export function MockServicesPage() {
     };
   }, [isDevMode, updateServices]);
 
+  useEffect(() => {
+    if (mock.state.scenario === 'editing') {
+      setSettingsView('practice');
+    }
+  }, [mock.state.scenario]);
+
+  const handleMockNavigate = (path: string) => {
+    if (path.startsWith('/settings/practice/services')) {
+      setSettingsView('services');
+      return;
+    }
+    if (path.startsWith('/settings/practice/team')) {
+      setSettingsView('team');
+      return;
+    }
+    if (path.startsWith('/settings/practice')) {
+      setSettingsView('practice');
+    }
+  };
+
   if (!isDevMode) {
     return (
       <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-300">
@@ -486,7 +551,11 @@ export function MockServicesPage() {
                 <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
                   <div className="mb-4 p-4 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      Practice Settings Page
+                      {settingsView === 'services'
+                        ? 'Practice Services Page'
+                        : settingsView === 'team'
+                          ? 'Practice Team Page'
+                          : 'Practice Settings Page'}
                     </h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                       Current settings UI (where services management could be added)
@@ -494,7 +563,17 @@ export function MockServicesPage() {
                   </div>
                   <div className="h-[calc(100%-80px)]">
                     {mock.state.practiceLoaded ? (
-                      <PracticePage className="h-full" />
+                      <>
+                        {settingsView === 'practice' && (
+                          <PracticePage className="h-full" onNavigate={handleMockNavigate} />
+                        )}
+                        {settingsView === 'services' && (
+                          <PracticeServicesPage onNavigate={handleMockNavigate} />
+                        )}
+                        {settingsView === 'team' && (
+                          <PracticeTeamPage onNavigate={handleMockNavigate} />
+                        )}
+                      </>
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">

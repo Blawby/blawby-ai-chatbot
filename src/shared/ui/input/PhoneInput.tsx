@@ -18,6 +18,7 @@ const countries = [
 ];
 
 export interface PhoneInputProps {
+  id?: string;
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -60,7 +61,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   descriptionKey: _descriptionKey,
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
-  namespace: _namespace = 'common'
+  namespace: _namespace = 'common',
+  id
 }, ref) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -178,7 +180,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const displayError = error;
 
   // Generate stable IDs for accessibility
-  const baseId = useUniqueId('phone-input');
+  const generatedId = useUniqueId('phone-input');
+  const baseId = id || generatedId;
   const inputId = baseId;
   const descriptionId = `${baseId}-description`;
   const errorId = `${baseId}-error`;

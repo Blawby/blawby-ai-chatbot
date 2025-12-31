@@ -16,6 +16,10 @@
       "toastBody": "Bạn đã đăng xuất"
     }
   },
+  "practice": {
+    "services": "Dịch vụ",
+    "team": "Thành viên nhóm"
+  },
   "general": {
     "title": "Chung",
     "theme": {

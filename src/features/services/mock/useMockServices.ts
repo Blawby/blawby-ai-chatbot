@@ -7,17 +7,42 @@ const initialEditingServices: Service[] = [
   {
     id: 'service-1',
     title: 'Personal Injury',
-    description: 'Representation for accident victims seeking compensation'
+    description: 'Representation for accident victims seeking compensation.'
   },
   {
     id: 'service-2',
     title: 'Family Law',
-    description: 'Divorce, custody, and family matters'
+    description: 'Divorce, custody, and family matters.'
   },
   {
     id: 'service-3',
     title: 'Business Law',
-    description: 'Corporate formation, contracts, and compliance'
+    description: 'Corporate formation, contracts, and compliance.'
+  },
+  {
+    id: 'service-4',
+    title: 'Small Business and Nonprofits',
+    description: 'Legal support for small businesses and nonprofit leaders.'
+  },
+  {
+    id: 'service-5',
+    title: 'Employment Law',
+    description: 'Workplace rights and employment dispute assistance.'
+  },
+  {
+    id: 'service-6',
+    title: 'Tenant Rights',
+    description: 'Support for housing disputes and tenant protections.'
+  },
+  {
+    id: 'service-7',
+    title: 'Probate and Estate Planning',
+    description: 'Estate planning and administration services.'
+  },
+  {
+    id: 'service-8',
+    title: 'Special Education and IEP Advocacy',
+    description: 'Guidance for IEP planning and education rights.'
   }
 ];
 

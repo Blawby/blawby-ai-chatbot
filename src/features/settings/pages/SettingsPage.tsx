@@ -6,6 +6,8 @@ import { AccountPage } from './AccountPage';
 import { SecurityPage } from './SecurityPage';
 import { HelpPage } from './HelpPage';
 import { PracticePage } from './PracticePage';
+import { PracticeServicesPage } from './PracticeServicesPage';
+import { PracticeTeamPage } from './PracticeTeamPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
 import { SidebarNavigation, SidebarNavigationItem } from '@/shared/ui/SidebarNavigation';
@@ -59,12 +61,18 @@ export const SettingsPage = ({
     return segments[1] || 'navigation'; // Get the page from /settings/page
   };
   
+  const getPracticeSubPage = () => {
+    const segments = location.path.split('/').filter(Boolean);
+    return segments[2] || '';
+  };
+
   const getCurrentAppId = () => {
     const segments = location.path.split('/').filter(Boolean);
     return segments[2];
   };
 
   const currentAppId = getCurrentAppId();
+  const practiceSubPage = getPracticeSubPage();
   const currentPage = getCurrentPage();
 
   // Redirect legacy 'organization' URLs to 'practice'
@@ -125,6 +133,16 @@ export const SettingsPage = ({
     { id: 'signout', label: t('settings:navigation.items.signOut'), icon: ArrowRightOnRectangleIcon, isAction: true, onClick: handleSignOut, variant: 'danger' }
   ];
 
+  const mobileTitle = (() => {
+    if (currentPage === 'practice' && practiceSubPage === 'services') {
+      return t('settings:practice.services');
+    }
+    if (currentPage === 'practice' && practiceSubPage === 'team') {
+      return t('settings:practice.team');
+    }
+    return navigationItems.find(item => item.id === currentPage)?.label || 'Settings';
+  })();
+
 
   const handleAppUpdate = (appId: string, updates: Partial<App>) => {
     setApps((prev) => prev.map((app) => app.id === appId ? { ...app, ...updates } : app));
@@ -140,6 +158,12 @@ export const SettingsPage = ({
       case 'account':
         return <AccountPage isMobile={isMobile} onClose={onClose} className="h-full" />;
       case 'practice':
+        if (practiceSubPage === 'services') {
+          return <PracticeServicesPage />;
+        }
+        if (practiceSubPage === 'team') {
+          return <PracticeTeamPage />;
+        }
         return <PracticePage className="h-full" />;
       case 'apps': {
         const currentApp = apps.find(app => app.id === currentAppId);
@@ -221,7 +245,13 @@ export const SettingsPage = ({
             {/* Mobile Header with Back Button */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
               <button
-                onClick={() => navigate('/settings')}
+                onClick={() => {
+                  if (currentPage === 'practice' && (practiceSubPage === 'services' || practiceSubPage === 'team')) {
+                    navigate('/settings/practice');
+                    return;
+                  }
+                  navigate('/settings');
+                }}
                 className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 aria-label={t('settings:navigation.backToSettings')}
               >
@@ -229,7 +259,7 @@ export const SettingsPage = ({
               </button>
               <div className="flex-1 flex justify-center">
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {navigationItems.find(item => item.id === currentPage)?.label || 'Settings'}
+                  {mobileTitle}
                 </h1>
               </div>
               <div className="w-9" /> {/* Spacer to center the title */}

@@ -4,6 +4,7 @@ import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
 export interface URLInputProps {
+  id?: string;
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -44,7 +45,8 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   _descriptionKey,
   _placeholderKey,
   _errorKey,
-  _namespace = 'common'
+  _namespace = 'common',
+  id
 }, ref) => {
   // TODO: Add i18n support when useTranslation hook is available
   // const { t } = useTranslation(namespace);
@@ -59,7 +61,8 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   const displayError = error;
 
   // Generate unique IDs for accessibility
-  const inputId = useUniqueId('url-input');
+  const generatedId = useUniqueId('url-input');
+  const inputId = id || generatedId;
   const descriptionId = useUniqueId('url-description');
   const errorId = useUniqueId('url-error');
   const validationErrorId = useUniqueId('url-validation-error');

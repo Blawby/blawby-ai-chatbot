@@ -101,6 +101,7 @@ export interface UpdatePracticeData {
   name?: string;
   slug?: string;
   description?: string;
+  businessPhone?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -633,6 +634,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     if (typeof data.slug === 'string' && data.slug.trim().length > 0) {
       // API handles slug normalization - just pass through user input
       payload.slug = data.slug.trim();
+    }
+
+    if (typeof data.businessPhone === 'string' && data.businessPhone.trim().length > 0) {
+      payload.businessPhone = data.businessPhone.trim();
     }
 
     const existingPractice = practices.find(practice => practice.id === id);

@@ -32,18 +32,19 @@ export function useServices({
   catalog = [],
   onChange
 }: UseServicesOptions): UseServicesResult {
-  const [services, setServicesState] = useState<Service[]>(() =>
-    normalizeServices(initialServices, catalog)
+  const normalizedInitial = useMemo(
+    () => normalizeServices(initialServices, catalog),
+    [initialServices, catalog]
   );
-  const isInitialMount = useRef(true);
+  const [services, setServicesState] = useState<Service[]>(() => normalizedInitial);
+  const lastSyncedKeyRef = useRef(JSON.stringify(normalizedInitial));
 
   useEffect(() => {
-    // Intentionally only sync once to avoid overwriting in-progress edits.
-    // Callers that need a reset should remount the hook or add an explicit reset.
-    if (!isInitialMount.current) return;
-    isInitialMount.current = false;
-    setServicesState(normalizeServices(initialServices, catalog));
-  }, [initialServices, catalog]);
+    const nextKey = JSON.stringify(normalizedInitial);
+    if (nextKey === lastSyncedKeyRef.current) return;
+    lastSyncedKeyRef.current = nextKey;
+    setServicesState(normalizedInitial);
+  }, [normalizedInitial]);
 
   const setServices = useCallback((next: Service[]) => {
     setServicesState(next);

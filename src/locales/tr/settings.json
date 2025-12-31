@@ -16,6 +16,10 @@
       "toastBody": "[NEEDS TRANSLATION] You have been signed out"
     }
   },
+  "practice": {
+    "services": "Hizmetler",
+    "team": "Ekip üyeleri"
+  },
   "general": {
     "title": "Genel Ayarlar",
     "theme": {

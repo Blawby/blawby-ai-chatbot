@@ -16,6 +16,10 @@
       "toastBody": "您已退出登录"
     }
   },
+  "practice": {
+    "services": "服务",
+    "team": "团队成员"
+  },
   "general": {
     "title": "常规",
     "theme": {

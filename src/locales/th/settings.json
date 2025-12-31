@@ -6,7 +6,7 @@
       "general": "[NEEDS TRANSLATION] General",
       "notifications": "[NEEDS TRANSLATION] Notifications",
       "account": "[NEEDS TRANSLATION] Account",
-      "practice": "[NEEDS TRANSLATION] Practice",
+      "practice": "การปฏิบัติ",
       "security": "[NEEDS TRANSLATION] Security",
       "help": "[NEEDS TRANSLATION] Help",
       "signOut": "[NEEDS TRANSLATION] Sign Out"
@@ -15,6 +15,10 @@
       "toastTitle": "[NEEDS TRANSLATION] Signed out successfully",
       "toastBody": "[NEEDS TRANSLATION] You have been signed out"
     }
+  },
+  "practice": {
+    "services": "บริการ",
+    "team": "สมาชิกทีม"
   },
   "general": {
     "title": "การตั้งค่าทั่วไป",
