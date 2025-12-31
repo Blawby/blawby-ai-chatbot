@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useCallback, useEffect } from 'preact/hooks';
+import { useMemo, useRef, useState, useCallback } from 'preact/hooks';
 import { ArrowLeftIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
@@ -122,7 +122,6 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
     title: '',
     description: ''
   });
-  const saveTimeoutRef = useRef<number | null>(null);
   const lastSavedKeyRef = useRef<string>('');
   const lastToastAtRef = useRef(0);
   const toastCooldownMs = 4000;
@@ -138,6 +137,7 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
 
   const saveServices = useCallback(async (nextServices: Service[]) => {
     if (!currentPractice) return;
+    setServicesError(null);
     const titles = getServiceTitles(nextServices);
     const details = getServiceDetailsForSave(nextServices);
     const payloadKey = JSON.stringify({ titles, details });
@@ -180,17 +180,6 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
     }
   }, [conversationConfig, currentPractice, showError, showSuccess, updatePractice]);
 
-  const scheduleSave = useCallback((nextServices: Service[]) => {
-    if (!currentPractice) return;
-    if (saveTimeoutRef.current) {
-      window.clearTimeout(saveTimeoutRef.current);
-    }
-    setServicesError(null);
-    saveTimeoutRef.current = window.setTimeout(() => {
-      void saveServices(nextServices);
-    }, 400);
-  }, [currentPractice, saveServices]);
-
   const {
     services: serviceDrafts,
     addCustomService,
@@ -200,15 +189,9 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
     initialServices: initialServiceDetails,
     catalog: SERVICE_CATALOG,
     onChange: (nextServices) => {
-      scheduleSave(nextServices);
+      void saveServices(nextServices);
     }
   });
-
-  useEffect(() => () => {
-    if (saveTimeoutRef.current) {
-      window.clearTimeout(saveTimeoutRef.current);
-    }
-  }, []);
 
   const openAddModal = () => {
     setAddDraft({ title: '', description: '' });

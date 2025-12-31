@@ -32,19 +32,21 @@ export function useServices({
   catalog = [],
   onChange
 }: UseServicesOptions): UseServicesResult {
-  const [services, setServicesState] = useState<Service[]>(() =>
-    normalizeServices(initialServices, catalog)
+  const normalizedInitial = useMemo(
+    () => normalizeServices(initialServices, catalog),
+    [initialServices, catalog]
   );
-  const isDirty = useRef(false);
+  const [services, setServicesState] = useState<Service[]>(() => normalizedInitial);
+  const lastSyncedKeyRef = useRef(JSON.stringify(normalizedInitial));
 
   useEffect(() => {
-    // Sync from upstream data until a local edit occurs.
-    if (isDirty.current) return;
-    setServicesState(normalizeServices(initialServices, catalog));
-  }, [initialServices, catalog]);
+    const nextKey = JSON.stringify(normalizedInitial);
+    if (nextKey === lastSyncedKeyRef.current) return;
+    lastSyncedKeyRef.current = nextKey;
+    setServicesState(normalizedInitial);
+  }, [normalizedInitial]);
 
   const setServices = useCallback((next: Service[]) => {
-    isDirty.current = true;
     setServicesState(next);
     onChange?.(next);
   }, [onChange]);
