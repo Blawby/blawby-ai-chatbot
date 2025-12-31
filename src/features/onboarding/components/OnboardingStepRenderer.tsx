@@ -5,6 +5,8 @@
  * Orchestrates step rendering and data flow.
  */
 
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { OnboardingActions } from './OnboardingActions';
 import { WelcomeStep } from '../steps/WelcomeStep';
 import { FirmBasicsStep } from '../steps/FirmBasicsStep';
 import { TrustAccountIntroStep } from '../steps/TrustAccountIntroStep';
@@ -12,8 +14,11 @@ import { StripeOnboardingStep } from '../steps/StripeOnboardingStep';
 import { BusinessDetailsStep } from '../steps/BusinessDetailsStep';
 import { ServicesStep } from '../steps/ServicesStep';
 import { ReviewAndLaunchStep } from '../steps/ReviewAndLaunchStep';
+import { useTranslation } from '@/shared/i18n/hooks';
 import type { OnboardingStep, OnboardingFormData } from '../hooks';
 import type { StripeConnectStatus } from '../types';
+import type { ComponentChildren } from 'preact';
+import type { OnboardingActionsProps } from './OnboardingActions';
 
 interface OnboardingStepRendererProps {
   currentStep: OnboardingStep;
@@ -28,6 +33,10 @@ interface OnboardingStepRendererProps {
   stripeStatus?: StripeConnectStatus | null;
   stripeClientSecret?: string | null;
   stripeLoading?: boolean;
+  onFooterChange?: (footer: ComponentChildren | null) => void;
+  actionLoading?: boolean;
+  isFirstStep?: boolean;
+  isLastStep?: boolean;
 }
 
 export const OnboardingStepRenderer = ({
@@ -43,21 +52,91 @@ export const OnboardingStepRenderer = ({
   stripeStatus,
   stripeClientSecret,
   stripeLoading = false,
+  onFooterChange,
+  actionLoading = false,
+  isFirstStep = false,
+  isLastStep = false,
 }: OnboardingStepRendererProps) => {
-  const commonProps = {
-    onContinue,
+  const { t } = useTranslation();
+  const { t: tCommon } = useTranslation('common');
+  const [stepActionLoading, setStepActionLoading] = useState(false);
+
+  useEffect(() => {
+    setStepActionLoading(false);
+  }, [currentStep]);
+
+  const combinedLoading = actionLoading || stepActionLoading;
+
+  const handleActionLoadingChange = useCallback((loading: boolean) => {
+    setStepActionLoading(loading);
+  }, []);
+
+  const footerProps: OnboardingActionsProps = useMemo(() => {
+    const base: OnboardingActionsProps = {
+      onContinue,
+      onBack,
+      onSkip,
+      loading: combinedLoading,
+      isFirstStep,
+      isLastStep
+    };
+
+    switch (currentStep) {
+      case 'welcome':
+        return {
+          ...base,
+          continueLabel: 'Get Started',
+          isFirstStep: true
+        };
+      case 'firm-basics':
+      case 'trust-account-intro':
+      case 'stripe-onboarding':
+        return base;
+      case 'business-details':
+        return {
+          ...base,
+          backLabel: t('onboarding:businessDetails.backButton'),
+          continueLabel: t('onboarding:businessDetails.nextButton')
+        };
+      case 'services':
+        return {
+          ...base,
+          onSkip: undefined
+        };
+      case 'review-and-launch':
+        return {
+          ...base,
+          continueLabel: tCommon('onboarding:reviewAndLaunch.actions.launchAssistant'),
+          isLastStep: true
+        };
+      default:
+        return base;
+    }
+  }, [
+    combinedLoading,
+    currentStep,
+    isFirstStep,
+    isLastStep,
     onBack,
-    onSkip
-  };
+    onContinue,
+    onSkip,
+    t,
+    tCommon
+  ]);
+
+  const footer = useMemo(() => <OnboardingActions {...footerProps} />, [footerProps]);
+
+  useEffect(() => {
+    onFooterChange?.(footer);
+  }, [footer, onFooterChange]);
 
   switch (currentStep) {
     case 'welcome':
-      return <WelcomeStep {...commonProps} />;
+      return <WelcomeStep />;
 
     case 'firm-basics':
       return (
         <FirmBasicsStep
-          {...commonProps}
           disabled={disabled}
           data={{
             firmName: stepData.firmName,
@@ -72,27 +151,25 @@ export const OnboardingStepRenderer = ({
             onChange('website', data.website);
           }}
           errors={errors}
-          onSkip={onSkip}
         />
       );
 
     case 'trust-account-intro':
-      return <TrustAccountIntroStep {...commonProps} />;
+      return <TrustAccountIntroStep />;
 
     case 'stripe-onboarding':
       return (
         <StripeOnboardingStep
-          {...commonProps}
           status={stripeStatus}
           loading={stripeLoading}
           clientSecret={stripeClientSecret}
+          onActionLoadingChange={handleActionLoadingChange}
         />
       );
 
     case 'business-details':
       return (
         <BusinessDetailsStep
-          {...commonProps}
           disabled={disabled}
           data={{
             addressLine1: stepData.addressLine1,
@@ -119,7 +196,6 @@ export const OnboardingStepRenderer = ({
     case 'services': {
       return (
         <ServicesStep
-          {...commonProps}
           data={stepData.services}
           onChange={(services) => onChange('services', services)}
           errors={errors}
@@ -130,12 +206,9 @@ export const OnboardingStepRenderer = ({
     case 'review-and-launch':
       return (
         <ReviewAndLaunchStep
-          {...commonProps}
-          onSkip={onSkip}
           data={stepData}
           practiceSlug={practiceSlug}
           onVisibilityChange={(isPublic) => onChange('isPublic', isPublic)}
-          onComplete={onContinue}
         />
       );
 

@@ -8,7 +8,7 @@
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 
-interface OnboardingActionsProps {
+export interface OnboardingActionsProps {
   onBack?: () => void;
   onContinue: () => void;
   onSkip?: () => void;
