@@ -4,7 +4,6 @@
 
 import { Input, EmailInput, PhoneInput, URLInput, FileInput } from '@/shared/ui/input';
 import { ValidationAlert } from '../components/ValidationAlert';
-import { OnboardingActions } from '../components/OnboardingActions';
 
 interface FirmBasicsData {
   firmName: string;
@@ -16,21 +15,15 @@ interface FirmBasicsData {
 interface FirmBasicsStepProps {
   data: FirmBasicsData;
   onChange: (data: FirmBasicsData) => void;
-  onContinue: () => void;
-  onBack: () => void;
   errors?: string | null;
   disabled?: boolean;
-  onSkip?: () => void;
 }
 
 export function FirmBasicsStep({ 
   data, 
   onChange, 
-  onContinue, 
-  onBack,
   errors,
-  disabled = false,
-  onSkip
+  disabled = false
 }: FirmBasicsStepProps) {
   return (
     <div className="space-y-6">
@@ -81,13 +74,6 @@ export function FirmBasicsStep({
         value={[]}
         onChange={() => {}} // Placeholder - no actual upload
         disabled={disabled}
-      />
-
-      <OnboardingActions
-        onContinue={onContinue}
-        onBack={onBack}
-        loading={disabled}
-        onSkip={onSkip}
       />
     </div>
   );

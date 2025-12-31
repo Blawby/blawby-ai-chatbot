@@ -5,7 +5,6 @@
 import { Switch } from '@/shared/ui/input';
 import { ReviewField } from '../components/ReviewField';
 import { IntakeUrlDisplay } from '../components/IntakeUrlDisplay';
-import { OnboardingActions } from '../components/OnboardingActions';
 import { InfoCard } from '../components/InfoCard';
 import { FeatureList } from '../components/FeatureList';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -29,18 +28,12 @@ interface ReviewAndLaunchStepProps {
   };
   practiceSlug: string;
   onVisibilityChange: (isPublic: boolean) => void;
-  onComplete: () => void;
-  onBack: () => void;
-  onSkip?: () => void;
 }
 
 export function ReviewAndLaunchStep({ 
   data, 
   practiceSlug,
   onVisibilityChange,
-  onComplete, 
-  onBack,
-  onSkip
 }: ReviewAndLaunchStepProps) {
   const { t } = useTranslation('common');
   const intakeUrl = `https://ai.blawby.com/${encodeURIComponent((practiceSlug || 'your-firm').trim())}`;
@@ -160,14 +153,6 @@ export function ReviewAndLaunchStep({
       >
         <FeatureList items={launchFeatures} size="sm" />
       </InfoCard>
-
-      <OnboardingActions
-        onContinue={onComplete}
-        onBack={onBack}
-        continueLabel={t('onboarding:reviewAndLaunch.actions.launchAssistant')}
-        isLastStep={true}
-        onSkip={onSkip}
-      />
     </div>
   );
 }

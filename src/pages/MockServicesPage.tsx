@@ -468,14 +468,6 @@ export function MockServicesPage() {
                       onChange={(services) => {
                         mock.updateServices(services);
                       }}
-                      onContinue={() => {
-                        console.log('Continue clicked');
-                        mock.addDebugEvent('onboarding_continue');
-                      }}
-                      onBack={() => {
-                        console.log('Back clicked');
-                        mock.addDebugEvent('onboarding_back');
-                      }}
                     />
                   </div>
                 </div>

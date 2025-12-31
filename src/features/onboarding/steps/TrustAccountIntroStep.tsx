@@ -4,15 +4,8 @@
 
 import { ChecklistItem } from '../components/ChecklistItem';
 import { InfoCard } from '../components/InfoCard';
-import { OnboardingActions } from '../components/OnboardingActions';
-
-interface TrustAccountIntroStepProps {
-  onContinue: () => void;
-  onBack: () => void;
-  onSkip?: () => void;
-}
-
-export function TrustAccountIntroStep({ onContinue, onBack, onSkip }: TrustAccountIntroStepProps) {
+ 
+export function TrustAccountIntroStep() {
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -34,12 +27,6 @@ export function TrustAccountIntroStep({ onContinue, onBack, onSkip }: TrustAccou
       >
         Do not use your operating account for this step.
       </InfoCard>
-
-      <OnboardingActions
-        onContinue={onContinue}
-        onBack={onBack}
-        onSkip={onSkip}
-      />
     </div>
   );
 }
