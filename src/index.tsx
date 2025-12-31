@@ -15,6 +15,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { BusinessOnboardingPage } from '@/pages/BusinessOnboardingPage';
 import { MockChatPage } from '@/pages/MockChatPage';
 import { MockServicesPage } from '@/pages/MockServicesPage';
+import { MockInboxPage } from '@/pages/MockInboxPage';
 import { CartPage } from '@/features/cart/pages/CartPage';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
@@ -266,6 +267,8 @@ function AppWithSEO({
 					<Route path="/cart" component={CartPage} />
 					<Route path="/dev/mock-chat" component={MockChatPage} />
 					<Route path="/dev/mock-services" component={MockServicesPage} />
+					<Route path="/dev/mock-inbox" component={MockInboxPage} />
+					<Route path="/mock-inbox" component={MockInboxPage} />
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
 					<Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
 					<Route path="/settings/*" component={SettingsRoute} />
