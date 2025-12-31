@@ -24,13 +24,16 @@ function formatRelativeTime(dateString: string): string {
     if (Math.abs(diffHours) < 24) return rtf.format(diffHours, 'hour');
     if (Math.abs(diffDays) < 7) return rtf.format(diffDays, 'day');
   } else {
-    const pastMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    const pastHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    const pastDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (pastMinutes < 1) return 'Just now';
-    if (pastMinutes < 60) return `${pastMinutes}m ago`;
-    if (pastHours < 24) return `${pastHours}h ago`;
-    if (pastDays < 7) return `${pastDays}d ago`;
+    if (Math.abs(diffMinutes) < 60) {
+      if (diffMinutes === 0) return 'Just now';
+      return diffMinutes > 0 ? `in ${diffMinutes}m` : `${Math.abs(diffMinutes)}m ago`;
+    }
+    if (Math.abs(diffHours) < 24) {
+      return diffHours > 0 ? `in ${diffHours}h` : `${Math.abs(diffHours)}h ago`;
+    }
+    if (Math.abs(diffDays) < 7) {
+      return diffDays > 0 ? `in ${diffDays}d` : `${Math.abs(diffDays)}d ago`;
+    }
   }
 
   return date.toLocaleDateString();

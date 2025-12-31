@@ -241,12 +241,15 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   
 
   useEffect(() => {
+    const allowedTabs: Array<'dashboard' | 'chats' | 'matter'> = ['matter'];
+    if (showChatsTab) allowedTabs.push('chats');
+    if (showDashboardTab) allowedTabs.push('dashboard');
     const fallbackTab = showDashboardTab
       ? 'dashboard'
       : showChatsTab
         ? 'chats'
         : 'matter';
-    if (currentTab !== fallbackTab) {
+    if (!allowedTabs.includes(currentTab) && currentTab !== fallbackTab) {
       onTabChange(fallbackTab);
     }
   }, [currentTab, onTabChange, showChatsTab, showDashboardTab]);
