@@ -13,9 +13,8 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { BusinessOnboardingPage } from '@/pages/BusinessOnboardingPage';
 import { MockChatPage } from '@/pages/MockChatPage';
 import { MockServicesPage } from '@/pages/MockServicesPage';
-import { MockInboxPage } from '@/pages/MockInboxPage';
 import { CartPage } from '@/features/cart/pages/CartPage';
-import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import { usePracticeConfig, type UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
@@ -23,6 +22,7 @@ import { getSettingsReturnPath, getStoredWorkspace } from '@/shared/utils/worksp
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import WorkspaceWelcomePage from '@/pages/WorkspaceWelcomePage';
 import ClientHomePage from '@/pages/ClientHomePage';
+import { PracticeDashboardPage } from '@/features/dashboard/pages/PracticeDashboardPage';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -31,6 +31,22 @@ const LoadingScreen = () => (
     Loading…
   </div>
 );
+
+const CLIENT_WORKSPACE_CONFIG: UIPracticeConfig = {
+  name: 'Client Workspace',
+  description: 'Your personal workspace for managing conversations.',
+  availableServices: [],
+  serviceQuestions: {},
+  domain: '',
+  brandColor: '#111827',
+  accentColor: '#2563eb',
+  introMessage: '',
+  profileImage: null,
+  voice: {
+    enabled: false,
+    provider: 'cloudflare'
+  }
+};
 
 // Main App component with routing
 export function App() {
@@ -64,8 +80,6 @@ function AppShell() {
         <Route path="/cart" component={CartPage} />
         <Route path="/dev/mock-chat" component={MockChatPage} />
         <Route path="/dev/mock-services" component={MockServicesPage} />
-        <Route path="/dev/mock-inbox" component={MockInboxPage} />
-        <Route path="/mock-inbox" component={MockInboxPage} />
         <Route path="/business-onboarding" component={BusinessOnboardingPage} />
         <Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
         <Route path="/settings/*" component={SettingsRoute} />
@@ -148,7 +162,17 @@ function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
     return <AuthPage />;
   }
 
-  return <ClientHomePage />;
+  return (
+    <MainApp
+      practiceId=""
+      practiceConfig={CLIENT_WORKSPACE_CONFIG}
+      practiceNotFound={false}
+      handleRetryPracticeConfig={() => {}}
+      isPracticeView={false}
+      workspace="client"
+      dashboardContent={<ClientHomePage />}
+    />
+  );
 }
 
 function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
@@ -208,6 +232,7 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
       handleRetryPracticeConfig={handleRetryPracticeConfig}
       isPracticeView={true}
       workspace="practice"
+      dashboardContent={<PracticeDashboardPage />}
     />
   );
 }

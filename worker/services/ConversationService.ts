@@ -6,6 +6,11 @@ import { Logger } from '../utils/logger.js';
 export interface Conversation {
   id: string;
   practice_id: string;
+  practice?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
   user_id: string | null;
   matter_id: string | null;
   participants: string[]; // Array of user IDs
@@ -283,6 +288,60 @@ export class ConversationService {
 
     query += ' ORDER BY updated_at DESC LIMIT ?';
     bindings.push(limit);
+
+    const records = await this.env.DB.prepare(query).bind(...bindings).all<{
+      id: string;
+      practice_id: string;
+      user_id: string | null;
+      matter_id: string | null;
+      participants: string;
+      user_info: string | null;
+      status: string;
+      closed_at: string | null;
+      created_at: string;
+      updated_at: string;
+    }>();
+
+    return records.results.map(record => ({
+      id: record.id,
+      practice_id: record.practice_id,
+      user_id: record.user_id,
+      matter_id: record.matter_id,
+      participants: JSON.parse(record.participants || '[]') as string[],
+      user_info: record.user_info ? JSON.parse(record.user_info) : null,
+      status: record.status as Conversation['status'],
+      closed_at: record.closed_at || null,
+      created_at: record.created_at,
+      updated_at: record.updated_at
+    }));
+  }
+
+  /**
+   * List conversations for a user across all practices
+   */
+  async getConversationsForUser(options: {
+    userId: string;
+    status?: 'active' | 'archived' | 'closed';
+    limit?: number;
+    offset?: number;
+  }): Promise<Conversation[]> {
+    const limit = Math.min(options.limit || 50, 100);
+    const offset = Math.max(options.offset || 0, 0);
+    let query = `
+      SELECT 
+        id, practice_id, user_id, matter_id, participants, user_info, status, closed_at, created_at, updated_at
+      FROM conversations
+      WHERE EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
+    `;
+    const bindings: unknown[] = [options.userId];
+
+    if (options.status) {
+      query += ' AND status = ?';
+      bindings.push(options.status);
+    }
+
+    query += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
+    bindings.push(limit, offset);
 
     const records = await this.env.DB.prepare(query).bind(...bindings).all<{
       id: string;

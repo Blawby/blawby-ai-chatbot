@@ -17,7 +17,6 @@ import { UserIcon } from "@heroicons/react/24/outline";
 import { Button } from '@/shared/ui/Button';
 import ActivityTimeline from '@/features/matters/components/ActivityTimeline';
 import MatterTab from '@/features/matters/components/MatterTab';
-import { InboxPage } from '@/features/settings/pages/InboxPage';
 import { useMatterState } from '@/shared/hooks/useMatterState';
 import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
 import { THEME } from '@/shared/utils/constants';
@@ -40,8 +39,8 @@ interface AppLayoutProps {
   practiceNotFound: boolean;
   practiceId: string;
   onRetryPracticeConfig: () => void;
-  currentTab: 'chats' | 'matter' | 'inbox';
-  onTabChange: (tab: 'chats' | 'matter' | 'inbox') => void;
+  currentTab: 'dashboard' | 'chats' | 'matter';
+  onTabChange: (tab: 'dashboard' | 'chats' | 'matter') => void;
   isMobileSidebarOpen: boolean;
   onToggleMobileSidebar: (open: boolean) => void;
   isSettingsModalOpen?: boolean;
@@ -61,6 +60,8 @@ interface AppLayoutProps {
   onRequestConsultation?: () => void | Promise<void>;
   onSendMessage?: (message: string) => void;
   onUploadDocument?: (files: File[], metadata?: { documentType?: string; matterId?: string }) => Promise<FileAttachment[]>;
+  dashboardContent?: ComponentChildren;
+  chatSidebarContent?: ComponentChildren;
   children: ComponentChildren; // ChatContainer component
   onOnboardingCompleted?: () => Promise<void> | void;
 }
@@ -81,6 +82,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   onRequestConsultation,
   onSendMessage,
   onUploadDocument,
+  dashboardContent,
+  chatSidebarContent,
   children,
   onOnboardingCompleted: _onOnboardingCompleted
 }) => {
@@ -93,8 +96,9 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const [matterAction, setMatterAction] = useState<'pay' | 'pdf' | 'share' | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
 
-  const showInboxTab = workspace === 'practice';
-  const showChatsTab = workspace !== 'practice';
+  const showDashboardTab = workspace !== 'public';
+  const showChatsTab = workspace !== 'public';
+  const showRightSidebar = workspace !== 'client';
 
   // Activity is feature-flagged off by default while we decide the final architecture.
   // TODO(activity): migrate activity source-of-truth to staging-api and remove Worker/D1 dependency.
@@ -205,6 +209,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   }, [isMobileSidebarOpen, onToggleMobileSidebar]);
   
   // Tab switching handlers
+  const handleGoToDashboard = () => {
+    onTabChange('dashboard');
+  };
+
   const handleGoToChats = () => {
     onTabChange('chats');
   };
@@ -232,18 +240,14 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   };
   
 
-  const handleGoToInbox = () => {
-    onTabChange('inbox');
-  };
-
   useEffect(() => {
-    if (!showInboxTab && currentTab === 'inbox') {
+    if (!showDashboardTab && currentTab === 'dashboard') {
       onTabChange('chats');
     }
     if (!showChatsTab && currentTab === 'chats') {
-      onTabChange('inbox');
+      onTabChange('dashboard');
     }
-  }, [currentTab, onTabChange, showChatsTab, showInboxTab]);
+  }, [currentTab, onTabChange, showChatsTab, showDashboardTab]);
   const { isNavbarVisible } = useNavbarScroll({ 
     threshold: 50, 
     debounceMs: 0
@@ -295,11 +299,12 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
           <div className="overflow-y-auto hidden lg:block">
             <LeftSidebar
               currentRoute={currentTab}
+              showDashboardTab={showDashboardTab}
               showChatsTab={showChatsTab}
-              showInboxTab={showInboxTab}
+              onGoToDashboard={showDashboardTab ? handleGoToDashboard : undefined}
               onGoToChats={showChatsTab ? handleGoToChats : undefined}
-              onGoToInbox={showInboxTab ? handleGoToInbox : undefined}
               onOpenOnboarding={canShowOnboarding ? handleOpenOnboarding : undefined}
+              chatSidebarContent={chatSidebarContent}
               practiceConfig={{
                 name: practiceConfig.name,
                 profileImage: practiceConfig.profileImage,
@@ -350,14 +355,14 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                 >
                   <LeftSidebar
                     currentRoute={currentTab}
+                    showDashboardTab={showDashboardTab}
                     showChatsTab={showChatsTab}
-                    showInboxTab={showInboxTab}
-                    onGoToChats={showChatsTab ? () => {
-                      handleGoToChats();
+                    onGoToDashboard={showDashboardTab ? () => {
+                      handleGoToDashboard();
                       onToggleMobileSidebar(false);
                     } : undefined}
-                    onGoToInbox={showInboxTab ? () => {
-                      handleGoToInbox();
+                    onGoToChats={showChatsTab ? () => {
+                      handleGoToChats();
                       onToggleMobileSidebar(false);
                     } : undefined}
                     onOpenOnboarding={canShowOnboarding ? () => {
@@ -365,6 +370,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       onToggleMobileSidebar(false);
                     } : undefined}
                     onClose={() => onToggleMobileSidebar(false)}
+                    chatSidebarContent={chatSidebarContent}
                     practiceConfig={{
                       name: practiceConfig.name,
                       profileImage: practiceConfig.profileImage,
@@ -384,10 +390,16 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       {/* Main Content Area - Flex grow, full width on mobile */}
       <div className="flex-1 bg-white dark:bg-dark-bg overflow-y-auto">
         <ErrorBoundary>
-          {currentTab === 'chats' ? children : currentTab === 'inbox' ? (
+          {currentTab === 'dashboard' ? (
             <div className="h-full">
-              <InboxPage className="h-full" />
+              {dashboardContent ?? (
+                <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                  Dashboard coming soon.
+                </div>
+              )}
             </div>
+          ) : currentTab === 'chats' ? (
+            children
           ) : (
             <div className="h-full">
               <MatterTab
@@ -412,38 +424,40 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       </div>
 
       {/* Right Sidebar - Fixed width, hidden on mobile */}
-      <div className="w-80 overflow-y-auto scrollbar-hide hidden lg:block p-2">
-        <div className="bg-light-card-bg dark:bg-dark-card-bg rounded-lg p-6 text-gray-900 dark:text-white flex flex-col gap-6 h-full">
-          <PracticeProfile
-            name={practiceConfig.name}
-            profileImage={practiceConfig.profileImage}
-            practiceId={practiceId}
-            description={practiceConfig.description}
-            variant="sidebar"
-            showVerified={true}
-          />
+      {showRightSidebar && (
+        <div className="w-80 overflow-y-auto scrollbar-hide hidden lg:block p-2">
+          <div className="bg-light-card-bg dark:bg-dark-card-bg rounded-lg p-6 text-gray-900 dark:text-white flex flex-col gap-6 h-full">
+            <PracticeProfile
+              name={practiceConfig.name}
+              profileImage={practiceConfig.profileImage}
+              practiceId={practiceId}
+              description={practiceConfig.description}
+              variant="sidebar"
+              showVerified={true}
+            />
 
-          {/* Request Consultation Button - Primary Action */}
-          {onRequestConsultation && (
-            <div className="flex flex-col gap-3 pt-2">
-              <Button
-                onClick={handleRequestConsultation}
-                variant="primary"
-                type="button"
-                icon={<UserIcon className="w-4 h-4" />}
-              >
-                {messages.findLawyer}
-              </Button>
-            </div>
-          )}
+            {/* Request Consultation Button - Primary Action */}
+            {onRequestConsultation && (
+              <div className="flex flex-col gap-3 pt-2">
+                <Button
+                  onClick={handleRequestConsultation}
+                  variant="primary"
+                  type="button"
+                  icon={<UserIcon className="w-4 h-4" />}
+                >
+                  {messages.findLawyer}
+                </Button>
+              </div>
+            )}
 
-          {/* Activity Timeline Section */}
-          {showActivity && <ActivityTimeline practiceId={practiceId} />}
+            {/* Activity Timeline Section */}
+            {showActivity && <ActivityTimeline practiceId={practiceId} />}
 
-          {/* Media Section */}
-          <MediaSidebar messages={chatMessages} />
+            {/* Media Section */}
+            <MediaSidebar messages={chatMessages} />
+          </div>
         </div>
-      </div>
+      )}
 
 
       <MobileTopNav

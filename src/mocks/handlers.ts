@@ -491,6 +491,21 @@ export const handlers = [
   // GET /api/conversations - Get or create conversation for anonymous users
   http.get('/api/conversations', async ({ request }) => {
     console.log('[MSW] Intercepted GET /api/conversations', request.url);
+    const url = new URL(request.url);
+    const scope = url.searchParams.get('scope');
+    if (scope === 'all') {
+      const practiceMap = new Map(
+        mockDb.practices.map((practice) => [practice.id, { id: practice.id, name: practice.name, slug: practice.slug }])
+      );
+      const conversations = Array.from(mockDb.conversations.values()).map((conversation) => ({
+        ...conversation,
+        practice: practiceMap.get(conversation.practice_id)
+      }));
+      return HttpResponse.json({
+        success: true,
+        data: { conversations }
+      });
+    }
     const result = getOrCreateConversation(request);
     if ('error' in result) {
       return result.error;

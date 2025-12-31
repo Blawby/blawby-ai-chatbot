@@ -439,7 +439,9 @@ function validateRequiredFields(rawUser: Record<string, unknown>): void {
   
   for (const field of requiredFields) {
     const value = rawUser[field];
-    if (value === null || value === undefined || typeof value !== 'string' || value.trim() === '') {
+    const isMissingId = field === 'id' && (value === null || value === undefined || typeof value !== 'string' || value.trim() === '');
+    const isMissingEmail = field === 'email' && (value === null || value === undefined || typeof value !== 'string');
+    if (isMissingId || isMissingEmail) {
       missingFields.push(field);
     }
   }

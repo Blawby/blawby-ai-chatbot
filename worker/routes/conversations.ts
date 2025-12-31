@@ -2,8 +2,10 @@ import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
+import { Logger } from '../utils/logger.js';
 
 function createJsonResponse(data: unknown): Response {
   return new Response(JSON.stringify({ success: true, data }), {
@@ -15,6 +17,8 @@ function createJsonResponse(data: unknown): Response {
 export async function handleConversations(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const segments = url.pathname.split('/').filter(Boolean);
+  const scope = url.searchParams.get('scope');
+  const wantsAllScope = scope === 'all';
 
   if (segments[0] !== 'api' || segments[1] !== 'conversations') {
     throw HttpErrors.notFound('Conversation route not found');
@@ -27,17 +31,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   }
   const userId = authContext.user.id;
 
-  // Get practice context
-  const requestWithContext = await withPracticeContext(request, env, {
-    requirePractice: true,
-    allowUrlOverride: true
-  });
-  const practiceId = getPracticeId(requestWithContext);
-
   const conversationService = new ConversationService(env);
 
   // POST /api/conversations - Create new conversation
   if (segments.length === 2 && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
+
     const body = await parseJsonBody(request) as {
       matterId?: string;
       participantUserIds: string[];
@@ -67,6 +70,58 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations - Smart endpoint that detects user type
   if (segments.length === 2 && request.method === 'GET') {
+    if (wantsAllScope) {
+      if (authContext.isAnonymous) {
+        throw HttpErrors.unauthorized('Sign in is required to list conversations');
+      }
+
+      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+
+      const conversations = await conversationService.getConversationsForUser({
+        userId,
+        status: status || undefined,
+        limit,
+        offset
+      });
+
+      const practiceIds = Array.from(new Set(conversations.map((conversation) => conversation.practice_id)));
+      const practiceEntries = await Promise.all(
+        practiceIds.map(async (practiceId) => {
+          try {
+            const practice = await RemoteApiService.getPractice(env, practiceId, request);
+            if (!practice) return null;
+            return [practiceId, { id: practice.id, name: practice.name, slug: practice.slug }] as const;
+          } catch (error) {
+            Logger.warn('Failed to fetch practice info for conversation list', {
+              practiceId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+            return null;
+          }
+        })
+      );
+
+      const practiceMap = new Map(
+        practiceEntries.filter((entry): entry is Readonly<[string, { id: string; name: string; slug: string }]> => Boolean(entry))
+      );
+
+      const conversationsWithPractice = conversations.map((conversation) => ({
+        ...conversation,
+        practice: practiceMap.get(conversation.practice_id)
+      }));
+
+      return createJsonResponse({ conversations: conversationsWithPractice });
+    }
+
+    // Get practice context
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
+
     // Check if user is practice member
     const membershipCheck = await checkPracticeMembership(request, env, practiceId);
     
@@ -109,6 +164,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations/(active|current) - Get or create current conversation
   if (segments.length === 3 && (segments[2] === 'active' || segments[2] === 'current') && request.method === 'GET') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
     const isLegacyPath = segments[2] === 'current';
     const isAnonymous = authContext.isAnonymous === true;
     const conversation = await conversationService.getOrCreateCurrentConversation(
@@ -126,6 +186,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations/:id - Get single conversation
   if (segments.length === 3 && request.method === 'GET') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
 
     // Validate user has access
@@ -141,6 +206,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     segments[3] === 'link' &&
     request.method === 'PATCH'
   ) {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
     const body = await parseJsonBody(request) as { userId?: string | null };
 
@@ -167,6 +237,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // PATCH /api/conversations/:id - Update conversation
   if (segments.length === 3 && segments[2] !== 'active' && segments[2] !== 'current' && request.method === 'PATCH') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
     const body = await parseJsonBody(request) as {
       status?: 'active' | 'archived' | 'closed';
@@ -190,6 +265,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // POST /api/conversations/:id/participants - Add participants to a conversation
   if (segments.length === 4 && segments[3] === 'participants' && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
     const body = await parseJsonBody(request) as {
       participantUserIds: string[];

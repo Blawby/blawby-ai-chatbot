@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { useLocation } from 'preact-iso';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
@@ -23,6 +24,7 @@ import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
 import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { ConversationSidebar } from '@/features/chats/components/ConversationSidebar';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -31,7 +33,9 @@ export function MainApp({
   practiceNotFound,
   handleRetryPracticeConfig,
   isPracticeView,
-  workspace
+  workspace,
+  dashboardContent,
+  chatContent
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
@@ -39,11 +43,13 @@ export function MainApp({
   handleRetryPracticeConfig: () => void;
   isPracticeView: boolean;
   workspace: WorkspaceType;
+  dashboardContent?: ComponentChildren;
+  chatContent?: ComponentChildren;
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
-  const initialTab = workspace === 'practice' ? 'inbox' : 'chats';
-  const [currentTab, setCurrentTab] = useState<'chats' | 'matter' | 'inbox'>(initialTab);
+  const initialTab = workspace === 'public' ? 'chats' : 'dashboard';
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'chats' | 'matter'>(initialTab);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const location = useLocation();
@@ -60,18 +66,81 @@ export function MainApp({
   }, [practiceId]);
 
   useEffect(() => {
-    if (workspace === 'practice' && currentTab === 'chats') {
-      setCurrentTab('inbox');
-    }
-    if (workspace !== 'practice' && currentTab === 'inbox') {
+    if (workspace === 'public' && currentTab === 'dashboard') {
       setCurrentTab('chats');
     }
   }, [currentTab, workspace]);
+
+  const basePath = useMemo(() => {
+    if (workspace === 'practice') return '/practice';
+    if (workspace === 'client') return '/app';
+    return null;
+  }, [workspace]);
+  const chatsBasePath = useMemo(() => (basePath ? `${basePath}/chats` : null), [basePath]);
+
+  const tabFromPath = useMemo(() => {
+    if (!basePath) return null;
+    if (location.path === basePath || location.path === `${basePath}/`) return 'dashboard';
+    if (location.path.startsWith(`${basePath}/dashboard`)) return 'dashboard';
+    if (location.path.startsWith(`${basePath}/chats`)) return 'chats';
+    if (location.path.startsWith(`${basePath}/matter`)) return 'matter';
+    return null;
+  }, [basePath, location.path]);
+
+  const conversationIdFromPath = useMemo(() => {
+    if (!chatsBasePath) return null;
+    if (!location.path.startsWith(`${chatsBasePath}/`)) return null;
+    const raw = location.path.slice(`${chatsBasePath}/`.length);
+    const id = raw.split('/')[0];
+    return id ? decodeURIComponent(id) : null;
+  }, [chatsBasePath, location.path]);
+
+  useEffect(() => {
+    if (!basePath) return;
+    if (location.path === basePath || location.path === `${basePath}/`) {
+      navigate(`${basePath}/dashboard`, true);
+    }
+  }, [basePath, location.path, navigate]);
+
+  useEffect(() => {
+    if (!tabFromPath || tabFromPath === currentTab) return;
+    setCurrentTab(tabFromPath);
+  }, [currentTab, tabFromPath]);
+
+  useEffect(() => {
+    if (!conversationIdFromPath) return;
+    if (conversationIdFromPath === conversationId) return;
+    setConversationId(conversationIdFromPath);
+  }, [conversationId, conversationIdFromPath]);
+
+  useEffect(() => {
+    if (!chatsBasePath) return;
+    if (currentTab !== 'chats') return;
+    if (!conversationId) return;
+    const targetPath = `${chatsBasePath}/${encodeURIComponent(conversationId)}`;
+    if (location.path !== targetPath) {
+      navigate(targetPath, true);
+    }
+  }, [chatsBasePath, conversationId, currentTab, location.path, navigate]);
+
+  const handleTabChange = useCallback((tab: 'dashboard' | 'chats' | 'matter') => {
+    setCurrentTab(tab);
+    if (!basePath) return;
+    const nextPath = tab === 'dashboard'
+      ? `${basePath}/dashboard`
+      : tab === 'chats' && conversationId
+        ? `${basePath}/chats/${encodeURIComponent(conversationId)}`
+        : `${basePath}/${tab}`;
+    if (location.path !== nextPath) {
+      navigate(nextPath);
+    }
+  }, [basePath, conversationId, location.path, navigate]);
 
   // Use session from Better Auth
   const { data: session, isPending: sessionIsPending } = useSession();
   const isAnonymousUser = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
   const isPracticeWorkspace = workspace === 'practice';
+  const effectivePracticeId = practiceId || undefined;
 
   // Practice data is now passed as props
 
@@ -108,8 +177,8 @@ export function MainApp({
   }, []);
 
   const realMessageHandling = useMessageHandling({
-    practiceId: isPracticeWorkspace ? '' : practiceId,
-    practiceSlug: isPracticeWorkspace ? undefined : (practiceConfig.slug ?? undefined),
+    practiceId: effectivePracticeId,
+    practiceSlug: practiceConfig.slug ?? undefined,
     conversationId: conversationId ?? undefined,
     onError: handleMessageError
   });
@@ -404,7 +473,7 @@ export function MainApp({
   // User tier is now derived directly from practice - no need for custom event listeners
 
   const isSessionReady = Boolean(conversationId && !conversationsLoading && !isCreatingConversation);
-  const canChat = !isPracticeWorkspace && Boolean(isPracticeView && practiceId);
+  const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(conversationId));
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
 
   const activeConversation = useMemo(() => {
@@ -570,36 +639,17 @@ export function MainApp({
   };
 
   // Handle navigation to chats - removed since bottom nav is disabled
-
-  // Render the main app
-  return (
-    <>
-      <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
-
-      <AppLayout
-        workspace={workspace}
-        practiceNotFound={practiceNotFound}
-        practiceId={practiceId}
-        onRetryPracticeConfig={handleRetryPracticeConfig}
-        currentTab={currentTab}
-        onTabChange={setCurrentTab}
-        isMobileSidebarOpen={isMobileSidebarOpen}
-        onToggleMobileSidebar={setIsMobileSidebarOpen}
-        isSettingsModalOpen={isSettingsRouteNow}
-        practiceConfig={{
-          name: practiceConfig.name ?? '',
-          profileImage: practiceConfig?.profileImage ?? null,
-          description: practiceConfig?.description ?? ''
-        }}
-        currentPractice={currentPractice}
-        onOnboardingCompleted={refetchPractices}
-        messages={messages}
-        onSendMessage={handleSendMessage}
-        onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
-          return await handleFileSelect(files);
-        }}
-      >
-        <div className="relative h-full flex flex-col">
+  const shouldShowChatPlaceholder = workspace !== 'public' && !conversationId;
+  const chatPanel = chatContent ?? (
+    <div className="relative h-full flex flex-col">
+      {shouldShowChatPlaceholder ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+          {workspace === 'practice'
+            ? 'Select a conversation to view the thread.'
+            : 'Open a practice link to start chatting.'}
+        </div>
+      ) : (
+        <>
           {showMatterControls && (
             <ConversationHeader
               practiceId={practiceId}
@@ -644,7 +694,63 @@ export function MainApp({
               canChat={canChat}
             />
           </div>
-        </div>
+        </>
+      )}
+    </div>
+  );
+
+  const handleSelectConversation = useCallback((id: string) => {
+    setConversationId(id);
+    if (chatsBasePath) {
+      navigate(`${chatsBasePath}/${encodeURIComponent(id)}`);
+    }
+  }, [chatsBasePath, navigate]);
+
+  const chatSidebarContent = useMemo(() => {
+    if (workspace === 'practice' || workspace === 'client') {
+      return (
+        <ConversationSidebar
+          workspace={workspace}
+          practiceId={practiceId}
+          selectedConversationId={conversationId}
+          onSelectConversation={handleSelectConversation}
+        />
+      );
+    }
+    return null;
+  }, [conversationId, handleSelectConversation, practiceId, workspace]);
+
+  // Render the main app
+  return (
+    <>
+      <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
+
+      <AppLayout
+        workspace={workspace}
+        practiceNotFound={practiceNotFound}
+        practiceId={practiceId}
+        onRetryPracticeConfig={handleRetryPracticeConfig}
+        currentTab={currentTab}
+        onTabChange={handleTabChange}
+        isMobileSidebarOpen={isMobileSidebarOpen}
+        onToggleMobileSidebar={setIsMobileSidebarOpen}
+        isSettingsModalOpen={isSettingsRouteNow}
+        practiceConfig={{
+          name: practiceConfig.name ?? '',
+          profileImage: practiceConfig?.profileImage ?? null,
+          description: practiceConfig?.description ?? ''
+        }}
+        currentPractice={currentPractice}
+        onOnboardingCompleted={refetchPractices}
+        messages={messages}
+        onSendMessage={handleSendMessage}
+        onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
+          return await handleFileSelect(files);
+        }}
+        dashboardContent={dashboardContent}
+        chatSidebarContent={chatSidebarContent}
+      >
+        {chatPanel}
       </AppLayout>
 
       {/* Settings Modal is hoisted in AppShell to persist across settings sub-routes */}
