@@ -34,6 +34,11 @@ export interface ConversationMetadata {
 export interface Conversation {
   id: string;
   practice_id: string;
+  practice?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
   user_id: string | null; // Creator/owner of the conversation (nullable for anonymous users)
   matter_id: string | null; // Optional: link to specific matter
   participants: string[]; // Array of user IDs

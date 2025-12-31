@@ -491,6 +491,43 @@ export const handlers = [
   // GET /api/conversations - Get or create conversation for anonymous users
   http.get('/api/conversations', async ({ request }) => {
     console.log('[MSW] Intercepted GET /api/conversations', request.url);
+    const url = new URL(request.url);
+    const scope = url.searchParams.get('scope');
+    if (scope === 'all') {
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const token = authHeader.replace('Bearer ', '').trim();
+      const user = getOrCreateAnonymousUser(token);
+      if (!user || !token) {
+        return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const practiceMap = new Map(
+        mockDb.practices.map((practice) => [practice.id, { id: practice.id, name: practice.name, slug: practice.slug }])
+      );
+      const conversations = Array.from(mockDb.conversations.values())
+        .filter((conversation) => conversation.participants.includes(user.id))
+        .map((conversation) => {
+          const practice = practiceMap.get(conversation.practice_id);
+          if (!practice) {
+            console.warn('[MSW] Missing practice for conversation', {
+              conversationId: conversation.id,
+              practiceId: conversation.practice_id
+            });
+          }
+          return {
+            ...conversation,
+            practice: practice ?? { id: conversation.practice_id, name: 'Unknown practice', slug: 'unknown' }
+          };
+        });
+      return HttpResponse.json({
+        success: true,
+        data: { conversations }
+      });
+    }
     const result = getOrCreateConversation(request);
     if ('error' in result) {
       return result.error;

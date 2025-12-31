@@ -12,33 +12,45 @@ const ClientHomePage = () => {
   const practiceSlug = currentPractice?.slug || practiceList.find(practice => practice.slug)?.slug || null;
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-2xl rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-8 shadow-sm text-center">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Welcome, {name}</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Your client workspace is ready. Start a conversation by visiting a practice page or invite a lawyer to connect with you.
-        </p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button
-            variant="primary"
-            onClick={() => {
-              if (practiceSlug) {
-                navigate(`/p/${practiceSlug}`);
-              }
-            }}
-            disabled={!practiceSlug}
-          >
-            Open a practice chat
-          </Button>
-          <Button variant="secondary" onClick={() => navigate('/settings')}>
-            Manage account settings
-          </Button>
+    <div className="h-full overflow-y-auto p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Welcome, {name}</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Your client workspace is ready. Keep track of your conversations and return to active matters any time.
+          </p>
         </div>
-        <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-          {practiceSlug
-            ? `Practice link ready: /p/${practiceSlug}`
-            : 'We will show your practice chat link once it is available.'}
-        </p>
+
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent chats</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Start a chat with a practice to see updates here.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-start">
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (practiceSlug) {
+                  navigate(`/p/${practiceSlug}`);
+                }
+              }}
+              disabled={!practiceSlug}
+            >
+              Open a practice chat
+            </Button>
+            <Button variant="secondary" onClick={() => navigate('/settings')}>
+              Manage account settings
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {practiceSlug
+              ? `Practice link ready: /p/${practiceSlug}`
+              : 'Open a practice link to begin chatting.'}
+          </p>
+        </div>
       </div>
     </div>
   );

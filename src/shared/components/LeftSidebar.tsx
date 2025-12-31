@@ -2,15 +2,17 @@ import { useState } from 'preact/hooks';
 import { SidebarContent } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
+import type { ComponentChildren } from 'preact';
 
 interface LeftSidebarProps {
   currentRoute: string;
+  onGoToDashboard?: () => void;
   onGoToChats?: () => void;
-  onGoToInbox?: () => void;
   onOpenOnboarding?: () => void;
   onClose?: () => void;
+  showDashboardTab?: boolean;
   showChatsTab?: boolean;
-  showInboxTab?: boolean;
+  chatSidebarContent?: ComponentChildren;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
@@ -26,12 +28,13 @@ interface LeftSidebarProps {
 
 const LeftSidebar = ({
   currentRoute,
+  onGoToDashboard,
   onGoToChats,
-  onGoToInbox,
   onOpenOnboarding,
   onClose,
+  showDashboardTab = true,
   showChatsTab = true,
-  showInboxTab = true,
+  chatSidebarContent,
   practiceConfig,
   currentPractice,
   onboardingStatus,
@@ -48,12 +51,13 @@ const LeftSidebar = ({
       <SidebarContent
         practiceConfig={practiceConfig}
         currentRoute={currentRoute}
+        onGoToDashboard={onGoToDashboard}
         onGoToChats={onGoToChats}
-        onGoToInbox={onGoToInbox}
         onOpenOnboarding={onOpenOnboarding}
         onClose={onClose}
+        showDashboardTab={showDashboardTab}
         showChatsTab={showChatsTab}
-        showInboxTab={showInboxTab}
+        chatSidebarContent={chatSidebarContent}
         currentPractice={currentPractice}
         onboardingStatus={onboardingStatus}
         onboardingHasDraft={onboardingHasDraft}

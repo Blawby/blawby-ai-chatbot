@@ -8,9 +8,10 @@
 import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
-import { ChatBubbleOvalLeftEllipsisIcon, RocketLaunchIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleOvalLeftEllipsisIcon, RocketLaunchIcon, HomeIcon } from '@heroicons/react/24/outline';
 import UserProfile from '@/shared/components/UserProfile';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
+import type { ComponentChildren } from 'preact';
 
 interface SidebarContentProps {
   practiceConfig?: {
@@ -19,12 +20,13 @@ interface SidebarContentProps {
     practiceId: string;
   };
   currentRoute: string;
+  onGoToDashboard?: () => void;
   onGoToChats?: () => void;
-  onGoToInbox?: () => void;
   onOpenOnboarding?: () => void;
   onClose?: () => void;
+  showDashboardTab?: boolean;
   showChatsTab?: boolean;
-  showInboxTab?: boolean;
+  chatSidebarContent?: ComponentChildren;
   currentPractice?: {
     id: string;
     subscriptionTier?: string;
@@ -38,12 +40,13 @@ interface SidebarContentProps {
 export const SidebarContent = ({
   practiceConfig,
   currentRoute,
+  onGoToDashboard,
   onGoToChats,
-  onGoToInbox,
   onOpenOnboarding,
   onClose,
+  showDashboardTab = true,
   showChatsTab = true,
-  showInboxTab = true,
+  chatSidebarContent,
   currentPractice,
   onboardingStatus,
   onboardingHasDraft = false,
@@ -71,6 +74,16 @@ export const SidebarContent = ({
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-2">
           <NavigationList>
+            {showDashboardTab && onGoToDashboard && (
+              <NavigationItem
+                icon={<HomeIcon />}
+                label="Dashboard"
+                isActive={currentRoute === 'dashboard'}
+                onClick={onGoToDashboard}
+                isCollapsed={isCollapsed}
+              />
+            )}
+
             {showChatsTab && onGoToChats && (
               <NavigationItem
                 icon={<ChatBubbleOvalLeftEllipsisIcon />}
@@ -91,16 +104,6 @@ export const SidebarContent = ({
               matterStatus={matterStatus}
             /> */}
 
-            {showInboxTab && onGoToInbox && (
-              <NavigationItem
-                icon={<EnvelopeIcon />}
-                label="Inbox"
-                isActive={currentRoute === 'inbox'}
-                onClick={onGoToInbox}
-                isCollapsed={isCollapsed}
-              />
-            )}
-
             {onboardingStatus && onboardingStatus !== 'not_required' && (
               <NavigationItem
                 icon={<RocketLaunchIcon />}
@@ -112,6 +115,12 @@ export const SidebarContent = ({
             )}
           </NavigationList>
         </div>
+
+        {!isCollapsed && currentRoute === 'chats' && chatSidebarContent && (
+          <div className="flex-1 overflow-y-auto px-1 pb-2">
+            {chatSidebarContent}
+          </div>
+        )}
       </div>
 
       {/* User Profile Section */}

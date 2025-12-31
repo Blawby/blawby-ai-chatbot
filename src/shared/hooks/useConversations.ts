@@ -9,6 +9,10 @@ interface UseConversationsOptions {
   practiceId?: string;
   matterId?: string | null;
   status?: ConversationStatus | null;
+  scope?: 'practice' | 'all';
+  limit?: number;
+  offset?: number;
+  enabled?: boolean;
   onError?: (error: string) => void;
 }
 
@@ -38,6 +42,10 @@ export function useConversations({
   practiceId,
   matterId,
   status,
+  scope = 'practice',
+  limit,
+  offset,
+  enabled = true,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -64,7 +72,12 @@ export function useConversations({
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
-    if (!practiceId) {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (scope === 'practice' && !practiceId) {
       setIsLoading(false);
       return;
     }
@@ -77,18 +90,29 @@ export function useConversations({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const params = new URLSearchParams({
-        practiceId,
-      });
+      const params = new URLSearchParams();
 
-      if (matterId) {
+      if (scope === 'all') {
+        params.set('scope', 'all');
+      } else if (practiceId) {
+        params.set('practiceId', practiceId);
+      }
+
+      if (matterId && scope !== 'all') {
         params.set('matterId', matterId);
       }
       if (status) {
         params.set('status', status);
       }
+      if (limit) {
+        params.set('limit', limit.toString());
+      }
+      if (offset !== undefined && offset !== null) {
+        params.set('offset', offset.toString());
+      }
 
-      const response = await fetch(`${getConversationsEndpoint()}?${params.toString()}`, {
+      const queryString = params.toString();
+      const response = await fetch(`${getConversationsEndpoint()}${queryString ? `?${queryString}` : ''}`, {
         method: 'GET',
         headers,
         credentials: 'include',
@@ -152,7 +176,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status]);
+  }, [practiceId, matterId, status, scope, limit, offset, enabled]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {
@@ -252,7 +276,12 @@ export function useConversations({
 
   // Initial load and refetch when filters change
   useEffect(() => {
-    if (!practiceId) {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (scope === 'practice' && !practiceId) {
       setIsLoading(false);
       return;
     }
@@ -265,7 +294,7 @@ export function useConversations({
         abortControllerRef.current.abort();
       }
     };
-  }, [practiceId, matterId, status, fetchConversations]);
+  }, [practiceId, matterId, status, fetchConversations, scope, enabled]);
 
   return {
     conversations,
