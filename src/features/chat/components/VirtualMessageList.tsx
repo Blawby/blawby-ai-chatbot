@@ -7,7 +7,6 @@ import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
-import { useTranslation } from '@/shared/i18n/hooks';
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
@@ -37,7 +36,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     practiceId,
     intakeStatus
 }) => {
-    const { t } = useTranslation('auth');
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(messages.length);
@@ -126,21 +124,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
 
     const visibleMessages = messages.slice(startIndex, endIndex);
-    const intakeStep = intakeStatus?.step;
-    const showIntakeBanner =
-        intakeStep === 'pending_review' ||
-        intakeStep === 'accepted' ||
-        intakeStep === 'rejected';
-
-    const intakeBannerText = (() => {
-        if (intakeStep === 'accepted') {
-            return t('intake.accepted');
-        }
-        if (intakeStep === 'rejected') {
-            return t('intake.rejected');
-        }
-        return t('intake.pending');
-    })();
 
     return (
         <div
@@ -158,12 +141,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         variant="welcome"
                         showVerified={true}
                     />
-                </div>
-            )}
-
-            {showIntakeBanner && (
-                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-100">
-                    {intakeBannerText}
                 </div>
             )}
 
