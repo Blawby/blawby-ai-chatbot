@@ -172,7 +172,10 @@ const mockSession = {
       name: 'Mock User',
       email: 'owner@mock-law.test',
       practiceId: MOCK_PRACTICE_ID,
-      activePracticeId: MOCK_PRACTICE_ID
+      activePracticeId: MOCK_PRACTICE_ID,
+      primaryWorkspace: 'practice' as const,
+      preferredPracticeId: MOCK_PRACTICE_ID,
+      hasPractice: true
     },
     session: {
       id: 'mock-session-1',
@@ -191,7 +194,10 @@ function MockSessionProvider({ children }: { children: preact.ComponentChildren 
   const value = useMemo<SessionContextValue>(() => ({
     session: mockSession.data,
     activePracticeId: mockSession.data.user.activePracticeId,
-    isAnonymous: false
+    isAnonymous: false,
+    primaryWorkspace: 'practice' as const,
+    preferredPracticeId: MOCK_PRACTICE_ID,
+    hasPractice: true
   }), []);
 
   return (

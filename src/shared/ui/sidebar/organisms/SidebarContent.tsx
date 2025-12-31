@@ -23,6 +23,8 @@ interface SidebarContentProps {
   onGoToInbox?: () => void;
   onOpenOnboarding?: () => void;
   onClose?: () => void;
+  showChatsTab?: boolean;
+  showInboxTab?: boolean;
   currentPractice?: {
     id: string;
     subscriptionTier?: string;
@@ -40,6 +42,8 @@ export const SidebarContent = ({
   onGoToInbox,
   onOpenOnboarding,
   onClose,
+  showChatsTab = true,
+  showInboxTab = true,
   currentPractice,
   onboardingStatus,
   onboardingHasDraft = false,
@@ -67,13 +71,15 @@ export const SidebarContent = ({
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-2">
           <NavigationList>
-            <NavigationItem
-              icon={<ChatBubbleOvalLeftEllipsisIcon />}
-              label="Chats"
-              isActive={currentRoute === 'chats'}
-              onClick={onGoToChats || (() => {})}
-              isCollapsed={isCollapsed}
-            />
+            {showChatsTab && onGoToChats && (
+              <NavigationItem
+                icon={<ChatBubbleOvalLeftEllipsisIcon />}
+                label="Chats"
+                isActive={currentRoute === 'chats'}
+                onClick={onGoToChats}
+                isCollapsed={isCollapsed}
+              />
+            )}
 
             {/* Matter navigation temporarily hidden */}
             {/* <NavigationItem
@@ -85,7 +91,7 @@ export const SidebarContent = ({
               matterStatus={matterStatus}
             /> */}
 
-            {onGoToInbox && (
+            {showInboxTab && onGoToInbox && (
               <NavigationItem
                 icon={<EnvelopeIcon />}
                 label="Inbox"

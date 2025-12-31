@@ -20,5 +20,10 @@
   "errors": {
     "signOutFailed": "Failed to sign out. Please try again.",
     "signOutFailedTitle": "Sign out failed"
-  }
+  },
+  "workspace": "Workspace",
+  "clientView": "Client view",
+  "practiceView": "Practice view",
+  "practiceViewWithName": "Practice view - {{practiceLabel}}",
+  "createPractice": "Create a practice"
 }

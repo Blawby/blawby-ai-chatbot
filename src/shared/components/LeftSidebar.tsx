@@ -9,6 +9,8 @@ interface LeftSidebarProps {
   onGoToInbox?: () => void;
   onOpenOnboarding?: () => void;
   onClose?: () => void;
+  showChatsTab?: boolean;
+  showInboxTab?: boolean;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
@@ -22,7 +24,19 @@ interface LeftSidebarProps {
   onboardingHasDraft?: boolean;
 }
 
-const LeftSidebar = ({ currentRoute, onGoToChats, onGoToInbox, onOpenOnboarding, onClose, practiceConfig, currentPractice, onboardingStatus, onboardingHasDraft }: LeftSidebarProps) => {
+const LeftSidebar = ({
+  currentRoute,
+  onGoToChats,
+  onGoToInbox,
+  onOpenOnboarding,
+  onClose,
+  showChatsTab = true,
+  showInboxTab = true,
+  practiceConfig,
+  currentPractice,
+  onboardingStatus,
+  onboardingHasDraft
+}: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useMobileDetection();
   
@@ -38,6 +52,8 @@ const LeftSidebar = ({ currentRoute, onGoToChats, onGoToInbox, onOpenOnboarding,
         onGoToInbox={onGoToInbox}
         onOpenOnboarding={onOpenOnboarding}
         onClose={onClose}
+        showChatsTab={showChatsTab}
+        showInboxTab={showInboxTab}
         currentPractice={currentPractice}
         onboardingStatus={onboardingStatus}
         onboardingHasDraft={onboardingHasDraft}

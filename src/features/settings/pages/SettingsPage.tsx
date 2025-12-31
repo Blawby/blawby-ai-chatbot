@@ -30,6 +30,8 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { getStoredWorkspace } from '@/shared/utils/workspace';
 
 
 export interface SettingsPageProps {
@@ -50,6 +52,10 @@ export const SettingsPage = ({
   const [apps, setApps] = useState<App[]>(mockApps);
   const { practices, currentPractice, loading: practicesLoading } = usePracticeManagement({ autoFetchPractices: true });
   const hasPractice = practices.length > 0 || currentPractice !== null;
+  const { defaultWorkspace } = useWorkspace();
+  const storedWorkspace = getStoredWorkspace();
+  const activeWorkspace = storedWorkspace ?? defaultWorkspace;
+  const canShowPracticeSettings = activeWorkspace === 'practice' && hasPractice;
   
   // Get current page from URL path
   const getCurrentPage = () => {
@@ -83,10 +89,10 @@ export const SettingsPage = ({
   }, [currentPage, navigate]);
   
   useEffect(() => {
-    if (!practicesLoading && !hasPractice && (currentPage === 'practice' || currentPage === 'apps')) {
+    if (!practicesLoading && !canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
       navigate('/settings');
     }
-  }, [currentPage, hasPractice, navigate, practicesLoading]);
+  }, [canShowPracticeSettings, currentPage, navigate, practicesLoading]);
 
   if (currentPage === 'organization') {
     return null;
@@ -124,7 +130,7 @@ export const SettingsPage = ({
     { id: 'general', label: t('settings:navigation.items.general'), icon: Cog6ToothIcon },
     { id: 'notifications', label: t('settings:navigation.items.notifications'), icon: BellIcon },
     { id: 'account', label: t('settings:navigation.items.account'), icon: UserIcon },
-    ...(hasPractice ? [
+    ...(canShowPracticeSettings ? [
       { id: 'practice', label: t('settings:navigation.items.practice'), icon: BuildingOfficeIcon },
       { id: 'apps', label: t('settings:navigation.items.apps'), icon: PuzzlePieceIcon },
     ] : []),

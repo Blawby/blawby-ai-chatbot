@@ -8,6 +8,7 @@ import { useSession } from '@/shared/lib/authClient';
 import type { SubscriptionTier } from '@/shared/types/user';
 import { resolvePracticeKind } from '@/shared/utils/subscription';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { useConversations } from '@/shared/hooks/useConversations';
@@ -29,17 +30,20 @@ export function MainApp({
   practiceConfig,
   practiceNotFound,
   handleRetryPracticeConfig,
-  isPracticeView
+  isPracticeView,
+  workspace
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
   practiceNotFound: boolean;
   handleRetryPracticeConfig: () => void;
   isPracticeView: boolean;
+  workspace: WorkspaceType;
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
-  const [currentTab, setCurrentTab] = useState<'chats' | 'matter' | 'inbox'>('chats');
+  const initialTab = workspace === 'practice' ? 'inbox' : 'chats';
+  const [currentTab, setCurrentTab] = useState<'chats' | 'matter' | 'inbox'>(initialTab);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const location = useLocation();
@@ -55,9 +59,19 @@ export function MainApp({
     setConversationId(null);
   }, [practiceId]);
 
+  useEffect(() => {
+    if (workspace === 'practice' && currentTab === 'chats') {
+      setCurrentTab('inbox');
+    }
+    if (workspace !== 'practice' && currentTab === 'inbox') {
+      setCurrentTab('chats');
+    }
+  }, [currentTab, workspace]);
+
   // Use session from Better Auth
   const { data: session, isPending: sessionIsPending } = useSession();
   const isAnonymousUser = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
+  const isPracticeWorkspace = workspace === 'practice';
 
   // Practice data is now passed as props
 
@@ -83,7 +97,7 @@ export function MainApp({
     isLoading: conversationsLoading,
     refresh: refreshConversations
   } = useConversations({
-    practiceId,
+    practiceId: isPracticeWorkspace ? '' : practiceId,
     onError: (error) => showErrorRef.current?.(error)
   });
 
@@ -94,8 +108,8 @@ export function MainApp({
   }, []);
 
   const realMessageHandling = useMessageHandling({
-    practiceId,
-    practiceSlug: practiceConfig.slug ?? undefined,
+    practiceId: isPracticeWorkspace ? '' : practiceId,
+    practiceSlug: isPracticeWorkspace ? undefined : (practiceConfig.slug ?? undefined),
     conversationId: conversationId ?? undefined,
     onError: handleMessageError
   });
@@ -110,6 +124,7 @@ export function MainApp({
   }, [practiceId]);
 
   const createConversation = useCallback(async () => {
+    if (isPracticeWorkspace) return null;
     if (!practiceId || !session?.user || isCreatingConversation) return null;
 
     try {
@@ -167,14 +182,14 @@ export function MainApp({
     } finally {
       setIsCreatingConversation(false);
     }
-  }, [practiceId, session?.user, isCreatingConversation, refreshConversations]);
+  }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation, refreshConversations]);
 
   const [conversationCreationFailed, setConversationCreationFailed] = useState(false);
   const conversationCreationAttempted = useRef<string | null>(null);
   const conversationCreationInProgress = useRef(false);
 
   useEffect(() => {
-    if (conversationsLoading || isCreatingConversation) return;
+    if (isPracticeWorkspace || conversationsLoading || isCreatingConversation) return;
 
     // Prevent infinite loops and race conditions
     if (
@@ -228,6 +243,7 @@ export function MainApp({
       });
     }
   }, [
+    isPracticeWorkspace,
     conversationsLoading,
     isCreatingConversation,
     conversations,
@@ -388,8 +404,8 @@ export function MainApp({
   // User tier is now derived directly from practice - no need for custom event listeners
 
   const isSessionReady = Boolean(conversationId && !conversationsLoading && !isCreatingConversation);
-  const canChat = Boolean(isPracticeView && practiceId);
-  const showMatterControls = currentPractice?.id === practiceId;
+  const canChat = !isPracticeWorkspace && Boolean(isPracticeView && practiceId);
+  const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
 
   const activeConversation = useMemo(() => {
     if (conversationId) {
@@ -561,6 +577,7 @@ export function MainApp({
       <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />
 
       <AppLayout
+        workspace={workspace}
         practiceNotFound={practiceNotFound}
         practiceId={practiceId}
         onRetryPracticeConfig={handleRetryPracticeConfig}
@@ -630,7 +647,7 @@ export function MainApp({
         </div>
       </AppLayout>
 
-      {/* Settings Modal moved to AppWithSEO to persist across settings sub-routes */}
+      {/* Settings Modal is hoisted in AppShell to persist across settings sub-routes */}
 
       {/* Pricing Modal */}
       <PricingModal

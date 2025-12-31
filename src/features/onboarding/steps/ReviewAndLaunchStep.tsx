@@ -36,7 +36,7 @@ export function ReviewAndLaunchStep({
   onVisibilityChange,
 }: ReviewAndLaunchStepProps) {
   const { t } = useTranslation('common');
-  const intakeUrl = `https://ai.blawby.com/${encodeURIComponent((practiceSlug || 'your-firm').trim())}`;
+  const intakeUrl = `https://ai.blawby.com/p/${encodeURIComponent((practiceSlug || 'your-firm').trim())}`;
   const validServices = data.services.filter(service => service.title.trim().length > 0);
 
   const launchFeatures = [

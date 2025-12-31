@@ -310,8 +310,18 @@ const defaultPreferences: UserPreferences = {
   typingIndicators: true
 };
 
+export interface MockUser {
+  id: string;
+  email: string;
+  name: string;
+  primaryWorkspace?: 'client' | 'practice' | null;
+  preferredPracticeId?: string | null;
+  practiceCount?: number | null;
+  hasPractice?: boolean | null;
+}
+
 // Storage for anonymous users (keyed by session/token)
-const anonymousUsers = new Map<string, { id: string; email: string; name: string }>();
+const anonymousUsers = new Map<string, MockUser>();
 
 // Storage for conversations (keyed by conversation ID)
 const conversations = new Map<string, MockConversation>();
@@ -358,7 +368,7 @@ export function ensurePracticeCollections(practiceId: string): void {
 }
 
 // Helper to get or create anonymous user
-export function getOrCreateAnonymousUser(token: string): { id: string; email: string; name: string } {
+export function getOrCreateAnonymousUser(token: string): MockUser {
   const existingUser = mockDb.anonymousUsers.get(token);
   if (existingUser) {
     return existingUser;
@@ -367,14 +377,18 @@ export function getOrCreateAnonymousUser(token: string): { id: string; email: st
   const user = {
     id: userId,
     email: '',
-    name: 'Anonymous User'
+    name: 'Anonymous User',
+    primaryWorkspace: null,
+    preferredPracticeId: null,
+    practiceCount: 0,
+    hasPractice: false
   };
   mockDb.anonymousUsers.set(token, user);
   return user;
 }
 
 // Helper to get anonymous user by token without creating
-export function getAnonymousUserByToken(token: string): { id: string; email: string; name: string } | null {
+export function getAnonymousUserByToken(token: string): MockUser | null {
   return mockDb.anonymousUsers.get(token) ?? null;
 }
 

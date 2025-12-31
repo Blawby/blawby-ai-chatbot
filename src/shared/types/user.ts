@@ -14,7 +14,12 @@ export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'ko' | '
 export interface ExtendedUser extends BetterAuthUser {
   // Organization & Role
   practiceId?: string | null;
+  activePracticeId?: string | null;
   role?: string | null;
+  primaryWorkspace?: 'client' | 'practice' | null;
+  preferredPracticeId?: string | null;
+  practiceCount?: number | null;
+  hasPractice?: boolean | null;
   
   // Contact Info
   phone?: string | null;
@@ -58,8 +63,13 @@ export interface UserProfile {
   email: string;
   image?: string | null;
   practiceId?: string | null;
+  activePracticeId?: string | null;
   role?: string | null;
   phone?: string | null;
+  primaryWorkspace?: 'client' | 'practice' | null;
+  preferredPracticeId?: string | null;
+  practiceCount?: number | null;
+  hasPractice?: boolean | null;
   
   // Profile Information
   bio?: string | null;
@@ -234,8 +244,13 @@ export interface BetterAuthSessionUser {
   image?: string | null;
   lastLoginMethod?: string; // "google", "email", etc.
   practiceId?: string | null;
+  activePracticeId?: string | null;
   role?: string | null;
   phone?: string | null;
+  primaryWorkspace?: 'client' | 'practice' | null;
+  preferredPracticeId?: string | null;
+  practiceCount?: number | null;
+  hasPractice?: boolean | null;
   
   // All the additional fields we added
   bio?: string | null;
@@ -446,6 +461,14 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
   // Validate required fields first
   validateRequiredFields(rawUser);
   
+  const rawPrimaryWorkspace = rawUser.primaryWorkspace;
+  const primaryWorkspace =
+    rawPrimaryWorkspace === 'client' || rawPrimaryWorkspace === 'practice'
+      ? rawPrimaryWorkspace
+      : rawPrimaryWorkspace === null
+        ? null
+        : undefined;
+
   // Build the transformed user object with explicit field mapping
   const transformedUser: BetterAuthSessionUser = {
     // Required fields (already validated)
@@ -460,8 +483,13 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     image: rawUser.image as string | null | undefined,
     lastLoginMethod: rawUser.lastLoginMethod as string | undefined,
     practiceId: rawUser.practiceId as string | null | undefined,
+    activePracticeId: rawUser.activePracticeId as string | null | undefined,
     role: rawUser.role as string | null | undefined,
     phone: rawUser.phone as string | null | undefined,
+    primaryWorkspace,
+    preferredPracticeId: rawUser.preferredPracticeId as string | null | undefined,
+    practiceCount: typeof rawUser.practiceCount === 'number' ? rawUser.practiceCount : undefined,
+    hasPractice: typeof rawUser.hasPractice === 'boolean' ? rawUser.hasPractice : undefined,
     
     // Profile fields
     bio: rawUser.bio as string | null | undefined,
@@ -538,4 +566,3 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
   
   return transformedUser;
 }
-

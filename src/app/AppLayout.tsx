@@ -18,7 +18,6 @@ import { Button } from '@/shared/ui/Button';
 import ActivityTimeline from '@/features/matters/components/ActivityTimeline';
 import MatterTab from '@/features/matters/components/MatterTab';
 import { InboxPage } from '@/features/settings/pages/InboxPage';
-import { useSession } from '@/shared/lib/authClient';
 import { useMatterState } from '@/shared/hooks/useMatterState';
 import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
 import { THEME } from '@/shared/utils/constants';
@@ -29,6 +28,7 @@ import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagem
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import Modal from '@/shared/components/Modal';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
+import type { WorkspaceType } from '@/shared/types/workspace';
 
 // Simple messages object for localization
 const messages = {
@@ -36,6 +36,7 @@ const messages = {
 };
 
 interface AppLayoutProps {
+  workspace: WorkspaceType;
   practiceNotFound: boolean;
   practiceId: string;
   onRetryPracticeConfig: () => void;
@@ -65,6 +66,7 @@ interface AppLayoutProps {
 }
 
 const AppLayout: FunctionComponent<AppLayoutProps> = ({
+  workspace,
   practiceNotFound,
   practiceId,
   onRetryPracticeConfig,
@@ -87,15 +89,12 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const { showError } = useToastContext();
   const { navigate } = useNavigation();
   const location = useLocation();
-  const { data: session } = useSession();
   const { openBillingPortal } = usePaymentUpgrade();
   const [matterAction, setMatterAction] = useState<'pay' | 'pdf' | 'share' | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
-  
-  // Show inbox tab for all authenticated users
-  // API will enforce member-only access (requires practice member role)
-  const isAuthenticated = !!session?.user;
-  const showInboxTab = isAuthenticated;
+
+  const showInboxTab = workspace === 'practice';
+  const showChatsTab = workspace !== 'practice';
 
   // Activity is feature-flagged off by default while we decide the final architecture.
   // TODO(activity): migrate activity source-of-truth to staging-api and remove Worker/D1 dependency.
@@ -238,10 +237,13 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   };
 
   useEffect(() => {
-    if (!isAuthenticated && currentTab === 'inbox') {
+    if (!showInboxTab && currentTab === 'inbox') {
       onTabChange('chats');
     }
-  }, [isAuthenticated, currentTab, onTabChange]);
+    if (!showChatsTab && currentTab === 'chats') {
+      onTabChange('inbox');
+    }
+  }, [currentTab, onTabChange, showChatsTab, showInboxTab]);
   const { isNavbarVisible } = useNavbarScroll({ 
     threshold: 50, 
     debounceMs: 0
@@ -279,8 +281,9 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     }
   };
 
-  const onboardingStatus = currentPractice?.businessOnboardingStatus;
-  const hasOnboardingDraft = currentPractice?.businessOnboardingHasDraft ?? false;
+  const canShowOnboarding = workspace === 'practice';
+  const onboardingStatus = canShowOnboarding ? currentPractice?.businessOnboardingStatus : undefined;
+  const hasOnboardingDraft = canShowOnboarding ? (currentPractice?.businessOnboardingHasDraft ?? false) : false;
   const _onboardingPracticeId = currentPractice?.id;
 
   return (
@@ -292,9 +295,11 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
           <div className="overflow-y-auto hidden lg:block">
             <LeftSidebar
               currentRoute={currentTab}
-              onGoToChats={handleGoToChats}
+              showChatsTab={showChatsTab}
+              showInboxTab={showInboxTab}
+              onGoToChats={showChatsTab ? handleGoToChats : undefined}
               onGoToInbox={showInboxTab ? handleGoToInbox : undefined}
-              onOpenOnboarding={handleOpenOnboarding}
+              onOpenOnboarding={canShowOnboarding ? handleOpenOnboarding : undefined}
               practiceConfig={{
                 name: practiceConfig.name,
                 profileImage: practiceConfig.profileImage,
@@ -345,18 +350,20 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                 >
                   <LeftSidebar
                     currentRoute={currentTab}
-                    onGoToChats={() => {
+                    showChatsTab={showChatsTab}
+                    showInboxTab={showInboxTab}
+                    onGoToChats={showChatsTab ? () => {
                       handleGoToChats();
                       onToggleMobileSidebar(false);
-                    }}
+                    } : undefined}
                     onGoToInbox={showInboxTab ? () => {
                       handleGoToInbox();
                       onToggleMobileSidebar(false);
                     } : undefined}
-                    onOpenOnboarding={() => {
+                    onOpenOnboarding={canShowOnboarding ? () => {
                       handleOpenOnboarding();
                       onToggleMobileSidebar(false);
-                    }}
+                    } : undefined}
                     onClose={() => onToggleMobileSidebar(false)}
                     practiceConfig={{
                       name: practiceConfig.name,

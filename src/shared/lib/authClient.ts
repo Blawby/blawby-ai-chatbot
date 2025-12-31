@@ -4,9 +4,16 @@ import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
 import { setToken, getTokenAsync } from './tokenStorage';
 import { isDevelopment } from '@/shared/utils/environment';
+import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
 
 // Type for the auth client (inferred from createAuthClient return type)
 type AuthClientType = ReturnType<typeof createAuthClient>;
+type AuthSession = ReturnType<AuthClientType['useSession']>;
+type AuthSessionData = AuthSession['data'];
+type TypedSessionData = AuthSessionData extends { user: unknown; session: infer S }
+  ? { user: BetterAuthSessionUser; session: S }
+  : AuthSessionData;
+type TypedSessionDataOrOriginal = TypedSessionData | AuthSessionData | undefined;
 
 // Remote better-auth server URL
 // REQUIRED in production - must be set via VITE_AUTH_SERVER_URL environment variable
@@ -191,7 +198,7 @@ export const authClient = new Proxy({} as AuthClientType, {
                 }
                 return subSubValue;
               }
-            });
+});
           }
           return subValue;
         }
@@ -233,6 +240,22 @@ export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAu
 export const useSession = () => {
   const client = getAuthClient();
   return client.useSession();
+};
+
+export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionDataOrOriginal } => {
+  const client = getAuthClient();
+  const session = client.useSession();
+  const rawUser = session.data?.user as Record<string, unknown> | undefined;
+  const typedUser: BetterAuthSessionUser | undefined = rawUser ? transformSessionUser(rawUser) : undefined;
+
+  if (session.data && typedUser) {
+    return {
+      ...session,
+      data: { ...session.data, user: typedUser }
+    };
+  }
+
+  return session;
 };
 
 export const getSession = (...args: Parameters<AuthClientType['getSession']>) => getAuthClient().getSession(...args);

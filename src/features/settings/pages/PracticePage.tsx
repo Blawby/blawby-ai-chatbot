@@ -262,8 +262,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     ? onboardingData.isPublic
     : (typeof conversationConfig?.isPublic === 'boolean' ? conversationConfig.isPublic : false);
   const practiceUrlValue = currentPractice?.slug
-    ? `ai.blawby.com/${currentPractice.slug}`
-    : 'ai.blawby.com/your-practice';
+    ? `ai.blawby.com/p/${currentPractice.slug}`
+    : 'ai.blawby.com/p/your-practice';
   const overviewPreview = overviewValue ? truncateText(overviewValue, 140) : 'Not set';
   const descriptionValue = currentPractice?.description?.trim() || '';
   const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';

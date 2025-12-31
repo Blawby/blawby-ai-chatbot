@@ -441,6 +441,10 @@ export const handlers = [
         id: user.id,
         email: user.email,
         name: user.name,
+        primaryWorkspace: user.primaryWorkspace ?? null,
+        preferredPracticeId: user.preferredPracticeId ?? null,
+        practiceCount: user.practiceCount ?? 0,
+        hasPractice: user.hasPractice ?? false,
         email_verified: false,
         image: null
       },
@@ -451,6 +455,37 @@ export const handlers = [
         active_organization_id: null
       }
     });
+  }),
+
+  // Better Auth update-user (minimal mock for workspace preferences)
+  http.post('/api/auth/update-user', async ({ request }) => {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const token = authHeader.replace('Bearer ', '').trim();
+    const user = getOrCreateAnonymousUser(token);
+    const payload = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if ('primaryWorkspace' in payload) {
+      user.primaryWorkspace =
+        payload.primaryWorkspace === 'client' || payload.primaryWorkspace === 'practice'
+          ? payload.primaryWorkspace
+          : null;
+    }
+    if ('preferredPracticeId' in payload) {
+      user.preferredPracticeId = typeof payload.preferredPracticeId === 'string'
+        ? payload.preferredPracticeId
+        : null;
+    }
+    if ('practiceCount' in payload && typeof payload.practiceCount === 'number') {
+      user.practiceCount = payload.practiceCount;
+    }
+    if ('hasPractice' in payload && typeof payload.hasPractice === 'boolean') {
+      user.hasPractice = payload.hasPractice;
+    }
+
+    return HttpResponse.json({ user });
   }),
 
   // GET /api/conversations - Get or create conversation for anonymous users
