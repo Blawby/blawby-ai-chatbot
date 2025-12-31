@@ -191,7 +191,6 @@ function MockSessionProvider({ children }: { children: preact.ComponentChildren 
   const value = useMemo<SessionContextValue>(() => ({
     session: mockSession.data,
     activePracticeId: mockSession.data.user.activePracticeId,
-    isLoading: false,
     isAnonymous: false
   }), []);
 
