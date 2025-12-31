@@ -6,7 +6,14 @@
  */
 
 import { ProfileMenuItem } from './ProfileMenuItem';
-import { SparklesIcon, Cog6ToothIcon, QuestionMarkCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import {
+  SparklesIcon,
+  Cog6ToothIcon,
+  QuestionMarkCircleIcon,
+  ArrowRightOnRectangleIcon,
+  UserIcon,
+  BuildingOfficeIcon
+} from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { type SubscriptionTier } from '@/shared/types/user';
 
@@ -16,6 +23,11 @@ interface ProfileDropdownProps {
   onSettings: () => void;
   onHelp: () => void;
   onLogout: () => void;
+  onSwitchToClient?: () => void;
+  onSwitchToPractice?: () => void;
+  workspace?: 'client' | 'practice';
+  hasPractice?: boolean;
+  practiceLabel?: string | null;
   signOutError?: string | null;
   className?: string;
 }
@@ -26,10 +38,19 @@ export const ProfileDropdown = ({
   onSettings, 
   onHelp, 
   onLogout,
+  onSwitchToClient,
+  onSwitchToPractice,
+  workspace,
+  hasPractice = false,
+  practiceLabel,
   signOutError,
   className = ''
 }: ProfileDropdownProps) => {
   const { t } = useTranslation(['profile', 'common']);
+  const showWorkspaceSwitcher = Boolean(onSwitchToClient && onSwitchToPractice);
+  const practiceLabelText = hasPractice
+    ? (practiceLabel ? `Practice view - ${practiceLabel}` : 'Practice view')
+    : 'Create a practice';
 
   return (
     <div 
@@ -53,6 +74,29 @@ export const ProfileDropdown = ({
         label={t('profile:menu.settings')}
         onClick={onSettings}
       />
+
+      {showWorkspaceSwitcher && (
+        <>
+          {/* Separator */}
+          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+
+          <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-400">
+            Workspace
+          </div>
+          <ProfileMenuItem
+            icon={<UserIcon />}
+            label="Client view"
+            onClick={onSwitchToClient ?? (() => {})}
+            isActive={workspace === 'client'}
+          />
+          <ProfileMenuItem
+            icon={<BuildingOfficeIcon />}
+            label={practiceLabelText}
+            onClick={onSwitchToPractice ?? (() => {})}
+            isActive={workspace === 'practice'}
+          />
+        </>
+      )}
       
       {/* Separator */}
       <div className="border-t border-gray-200 dark:border-gray-700 my-1" />

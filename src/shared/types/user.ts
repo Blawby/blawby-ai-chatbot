@@ -15,6 +15,10 @@ export interface ExtendedUser extends BetterAuthUser {
   // Organization & Role
   practiceId?: string | null;
   role?: string | null;
+  primaryWorkspace?: 'client' | 'practice' | null;
+  preferredPracticeId?: string | null;
+  practiceCount?: number | null;
+  hasPractice?: boolean | null;
   
   // Contact Info
   phone?: string | null;
@@ -60,6 +64,10 @@ export interface UserProfile {
   practiceId?: string | null;
   role?: string | null;
   phone?: string | null;
+  primaryWorkspace?: 'client' | 'practice' | null;
+  preferredPracticeId?: string | null;
+  practiceCount?: number | null;
+  hasPractice?: boolean | null;
   
   // Profile Information
   bio?: string | null;
@@ -236,6 +244,10 @@ export interface BetterAuthSessionUser {
   practiceId?: string | null;
   role?: string | null;
   phone?: string | null;
+  primaryWorkspace?: 'client' | 'practice' | null;
+  preferredPracticeId?: string | null;
+  practiceCount?: number | null;
+  hasPractice?: boolean | null;
   
   // All the additional fields we added
   bio?: string | null;
@@ -462,6 +474,10 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     practiceId: rawUser.practiceId as string | null | undefined,
     role: rawUser.role as string | null | undefined,
     phone: rawUser.phone as string | null | undefined,
+    primaryWorkspace: rawUser.primaryWorkspace as 'client' | 'practice' | null | undefined,
+    preferredPracticeId: rawUser.preferredPracticeId as string | null | undefined,
+    practiceCount: typeof rawUser.practiceCount === 'number' ? rawUser.practiceCount : undefined,
+    hasPractice: typeof rawUser.hasPractice === 'boolean' ? rawUser.hasPractice : undefined,
     
     // Profile fields
     bio: rawUser.bio as string | null | undefined,
@@ -538,4 +554,3 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
   
   return transformedUser;
 }
-

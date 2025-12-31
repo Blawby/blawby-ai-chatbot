@@ -9,13 +9,16 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';
-import { useSession } from '@/shared/lib/authClient';
+import { useSession, updateUser } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { signOut } from '@/shared/utils/auth';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { type SubscriptionTier } from '@/shared/types/user';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { setActivePractice } from '@/shared/lib/apiClient';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
@@ -32,11 +35,14 @@ export const UserProfileDisplay = ({
   const { t } = useTranslation(['profile', 'common']);
   const { data: session, isPending, error } = useSession();
   const { showError } = useToastContext();
+  const { currentPractice: managedPractice, practices } = usePracticeManagement();
+  const { workspaceFromPath, preferredWorkspace, preferredPracticeId, hasPractice } = useWorkspace();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
+  const practiceForTier = currentPractice ?? managedPractice ?? null;
 
   // Derive user data from session and practice
   const user = session?.user ? {
@@ -44,10 +50,10 @@ export const UserProfileDisplay = ({
     name: session.user.name || session.user.email || 'User',
     email: session.user.email,
     image: session.user.image,
-    practiceId: currentPractice?.id || null,
+    practiceId: practiceForTier?.id || null,
     role: 'user',
     phone: null,
-    subscriptionTier: (currentPractice?.subscriptionTier || 'free') as SubscriptionTier
+    subscriptionTier: (practiceForTier?.subscriptionTier || 'free') as SubscriptionTier
   } : null;
 
 
@@ -115,6 +121,40 @@ export const UserProfileDisplay = ({
   const handleHelpClick = () => {
     setShowDropdown(false);
     navigate('/settings/help');
+  };
+
+  const resolvedPracticeId = preferredPracticeId ?? practiceForTier?.id ?? practices[0]?.id ?? null;
+  const practiceLabel = managedPractice?.name ?? practices[0]?.name ?? null;
+  const currentWorkspace = (workspaceFromPath === 'client' || workspaceFromPath === 'practice')
+    ? workspaceFromPath
+    : (preferredWorkspace ?? (hasPractice ? 'practice' : 'client'));
+
+  const handleSwitchToClient = async () => {
+    setShowDropdown(false);
+    try {
+      await updateUser({ primaryWorkspace: 'client', preferredPracticeId: null } as Parameters<typeof updateUser>[0]);
+      navigate('/app', true);
+    } catch (_error) {
+      showError('Workspace switch failed', 'We could not switch to the client view.');
+    }
+  };
+
+  const handleSwitchToPractice = async () => {
+    setShowDropdown(false);
+    try {
+      await updateUser({
+        primaryWorkspace: 'practice',
+        preferredPracticeId: resolvedPracticeId
+      } as Parameters<typeof updateUser>[0]);
+      if (resolvedPracticeId) {
+        await setActivePractice(resolvedPracticeId);
+        navigate('/practice', true);
+      } else {
+        navigate('/cart', true);
+      }
+    } catch (_error) {
+      showError('Workspace switch failed', 'We could not switch to the practice view.');
+    }
   };
 
   const handleLogoutClick = async () => {
@@ -213,6 +253,11 @@ export const UserProfileDisplay = ({
             onSettings={handleSettingsClick}
             onHelp={handleHelpClick}
             onLogout={handleLogoutClick}
+            onSwitchToClient={handleSwitchToClient}
+            onSwitchToPractice={handleSwitchToPractice}
+            workspace={currentWorkspace}
+            hasPractice={hasPractice}
+            practiceLabel={practiceLabel}
             signOutError={signOutError}
           />
         )}

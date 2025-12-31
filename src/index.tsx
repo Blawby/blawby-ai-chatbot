@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useCallback, useEffect, useMemo } from 'preact/hooks';
+import { useCallback, useEffect } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
@@ -7,54 +7,165 @@ import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider } from '@/shared/contexts/SessionContext';
 import { useSession, getClient } from '@/shared/lib/authClient';
-import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { MainApp } from '@/app/MainApp';
-// Settings components
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
 import { BusinessOnboardingPage } from '@/pages/BusinessOnboardingPage';
 import { MockChatPage } from '@/pages/MockChatPage';
 import { MockServicesPage } from '@/pages/MockServicesPage';
+import { MockInboxPage } from '@/pages/MockInboxPage';
 import { CartPage } from '@/features/cart/pages/CartPage';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { handleError } from '@/shared/utils/errorHandler';
+import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { getSettingsReturnPath, getStoredWorkspace } from '@/shared/utils/workspace';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import WorkspaceWelcomePage from '@/pages/WorkspaceWelcomePage';
+import ClientHomePage from '@/pages/ClientHomePage';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
-
-
+const LoadingScreen = () => (
+  <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+    Loading…
+  </div>
+);
 
 // Main App component with routing
 export function App() {
   return (
     <LocationProvider>
       <SessionProvider>
-        <AppWithPractice />
+        <AppShell />
       </SessionProvider>
     </LocationProvider>
   );
 }
 
-// Component that loads practice config and manages session state
-function AppWithPractice() {
+function AppShell() {
   const location = useLocation();
-  const { data: session, isPending: sessionIsPending } = useSession();
+  const { navigate } = useNavigation();
+  const isSettingsOpen = location.path.startsWith('/settings');
+  const isMobileHoisted = useMobileDetection();
+  const { defaultWorkspace } = useWorkspace();
+
+  const handleCloseSettings = useCallback(() => {
+    const returnPath = getSettingsReturnPath();
+    const fallback = defaultWorkspace === 'practice' ? '/practice' : '/app';
+    navigate(returnPath ?? fallback, true);
+  }, [defaultWorkspace, navigate]);
+
+  return (
+    <ToastProvider>
+      <Router>
+        <Route path="/auth" component={AuthPage} />
+        <Route path="/welcome" component={WorkspaceWelcomePage} />
+        <Route path="/cart" component={CartPage} />
+        <Route path="/dev/mock-chat" component={MockChatPage} />
+        <Route path="/dev/mock-services" component={MockServicesPage} />
+        <Route path="/dev/mock-inbox" component={MockInboxPage} />
+        <Route path="/mock-inbox" component={MockInboxPage} />
+        <Route path="/business-onboarding" component={BusinessOnboardingPage} />
+        <Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
+        <Route path="/settings/*" component={SettingsRoute} />
+        <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
+        <Route path="/practice" component={PracticeAppRoute} />
+        <Route path="/practice/*" component={PracticeAppRoute} />
+        <Route path="/app" component={ClientAppRoute} />
+        <Route path="/app/*" component={ClientAppRoute} />
+        <Route default component={RootRoute} />
+      </Router>
+
+      {isSettingsOpen && (
+        <SettingsLayout
+          key="settings-modal-hoisted"
+          isMobile={isMobileHoisted}
+          onClose={handleCloseSettings}
+          className="h-full"
+        />
+      )}
+    </ToastProvider>
+  );
+}
+
+function SettingsRoute() {
+  const { defaultWorkspace, hasPractice } = useWorkspace();
+  const storedWorkspace = getStoredWorkspace();
+  const resolved = storedWorkspace ?? defaultWorkspace;
+
+  if (resolved === 'practice' && hasPractice) {
+    return <PracticeAppRoute settingsMode={true} />;
+  }
+
+  return <ClientAppRoute settingsMode={true} />;
+}
+
+function RootRoute() {
+  const { data: session, isPending } = useSession();
+  const { defaultWorkspace } = useWorkspace();
+  const { navigate } = useNavigation();
+
+  useEffect(() => {
+    if (isPending) return;
+
+    if (!session?.user) {
+      navigate('/auth', true);
+      return;
+    }
+
+    const user = session.user as { primaryWorkspace?: string | null };
+    if (!user.primaryWorkspace) {
+      navigate('/welcome', true);
+      return;
+    }
+
+    navigate(defaultWorkspace === 'practice' ? '/practice' : '/app', true);
+  }, [defaultWorkspace, isPending, navigate, session?.user]);
+
+  return <LoadingScreen />;
+}
+
+function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
+  const { data: session, isPending } = useSession();
+  const { navigate } = useNavigation();
+
+  useEffect(() => {
+    if (settingsMode || isPending) return;
+    if (!session?.user) {
+      navigate('/auth', true);
+      return;
+    }
+    const user = session.user as { primaryWorkspace?: string | null };
+    if (!user.primaryWorkspace) {
+      navigate('/welcome', true);
+    }
+  }, [isPending, navigate, session?.user, settingsMode]);
+
+  if (isPending) {
+    return <LoadingScreen />;
+  }
+
+  if (!session?.user) {
+    return <AuthPage />;
+  }
+
+  return <ClientHomePage />;
+}
+
+function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
+  const { data: session, isPending } = useSession();
+  const { navigate } = useNavigation();
+  const { preferredPracticeId, activePracticeId, hasPractice } = useWorkspace();
+  const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
   }, []);
 
-  const slugFromPath = useMemo(() => {
-    const segments = location.path.split('/').filter(Boolean);
-    if (segments.length !== 1) return null;
-    const slug = segments[0];
-    const reserved = ['auth', 'cart', 'business-onboarding', 'settings'];
-    return reserved.includes(slug) ? null : slug;
-  }, [location.path]);
-  const practiceIdQuery = location.query.practiceId || location.query.practice_id || '';
-  const isPracticeView = Boolean(slugFromPath || practiceIdQuery);
+  const resolvedPracticeId =
+    preferredPracticeId ?? currentPractice?.id ?? activePracticeId ?? practices[0]?.id ?? '';
 
-  // Load practice config for authenticated users or guest slug routes
   const {
     practiceId,
     practiceConfig,
@@ -63,64 +174,116 @@ function AppWithPractice() {
     isLoading
   } = usePracticeConfig({
     onError: handlePracticeError,
-    practiceId: slugFromPath ?? undefined,
+    practiceId: resolvedPracticeId,
+    allowUnauthenticated: false
+  });
+
+  useEffect(() => {
+    if (settingsMode || isPending || practicesLoading) return;
+    if (!session?.user) return;
+    const user = session.user as { primaryWorkspace?: string | null };
+    if (!user.primaryWorkspace) {
+      navigate('/welcome', true);
+      return;
+    }
+    if (!hasPractice) {
+      navigate('/app', true);
+    }
+  }, [hasPractice, isPending, navigate, practicesLoading, session?.user, settingsMode]);
+
+  if (isPending || practicesLoading || isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!session?.user) {
+    return <AuthPage />;
+  }
+
+  if (!hasPractice || !practiceId) {
+    return <ClientHomePage />;
+  }
+
+  return (
+    <MainApp
+      practiceId={practiceId}
+      practiceConfig={practiceConfig}
+      practiceNotFound={practiceNotFound}
+      handleRetryPracticeConfig={handleRetryPracticeConfig}
+      isPracticeView={false}
+      workspace="practice"
+    />
+  );
+}
+
+function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
+  const location = useLocation();
+  const { data: session, isPending: sessionIsPending } = useSession();
+  const handlePracticeError = useCallback((error: string) => {
+    console.error('Practice config error:', error);
+  }, []);
+
+  const slug = (practiceSlug ?? '').trim();
+
+  const {
+    practiceId,
+    practiceConfig,
+    practiceNotFound,
+    handleRetryPracticeConfig,
+    isLoading
+  } = usePracticeConfig({
+    onError: handlePracticeError,
+    practiceId: slug,
     allowUnauthenticated: true
   });
 
   // Handle anonymous sign-in for widget users (clients chatting with practices)
   useEffect(() => {
     if (typeof window === 'undefined' || sessionIsPending) return;
-    
-    // If no session and practiceId is available (widget context), sign in anonymously
+
     if (!session?.user && practiceId) {
       const key = `anonymous_signin_attempted_${practiceId}`;
       const retryCountKey = `anonymous_signin_retries_${practiceId}`;
       let attempted = sessionStorage.getItem(key);
       const retryCount = parseInt(sessionStorage.getItem(retryCountKey) || '0', 10);
-      
-      // Max retries to prevent infinite loops even in dev
+
       if (retryCount >= 3) {
         console.error('[Auth] Max anonymous sign-in retries reached', { practiceId, retryCount });
         return;
       }
-      
-      // If we marked it as successful but there's no actual session, clear it and retry
-      // This handles cases where sign-in appeared to succeed but session isn't valid
+
       if (attempted === '1' && !session?.user) {
         console.log('[Auth] Session invalid despite successful sign-in, clearing flag and retrying');
         sessionStorage.removeItem(key);
         sessionStorage.setItem(retryCountKey, String(retryCount + 1));
         attempted = null;
       }
-      
-      // In development with mocks, only allow retries for failed attempts
+
       if (import.meta.env.DEV && attempted === 'failed') {
         console.log('[Auth] Clearing failed anonymous sign-in attempt for retry in dev mode');
         sessionStorage.removeItem(key);
         sessionStorage.setItem(retryCountKey, String(retryCount + 1));
         attempted = null;
       }
-      
+
       if (!attempted) {
         console.log('[Auth] Attempting anonymous sign-in', { practiceId });
         (async () => {
           try {
             const client = getClient();
             console.log('[Auth] Client obtained, checking for anonymous method...');
-            
+
             // Type assertion needed: Better Auth anonymous plugin types may not be fully exposed
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const signIn = client.signIn as any;
-            console.log('[Auth] signIn object:', { 
-              hasSignIn: !!signIn, 
+            console.log('[Auth] signIn object:', {
+              hasSignIn: !!signIn,
               signInKeys: signIn ? Object.keys(signIn) : null,
               hasAnonymous: !!(signIn?.anonymous),
               anonymousType: typeof signIn?.anonymous
             });
-            
+
             const anonymousSignIn = signIn?.anonymous;
-            
-            // Check if anonymous method exists before calling
+
             if (typeof anonymousSignIn !== 'function') {
               console.error('[Auth] Anonymous sign-in method not available', {
                 practiceId,
@@ -134,15 +297,11 @@ function AppWithPractice() {
               sessionStorage.setItem(key, 'failed');
               return;
             }
-            
+
             console.log('[Auth] Calling anonymous sign-in...');
             const result = await anonymousSignIn();
-            
-            // Better Auth returns { data, error } format
-            // If there's no error, the sign-in succeeded
-            // Better Auth will automatically update the session via useSession()
+
             if (result?.error) {
-              // Fail loudly - Better Auth anonymous plugin may not be configured
               console.error('[Auth] Anonymous sign-in failed', {
                 error: result.error,
                 practiceId,
@@ -151,11 +310,8 @@ function AppWithPractice() {
               handleError(result.error, {
                 practiceId,
               }, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
-              // Set key to prevent retry loops, but log error clearly
               sessionStorage.setItem(key, 'failed');
             } else {
-              // Success - no error means sign-in worked
-              // Better Auth will update the session automatically
               sessionStorage.setItem(key, '1');
               sessionStorage.removeItem(retryCountKey);
               console.log('[Auth] Anonymous sign-in successful for widget user', {
@@ -164,7 +320,6 @@ function AppWithPractice() {
               });
             }
           } catch (error) {
-            // Fail loudly with detailed error information
             const errorMessage = error instanceof Error ? error.message : String(error);
             console.error('[Auth] Anonymous sign-in exception', {
               error: errorMessage,
@@ -176,209 +331,106 @@ function AppWithPractice() {
             handleError(error, {
               practiceId,
             }, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
-            // Set key to prevent retry loops
             sessionStorage.setItem(key, 'failed');
           }
         })();
       } else {
-        console.log('[Auth] Anonymous sign-in already attempted, skipping', { 
-          practiceId, 
-          status: sessionStorage.getItem(key) 
+        console.log('[Auth] Anonymous sign-in already attempted, skipping', {
+          practiceId,
+          status: sessionStorage.getItem(key)
         });
       }
     }
   }, [session?.user, practiceId, sessionIsPending]);
 
-  // Show loading state while checking auth or loading practice config
   if (isLoading || sessionIsPending) {
-    return (
-      <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-        Loading…
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
-  return (
-    <AppWithSEO
-      practiceId={practiceId}
-      practiceConfig={practiceConfig}
-      practiceNotFound={practiceNotFound}
-      handleRetryPracticeConfig={handleRetryPracticeConfig}
-      session={session}
-      isPracticeView={isPracticeView}
-    />
-  );
-}
-
-function AppWithSEO({
-  practiceId,
-  practiceConfig,
-  practiceNotFound,
-  handleRetryPracticeConfig,
-  session,
-  isPracticeView,
-}: {
-  practiceId: string;
-  practiceConfig: UIPracticeConfig;
-  practiceNotFound: boolean;
-  handleRetryPracticeConfig: () => void;
-  session: ReturnType<typeof useSession>['data'];
-  isPracticeView: boolean;
-}) {
-  const location = useLocation();
-  const { navigate } = useNavigation();
-  
-  // Create reactive currentUrl that updates on navigation
-  const currentUrl = typeof window !== 'undefined' 
+  const currentUrl = typeof window !== 'undefined'
     ? `${window.location.origin}${location.url}`
     : undefined;
 
-	// Hoisted settings modal controls
-	const isSettingsOpen = location.path.startsWith('/settings');
-	// Responsive mobile state for the hoisted settings layout
-	const isMobileHoisted = useMobileDetection();
-
-	// Stable component to avoid remounting the MainApp subtree for settings
-	const SettingsRoute = useMemo(() => {
-		return function SettingsRouteInner(props: Record<string, unknown>) {
-			return (
-				<MainApp 
-					practiceId={practiceId}
-					practiceConfig={practiceConfig}
-					practiceNotFound={practiceNotFound}
-					handleRetryPracticeConfig={handleRetryPracticeConfig}
-					isPracticeView={isPracticeView}
-					{...props}
-				/>
-			);
-		};
-	}, [practiceId, practiceConfig, practiceNotFound, handleRetryPracticeConfig, isPracticeView]);
-
-	return (
-		<>
-			<SEOHead 
-				practiceConfig={practiceConfig}
-				currentUrl={currentUrl}
-			/>
-			<ToastProvider>
-				<Router>
-   					<Route path="/auth" component={AuthPage} />
-					<Route path="/cart" component={CartPage} />
-					<Route path="/dev/mock-chat" component={MockChatPage} />
-					<Route path="/dev/mock-services" component={MockServicesPage} />
-					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
-					<Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
-					<Route path="/settings/*" component={SettingsRoute} />
-					<Route path="/:practiceSlug" component={(props) => (
-						<MainApp
-							practiceId={practiceId}
-							practiceConfig={practiceConfig}
-							practiceNotFound={practiceNotFound}
-							handleRetryPracticeConfig={handleRetryPracticeConfig}
-							isPracticeView={isPracticeView}
-							{...props}
-						/>
-					)} />
-   					<Route default component={(props) => {
-						// Root route: show auth if not authenticated, otherwise show chat app
-						if (!session?.user) {
-							return <AuthPage />;
-						}
-						return (
-							<MainApp
-								practiceId={practiceId}
-								practiceConfig={practiceConfig}
-								practiceNotFound={practiceNotFound}
-								handleRetryPracticeConfig={handleRetryPracticeConfig}
-								isPracticeView={isPracticeView}
-								{...props}
-							/>
-						);
-					}} />
-				</Router>
-
-				{/* Hoisted Settings Modal - single instance persists across sub-routes */}
-				{isSettingsOpen && (
-					<SettingsLayout
-						key="settings-modal-hoisted"
-						isMobile={isMobileHoisted}
-						onClose={() => {
-							navigate('/');
-						}}
-						className="h-full"
-					/>
-				)}
-			</ToastProvider>
-		</>
-	);
+  return (
+    <>
+      <SEOHead
+        practiceConfig={practiceConfig}
+        currentUrl={currentUrl}
+      />
+      <MainApp
+        practiceId={practiceId}
+        practiceConfig={practiceConfig}
+        practiceNotFound={practiceNotFound}
+        handleRetryPracticeConfig={handleRetryPracticeConfig}
+        isPracticeView={true}
+        workspace="public"
+      />
+    </>
+  );
 }
 
 const FallbackLoader = () => (
-	<div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-		Loading…
-	</div>
+  <div className="flex h-screen items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+    Loading…
+  </div>
 );
 
 function AppWithProviders() {
-	return (
-		<I18nextProvider i18n={i18n}>
-			<Suspense fallback={<FallbackLoader />}>
-				<App />
-			</Suspense>
-		</I18nextProvider>
-	);
+  return (
+    <I18nextProvider i18n={i18n}>
+      <Suspense fallback={<FallbackLoader />}>
+        <App />
+      </Suspense>
+    </I18nextProvider>
+  );
 }
 
 async function mountClientApp() {
-	// Initialize theme from localStorage with fallback to system preference
-	const savedTheme = localStorage.getItem('theme');
-	const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-	const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
 
-	if (shouldBeDark) {
-		document.documentElement.classList.add('dark');
-	}
+  if (shouldBeDark) {
+    document.documentElement.classList.add('dark');
+  }
 
-	initI18n()
-		.then(() => {
-			hydrate(<AppWithProviders />, document.getElementById('app'));
-		})
-		.catch((_error) => {
-			 
-			console.error('Failed to initialize i18n:', _error);
-			hydrate(<AppWithProviders />, document.getElementById('app'));
-		});
+  initI18n()
+    .then(() => {
+      hydrate(<AppWithProviders />, document.getElementById('app'));
+    })
+    .catch((_error) => {
+      console.error('Failed to initialize i18n:', _error);
+      hydrate(<AppWithProviders />, document.getElementById('app'));
+    });
 }
 
 if (typeof window !== 'undefined') {
-	const bootstrap = () => mountClientApp();
-	// Only enable MSW if explicitly enabled via VITE_ENABLE_MSW env var
-	const enableMocks = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW === 'true';
-	
-	if (enableMocks) {
-		import('./mocks')
-			.then(({ setupMocks }) => {
-				console.log('[App] Setting up MSW mocks...');
-				return setupMocks();
-			})
-			.then(() => {
-				console.log('[App] MSW mocks ready, bootstrapping app...');
-				bootstrap();
-			})
-			.catch((err) => {
-				console.error('[App] Failed to setup mocks, bootstrapping anyway:', err);
-				bootstrap();
-			});
-	} else {
-		if (import.meta.env.DEV) {
-			console.log('[App] Running without MSW mocks - using real staging-api endpoints');
-		}
-		bootstrap();
-	}
+  const bootstrap = () => mountClientApp();
+  const enableMocks = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW === 'true';
+
+  if (enableMocks) {
+    import('./mocks')
+      .then(({ setupMocks }) => {
+        console.log('[App] Setting up MSW mocks...');
+        return setupMocks();
+      })
+      .then(() => {
+        console.log('[App] MSW mocks ready, bootstrapping app...');
+        bootstrap();
+      })
+      .catch((err) => {
+        console.error('[App] Failed to setup mocks, bootstrapping anyway:', err);
+        bootstrap();
+      });
+  } else {
+    if (import.meta.env.DEV) {
+      console.log('[App] Running without MSW mocks - using real staging-api endpoints');
+    }
+    bootstrap();
+  }
 }
 
-
 export async function prerender() {
-	await initI18n();
-	return await ssr(<AppWithProviders />);
+  await initI18n();
+  return await ssr(<AppWithProviders />);
 }

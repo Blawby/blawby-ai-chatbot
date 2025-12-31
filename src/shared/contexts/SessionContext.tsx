@@ -7,6 +7,9 @@ export interface SessionContextValue {
   session: ReturnType<typeof authClient.useSession>['data'];
   isAnonymous: boolean;
   activePracticeId: string | null;
+  primaryWorkspace: 'client' | 'practice' | null;
+  preferredPracticeId: string | null;
+  hasPractice: boolean;
 }
 
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
@@ -23,12 +26,28 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     null;
 
   const activePracticeId = currentPractice?.id ?? activePracticeIdFromSession ?? null;
+  const primaryWorkspace =
+    (sessionData?.user as { primaryWorkspace?: 'client' | 'practice' | null })?.primaryWorkspace ?? null;
+  const preferredPracticeId =
+    (sessionData?.user as { preferredPracticeId?: string | null })?.preferredPracticeId ?? null;
+  const practiceCount =
+    (sessionData?.user as { practiceCount?: number | null })?.practiceCount ?? null;
+  const hasPracticeFlag =
+    (sessionData?.user as { hasPractice?: boolean | null })?.hasPractice ?? null;
+  const hasPractice = Boolean(
+    (typeof hasPracticeFlag === 'boolean' ? hasPracticeFlag : null) ??
+    (typeof practiceCount === 'number' ? practiceCount > 0 : null) ??
+    currentPractice
+  );
 
   const value = useMemo<SessionContextValue>(() => ({
     session: sessionData ?? null,
     isAnonymous,
     activePracticeId,
-  }), [sessionData, isAnonymous, activePracticeId]);
+    primaryWorkspace,
+    preferredPracticeId,
+    hasPractice
+  }), [sessionData, isAnonymous, activePracticeId, primaryWorkspace, preferredPracticeId, hasPractice]);
 
   return (
     <SessionContext.Provider value={value}>
