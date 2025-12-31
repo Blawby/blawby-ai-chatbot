@@ -1,26 +1,18 @@
 import type { InboxFilters } from '@/shared/hooks/useInbox';
 
-export interface MockConversation {
-  id: string;
-  practice_id: string;
-  user_id: string;
-  matter_id: string | null;
-  participants: string[];
-  user_info: {
-    name: string;
-    email: string;
-    phone?: string;
-  };
-  status: 'active' | 'archived' | 'closed';
-  assigned_to: string | null;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  tags: string[];
-  internal_notes: string | null;
-  last_message_at: string;
-  first_response_at: string | null;
-  closed_at: string | null;
-  created_at: string;
-  updated_at: string;
+import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
+
+export interface MockConversation extends Conversation {
+  user_id: string | null;
+  user_info: Conversation['user_info'];
+  status: ConversationStatus;
+  assigned_to?: string | null;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  tags?: string[];
+  internal_notes?: string | null;
+  last_message_at?: string | null;
+  first_response_at?: string | null;
+  closed_at?: string | null;
 }
 
 export interface MockInboxStats {
@@ -74,6 +66,9 @@ export interface UseMockInboxResult {
   assignConversation: (conversationId: string, userId: string | null | 'me') => Promise<void>;
   updateConversation: (conversationId: string, updates: Partial<MockConversation>) => Promise<void>;
   addConversation: () => MockConversation;
+  /**
+   * Remove a conversation from the mock inbox. Defaults to removing the first conversation when no ID is provided.
+   */
   removeConversation: (conversationId?: string) => void;
   setFilters: (updates: Partial<InboxFilters>) => void;
 }

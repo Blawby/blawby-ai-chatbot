@@ -65,6 +65,11 @@ function applyFilters(conversations: MockConversation[], filters: InboxFilters):
 }
 
 export function useMockInbox(): UseMockInboxResult {
+  const initialConversations = useMemo(
+    () => generateMockConversations('multiple-active', MOCK_PRACTICE_ID),
+    []
+  );
+
   const [state, setState] = useState<MockInboxState>({
     scenario: 'multiple-active',
     practiceId: MOCK_PRACTICE_ID,
@@ -72,12 +77,8 @@ export function useMockInbox(): UseMockInboxResult {
     lastRefreshedAt: new Date().toISOString(),
     filters: { status: 'active' }
   });
-  const [conversations, setConversations] = useState<MockConversation[]>(() =>
-    generateMockConversations('multiple-active', MOCK_PRACTICE_ID)
-  );
-  const [stats, setStats] = useState<MockInboxStats>(() =>
-    calculateStats(generateMockConversations('multiple-active', MOCK_PRACTICE_ID))
-  );
+  const [conversations, setConversations] = useState<MockConversation[]>(() => initialConversations);
+  const [stats, setStats] = useState<MockInboxStats>(() => calculateStats(initialConversations));
   const [debugEvents, setDebugEvents] = useState<DebugEvent[]>([]);
 
   const addDebugEvent = useCallback((type: string, data: Record<string, unknown> = {}) => {

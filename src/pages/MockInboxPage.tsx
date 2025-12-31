@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { InboxPage } from '@/features/settings/pages/InboxPage';
 import { MockInboxControls } from '@/features/inbox/mock/components/MockInboxControls';
 import { MockInboxInfo } from '@/features/inbox/mock/components/MockInboxInfo';
@@ -192,6 +192,11 @@ function buildJsonResponse(body: unknown, init?: ResponseInit) {
 export function MockInboxPage() {
   const [isDevMode, setIsDevMode] = useState(import.meta.env.DEV || import.meta.env.MODE === 'development');
   const mock = useMockInbox();
+  const mockRef = useRef(mock);
+
+  useEffect(() => {
+    mockRef.current = mock;
+  }, [mock]);
 
   useEffect(() => {
     const dev = import.meta.env.MODE === 'development' || import.meta.env.DEV;
@@ -215,14 +220,15 @@ export function MockInboxPage() {
       const url = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
       const method = init?.method?.toUpperCase() || (typeof input === 'object' && 'method' in input && typeof input.method === 'string' ? input.method.toUpperCase() : 'GET');
       const parsedUrl = new URL(url, window.location.origin);
+      const currentMock = mockRef.current;
 
       if (matchesInboxEndpoint(parsedUrl.pathname)) {
         const searchParams = parsedUrl.searchParams;
-        const filters = parseFilters(searchParams, mock.state.filters);
+        const filters = parseFilters(searchParams, currentMock.state.filters);
 
         if (parsedUrl.pathname === '/api/inbox/conversations' && method === 'GET') {
-          const result = filterAndSortConversations(mock.conversations, filters, searchParams);
-          mock.addDebugEvent('api_conversations', { method: 'GET', filters, total: result.total });
+          const result = filterAndSortConversations(currentMock.conversations, filters, searchParams);
+          currentMock.addDebugEvent('api_conversations', { method: 'GET', filters, total: result.total });
           return buildJsonResponse({
             success: true,
             data: result
@@ -234,45 +240,45 @@ export function MockInboxPage() {
         const action = pathParts.length >= 5 ? pathParts[4] : null;
 
         if (parsedUrl.pathname === '/api/inbox/stats' && method === 'GET') {
-          mock.addDebugEvent('api_stats');
-          return buildJsonResponse({ success: true, data: mock.stats });
+          currentMock.addDebugEvent('api_stats');
+          return buildJsonResponse({ success: true, data: currentMock.stats });
         }
 
         if (conversationId && method === 'GET') {
-          const conversation = mock.conversations.find((item) => item.id === conversationId);
+          const conversation = currentMock.conversations.find((item) => item.id === conversationId);
           if (conversation) {
-            mock.addDebugEvent('api_conversation', { conversationId });
+            currentMock.addDebugEvent('api_conversation', { conversationId });
             return buildJsonResponse({ success: true, data: conversation });
           }
           return buildJsonResponse({ success: false, error: 'Not found' }, { status: 404 });
         }
 
         if (conversationId && method === 'PUT') {
-          const body = init?.body ? JSON.parse(init.body as string) as Partial<MockConversation> : {};
-          const existing = mock.conversations.find((item) => item.id === conversationId);
+          const body = parsePayload(init?.body) as Partial<MockConversation> | null ?? {};
+          const existing = currentMock.conversations.find((item) => item.id === conversationId);
           const optimistic = existing ? { ...existing, ...body, updated_at: new Date().toISOString() } : existing;
-          await mock.updateConversation(conversationId, body);
-          mock.addDebugEvent('api_update', { conversationId, body });
+          await currentMock.updateConversation(conversationId, body);
+          currentMock.addDebugEvent('api_update', { conversationId, body });
           return buildJsonResponse({ success: true, data: optimistic ?? body });
         }
 
         if (conversationId && action === 'assign' && method === 'POST') {
-          const body = init?.body ? JSON.parse(init.body as string) as { assignedTo?: string | null } : {};
-          const assignedTo = body.assignedTo === 'me' ? mockSession.data.user.id : body.assignedTo ?? null;
-          const existing = mock.conversations.find((item) => item.id === conversationId);
+          const body = parsePayload(init?.body) as { assignedTo?: string | null } | null;
+          const assignedTo = body?.assignedTo === 'me' ? mockSession.data.user.id : body?.assignedTo ?? null;
+          const existing = currentMock.conversations.find((item) => item.id === conversationId);
           const optimistic = existing
             ? { ...existing, assigned_to: assignedTo, updated_at: new Date().toISOString() }
             : existing;
-          await mock.assignConversation(conversationId, assignedTo);
-          mock.addDebugEvent('api_assign', { conversationId, assignedTo });
+          await currentMock.assignConversation(conversationId, assignedTo);
+          currentMock.addDebugEvent('api_assign', { conversationId, assignedTo });
           return buildJsonResponse({ success: true, data: optimistic ?? body });
         }
 
         if (conversationId && action === 'archive' && method === 'POST') {
-          const existing = mock.conversations.find((item) => item.id === conversationId);
+          const existing = currentMock.conversations.find((item) => item.id === conversationId);
           const optimistic = existing ? { ...existing, status: 'archived', updated_at: new Date().toISOString() } : existing;
-          await mock.updateConversation(conversationId, { status: 'archived' });
-          mock.addDebugEvent('api_archive', { conversationId });
+          await currentMock.updateConversation(conversationId, { status: 'archived' });
+          currentMock.addDebugEvent('api_archive', { conversationId });
           return buildJsonResponse({ success: true, data: optimistic });
         }
       }
@@ -301,34 +307,35 @@ export function MockInboxPage() {
         })();
         const pathname = resolvedUrl?.pathname ?? url;
         const method = response.config.method?.toLowerCase() ?? 'get';
+        const currentMock = mockRef.current;
 
         if (matchesInboxEndpoint(pathname)) {
           const searchParams = resolvedUrl?.searchParams ?? new URLSearchParams();
-          const filters = parseFilters(searchParams, mock.state.filters);
+          const filters = parseFilters(searchParams, currentMock.state.filters);
           const pathParts = pathname.split('/').filter(Boolean);
           const conversationId = pathParts.length >= 4 ? pathParts[3] : null;
           const action = pathParts.length >= 5 ? pathParts[4] : null;
 
           if (pathname === '/api/inbox/conversations' && method === 'get') {
-            const result = filterAndSortConversations(mock.conversations, filters, searchParams);
-            mock.addDebugEvent('api_conversations', { method: 'axios', filters, total: result.total });
+            const result = filterAndSortConversations(currentMock.conversations, filters, searchParams);
+            currentMock.addDebugEvent('api_conversations', { method: 'axios', filters, total: result.total });
             return { ...response, data: { success: true, data: result } };
           }
 
           if (pathname === '/api/inbox/stats' && method === 'get') {
-            mock.addDebugEvent('api_stats', { transport: 'axios' });
-            return { ...response, data: { success: true, data: mock.stats } };
+            currentMock.addDebugEvent('api_stats', { transport: 'axios' });
+            return { ...response, data: { success: true, data: currentMock.stats } };
           }
 
           if (conversationId && !action && method === 'get') {
-            const conversation = mock.conversations.find((item) => item.id === conversationId);
+            const conversation = currentMock.conversations.find((item) => item.id === conversationId);
             return { ...response, data: { success: Boolean(conversation), data: conversation } };
           }
 
           if (conversationId && method === 'put') {
             const payload = parsePayload(response.config.data) as Partial<MockConversation> | null;
             if (payload) {
-              void mock.updateConversation(conversationId, payload);
+              void currentMock.updateConversation(conversationId, payload);
             }
             return { ...response, data: { success: true, data: payload ?? {} } };
           }
@@ -336,12 +343,12 @@ export function MockInboxPage() {
           if (conversationId && action === 'assign' && method === 'post') {
             const payload = parsePayload(response.config.data) as { assignedTo?: string | null } | null;
             const assignedTo = payload?.assignedTo === 'me' ? mockSession.data.user.id : payload?.assignedTo ?? null;
-            void mock.assignConversation(conversationId, assignedTo);
+            void currentMock.assignConversation(conversationId, assignedTo);
             return { ...response, data: { success: true, data: { assignedTo } } };
           }
 
           if (conversationId && action === 'archive' && method === 'post') {
-            void mock.updateConversation(conversationId, { status: 'archived' });
+            void currentMock.updateConversation(conversationId, { status: 'archived' });
             return { ...response, data: { success: true, data: { status: 'archived' } } };
           }
         }
@@ -387,16 +394,17 @@ export function MockInboxPage() {
         })();
         const pathname = resolvedUrl?.pathname ?? url;
         const method = error.config?.method?.toLowerCase() ?? 'get';
+        const currentMock = mockRef.current;
 
         if (matchesInboxEndpoint(pathname)) {
           const searchParams = resolvedUrl?.searchParams ?? new URLSearchParams();
-          const filters = parseFilters(searchParams, mock.state.filters);
+          const filters = parseFilters(searchParams, currentMock.state.filters);
           const pathParts = pathname.split('/').filter(Boolean);
           const conversationId = pathParts.length >= 4 ? pathParts[3] : null;
           const action = pathParts.length >= 5 ? pathParts[4] : null;
 
           if (pathname === '/api/inbox/conversations' && method === 'get') {
-            const result = filterAndSortConversations(mock.conversations, filters, searchParams);
+            const result = filterAndSortConversations(currentMock.conversations, filters, searchParams);
             return Promise.resolve({
               data: { success: true, data: result },
               status: 200,
@@ -408,7 +416,7 @@ export function MockInboxPage() {
 
           if (pathname === '/api/inbox/stats' && method === 'get') {
             return Promise.resolve({
-              data: { success: true, data: mock.stats },
+              data: { success: true, data: currentMock.stats },
               status: 200,
               statusText: 'OK',
               headers: {},
@@ -417,7 +425,7 @@ export function MockInboxPage() {
           }
 
           if (conversationId && !action && method === 'get') {
-            const conversation = mock.conversations.find((item) => item.id === conversationId);
+            const conversation = currentMock.conversations.find((item) => item.id === conversationId);
             return Promise.resolve({
               data: { success: Boolean(conversation), data: conversation },
               status: conversation ? 200 : 404,
@@ -430,7 +438,7 @@ export function MockInboxPage() {
           if (conversationId && method === 'put') {
             const payload = parsePayload(error.config?.data) as Partial<MockConversation> | null;
             if (payload) {
-              void mock.updateConversation(conversationId, payload);
+              void currentMock.updateConversation(conversationId, payload);
             }
             return Promise.resolve({
               data: { success: true, data: payload ?? {} },
@@ -444,7 +452,7 @@ export function MockInboxPage() {
           if (conversationId && action === 'assign' && method === 'post') {
             const payload = parsePayload(error.config?.data) as { assignedTo?: string | null } | null;
             const assignedTo = payload?.assignedTo === 'me' ? mockSession.data.user.id : payload?.assignedTo ?? null;
-            void mock.assignConversation(conversationId, assignedTo);
+            void currentMock.assignConversation(conversationId, assignedTo);
             return Promise.resolve({
               data: { success: true, data: { assignedTo } },
               status: 200,
@@ -455,7 +463,7 @@ export function MockInboxPage() {
           }
 
           if (conversationId && action === 'archive' && method === 'post') {
-            void mock.updateConversation(conversationId, { status: 'archived' });
+            void currentMock.updateConversation(conversationId, { status: 'archived' });
             return Promise.resolve({
               data: { success: true, data: { status: 'archived' } },
               status: 200,
@@ -532,7 +540,7 @@ export function MockInboxPage() {
       const authClientRestoreTarget = authClient as unknown as { useSession: typeof originalUseSession };
       authClientRestoreTarget.useSession = originalUseSession;
     };
-  }, [isDevMode, mock]);
+  }, [isDevMode]);
 
   if (!isDevMode) {
     return (
