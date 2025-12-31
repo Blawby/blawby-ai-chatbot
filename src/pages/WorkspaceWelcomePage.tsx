@@ -6,12 +6,14 @@ import { setActivePractice } from '@/shared/lib/apiClient';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 
 const WorkspaceWelcomePage = () => {
   const { data: session, isPending } = useSession();
   const { navigate } = useNavigation();
   const { preferredPracticeId, hasPractice } = useWorkspace();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const { showError } = useToastContext();
   const [submitting, setSubmitting] = useState<'client' | 'practice' | null>(null);
 
   const resolvedPracticeId = useMemo(() => {
@@ -55,8 +57,12 @@ const WorkspaceWelcomePage = () => {
       } else {
         navigate('/app', true);
       }
-    } catch (_error) {
-      navigate(choice === 'practice' ? '/practice' : '/app', true);
+    } catch (error) {
+      console.error('[WorkspaceWelcome] Failed to save workspace preference', {
+        choice,
+        error
+      });
+      showError('Workspace selection failed', 'We could not save your choice. Please try again.');
     } finally {
       setSubmitting(null);
     }
@@ -85,7 +91,7 @@ const WorkspaceWelcomePage = () => {
 
         <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">I'm a client</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">I am a client</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               Find lawyers, manage your conversations, and keep your intake history organized.
             </p>
@@ -100,7 +106,7 @@ const WorkspaceWelcomePage = () => {
           </div>
 
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">I'm a lawyer</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">I am a lawyer</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               Manage your practice, team inbox, billing, and onboarding setup.
             </p>

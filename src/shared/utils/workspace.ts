@@ -4,9 +4,9 @@ export const WORKSPACE_STORAGE_KEY = 'workspace:last';
 export const SETTINGS_RETURN_KEY = 'settings:returnPath';
 
 export function resolveWorkspaceFromPath(path: string): WorkspaceType | null {
-  if (path.startsWith('/practice')) return 'practice';
-  if (path.startsWith('/app')) return 'client';
-  if (path.startsWith('/p/')) return 'public';
+  if (path === '/practice' || path.startsWith('/practice/')) return 'practice';
+  if (path === '/app' || path.startsWith('/app/')) return 'client';
+  if (path === '/p' || path.startsWith('/p/')) return 'public';
   return null;
 }
 

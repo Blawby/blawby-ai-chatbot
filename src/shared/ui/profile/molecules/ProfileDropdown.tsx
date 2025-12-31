@@ -49,8 +49,8 @@ export const ProfileDropdown = ({
   const { t } = useTranslation(['profile', 'common']);
   const showWorkspaceSwitcher = Boolean(onSwitchToClient && onSwitchToPractice);
   const practiceLabelText = hasPractice
-    ? (practiceLabel ? `Practice view - ${practiceLabel}` : 'Practice view')
-    : 'Create a practice';
+    ? (practiceLabel ? t('profile:practiceViewWithName', { practiceLabel }) : t('profile:practiceView'))
+    : t('profile:createPractice');
 
   return (
     <div 
@@ -81,11 +81,11 @@ export const ProfileDropdown = ({
           <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
 
           <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-400">
-            Workspace
+            {t('profile:workspace')}
           </div>
           <ProfileMenuItem
             icon={<UserIcon />}
-            label="Client view"
+            label={t('profile:clientView')}
             onClick={onSwitchToClient ?? (() => {})}
             isActive={workspace === 'client'}
           />

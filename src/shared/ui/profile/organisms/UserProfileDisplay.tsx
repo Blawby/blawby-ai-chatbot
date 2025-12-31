@@ -141,18 +141,31 @@ export const UserProfileDisplay = ({
 
   const handleSwitchToPractice = async () => {
     setShowDropdown(false);
+    const previousPreferredPracticeId = preferredPracticeId ?? practiceForTier?.id ?? null;
     try {
+      if (resolvedPracticeId) {
+        await setActivePractice(resolvedPracticeId);
+      }
       await updateUser({
         primaryWorkspace: 'practice',
         preferredPracticeId: resolvedPracticeId
       } as Parameters<typeof updateUser>[0]);
-      if (resolvedPracticeId) {
-        await setActivePractice(resolvedPracticeId);
-        navigate('/practice', true);
-      } else {
-        navigate('/cart', true);
-      }
+      navigate(resolvedPracticeId ? '/practice' : '/cart', true);
     } catch (_error) {
+      console.error('[Profile] Failed to switch to practice workspace', {
+        resolvedPracticeId,
+        error: _error
+      });
+      if (previousPreferredPracticeId && previousPreferredPracticeId !== resolvedPracticeId) {
+        try {
+          await setActivePractice(previousPreferredPracticeId);
+        } catch (rollbackError) {
+          console.error('[Profile] Failed to restore previous practice selection', {
+            previousPreferredPracticeId,
+            error: rollbackError
+          });
+        }
+      }
       showError('Workspace switch failed', 'We could not switch to the practice view.');
     }
   };

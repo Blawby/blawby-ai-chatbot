@@ -71,12 +71,12 @@ export const SidebarContent = ({
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-2">
           <NavigationList>
-            {showChatsTab && (
+            {showChatsTab && onGoToChats && (
               <NavigationItem
                 icon={<ChatBubbleOvalLeftEllipsisIcon />}
                 label="Chats"
                 isActive={currentRoute === 'chats'}
-                onClick={onGoToChats || (() => {})}
+                onClick={onGoToChats}
                 isCollapsed={isCollapsed}
               />
             )}
