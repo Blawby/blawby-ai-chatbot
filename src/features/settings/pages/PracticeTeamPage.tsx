@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { ArrowLeftIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
 import { authClient } from '@/shared/lib/authClient';
@@ -36,6 +37,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   const { navigate: baseNavigate } = useNavigation();
   const { t } = useTranslation(['settings']);
   const navigate = onNavigate ?? baseNavigate;
+  const location = useLocation();
 
   const currentUserEmail = session?.user?.email || '';
   const members = useMemo(
@@ -52,6 +54,13 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   const currentUserRole = currentMember?.role || 'paralegal';
   const isOwner = currentUserRole === 'owner';
   const isAdmin = currentUserRole === 'admin' || isOwner;
+  if (!currentMember && currentPractice) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-sm text-gray-500">You are not a member of this practice.</p>
+      </div>
+    );
+  }
 
   const [isInvitingMember, setIsInvitingMember] = useState(false);
   const [isEditingMember, setIsEditingMember] = useState(false);
@@ -69,6 +78,13 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   const origin = (typeof window !== 'undefined' && window.location)
     ? window.location.origin
     : '';
+
+  useEffect(() => {
+    const inviteQuery = typeof location.query?.invite === 'string' ? location.query.invite : '';
+    if (inviteQuery === '1' || inviteQuery === 'true') {
+      setIsInvitingMember(true);
+    }
+  }, [location.query]);
 
   useEffect(() => {
     if (!currentPractice) return;
@@ -108,6 +124,10 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
 
   const handleRemoveMember = async (member: { userId: string; email: string; name?: string; role: Role }) => {
     if (!currentPractice) return;
+    const confirmed = window.confirm(
+      `Are you sure you want to remove ${member.name || member.email} from the practice?`
+    );
+    if (!confirmed) return;
 
     try {
       await removeMember(currentPractice.id, member.userId);

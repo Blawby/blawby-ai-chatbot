@@ -5,7 +5,7 @@ import { Button } from '@/shared/ui/Button';
 import { ServicesList } from '@/features/services/components/ServicesList';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
 import { useServices } from '@/features/services/hooks/useServices';
-import type { Service } from '@/features/services/types';
+import { createServiceId, type Service } from '@/features/services/types';
 import { getServiceDetailsForSave, getServiceTitles, normalizeServices } from '@/features/services/utils';
 import type { PracticeConfig } from '../../../../worker/types';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -83,8 +83,9 @@ const coerceServiceDetails = (value: unknown): Service[] => {
       if (!isPlainObject(item)) return null;
       const title = typeof item.title === 'string' ? item.title : '';
       if (!title.trim()) return null;
+      const rawId = typeof item.id === 'string' ? item.id.trim() : '';
       return {
-        id: typeof item.id === 'string' ? item.id : '',
+        id: rawId || createServiceId(),
         title,
         description: typeof item.description === 'string' ? item.description : ''
       } as Service;

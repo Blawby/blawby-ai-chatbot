@@ -30,8 +30,6 @@ export interface OnboardingFormData {
   state: string;
   postalCode: string;
   country: string;
-  primaryColor: string;
-  accentColor: string;
   introMessage: string;
   overview: string;
   isPublic: boolean;
@@ -50,8 +48,6 @@ const initialFormData: OnboardingFormData = {
   state: '',
   postalCode: '',
   country: '',
-  primaryColor: '#2563eb',
-  accentColor: '#3b82f6',
   introMessage: '',
   overview: '',
   isPublic: false,

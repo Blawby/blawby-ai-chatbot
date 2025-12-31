@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
 import {
-  BuildingOfficeIcon,
   ChevronRightIcon,
-  PlusIcon,
+  GlobeAltIcon,
+  MapPinIcon,
+  PhoneIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { usePracticeManagement, type MatterWorkflowStatus } from '@/shared/hooks/usePracticeManagement';
-import { features } from '@/config/features';
+import { usePracticeManagement, type MatterWorkflowStatus, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
-import { Input, Textarea } from '@/shared/ui/input';
+import { Input, PhoneInput, Switch, Textarea, URLInput } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -19,6 +19,116 @@ import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
+import { StackedAvatars } from '@/shared/ui/profile';
+import type { PracticeConfig } from '../../../../worker/types';
+
+interface OnboardingDetails {
+  contactPhone?: string;
+  website?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  introMessage?: string;
+  overview?: string;
+  isPublic?: boolean;
+  services?: Array<{ id: string; title: string; description: string }>;
+}
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const resolveOnboardingData = (practice: Practice | null): OnboardingDetails => {
+  if (!practice) return {};
+  const metadata = practice.metadata;
+  if (!isPlainObject(metadata)) return {};
+  const onboarding = metadata.onboarding;
+  if (!isPlainObject(onboarding)) return {};
+  const data = onboarding.data;
+  if (!isPlainObject(data)) return {};
+  return { ...(data as OnboardingDetails) };
+};
+
+const resolveConversationConfig = (practice: Practice | null): PracticeConfig | null => {
+  if (!practice) return null;
+  const metadata = practice.metadata;
+  if (isPlainObject(metadata)) {
+    const candidate = metadata.conversationConfig;
+    if (isPlainObject(candidate)) {
+      if ('availableServices' in candidate || 'serviceQuestions' in candidate || 'introMessage' in candidate) {
+        return candidate as unknown as PracticeConfig;
+      }
+    }
+  }
+  const config = practice.config;
+  if (isPlainObject(config)) {
+    const nestedCandidate = (config as Record<string, unknown>).conversationConfig;
+    if (isPlainObject(nestedCandidate)) {
+      return nestedCandidate as unknown as PracticeConfig;
+    }
+    if ('availableServices' in config || 'serviceQuestions' in config || 'introMessage' in config) {
+      return config as unknown as PracticeConfig;
+    }
+  }
+  return null;
+};
+
+const resolveVoiceProvider = (value: unknown): PracticeConfig['voice']['provider'] => {
+  if (value === 'cloudflare' || value === 'elevenlabs' || value === 'custom') {
+    return value;
+  }
+  return 'cloudflare';
+};
+
+const buildBaseConversationConfig = (config: PracticeConfig | null): PracticeConfig => {
+  const voice = isPlainObject(config?.voice) ? (config?.voice as Record<string, unknown>) : {};
+  return {
+    ownerEmail: typeof config?.ownerEmail === 'string' ? config.ownerEmail : undefined,
+    availableServices: Array.isArray(config?.availableServices) ? config.availableServices : [],
+    serviceQuestions: isPlainObject(config?.serviceQuestions)
+      ? (config?.serviceQuestions as Record<string, string[]>)
+      : {},
+    domain: typeof config?.domain === 'string' ? config.domain : '',
+    description: typeof config?.description === 'string' ? config.description : '',
+    brandColor: typeof config?.brandColor === 'string' ? config.brandColor : '#000000',
+    accentColor: typeof config?.accentColor === 'string' ? config.accentColor : '#000000',
+    introMessage: typeof config?.introMessage === 'string' ? config.introMessage : '',
+    profileImage: typeof config?.profileImage === 'string' ? config.profileImage : undefined,
+    voice: {
+      enabled: typeof voice.enabled === 'boolean' ? voice.enabled : false,
+      provider: resolveVoiceProvider(voice.provider),
+      voiceId: typeof voice.voiceId === 'string' ? voice.voiceId : null,
+      displayName: typeof voice.displayName === 'string' ? voice.displayName : null,
+      previewUrl: typeof voice.previewUrl === 'string' ? voice.previewUrl : null
+    },
+    metadata: isPlainObject(config?.metadata) ? (config?.metadata as Record<string, unknown>) : {}
+  };
+};
+
+const truncateText = (value: string, maxLength: number) => {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength).trim()}...`;
+};
+
+const formatAddressSummary = (data: OnboardingDetails) => {
+  const line1 = data.addressLine1?.trim() || '';
+  const line2 = data.addressLine2?.trim() || '';
+  const city = data.city?.trim() || '';
+  const state = data.state?.trim() || '';
+  const postal = data.postalCode?.trim() || '';
+  const country = data.country?.trim() || '';
+
+  const parts: string[] = [];
+  if (line1) parts.push(line1);
+  if (line2) parts.push(line2);
+  const cityState = [city, state].filter(Boolean).join(', ');
+  if (cityState) parts.push(cityState);
+  const postalCountry = [postal, country].filter(Boolean).join(' ');
+  if (postalCountry) parts.push(postalCountry);
+  return parts.join(' • ');
+};
 
 interface PracticePageProps {
   className?: string;
@@ -90,7 +200,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const hasPractice = !!currentPractice;
   const members = useMemo(() => currentPractice ? getMembers(currentPractice.id) : [], [currentPractice, getMembers]);
-  const _memberCount = members.length;
   
   // Better approach - get role directly from current practice context
   const currentMember = useMemo(() => {
@@ -103,26 +212,84 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const isOwner = currentUserRole === 'owner';
   const isAdmin = (currentUserRole === 'admin' || isOwner) ?? false;
   const canReviewLeads = isAdmin || isOwner;
-  const servicesCount = useMemo(() => {
+  const servicesList = useMemo(() => {
+    const sanitize = (value: unknown) => {
+      if (!Array.isArray(value)) return [];
+      const seen = new Set<string>();
+      const result: string[] = [];
+      value.forEach((item) => {
+        if (typeof item !== 'string') return;
+        const trimmed = item.trim();
+        if (!trimmed) return;
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        result.push(trimmed);
+      });
+      return result;
+    };
+
     const metadata = currentPractice?.metadata;
     if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
       const conversationConfig = (metadata as Record<string, unknown>).conversationConfig;
       if (conversationConfig && typeof conversationConfig === 'object' && !Array.isArray(conversationConfig)) {
-        const available = (conversationConfig as Record<string, unknown>).availableServices;
-        if (Array.isArray(available)) {
-          return available.filter((item) => typeof item === 'string').length;
-        }
+        const list = sanitize((conversationConfig as Record<string, unknown>).availableServices);
+        if (list.length) return list;
       }
     }
     const config = currentPractice?.config;
     if (config && typeof config === 'object' && !Array.isArray(config)) {
-      const available = (config as Record<string, unknown>).availableServices;
-      if (Array.isArray(available)) {
-        return available.filter((item) => typeof item === 'string').length;
-      }
+      const list = sanitize((config as Record<string, unknown>).availableServices);
+      if (list.length) return list;
     }
-    return 0;
+    return [];
   }, [currentPractice]);
+  const onboardingData = useMemo(() => resolveOnboardingData(currentPractice), [currentPractice]);
+  const conversationConfig = useMemo(() => resolveConversationConfig(currentPractice), [currentPractice]);
+
+  const websiteValue = typeof onboardingData.website === 'string' ? onboardingData.website.trim() : '';
+  const addressSummary = formatAddressSummary(onboardingData);
+  const phoneValue = (typeof onboardingData.contactPhone === 'string'
+    ? onboardingData.contactPhone
+    : (currentPractice?.businessPhone || '')).trim();
+  const introMessageValue = typeof onboardingData.introMessage === 'string' && onboardingData.introMessage.trim()
+    ? onboardingData.introMessage
+    : (conversationConfig?.introMessage || '');
+  const overviewValue = typeof onboardingData.overview === 'string' && onboardingData.overview.trim()
+    ? onboardingData.overview
+    : (conversationConfig?.description || '');
+  const isPublicValue = typeof onboardingData.isPublic === 'boolean'
+    ? onboardingData.isPublic
+    : (typeof conversationConfig?.isPublic === 'boolean' ? conversationConfig.isPublic : false);
+  const practiceUrlValue = currentPractice?.slug
+    ? `ai.blawby.com/${currentPractice.slug}`
+    : 'ai.blawby.com/your-practice';
+  const overviewPreview = overviewValue ? truncateText(overviewValue, 140) : 'Not set';
+  const descriptionValue = currentPractice?.description?.trim() || '';
+  const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
+  const teamAvatars = useMemo(
+    () => members.map((member) => ({
+      name: member.name || member.email,
+      image: member.image || null
+    })),
+    [members]
+  );
+
+  const [isSettingsSaving, setIsSettingsSaving] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isIntroModalOpen, setIsIntroModalOpen] = useState(false);
+  const [contactDraft, setContactDraft] = useState({
+    website: '',
+    phone: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: ''
+  });
+  const [introDraft, setIntroDraft] = useState('');
+  const [overviewDraft, setOverviewDraft] = useState('');
 
   const loadLeadQueue = useCallback(async () => {
     if (!currentPractice?.id || !canReviewLeads) {
@@ -309,19 +476,158 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       slug: currentPractice.slug || '',
       description: currentPractice.description || ''
     });
+    setOverviewDraft(overviewValue);
     setIsEditPracticeModalOpen(true);
   };
 
   const handleUpdatePractice = async () => {
     if (!currentPractice) return;
-    
+
+    setIsSettingsSaving(true);
     try {
-      await updatePractice(currentPractice.id, editPracticeForm);
+      const metadataBase = isPlainObject(currentPractice.metadata)
+        ? currentPractice.metadata
+        : {};
+      const onboardingBase = isPlainObject(metadataBase.onboarding)
+        ? (metadataBase.onboarding as Record<string, unknown>)
+        : {};
+      const onboardingDataBase = isPlainObject(onboardingBase.data)
+        ? (onboardingBase.data as Record<string, unknown>)
+        : {};
+      const trimmedOverview = overviewDraft.trim();
+      const nextOnboardingData = {
+        ...onboardingDataBase,
+        overview: trimmedOverview
+      };
+
+      const baseConfig = buildBaseConversationConfig(conversationConfig);
+      const nextConversationConfig: PracticeConfig = {
+        ...baseConfig,
+        description: trimmedOverview
+      };
+
+      await updatePractice(currentPractice.id, {
+        ...editPracticeForm,
+        metadata: {
+          ...metadataBase,
+          onboarding: {
+            ...onboardingBase,
+            data: nextOnboardingData
+          },
+          conversationConfig: nextConversationConfig
+        }
+      });
       showSuccess('Practice updated successfully!');
       setIsEditPracticeModalOpen(false);
 		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update practice');
+    } finally {
+      setIsSettingsSaving(false);
     }
+  };
+
+  const saveOnboardingSettings = async (
+    updates: Partial<OnboardingDetails>,
+    toastBody: string
+  ) => {
+    if (!currentPractice) return;
+    setIsSettingsSaving(true);
+    try {
+      const metadataBase = isPlainObject(currentPractice.metadata)
+        ? currentPractice.metadata
+        : {};
+      const onboardingBase = isPlainObject(metadataBase.onboarding)
+        ? (metadataBase.onboarding as Record<string, unknown>)
+        : {};
+      const onboardingDataBase = isPlainObject(onboardingBase.data)
+        ? (onboardingBase.data as Record<string, unknown>)
+        : {};
+      const nextOnboardingData = {
+        ...onboardingDataBase,
+        ...updates
+      };
+
+      const baseConfig = buildBaseConversationConfig(conversationConfig);
+      const nextConversationConfig: PracticeConfig = {
+        ...baseConfig,
+        ...(typeof updates.introMessage === 'string' ? { introMessage: updates.introMessage } : {}),
+        ...(typeof updates.isPublic === 'boolean' ? { isPublic: updates.isPublic } : {})
+      };
+
+      await updatePractice(currentPractice.id, {
+        ...(typeof updates.contactPhone === 'string' ? { businessPhone: updates.contactPhone } : {}),
+        metadata: {
+          ...metadataBase,
+          onboarding: {
+            ...onboardingBase,
+            data: nextOnboardingData
+          },
+          conversationConfig: nextConversationConfig
+        }
+      });
+
+      showSuccess('Practice updated', toastBody);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update practice settings';
+      showError('Update failed', message);
+    } finally {
+      setIsSettingsSaving(false);
+    }
+  };
+
+  const openContactModal = () => {
+    setContactDraft({
+      website: websiteValue,
+      phone: phoneValue,
+      addressLine1: onboardingData.addressLine1 || '',
+      addressLine2: onboardingData.addressLine2 || '',
+      city: onboardingData.city || '',
+      state: onboardingData.state || '',
+      postalCode: onboardingData.postalCode || '',
+      country: onboardingData.country || ''
+    });
+    setIsContactModalOpen(true);
+  };
+
+  const openIntroModal = () => {
+    setIntroDraft(introMessageValue);
+    setIsIntroModalOpen(true);
+  };
+
+  const handleSaveContact = async () => {
+    await saveOnboardingSettings(
+      {
+        website: contactDraft.website.trim(),
+        contactPhone: contactDraft.phone.trim(),
+        addressLine1: contactDraft.addressLine1.trim(),
+        addressLine2: contactDraft.addressLine2.trim(),
+        city: contactDraft.city.trim(),
+        state: contactDraft.state.trim(),
+        postalCode: contactDraft.postalCode.trim(),
+        country: contactDraft.country.trim()
+      },
+      'Contact details updated.'
+    );
+    setIsContactModalOpen(false);
+  };
+
+  const handleSaveIntro = async () => {
+    await saveOnboardingSettings(
+      {
+        introMessage: introDraft.trim()
+      },
+      'Intro message updated.'
+    );
+    setIsIntroModalOpen(false);
+  };
+
+  const handleTogglePublic = async (nextValue: boolean) => {
+    await saveOnboardingSettings(
+      {
+        isPublic: nextValue
+      },
+      nextValue ? 'Practice is now public.' : 'Practice is now private.'
+    );
   };
 
   const handleDeletePractice = async () => {
@@ -378,20 +684,34 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       
       <div className="flex-1 overflow-y-auto px-6">
         <div className="space-y-0">
-          {hasPractice ? (
+          {hasPractice && (
             <>
               {/* Practice Details Row */}
               <div className="flex items-center justify-between py-3">
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Practice
+                    {currentPractice.name || 'Practice'}
                   </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {currentPractice.name}
-                    {currentPractice.slug
-                      ? ` • ai.blawby.com/${currentPractice.slug}`
-                      : ' • ai.blawby.com/your-practice'}
-                  </p>
+                  <div className="mt-2 space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-start gap-3">
+                      <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                        URL
+                      </span>
+                      <span>{practiceUrlValue}</span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                        Overview
+                      </span>
+                      <span>{overviewPreview}</span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                        Description
+                      </span>
+                      <span>{descriptionPreview}</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="ml-4">
                   <Button
@@ -402,6 +722,180 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     Edit
                   </Button>
                 </div>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-dark-border" />
+
+              {/* Contact Row */}
+              <div className="py-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Contact</h3>
+                    <div className="mt-2 space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-start gap-2">
+                        <GlobeAltIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
+                        <span>{websiteValue || 'Not set'}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <PhoneIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
+                        <span>{phoneValue || 'Not set'}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <MapPinIcon className="w-4 h-4 text-gray-400 mt-0.5" aria-hidden="true" />
+                        <span>{addressSummary || 'Not set'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={openContactModal}
+                      className="hidden sm:inline-flex"
+                    >
+                      Manage
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={openContactModal}
+                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      aria-label="Manage contact details"
+                    >
+                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-dark-border" />
+
+              {/* Intro Message Row */}
+              <div className="py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Intro Message</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {introMessageValue ? truncateText(introMessageValue, 90) : 'Not set'}
+                    </p>
+                  </div>
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={openIntroModal}
+                      className="hidden sm:inline-flex"
+                    >
+                      Manage
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={openIntroModal}
+                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      aria-label="Manage intro message"
+                    >
+                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-dark-border" />
+
+              {/* Services Row */}
+              <div className="py-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Services</h3>
+                    {servicesList.length > 0 ? (
+                      <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                        {servicesList.map((service) => (
+                          <p key={service}>{service}</p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        No services configured yet
+                      </p>
+                    )}
+                  </div>
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => navigateTo('/settings/practice/services')}
+                      className="hidden sm:inline-flex"
+                    >
+                      Manage
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => navigateTo('/settings/practice/services')}
+                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      aria-label="Manage services"
+                    >
+                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-dark-border" />
+
+              {/* Team Row */}
+              <div className="py-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Team Members
+                    </h3>
+                    {members.length > 0 ? (
+                      <div className="mt-2">
+                        <StackedAvatars users={teamAvatars} size="sm" />
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        No team members yet
+                      </p>
+                    )}
+                  </div>
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => navigateTo(members.length === 0
+                        ? '/settings/practice/team?invite=1'
+                        : '/settings/practice/team')}
+                      className="hidden sm:inline-flex"
+                    >
+                      {members.length === 0 ? 'Invite' : 'Manage'}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => navigateTo(members.length === 0
+                        ? '/settings/practice/team?invite=1'
+                        : '/settings/practice/team')}
+                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
+                    >
+                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-dark-border" />
+
+              {/* Visibility Toggle */}
+              <div className="py-3">
+                <Switch
+                  label="Public listing"
+                  description={isPublicValue
+                    ? 'Your practice appears in public listings.'
+                    : 'Your practice is private and not publicly listed.'}
+                  value={isPublicValue}
+                  onChange={handleTogglePublic}
+                  disabled={isSettingsSaving}
+                />
               </div>
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
@@ -476,88 +970,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 )}
               </div>
 
-              {currentPractice.description && (
-                <>
-                  <div className="border-t border-gray-200 dark:border-dark-border" />
-                  <div className="py-3">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      Description
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {currentPractice.description}
-                    </p>
-                  </div>
-                </>
-              )}
-
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-
-              {/* Services Row */}
-              <div className="py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Services</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {servicesCount > 0
-                        ? `${servicesCount} services configured`
-                        : 'No services configured yet'}
-                    </p>
-                  </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigateTo('/settings/practice/services')}
-                      className="hidden sm:inline-flex"
-                    >
-                      Manage
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => navigateTo('/settings/practice/services')}
-                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
-                      aria-label="Manage services"
-                    >
-                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-
-              {/* Team Row */}
-              <div className="py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      Team Members
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {members.length > 0 ? `${members.length} team members` : 'Manage team access and roles'}
-                    </p>
-                  </div>
-                  <div className="ml-4 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => navigateTo('/settings/practice/team')}
-                      className="hidden sm:inline-flex"
-                    >
-                      Manage
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => navigateTo('/settings/practice/team')}
-                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
-                      aria-label="Manage team members"
-                    >
-                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               <div className="border-t border-gray-200 dark:border-dark-border" />
 
               {/* Delete Practice Section (Owner only) */}
@@ -611,23 +1023,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                 </>
               )}
             </>
-          ) : (
-            /* No Practice State */
-            <div className="py-3">
-              <div className="text-center py-8">
-                <BuildingOfficeIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-sm font-semibold mb-2">No Practice Yet</h3>
-                <p className="text-xs text-gray-500 mb-4">
-                  Create your law firm or accept an invitation
-                </p>
-                {features.enableMultiplePractices && (
-                  <Button size="sm" onClick={() => setShowCreateModal(true)}>
-                    <PlusIcon className="w-4 h-4 mr-2" />
-                    Create Practice
-                  </Button>
-                )}
-              </div>
-            </div>
           )}
           
         </div>
@@ -712,6 +1107,19 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               value={editPracticeForm.description}
               onChange={(value) => setEditPracticeForm(prev => ({ ...prev, description: value }))}
               placeholder="Brief description of your practice"
+              disabled={isSettingsSaving}
+            />
+          </div>
+
+          <div>
+            <FormLabel htmlFor="edit-practice-overview">Overview</FormLabel>
+            <Textarea
+              id="edit-practice-overview"
+              value={overviewDraft}
+              onChange={setOverviewDraft}
+              placeholder="Share a brief description of your practice."
+              rows={4}
+              disabled={isSettingsSaving}
             />
           </div>
 
@@ -719,11 +1127,154 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <Button
               variant="secondary"
               onClick={() => setIsEditPracticeModalOpen(false)}
+              disabled={isSettingsSaving}
             >
               Cancel
             </Button>
-            <Button onClick={handleUpdatePractice}>
+            <Button onClick={handleUpdatePractice} disabled={isSettingsSaving}>
               Save Changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Contact Modal */}
+      <Modal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        title="Contact"
+      >
+        <div className="space-y-4">
+          <div>
+            <FormLabel>Website</FormLabel>
+            <URLInput
+              value={contactDraft.website}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, website: value }))}
+              placeholder="https://yourfirm.com"
+              disabled={isSettingsSaving}
+            />
+          </div>
+
+          <div>
+            <FormLabel>Phone</FormLabel>
+            <PhoneInput
+              value={contactDraft.phone}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, phone: value }))}
+              placeholder="(555) 123-4567"
+              disabled={isSettingsSaving}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <FormLabel htmlFor="practice-address-line1">Address Line 1</FormLabel>
+              <Input
+                id="practice-address-line1"
+                value={contactDraft.addressLine1}
+                onChange={(value) => setContactDraft(prev => ({ ...prev, addressLine1: value }))}
+                placeholder="123 Main Street"
+                disabled={isSettingsSaving}
+              />
+            </div>
+            <div>
+              <FormLabel htmlFor="practice-address-line2">Address Line 2</FormLabel>
+              <Input
+                id="practice-address-line2"
+                value={contactDraft.addressLine2}
+                onChange={(value) => setContactDraft(prev => ({ ...prev, addressLine2: value }))}
+                placeholder="Suite 100"
+                disabled={isSettingsSaving}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <FormLabel htmlFor="practice-address-city">City</FormLabel>
+              <Input
+                id="practice-address-city"
+                value={contactDraft.city}
+                onChange={(value) => setContactDraft(prev => ({ ...prev, city: value }))}
+                placeholder="San Francisco"
+                disabled={isSettingsSaving}
+              />
+            </div>
+            <div>
+              <FormLabel htmlFor="practice-address-state">State</FormLabel>
+              <Input
+                id="practice-address-state"
+                value={contactDraft.state}
+                onChange={(value) => setContactDraft(prev => ({ ...prev, state: value }))}
+                placeholder="CA"
+                disabled={isSettingsSaving}
+              />
+            </div>
+            <div>
+              <FormLabel htmlFor="practice-address-postal">Postal Code</FormLabel>
+              <Input
+                id="practice-address-postal"
+                value={contactDraft.postalCode}
+                onChange={(value) => setContactDraft(prev => ({ ...prev, postalCode: value }))}
+                placeholder="94102"
+                disabled={isSettingsSaving}
+              />
+            </div>
+          </div>
+
+          <div>
+            <FormLabel htmlFor="practice-address-country">Country</FormLabel>
+            <Input
+              id="practice-address-country"
+              value={contactDraft.country}
+              onChange={(value) => setContactDraft(prev => ({ ...prev, country: value }))}
+              placeholder="US"
+              disabled={isSettingsSaving}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setIsContactModalOpen(false)}
+              disabled={isSettingsSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveContact} disabled={isSettingsSaving}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Intro Message Modal */}
+      <Modal
+        isOpen={isIntroModalOpen}
+        onClose={() => setIsIntroModalOpen(false)}
+        title="Intro Message"
+      >
+        <div className="space-y-4">
+          <div>
+            <FormLabel htmlFor="practice-intro-message">Intro Message</FormLabel>
+            <Textarea
+              id="practice-intro-message"
+              value={introDraft}
+              onChange={setIntroDraft}
+              placeholder="Welcome to our firm. How can we help?"
+              rows={4}
+              disabled={isSettingsSaving}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setIsIntroModalOpen(false)}
+              disabled={isSettingsSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveIntro} disabled={isSettingsSaving}>
+              Save
             </Button>
           </div>
         </div>

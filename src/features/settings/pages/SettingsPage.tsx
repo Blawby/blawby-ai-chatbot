@@ -135,10 +135,10 @@ export const SettingsPage = ({
 
   const mobileTitle = (() => {
     if (currentPage === 'practice' && practiceSubPage === 'services') {
-      return 'Services';
+      return t('settings:practice.services');
     }
     if (currentPage === 'practice' && practiceSubPage === 'team') {
-      return 'Team Members';
+      return t('settings:practice.team');
     }
     return navigationItems.find(item => item.id === currentPage)?.label || 'Settings';
   })();

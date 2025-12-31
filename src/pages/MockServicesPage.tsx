@@ -20,17 +20,17 @@ const mockServiceDetails = [
   {
     id: 'service-1',
     title: 'Personal Injury',
-    description: 'Representation for accident victims seeking compensation'
+    description: 'Representation for accident victims seeking compensation.'
   },
   {
     id: 'service-2',
     title: 'Family Law',
-    description: 'Divorce, custody, and family matters'
+    description: 'Divorce, custody, and family matters.'
   },
   {
     id: 'service-3',
     title: 'Business Law',
-    description: 'Corporate formation, contracts, and compliance'
+    description: 'Corporate formation, contracts, and compliance.'
   },
   {
     id: 'service-4',
@@ -40,7 +40,7 @@ const mockServiceDetails = [
   {
     id: 'service-5',
     title: 'Employment Law',
-    description: 'Protect your rights in the workplace.'
+    description: 'Workplace rights and employment dispute assistance.'
   },
   {
     id: 'service-6',
@@ -142,6 +142,7 @@ const mockPractice: Practice = {
         firmName: 'Mock Law Firm',
         contactEmail: 'owner@mock-law.test',
         contactPhone: '+1-555-0123',
+        website: 'https://mocklawfirm.com',
         profileImage: null,
         addressLine1: '123 Main St',
         addressLine2: 'Suite 100',
@@ -149,8 +150,6 @@ const mockPractice: Practice = {
         state: 'CA',
         postalCode: '94102',
         country: 'US',
-        primaryColor: '#2563eb',
-        accentColor: '#3b82f6',
         introMessage: 'Welcome to Mock Law Firm. How can we help you today?',
         overview: 'We provide excellent legal services',
         isPublic: true,

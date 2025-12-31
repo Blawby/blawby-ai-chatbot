@@ -20,6 +20,10 @@
       "errorBody": "There was an error signing you out. Please try again."
     }
   },
+  "practice": {
+    "services": "Services",
+    "team": "Team Members"
+  },
   "general": {
     "title": "General",
     "theme": {

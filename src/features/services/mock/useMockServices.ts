@@ -7,17 +7,17 @@ const initialEditingServices: Service[] = [
   {
     id: 'service-1',
     title: 'Personal Injury',
-    description: 'Representation for accident victims seeking compensation'
+    description: 'Representation for accident victims seeking compensation.'
   },
   {
     id: 'service-2',
     title: 'Family Law',
-    description: 'Divorce, custody, and family matters'
+    description: 'Divorce, custody, and family matters.'
   },
   {
     id: 'service-3',
     title: 'Business Law',
-    description: 'Corporate formation, contracts, and compliance'
+    description: 'Corporate formation, contracts, and compliance.'
   },
   {
     id: 'service-4',
@@ -27,7 +27,7 @@ const initialEditingServices: Service[] = [
   {
     id: 'service-5',
     title: 'Employment Law',
-    description: 'Protect your rights in the workplace.'
+    description: 'Workplace rights and employment dispute assistance.'
   },
   {
     id: 'service-6',
