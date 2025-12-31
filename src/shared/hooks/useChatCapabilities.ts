@@ -48,9 +48,9 @@ export function useChatCapabilities({
   return useMemo(() => ({
     role,
     isPracticeMember,
-    canManageInbox: isPracticeWorkspace,
+    canManageInbox: isPracticeMember,
     canAssign: isPracticeMember && (isManager || role === 'attorney' || role === 'paralegal'),
-    canSetStatus: isPracticeWorkspace,
+    canSetStatus: isPracticeMember,
     canViewInternalNotes: isPracticeMember,
-  }), [currentMember, role, isManager, isPracticeMember, isPracticeWorkspace]);
+  }), [currentMember, role, isManager, isPracticeMember, isPracticeWorkspace, workspace]);
 }
