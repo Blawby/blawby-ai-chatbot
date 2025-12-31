@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import Modal from '@/shared/components/Modal';
 import { OnboardingContainer } from './OnboardingContainer';
 import { OnboardingStepRenderer } from './OnboardingStepRenderer';
@@ -83,6 +84,7 @@ const BusinessOnboardingModal = ({
   const [stripeRequestPending, setStripeRequestPending] = useState(false);
   const [practiceMetadata, setPracticeMetadata] = useState<Record<string, unknown> | null>(null);
   const [practiceSnapshot, setPracticeSnapshot] = useState<Practice | null>(null);
+  const [footerContent, setFooterContent] = useState<ComponentChildren | null>(null);
   const fetchStripeStatus = useCallback(async () => {
     if (!practiceId) {
       return;
@@ -299,7 +301,7 @@ const BusinessOnboardingModal = ({
 
   // useStepValidation already initialized above
 
-  const handleStepContinue = async () => {
+  const handleStepContinue = useCallback(async () => {
     if (isLoadingData) {
       return; // Block interactions until saved data load finishes
     }
@@ -355,9 +357,25 @@ const BusinessOnboardingModal = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    clearErrors,
+    currentStep,
+    formData,
+    getAdjacentStep,
+    goNext,
+    isLastStep,
+    isLoadingData,
+    onClose,
+    onCompleted,
+    saveOnboardingData,
+    showSuccess,
+    startStripeOnboarding,
+    stripeClientSecret,
+    stripeStatus,
+    validateStep
+  ]);
 
-  const handleBack = async () => {
+  const handleBack = useCallback(async () => {
     if (isLoadingData) {
       return; // Block interactions until saved data load finishes
     }
@@ -380,12 +398,24 @@ const BusinessOnboardingModal = ({
     goBack();
     clearErrors();
     setSubmitError(null);
-  };
+  }, [
+    clearErrors,
+    currentStep,
+    formData,
+    getAdjacentStep,
+    goBack,
+    isFirstStep,
+    isLoadingData,
+    onClose,
+    saveOnboardingData
+  ]);
 
 
   const handleClose = () => {
     onClose();
   };
+
+  const actionLoading = loading || isLoadingData || stripeRequestPending;
 
   if (!isOpen) {
     return null;
@@ -394,8 +424,9 @@ const BusinessOnboardingModal = ({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} type="fullscreen" showCloseButton={false}>
       <OnboardingContainer
-        loading={loading || isLoadingData}
+        loading={actionLoading}
         error={submitError}
+        footer={footerContent}
         header={
           <OnboardingHeader
             title={STEP_TITLES[currentStep]}
@@ -419,6 +450,10 @@ const BusinessOnboardingModal = ({
           stripeStatus={stripeStatus}
           stripeClientSecret={stripeClientSecret}
           stripeLoading={loading || stripeRequestPending}
+          onFooterChange={setFooterContent}
+          actionLoading={actionLoading}
+          isFirstStep={isFirstStep}
+          isLastStep={isLastStep}
         />
             
       </OnboardingContainer>

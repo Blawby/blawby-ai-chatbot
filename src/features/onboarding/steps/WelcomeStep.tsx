@@ -3,15 +3,8 @@
  */
 
 import { FeatureList } from '../components/FeatureList';
-import { OnboardingActions } from '../components/OnboardingActions';
-
-interface WelcomeStepProps {
-  onContinue: () => void;
-  onBack?: () => void;
-  onSkip?: () => void;
-}
-
-export function WelcomeStep({ onContinue, onBack, onSkip }: WelcomeStepProps) {
+ 
+export function WelcomeStep() {
   const features = [
     {
       text: 'Configure your business profile and branding',
@@ -30,13 +23,6 @@ export function WelcomeStep({ onContinue, onBack, onSkip }: WelcomeStepProps) {
   return (
     <div className="space-y-6">
       <FeatureList items={features} size="lg" />
-      <OnboardingActions 
-        onContinue={onContinue}
-        onBack={onBack}
-        onSkip={onSkip}
-        continueLabel="Get Started"
-        isFirstStep={true}
-      />
     </div>
   );
 }

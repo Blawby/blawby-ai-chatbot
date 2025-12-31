@@ -111,8 +111,7 @@ const AuthForm = ({
     }
   }, [onSuccess, currentMode]);
 
-  const handleSubmit = async (event?: Event) => {
-    event?.preventDefault();
+  const handleSubmit = async (_data?: Record<string, unknown>) => {
     setLoading(true);
     setError('');
     setMessage('');

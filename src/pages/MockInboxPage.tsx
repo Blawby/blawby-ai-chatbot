@@ -122,6 +122,8 @@ function parseFilters(searchParams: URLSearchParams, defaults: InboxFilters): In
   return filters;
 }
 
+type SortField = 'last_message_at' | 'created_at' | 'priority';
+
 function filterAndSortConversations(conversations: MockConversation[], filters: InboxFilters, searchParams: URLSearchParams) {
   const filtered = conversations.filter((conversation) => {
     if (filters.status && conversation.status !== filters.status) return false;
@@ -141,15 +143,48 @@ function filterAndSortConversations(conversations: MockConversation[], filters: 
     return true;
   });
 
-  const sortBy = searchParams.get('sortBy') ?? 'last_message_at';
-  const sortOrder = searchParams.get('sortOrder') ?? 'desc';
+  const sortByParam = searchParams.get('sortBy');
+  const sortBy: SortField = sortByParam === 'last_message_at' || sortByParam === 'created_at' || sortByParam === 'priority'
+    ? sortByParam
+    : 'last_message_at';
+  const sortOrderParam = searchParams.get('sortOrder');
+  const sortOrder = sortOrderParam === 'asc' || sortOrderParam === 'desc' ? sortOrderParam : 'desc';
 
   const sorted = [...filtered].sort((a, b) => {
-    const valueA = (a as Record<string, string>)[sortBy] ?? '';
-    const valueB = (b as Record<string, string>)[sortBy] ?? '';
-    if (valueA === valueB) return 0;
-    if (sortOrder === 'asc') return valueA > valueB ? 1 : -1;
-    return valueA < valueB ? 1 : -1;
+    const valueA = a[sortBy];
+    const valueB = b[sortBy];
+
+    if (valueA == null && valueB == null) return 0;
+    if (valueA == null) return sortOrder === 'asc' ? -1 : 1;
+    if (valueB == null) return sortOrder === 'asc' ? 1 : -1;
+
+    const direction = sortOrder === 'asc' ? 1 : -1;
+
+    if (sortBy === 'priority') {
+      const priorityRank: Record<'low' | 'normal' | 'high' | 'urgent', number> = {
+        low: 1,
+        normal: 2,
+        high: 3,
+        urgent: 4
+      };
+      const rankA = priorityRank[valueA as keyof typeof priorityRank];
+      const rankB = priorityRank[valueB as keyof typeof priorityRank];
+      if (rankA === rankB) return 0;
+      return rankA > rankB ? direction : -direction;
+    }
+
+    const timeA = typeof valueA === 'string' ? Date.parse(valueA) : Number.NaN;
+    const timeB = typeof valueB === 'string' ? Date.parse(valueB) : Number.NaN;
+
+    if (!Number.isNaN(timeA) && !Number.isNaN(timeB)) {
+      if (timeA === timeB) return 0;
+      return timeA > timeB ? direction : -direction;
+    }
+
+    const compareA = String(valueA);
+    const compareB = String(valueB);
+    if (compareA === compareB) return 0;
+    return compareA > compareB ? direction : -direction;
   });
 
   const limit = parseInt(searchParams.get('limit') || '50', 10);
@@ -567,7 +602,10 @@ export function MockInboxPage() {
               </div>
             </div>
 
-            <DebugPanel events={mock.debugEvents} onClear={mock.clearDebugEvents} />
+            <DebugPanel 
+              events={mock.debugEvents.map(event => ({ ...event, data: event.data ?? {} }))} 
+              onClear={mock.clearDebugEvents} 
+            />
           </div>
 
           <MockInboxInfo mock={mock} />

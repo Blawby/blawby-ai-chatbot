@@ -4,7 +4,6 @@
 
 import { Button } from '@/shared/ui/Button';
 import { ValidationAlert } from '../components/ValidationAlert';
-import { OnboardingActions } from '../components/OnboardingActions';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
 import { ServiceCard } from '@/features/services/components/ServiceCard';
 import { ServiceForm } from '@/features/services/components/ServiceForm';
@@ -15,12 +14,10 @@ import type { Service } from '@/features/services/types';
 interface ServicesStepProps {
   data: Service[];
   onChange: (services: Service[]) => void;
-  onContinue: () => void;
-  onBack: () => void;
   errors?: string | null;
 }
 
-export function ServicesStep({ data, onChange, onContinue, onBack, errors }: ServicesStepProps) {
+export function ServicesStep({ data, onChange, errors }: ServicesStepProps) {
   const {
     services,
     toggleCatalogService,
@@ -116,11 +113,6 @@ export function ServicesStep({ data, onChange, onContinue, onBack, errors }: Ser
           </div>
         )}
       </div>
-
-      <OnboardingActions
-        onContinue={onContinue}
-        onBack={onBack}
-      />
     </div>
   );
 }

@@ -3,7 +3,6 @@
  */
 
 import { Input, Textarea } from '@/shared/ui/input';
-import { OnboardingActions } from '../components/OnboardingActions';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { ValidationAlert } from '../components/ValidationAlert';
 
@@ -20,14 +19,11 @@ interface BusinessDetailsData {
 interface BusinessDetailsStepProps {
   data: BusinessDetailsData;
   onChange: (data: BusinessDetailsData) => void;
-  onContinue: () => void;
-  onBack: () => void;
   errors?: string | null;
   disabled?: boolean;
-  onSkip?: () => void;
 }
 
-export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors, disabled = false, onSkip }: BusinessDetailsStepProps) {
+export function BusinessDetailsStep({ data, onChange, errors, disabled = false }: BusinessDetailsStepProps) {
   const { t } = useTranslation();
 
   return (
@@ -97,15 +93,6 @@ export function BusinessDetailsStep({ data, onChange, onContinue, onBack, errors
         disabled={disabled}
         rows={5}
         placeholder={t('onboarding:businessDetails.businessDescriptionPlaceholder')}
-      />
-
-      <OnboardingActions
-        onContinue={onContinue}
-        onBack={onBack}
-        loading={disabled}
-        backLabel={t('onboarding:businessDetails.backButton')}
-        continueLabel={t('onboarding:businessDetails.nextButton')}
-        onSkip={onSkip}
       />
     </div>
   );

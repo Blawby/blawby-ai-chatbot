@@ -16,6 +16,8 @@ interface OnboardingContainerProps {
   loading?: boolean;
   error?: string | null;
   className?: string;
+  footer?: ComponentChildren;
+  footerSticky?: boolean;
 }
 
 export const OnboardingContainer = ({
@@ -23,31 +25,43 @@ export const OnboardingContainer = ({
   header,
   loading = false,
   error = null,
-  className = ''
+  className = '',
+  footer,
+  footerSticky = true
 }: OnboardingContainerProps) => {
   return (
-    <div className={cn('min-h-screen bg-light-bg dark:bg-dark-bg py-12 sm:px-6 lg:px-8', className)}>
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
+    <div className={cn('min-h-screen bg-light-bg dark:bg-dark-bg py-12 sm:px-6 lg:px-8 flex flex-col', className)}>
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl w-full flex-1 flex flex-col">
         {header}
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-white/10 py-8 px-5 sm:px-10 shadow-lg sm:rounded-xl">
-          {error && (
-            <ValidationAlert type="error" className="mb-6">
-              {error}
-            </ValidationAlert>
-          )}
+        <div className="mt-8 flex-1 flex flex-col">
+          <div className="bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-white/10 shadow-lg sm:rounded-xl flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto pb-24 px-5 sm:px-10 py-8">
+              {error && (
+                <ValidationAlert type="error" className="mb-6">
+                  {error}
+                </ValidationAlert>
+              )}
 
-          {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <LoadingSpinner size="lg" ariaLabel="Loading onboarding step" />
+              {loading ? (
+                <div className="flex items-center justify-center py-10">
+                  <LoadingSpinner size="lg" ariaLabel="Loading onboarding step" />
+                </div>
+              ) : (
+                children
+              )}
             </div>
-          ) : (
-            children
-          )}
+          </div>
         </div>
       </div>
+
+      {footer && (
+        <div className={cn('w-full sm:mx-auto sm:w-full sm:max-w-2xl', footerSticky ? 'sticky bottom-0 z-20' : '')}>
+          <div className="bg-white dark:bg-dark-card-bg border-t border-gray-200 dark:border-white/10 px-5 sm:px-10 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+            {footer}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

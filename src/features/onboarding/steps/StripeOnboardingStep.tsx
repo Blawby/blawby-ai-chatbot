@@ -2,27 +2,22 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { ConnectAccountOnboarding, ConnectComponentsProvider } from '@stripe/react-connect-js';
 import { loadConnectAndInitialize, type StripeConnectInstance } from '@stripe/connect-js';
 import { InfoCard } from '../components/InfoCard';
-import { OnboardingActions } from '../components/OnboardingActions';
 import type { StripeConnectStatus } from '../types';
 
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 interface StripeOnboardingStepProps {
-  onContinue: () => void;
-  onBack: () => void;
-  onSkip?: () => void;
   status?: StripeConnectStatus | null;
   loading?: boolean;
   clientSecret?: string | null;
+  onActionLoadingChange?: (loading: boolean) => void;
 }
 
 export function StripeOnboardingStep({
-  onContinue,
-  onBack,
-  onSkip,
   status,
   loading = false,
-  clientSecret
+  clientSecret,
+  onActionLoadingChange
 }: StripeOnboardingStepProps) {
   const [connectInstance, setConnectInstance] = useState<StripeConnectInstance | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -106,6 +101,10 @@ export function StripeOnboardingStep({
   const showPublishableKeyWarning = !STRIPE_PUBLISHABLE_KEY;
   const actionLoading = loading || connectLoading;
 
+  useEffect(() => {
+    onActionLoadingChange?.(actionLoading);
+  }, [actionLoading, onActionLoadingChange]);
+
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -164,13 +163,6 @@ export function StripeOnboardingStep({
           </ConnectComponentsProvider>
         </div>
       )}
-
-      <OnboardingActions
-        onContinue={onContinue}
-        onBack={onBack}
-        onSkip={onSkip}
-        loading={actionLoading}
-      />
     </div>
   );
 }
