@@ -196,6 +196,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
           onModeChange={(newMode) => setAuthMode(newMode)}
           onSuccess={handleAuthSuccess}
           conversationContext={conversationContext}
+          showHeader={false}
         />
       </div>
 
