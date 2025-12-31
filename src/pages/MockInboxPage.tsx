@@ -147,7 +147,7 @@ export function MockInboxPage() {
   // Set mock token for development
   useEffect(() => {
     if (isDevMode) {
-      void setToken('mock-inbox-token');
+      void setToken(mockSession.data.session.token);
     }
   }, [isDevMode]);
 
