@@ -19,7 +19,6 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [conversationContext, setConversationContext] = useState<{ conversationId?: string | null; practiceId?: string | null }>({});
-
   const getSafeRedirectPath = (decodedRedirect: string): string | null => {
     if (!decodedRedirect || decodedRedirect.startsWith('//')) {
       return null;
