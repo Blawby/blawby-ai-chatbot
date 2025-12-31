@@ -157,7 +157,8 @@
         }
       },
       "helpCenter": "[NEEDS TRANSLATION] Help Center",
-      "letsGo": "[NEEDS TRANSLATION] Okay, let's go"
+      "letsGo": "[NEEDS TRANSLATION] Okay, let's go",
+      "getStarted": "Başlayın"
     }
   },
   "welcome": {
