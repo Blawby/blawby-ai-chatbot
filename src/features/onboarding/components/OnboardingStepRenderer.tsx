@@ -58,7 +58,6 @@ export const OnboardingStepRenderer = ({
   isLastStep = false,
 }: OnboardingStepRendererProps) => {
   const { t } = useTranslation();
-  const { t: tCommon } = useTranslation('common');
   const [stepActionLoading, setStepActionLoading] = useState(false);
 
   useEffect(() => {
@@ -85,7 +84,7 @@ export const OnboardingStepRenderer = ({
       case 'welcome':
         return {
           ...base,
-          continueLabel: 'Get Started',
+          continueLabel: t('onboarding:welcome.getStarted'),
           isFirstStep: true
         };
       case 'firm-basics':
@@ -106,7 +105,7 @@ export const OnboardingStepRenderer = ({
       case 'review-and-launch':
         return {
           ...base,
-          continueLabel: tCommon('onboarding:reviewAndLaunch.actions.launchAssistant'),
+          continueLabel: t('onboarding:reviewAndLaunch.actions.launchAssistant'),
           isLastStep: true
         };
       default:
@@ -120,8 +119,7 @@ export const OnboardingStepRenderer = ({
     onBack,
     onContinue,
     onSkip,
-    t,
-    tCommon
+    t
   ]);
 
   const footer = useMemo(() => <OnboardingActions {...footerProps} />, [footerProps]);
