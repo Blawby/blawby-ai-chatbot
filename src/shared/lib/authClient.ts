@@ -13,6 +13,7 @@ type AuthSessionData = AuthSession['data'];
 type TypedSessionData = AuthSessionData extends { user: unknown; session: infer S }
   ? { user: BetterAuthSessionUser; session: S }
   : AuthSessionData;
+type TypedSessionDataOrOriginal = TypedSessionData | AuthSessionData | undefined;
 
 // Remote better-auth server URL
 // REQUIRED in production - must be set via VITE_AUTH_SERVER_URL environment variable
@@ -241,18 +242,20 @@ export const useSession = () => {
   return client.useSession();
 };
 
-export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionData } => {
+export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionDataOrOriginal } => {
   const client = getAuthClient();
   const session = client.useSession();
   const rawUser = session.data?.user as Record<string, unknown> | undefined;
   const typedUser: BetterAuthSessionUser | undefined = rawUser ? transformSessionUser(rawUser) : undefined;
 
-  return {
-    ...session,
-    data: session.data && typedUser
-      ? { ...session.data, user: typedUser }
-      : (session.data as TypedSessionData)
-  };
+  if (session.data && typedUser) {
+    return {
+      ...session,
+      data: { ...session.data, user: typedUser }
+    };
+  }
+
+  return session;
 };
 
 export const getSession = (...args: Parameters<AuthClientType['getSession']>) => getAuthClient().getSession(...args);
