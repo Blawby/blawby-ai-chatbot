@@ -3,13 +3,13 @@ import { ComponentChildren } from 'preact';
 import { authClient } from '@/shared/lib/authClient';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
-interface SessionContextValue {
+export interface SessionContextValue {
   session: ReturnType<typeof authClient.useSession>['data'];
   isAnonymous: boolean;
   activePracticeId: string | null;
 }
 
-const SessionContext = createContext<SessionContextValue | undefined>(undefined);
+export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData } = authClient.useSession();
