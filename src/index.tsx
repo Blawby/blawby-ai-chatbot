@@ -14,7 +14,7 @@ import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
 import { BusinessOnboardingPage } from '@/pages/BusinessOnboardingPage';
 import { MockChatPage } from '@/pages/MockChatPage';
-import { MockServicesPage } from '@/pages/MockServicesPage';
+import { MockPracticeOnboardingAndSettingsPage } from '@/pages/MockPracticeOnboardingAndSettingsPage';
 import { MockInboxPage } from '@/pages/MockInboxPage';
 import { CartPage } from '@/features/cart/pages/CartPage';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -263,10 +263,11 @@ function AppWithSEO({
 			/>
 			<ToastProvider>
 				<Router>
-   					<Route path="/auth" component={AuthPage} />
+					<Route path="/auth" component={AuthPage} />
 					<Route path="/cart" component={CartPage} />
 					<Route path="/dev/mock-chat" component={MockChatPage} />
-					<Route path="/dev/mock-services" component={MockServicesPage} />
+					<Route path="/dev/mock-practice-onboarding-and-settings" component={MockPracticeOnboardingAndSettingsPage} />
+					<Route path="/mock-practice-onboarding-and-settings" component={MockPracticeOnboardingAndSettingsPage} />
 					<Route path="/dev/mock-inbox" component={MockInboxPage} />
 					<Route path="/mock-inbox" component={MockInboxPage} />
 					<Route path="/business-onboarding" component={BusinessOnboardingPage} />
