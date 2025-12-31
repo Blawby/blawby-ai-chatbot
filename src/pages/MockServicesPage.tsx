@@ -173,7 +173,7 @@ const mockSession = {
       email: 'owner@mock-law.test',
       practiceId: MOCK_PRACTICE_ID,
       activePracticeId: MOCK_PRACTICE_ID,
-      primaryWorkspace: 'practice',
+      primaryWorkspace: 'practice' as const,
       preferredPracticeId: MOCK_PRACTICE_ID,
       hasPractice: true
     },
@@ -195,7 +195,7 @@ function MockSessionProvider({ children }: { children: preact.ComponentChildren 
     session: mockSession.data,
     activePracticeId: mockSession.data.user.activePracticeId,
     isAnonymous: false,
-    primaryWorkspace: 'practice',
+    primaryWorkspace: 'practice' as const,
     preferredPracticeId: MOCK_PRACTICE_ID,
     hasPractice: true
   }), []);

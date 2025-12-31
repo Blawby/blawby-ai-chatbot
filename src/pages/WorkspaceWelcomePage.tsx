@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { useSession, updateUser } from '@/shared/lib/authClient';
+import { useTypedSession, updateUser } from '@/shared/lib/authClient';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { setActivePractice } from '@/shared/lib/apiClient';
@@ -9,7 +9,7 @@ import { Logo } from '@/shared/ui/Logo';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 
 const WorkspaceWelcomePage = () => {
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending } = useTypedSession();
   const { navigate } = useNavigation();
   const { preferredPracticeId, hasPractice } = useWorkspace();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
@@ -26,9 +26,8 @@ const WorkspaceWelcomePage = () => {
       navigate('/auth', true);
       return;
     }
-    const user = session.user as { primaryWorkspace?: string | null };
-    if (user.primaryWorkspace) {
-      navigate(user.primaryWorkspace === 'practice' ? '/practice' : '/app', true);
+    if (session.user.primaryWorkspace) {
+      navigate(session.user.primaryWorkspace === 'practice' ? '/practice' : '/app', true);
     }
   }, [isPending, navigate, session?.user]);
 
@@ -52,7 +51,7 @@ const WorkspaceWelcomePage = () => {
               practiceId: nextPreferredPracticeId,
               error: activationError
             });
-            showError('Workspace activation failed', 'We saved your preference, but could not activate the workspace.');
+            showError('Workspace activation failed', 'Could not activate the workspace. Please try again.');
             return;
           }
         }

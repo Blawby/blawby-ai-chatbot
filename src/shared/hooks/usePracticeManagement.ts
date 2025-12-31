@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
-import { useSession } from '@/shared/lib/authClient';
+import { useTypedSession } from '@/shared/lib/authClient';
 import {
   listPractices,
   createPractice as apiCreatePractice,
@@ -408,7 +408,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     autoFetchPractices = true,
     fetchInvitations: shouldFetchInvitations = true,
   } = options;
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { data: session, isPending: sessionLoading } = useTypedSession();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const [members, setMembers] = useState<Record<string, Member[]>>({});
@@ -509,9 +509,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         .filter((practice) => practice.id.length > 0);
 
       const preferredPracticeId =
-        (session?.user as { preferredPracticeId?: string | null })?.preferredPracticeId ??
-        (session?.user as { practiceId?: string | null })?.practiceId ??
-        (session?.user as { activePracticeId?: string | null })?.activePracticeId ??
+        session?.user?.preferredPracticeId ??
+        session?.user?.practiceId ??
+        session?.user?.activePracticeId ??
         null;
       const preferredPractice = preferredPracticeId
         ? normalizedList.find(practice => practice.id === preferredPracticeId)

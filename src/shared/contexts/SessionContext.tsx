@@ -1,10 +1,10 @@
 import { createContext, useContext, useMemo } from 'preact/compat';
 import { ComponentChildren } from 'preact';
-import { authClient } from '@/shared/lib/authClient';
+import { useTypedSession } from '@/shared/lib/authClient';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
 export interface SessionContextValue {
-  session: ReturnType<typeof authClient.useSession>['data'];
+  session: ReturnType<typeof useTypedSession>['data'];
   isAnonymous: boolean;
   activePracticeId: string | null;
   primaryWorkspace: 'client' | 'practice' | null;
@@ -15,25 +15,19 @@ export interface SessionContextValue {
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
-  const { data: sessionData } = authClient.useSession();
+  const { data: sessionData } = useTypedSession();
 
   const isAnonymous = !sessionData?.user;
   const { currentPractice } = usePracticeManagement();
 
   const activePracticeIdFromSession =
-    (sessionData?.user as { practiceId?: string; activePracticeId?: string })?.practiceId ?? 
-    (sessionData?.user as { practiceId?: string; activePracticeId?: string })?.activePracticeId ?? 
-    null;
+    sessionData?.user?.practiceId ?? sessionData?.user?.activePracticeId ?? null;
 
   const activePracticeId = currentPractice?.id ?? activePracticeIdFromSession ?? null;
-  const primaryWorkspace =
-    (sessionData?.user as { primaryWorkspace?: 'client' | 'practice' | null })?.primaryWorkspace ?? null;
-  const preferredPracticeId =
-    (sessionData?.user as { preferredPracticeId?: string | null })?.preferredPracticeId ?? null;
-  const practiceCount =
-    (sessionData?.user as { practiceCount?: number | null })?.practiceCount ?? null;
-  const hasPracticeFlag =
-    (sessionData?.user as { hasPractice?: boolean | null })?.hasPractice ?? null;
+  const primaryWorkspace = sessionData?.user?.primaryWorkspace ?? null;
+  const preferredPracticeId = sessionData?.user?.preferredPracticeId ?? null;
+  const practiceCount = sessionData?.user?.practiceCount ?? null;
+  const hasPracticeFlag = sessionData?.user?.hasPractice ?? null;
   const hasPractice = Boolean(
     (typeof hasPracticeFlag === 'boolean' ? hasPracticeFlag : null) ??
     (typeof practiceCount === 'number' ? practiceCount > 0 : null) ??

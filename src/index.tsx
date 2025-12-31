@@ -6,7 +6,7 @@ import AuthPage from '@/pages/AuthPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider } from '@/shared/contexts/SessionContext';
-import { useSession, getClient } from '@/shared/lib/authClient';
+import { useTypedSession, getClient } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -102,7 +102,7 @@ function SettingsRoute() {
 }
 
 function RootRoute() {
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending } = useTypedSession();
   const { defaultWorkspace } = useWorkspace();
   const { navigate } = useNavigation();
 
@@ -114,8 +114,7 @@ function RootRoute() {
       return;
     }
 
-    const user = session.user as { primaryWorkspace?: string | null };
-    if (!user.primaryWorkspace) {
+    if (!session.user.primaryWorkspace) {
       navigate('/welcome', true);
       return;
     }
@@ -127,7 +126,7 @@ function RootRoute() {
 }
 
 function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending } = useTypedSession();
   const { navigate } = useNavigation();
 
   useEffect(() => {
@@ -136,8 +135,7 @@ function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
       navigate('/auth', true);
       return;
     }
-    const user = session.user as { primaryWorkspace?: string | null };
-    if (!user.primaryWorkspace) {
+    if (!session.user.primaryWorkspace) {
       navigate('/welcome', true);
     }
   }, [isPending, navigate, session?.user, settingsMode]);
@@ -154,7 +152,7 @@ function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
 }
 
 function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending } = useTypedSession();
   const { navigate } = useNavigation();
   const { preferredPracticeId, activePracticeId, hasPractice } = useWorkspace();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
@@ -181,8 +179,7 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
   useEffect(() => {
     if (settingsMode || isPending || practicesLoading) return;
     if (!session?.user) return;
-    const user = session.user as { primaryWorkspace?: string | null };
-    if (!user.primaryWorkspace) {
+    if (!session.user.primaryWorkspace) {
       navigate('/welcome', true);
       return;
     }
@@ -209,7 +206,7 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
       practiceConfig={practiceConfig}
       practiceNotFound={practiceNotFound}
       handleRetryPracticeConfig={handleRetryPracticeConfig}
-      isPracticeView={false}
+      isPracticeView={true}
       workspace="practice"
     />
   );
@@ -217,7 +214,7 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
 
 function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
   const location = useLocation();
-  const { data: session, isPending: sessionIsPending } = useSession();
+  const { data: session, isPending: sessionIsPending } = useTypedSession();
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
   }, []);
