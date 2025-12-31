@@ -16,6 +16,10 @@
       "toastBody": "[NEEDS TRANSLATION] You have been signed out"
     }
   },
+  "practice": {
+    "services": "Layanan",
+    "team": "Anggota tim"
+  },
   "general": {
     "title": "[NEEDS TRANSLATION] General",
     "theme": {

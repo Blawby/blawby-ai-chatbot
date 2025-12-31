@@ -269,6 +269,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
   const teamAvatars = useMemo(
     () => members.map((member) => ({
+      id: member.userId,
       name: member.name || member.email,
       image: member.image || null
     })),
@@ -482,6 +483,10 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const handleUpdatePractice = async () => {
     if (!currentPractice) return;
+    if (!editPracticeForm.name.trim()) {
+      showError('Practice name is required');
+      return;
+    }
 
     setIsSettingsSaving(true);
     try {
@@ -529,8 +534,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const saveOnboardingSettings = async (
     updates: Partial<OnboardingDetails>,
     toastBody: string
-  ) => {
-    if (!currentPractice) return;
+  ): Promise<boolean> => {
+    if (!currentPractice) return false;
     setIsSettingsSaving(true);
     try {
       const metadataBase = isPlainObject(currentPractice.metadata)
@@ -567,9 +572,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       });
 
       showSuccess('Practice updated', toastBody);
+      return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update practice settings';
       showError('Update failed', message);
+      return false;
     } finally {
       setIsSettingsSaving(false);
     }
@@ -595,7 +602,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   };
 
   const handleSaveContact = async () => {
-    await saveOnboardingSettings(
+    const success = await saveOnboardingSettings(
       {
         website: contactDraft.website.trim(),
         contactPhone: contactDraft.phone.trim(),
@@ -608,17 +615,21 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       },
       'Contact details updated.'
     );
-    setIsContactModalOpen(false);
+    if (success) {
+      setIsContactModalOpen(false);
+    }
   };
 
   const handleSaveIntro = async () => {
-    await saveOnboardingSettings(
+    const success = await saveOnboardingSettings(
       {
         introMessage: introDraft.trim()
       },
       'Intro message updated.'
     );
-    setIsIntroModalOpen(false);
+    if (success) {
+      setIsIntroModalOpen(false);
+    }
   };
 
   const handleTogglePublic = async (nextValue: boolean) => {
@@ -1146,8 +1157,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       >
         <div className="space-y-4">
           <div>
-            <FormLabel>Website</FormLabel>
+            <FormLabel htmlFor="practice-website">Website</FormLabel>
             <URLInput
+              id="practice-website"
               value={contactDraft.website}
               onChange={(value) => setContactDraft(prev => ({ ...prev, website: value }))}
               placeholder="https://yourfirm.com"
@@ -1156,8 +1168,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           </div>
 
           <div>
-            <FormLabel>Phone</FormLabel>
+            <FormLabel htmlFor="practice-phone">Phone</FormLabel>
             <PhoneInput
+              id="practice-phone"
               value={contactDraft.phone}
               onChange={(value) => setContactDraft(prev => ({ ...prev, phone: value }))}
               placeholder="(555) 123-4567"

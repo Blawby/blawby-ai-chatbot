@@ -16,6 +16,10 @@
       "toastBody": "Tu sesión se ha cerrado"
     }
   },
+  "practice": {
+    "services": "Servicios",
+    "team": "Miembros del equipo"
+  },
   "general": {
     "title": "General",
     "theme": {

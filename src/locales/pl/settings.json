@@ -16,6 +16,10 @@
       "toastBody": "[NEEDS TRANSLATION] You have been signed out"
     }
   },
+  "practice": {
+    "services": "Usługi",
+    "team": "Członkowie zespołu"
+  },
   "general": {
     "title": "Ustawienia ogólne",
     "theme": {

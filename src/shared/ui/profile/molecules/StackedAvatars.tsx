@@ -2,6 +2,7 @@ import { Avatar } from '../atoms/Avatar';
 import { cn } from '@/shared/utils/cn';
 
 interface StackedAvatarUser {
+  id: string;
   name: string;
   image?: string | null;
 }
@@ -43,7 +44,8 @@ export const StackedAvatars = ({
   showOverflow = true
 }: StackedAvatarsProps) => {
   const config = sizeConfig[size];
-  const visibleUsers = users.slice(0, max);
+  const safeMax = Math.max(0, max);
+  const visibleUsers = users.slice(0, safeMax);
   const overflowCount = Math.max(users.length - visibleUsers.length, 0);
 
   if (visibleUsers.length === 0 && !showOverflow) {
@@ -52,9 +54,9 @@ export const StackedAvatars = ({
 
   return (
     <div className={cn('flex overflow-hidden', config.overlap, className)}>
-      {visibleUsers.map((user, index) => (
+      {visibleUsers.map((user) => (
         <Avatar
-          key={`${user.name}-${index}`}
+          key={user.id}
           src={user.image}
           name={user.name}
           size={config.avatar}

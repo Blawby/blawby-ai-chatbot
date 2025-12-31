@@ -16,6 +16,10 @@
       "toastBody": "Sie wurden abgemeldet"
     }
   },
+  "practice": {
+    "services": "Dienste",
+    "team": "Teammitglieder"
+  },
   "general": {
     "title": "Allgemein",
     "theme": {

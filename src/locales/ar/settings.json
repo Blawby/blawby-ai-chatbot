@@ -16,6 +16,10 @@
       "toastBody": "تم تسجيل خروجك"
     }
   },
+  "practice": {
+    "services": "الخدمات",
+    "team": "أعضاء الفريق"
+  },
   "general": {
     "title": "عام",
     "theme": {

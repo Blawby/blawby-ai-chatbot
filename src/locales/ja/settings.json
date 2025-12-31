@@ -16,6 +16,10 @@
       "toastBody": "サインアウトしました"
     }
   },
+  "practice": {
+    "services": "サービス",
+    "team": "チームメンバー"
+  },
   "general": {
     "title": "一般",
     "theme": {

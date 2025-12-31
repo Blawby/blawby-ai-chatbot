@@ -16,6 +16,10 @@
       "toastBody": "Vous avez été déconnecté"
     }
   },
+  "practice": {
+    "services": "Services",
+    "team": "Membres de l'équipe"
+  },
   "general": {
     "title": "Général",
     "theme": {

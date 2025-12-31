@@ -54,13 +54,6 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   const currentUserRole = currentMember?.role || 'paralegal';
   const isOwner = currentUserRole === 'owner';
   const isAdmin = currentUserRole === 'admin' || isOwner;
-  if (!currentMember && currentPractice) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-gray-500">You are not a member of this practice.</p>
-      </div>
-    );
-  }
 
   const [isInvitingMember, setIsInvitingMember] = useState(false);
   const [isEditingMember, setIsEditingMember] = useState(false);
@@ -92,6 +85,14 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
       showError(err?.message || String(err) || 'Failed to fetch practice members');
     });
   }, [currentPractice, fetchMembers, showError]);
+
+  if (!currentMember && currentPractice) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-sm text-gray-500">You are not a member of this practice.</p>
+      </div>
+    );
+  }
 
   const handleSendInvitation = async () => {
     if (!currentPractice || !inviteForm.email.trim()) {
