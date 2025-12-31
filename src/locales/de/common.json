@@ -178,5 +178,19 @@
       }
     },
     "goToSettings": "Zu den Praxis-Einstellungen"
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Willkommen bei Blawby",
+      "subtitle": "Richten Sie Ihre Kanzlei ein, um Mandantenanfragen zu erhalten",
+      "getStarted": "Loslegen",
+      "todo": {
+        "createPractice": "Kanzleiprofil erstellen",
+        "businessDetails": "Geschäftsdaten einrichten",
+        "trustAccount": "Treuhandkonto verbinden",
+        "services": "Dienstleistungen hinzufügen",
+        "launch": "Intake-Assistent starten"
+      }
+    }
   }
 }

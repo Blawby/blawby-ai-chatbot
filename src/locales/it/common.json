@@ -159,5 +159,19 @@
       "helpCenter": "Centro Assistenza",
       "letsGo": "Ok, iniziamo"
     }
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Benvenuto su Blawby",
+      "subtitle": "Configura il tuo studio per iniziare a ricevere richieste dai clienti",
+      "getStarted": "Inizia",
+      "todo": {
+        "createPractice": "Crea il profilo dello studio",
+        "businessDetails": "Configura i dettagli aziendali",
+        "trustAccount": "Collega il conto fiduciario",
+        "services": "Aggiungi servizi",
+        "launch": "Avvia l’assistente di intake"
+      }
+    }
   }
 }

@@ -159,5 +159,19 @@
       "helpCenter": "مركز المساعدة",
       "letsGo": "حسناً، لنبدأ"
     }
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "مرحبًا بك في Blawby",
+      "subtitle": "قم بإعداد مكتبك لبدء استقبال طلبات العملاء",
+      "getStarted": "ابدأ الآن",
+      "todo": {
+        "createPractice": "إنشاء ملف تعريف مكتبك",
+        "businessDetails": "إعداد تفاصيل العمل",
+        "trustAccount": "ربط حساب الأمانة",
+        "services": "إضافة خدماتك",
+        "launch": "إطلاق مساعد استقبال العملاء"
+      }
+    }
   }
 }

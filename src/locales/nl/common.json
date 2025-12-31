@@ -159,5 +159,19 @@
       "helpCenter": "Helpcentrum",
       "letsGo": "Oké, laten we beginnen"
     }
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Welkom bij Blawby",
+      "subtitle": "Stel uw praktijk in om cliëntaanvragen te ontvangen",
+      "getStarted": "Aan de slag",
+      "todo": {
+        "createPractice": "Praktijkprofiel maken",
+        "businessDetails": "Bedrijfsgegevens instellen",
+        "trustAccount": "Derdenrekening koppelen",
+        "services": "Diensten toevoegen",
+        "launch": "Intake-assistent starten"
+      }
+    }
   }
 }

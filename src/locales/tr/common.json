@@ -159,5 +159,19 @@
       "helpCenter": "[NEEDS TRANSLATION] Help Center",
       "letsGo": "[NEEDS TRANSLATION] Okay, let's go"
     }
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Blawby’ye Hoş Geldiniz",
+      "subtitle": "Müvekkil taleplerini almaya başlamak için ofisinizi kurun",
+      "getStarted": "Başlayın",
+      "todo": {
+        "createPractice": "Ofis profili oluştur",
+        "businessDetails": "İş bilgilerini ayarla",
+        "trustAccount": "Emanet hesabını bağla",
+        "services": "Hizmet ekle",
+        "launch": "Alım asistanını başlat"
+      }
+    }
   }
 }

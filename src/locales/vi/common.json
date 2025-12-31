@@ -178,5 +178,19 @@
       }
     },
     "goToSettings": "Đi đến Cài đặt văn phòng"
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Chào mừng đến với Blawby",
+      "subtitle": "Thiết lập văn phòng của bạn để bắt đầu nhận yêu cầu từ khách hàng",
+      "getStarted": "Bắt đầu",
+      "todo": {
+        "createPractice": "Tạo hồ sơ văn phòng",
+        "businessDetails": "Thiết lập thông tin doanh nghiệp",
+        "trustAccount": "Kết nối tài khoản ủy thác",
+        "services": "Thêm dịch vụ",
+        "launch": "Khởi chạy trợ lý tiếp nhận"
+      }
+    }
   }
 }

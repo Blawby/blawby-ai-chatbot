@@ -178,5 +178,19 @@
       }
     },
     "goToSettings": "Ir a Configuración de la práctica"
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Bienvenido a Blawby",
+      "subtitle": "Configura tu despacho para empezar a recibir solicitudes de clientes",
+      "getStarted": "Comenzar",
+      "todo": {
+        "createPractice": "Crear perfil del despacho",
+        "businessDetails": "Configurar datos del negocio",
+        "trustAccount": "Conectar cuenta fiduciaria",
+        "services": "Agregar servicios",
+        "launch": "Lanzar asistente de admisión"
+      }
+    }
   }
 }

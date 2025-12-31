@@ -159,5 +159,19 @@
       "helpCenter": "Centrum pomocy",
       "letsGo": "Okej, zaczynajmy"
     }
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Witamy w Blawby",
+      "subtitle": "Skonfiguruj swoją kancelarię, aby otrzymywać zgłoszenia klientów",
+      "getStarted": "Rozpocznij",
+      "todo": {
+        "createPractice": "Utwórz profil kancelarii",
+        "businessDetails": "Skonfiguruj dane firmy",
+        "trustAccount": "Połącz konto powiernicze",
+        "services": "Dodaj usługi",
+        "launch": "Uruchom asystenta przyjmowania zgłoszeń"
+      }
+    }
   }
 }

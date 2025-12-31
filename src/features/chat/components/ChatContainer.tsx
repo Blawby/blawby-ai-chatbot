@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
@@ -10,6 +10,11 @@ import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import LawyerSearchInline from '@/features/lawyer-search/components/LawyerSearchInline';
+import WelcomeState from '@/features/welcome/components/WelcomeState';
+import { useSession } from '@/shared/lib/authClient';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { useNavigation } from '@/shared/utils/navigation';
+import { extractProgressFromPracticeMetadata } from '@/shared/utils/practiceOnboarding';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -73,11 +78,19 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isAnonymousUser,
   canChat = true
 }) => {
+  const { data: session } = useSession();
+  const { currentPractice, loading: practiceLoading } = usePracticeManagement();
+  const { navigate } = useNavigation();
+  const isAuthenticated = Boolean(session?.user);
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobileDetection();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
+  const onboardingProgress = useMemo(
+    () => extractProgressFromPracticeMetadata(currentPractice?.metadata),
+    [currentPractice?.metadata]
+  );
 
 
   // Simple resize handler for window size changes
@@ -222,6 +235,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               intakeStatus={intakeStatus}
             />
           </>
+        ) : practiceLoading && isAuthenticated ? (
+          <div className="flex flex-1 items-center justify-center text-gray-500 dark:text-gray-300">
+            Loading…
+          </div>
+        ) : isAuthenticated && !currentPractice ? (
+          <WelcomeState
+            currentPractice={currentPractice}
+            onStartOnboarding={() => navigate('/business-onboarding')}
+            onboardingProgress={onboardingProgress}
+          />
         ) : (
           <LawyerSearchInline />
         )}

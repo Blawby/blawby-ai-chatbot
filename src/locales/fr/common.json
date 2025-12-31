@@ -178,5 +178,19 @@
       }
     },
     "goToSettings": "Aller aux paramètres de pratique"
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Bienvenue sur Blawby",
+      "subtitle": "Configurez votre cabinet pour commencer à recevoir des demandes de clients",
+      "getStarted": "Commencer",
+      "todo": {
+        "createPractice": "Créer le profil du cabinet",
+        "businessDetails": "Configurer les informations professionnelles",
+        "trustAccount": "Connecter le compte de fiducie",
+        "services": "Ajouter des services",
+        "launch": "Lancer l’assistant d’admission"
+      }
+    }
   }
 }

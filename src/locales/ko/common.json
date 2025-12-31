@@ -159,5 +159,19 @@
       "helpCenter": "고객센터",
       "letsGo": "알겠습니다, 시작합시다"
     }
+  },
+  "welcome": {
+    "lawyer": {
+      "title": "Blawby에 오신 것을 환영합니다",
+      "subtitle": "고객 접수를 시작하려면 로펌을 설정하세요",
+      "getStarted": "시작하기",
+      "todo": {
+        "createPractice": "로펌 프로필 생성",
+        "businessDetails": "비즈니스 정보 설정",
+        "trustAccount": "신탁 계좌 연결",
+        "services": "서비스 추가",
+        "launch": "접수 어시스턴트 실행"
+      }
+    }
   }
 }
