@@ -184,21 +184,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setShowAuthPrompt(false);
   };
 
-  const handleAuthRedirect = () => {
+  const handleAuthSuccess = () => {
+    setHasDismissedAuthPrompt(true);
     setShowAuthPrompt(false);
-    const authUrl = new URL('/auth', window.location.origin);
-    authUrl.searchParams.set('mode', 'signup');
-    if (conversationId) {
-      authUrl.searchParams.set('conversationId', conversationId);
-    }
-    if (practiceId) {
-      authUrl.searchParams.set('practiceId', practiceId);
-    }
-    const redirectPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (redirectPath) {
-      authUrl.searchParams.set('redirect', redirectPath);
-    }
-    window.location.href = authUrl.toString();
   };
 
   return (
@@ -252,9 +240,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
       <AuthPromptModal
         isOpen={showAuthPrompt}
-        onSignIn={handleAuthRedirect}
         onClose={handleAuthPromptClose}
         practiceName={practiceConfig?.name}
+        onSuccess={handleAuthSuccess}
+        conversationId={conversationId ?? undefined}
+        practiceId={practiceId}
       />
     </div>
   );
