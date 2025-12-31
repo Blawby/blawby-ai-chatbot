@@ -162,15 +162,15 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
+      "title": "Selamat datang di Blawby",
+      "subtitle": "Siapkan praktik Anda untuk mulai menerima permintaan klien",
+      "getStarted": "Mulai",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+        "createPractice": "Buat profil praktik",
+        "businessDetails": "Atur detail bisnis",
+        "trustAccount": "Hubungkan akun trust",
+        "services": "Tambahkan layanan",
+        "launch": "Luncurkan asisten intake"
       }
     }
   }

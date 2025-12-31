@@ -162,15 +162,15 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
+      "title": "Blawby में आपका स्वागत है",
+      "subtitle": "ग्राहक अनुरोध प्राप्त करना शुरू करने के लिए अपना प्रैक्टिस सेट करें",
+      "getStarted": "शुरू करें",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+        "createPractice": "प्रैक्टिस प्रोफ़ाइल बनाएं",
+        "businessDetails": "व्यवसाय विवरण सेट करें",
+        "trustAccount": "ट्रस्ट खाता कनेक्ट करें",
+        "services": "सेवाएँ जोड़ें",
+        "launch": "इंटेक सहायक लॉन्च करें"
       }
     }
   }

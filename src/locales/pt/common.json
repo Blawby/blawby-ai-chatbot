@@ -162,15 +162,15 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
+      "title": "Bem-vindo ao Blawby",
+      "subtitle": "Configure seu escritório para começar a receber solicitações de clientes",
+      "getStarted": "Começar",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+        "createPractice": "Criar perfil do escritório",
+        "businessDetails": "Configurar detalhes do negócio",
+        "trustAccount": "Conectar conta fiduciária",
+        "services": "Adicionar serviços",
+        "launch": "Iniciar assistente de intake"
       }
     }
   }

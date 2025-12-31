@@ -181,15 +181,15 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
+      "title": "Chào mừng đến với Blawby",
+      "subtitle": "Thiết lập văn phòng của bạn để bắt đầu nhận yêu cầu từ khách hàng",
+      "getStarted": "Bắt đầu",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+        "createPractice": "Tạo hồ sơ văn phòng",
+        "businessDetails": "Thiết lập thông tin doanh nghiệp",
+        "trustAccount": "Kết nối tài khoản ủy thác",
+        "services": "Thêm dịch vụ",
+        "launch": "Khởi chạy trợ lý tiếp nhận"
       }
     }
   }

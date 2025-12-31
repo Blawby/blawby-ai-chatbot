@@ -181,15 +181,15 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
+      "title": "Blawbyへようこそ",
+      "subtitle": "クライアントの受付を開始するために事務所を設定しましょう",
+      "getStarted": "開始する",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+        "createPractice": "事務所プロフィールを作成",
+        "businessDetails": "事業情報を設定",
+        "trustAccount": "信託口座を接続",
+        "services": "サービスを追加",
+        "launch": "受付アシスタントを起動"
       }
     }
   }

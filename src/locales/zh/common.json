@@ -181,15 +181,15 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
+      "title": "欢迎使用 Blawby",
+      "subtitle": "设置您的律所以开始接收客户咨询",
+      "getStarted": "开始使用",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+        "createPractice": "创建律所资料",
+        "businessDetails": "设置业务信息",
+        "trustAccount": "连接信托账户",
+        "services": "添加服务",
+        "launch": "启动接待助手"
       }
     }
   }

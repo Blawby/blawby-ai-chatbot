@@ -162,15 +162,15 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
+      "title": "مرحبًا بك في Blawby",
+      "subtitle": "قم بإعداد مكتبك لبدء استقبال طلبات العملاء",
+      "getStarted": "ابدأ الآن",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+        "createPractice": "إنشاء ملف تعريف مكتبك",
+        "businessDetails": "إعداد تفاصيل العمل",
+        "trustAccount": "ربط حساب الأمانة",
+        "services": "إضافة خدماتك",
+        "launch": "إطلاق مساعد استقبال العملاء"
       }
     }
   }

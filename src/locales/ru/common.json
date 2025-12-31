@@ -162,15 +162,15 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
+      "title": "Добро пожаловать в Blawby",
+      "subtitle": "Настройте свою практику для получения заявок от клиентов",
+      "getStarted": "Начать",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+        "createPractice": "Создать профиль практики",
+        "businessDetails": "Настроить данные бизнеса",
+        "trustAccount": "Подключить трастовый счет",
+        "services": "Добавить услуги",
+        "launch": "Запустить ассистента приема"
       }
     }
   }
