@@ -35,17 +35,16 @@ export function useServices({
   const [services, setServicesState] = useState<Service[]>(() =>
     normalizeServices(initialServices, catalog)
   );
-  const isInitialMount = useRef(true);
+  const isDirty = useRef(false);
 
   useEffect(() => {
-    // Intentionally only sync once to avoid overwriting in-progress edits.
-    // Callers that need a reset should remount the hook or add an explicit reset.
-    if (!isInitialMount.current) return;
-    isInitialMount.current = false;
+    // Sync from upstream data until a local edit occurs.
+    if (isDirty.current) return;
     setServicesState(normalizeServices(initialServices, catalog));
   }, [initialServices, catalog]);
 
   const setServices = useCallback((next: Service[]) => {
+    isDirty.current = true;
     setServicesState(next);
     onChange?.(next);
   }, [onChange]);

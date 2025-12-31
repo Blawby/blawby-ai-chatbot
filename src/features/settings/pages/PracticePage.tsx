@@ -1,40 +1,28 @@
 import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
-import { 
-  BuildingOfficeIcon, 
-  PlusIcon, 
-  UserPlusIcon,
-  TrashIcon,
-  CheckIcon
+import {
+  BuildingOfficeIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
-import { usePracticeManagement, type Role, type MatterWorkflowStatus, type Practice } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeManagement, type MatterWorkflowStatus } from '@/shared/hooks/usePracticeManagement';
 import { features } from '@/config/features';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { Input, Textarea } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
-import { Select } from '@/shared/ui/input/Select';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
 import { useNavigation } from '@/shared/utils/navigation';
 import { authClient } from '@/shared/lib/authClient';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
-import { normalizeSeats } from '@/shared/utils/subscription';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
-import { PracticeLogo } from '@/shared/ui/sidebar/atoms/PracticeLogo';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
-import { ServicesList } from '@/features/services/components/ServicesList';
-import { ServiceCard } from '@/features/services/components/ServiceCard';
-import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
-import { useServices } from '@/features/services/hooks/useServices';
-import type { Service } from '@/features/services/types';
-import { normalizeServices } from '@/features/services/utils';
-import type { PracticeConfig } from '../../../../worker/types';
 
 interface PracticePageProps {
   className?: string;
+  onNavigate?: (path: string) => void;
 }
 
 interface LeadSummary {
@@ -49,118 +37,17 @@ interface LeadSummary {
   updatedAt: string;
 }
 
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const resolveVoiceProvider = (value: unknown): PracticeConfig['voice']['provider'] => {
-  if (value === 'cloudflare' || value === 'elevenlabs' || value === 'custom') {
-    return value;
-  }
-  return 'cloudflare';
-};
-
-const resolveConversationConfig = (practice: Practice | null): PracticeConfig | null => {
-  if (!practice) return null;
-  const metadata = practice.metadata;
-  if (isPlainObject(metadata)) {
-    const candidate = metadata.conversationConfig;
-    if (isPlainObject(candidate)) {
-      if ('availableServices' in candidate || 'serviceQuestions' in candidate) {
-        return candidate as unknown as PracticeConfig;
-      }
-    }
-  }
-  const config = practice.config;
-  if (isPlainObject(config)) {
-    const nestedCandidate = (config as Record<string, unknown>).conversationConfig;
-    if (isPlainObject(nestedCandidate)) {
-      return nestedCandidate as unknown as PracticeConfig;
-    }
-    if (
-      'availableServices' in config ||
-      'serviceQuestions' in config ||
-      'introMessage' in config
-    ) {
-      return config as unknown as PracticeConfig;
-    }
-  }
-  return null;
-};
-
-const buildBaseConversationConfig = (config: PracticeConfig | null): PracticeConfig => {
-  const voice = isPlainObject(config?.voice) ? (config?.voice as Record<string, unknown>) : {};
-  return {
-    ownerEmail: typeof config?.ownerEmail === 'string' ? config.ownerEmail : undefined,
-    availableServices: Array.isArray(config?.availableServices) ? config.availableServices : [],
-    serviceQuestions: isPlainObject(config?.serviceQuestions)
-      ? (config?.serviceQuestions as Record<string, string[]>)
-      : {},
-    domain: typeof config?.domain === 'string' ? config.domain : '',
-    description: typeof config?.description === 'string' ? config.description : '',
-    brandColor: typeof config?.brandColor === 'string' ? config.brandColor : '#000000',
-    accentColor: typeof config?.accentColor === 'string' ? config.accentColor : '#000000',
-    introMessage: typeof config?.introMessage === 'string' ? config.introMessage : '',
-    profileImage: typeof config?.profileImage === 'string' ? config.profileImage : undefined,
-    voice: {
-      enabled: typeof voice.enabled === 'boolean' ? voice.enabled : false,
-      provider: resolveVoiceProvider(voice.provider),
-      voiceId: typeof voice.voiceId === 'string' ? voice.voiceId : null,
-      displayName: typeof voice.displayName === 'string' ? voice.displayName : null,
-      previewUrl: typeof voice.previewUrl === 'string' ? voice.previewUrl : null
-    },
-    metadata: isPlainObject(config?.metadata) ? (config?.metadata as Record<string, unknown>) : {}
-  };
-};
-
-const coerceServiceDetails = (value: unknown): Service[] => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (!isPlainObject(item)) return null;
-      const title = typeof item.title === 'string' ? item.title : '';
-      if (!title.trim()) return null;
-      return {
-        id: typeof item.id === 'string' ? item.id : '',
-        title,
-        description: typeof item.description === 'string' ? item.description : ''
-      } as Service;
-    })
-    .filter((item): item is Service => item !== null);
-};
-
-const resolveServiceDetails = (config: PracticeConfig | null): Service[] => {
-  if (!config) return [];
-  const metadata = isPlainObject(config.metadata) ? (config.metadata as Record<string, unknown>) : null;
-  const details = metadata ? coerceServiceDetails(metadata.serviceDetails) : [];
-  if (details.length > 0) {
-    return normalizeServices(details, SERVICE_CATALOG);
-  }
-  const available = Array.isArray(config.availableServices)
-    ? config.availableServices.filter((item): item is string => typeof item === 'string')
-    : [];
-  const fallback = available.map((title) => ({ id: '', title, description: '' }));
-  return normalizeServices(fallback, SERVICE_CATALOG);
-};
-
-export const PracticePage = ({ className = '' }: PracticePageProps) => {
+export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
   const { data: session } = authClient.useSession();
-  const { activePracticeId } = useSessionContext();
   const { 
-    practices,
     currentPractice, 
     getMembers,
-    invitations, 
     loading, 
     error,
     updatePractice,
     createPractice,
     deletePractice,
-    acceptInvitation,
-    declineInvitation,
     fetchMembers,
-    updateMemberRole,
-    removeMember,
-    sendInvitation,
     refetch,
     acceptMatter,
     rejectMatter
@@ -168,6 +55,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
+  const navigateTo = onNavigate ?? navigate;
   const location = useLocation();
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { t } = useTranslation(['settings']);
@@ -175,13 +63,10 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   // Get current user email from session
   const currentUserEmail = session?.user?.email || '';
   
-  // Practice switcher state
-  const [isSwitchingPractice, setIsSwitchingPractice] = useState(false);
-  const [isPracticeDropdownOpen, setIsPracticeDropdownOpen] = useState(false);
-  
   // Form states
   const [editPracticeForm, setEditPracticeForm] = useState({
     name: '',
+    slug: '',
     description: ''
   });
   
@@ -192,18 +77,9 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     description: ''
   });
   
-  const [inviteForm, setInviteForm] = useState({
-    email: '',
-    role: 'attorney' as Role
-  });
-  
-  // Inline form states (like SecurityPage pattern)
-  const [isEditingPractice, setIsEditingPractice] = useState(false);
-  const [isInvitingMember, setIsInvitingMember] = useState(false);
-  const [isEditingMember, setIsEditingMember] = useState(false);
+  const [isEditPracticeModalOpen, setIsEditPracticeModalOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [editMemberData, setEditMemberData] = useState<{ userId: string; email: string; name?: string; role: Role } | null>(null);
   const [leadQueue, setLeadQueue] = useState<LeadSummary[]>([]);
   const [leadLoading, setLeadLoading] = useState(false);
   const [leadError, setLeadError] = useState<string | null>(null);
@@ -227,31 +103,26 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
   const isOwner = currentUserRole === 'owner';
   const isAdmin = (currentUserRole === 'admin' || isOwner) ?? false;
   const canReviewLeads = isAdmin || isOwner;
-  const canManageServices = isAdmin || isOwner;
-
-  const conversationConfig = useMemo(
-    () => resolveConversationConfig(currentPractice),
-    [currentPractice]
-  );
-  const initialServiceDetails = useMemo(
-    () => resolveServiceDetails(conversationConfig),
-    [conversationConfig]
-  );
-
-  const {
-    services: serviceDrafts,
-    addCustomService,
-    updateService,
-    removeService,
-    getServiceTitlesForSave,
-    getServiceDetailsForSave
-  } = useServices({
-    initialServices: initialServiceDetails,
-    catalog: SERVICE_CATALOG
-  });
-
-  const [isSavingServices, setIsSavingServices] = useState(false);
-  const [servicesError, setServicesError] = useState<string | null>(null);
+  const servicesCount = useMemo(() => {
+    const metadata = currentPractice?.metadata;
+    if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+      const conversationConfig = (metadata as Record<string, unknown>).conversationConfig;
+      if (conversationConfig && typeof conversationConfig === 'object' && !Array.isArray(conversationConfig)) {
+        const available = (conversationConfig as Record<string, unknown>).availableServices;
+        if (Array.isArray(available)) {
+          return available.filter((item) => typeof item === 'string').length;
+        }
+      }
+    }
+    const config = currentPractice?.config;
+    if (config && typeof config === 'object' && !Array.isArray(config)) {
+      const available = (config as Record<string, unknown>).availableServices;
+      if (Array.isArray(available)) {
+        return available.filter((item) => typeof item === 'string').length;
+      }
+    }
+    return 0;
+  }, [currentPractice]);
 
   const loadLeadQueue = useCallback(async () => {
     if (!currentPractice?.id || !canReviewLeads) {
@@ -361,6 +232,7 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     if (currentPractice) {
       setEditPracticeForm({
         name: currentPractice.name,
+        slug: currentPractice.slug || '',
         description: currentPractice.description || ''
       });
       
@@ -430,22 +302,14 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     }
   };
 
-  const handleAcceptInvitation = async (invitationId: string) => {
-    try {
-      await acceptInvitation(invitationId);
-      showSuccess('Invitation accepted!');
-		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to accept invitation');
-    }
-  };
-
-  const handleDeclineInvitation = async (invitationId: string) => {
-    try {
-      await declineInvitation(invitationId);
-      showSuccess('Invitation declined successfully!');
-		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to decline invitation');
-    }
+  const openEditPracticeModal = () => {
+    if (!currentPractice) return;
+    setEditPracticeForm({
+      name: currentPractice.name,
+      slug: currentPractice.slug || '',
+      description: currentPractice.description || ''
+    });
+    setIsEditPracticeModalOpen(true);
   };
 
   const handleUpdatePractice = async () => {
@@ -454,65 +318,11 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
     try {
       await updatePractice(currentPractice.id, editPracticeForm);
       showSuccess('Practice updated successfully!');
-      setIsEditingPractice(false);
+      setIsEditPracticeModalOpen(false);
 		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update practice');
     }
   };
-
-  const handleSaveServices = async () => {
-    if (!currentPractice) return;
-    setIsSavingServices(true);
-    setServicesError(null);
-
-    try {
-      const baseConfig = buildBaseConversationConfig(conversationConfig);
-      const updatedConfig: PracticeConfig = {
-        ...baseConfig,
-        availableServices: getServiceTitlesForSave(),
-        metadata: {
-          ...(baseConfig.metadata || {}),
-          serviceDetails: getServiceDetailsForSave()
-        }
-      };
-
-      const metadataBase = isPlainObject(currentPractice.metadata)
-        ? currentPractice.metadata
-        : {};
-
-      await updatePractice(currentPractice.id, {
-        metadata: {
-          ...metadataBase,
-          conversationConfig: updatedConfig
-        }
-      });
-
-      showSuccess('Services updated', 'Your practice services have been saved.');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update services';
-      setServicesError(message);
-      showError('Services update failed', message);
-    } finally {
-      setIsSavingServices(false);
-    }
-  };
-
-  const handleSendInvitation = async () => {
-    if (!currentPractice || !inviteForm.email.trim()) {
-      showError('Email is required');
-      return;
-    }
-
-    try {
-      await sendInvitation(currentPractice.id, inviteForm.email, inviteForm.role);
-      showSuccess('Invitation sent successfully!');
-      setIsInvitingMember(false);
-      setInviteForm({ email: '', role: 'attorney' });
-		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to send invitation');
-    }
-  };
-
 
   const handleDeletePractice = async () => {
     if (!currentPractice) return;
@@ -532,56 +342,6 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
       showError(err instanceof Error ? err.message : 'Failed to delete practice');
     }
   };
-
-  const handleUpdateMemberRole = async () => {
-    if (!currentPractice || !editMemberData) return;
-
-    try {
-      await updateMemberRole(currentPractice.id, editMemberData.userId, editMemberData.role);
-      showSuccess('Member role updated successfully!');
-      setEditMemberData(null);
-		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to update member role');
-    }
-  };
-
-  const handleRemoveMember = async (member: { userId: string; email: string; name?: string; role: Role }) => {
-    if (!currentPractice) return;
-
-    try {
-      await removeMember(currentPractice.id, member.userId);
-      showSuccess('Member removed successfully!');
-      setEditMemberData(null);
-		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to remove member');
-    }
-  };
-
-  // Practice switcher handler
-  const handlePracticeSwitch = async (practiceId: string) => {
-    if (practiceId === activePracticeId || isSwitchingPractice) return;
-    
-    setIsSwitchingPractice(true);
-    setIsPracticeDropdownOpen(false);
-    try {
-      // Note: Better Auth API uses "organizationId" parameter name
-      await authClient.organization.setActive({ organizationId: practiceId });
-      await refetch();
-      showSuccess('Practice switched successfully');
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to switch practice');
-    } finally {
-      setIsSwitchingPractice(false);
-    }
-  };
-
-  // Ensure current practice is always included if it exists
-  const practicesWithCurrent = useMemo(() => {
-    if (!currentPractice) return practices;
-    const hasCurrent = practices.some(practice => practice.id === currentPractice.id);
-    if (hasCurrent) return practices;
-    return [currentPractice, ...practices];
-  }, [practices, currentPractice]);
 
   if (loading) {
     return (
@@ -620,121 +380,29 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
         <div className="space-y-0">
           {hasPractice ? (
             <>
-              {/* Practice Name Section */}
+              {/* Practice Details Row */}
               <div className="flex items-center justify-between py-3">
-                  <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Practice Name
+                    Practice
                   </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {currentPractice.name}
+                    {currentPractice.slug
+                      ? ` • ai.blawby.com/${currentPractice.slug}`
+                      : ' • ai.blawby.com/your-practice'}
                   </p>
-                  </div>
-                <div className="ml-4 flex gap-2">
-                  {practicesWithCurrent.length > 1 && (
-                    <DropdownMenu
-                      open={isPracticeDropdownOpen}
-                      onOpenChange={setIsPracticeDropdownOpen}
-                    >
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={isSwitchingPractice}
-                        >
-                          Switch
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-64 max-h-96">
-                        <div className="max-h-64 overflow-y-auto">
-                          {practicesWithCurrent.map((practice) => {
-                            const practiceProfileImage = practice.config ? (practice.config as { profileImage?: string | null }).profileImage ?? null : null;
-                            const isActive = practice.id === activePracticeId;
-                            return (
-                              <DropdownMenuItem
-                                key={practice.id}
-                                onSelect={() => handlePracticeSwitch(practice.id)}
-                                disabled={isSwitchingPractice}
-                                className="flex items-center gap-2"
-                              >
-                                {practiceProfileImage ? (
-                                  <PracticeLogo 
-                                    src={practiceProfileImage} 
-                                    alt={practice.name}
-                                    size="sm"
-                                  />
-                                ) : (
-                                  <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
-                                )}
-                                <span className="flex-1 text-sm">{practice.name}</span>
-                                {isActive && (
-                                  <CheckIcon className="w-4 h-4 text-accent-500" />
-                                )}
-                              </DropdownMenuItem>
-                            );
-                          })}
-                        </div>
-                        <DropdownMenuItem
-                          onSelect={() => setShowCreateModal(true)}
-                          disabled={isSwitchingPractice}
-                          className="flex items-center gap-2"
-                        >
-                          <PlusIcon className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm">Add practice</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                </div>
+                <div className="ml-4">
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setShowCreateModal(true)}
-                    disabled={isSwitchingPractice}
+                    onClick={openEditPracticeModal}
                   >
-                    Add
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setIsEditingPractice(!isEditingPractice)}
-                  >
-                    {isEditingPractice ? 'Cancel' : 'Edit'}
+                    Edit
                   </Button>
                 </div>
               </div>
-              
-              {/* Inline Edit Form */}
-              {isEditingPractice && (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <FormLabel htmlFor="edit-practice-name">Practice Name</FormLabel>
-                    <Input
-                      id="edit-practice-name"
-                      value={editPracticeForm.name}
-                      onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
-                    />
-                  </div>
-                  
-                  <div>
-                    <FormLabel htmlFor="edit-practice-description">Description (optional)</FormLabel>
-                    <Input
-                      id="edit-practice-description"
-                      value={editPracticeForm.description}
-                      onChange={(value) => setEditPracticeForm(prev => ({ ...prev, description: value }))}
-                      placeholder="Brief description of your practice"
-                    />
-                  </div>
-                  
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="secondary" onClick={() => setIsEditingPractice(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleUpdatePractice}>
-                      Save Changes
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
 
@@ -808,34 +476,6 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
                 )}
               </div>
 
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-
-              {/* Subscription Tier Section */}
-              <div className="py-3">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Subscription Plan
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {currentPractice.subscriptionTier === 'plus' ? 'Plus' : 
-                   currentPractice.subscriptionTier === 'business' ? 'Business' : 
-                   currentPractice.subscriptionTier === 'enterprise' ? 'Enterprise' : 'Free'}
-                  {currentPractice.seats && currentPractice.seats > 1 && 
-                    ` • ${currentPractice.seats} seats`}
-                </p>
-              </div>
-
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-
-              {/* Practice Slug Section */}
-              <div className="py-3">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Practice Slug
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {currentPractice.slug}
-                </p>
-              </div>
-
               {currentPractice.description && (
                 <>
                   <div className="border-t border-gray-200 dark:border-dark-border" />
@@ -852,218 +492,70 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
 
-              {/* Services Section */}
+              {/* Services Row */}
               <div className="py-3">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Services</h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Manage the legal services shown to clients during intake.
+                      {servicesCount > 0
+                        ? `${servicesCount} services configured`
+                        : 'No services configured yet'}
                     </p>
                   </div>
-                  {canManageServices && (
-                    <Button size="sm" onClick={handleSaveServices} disabled={isSavingServices}>
-                      {isSavingServices ? 'Saving...' : 'Save Services'}
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => navigateTo('/settings/practice/services')}
+                      className="hidden sm:inline-flex"
+                    >
+                      Manage
                     </Button>
-                  )}
-                </div>
-
-                {servicesError && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mb-3">
-                    {servicesError}
-                  </p>
-                )}
-
-                {canManageServices ? (
-                  <ServicesList
-                    services={serviceDrafts}
-                    onUpdateService={updateService}
-                    onRemoveService={removeService}
-                    onAddService={(service) => addCustomService(service)}
-                    emptyMessage="Select from the catalog or add a custom service."
-                  />
-                ) : (
-                  <div className="space-y-3">
-                    {serviceDrafts.length > 0 ? (
-                      serviceDrafts.map((service) => (
-                        <ServiceCard
-                          key={service.id}
-                          title={service.title}
-                          description={service.description}
-                        />
-                      ))
-                    ) : (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        No services configured yet.
-                      </p>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => navigateTo('/settings/practice/services')}
+                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      aria-label="Manage services"
+                    >
+                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
+                    </button>
                   </div>
-                )}
+                </div>
               </div>
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
 
-              {/* Team Members Section */}
+              {/* Team Row */}
               <div className="py-3">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Team Members</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Team Members
+                    </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Seats used: {members.length} / {normalizeSeats(currentPractice?.seats)}
+                      {members.length > 0 ? `${members.length} team members` : 'Manage team access and roles'}
                     </p>
                   </div>
-                  {isAdmin && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => setIsInvitingMember(!isInvitingMember)}
+                  <div className="ml-4 flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => navigateTo('/settings/practice/team')}
+                      className="hidden sm:inline-flex"
                     >
-                      <UserPlusIcon className="w-4 h-4 mr-2" />
-                      {isInvitingMember ? 'Cancel' : 'Invite'}
+                      Manage
                     </Button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => navigateTo('/settings/practice/team')}
+                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      aria-label="Manage team members"
+                    >
+                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
-                
-                {members.length > normalizeSeats(currentPractice?.seats) && (
-                  <div role="status" aria-live="polite" className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
-                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      You&apos;re using {members.length} seats but your plan includes {normalizeSeats(currentPractice?.seats)}. The billing owner can increase seats in Stripe.
-                      {isOwner && currentPractice?.stripeCustomerId && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openBillingPortal({ 
-                            practiceId: currentPractice.id, 
-                            returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1' 
-                          })}
-                          disabled={submitting}
-                          className="ml-2 underline text-blue-600 hover:text-blue-700"
-                        >
-                          {t('settings:account.plan.manage')}
-                        </Button>
-                      )}
-                    </p>
-                  </div>
-                )}
-                
-                {members.length === 0 && loading ? (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Loading members...</p>
-                ) : members.length > 0 ? (
-                  <div className="space-y-3">
-                    {members.map((member) => (
-                      <div key={member.userId} className="flex items-center justify-between py-2">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {member.name || member.email}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {member.email} • {member.role}
-                          </p>
-                        </div>
-                        {isAdmin && member.role !== 'owner' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditMemberData(member);
-                              setIsEditingMember(!isEditingMember);
-                            }}
-                            className="text-gray-600 dark:text-gray-400"
-                          >
-                            {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">No team members yet</p>
-                )}
-
-                {/* Inline Invite Form */}
-                {isInvitingMember && (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <FormLabel htmlFor="invite-email">Email Address</FormLabel>
-                      <Input
-                        id="invite-email"
-                        type="email"
-                        value={inviteForm.email}
-                        onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
-                        placeholder="colleague@lawfirm.com"
-                      />
-                    </div>
-                    
-                    <div>
-                      <FormLabel htmlFor="invite-role">Role</FormLabel>
-                      <Select
-                        value={inviteForm.role}
-                        options={[
-                          { value: 'paralegal', label: 'Paralegal' },
-                          { value: 'attorney', label: 'Attorney' },
-                          { value: 'admin', label: 'Admin' }
-                        ]}
-                        onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
-                      />
-                    </div>
-                    
-                    <div className="flex gap-2 pt-2">
-                      <Button variant="secondary" onClick={() => setIsInvitingMember(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleSendInvitation}>
-                        Send Invitation
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Inline Edit Member Form */}
-                {isEditingMember && editMemberData && (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        {editMemberData.name || editMemberData.email}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {editMemberData.email}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <FormLabel htmlFor="member-role">Role</FormLabel>
-                      <Select
-                        value={editMemberData.role}
-                        options={[
-                          { value: 'paralegal', label: 'Paralegal' },
-                          { value: 'attorney', label: 'Attorney' },
-                          { value: 'admin', label: 'Admin' }
-                        ]}
-                        onChange={(value) => setEditMemberData(prev => prev ? {...prev, role: value as Role} : null)}
-                      />
-                    </div>
-                    
-                    <div className="flex justify-between pt-2">
-                      <Button 
-                        variant="ghost"
-                        onClick={() => handleRemoveMember(editMemberData)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remove Member
-                      </Button>
-                      <div className="flex gap-2">
-                        <Button variant="secondary" onClick={() => {
-                          setIsEditingMember(false);
-                          setEditMemberData(null);
-                        }}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleUpdateMemberRole}>
-                          Save Changes
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
@@ -1138,38 +630,6 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
             </div>
           )}
           
-          <div className="border-t border-gray-200 dark:border-dark-border" />
-          
-          {/* Pending Invitations */}
-          <div className="py-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Pending Invitations</h3>
-            {invitations.length > 0 ? (
-              <div className="space-y-3">
-                {invitations.map(inv => (
-                  <div key={inv.id} className="flex items-center justify-between py-2">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {inv.practiceName || inv.practiceId}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Role: {inv.role} • Expires: {formatDate(new Date(inv.expiresAt * 1000))}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)}>
-                        Accept
-                      </Button>
-                      <Button size="sm" variant="secondary" onClick={() => handleDeclineInvitation(inv.id)}>
-                        Decline
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500 dark:text-gray-400">No pending invitations</p>
-            )}
-          </div>
         </div>
       </div>
 
@@ -1209,6 +669,61 @@ export const PracticePage = ({ className = '' }: PracticePageProps) => {
             </Button>
             <Button onClick={() => void handleDecision()} disabled={decisionSubmitting}>
               {decisionAction === 'accept' ? 'Accept Lead' : 'Reject Lead'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Practice Modal */}
+      <Modal
+        isOpen={isEditPracticeModalOpen}
+        onClose={() => setIsEditPracticeModalOpen(false)}
+        title="Edit Practice"
+      >
+        <div className="space-y-4">
+          <div>
+            <FormLabel htmlFor="edit-practice-name">Practice Name *</FormLabel>
+            <Input
+              id="edit-practice-name"
+              value={editPracticeForm.name}
+              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
+              placeholder="Your Law Firm Name"
+              required
+            />
+          </div>
+
+          <div>
+            <FormLabel htmlFor="edit-practice-slug">Slug (optional)</FormLabel>
+            <Input
+              id="edit-practice-slug"
+              value={editPracticeForm.slug}
+              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, slug: value }))}
+              placeholder="your-law-firm"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Used in URLs. Leave empty to keep the current slug.
+            </p>
+          </div>
+
+          <div>
+            <FormLabel htmlFor="edit-practice-description">Description (optional)</FormLabel>
+            <Input
+              id="edit-practice-description"
+              value={editPracticeForm.description}
+              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, description: value }))}
+              placeholder="Brief description of your practice"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setIsEditPracticeModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdatePractice}>
+              Save Changes
             </Button>
           </div>
         </div>

@@ -8,6 +8,7 @@ interface ServiceCardProps {
   selected?: boolean;
   onSelect?: () => void;
   actions?: ComponentChildren;
+  headerActions?: ComponentChildren;
   className?: string;
 }
 
@@ -18,9 +19,18 @@ export function ServiceCard({
   selected = false,
   onSelect,
   actions,
+  headerActions,
   className = ''
 }: ServiceCardProps) {
   const Icon = icon;
+  const rightContent = headerActions ? (
+    <div className="flex items-center gap-2">
+      {headerActions}
+      {selected && <CheckIcon className="h-4 w-4 text-accent-600 dark:text-accent-400" />}
+    </div>
+  ) : (
+    selected && <CheckIcon className="h-4 w-4 text-accent-600 dark:text-accent-400" />
+  );
   const content = (
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-start gap-3">
@@ -36,9 +46,7 @@ export function ServiceCard({
           )}
         </div>
       </div>
-      {selected && (
-        <CheckIcon className="h-4 w-4 text-accent-600 dark:text-accent-400" />
-      )}
+      {rightContent}
     </div>
   );
 

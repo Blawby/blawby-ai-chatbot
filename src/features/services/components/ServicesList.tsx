@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
+import { TrashIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
+import Modal from '@/shared/components/Modal';
 import type { Service } from '../types';
 import { SERVICE_CATALOG } from '../data/serviceCatalog';
 import { buildCatalogIndex, findTemplateForService } from '../utils';
@@ -10,8 +12,6 @@ interface ServicesListProps {
   services: Service[];
   onUpdateService: (id: string, updates: { title: string; description: string }) => void;
   onRemoveService: (id: string) => void;
-  onAddService: (service: { title: string; description: string }) => void;
-  addLabel?: string;
   emptyMessage?: string;
 }
 
@@ -19,125 +19,83 @@ export function ServicesList({
   services,
   onUpdateService,
   onRemoveService,
-  onAddService,
-  addLabel = 'Add Custom Service',
   emptyMessage = 'No services configured yet.'
 }: ServicesListProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [editDraft, setEditDraft] = useState<{ title: string; description: string } | null>(null);
-  const [isAdding, setIsAdding] = useState(false);
-  const [addDraft, setAddDraft] = useState<{ title: string; description: string }>({
-    title: '',
-    description: ''
-  });
   const catalogIndex = useMemo(() => buildCatalogIndex(SERVICE_CATALOG), []);
 
   const startEdit = (service: Service) => {
-    setEditingId(service.id);
+    setEditingService(service);
     setEditDraft({ title: service.title, description: service.description });
   };
 
   const cancelEdit = () => {
-    setEditingId(null);
+    setEditingService(null);
     setEditDraft(null);
   };
 
   const saveEdit = () => {
-    if (!editingId || !editDraft) return;
-    onUpdateService(editingId, editDraft);
-    setEditingId(null);
+    if (!editingService || !editDraft) return;
+    onUpdateService(editingService.id, editDraft);
+    setEditingService(null);
     setEditDraft(null);
-  };
-
-  const startAdd = () => {
-    setIsAdding(true);
-    setAddDraft({ title: '', description: '' });
-  };
-
-  const cancelAdd = () => {
-    setIsAdding(false);
-    setAddDraft({ title: '', description: '' });
-  };
-
-  const saveAdd = () => {
-    if (!addDraft.title.trim()) return;
-    onAddService(addDraft);
-    setIsAdding(false);
-    setAddDraft({ title: '', description: '' });
   };
 
   return (
     <div className="space-y-4">
-      {services.length === 0 && !isAdding && (
+      {services.length === 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400">{emptyMessage}</p>
       )}
 
       {services.map((service) => (
         <div key={service.id}>
-          {editingId === service.id && editDraft ? (
-            <div className="border border-gray-200 dark:border-dark-border rounded-lg p-4 bg-white dark:bg-dark-card-bg space-y-4">
-              <ServiceForm
-                value={editDraft}
-                onChange={setEditDraft}
-                titleLabel="Service Title"
-                descriptionLabel="Description"
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={cancelEdit}>
-                  Cancel
+          <ServiceCard
+            title={service.title}
+            description={service.description}
+            icon={findTemplateForService(service, catalogIndex)?.icon}
+            headerActions={(
+              <>
+                <Button variant="secondary" size="sm" onClick={() => startEdit(service)}>
+                  Edit
                 </Button>
-                <Button size="sm" onClick={saveEdit} disabled={!editDraft.title.trim()}>
-                  Save
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemoveService(service.id)}
+                  className="text-red-600 hover:text-red-700"
+                  aria-label={`Remove ${service.title}`}
+                >
+                  <TrashIcon className="w-4 h-4" />
                 </Button>
-              </div>
-            </div>
-          ) : (
-            <ServiceCard
-              title={service.title}
-              description={service.description}
-              icon={findTemplateForService(service, catalogIndex)?.icon}
-              actions={(
-                <>
-                  <Button variant="secondary" size="sm" onClick={() => startEdit(service)}>
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onRemoveService(service.id)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Remove
-                  </Button>
-                </>
-              )}
-            />
-          )}
+              </>
+            )}
+          />
         </div>
       ))}
 
-      {isAdding ? (
-        <div className="border border-gray-200 dark:border-dark-border rounded-lg p-4 bg-white dark:bg-dark-card-bg space-y-4">
+      <Modal
+        isOpen={Boolean(editingService && editDraft)}
+        onClose={cancelEdit}
+        title="Edit Service"
+      >
+        <div className="space-y-4">
           <ServiceForm
-            value={addDraft}
-            onChange={setAddDraft}
+            value={editDraft ?? { title: '', description: '' }}
+            onChange={setEditDraft}
             titleLabel="Service Title"
             descriptionLabel="Description"
           />
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={cancelAdd}>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" size="sm" onClick={cancelEdit}>
               Cancel
             </Button>
-            <Button size="sm" onClick={saveAdd} disabled={!addDraft.title.trim()}>
-              Add Service
+            <Button size="sm" onClick={saveEdit} disabled={!editDraft?.title.trim()}>
+              Save
             </Button>
           </div>
         </div>
-      ) : (
-        <Button variant="secondary" size="sm" onClick={startAdd}>
-          {addLabel}
-        </Button>
-      )}
+      </Modal>
     </div>
   );
 }

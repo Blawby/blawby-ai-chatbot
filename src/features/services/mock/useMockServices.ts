@@ -18,6 +18,31 @@ const initialEditingServices: Service[] = [
     id: 'service-3',
     title: 'Business Law',
     description: 'Corporate formation, contracts, and compliance'
+  },
+  {
+    id: 'service-4',
+    title: 'Small Business and Nonprofits',
+    description: 'Legal support for small businesses and nonprofit leaders.'
+  },
+  {
+    id: 'service-5',
+    title: 'Employment Law',
+    description: 'Protect your rights in the workplace.'
+  },
+  {
+    id: 'service-6',
+    title: 'Tenant Rights',
+    description: 'Support for housing disputes and tenant protections.'
+  },
+  {
+    id: 'service-7',
+    title: 'Probate and Estate Planning',
+    description: 'Estate planning and administration services.'
+  },
+  {
+    id: 'service-8',
+    title: 'Special Education and IEP Advocacy',
+    description: 'Guidance for IEP planning and education rights.'
   }
 ];
 
