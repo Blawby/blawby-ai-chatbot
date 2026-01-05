@@ -42,21 +42,6 @@ export interface ExtendedUser extends BetterAuthUser {
   theme?: string | null;
 }
 
-// Onboarding data type (extracted from UserPreferences for standalone use)
-export interface OnboardingData {
-  personalInfo: {
-    fullName: string;
-    birthday?: string;
-    agreedToTerms: boolean;
-  };
-  useCase: {
-    primaryUseCase: 'personal' | 'business' | 'research' | 'documents' | 'other';
-    additionalInfo?: string;
-  };
-  completedAt?: string;
-  skippedSteps?: string[];
-}
-
 export interface UserProfile {
   id: string;
   name: string;
@@ -122,33 +107,10 @@ export interface UserProfile {
   githubUrl?: string | null;
   
   // Onboarding
-  onboardingCompleted?: boolean;
-  onboardingData?: OnboardingData | null;
   
   // Timestamps
   createdAt: Date | null;
   updatedAt: Date | null;
-}
-
-export interface UserPreferences {
-  // App Preferences
-  theme: 'light' | 'dark' | 'system';
-  accentColor: 'default' | 'blue' | 'green' | 'purple' | 'red';
-  fontSize: 'small' | 'medium' | 'large';
-  language: 'auto-detect' | 'en' | 'es' | 'fr' | 'de' | 'ja' | 'vi' | 'zh';
-  spokenLanguage: 'auto-detect' | 'en' | 'es' | 'fr' | 'de' | 'ja' | 'vi' | 'zh';
-  country: string;
-  timezone: string;
-  dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
-  timeFormat: '12-hour' | '24-hour';
-  
-  // Chat Preferences
-  autoSaveConversations: boolean;
-  typingIndicators: boolean;
-  
-  // Onboarding
-  onboardingCompleted?: boolean;
-  onboardingData?: OnboardingData;
 }
 
 export interface NotificationSettings {
@@ -168,7 +130,7 @@ export interface SecuritySettings {
   twoFactorEnabled: boolean;
   emailNotifications: boolean;
   loginAlerts: boolean;
-  sessionTimeout: number; // Timeout in seconds
+  sessionTimeout?: number; // Timeout in seconds
   lastPasswordChange: Date | null;
   connectedAccounts: Array<{
     provider: string;
@@ -304,65 +266,8 @@ export interface BetterAuthSessionUser {
   dataDeletionRequested?: boolean;
   dataDeletionDate?: Date | null;
   
-  onboardingCompleted?: boolean;
-  onboardingData?: OnboardingData | null;
-  
   createdAt: Date | null;
   updatedAt: Date | null;
-}
-
-// Helper functions for onboarding data serialization/deserialization
-// These handle the conversion between the database JSON string format and the typed OnboardingData object
-
-/**
- * Converts a JSON string from the database to an OnboardingData object
- * @param jsonString - The JSON string from the database (can be null)
- * @returns The parsed OnboardingData object or null if invalid/empty
- */
-export function toOnboardingData(jsonString: string | null): OnboardingData | null {
-  if (!jsonString || jsonString.trim() === '') {
-    return null;
-  }
-  
-  try {
-    const parsed = JSON.parse(jsonString);
-    // Basic validation to ensure it has the expected structure
-    if (parsed && typeof parsed === 'object' && parsed.personalInfo && parsed.useCase) {
-      // Normalize skippedSteps to ensure consistency
-      if (!Array.isArray(parsed.skippedSteps)) {
-        parsed.skippedSteps = [];
-      }
-      return parsed as OnboardingData;
-    }
-    return null;
-  } catch (error) {
-    // Log error in development for debugging
-    if (import.meta.env?.DEV) {
-      console.warn('Failed to parse onboarding data:', error);
-    }
-    return null;
-  }
-}
-
-/**
- * Converts an OnboardingData object to a JSON string for database storage
- * @param data - The OnboardingData object (can be null)
- * @returns The JSON string for database storage or null if data is null
- */
-export function fromOnboardingData(data: OnboardingData | null): string | null {
-  if (!data) {
-    return null;
-  }
-  
-  try {
-    return JSON.stringify(data);
-  } catch (error) {
-    // Log error in development for debugging
-    if (import.meta.env?.DEV) {
-      console.warn('Failed to serialize onboarding data:', error);
-    }
-    return null;
-  }
 }
 
 /**
@@ -397,36 +302,6 @@ function safeConvertToDate(value: unknown): Date | null {
   return null;
 }
 
-/**
- * Safely parses onboarding data from various formats
- * @param value - The onboarding data (string, object, or null/undefined)
- * @returns OnboardingData object or null if parsing fails
- */
-function safeParseOnboardingData(value: unknown): OnboardingData | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  
-  // If it's already an object with the expected structure, return it
-  if (typeof value === 'object' && value !== null) {
-    const obj = value as Record<string, unknown>;
-    if (obj.personalInfo && obj.useCase && typeof obj.personalInfo === 'object' && typeof obj.useCase === 'object') {
-      const data = obj as unknown as OnboardingData;
-      // Normalize skippedSteps
-      if (!data.skippedSteps || !Array.isArray(data.skippedSteps)) {
-        data.skippedSteps = [];
-      }
-      return data;
-    }
-  }
-  
-  // If it's a string, try to parse it as JSON
-  if (typeof value === 'string') {
-    return toOnboardingData(value);
-  }
-  
-  return null;
-}
 
 /**
  * Validates that required primitive fields exist in the raw user data
@@ -453,9 +328,7 @@ function validateRequiredFields(rawUser: Record<string, unknown>): void {
 }
 
 /**
- * Transforms raw session user data to include properly typed onboarding data and timestamps
- * This handles the conversion from database JSON string to typed OnboardingData and ensures
- * all timestamp fields are properly converted to Date objects
+ * Transforms raw session user data and ensures timestamp fields are properly converted to Date objects
  * @param rawUser - The raw user data from Better Auth session
  * @returns The transformed user data with properly typed fields
  * @throws Error if required fields (id, name, email) are missing
@@ -551,9 +424,6 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     // Data Retention & Deletion
     dataDeletionRequested: rawUser.dataDeletionRequested as boolean | undefined,
     
-    // Onboarding
-    onboardingCompleted: rawUser.onboardingCompleted as boolean | undefined,
-    
     // Convert timestamp fields to Date objects
     piiConsentDate: safeConvertToDate(rawUser.piiConsentDate),
     dataRetentionExpiry: safeConvertToDate(rawUser.dataRetentionExpiry),
@@ -562,9 +432,6 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     createdAt: safeConvertToDate(rawUser.createdAt),
     updatedAt: safeConvertToDate(rawUser.updatedAt),
     lastPasswordChange: safeConvertToDate(rawUser.lastPasswordChange),
-    
-    // Parse onboarding data safely
-    onboardingData: safeParseOnboardingData(rawUser.onboardingData)
   };
   
   return transformedUser;

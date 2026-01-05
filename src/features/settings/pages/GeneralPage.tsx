@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { SectionDivider } from '@/shared/ui';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useSession, updateUser } from '@/shared/lib/authClient';
 import { DEFAULT_LOCALE, detectBestLocale, setLocale, SUPPORTED_LOCALES } from '@/shared/i18n/hooks';
 import type { Language } from '@/shared/types/user';
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingSelect } from '@/features/settings/components/SettingSelect';
+import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
+import type { GeneralPreferences } from '@/shared/types/preferences';
 
 export interface GeneralPageProps {
   isMobile?: boolean;
@@ -21,20 +22,18 @@ export const GeneralPage = ({
 }: GeneralPageProps) => {
   const { showSuccess, showError } = useToastContext();
   const { t } = useTranslation(['settings', 'common']);
-  const { data: session, isPending } = useSession();
   const [settings, setSettings] = useState({
     theme: 'system' as 'light' | 'dark' | 'system',
     accentColor: 'default' as 'default' | 'blue' | 'green' | 'purple' | 'red',
     language: 'auto-detect' as 'auto-detect' | Language,
     spokenLanguage: 'auto-detect' as 'auto-detect' | Language
   });
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load settings from Better Auth session
+  // Load settings from preferences API
   useEffect(() => {
-    if (!session?.user) return;
-    
-    const user = session.user;
-    
+    let isMounted = true;
+
     // Helper function to validate language against supported options
     const getValidLanguage = (lang: string | undefined): 'auto-detect' | Language => {
       if (!lang || lang === 'auto-detect') return 'auto-detect';
@@ -42,19 +41,38 @@ export const GeneralPage = ({
       return SUPPORTED_LOCALES.includes(lang as typeof SUPPORTED_LOCALES[number]) ? lang as Language : 'auto-detect';
     };
     
-    // Defensive checks with sensible fallbacks
-    setSettings({
-      theme: ((user as { theme?: string }).theme as 'light' | 'dark' | 'system') || 'system',
-      accentColor: ((user as { accentColor?: string }).accentColor as 'default' | 'blue' | 'green' | 'purple' | 'red') || 'default',
-      language: getValidLanguage((user as { language?: string }).language),
-      spokenLanguage: getValidLanguage((user as { spokenLanguage?: string }).spokenLanguage)
-    });
+    const loadPreferences = async () => {
+      try {
+        setIsLoading(true);
+        const prefs = await getPreferencesCategory<GeneralPreferences>('general');
+        if (!isMounted) return;
 
-    const preferredLanguage = (user as { language?: string }).language;
-    if (preferredLanguage && preferredLanguage !== 'auto-detect') {
-      void setLocale(preferredLanguage);
-    }
-  }, [session?.user]);
+        setSettings({
+          theme: (prefs?.theme as 'light' | 'dark' | 'system') || 'system',
+          accentColor: (prefs?.accent_color as 'default' | 'blue' | 'green' | 'purple' | 'red') || 'default',
+          language: getValidLanguage(prefs?.language),
+          spokenLanguage: getValidLanguage(prefs?.spoken_language)
+        });
+
+        const preferredLanguage = prefs?.language;
+        if (preferredLanguage && preferredLanguage !== 'auto-detect') {
+          void setLocale(preferredLanguage);
+        }
+      } catch (error) {
+        console.error('Failed to load general preferences:', error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadPreferences();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const languageOptions = useMemo(() => ([
     { value: 'auto-detect', label: t('common:language.auto') },
     ...SUPPORTED_LOCALES.map(locale => ({
@@ -92,8 +110,18 @@ export const GeneralPage = ({
     });
     
     try {
-      // Update user in database
-      await updateUser({ [key]: value });
+      const updatePayload: GeneralPreferences = {};
+      if (key === 'theme') {
+        updatePayload.theme = value as GeneralPreferences['theme'];
+      } else if (key === 'accentColor') {
+        updatePayload.accent_color = value as string;
+      } else if (key === 'language') {
+        updatePayload.language = value as string;
+      } else if (key === 'spokenLanguage') {
+        updatePayload.spoken_language = value as string;
+      }
+
+      await preferencesApi.updateGeneral(updatePayload);
       
       // Apply theme immediately if changed
       if (key === 'theme') {
@@ -138,7 +166,7 @@ export const GeneralPage = ({
   };
 
   // Show loading state while session is loading
-  if (isPending) {
+  if (isLoading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />

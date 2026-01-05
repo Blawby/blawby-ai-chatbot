@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import OnboardingModal from '@/features/onboarding/components/OnboardingModal';
-import { OnboardingData } from '@/shared/types/user';
+import type { OnboardingFormData } from '@/shared/types/onboarding';
 import { Logo } from '@/shared/ui/Logo';
 import { handleError } from '@/shared/utils/errorHandler';
 import AuthForm from '@/shared/components/AuthForm';
@@ -107,7 +107,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     window.location.href = '/';
   };
 
-  const handleOnboardingComplete = async (data: OnboardingData) => {
+  const handleOnboardingComplete = async (data: OnboardingFormData) => {
     // Development-only debug log with redacted sensitive data
     if (import.meta.env.DEV) {
       const _redactedData = {
@@ -119,9 +119,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         useCase: {
           primaryUseCase: data.useCase.primaryUseCase,
           additionalInfo: data.useCase.additionalInfo ? '[REDACTED]' : undefined
-        },
-        completedAt: data.completedAt,
-        skippedSteps: data.skippedSteps
+        }
       };
       // Onboarding completed with redacted data
     }

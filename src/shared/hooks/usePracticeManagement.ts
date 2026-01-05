@@ -5,6 +5,8 @@ import {
   listPractices,
   createPractice as apiCreatePractice,
   updatePractice as apiUpdatePractice,
+  type PracticeDetailsUpdate,
+  updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
   listPracticeInvitations,
   createPracticeInvitation,
@@ -68,6 +70,19 @@ export interface Practice {
   calendlyUrl?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  website?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  introMessage?: string | null;
+  overview?: string | null;
+  isPublic?: boolean | null;
+  services?: Array<Record<string, unknown>> | null;
 }
 
 export interface Member {
@@ -130,6 +145,7 @@ interface UsePracticeManagementReturn {
   // Practice operations
   createPractice: (data: CreatePracticeData) => Promise<Practice>;
   updatePractice: (id: string, data: UpdatePracticeData) => Promise<void>;
+  updatePracticeDetails: (id: string, details: PracticeDetailsUpdate) => Promise<void>;
   deletePractice: (id: string) => Promise<void>;
   
   // Team management
@@ -309,6 +325,38 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     return 'pending';
   })();
 
+  const getDetailString = (camel: string, snake: string): string | null | undefined => {
+    const candidate =
+      (raw as Record<string, unknown>)[camel] ?? (raw as Record<string, unknown>)[snake];
+    if (candidate === null) return null;
+    if (typeof candidate === 'string') {
+      return candidate;
+    }
+    return undefined;
+  };
+
+  const getDetailBoolean = (camel: string, snake: string): boolean | null | undefined => {
+    const candidate =
+      (raw as Record<string, unknown>)[camel] ?? (raw as Record<string, unknown>)[snake];
+    if (candidate === null) return null;
+    if (typeof candidate === 'boolean') return candidate;
+    if (typeof candidate === 'number') return candidate === 1;
+    if (typeof candidate === 'string') {
+      const normalized = candidate.trim().toLowerCase();
+      if (normalized === 'true') return true;
+      if (normalized === 'false') return false;
+    }
+    return undefined;
+  };
+
+  const services = (() => {
+    const candidate =
+      (raw as Record<string, unknown>).services ?? (raw as Record<string, unknown>).services_list;
+    if (candidate === null) return null;
+    if (Array.isArray(candidate)) return candidate as Array<Record<string, unknown>>;
+    return undefined;
+  })();
+
   return {
     id,
     slug,
@@ -336,6 +384,19 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     businessOnboardingSkipped: onboardingSkipped,
     businessOnboardingHasDraft: onboardingData != null && Object.keys(onboardingData).length > 0,
     businessOnboardingStatus: onboardingStatus,
+    website: getDetailString('website', 'website'),
+    addressLine1: getDetailString('addressLine1', 'address_line_1'),
+    addressLine2: getDetailString('addressLine2', 'address_line_2'),
+    city: getDetailString('city', 'city'),
+    state: getDetailString('state', 'state'),
+    postalCode: getDetailString('postalCode', 'postal_code'),
+    country: getDetailString('country', 'country'),
+    primaryColor: getDetailString('primaryColor', 'primary_color'),
+    accentColor: getDetailString('accentColor', 'accent_color'),
+    introMessage: getDetailString('introMessage', 'intro_message'),
+    overview: getDetailString('overview', 'overview'),
+    isPublic: getDetailBoolean('isPublic', 'is_public'),
+    services
   };
 }
 
@@ -699,6 +760,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [fetchPractices, fetchInvitations, shouldFetchInvitations, practices]);
 
+  const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<void> => {
+    if (!id) {
+      throw new Error('Practice id is required for details update');
+    }
+    await apiUpdatePracticeDetails(id, details);
+    practicesFetchedRef.current = false;
+    await fetchPractices();
+  }, [fetchPractices]);
+
   // Delete practice
   const deletePractice = useCallback(async (id: string): Promise<void> => {
     if (!id) {
@@ -918,6 +988,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     error,
     createPractice,
     updatePractice,
+    updatePracticeDetails,
     deletePractice,
     getMembers,
     fetchMembers,

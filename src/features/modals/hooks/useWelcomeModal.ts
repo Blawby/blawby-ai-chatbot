@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSession } from '@/shared/lib/authClient';
+import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
+import type { OnboardingPreferences } from '@/shared/types/preferences';
 
 interface UseWelcomeModalResult {
   shouldShow: boolean;
@@ -43,23 +45,25 @@ export function useWelcomeModal(): UseWelcomeModalResult {
       setShouldShow(false);
       return;
     }
-    const user = session.user as typeof session.user & {
-      onboardingCompleted?: boolean;
-      welcomedAt?: string | null | boolean;
-    };
     const sessionKey = `welcomeModalShown_v1_${session.user.id}`;
     const alreadyShown = typeof window !== 'undefined' ? sessionStorage.getItem(sessionKey) : null;
-    const hasCompletedOnboarding = user.onboardingCompleted === true;
-    const hasBeenWelcomed = Boolean(user.welcomedAt);
     if (alreadyShown) {
       setShouldShow(false);
       return;
     }
-    if (hasCompletedOnboarding && !hasBeenWelcomed) {
-      setShouldShow(true);
-    } else {
-      setShouldShow(false);
-    }
+
+    const checkPreferences = async () => {
+      try {
+        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
+        const hasCompletedOnboarding = prefs?.completed === true;
+        setShouldShow(hasCompletedOnboarding);
+      } catch (error) {
+        console.warn('[WELCOME_MODAL] Failed to load onboarding preferences', error);
+        setShouldShow(false);
+      }
+    };
+
+    void checkPreferences();
   }, [session, session?.user, sessionIsPending]);
 
   const markAsShown = useCallback(async () => {

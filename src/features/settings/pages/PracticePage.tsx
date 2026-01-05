@@ -34,7 +34,7 @@ interface OnboardingDetails {
   introMessage?: string;
   overview?: string;
   isPublic?: boolean;
-  services?: Array<{ id: string; title: string; description: string }>;
+  services?: Array<Record<string, unknown>>;
 }
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -42,13 +42,27 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 
 const resolveOnboardingData = (practice: Practice | null): OnboardingDetails => {
   if (!practice) return {};
+  const baseFromPractice: OnboardingDetails = {
+    website: practice.website ?? undefined,
+    addressLine1: practice.addressLine1 ?? undefined,
+    addressLine2: practice.addressLine2 ?? undefined,
+    city: practice.city ?? undefined,
+    state: practice.state ?? undefined,
+    postalCode: practice.postalCode ?? undefined,
+    country: practice.country ?? undefined,
+    introMessage: practice.introMessage ?? undefined,
+    overview: practice.overview ?? undefined,
+    isPublic: practice.isPublic ?? undefined,
+    services: practice.services ?? undefined,
+    contactPhone: practice.businessPhone ?? undefined
+  };
   const metadata = practice.metadata;
-  if (!isPlainObject(metadata)) return {};
+  if (!isPlainObject(metadata)) return baseFromPractice;
   const onboarding = metadata.onboarding;
-  if (!isPlainObject(onboarding)) return {};
+  if (!isPlainObject(onboarding)) return baseFromPractice;
   const data = onboarding.data;
-  if (!isPlainObject(data)) return {};
-  return { ...(data as OnboardingDetails) };
+  if (!isPlainObject(data)) return baseFromPractice;
+  return { ...(data as OnboardingDetails), ...baseFromPractice };
 };
 
 const resolveConversationConfig = (practice: Practice | null): PracticeConfig | null => {
@@ -73,38 +87,6 @@ const resolveConversationConfig = (practice: Practice | null): PracticeConfig | 
     }
   }
   return null;
-};
-
-const resolveVoiceProvider = (value: unknown): PracticeConfig['voice']['provider'] => {
-  if (value === 'cloudflare' || value === 'elevenlabs' || value === 'custom') {
-    return value;
-  }
-  return 'cloudflare';
-};
-
-const buildBaseConversationConfig = (config: PracticeConfig | null): PracticeConfig => {
-  const voice = isPlainObject(config?.voice) ? (config?.voice as Record<string, unknown>) : {};
-  return {
-    ownerEmail: typeof config?.ownerEmail === 'string' ? config.ownerEmail : undefined,
-    availableServices: Array.isArray(config?.availableServices) ? config.availableServices : [],
-    serviceQuestions: isPlainObject(config?.serviceQuestions)
-      ? (config?.serviceQuestions as Record<string, string[]>)
-      : {},
-    domain: typeof config?.domain === 'string' ? config.domain : '',
-    description: typeof config?.description === 'string' ? config.description : '',
-    brandColor: typeof config?.brandColor === 'string' ? config.brandColor : '#000000',
-    accentColor: typeof config?.accentColor === 'string' ? config.accentColor : '#000000',
-    introMessage: typeof config?.introMessage === 'string' ? config.introMessage : '',
-    profileImage: typeof config?.profileImage === 'string' ? config.profileImage : undefined,
-    voice: {
-      enabled: typeof voice.enabled === 'boolean' ? voice.enabled : false,
-      provider: resolveVoiceProvider(voice.provider),
-      voiceId: typeof voice.voiceId === 'string' ? voice.voiceId : null,
-      displayName: typeof voice.displayName === 'string' ? voice.displayName : null,
-      previewUrl: typeof voice.previewUrl === 'string' ? voice.previewUrl : null
-    },
-    metadata: isPlainObject(config?.metadata) ? (config?.metadata as Record<string, unknown>) : {}
-  };
 };
 
 const truncateText = (value: string, maxLength: number) => {
@@ -155,6 +137,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     loading, 
     error,
     updatePractice,
+    updatePracticeDetails,
     createPractice,
     deletePractice,
     fetchMembers,
@@ -228,6 +211,21 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       });
       return result;
     };
+
+    if (Array.isArray(currentPractice?.services)) {
+      const names = currentPractice?.services
+        .map((entry) => {
+          if (typeof entry === 'string') return entry;
+          if (entry && typeof entry === 'object') {
+            const candidate = (entry as Record<string, unknown>).title ?? (entry as Record<string, unknown>).name;
+            if (typeof candidate === 'string') return candidate;
+          }
+          return '';
+        })
+        .filter((item) => typeof item === 'string' && item.trim().length > 0);
+      const normalized = sanitize(names);
+      if (normalized.length) return normalized;
+    }
 
     const metadata = currentPractice?.metadata;
     if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
@@ -490,37 +488,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
     setIsSettingsSaving(true);
     try {
-      const metadataBase = isPlainObject(currentPractice.metadata)
-        ? currentPractice.metadata
-        : {};
-      const onboardingBase = isPlainObject(metadataBase.onboarding)
-        ? (metadataBase.onboarding as Record<string, unknown>)
-        : {};
-      const onboardingDataBase = isPlainObject(onboardingBase.data)
-        ? (onboardingBase.data as Record<string, unknown>)
-        : {};
       const trimmedOverview = overviewDraft.trim();
-      const nextOnboardingData = {
-        ...onboardingDataBase,
-        overview: trimmedOverview
-      };
-
-      const baseConfig = buildBaseConversationConfig(conversationConfig);
-      const nextConversationConfig: PracticeConfig = {
-        ...baseConfig,
-        description: trimmedOverview
-      };
 
       await updatePractice(currentPractice.id, {
-        ...editPracticeForm,
-        metadata: {
-          ...metadataBase,
-          onboarding: {
-            ...onboardingBase,
-            data: nextOnboardingData
-          },
-          conversationConfig: nextConversationConfig
-        }
+        ...editPracticeForm
+      });
+
+      await updatePracticeDetails(currentPractice.id, {
+        overview: trimmedOverview
       });
       showSuccess('Practice updated successfully!');
       setIsEditPracticeModalOpen(false);
@@ -538,37 +513,24 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     if (!currentPractice) return false;
     setIsSettingsSaving(true);
     try {
-      const metadataBase = isPlainObject(currentPractice.metadata)
-        ? currentPractice.metadata
-        : {};
-      const onboardingBase = isPlainObject(metadataBase.onboarding)
-        ? (metadataBase.onboarding as Record<string, unknown>)
-        : {};
-      const onboardingDataBase = isPlainObject(onboardingBase.data)
-        ? (onboardingBase.data as Record<string, unknown>)
-        : {};
-      const nextOnboardingData = {
-        ...onboardingDataBase,
-        ...updates
-      };
+      if (typeof updates.contactPhone === 'string') {
+        await updatePractice(currentPractice.id, {
+          businessPhone: updates.contactPhone
+        });
+      }
 
-      const baseConfig = buildBaseConversationConfig(conversationConfig);
-      const nextConversationConfig: PracticeConfig = {
-        ...baseConfig,
+      await updatePracticeDetails(currentPractice.id, {
+        ...(typeof updates.website === 'string' ? { website: updates.website } : {}),
+        ...(typeof updates.addressLine1 === 'string' ? { addressLine1: updates.addressLine1 } : {}),
+        ...(typeof updates.addressLine2 === 'string' ? { addressLine2: updates.addressLine2 } : {}),
+        ...(typeof updates.city === 'string' ? { city: updates.city } : {}),
+        ...(typeof updates.state === 'string' ? { state: updates.state } : {}),
+        ...(typeof updates.postalCode === 'string' ? { postalCode: updates.postalCode } : {}),
+        ...(typeof updates.country === 'string' ? { country: updates.country } : {}),
         ...(typeof updates.introMessage === 'string' ? { introMessage: updates.introMessage } : {}),
-        ...(typeof updates.isPublic === 'boolean' ? { isPublic: updates.isPublic } : {})
-      };
-
-      await updatePractice(currentPractice.id, {
-        ...(typeof updates.contactPhone === 'string' ? { businessPhone: updates.contactPhone } : {}),
-        metadata: {
-          ...metadataBase,
-          onboarding: {
-            ...onboardingBase,
-            data: nextOnboardingData
-          },
-          conversationConfig: nextConversationConfig
-        }
+        ...(typeof updates.overview === 'string' ? { overview: updates.overview } : {}),
+        ...(typeof updates.isPublic === 'boolean' ? { isPublic: updates.isPublic } : {}),
+        ...(Array.isArray(updates.services) ? { services: updates.services } : {})
       });
 
       showSuccess('Practice updated', toastBody);

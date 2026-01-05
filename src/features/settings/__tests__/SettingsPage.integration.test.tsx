@@ -92,6 +92,7 @@ const usePracticeMgmtMock = {
   updateMatterStatus: vi.fn(),
   createPractice: vi.fn(),
   updatePractice: vi.fn(),
+  updatePracticeDetails: vi.fn(),
   deletePractice: vi.fn(),
   inviteMember: vi.fn(),
   acceptInvitation: vi.fn(),
@@ -192,6 +193,7 @@ describe('SettingsPage Integration Tests', () => {
     usePracticeMgmtMock.updateMatterStatus = vi.fn();
     usePracticeMgmtMock.createPractice = vi.fn();
     usePracticeMgmtMock.updatePractice = vi.fn();
+    usePracticeMgmtMock.updatePracticeDetails = vi.fn();
     usePracticeMgmtMock.deletePractice = vi.fn();
     usePracticeMgmtMock.inviteMember = vi.fn();
     usePracticeMgmtMock.acceptInvitation = vi.fn();

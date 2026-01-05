@@ -1,4 +1,4 @@
-import type { UserPreferences } from '@/shared/lib/apiClient';
+import type { PreferencesResponse } from '@/shared/types/preferences';
 
 type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
 
@@ -13,6 +13,19 @@ export interface MockPractice {
   seats?: number | null;
   config?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  website?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  introMessage?: string | null;
+  overview?: string | null;
+  isPublic?: boolean | null;
+  services?: Array<Record<string, unknown>> | null;
 }
 
 export interface MockMember {
@@ -294,20 +307,42 @@ const defaultOnboarding: OnboardingState = {
   stripeAccountId: null
 };
 
-const defaultPreferences: UserPreferences = {
-  theme: 'system',
-  accentColor: '#7c3aed',
-  fontSize: 'medium',
-  language: 'en',
-  timezone: 'America/New_York',
-  dateFormat: 'MM/DD/YYYY',
-  timeFormat: '12h',
-  emailNotifications: true,
-  pushNotifications: false,
-  smsNotifications: false,
-  notificationFrequency: 'daily',
-  autoSaveConversations: true,
-  typingIndicators: true
+const defaultPreferences: PreferencesResponse['data'] = {
+  id: 'pref-1',
+  user_id: 'user-1',
+  general: {
+    theme: 'system',
+    accent_color: '#7c3aed',
+    language: 'en',
+    spoken_language: 'en',
+    timezone: 'America/New_York',
+    date_format: 'MM/DD/YYYY',
+    time_format: '12h'
+  },
+  notifications: {
+    responses_push: true,
+    tasks_push: true,
+    tasks_email: true,
+    messaging_push: true
+  },
+  security: {
+    two_factor_enabled: false,
+    email_notifications: true,
+    login_alerts: true
+  },
+  account: {
+    selected_domain: null,
+    custom_domains: [],
+    receive_feedback_emails: false,
+    marketing_emails: false,
+    security_alerts: true
+  },
+  onboarding: {
+    completed: false,
+    primary_use_case: 'personal'
+  },
+  created_at: new Date(now - 1000 * 60 * 60 * 24).toISOString(),
+  updated_at: new Date(now).toISOString()
 };
 
 export interface MockUser {
@@ -341,7 +376,7 @@ export const mockDb = {
     [mockPracticeId]: { ...defaultOnboarding },
     [inboxPracticeId]: { ...defaultOnboarding }
   } as Record<string, OnboardingState>,
-  userPreferences: { ...defaultPreferences },
+  preferences: { ...defaultPreferences },
   // Guest chat mocks
   anonymousUsers,
   conversations,
