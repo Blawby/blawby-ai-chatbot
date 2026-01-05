@@ -52,18 +52,28 @@ export function useWelcomeModal(): UseWelcomeModalResult {
       return;
     }
 
+    let isMounted = true;
+
     const checkPreferences = async () => {
       try {
         const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
         const hasCompletedOnboarding = prefs?.completed === true;
-        setShouldShow(hasCompletedOnboarding);
+        if (isMounted) {
+          setShouldShow(hasCompletedOnboarding);
+        }
       } catch (error) {
         console.warn('[WELCOME_MODAL] Failed to load onboarding preferences', error);
-        setShouldShow(false);
+        if (isMounted) {
+          setShouldShow(false);
+        }
       }
     };
 
     void checkPreferences();
+
+    return () => {
+      isMounted = false;
+    };
   }, [session, session?.user, sessionIsPending]);
 
   const markAsShown = useCallback(async () => {

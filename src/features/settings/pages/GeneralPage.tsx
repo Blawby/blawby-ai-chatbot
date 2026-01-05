@@ -54,9 +54,9 @@ export const GeneralPage = ({
           spokenLanguage: getValidLanguage(prefs?.spoken_language)
         });
 
-        const preferredLanguage = prefs?.language;
-        if (preferredLanguage && preferredLanguage !== 'auto-detect') {
-          void setLocale(preferredLanguage);
+        const validatedLanguage = getValidLanguage(prefs?.language);
+        if (validatedLanguage !== 'auto-detect') {
+          void setLocale(validatedLanguage);
         }
       } catch (error) {
         console.error('Failed to load general preferences:', error);

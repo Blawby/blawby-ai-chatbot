@@ -291,8 +291,10 @@ export const handlers = [
     const index = mockDb.practices.findIndex((item) => item.id === practice.id);
     if (index >= 0) {
       mockDb.practices[index] = next;
+    } else {
+      return HttpResponse.json({ error: 'Practice not found' }, { status: 404 });
     }
-    return HttpResponse.json({ data: body });
+    return HttpResponse.json({ data: next });
   }),
 
   http.get('/api/onboarding/practice/:practiceId/status', ({ params }) => {

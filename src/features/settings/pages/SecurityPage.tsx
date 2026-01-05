@@ -148,14 +148,12 @@ export const SecurityPage = ({
       setSettings(updatedSettings);
       
       try {
-        const updateData: Partial<SecurityPreferences> = {};
-        if (key === 'twoFactorEnabled') {
-          updateData.two_factor_enabled = value;
-        } else if (key === 'emailNotifications') {
-          updateData.email_notifications = value;
-        } else if (key === 'loginAlerts') {
-          updateData.login_alerts = value;
-        }
+      const updateData: Partial<SecurityPreferences> = {};
+      if (key === 'emailNotifications') {
+        updateData.email_notifications = value;
+      } else if (key === 'loginAlerts') {
+        updateData.login_alerts = value;
+      }
         await updatePreferencesCategory('security', updateData);
         
         showSuccess(

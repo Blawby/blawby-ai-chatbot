@@ -494,10 +494,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         ...editPracticeForm
       });
 
-      await updatePracticeDetails(currentPractice.id, {
-        overview: trimmedOverview
-      });
-      showSuccess('Practice updated successfully!');
+      try {
+        await updatePracticeDetails(currentPractice.id, {
+          overview: trimmedOverview
+        });
+        showSuccess('Practice updated successfully!');
+      } catch (detailsError) {
+        console.warn('Practice details update failed after core update:', detailsError);
+        showError('Practice updated', 'Overview could not be updated. Please try again.');
+      }
       setIsEditPracticeModalOpen(false);
 		} catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update practice');

@@ -149,19 +149,19 @@ export interface CreatePracticeRequest {
 export type UpdatePracticeRequest = Partial<CreatePracticeRequest>;
 
 export interface PracticeDetailsUpdate {
-  website?: string;
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-  primaryColor?: string;
-  accentColor?: string;
-  introMessage?: string;
-  overview?: string;
-  isPublic?: boolean;
-  services?: Array<Record<string, unknown>>;
+  website?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  introMessage?: string | null;
+  overview?: string | null;
+  isPublic?: boolean | null;
+  services?: Array<Record<string, unknown>> | null;
 }
 
 export interface ConnectedAccountRequest {
@@ -314,7 +314,24 @@ function normalizePracticePayload(payload: unknown): Practice {
     businessEmail: toNullableString(payload.businessEmail ?? payload.business_email),
     calendlyUrl: toNullableString(payload.calendlyUrl ?? payload.calendly_url),
     createdAt: toNullableString(payload.createdAt ?? payload.created_at),
-    updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at)
+    updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at),
+    website: toNullableString(payload.website),
+    addressLine1: toNullableString(payload.addressLine1 ?? payload.address_line_1),
+    addressLine2: toNullableString(payload.addressLine2 ?? payload.address_line_2),
+    city: toNullableString(payload.city),
+    state: toNullableString(payload.state),
+    postalCode: toNullableString(payload.postalCode ?? payload.postal_code),
+    country: toNullableString(payload.country),
+    primaryColor: toNullableString(payload.primaryColor ?? payload.primary_color),
+    accentColor: toNullableString(payload.accentColor ?? payload.accent_color),
+    introMessage: toNullableString(payload.introMessage ?? payload.intro_message),
+    overview: toNullableString(payload.overview),
+    isPublic: 'isPublic' in payload || 'is_public' in payload
+      ? Boolean(payload.isPublic ?? payload.is_public)
+      : null,
+    services: Array.isArray(payload.services)
+      ? (payload.services as Array<Record<string, unknown>>)
+      : null
   };
 }
 
