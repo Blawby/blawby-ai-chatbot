@@ -577,7 +577,7 @@ export async function updatePracticeDetails(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.post(
+  const response = await apiClient.patch(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     details,
     { signal: config?.signal }
