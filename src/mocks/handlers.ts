@@ -280,6 +280,10 @@ export const handlers = [
     return HttpResponse.json({ data: next });
   }),
 
+  http.get('/api/subscriptions/current', () => {
+    return HttpResponse.json({ subscription: mockDb.subscription });
+  }),
+
   http.patch('/api/practice/:practiceId/details', async ({ request, params }) => {
     const practiceId = String(params.practiceId);
     const practice = findPractice(practiceId);

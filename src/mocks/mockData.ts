@@ -95,10 +95,30 @@ export interface MockMessage {
   created_at: string;
 }
 
+export interface MockSubscription {
+  id: string;
+  status: string | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  plan: {
+    id: string;
+    name: string;
+    displayName: string;
+    isActive: boolean;
+  } | null;
+}
+
 const personalPracticeId = 'practice-personal';
 export const businessPracticeId = 'practice-business';
 // Using businessPracticeId as the default practice for all mock pages
 const now = Date.now();
+const defaultSubscription: MockSubscription = {
+  id: 'sub-default',
+  status: null,
+  cancelAtPeriodEnd: false,
+  currentPeriodEnd: null,
+  plan: null
+};
 
 const personalPractice: MockPractice = {
   id: personalPracticeId,
@@ -377,6 +397,7 @@ export const mockDb = {
     [inboxPracticeId]: { ...defaultOnboarding }
   } as Record<string, OnboardingState>,
   preferences: { ...defaultPreferences },
+  subscription: { ...defaultSubscription },
   // Guest chat mocks
   anonymousUsers,
   conversations,

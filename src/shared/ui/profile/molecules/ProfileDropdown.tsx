@@ -47,10 +47,10 @@ export const ProfileDropdown = ({
   className = ''
 }: ProfileDropdownProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const showWorkspaceSwitcher = Boolean(onSwitchToClient && onSwitchToPractice);
-  const practiceLabelText = hasPractice
-    ? (practiceLabel ? t('profile:practiceViewWithName', { practiceLabel }) : t('profile:practiceView'))
-    : t('profile:createPractice');
+  const showWorkspaceSwitcher = Boolean(onSwitchToClient && onSwitchToPractice && hasPractice);
+  const practiceLabelText = practiceLabel
+    ? t('profile:practiceViewWithName', { practiceLabel })
+    : t('profile:practiceView');
 
   return (
     <div 

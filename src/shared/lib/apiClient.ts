@@ -198,6 +198,21 @@ export interface SubscriptionEndpointResult {
   data: unknown;
 }
 
+export interface CurrentSubscriptionPlan {
+  id?: string | null;
+  name?: string | null;
+  displayName?: string | null;
+  isActive?: boolean | null;
+}
+
+export interface CurrentSubscription {
+  id?: string | null;
+  status?: string | null;
+  plan?: CurrentSubscriptionPlan | null;
+  cancelAtPeriodEnd?: boolean | null;
+  currentPeriodEnd?: string | null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -592,6 +607,53 @@ export async function requestBillingPortalSession(
     referenceId: payload.practiceId,
     returnUrl: payload.returnUrl
   });
+}
+
+export async function getCurrentSubscription(
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<CurrentSubscription | null> {
+  const response = await apiClient.get('/api/subscriptions/current', {
+    signal: config?.signal
+  });
+  const payload = response.data as Record<string, unknown>;
+  const container = (() => {
+    if (isRecord(payload) && 'subscription' in payload) {
+      return payload.subscription;
+    }
+    if (isRecord(payload) && 'data' in payload && isRecord(payload.data) && 'subscription' in payload.data) {
+      return payload.data.subscription;
+    }
+    return null;
+  })();
+
+  if (!isRecord(container)) {
+    return null;
+  }
+
+  const plan = isRecord(container.plan)
+    ? {
+        id: toNullableString(container.plan.id),
+        name: toNullableString(container.plan.name),
+        displayName: toNullableString(container.plan.displayName ?? container.plan.display_name),
+        isActive: typeof container.plan.isActive === 'boolean'
+          ? container.plan.isActive
+          : typeof container.plan.is_active === 'boolean'
+            ? container.plan.is_active
+            : null
+      }
+    : null;
+
+  return {
+    id: toNullableString(container.id),
+    status: toNullableString(container.status),
+    plan,
+    cancelAtPeriodEnd: typeof container.cancelAtPeriodEnd === 'boolean'
+      ? container.cancelAtPeriodEnd
+      : typeof container.cancel_at_period_end === 'boolean'
+        ? container.cancel_at_period_end
+        : null,
+    currentPeriodEnd: toNullableString(container.currentPeriodEnd ?? container.current_period_end)
+  };
 }
 
 export async function requestSubscriptionCancellation(

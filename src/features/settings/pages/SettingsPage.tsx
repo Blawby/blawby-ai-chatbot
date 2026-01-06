@@ -52,10 +52,10 @@ export const SettingsPage = ({
   const [apps, setApps] = useState<App[]>(mockApps);
   const { practices, currentPractice, loading: practicesLoading } = usePracticeManagement({ autoFetchPractices: true });
   const hasPractice = practices.length > 0 || currentPractice !== null;
-  const { defaultWorkspace } = useWorkspace();
+  const { defaultWorkspace, canAccessPractice } = useWorkspace();
   const storedWorkspace = getStoredWorkspace();
   const activeWorkspace = storedWorkspace ?? defaultWorkspace;
-  const canShowPracticeSettings = activeWorkspace === 'practice' && hasPractice;
+  const canShowPracticeSettings = activeWorkspace === 'practice' && hasPractice && canAccessPractice;
   
   // Get current page from URL path
   const getCurrentPage = () => {

@@ -36,7 +36,7 @@ export const UserProfileDisplay = ({
   const { data: session, isPending, error } = useSession();
   const { showError } = useToastContext();
   const { currentPractice: managedPractice, practices } = usePracticeManagement();
-  const { workspaceFromPath, preferredWorkspace, preferredPracticeId, hasPractice } = useWorkspace();
+  const { workspaceFromPath, preferredWorkspace, preferredPracticeId, canAccessPractice } = useWorkspace();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -127,7 +127,7 @@ export const UserProfileDisplay = ({
   const practiceLabel = managedPractice?.name ?? practices[0]?.name ?? null;
   const currentWorkspace = (workspaceFromPath === 'client' || workspaceFromPath === 'practice')
     ? workspaceFromPath
-    : (preferredWorkspace ?? (hasPractice ? 'practice' : 'client'));
+    : (preferredWorkspace ?? (canAccessPractice ? 'practice' : 'client'));
 
   const handleSwitchToClient = async () => {
     setShowDropdown(false);
@@ -141,6 +141,10 @@ export const UserProfileDisplay = ({
 
   const handleSwitchToPractice = async () => {
     setShowDropdown(false);
+    if (!canAccessPractice) {
+      showError('Upgrade required', 'Please upgrade to access the practice workspace.');
+      return;
+    }
     const previousPreferredPracticeId = preferredPracticeId ?? practiceForTier?.id ?? null;
     try {
       if (resolvedPracticeId) {
@@ -269,7 +273,7 @@ export const UserProfileDisplay = ({
             onSwitchToClient={handleSwitchToClient}
             onSwitchToPractice={handleSwitchToPractice}
             workspace={currentWorkspace}
-            hasPractice={hasPractice}
+            hasPractice={canAccessPractice}
             practiceLabel={practiceLabel}
             signOutError={signOutError}
           />

@@ -80,6 +80,7 @@ function AppShell() {
         <Route path="/dev/mock-services" component={MockServicesPage} />
         <Route path="/business-onboarding" component={BusinessOnboardingPage} />
         <Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
+        <Route path="/settings" component={SettingsRoute} />
         <Route path="/settings/*" component={SettingsRoute} />
         <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
         <Route path="/practice" component={PracticeAppRoute} />
@@ -102,11 +103,11 @@ function AppShell() {
 }
 
 function SettingsRoute() {
-  const { defaultWorkspace, hasPractice } = useWorkspace();
+  const { defaultWorkspace, canAccessPractice } = useWorkspace();
   const storedWorkspace = getStoredWorkspace();
   const resolved = storedWorkspace ?? defaultWorkspace;
 
-  if (resolved === 'practice' && hasPractice) {
+  if (resolved === 'practice' && canAccessPractice) {
     return <PracticeAppRoute settingsMode={true} />;
   }
 
@@ -115,7 +116,13 @@ function SettingsRoute() {
 
 function RootRoute() {
   const { data: session, isPending } = useTypedSession();
-  const { defaultWorkspace, preferredPracticeId, activePracticeId, hasPractice } = useWorkspace();
+  const {
+    defaultWorkspace,
+    preferredPracticeId,
+    activePracticeId,
+    canAccessPractice,
+    isPracticeEnabled
+  } = useWorkspace();
   const { navigate } = useNavigation();
   const workspaceInitRef = useRef(false);
 
@@ -142,13 +149,32 @@ function RootRoute() {
       });
     }
 
-    if (defaultWorkspace === 'practice' && !hasPractice) {
+    if (!isPracticeEnabled) {
+      if (session.user.primaryWorkspace && session.user.primaryWorkspace !== 'client') {
+        updateUser({ primaryWorkspace: 'client', preferredPracticeId: null }).catch((error) => {
+          console.warn('[Workspace] Failed to reset workspace to client', error);
+        });
+      }
+      navigate('/app', true);
+      return;
+    }
+
+    if (defaultWorkspace === 'practice' && !canAccessPractice) {
       navigate('/app', true);
       return;
     }
 
     navigate(defaultWorkspace === 'practice' ? '/practice' : '/app', true);
-  }, [activePracticeId, defaultWorkspace, hasPractice, isPending, navigate, preferredPracticeId, session?.user]);
+  }, [
+    activePracticeId,
+    canAccessPractice,
+    defaultWorkspace,
+    isPracticeEnabled,
+    isPending,
+    navigate,
+    preferredPracticeId,
+    session?.user
+  ]);
 
   return <LoadingScreen />;
 }
@@ -189,7 +215,7 @@ function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
 function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
   const { data: session, isPending } = useTypedSession();
   const { navigate } = useNavigation();
-  const { preferredPracticeId, activePracticeId, hasPractice } = useWorkspace();
+  const { preferredPracticeId, activePracticeId, hasPractice, isPracticeEnabled, canAccessPractice } = useWorkspace();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
 
   const handlePracticeError = useCallback((error: string) => {
@@ -214,10 +240,10 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
   useEffect(() => {
     if (settingsMode || isPending || practicesLoading) return;
     if (!session?.user) return;
-    if (!hasPractice) {
+    if (!isPracticeEnabled || !canAccessPractice) {
       navigate('/app', true);
     }
-  }, [hasPractice, isPending, navigate, practicesLoading, session?.user, settingsMode]);
+  }, [canAccessPractice, isPracticeEnabled, isPending, navigate, practicesLoading, session?.user, settingsMode]);
 
   if (isPending || practicesLoading || isLoading) {
     return <LoadingScreen />;

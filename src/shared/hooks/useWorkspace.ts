@@ -7,6 +7,7 @@ import {
   setStoredWorkspace,
   setSettingsReturnPath
 } from '@/shared/utils/workspace';
+import { useSubscription } from '@/shared/hooks/useSubscription';
 
 interface UseWorkspaceResult {
   workspaceFromPath: WorkspaceType | null;
@@ -15,11 +16,14 @@ interface UseWorkspaceResult {
   hasPractice: boolean;
   activePracticeId: string | null;
   defaultWorkspace: WorkspacePreference;
+  isPracticeEnabled: boolean;
+  canAccessPractice: boolean;
 }
 
 export function useWorkspace(): UseWorkspaceResult {
   const location = useLocation();
   const { primaryWorkspace, preferredPracticeId, hasPractice, activePracticeId } = useSessionContext();
+  const { isPracticeEnabled } = useSubscription();
 
   const workspaceFromPath = useMemo(
     () => resolveWorkspaceFromPath(location.path),
@@ -35,7 +39,10 @@ export function useWorkspace(): UseWorkspaceResult {
   }, [workspaceFromPath, location.path, location.url]);
 
   const preferredWorkspace = primaryWorkspace ?? null;
-  const defaultWorkspace: WorkspacePreference = preferredWorkspace ?? (hasPractice ? 'practice' : 'client');
+  const defaultWorkspace: WorkspacePreference = isPracticeEnabled
+    ? (preferredWorkspace ?? (hasPractice ? 'practice' : 'client'))
+    : 'client';
+  const canAccessPractice = isPracticeEnabled && hasPractice;
 
   return {
     workspaceFromPath,
@@ -43,6 +50,8 @@ export function useWorkspace(): UseWorkspaceResult {
     preferredPracticeId,
     hasPractice,
     activePracticeId,
-    defaultWorkspace
+    defaultWorkspace,
+    isPracticeEnabled,
+    canAccessPractice
   };
 }
