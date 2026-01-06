@@ -2,53 +2,28 @@ import { useState, useCallback } from 'preact/hooks';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { getClient } from '@/shared/lib/authClient';
 import { requestBillingPortalSession, requestSubscriptionCancellation } from '@/shared/lib/apiClient';
+import { getTrustedHosts } from '@/config/urls';
 
-// Allowlist of trusted hosts for return URLs (beyond same-origin)
-// Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
-// Force staging API callbacks until production API is live.
-// Set VITE_FORCE_STAGING_CALLBACKS=false to allow production API callbacks.
-const FORCE_STAGING_CALLBACKS = import.meta.env.VITE_FORCE_STAGING_CALLBACKS !== 'false';
-const FALLBACK_CALLBACK_BASE_URL =
-  import.meta.env.VITE_REMOTE_API_URL ||
-  (import.meta.env.PROD ? 'https://production-api.blawby.com' : 'https://staging-api.blawby.com');
-const BILLING_CALLBACK_BASE_URL = FORCE_STAGING_CALLBACKS
-  ? 'https://staging-api.blawby.com'
-  : FALLBACK_CALLBACK_BASE_URL;
+// Trusted hosts for return URL validation
+// Uses centralized URL configuration from src/config/urls.ts
+const TRUSTED_RETURN_URL_HOSTS: string[] = getTrustedHosts();
 
-const BILLING_CALLBACK_HOST = (() => {
-  try {
-    return new URL(BILLING_CALLBACK_BASE_URL).host;
-  } catch {
-    return 'staging-api.blawby.com';
-  }
-})();
-
-// Frontend base URL for checkout callbacks (success/cancel).
-// Prefer runtime origin in browser, fallback to explicit env, then billing base.
+// Frontend base URL for checkout callbacks (success/cancel)
+// Uses centralized URL configuration
 const FRONTEND_BASE_URL = (() => {
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+  if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
   const explicit =
     import.meta.env.VITE_APP_BASE_URL ||
     import.meta.env.VITE_PUBLIC_APP_URL ||
     import.meta.env.VITE_APP_URL;
-  return explicit || BILLING_CALLBACK_BASE_URL;
-})();
-
-const FRONTEND_CALLBACK_HOST = (() => {
-  try {
-    return new URL(FRONTEND_BASE_URL).host;
-  } catch {
-    return BILLING_CALLBACK_HOST;
+  if (explicit) {
+    return explicit;
   }
+  // Last resort fallback (should not happen in browser context)
+  throw new Error('Frontend base URL could not be determined. Set VITE_APP_BASE_URL or ensure window.location is available.');
 })();
-
-// staging-api.blawby.com is trusted for subscription callback URLs in development
-// production-api.blawby.com is trusted for production callbacks
-const TRUSTED_RETURN_URL_HOSTS: string[] = Array.from(
-  new Set(['staging-api.blawby.com', 'production-api.blawby.com', BILLING_CALLBACK_HOST, FRONTEND_CALLBACK_HOST])
-);
 
 // Helper function to ensure a safe, validated return URL
 // Prevents open-redirect vulnerabilities by validating URLs before returning them
@@ -76,7 +51,8 @@ function ensureValidReturnUrl(url: string | undefined | null, _practiceId?: stri
     // Use window.location.origin as base to handle relative URLs
     parsed = new URL(trimmed, window.location.origin);
   } catch (error) {
-    throw new Error(`Invalid return URL format: ${trimmed}`, { cause: error });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid return URL format: ${trimmed}. ${errorMessage}`);
   }
 
   // Guard against dangerous schemes (javascript:, data:, vbscript:, etc.)
@@ -209,7 +185,7 @@ function getErrorTitle(errorCode: SubscriptionErrorCode): string {
 export interface SubscriptionUpgradeRequest {
   practiceId?: string;
   planId?: string; // UUID of the subscription plan (optional)
-  plan?: string; // Stripe price ID (required for staging-api /api/subscriptions/create)
+  plan?: string; // Stripe price ID (required for /api/subscriptions/create)
   seats?: number | null;
   annual?: boolean;
   successUrl?: string;
@@ -343,7 +319,7 @@ export const usePaymentUpgrade = () => {
       setSubmitting(true);
       setError(null);
 
-      // Stripe price ID is required for staging-api /api/subscriptions/create
+      // Stripe price ID is required for /api/subscriptions/create
       if (!plan) {
         setError('Stripe price ID is required');
         showError('Invalid Request', 'Stripe price ID is required to create a subscription.');
@@ -355,16 +331,15 @@ export const usePaymentUpgrade = () => {
 
       try {
         // Step 1: Set active practice if we have one using the Better Auth organization plugin
-        // staging-api will auto-create and set the active practice if one doesn't exist
+        // The remote API will auto-create and set the active practice if one doesn't exist
         if (resolvedPracticeId) {
           // Set active practice using the Better Auth organization plugin
-          // This sets the active practice in the staging-api session
           const client = getClient();
           await client.organization.setActive({ organizationId: resolvedPracticeId });
         }
 
-        // Step 2: Build URLs as per Kaze's instructions
-        // Note: resolvedPracticeId may be undefined - staging-api will handle practice creation
+        // Step 2: Build URLs for success and cancel callbacks
+        // Note: resolvedPracticeId may be undefined - the remote API will handle practice creation
         const rawSuccessUrl = successUrl ?? buildSuccessUrl(resolvedPracticeId);
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
 
@@ -372,13 +347,11 @@ export const usePaymentUpgrade = () => {
         const validatedSuccessUrl = ensureValidReturnUrl(rawSuccessUrl, resolvedPracticeId);
         const validatedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
 
-        // Step 3: Create subscription using staging-api /api/subscriptions/create endpoint
+        // Step 3: Create subscription using remote API /api/subscriptions/create endpoint
         try {
-          // Use staging-api /api/subscriptions/create endpoint with fetch (not axios)
-
           const createPayload = {
             planId: planId || undefined, // UUID of the subscription plan (optional)
-            plan, // Stripe price ID (required for staging-api)
+            plan, // Stripe price ID (required)
             successUrl: validatedSuccessUrl,
             cancelUrl: validatedCancelUrl,
             disableRedirect: false // Auto-redirect to Stripe Checkout

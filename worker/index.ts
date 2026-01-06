@@ -28,13 +28,13 @@ import type { ScheduledEvent } from '@cloudflare/workers-types';
 function validateRequest(request: Request): boolean {
   const url = new URL(request.url);
   const _path = url.pathname;
-  
+
   // Check for reasonable request size (10MB limit)
   const contentLength = request.headers.get('content-length');
   if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
     return false;
   }
-  
+
   // Check for valid content type on POST requests
   if (request.method === 'POST') {
     const contentType = request.headers.get('content-type');
@@ -46,11 +46,12 @@ function validateRequest(request: Request): boolean {
       return false;
     }
   }
-  
+
   return true;
 }
 
 async function handleRequestInternal(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+  console.log('🔍 Auth server URL:', env);
   const url = new URL(request.url);
   const path = url.pathname;
 
@@ -141,7 +142,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleChat(request, env);
     } else if (path.startsWith('/api/agent')) {
       // REMOVED: AI agent endpoints - AI functionality removed, will be replaced with user-to-user chat
-      response = new Response(JSON.stringify({ 
+      response = new Response(JSON.stringify({
         error: 'AI agent endpoints have been removed. User-to-user chat will be available in a future update.',
         errorCode: 'AI_REMOVED'
       }), {
@@ -167,7 +168,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 // Main request handler with CORS middleware
 export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 
-export default { 
+export default {
   fetch: handleRequest
 };
 
@@ -226,7 +227,7 @@ async function proxyPracticeRequest(request: Request, env: Env, path: string, se
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
   // Import StatusService
   const { StatusService } = await import('./services/StatusService');
-  
+
   // Create cleanup promise with error handling
   const cleanupPromise = StatusService.cleanupExpiredStatuses(env)
     .then(count => {
@@ -235,7 +236,7 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
     .catch(error => {
       console.error('Scheduled cleanup failed:', error);
     });
-  
+
   // Use ctx.waitUntil to ensure cleanup completes after handler returns
   ctx.waitUntil(cleanupPromise);
 }

@@ -35,8 +35,9 @@ NODE_ENV = "development"
 LOG_LEVEL = "debug"
 DEBUG = false
 VITE_DEBUG_OVERLAY = false
-REMOTE_API_URL = "https://staging-api.blawby.com"
-AUTH_SERVER_URL = "https://staging-api.blawby.com"
+# REMOTE_API_URL is set in worker/.dev.vars for local development
+# Default to staging if not set in .dev.vars
+# REMOTE_API_URL = "https://staging-api.blawby.com"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"
 REQUIRE_EMAIL_VERIFICATION = "false"
 ENABLE_ADOBE_EXTRACT = true
@@ -65,7 +66,6 @@ LOG_LEVEL = "warn"
 DEBUG = false
 VITE_DEBUG_OVERLAY = false
 REMOTE_API_URL = "https://production-api.blawby.com"
-AUTH_SERVER_URL = "https://production-api.blawby.com"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"
 REQUIRE_EMAIL_VERIFICATION = "false"
 ENABLE_ADOBE_EXTRACT = true

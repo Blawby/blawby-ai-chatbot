@@ -506,14 +506,6 @@ export function MainApp({
   const isAdmin = currentMember?.role === 'admin' || isOwner;
   const canReviewLeads = Boolean(isAdmin);
 
-  if (import.meta.env.DEV) {
-    console.log('[Session] isSessionReady check', {
-      conversationId,
-      conversationsLoading,
-      isCreatingConversation,
-      isSessionReady
-    });
-  }
 
   // Add intro message when practice config is loaded and no messages exist
   useEffect(() => {

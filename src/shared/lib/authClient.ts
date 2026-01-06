@@ -3,8 +3,8 @@ import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
 import { setToken, getTokenAsync } from './tokenStorage';
-import { isDevelopment } from '@/shared/utils/environment';
 import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
+import { getBackendApiUrl } from '@/config/urls';
 
 // Type for the auth client (inferred from createAuthClient return type)
 type AuthClientType = ReturnType<typeof createAuthClient>;
@@ -14,49 +14,12 @@ type TypedSessionData = AuthSessionData extends { user: unknown; session: infer 
   ? { user: BetterAuthSessionUser; session: S }
   : AuthSessionData;
 
-// Remote better-auth server URL
-// REQUIRED in production - must be set via VITE_AUTH_SERVER_URL environment variable
-// For Cloudflare Pages deployments, set this in the Pages dashboard under Environment Variables
-const AUTH_BASE_URL = import.meta.env.VITE_AUTH_SERVER_URL;
-
-// Fallback to staging API in development (for local testing)
-const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
-
-// Get auth URL - validate in browser context only
+// ENV VAR: VITE_BACKEND_API_URL (via getBackendApiUrl() from src/config/urls.ts)
 function getAuthBaseUrl(): string {
   if (typeof window === 'undefined') {
-    // During SSR/build, return a placeholder that won't be used
-    // The actual client creation is guarded in getAuthClient()
     return 'https://placeholder-auth-server.com';
   }
-  
-  // In development, use same origin ONLY if MSW is enabled
-  // MSW service workers can only intercept same-origin requests
-  // If MSW is disabled, use staging-api directly
-  if (isDevelopment()) {
-    const enableMocks = import.meta.env.VITE_ENABLE_MSW === 'true';
-    
-    if (enableMocks) {
-      // MSW enabled - use same origin for interception
-      console.log('[getAuthBaseUrl] DEV mode with MSW - using window.location.origin');
-      return window.location.origin;
-    } else {
-      // MSW disabled - use staging-api directly
-      console.log('[getAuthBaseUrl] DEV mode without MSW - using staging-api');
-      return FALLBACK_AUTH_URL;
-    }
-  }
-  
-  // Browser runtime - validate and throw if missing
-  const finalAuthUrl = AUTH_BASE_URL || null;
-  
-  if (!finalAuthUrl) {
-    throw new Error(
-      'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
-    );
-  }
-  
-  return finalAuthUrl;
+  return getBackendApiUrl();
 }
 
 // Cached auth client instance with context tracking (created lazily on first access)
@@ -65,20 +28,20 @@ let cachedAuthClient: { client: AuthClientType; context: 'ssr' | 'browser' } | n
 /**
  * Get or create the auth client instance.
  * The client is created lazily on first access and cached for subsequent calls.
- * Validation of VITE_AUTH_SERVER_URL happens in browser context before client creation.
+ * Validation of VITE_BACKEND_API_URL happens in browser context before client creation.
  * 
  * During SSR/build, returns a placeholder client that will never be used at runtime.
  * 
- * @throws {Error} If VITE_AUTH_SERVER_URL is missing in production (browser context)
+ * @throws {Error} If VITE_BACKEND_API_URL is missing in production (browser context)
  */
 function getAuthClient(): AuthClientType {
   const currentContext = typeof window === 'undefined' ? 'ssr' : 'browser';
-  
+
   // If already created and cached for the same context, return it
   if (cachedAuthClient && cachedAuthClient.context === currentContext) {
     return cachedAuthClient.client;
   }
-  
+
   // During SSR/build, create a placeholder client that won't be used
   // This prevents build errors while still allowing the code to be analyzed
   if (currentContext === 'ssr') {
@@ -91,16 +54,16 @@ function getAuthClient(): AuthClientType {
           type: "Bearer",
           token: async () => "",
         },
-        onSuccess: async () => {},
+        onSuccess: async () => { },
       }
     });
     cachedAuthClient = { client, context: 'ssr' };
     return client;
   }
-  
+
   // Browser context - validate baseURL before creating client
   const baseURL = getAuthBaseUrl();
-  
+
   // Create and cache the client
   const client = createAuthClient({
     plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
@@ -111,44 +74,31 @@ function getAuthClient(): AuthClientType {
         token: async () => {
           // Wait for token to be available from IndexedDB on first call
           const token = await getTokenAsync();
-          if (isDevelopment()) {
-            console.debug('[Auth] Token retrieved:', token ? '***' : 'null');
-          }
           return token || "";
         }
       },
       onSuccess: async (ctx) => {
-        // Better Auth Bearer plugin sends token in lowercase header name
-        // Check both lowercase and capitalized versions
-        const authToken = ctx.response.headers.get("set-auth-token") || 
-                         ctx.response.headers.get("Set-Auth-Token");
+        // Better Auth Bearer plugin sends token in Set-Auth-Token header for write operations
+        // (sign-in, sign-up, bearer.generate). Read operations (getSession, etc.) don't return tokens.
+        // We use the token from IndexedDB for all requests, and only update it when we get a new one.
+        const authToken = ctx.response.headers.get("set-auth-token") ||
+          ctx.response.headers.get("Set-Auth-Token");
+
         if (authToken) {
+          // New token received - save it to IndexedDB
+          // This happens on sign-in, sign-up, or token refresh
           try {
             await setToken(authToken);
-            if (isDevelopment()) {
-              console.log('[Auth] Token saved from response header:', `${authToken.substring(0, 20)}...`);
-              // Verify it was saved
-              const verifyToken = await getTokenAsync();
-              if (verifyToken === authToken) {
-                console.log('[Auth] Token verified in storage');
-              } else {
-                console.error('[Auth] Token save verification failed. Expected:', authToken.substring(0, 20), 'Got:', verifyToken?.substring(0, 20));
-              }
-            }
           } catch (error) {
             console.error('[Auth] Failed to save token:', error);
           }
-        } else if (isDevelopment()) {
-          const headerEntries: string[] = [];
-          ctx.response.headers.forEach((_value, key) => {
-            headerEntries.push(key);
-          });
-          console.warn('[Auth] No token in response headers. Available headers:', headerEntries);
         }
+        // No token in response is expected for read operations (getSession, etc.)
+        // We already have the token in IndexedDB, so we don't need to do anything
       }
     }
   });
-  
+
   cachedAuthClient = { client, context: 'browser' };
   return client;
 }
@@ -163,7 +113,7 @@ export const authClient = new Proxy({} as AuthClientType, {
   get(_target, prop) {
     const client = getAuthClient();
     const value = (client as Record<PropertyKey, unknown>)[prop];
-    
+
     // If it's a function, it might also have properties (like subscription.upgrade, subscription.list)
     // Create a proxy that handles both calling the function AND accessing its properties
     if (typeof value === 'function') {
@@ -171,7 +121,7 @@ export const authClient = new Proxy({} as AuthClientType, {
       // Create a function that has the properties from the original value
       // We'll use Object.assign to copy properties, but the main approach is to proxy property access
       const proxiedFn = Object.assign(boundFn, value);
-      
+
       // Return a proxy that handles both function calls and property access
       return new Proxy(proxiedFn, {
         apply(_target, _thisArg, args) {
@@ -182,7 +132,7 @@ export const authClient = new Proxy({} as AuthClientType, {
           // When accessing properties (like subscription.upgrade), get them from the original value
           // Properties are on the original function, not the bound one
           const subValue = (value as unknown as Record<PropertyKey, unknown>)[subProp];
-          
+
           if (typeof subValue === 'function') {
             // Bind nested functions to the original value to preserve 'this'
             return subValue.bind(value);
@@ -197,13 +147,13 @@ export const authClient = new Proxy({} as AuthClientType, {
                 }
                 return subSubValue;
               }
-});
+            });
           }
           return subValue;
         }
       });
     }
-    
+
     // If it's an object (like signUp, signIn, organization which have nested methods), return a proxy for it
     if (value && typeof value === 'object') {
       return new Proxy(value, {

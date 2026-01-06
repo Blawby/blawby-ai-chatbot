@@ -133,22 +133,22 @@ Copy `dev.vars.example` to `worker/.dev.vars` and add your API keys:
 **For Local Development:**
 Create a `.env` file in the project root for frontend environment variables:
 
-- `VITE_AUTH_SERVER_URL` - URL of your Better Auth server
-  - Example: `http://localhost:8787` for local development
-  - Optional in development - will fall back to a default ngrok URL for testing if not set
+- `VITE_REMOTE_API_URL` - URL of your remote API server (used for both auth and API calls)
+  - Example: `http://localhost:3000` for local development
+  - Optional in development - will fall back to staging API for testing if not set
 
 **For Production (Cloudflare Pages):**
-Set `VITE_AUTH_SERVER_URL` in Cloudflare Pages environment variables:
+Set `VITE_REMOTE_API_URL` in Cloudflare Pages environment variables:
 
 1. Go to your Cloudflare Pages project dashboard
 2. Navigate to **Settings > Environment Variables**
-3. Add `VITE_AUTH_SERVER_URL` with your production Better Auth server URL
-4. Example: `https://auth.yourdomain.com`
+3. Add `VITE_REMOTE_API_URL` with your production remote API URL
+4. Example: `https://production-api.blawby.com`
 
 **Important:** 
 - Frontend environment variables (prefixed with `VITE_`) are bundled into the frontend code at build time
 - Cloudflare Pages automatically injects environment variables during the build process
-- The application will fail at runtime (when auth is used) if `VITE_AUTH_SERVER_URL` is not set in production
+- The application will fail at runtime (when auth is used) if `VITE_REMOTE_API_URL` is not set in production
 - This variable should NOT be set in `.dev.vars` (that's for Worker secrets only)
 
 ### Internationalization

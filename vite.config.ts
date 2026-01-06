@@ -26,10 +26,10 @@ const customCompressionPlugin = (options: CompressionOptions = {}): Plugin => {
 		name: 'custom-compression',
 		apply: 'build',
 		async writeBundle(_: unknown, bundle: Record<string, unknown>) {
-			const compressFunction = algorithm === 'brotli' 
-				? zlib.brotliCompressSync 
+			const compressFunction = algorithm === 'brotli'
+				? zlib.brotliCompressSync
 				: zlib.gzipSync;
-			
+
 			for (const [fileName, file] of Object.entries(bundle)) {
 				const fileInfo = file as { type?: string };
 				if (fileInfo.type === 'chunk' || fileInfo.type === 'asset') {
@@ -60,7 +60,7 @@ const criticalCssPlugin = (): Plugin => {
 		async closeBundle() {
 			// Wait a bit to ensure all files are written
 			await new Promise(resolve => setTimeout(resolve, 100));
-			
+
 			const Critters = (await import('critters')).default;
 			const critters = new Critters({
 				// Critters options
@@ -81,7 +81,7 @@ const criticalCssPlugin = (): Plugin => {
 					console.warn('⚠️ dist/index.html not found, skipping critical CSS extraction');
 					return;
 				}
-				
+
 				// Process the main HTML file
 				const html = await fs.readFile('dist/index.html', 'utf8');
 				const processed = await critters.process(html, { path: 'dist/index.html' });
@@ -281,11 +281,7 @@ export default defineConfig({
 		// Management endpoints (auth, organizations CRUD, payment, subscription) are handled by remote API
 		// and will bypass the proxy entirely, using remote API via frontend helpers
 		proxy: buildProxyEntries()
-	},
-	// Environment variables for development
-	define: {
-		// Set VITE_API_URL for development mode to use localhost
-		// In production builds, this will be undefined, triggering relative URL usage
-		'import.meta.env.VITE_API_URL': JSON.stringify(process.env.NODE_ENV === 'development' ? 'http://localhost:8787' : undefined)
 	}
+	// Note: URL configuration is now centralized in src/config/urls.ts
+	// No need to override environment variables here - use .env file or Cloudflare Pages settings
 });

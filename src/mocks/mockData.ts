@@ -404,6 +404,9 @@ export const mockDb = {
   messages
 };
 
+// Mock remote base URL - used for MSW handlers
+// In actual usage, this should come from getBackendApiUrl() in src/config/urls.ts
+// This constant is kept for backward compatibility with existing mock handlers
 export const MOCK_REMOTE_BASE = 'https://staging-api.blawby.com';
 
 export function randomId(prefix = 'mock'): string {
