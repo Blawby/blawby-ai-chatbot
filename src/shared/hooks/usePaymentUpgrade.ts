@@ -5,8 +5,8 @@ import { requestBillingPortalSession, requestSubscriptionCancellation } from '@/
 
 // Allowlist of trusted hosts for return URLs (beyond same-origin)
 // Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
-// Force staging callback URLs until production API is live.
-// Set VITE_FORCE_STAGING_CALLBACKS=false to allow production callbacks.
+// Force staging API callbacks until production API is live.
+// Set VITE_FORCE_STAGING_CALLBACKS=false to allow production API callbacks.
 const FORCE_STAGING_CALLBACKS = import.meta.env.VITE_FORCE_STAGING_CALLBACKS !== 'false';
 const FALLBACK_CALLBACK_BASE_URL =
   import.meta.env.VITE_REMOTE_API_URL ||
@@ -23,10 +23,31 @@ const BILLING_CALLBACK_HOST = (() => {
   }
 })();
 
+// Frontend base URL for checkout callbacks (success/cancel).
+// Prefer runtime origin in browser, fallback to explicit env, then billing base.
+const FRONTEND_BASE_URL = (() => {
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    return window.location.origin;
+  }
+  const explicit =
+    import.meta.env.VITE_APP_BASE_URL ||
+    import.meta.env.VITE_PUBLIC_APP_URL ||
+    import.meta.env.VITE_APP_URL;
+  return explicit || BILLING_CALLBACK_BASE_URL;
+})();
+
+const FRONTEND_CALLBACK_HOST = (() => {
+  try {
+    return new URL(FRONTEND_BASE_URL).host;
+  } catch {
+    return BILLING_CALLBACK_HOST;
+  }
+})();
+
 // staging-api.blawby.com is trusted for subscription callback URLs in development
 // production-api.blawby.com is trusted for production callbacks
 const TRUSTED_RETURN_URL_HOSTS: string[] = Array.from(
-  new Set(['staging-api.blawby.com', 'production-api.blawby.com', BILLING_CALLBACK_HOST])
+  new Set(['staging-api.blawby.com', 'production-api.blawby.com', BILLING_CALLBACK_HOST, FRONTEND_CALLBACK_HOST])
 );
 
 // Helper function to ensure a safe, validated return URL
@@ -207,7 +228,7 @@ export const usePaymentUpgrade = () => {
   const { showError, showSuccess } = useToastContext();
 
   const buildSuccessUrl = useCallback((practiceId?: string) => {
-    const url = new URL('/business-onboarding', BILLING_CALLBACK_BASE_URL);
+    const url = new URL('/business-onboarding', FRONTEND_BASE_URL);
     url.searchParams.set('subscription', 'success');
     if (practiceId) {
       url.searchParams.set('practiceId', practiceId);
@@ -217,10 +238,9 @@ export const usePaymentUpgrade = () => {
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
     if (typeof window === 'undefined') {
-      return `${BILLING_CALLBACK_BASE_URL}/?subscription=cancelled`;
+      return `${FRONTEND_BASE_URL}/?subscription=cancelled`;
     }
-    // Use billing callback base domain for return URL (Better Auth requires same domain)
-    const url = new URL('/', BILLING_CALLBACK_BASE_URL);
+    const url = new URL('/', FRONTEND_BASE_URL);
     url.searchParams.set('subscription', 'cancelled');
     return url.toString();
   }, []);
