@@ -54,9 +54,7 @@ const ClientHomePage = () => {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => {
-                    window.location.hash = '#pricing';
-                  }}
+                  onClick={() => navigate('/pricing')}
                 >
                   View plans
                 </Button>

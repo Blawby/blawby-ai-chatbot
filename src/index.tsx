@@ -126,6 +126,13 @@ function RootRoute() {
   const { navigate } = useNavigation();
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isPending) return;
@@ -165,7 +172,9 @@ function RootRoute() {
             practiceResetRef.current = false;
           }
         }
-        navigate('/app', true);
+        if (isMountedRef.current) {
+          navigate('/app', true);
+        }
       };
       void resetWorkspace();
       return;
