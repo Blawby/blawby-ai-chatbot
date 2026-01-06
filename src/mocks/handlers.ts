@@ -280,7 +280,7 @@ export const handlers = [
     return HttpResponse.json({ data: next });
   }),
 
-  http.post('/api/practice/:practiceId/details', async ({ request, params }) => {
+  http.patch('/api/practice/:practiceId/details', async ({ request, params }) => {
     const practiceId = String(params.practiceId);
     const practice = findPractice(practiceId);
     if (!practice) {
