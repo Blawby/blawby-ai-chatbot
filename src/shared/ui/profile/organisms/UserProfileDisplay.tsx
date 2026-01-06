@@ -125,9 +125,13 @@ export const UserProfileDisplay = ({
 
   const resolvedPracticeId = preferredPracticeId ?? practiceForTier?.id ?? practices[0]?.id ?? null;
   const practiceLabel = managedPractice?.name ?? practices[0]?.name ?? null;
+  const resolvedPreferredWorkspace = preferredWorkspace === 'practice' && !canAccessPractice
+    ? 'client'
+    : preferredWorkspace;
+
   const currentWorkspace = (workspaceFromPath === 'client' || workspaceFromPath === 'practice')
     ? workspaceFromPath
-    : (preferredWorkspace ?? (canAccessPractice ? 'practice' : 'client'));
+    : (resolvedPreferredWorkspace ?? (canAccessPractice ? 'practice' : 'client'));
 
   const handleSwitchToClient = async () => {
     setShowDropdown(false);

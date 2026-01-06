@@ -1,17 +1,13 @@
 import { useSession } from '@/shared/lib/authClient';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useSubscription } from '@/shared/hooks/useSubscription';
 
 const ClientHomePage = () => {
   const { data: session } = useSession();
   const { navigate } = useNavigation();
-  const { currentPractice, practices } = usePracticeManagement();
   const { isPracticeEnabled } = useSubscription();
   const name = session?.user?.name || session?.user?.email || 'there';
-  const practiceList = practices ?? [];
-  const practiceSlug = currentPractice?.slug || practiceList.find(practice => practice.slug)?.slug || null;
   const showUpgrade = !isPracticeEnabled;
 
   return (

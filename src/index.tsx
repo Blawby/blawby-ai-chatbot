@@ -125,6 +125,7 @@ function RootRoute() {
   } = useWorkspace();
   const { navigate } = useNavigation();
   const workspaceInitRef = useRef(false);
+  const practiceResetRef = useRef(false);
 
   useEffect(() => {
     if (isPending) return;
@@ -150,12 +151,23 @@ function RootRoute() {
     }
 
     if (!isPracticeEnabled) {
-      if (session.user.primaryWorkspace && session.user.primaryWorkspace !== 'client') {
-        updateUser({ primaryWorkspace: 'client', preferredPracticeId: null }).catch((error) => {
-          console.warn('[Workspace] Failed to reset workspace to client', error);
-        });
-      }
-      navigate('/app', true);
+      const resetWorkspace = async () => {
+        if (
+          !practiceResetRef.current &&
+          session.user.primaryWorkspace &&
+          session.user.primaryWorkspace !== 'client'
+        ) {
+          practiceResetRef.current = true;
+          try {
+            await updateUser({ primaryWorkspace: 'client', preferredPracticeId: null });
+          } catch (error) {
+            console.warn('[Workspace] Failed to reset workspace to client', error);
+            practiceResetRef.current = false;
+          }
+        }
+        navigate('/app', true);
+      };
+      void resetWorkspace();
       return;
     }
 
