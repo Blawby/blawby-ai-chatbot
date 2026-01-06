@@ -1,12 +1,12 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useCallback, useEffect } from 'preact/hooks';
+import { useCallback, useEffect, useRef } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider } from '@/shared/contexts/SessionContext';
-import { useTypedSession, getClient } from '@/shared/lib/authClient';
+import { useTypedSession, getClient, updateUser } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -20,7 +20,6 @@ import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { getSettingsReturnPath, getStoredWorkspace } from '@/shared/utils/workspace';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import WorkspaceWelcomePage from '@/pages/WorkspaceWelcomePage';
 import ClientHomePage from '@/pages/ClientHomePage';
 import { PracticeDashboardPage } from '@/features/dashboard/pages/PracticeDashboardPage';
 import './index.css';
@@ -76,7 +75,6 @@ function AppShell() {
     <ToastProvider>
       <Router>
         <Route path="/auth" component={AuthPage} />
-        <Route path="/welcome" component={WorkspaceWelcomePage} />
         <Route path="/cart" component={CartPage} />
         <Route path="/dev/mock-chat" component={MockChatPage} />
         <Route path="/dev/mock-services" component={MockServicesPage} />
@@ -117,8 +115,9 @@ function SettingsRoute() {
 
 function RootRoute() {
   const { data: session, isPending } = useTypedSession();
-  const { defaultWorkspace } = useWorkspace();
+  const { defaultWorkspace, preferredPracticeId, activePracticeId, hasPractice } = useWorkspace();
   const { navigate } = useNavigation();
+  const workspaceInitRef = useRef(false);
 
   useEffect(() => {
     if (isPending) return;
@@ -128,13 +127,28 @@ function RootRoute() {
       return;
     }
 
-    if (!session.user.primaryWorkspace) {
-      navigate('/welcome', true);
+    if (!session.user.primaryWorkspace && !workspaceInitRef.current) {
+      workspaceInitRef.current = true;
+      const nextPreferredPracticeId =
+        defaultWorkspace === 'practice'
+          ? (preferredPracticeId ?? activePracticeId ?? null)
+          : null;
+      updateUser({
+        primaryWorkspace: defaultWorkspace,
+        preferredPracticeId: nextPreferredPracticeId
+      } as Parameters<typeof updateUser>[0]).catch((error) => {
+        console.warn('[Workspace] Failed to persist default workspace', error);
+        workspaceInitRef.current = false;
+      });
+    }
+
+    if (defaultWorkspace === 'practice' && !hasPractice) {
+      navigate('/app', true);
       return;
     }
 
     navigate(defaultWorkspace === 'practice' ? '/practice' : '/app', true);
-  }, [defaultWorkspace, isPending, navigate, session?.user]);
+  }, [activePracticeId, defaultWorkspace, hasPractice, isPending, navigate, preferredPracticeId, session?.user]);
 
   return <LoadingScreen />;
 }
@@ -148,9 +162,6 @@ function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
     if (!session?.user) {
       navigate('/auth', true);
       return;
-    }
-    if (!session.user.primaryWorkspace) {
-      navigate('/welcome', true);
     }
   }, [isPending, navigate, session?.user, settingsMode]);
 
@@ -203,10 +214,6 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
   useEffect(() => {
     if (settingsMode || isPending || practicesLoading) return;
     if (!session?.user) return;
-    if (!session.user.primaryWorkspace) {
-      navigate('/welcome', true);
-      return;
-    }
     if (!hasPractice) {
       navigate('/app', true);
     }
