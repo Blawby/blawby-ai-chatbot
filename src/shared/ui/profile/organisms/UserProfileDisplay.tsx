@@ -132,7 +132,7 @@ export const UserProfileDisplay = ({
   const handleSwitchToClient = async () => {
     setShowDropdown(false);
     try {
-      await updateUser({ primaryWorkspace: 'client', preferredPracticeId: null } as Parameters<typeof updateUser>[0]);
+      await updateUser({ primaryWorkspace: 'client', preferredPracticeId: null });
       navigate('/app', true);
     } catch (_error) {
       showError('Workspace switch failed', 'We could not switch to the client view.');
@@ -149,7 +149,7 @@ export const UserProfileDisplay = ({
       await updateUser({
         primaryWorkspace: 'practice',
         preferredPracticeId: resolvedPracticeId
-      } as Parameters<typeof updateUser>[0]);
+      });
       navigate(resolvedPracticeId ? '/practice' : '/cart', true);
     } catch (_error) {
       console.error('[Profile] Failed to switch to practice workspace', {

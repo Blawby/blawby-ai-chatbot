@@ -3,15 +3,16 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import Modal from '@/shared/components/Modal';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
-import { updateUser, getSession, useSession } from '@/shared/lib/authClient';
-import type { OnboardingData } from '@/shared/types/user';
-import { toOnboardingData, fromOnboardingData } from '@/shared/types/user';
+import { useSession } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
+import type { OnboardingPreferences } from '@/shared/types/preferences';
+import type { OnboardingFormData } from '@/shared/types/onboarding';
 
 interface OnboardingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (data: OnboardingData) => void;
+  onComplete: (data: OnboardingFormData) => void;
 }
 
 type OnboardingStep = 'personal' | 'useCase';
@@ -21,7 +22,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
   const { showError, showSuccess } = useToastContext();
   const { data: session } = useSession();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('personal');
-  const [onboardingData, setOnboardingData] = useState<OnboardingData>({
+  const [onboardingData, setOnboardingData] = useState<OnboardingFormData>({
     personalInfo: {
       fullName: '',
       birthday: '',
@@ -30,50 +31,42 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     useCase: {
       primaryUseCase: 'personal',
       additionalInfo: undefined
-    },
-    skippedSteps: []
+    }
   });
   const hasLoadedRef = useRef(false);
 
   // Load existing user data if available
   useEffect(() => {
     if (isOpen && session?.user && !hasLoadedRef.current) {
-      // Load existing onboarding data from session if available
-      // Note: session.user.onboardingData comes from database as string, but our type expects OnboardingData | null
-      // We need to handle the type mismatch by treating it as the raw database value
-      const rawOnboardingData = (session.user as Record<string, unknown>).onboardingData as string | null;
-      const existingOnboardingData = toOnboardingData(rawOnboardingData);
-      
-      if (existingOnboardingData) {
-        // If we have existing onboarding data, merge it into state
-        setOnboardingData(prev => ({
-          ...prev,
-          ...existingOnboardingData,
-          personalInfo: {
-            ...prev.personalInfo,
-            ...existingOnboardingData.personalInfo,
-            birthday: existingOnboardingData.personalInfo?.birthday ?? ''
-          }
-        }));
-      } else if (session.user.name) {
-        // Otherwise, pre-fill with user's name if available
-        setOnboardingData(prev => ({
-          ...prev,
-          personalInfo: {
-            ...prev.personalInfo,
-            fullName: session.user.name
-          }
-        }));
-      }
-      
-      hasLoadedRef.current = true;
+      const loadPreferences = async () => {
+        try {
+          const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
+          setOnboardingData(prev => ({
+            personalInfo: {
+              ...prev.personalInfo,
+              fullName: session.user.name || prev.personalInfo.fullName,
+              birthday: prefs?.birthday ?? ''
+            },
+            useCase: {
+              primaryUseCase: (prefs?.primary_use_case as typeof prev.useCase.primaryUseCase) || prev.useCase.primaryUseCase,
+              additionalInfo: prefs?.use_case_additional_info ?? prev.useCase.additionalInfo
+            }
+          }));
+        } catch (error) {
+          console.error('Failed to load onboarding preferences:', error);
+        } finally {
+          hasLoadedRef.current = true;
+        }
+      };
+
+      void loadPreferences();
     } else if (!isOpen) {
       // Reset the ref when modal closes
       hasLoadedRef.current = false;
     }
   }, [isOpen, session?.user]);
 
-  const handleStepComplete = async (step: OnboardingStep, data: Partial<OnboardingData>) => {
+  const handleStepComplete = async (step: OnboardingStep, data: Partial<OnboardingFormData>) => {
     // Compute merged snapshot locally to avoid stale state
     const mergedData = {
       ...onboardingData,
@@ -90,24 +83,17 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     }
   };
 
-  const handleComplete = async (data?: OnboardingData) => {
+  const handleComplete = async (data?: OnboardingFormData) => {
     // Use provided data snapshot or fall back to current state
     const sourceData = data || onboardingData;
-    const completedData = {
-      ...sourceData,
-      completedAt: new Date().toISOString()
-    };
 
     try {
-      // Save onboarding data to user preferences (single source of truth)
-      await updateUser({
-        onboardingCompleted: true,
-        onboardingData: fromOnboardingData(completedData)
-      } as Parameters<typeof updateUser>[0]);
-
-      // Refresh session to get updated fields immediately (best-effort)
-      // eslint-disable-next-line no-empty
-      try { await getSession(); } catch {}
+      await updatePreferencesCategory('onboarding', {
+        birthday: sourceData.personalInfo.birthday,
+        primary_use_case: sourceData.useCase.primaryUseCase,
+        use_case_additional_info: sourceData.useCase.additionalInfo,
+        completed: true
+      });
 
       // Legacy localStorage cache removed - server truth is used instead
 
@@ -117,7 +103,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
         t('onboarding.completed.message', 'Welcome to Blawby AI! Your preferences have been saved.')
       );
 
-      onComplete(completedData);
+      onComplete(sourceData);
       onClose();
     } catch (error) {
       // Log the error for debugging in development

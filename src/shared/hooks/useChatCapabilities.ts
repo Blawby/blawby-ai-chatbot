@@ -52,5 +52,5 @@ export function useChatCapabilities({
     canAssign: isPracticeMember && (isManager || role === 'attorney' || role === 'paralegal'),
     canSetStatus: isPracticeMember,
     canViewInternalNotes: isPracticeMember,
-  }), [currentMember, role, isManager, isPracticeMember, isPracticeWorkspace, workspace]);
+  }), [role, isManager, isPracticeMember]);
 }

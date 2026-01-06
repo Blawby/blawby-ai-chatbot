@@ -21,6 +21,8 @@ import { useNavigation } from '@/shared/utils/navigation';
 import PricingModal from '@/features/modals/components/PricingModal';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
 import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
+import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
+import type { OnboardingPreferences } from '@/shared/types/preferences';
 import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -157,6 +159,7 @@ export function MainApp({
   // Removed unused submitUpgrade
   const { showError } = useToastContext();
   const showErrorRef = useRef(showError);
+  const onboardingCheckRef = useRef(false);
   useEffect(() => {
     showErrorRef.current = showError;
   }, [showError]);
@@ -380,50 +383,46 @@ export function MainApp({
   useEffect(() => {
     const user = session?.user;
     if (user && !sessionIsPending) {
-      if (import.meta.env.DEV) {
-        try {
-          // Lightweight visibility into onboarding decision path
-          const debugUser = user as Record<string, unknown>;
-          // Avoid logging PII beyond booleans/keys
-          console.debug('[ONBOARDING][CHECK] session detected', {
-            onboardingCompleted: debugUser?.onboardingCompleted,
-            hasOnboardingData: Boolean(debugUser?.onboardingData),
-            local_onboardingCompleted: localStorage.getItem('onboardingCompleted'),
-            local_onboardingCheckDone: localStorage.getItem('onboardingCheckDone')
-          });
-        } catch (e) {
-          console.warn('[ONBOARDING][CHECK] session debug failed:', e);
-        }
-      }
+      if (onboardingCheckRef.current) return;
+      onboardingCheckRef.current = true;
+
       const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
       const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
-      const userWithOnboarding = user as typeof user & { onboardingCompleted?: boolean };
-      const _hasCompletedOnboarding = userWithOnboarding.onboardingCompleted === true;
-
-      // Legacy localStorage sync removed; welcome modal now uses server truth
-      // If user hasn't completed onboarding and we haven't checked yet
-      if (!hasOnboardingFlag && !hasOnboardingCheckFlag) {
-        const needsOnboarding = userWithOnboarding.onboardingCompleted === false ||
-                  userWithOnboarding.onboardingCompleted === undefined;
-
-        if (needsOnboarding) {
-          if (import.meta.env.DEV) {
-            console.debug('[ONBOARDING][REDIRECT] redirecting to /auth?mode=signin&onboarding=true');
-          }
-          // Set flag to prevent repeated checks
-          try {
-            localStorage.setItem('onboardingCheckDone', 'true');
-          } catch (_error) {
-            // Handle localStorage failures gracefully
-            console.warn('[ONBOARDING][FLAGS] localStorage set failed:', _error);
-          }
-
-          // Redirect to auth page with onboarding
-          window.location.href = '/auth?mode=signin&onboarding=true';
-        } else {
-          // Legacy localStorage sync removed; welcome modal now uses server truth
-        }
+      if (hasOnboardingFlag || hasOnboardingCheckFlag) {
+        return;
       }
+
+      const checkOnboarding = async () => {
+        try {
+          const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
+          const needsOnboarding = prefs?.completed !== true;
+
+          if (import.meta.env.DEV) {
+            console.debug('[ONBOARDING][CHECK] preferences', {
+              completed: prefs?.completed,
+              local_onboardingCompleted: localStorage.getItem('onboardingCompleted'),
+              local_onboardingCheckDone: localStorage.getItem('onboardingCheckDone')
+            });
+          }
+
+          if (needsOnboarding) {
+            if (import.meta.env.DEV) {
+              console.debug('[ONBOARDING][REDIRECT] redirecting to /auth?mode=signin&onboarding=true');
+            }
+            try {
+              localStorage.setItem('onboardingCheckDone', 'true');
+            } catch (_error) {
+              console.warn('[ONBOARDING][FLAGS] localStorage set failed:', _error);
+            }
+            window.location.href = '/auth?mode=signin&onboarding=true';
+          }
+        } catch (error) {
+          console.warn('[ONBOARDING][CHECK] preferences fetch failed:', error);
+          onboardingCheckRef.current = false;
+        }
+      };
+
+      void checkOnboarding();
     }
   }, [session?.user, sessionIsPending]);
 

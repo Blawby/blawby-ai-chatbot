@@ -66,6 +66,7 @@ const usePracticeMgmtMock = {
   updateMatterStatus: vi.fn(),
   createPractice: mockCreatePractice,
   updatePractice: mockUpdatePractice,
+  updatePracticeDetails: vi.fn(),
   deletePractice: mockDeletePractice,
   updateMemberRole: mockUpdateMemberRole,
   removeMember: mockRemoveMember,
@@ -185,6 +186,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.updateMatterStatus = vi.fn();
     usePracticeMgmtMock.createPractice = mockCreatePractice;
     usePracticeMgmtMock.updatePractice = mockUpdatePractice;
+    usePracticeMgmtMock.updatePracticeDetails = vi.fn();
     usePracticeMgmtMock.deletePractice = mockDeletePractice;
     usePracticeMgmtMock.updateMemberRole = mockUpdateMemberRole;
     usePracticeMgmtMock.removeMember = mockRemoveMember;

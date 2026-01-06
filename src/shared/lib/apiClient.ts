@@ -100,6 +100,19 @@ export interface Practice {
   calendlyUrl?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  website?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  introMessage?: string | null;
+  overview?: string | null;
+  isPublic?: boolean | null;
+  services?: Array<Record<string, unknown>> | null;
   
   // Subscription and practice management properties
   kind?: 'personal' | 'business' | 'practice';
@@ -135,6 +148,22 @@ export interface CreatePracticeRequest {
 
 export type UpdatePracticeRequest = Partial<CreatePracticeRequest>;
 
+export interface PracticeDetailsUpdate {
+  website?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  introMessage?: string | null;
+  overview?: string | null;
+  isPublic?: boolean | null;
+  services?: Array<Record<string, unknown>> | null;
+}
+
 export interface ConnectedAccountRequest {
   practiceEmail: string;
   practiceUuid: string;
@@ -167,22 +196,6 @@ export interface SubscriptionEndpointResult {
   ok: boolean;
   status: number;
   data: unknown;
-}
-
-export interface UserPreferences {
-  theme: string;
-  accentColor: string;
-  fontSize: string;
-  language: string;
-  timezone: string;
-  dateFormat: string;
-  timeFormat: string;
-  emailNotifications: boolean;
-  pushNotifications: boolean;
-  smsNotifications: boolean;
-  notificationFrequency: string;
-  autoSaveConversations: boolean;
-  typingIndicators: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -301,7 +314,24 @@ function normalizePracticePayload(payload: unknown): Practice {
     businessEmail: toNullableString(payload.businessEmail ?? payload.business_email),
     calendlyUrl: toNullableString(payload.calendlyUrl ?? payload.calendly_url),
     createdAt: toNullableString(payload.createdAt ?? payload.created_at),
-    updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at)
+    updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at),
+    website: toNullableString(payload.website),
+    addressLine1: toNullableString(payload.addressLine1 ?? payload.address_line_1),
+    addressLine2: toNullableString(payload.addressLine2 ?? payload.address_line_2),
+    city: toNullableString(payload.city),
+    state: toNullableString(payload.state),
+    postalCode: toNullableString(payload.postalCode ?? payload.postal_code),
+    country: toNullableString(payload.country),
+    primaryColor: toNullableString(payload.primaryColor ?? payload.primary_color),
+    accentColor: toNullableString(payload.accentColor ?? payload.accent_color),
+    introMessage: toNullableString(payload.introMessage ?? payload.intro_message),
+    overview: toNullableString(payload.overview),
+    isPublic: 'isPublic' in payload || 'is_public' in payload
+      ? Boolean(payload.isPublic ?? payload.is_public)
+      : null,
+    services: Array.isArray(payload.services)
+      ? (payload.services as Array<Record<string, unknown>>)
+      : null
   };
 }
 
@@ -539,23 +569,20 @@ export async function createConnectedAccount(
   return normalizeConnectedAccountResponse(response.data);
 }
 
-export async function getUserPreferences(
+export async function updatePracticeDetails(
+  practiceId: string,
+  details: PracticeDetailsUpdate,
   config?: Pick<AxiosRequestConfig, 'signal'>
-): Promise<UserPreferences | null> {
-  const response = await apiClient.get('/api/user/preferences', {
-    signal: config?.signal
-  });
-  return extractApiData<UserPreferences>(response.data);
-}
-
-export async function updateUserPreferences(
-  preferences: Partial<UserPreferences>,
-  config?: Pick<AxiosRequestConfig, 'signal'>
-): Promise<UserPreferences | null> {
-  const response = await apiClient.put('/api/user/preferences', preferences, {
-    signal: config?.signal
-  });
-  return extractApiData<UserPreferences>(response.data);
+): Promise<PracticeDetailsUpdate | null> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  const response = await apiClient.patch(
+    `/api/practice/${encodeURIComponent(practiceId)}/details`,
+    details,
+    { signal: config?.signal }
+  );
+  return extractApiData<PracticeDetailsUpdate>(response.data);
 }
 
 export async function requestBillingPortalSession(

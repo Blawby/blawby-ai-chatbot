@@ -3,29 +3,24 @@ import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import { useSession, updateUser, authClient } from '@/shared/lib/authClient';
+import { useSession, authClient } from '@/shared/lib/authClient';
 import Modal from '@/shared/components/Modal';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { SecuritySettings } from '@/shared/types/user';
-import { convertSessionTimeoutToSeconds } from '@/shared/types/user';
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { PasswordChangeForm } from '@/features/settings/components/PasswordChangeForm';
-
-// Runtime validation for session timeout values
-const isValidSessionTimeout = (value: unknown): value is number => {
-  return typeof value === 'number' && value > 0;
-};
+import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
+import type { SecurityPreferences } from '@/shared/types/preferences';
 
 // Local interface for user with security-related fields
 interface SecurityUser {
   twoFactorEnabled?: boolean;
   emailNotifications?: boolean;
   loginAlerts?: boolean;
-  sessionTimeout?: number;
   lastPasswordChange?: Date | string | number;
 }
 
@@ -81,6 +76,7 @@ export const SecurityPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const { data: session, isPending } = useSession();
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showDisableMFAConfirm, setShowDisableMFAConfirm] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -89,24 +85,39 @@ export const SecurityPage = ({
     confirmPassword: ''
   });
 
-  // Load settings from Better Auth session
+  // Load settings from preferences API
   useEffect(() => {
-    if (!session?.user) return;
-    
-    const user = session.user;
-    
-    // Convert user data to security settings format
-    const userWithSecurity = user as SecurityUser;
-    const securitySettings: SecuritySettings = {
-      twoFactorEnabled: userWithSecurity.twoFactorEnabled ?? false,
-      emailNotifications: userWithSecurity.emailNotifications ?? true,
-      loginAlerts: userWithSecurity.loginAlerts ?? true,
-      sessionTimeout: isValidSessionTimeout(userWithSecurity.sessionTimeout) ? userWithSecurity.sessionTimeout : convertSessionTimeoutToSeconds('7 days'),
-      lastPasswordChange: safeConvertLastPasswordChange(userWithSecurity.lastPasswordChange) ?? null,
-      connectedAccounts: [] // This would need to be populated from accounts table if needed
+    let isMounted = true;
+
+    const loadPreferences = async () => {
+      try {
+        setIsLoading(true);
+        const prefs = await getPreferencesCategory<SecurityPreferences>('security');
+        if (!isMounted) return;
+        const securitySettings: SecuritySettings = {
+          twoFactorEnabled: prefs?.two_factor_enabled ?? false,
+          emailNotifications: prefs?.email_notifications ?? true,
+          loginAlerts: prefs?.login_alerts ?? true,
+          sessionTimeout: prefs?.session_timeout,
+          lastPasswordChange: safeConvertLastPasswordChange((session?.user as SecurityUser | undefined)?.lastPasswordChange) ?? null,
+          connectedAccounts: [] // This would need to be populated from accounts table if needed
+        };
+        setSettings(securitySettings);
+      } catch (error) {
+        console.error('Failed to load security preferences:', error);
+        setSettings(null);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     };
-    
-    setSettings(securitySettings);
+
+    void loadPreferences();
+
+    return () => {
+      isMounted = false;
+    };
   }, [session?.user]);
 
   // Refresh settings when component regains focus (e.g., returning from MFA enrollment)
@@ -137,8 +148,13 @@ export const SecurityPage = ({
       setSettings(updatedSettings);
       
       try {
-        // Update user in database
-        await updateUser({ [key]: value });
+      const updateData: Partial<SecurityPreferences> = {};
+      if (key === 'emailNotifications') {
+        updateData.email_notifications = value;
+      } else if (key === 'loginAlerts') {
+        updateData.login_alerts = value;
+      }
+        await updatePreferencesCategory('security', updateData);
         
         showSuccess(
           t('common:notifications.settingsSavedTitle'),
@@ -181,6 +197,8 @@ export const SecurityPage = ({
       } else {
         throw new Error('Two-factor authentication is not available');
       }
+      
+      await updatePreferencesCategory('security', { two_factor_enabled: false });
       
       showSuccess(
         t('settings:security.mfa.disable.toastTitle'),
@@ -273,8 +291,8 @@ export const SecurityPage = ({
     }
   };
 
-  // Show loading state while session is loading
-  if (isPending) {
+  // Show loading state while session or preferences are loading
+  if (isPending || isLoading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />

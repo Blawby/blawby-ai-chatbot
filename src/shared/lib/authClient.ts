@@ -272,7 +272,15 @@ export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSess
 };
 
 export const getSession = (...args: Parameters<AuthClientType['getSession']>) => getAuthClient().getSession(...args);
-export const updateUser = (...args: Parameters<AuthClientType['updateUser']>) => getAuthClient().updateUser(...args);
+type UpdateUserArgs = Parameters<AuthClientType['updateUser']>;
+type UpdateUserInput = Partial<BetterAuthSessionUser> & Record<string, unknown>;
+type UpdateUserFn = (data: UpdateUserInput, options?: UpdateUserArgs[1]) => ReturnType<AuthClientType['updateUser']>;
+
+export const updateUser: UpdateUserFn = (data, options) =>
+  getAuthClient().updateUser(
+    data as UpdateUserArgs[0],
+    options as UpdateUserArgs[1]
+  );
 export const deleteUser = (...args: Parameters<AuthClientType['deleteUser']>) => getAuthClient().deleteUser(...args);
 
 // Keep type export for compatibility

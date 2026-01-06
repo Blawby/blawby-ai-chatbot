@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import { SectionDivider } from '@/shared/ui';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useSession, updateUser } from '@/shared/lib/authClient';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { getNotificationDisplayText } from '@/shared/ui/validation/defaultValues';
 import type { NotificationSettings } from '@/shared/types/user';
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
+import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
+import type { NotificationPreferences } from '@/shared/types/preferences';
 
 export interface NotificationsPageProps {
   className?: string;
@@ -17,34 +18,49 @@ export const NotificationsPage = ({
   className = ''
 }: NotificationsPageProps) => {
   const { showSuccess, showError } = useToastContext();
-  const { data: session, isPending } = useSession();
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const { t } = useTranslation(['settings', 'common']);
+  const [isLoading, setIsLoading] = useState(true);
   
 
-  // Load settings from Better Auth session
+  // Load settings from preferences API
   useEffect(() => {
-    if (!session?.user) return;
-    
-    const user = session.user;
-    
-    // Convert user data to notification settings format
-    const userWithNotifications = user as { notificationResponsesPush?: boolean; notificationTasksPush?: boolean; notificationTasksEmail?: boolean; notificationMessagingPush?: boolean };
-    const notificationSettings: NotificationSettings = {
-      responses: {
-        push: userWithNotifications.notificationResponsesPush ?? true
-      },
-      tasks: {
-        push: userWithNotifications.notificationTasksPush ?? true,
-        email: userWithNotifications.notificationTasksEmail ?? true
-      },
-      messaging: {
-        push: userWithNotifications.notificationMessagingPush ?? true
+    let isMounted = true;
+
+    const loadPreferences = async () => {
+      try {
+        setIsLoading(true);
+        const prefs = await getPreferencesCategory<NotificationPreferences>('notifications');
+        if (!isMounted) return;
+        const notificationSettings: NotificationSettings = {
+          responses: {
+            push: prefs?.responses_push ?? true
+          },
+          tasks: {
+            push: prefs?.tasks_push ?? true,
+            email: prefs?.tasks_email ?? true
+          },
+          messaging: {
+            push: prefs?.messaging_push ?? true
+          }
+        };
+        setSettings(notificationSettings);
+      } catch (error) {
+        console.error('Failed to load notification preferences:', error);
+        setSettings(null);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
-    
-    setSettings(notificationSettings);
-  }, [session?.user]);
+
+    void loadPreferences();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleToggleChange = async (section: string, toggleKey: string, value: boolean) => {
     if (!settings) return;
@@ -63,22 +79,21 @@ export const NotificationsPage = ({
     
     try {
       // Map the nested structure to flat fields for Better Auth
-      const updateData: Record<string, boolean> = {};
+      const updateData: Partial<NotificationPreferences> = {};
       
       if (section === 'responses' && toggleKey === 'push') {
-        updateData.notificationResponsesPush = value;
+        updateData.responses_push = value;
       } else if (section === 'tasks') {
         if (toggleKey === 'push') {
-          updateData.notificationTasksPush = value;
+          updateData.tasks_push = value;
         } else if (toggleKey === 'email') {
-          updateData.notificationTasksEmail = value;
+          updateData.tasks_email = value;
         }
       } else if (section === 'messaging' && toggleKey === 'push') {
-        updateData.notificationMessagingPush = value;
+        updateData.messaging_push = value;
       }
       
-      // Update user in database
-      await updateUser(updateData);
+      await updatePreferencesCategory('notifications', updateData);
       
       // Show success toast
       showSuccess(
@@ -150,8 +165,8 @@ export const NotificationsPage = ({
     ];
   }, [settings, t]);
 
-  // Show loading state while session is loading
-  if (isPending) {
+  // Show loading state while preferences are loading
+  if (isLoading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />

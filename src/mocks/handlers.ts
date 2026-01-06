@@ -257,14 +257,44 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
-  http.get('/api/user/preferences', () => {
-    return HttpResponse.json({ success: true, data: mockDb.userPreferences });
+  http.get('/api/preferences', () => {
+    return HttpResponse.json({ data: mockDb.preferences });
   }),
 
-  http.put('/api/user/preferences', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as Partial<typeof mockDb.userPreferences>;
-    mockDb.userPreferences = { ...mockDb.userPreferences, ...body };
-    return HttpResponse.json({ success: true, data: mockDb.userPreferences });
+  http.get('/api/preferences/:category', ({ params }) => {
+    const category = String(params.category);
+    const data = (mockDb.preferences as Record<string, unknown>)[category] ?? null;
+    return HttpResponse.json({ data });
+  }),
+
+  http.put('/api/preferences/:category', async ({ request, params }) => {
+    const category = String(params.category);
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const existing = (mockDb.preferences as Record<string, unknown>)[category];
+    const next = {
+      ...(typeof existing === 'object' && existing !== null ? existing : {}),
+      ...body
+    };
+    (mockDb.preferences as Record<string, unknown>)[category] = next;
+    mockDb.preferences.updated_at = new Date().toISOString();
+    return HttpResponse.json({ data: next });
+  }),
+
+  http.patch('/api/practice/:practiceId/details', async ({ request, params }) => {
+    const practiceId = String(params.practiceId);
+    const practice = findPractice(practiceId);
+    if (!practice) {
+      return notFound('Practice not found');
+    }
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const next = { ...practice, ...body };
+    const index = mockDb.practices.findIndex((item) => item.id === practice.id);
+    if (index >= 0) {
+      mockDb.practices[index] = next;
+    } else {
+      return HttpResponse.json({ error: 'Practice not found' }, { status: 404 });
+    }
+    return HttpResponse.json({ data: next });
   }),
 
   http.get('/api/onboarding/practice/:practiceId/status', ({ params }) => {

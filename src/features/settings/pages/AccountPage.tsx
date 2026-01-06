@@ -5,7 +5,7 @@ import Modal from '@/shared/components/Modal';
 import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import { useSession, updateUser } from '@/shared/lib/authClient';
+import { useSession } from '@/shared/lib/authClient';
 import { signOut } from '@/shared/utils/auth';
 import { TIER_FEATURES } from '@/shared/utils/stripe-products';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -27,6 +27,8 @@ import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList } from '@/features/settings/components/PlanFeaturesList';
 import { DomainSelector } from '@/features/settings/components/DomainSelector';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
+import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
+import type { AccountPreferences } from '@/shared/types/preferences';
 
 
 export interface AccountPageProps {
@@ -118,33 +120,27 @@ export const AccountPage = ({
     
     try {
       setError(null);
+      const prefs = await getPreferencesCategory<AccountPreferences>('account');
       const user = session.user;
-      
-      // Convert user data to links format - use type assertion for missing properties
-      const userWithExtendedProps = user as typeof user & {
-        selectedDomain?: string;
-        linkedinUrl?: string;
-        githubUrl?: string;
-        customDomains?: string;
-        receiveFeedbackEmails?: boolean;
-        marketingEmails?: boolean;
-        securityAlerts?: boolean;
-        lastLoginMethod?: string;
-      };
+      const customDomains = Array.isArray(prefs?.custom_domains) ? prefs?.custom_domains : [];
       
       const linksData: UserLinks = {
-        selectedDomain: userWithExtendedProps.selectedDomain || 'Select a domain',
-        linkedinUrl: userWithExtendedProps.linkedinUrl,
-        githubUrl: userWithExtendedProps.githubUrl,
-        customDomains: userWithExtendedProps.customDomains ? JSON.parse(userWithExtendedProps.customDomains) : [] // Parse JSON string to array
+        selectedDomain: prefs?.selected_domain || 'Select a domain',
+        linkedinUrl: null,
+        githubUrl: null,
+        customDomains: customDomains.map((domain) => ({
+          domain,
+          verified: false,
+          verifiedAt: null
+        }))
       };
       
       // Convert user data to email settings format
       const emailData: EmailSettings = {
         email: user.email,
-        receiveFeedbackEmails: userWithExtendedProps.receiveFeedbackEmails ?? false,
-        marketingEmails: userWithExtendedProps.marketingEmails ?? false,
-        securityAlerts: userWithExtendedProps.securityAlerts ?? true
+        receiveFeedbackEmails: prefs?.receive_feedback_emails ?? false,
+        marketingEmails: prefs?.marketing_emails ?? false,
+        securityAlerts: prefs?.security_alerts ?? true
       };
       
       const practiceTier = currentPractice?.subscriptionTier;
@@ -444,10 +440,10 @@ export const AccountPage = ({
       ];
       
       // Update user in database with both selectedDomain and customDomains
-      await updateUser({ 
-        selectedDomain: normalized,
-        customDomains: JSON.stringify(updatedCustomDomains)
-      } as Parameters<typeof updateUser>[0]);
+      await updatePreferencesCategory('account', {
+        selected_domain: normalized,
+        custom_domains: updatedCustomDomains.map((entry) => entry.domain)
+      });
       
       const updatedLinks = {
         ...links,
@@ -526,11 +522,11 @@ export const AccountPage = ({
       handleOpenDomainModal();
     } else if (domain !== DOMAIN_SELECT_VALUE) {
       try {
-        // Update user in database with current custom domains
-        await updateUser({ 
-          selectedDomain: domain,
-          customDomains: JSON.stringify(links?.customDomains || [])
-        } as Parameters<typeof updateUser>[0]);
+      // Update user in database with current custom domains
+        await updatePreferencesCategory('account', {
+          selected_domain: domain,
+          custom_domains: (links?.customDomains || []).map((entry) => entry.domain)
+        });
         
         setLinks(prev => prev ? { ...prev, selectedDomain: domain } : prev);
       } catch (error) {
@@ -547,8 +543,7 @@ export const AccountPage = ({
 
   const handleFeedbackEmailsChange = async (checked: boolean) => {
     try {
-      // Update user in database
-      await updateUser({ receiveFeedbackEmails: checked } as Parameters<typeof updateUser>[0]);
+      await updatePreferencesCategory('account', { receive_feedback_emails: checked });
       
       setEmailSettings(prev => prev ? { 
         ...prev, 
