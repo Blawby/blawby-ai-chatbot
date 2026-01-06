@@ -5,10 +5,15 @@ import { requestBillingPortalSession, requestSubscriptionCancellation } from '@/
 
 // Allowlist of trusted hosts for return URLs (beyond same-origin)
 // Add trusted external domains here if needed (e.g., ['trusted-partner.com'])
-// Default callback host in dev/prod; prefer the node backend base URL envs
-const BILLING_CALLBACK_BASE_URL =
+// Force staging callback URLs until production API is live.
+// Set VITE_FORCE_STAGING_CALLBACKS=false to allow production callbacks.
+const FORCE_STAGING_CALLBACKS = import.meta.env.VITE_FORCE_STAGING_CALLBACKS !== 'false';
+const FALLBACK_CALLBACK_BASE_URL =
   import.meta.env.VITE_REMOTE_API_URL ||
   (import.meta.env.PROD ? 'https://production-api.blawby.com' : 'https://staging-api.blawby.com');
+const BILLING_CALLBACK_BASE_URL = FORCE_STAGING_CALLBACKS
+  ? 'https://staging-api.blawby.com'
+  : FALLBACK_CALLBACK_BASE_URL;
 
 const BILLING_CALLBACK_HOST = (() => {
   try {

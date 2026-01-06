@@ -1,0 +1,1 @@
+Always check for lint/ts errors after work
