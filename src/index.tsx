@@ -136,7 +136,7 @@ function RootRoute() {
       updateUser({
         primaryWorkspace: defaultWorkspace,
         preferredPracticeId: nextPreferredPracticeId
-      } as Parameters<typeof updateUser>[0]).catch((error) => {
+      }).catch((error) => {
         console.warn('[Workspace] Failed to persist default workspace', error);
         workspaceInitRef.current = false;
       });
