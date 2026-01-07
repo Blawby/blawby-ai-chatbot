@@ -137,9 +137,9 @@ async function validateTokenWithRemoteServer(
       throw HttpErrors.unauthorized("Invalid session data - no user found");
     }
 
-    if (!user.email || typeof user.email !== 'string') {
-      console.error('[Auth] Invalid or missing email in session data from Better Auth API');
-      throw HttpErrors.unauthorized("Invalid session data - missing user email");
+    if (user.email !== undefined && user.email !== null && typeof user.email !== 'string') {
+      console.error('[Auth] Invalid email type in session data from Better Auth API');
+      throw HttpErrors.unauthorized("Invalid session data - invalid user email");
     }
 
     if (!user.name || typeof user.name !== 'string') {
