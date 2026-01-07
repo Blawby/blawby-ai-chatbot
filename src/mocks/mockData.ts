@@ -404,8 +404,6 @@ export const mockDb = {
   messages
 };
 
-export const MOCK_REMOTE_BASE = 'https://staging-api.blawby.com';
-
 export function randomId(prefix = 'mock'): string {
   const base =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto && crypto.randomUUID

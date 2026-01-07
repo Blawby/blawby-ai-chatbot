@@ -87,8 +87,21 @@ export function useConversations({
 
     try {
       const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+
+      if (!token) {
+        const errorMessage = 'Authentication required - please sign in';
+        if (!isDisposedRef.current) {
+          setError(errorMessage);
+          onErrorRef.current?.(errorMessage);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
 
       const params = new URLSearchParams();
 
@@ -132,23 +145,37 @@ export function useConversations({
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        // Worker returns error responses in format: { success: false, error: string, errorCode: string }
+        const errorData = await response.json().catch(() => ({
+          success: false,
+          error: `HTTP ${response.status}: ${response.statusText}`
+        })) as { success?: boolean; error?: string; errorCode?: string };
+
+        // Use error message from response, or fallback to status text
+        const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json() as { 
-        success: boolean; 
-        error?: string; 
+      const data = await response.json() as {
+        success: boolean;
+        error?: string;
+        errorCode?: string;
         data?: Conversation[] | { conversation: Conversation } | { conversations: Conversation[] };
       };
-      
-      if (!data.success || !data.data) {
+
+      // Check for error response format (worker returns { success: false, error: "..." })
+      if (!data.success) {
         throw new Error(data.error || 'Failed to fetch conversations');
+      }
+
+      // Check if data exists
+      if (!data.data) {
+        throw new Error(data.error || 'No data returned from server');
       }
 
       // Handle different response shapes
       let conversationsArray: Conversation[] = [];
-      
+
       if ('conversation' in data.data) {
         // Anonymous: single conversation
         conversationsArray = [data.data.conversation];

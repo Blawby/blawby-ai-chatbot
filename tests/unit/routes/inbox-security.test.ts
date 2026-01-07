@@ -15,7 +15,6 @@ const mockEnv: Env = {
   CHAT_SESSIONS: {} as any,
   RESEND_API_KEY: 'test-key',
   NODE_ENV: 'production',
-  AUTH_SERVER_URL: 'https://staging-api.blawby.com',
   REMOTE_API_URL: 'https://staging-api.blawby.com'
 } as Env;
 
@@ -28,7 +27,7 @@ describe('Inbox Route Security Tests', () => {
     it('should use original request for authentication, not requestWithContext', async () => {
       const originalUserId = 'user-123';
       const practiceId = 'practice-789';
-      
+
       // Note: Auth-related params (userId) are not included as they would be rejected
       // by security validation. This test verifies the route uses original request for auth.
       const originalRequest = new Request(
@@ -57,11 +56,11 @@ describe('Inbox Route Security Tests', () => {
 
       // Mock requirePracticeMember to verify it's called with original request
       const mockMemberContext = {
-        user: { 
-          id: originalUserId, 
-          email: 'user123@example.com', 
-          name: 'User 123', 
-          emailVerified: true 
+        user: {
+          id: originalUserId,
+          email: 'user123@example.com',
+          name: 'User 123',
+          emailVerified: true
         },
         session: { id: 'session-123', expiresAt: new Date() },
         token: 'valid-token-for-user-123',
@@ -100,7 +99,7 @@ describe('Inbox Route Security Tests', () => {
     it('should authenticate user based on Authorization header, not URL params', async () => {
       const authenticatedUserId = 'authenticated-user-123';
       const practiceId = 'practice-789';
-      
+
       // Note: Auth-related params (userId, token) are not included as they would be rejected
       // by security validation. This test verifies that auth comes from headers, not URL.
       const request = new Request(
@@ -126,11 +125,11 @@ describe('Inbox Route Security Tests', () => {
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
       const mockMemberContext = {
-        user: { 
+        user: {
           id: authenticatedUserId, // Should match the authenticated user, not URL param
-          email: 'auth@example.com', 
-          name: 'Authenticated User', 
-          emailVerified: true 
+          email: 'auth@example.com',
+          name: 'Authenticated User',
+          emailVerified: true
         },
         session: { id: 'session-1', expiresAt: new Date() },
         token: 'valid-token-for-authenticated-user',
@@ -156,10 +155,10 @@ describe('Inbox Route Security Tests', () => {
       expect(requirePracticeMember).toHaveBeenCalled();
       const callArgs = vi.mocked(requirePracticeMember).mock.calls[0];
       const authRequest = callArgs[0];
-      
+
       // The request used for auth should have the original Authorization header
       expect(authRequest.headers.get('Authorization')).toBe('Bearer valid-token-for-authenticated-user');
-      
+
       // Verify the mock was called with the correct user ID from the auth context
       // (The meaningful assertion is that requirePracticeMember was called with the original request,
       // not requestWithContext, which ensures URL params cannot affect authentication)
@@ -293,11 +292,11 @@ describe('Inbox Route Security Tests', () => {
       vi.mocked(getPracticeId).mockReturnValue(practiceIdFromUrl);
 
       const mockMemberContext = {
-        user: { 
-          id: 'user-123', 
-          email: 'user@example.com', 
-          name: 'User', 
-          emailVerified: true 
+        user: {
+          id: 'user-123',
+          email: 'user@example.com',
+          name: 'User',
+          emailVerified: true
         },
         session: { id: 'session-1', expiresAt: new Date() },
         token: 'valid-token',
@@ -316,7 +315,7 @@ describe('Inbox Route Security Tests', () => {
 
       // Practice ID from URL is used (metadata)
       expect(getPracticeId).toHaveBeenCalled();
-      
+
       // But membership is validated separately using auth headers
       expect(requirePracticeMember).toHaveBeenCalledWith(
         request, // Original request with auth

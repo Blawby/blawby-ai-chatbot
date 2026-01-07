@@ -4,45 +4,35 @@ import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
   getSubscriptionListEndpoint,
-  getRemoteApiUrl,
   getConversationLinkEndpoint
 } from '@/config/api';
 import { isPlatformPractice } from '@/shared/utils/practice';
 import type { Conversation } from '@/shared/types/conversation';
+import { getBackendApiUrl } from '@/config/urls';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
 
+/**
+ * Get the base URL for backend API requests
+ * Uses centralized URL configuration from src/config/urls.ts
+ * 
+ * Caching strategy:
+ * - Development: Never cache (supports MSW switching)
+ * - Production: Cache after first call
+ */
 function ensureApiBaseUrl(): string {
   // NEVER cache in development - always get fresh URL to support MSW
-  // In dev mode, use window.location.origin ONLY if MSW is enabled
-  // If MSW is disabled, use staging-api directly
   if (import.meta.env.DEV) {
-    const enableMocks = import.meta.env.VITE_ENABLE_MSW === 'true';
-    
-    if (enableMocks) {
-      // MSW enabled - use same origin for interception
-      if (typeof window !== 'undefined' && window.location && window.location.origin) {
-        const origin = window.location.origin;
-        console.log('[ensureApiBaseUrl] DEV mode with MSW - using window.location.origin:', origin);
-        return origin;
-      }
-      // Fallback if window isn't available (shouldn't happen in browser)
-      console.warn('[ensureApiBaseUrl] window not available in DEV, using localhost fallback');
-      return 'http://localhost:5173';
-    } else {
-      // MSW disabled - use staging-api directly
-      console.log('[ensureApiBaseUrl] DEV mode without MSW - using staging-api');
-      return getRemoteApiUrl();
-    }
+    return getBackendApiUrl();
   }
-  
-  // In production, check env vars and cache
+
+  // In production, cache after first call
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
-  const explicit = import.meta.env.VITE_REMOTE_API_URL;
-  cachedBaseUrl = explicit || getRemoteApiUrl();
+
+  cachedBaseUrl = getBackendApiUrl();
   return cachedBaseUrl;
 }
 
@@ -64,7 +54,7 @@ apiClient.interceptors.request.use(
         console.log('[apiClient] Updated baseURL to:', baseUrl, 'for request:', config.url);
       }
     }
-    
+
     // Follow Better Auth guide assumptions: calls to staging-api are authenticated.
     // Ensure cookies can be sent cross-origin when backend is configured to allow it.
     config.withCredentials = true;
@@ -113,7 +103,7 @@ export interface Practice {
   overview?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
-  
+
   // Subscription and practice management properties
   kind?: 'personal' | 'business' | 'practice';
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
@@ -632,15 +622,15 @@ export async function getCurrentSubscription(
 
   const plan = isRecord(container.plan)
     ? {
-        id: toNullableString(container.plan.id),
-        name: toNullableString(container.plan.name),
-        displayName: toNullableString(container.plan.displayName ?? container.plan.display_name),
-        isActive: typeof container.plan.isActive === 'boolean'
-          ? container.plan.isActive
-          : typeof container.plan.is_active === 'boolean'
-            ? container.plan.is_active
-            : null
-      }
+      id: toNullableString(container.plan.id),
+      name: toNullableString(container.plan.name),
+      displayName: toNullableString(container.plan.displayName ?? container.plan.display_name),
+      isActive: typeof container.plan.isActive === 'boolean'
+        ? container.plan.isActive
+        : typeof container.plan.is_active === 'boolean'
+          ? container.plan.is_active
+          : null
+    }
     : null;
 
   return {
@@ -680,7 +670,7 @@ export async function listSubscriptions(
   if (!referenceId) {
     throw new Error('referenceId is required');
   }
-  
+
   // Use GET request with referenceId as query parameter
   const response = await apiClient.get(
     getSubscriptionListEndpoint(),
@@ -690,7 +680,7 @@ export async function listSubscriptions(
       signal: config?.signal
     }
   );
-  
+
   // Handle different response shapes
   const data = response.data as SubscriptionListResponse;
   if (Array.isArray(data)) {
@@ -732,7 +722,7 @@ apiClient.interceptors.response.use(
             isHandling401 = null;
           }
         };
-        
+
         // Assign the promise immediately before any async work
         isHandling401 = handle401();
       }

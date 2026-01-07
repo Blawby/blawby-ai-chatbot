@@ -16,32 +16,29 @@ export interface Env {
   ADOBE_SCOPE?: string;
   ENABLE_ADOBE_EXTRACT?: string | boolean;
   ADOBE_EXTRACTOR_SERVICE?: import('./services/AdobeDocumentService.js').IAdobeExtractor; // Optional mock extractor for testing
-  
-  // Remote Auth Server Configuration
-  // Staging API (staging-api.blawby.com) runs Better Auth backend
-  AUTH_SERVER_URL?: string; // URL of remote Better Auth server (defaults to https://staging-api.blawby.com)
-  
-  // Remote API Configuration
-  REMOTE_API_URL?: string; // URL of remote API server (e.g., https://staging-api.blawby.com)
-  
+
+  // ENV VAR: REMOTE_API_URL (worker/.dev.vars or wrangler.toml)
+  // Points to Better Auth backend for token validation (e.g., http://localhost:3000 or https://staging-api.blawby.com)
+  REMOTE_API_URL?: string;
+
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
-  
+
   IDEMPOTENCY_SALT?: string;
   LAWYER_SEARCH_API_KEY?: string;
   LAWYER_SEARCH_API_URL?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
-  
+
   // Environment flags
   NODE_ENV?: string;
   DEBUG?: string;
   ENV_TEST?: string;
   IS_PRODUCTION?: string;
-  
+
   DEFAULT_PLATFORM_SLUG?: string;
   // SSE Configuration
   SSE_POLL_INTERVAL?: string;
-  
+
 }
 
 // HTTP Error class for centralized error handling
@@ -381,17 +378,17 @@ export interface UIMessageExtras {
 }
 
 // UI-specific ChatMessage interface that extends the base ChatMessage
-export type ChatMessageUI = 
+export type ChatMessageUI =
   | (ChatMessage & UIMessageExtras & {
-      role: 'user'; // Explicitly constrain role to 'user' for user messages
-      isUser: true;
-    })
+    role: 'user'; // Explicitly constrain role to 'user' for user messages
+    isUser: true;
+  })
   | (ChatMessage & UIMessageExtras & {
-      role: 'assistant'; // Explicitly constrain role to 'assistant' for assistant messages
-      isUser: false;
-    })
+    role: 'assistant'; // Explicitly constrain role to 'assistant' for assistant messages
+    isUser: false;
+  })
   | (ChatMessage & UIMessageExtras & {
-      role: 'system'; // Explicitly constrain role to 'system' for system messages
-      isUser: false;
-      // System messages can have UI extras but typically don't use most of them
-    });
+    role: 'system'; // Explicitly constrain role to 'system' for system messages
+    isUser: false;
+    // System messages can have UI extras but typically don't use most of them
+  });
