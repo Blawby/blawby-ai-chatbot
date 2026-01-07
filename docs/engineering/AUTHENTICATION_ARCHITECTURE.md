@@ -55,14 +55,14 @@ This document explains the authentication architecture, recent changes, and how 
 
 The Worker was failing to authenticate requests because:
 1. Frontend was using `localhost:3000` (local backend)
-2. Worker was using `staging-api.blawby.com` (staging backend)
+2. Worker was defaulting to `staging-api.blawby.com` (staging backend) instead of following the configured remote API URL
 3. Tokens from local backend don't exist in staging database
 
 ### Solution
 
 1. **Removed hardcoded URL from `wrangler.toml`**
-   - Previously: `REMOTE_API_URL = "https://staging-api.blawby.com"` was hardcoded
-   - Now: Uses `worker/.dev.vars` for local development
+   - Previously: `REMOTE_API_URL = "https://staging-api.blawby.com"` forced every request to staging
+   - Now: Worker reads `REMOTE_API_URL` from `worker/.dev.vars` or Cloudflare environment variables so the remote API URL (auth plus organization APIs) can match whatever backend the frontend is configured to use
 
 2. **Created `worker/.dev.vars` for local development**
    - Contains `REMOTE_API_URL=http://localhost:3000`
@@ -86,8 +86,8 @@ The Worker was failing to authenticate requests because:
 
 **Required Variables**:
 ```bash
-# Backend API URL (Better Auth server)
-# - Development: http://localhost:3000 or https://staging-api.blawby.com
+# Backend API URL (Better Auth/remote API server)
+# - Development: http://localhost:3000 (custom backend) or https://staging-api.blawby.com
 # - Production: https://production-api.blawby.com
 VITE_BACKEND_API_URL=http://localhost:3000
 ```
@@ -108,8 +108,8 @@ VITE_ENABLE_MSW=true
 
 **Required Variables**:
 ```bash
-# Backend API URL (Better Auth server)
-# Must match VITE_BACKEND_API_URL in frontend
+# Backend API URL (Better Auth/remote API server)
+# Must match VITE_BACKEND_API_URL in frontend for the same environment
 REMOTE_API_URL=http://localhost:3000
 ```
 
@@ -169,12 +169,12 @@ REMOTE_API_URL=http://localhost:3000
 
 ### Important Notes
 
-1. **URL Consistency**: `VITE_BACKEND_API_URL` (frontend) and `REMOTE_API_URL` (worker) must point to the **same backend** in the same environment
-   - Local dev: Both should be `http://localhost:3000`
-   - Staging: Both should be `https://staging-api.blawby.com`
-   - Production: Both should be `https://production-api.blawby.com`
+1. **URL Consistency**: `VITE_BACKEND_API_URL` (frontend) and `REMOTE_API_URL` (worker) must point to the **same backend** in the same environment so both sides hit the remote API that issued the tokens
+   - Local dev: Both should target `http://localhost:3000` (or another local backend you configure)
+   - Staging: Both should target `https://staging-api.blawby.com` (the default staging backend unless you override it)
+   - Production: Both should target `https://production-api.blawby.com`
 
-2. **Token Validity**: Tokens are only valid for the backend that issued them. A token from `localhost:3000` won't work with `staging-api.blawby.com` because they have different databases.
+2. **Token Validity**: Tokens are only valid for the backend that issued them. Keep the configured remote API URL (via `VITE_BACKEND_API_URL`/`REMOTE_API_URL`) consistent across frontend and worker, otherwise the Worker will reject tokens issued by a different backend.
 
 3. **File Locations**:
    - Frontend: `.env` (root directory)
@@ -283,4 +283,3 @@ REMOTE_API_URL=http://localhost:3000
 - [Better Auth Documentation](https://www.better-auth.com/docs)
 - [Cloudflare Workers Environment Variables](https://developers.cloudflare.com/workers/configuration/environment-variables/)
 - [Vite Environment Variables](https://vitejs.dev/guide/env-and-mode.html)
-

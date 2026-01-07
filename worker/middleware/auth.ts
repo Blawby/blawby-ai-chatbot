@@ -103,8 +103,17 @@ async function validateTokenWithRemoteServer(
       throw HttpErrors.unauthorized(errorObj.message || "Invalid or expired token");
     }
 
-    if (rawResponse.message && typeof rawResponse.message === 'string') {
-      // Error format: { message: "..." }
+    const dataPayload =
+      rawResponse.data && typeof rawResponse.data === 'object'
+        ? rawResponse.data as Record<string, unknown>
+        : null;
+
+    const hasUserPayload =
+      !!rawResponse.user ||
+      (!!dataPayload && ('user' in dataPayload || 'session' in dataPayload));
+
+    if (rawResponse.message && typeof rawResponse.message === 'string' && !hasUserPayload) {
+      // Error format: { message: "..." } with no user/session data
       throw HttpErrors.unauthorized(rawResponse.message);
     }
 
@@ -126,6 +135,16 @@ async function validateTokenWithRemoteServer(
     if (!user?.id) {
       console.error('[Auth] No user in session data from Better Auth API');
       throw HttpErrors.unauthorized("Invalid session data - no user found");
+    }
+
+    if (!user.email || typeof user.email !== 'string') {
+      console.error('[Auth] Invalid or missing email in session data from Better Auth API');
+      throw HttpErrors.unauthorized("Invalid session data - missing user email");
+    }
+
+    if (!user.name || typeof user.name !== 'string') {
+      console.error('[Auth] Invalid or missing name in session data from Better Auth API');
+      throw HttpErrors.unauthorized("Invalid session data - missing user name");
     }
 
     const sessionData = { user, session };
