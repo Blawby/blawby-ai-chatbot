@@ -8,23 +8,6 @@ import { getTrustedHosts } from '@/config/urls';
 // Uses centralized URL configuration from src/config/urls.ts
 const TRUSTED_RETURN_URL_HOSTS: string[] = getTrustedHosts();
 
-// Frontend base URL for checkout callbacks (success/cancel)
-// Uses centralized URL configuration
-const FRONTEND_BASE_URL = (() => {
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
-  }
-  const explicit =
-    import.meta.env.VITE_APP_BASE_URL ||
-    import.meta.env.VITE_PUBLIC_APP_URL ||
-    import.meta.env.VITE_APP_URL;
-  if (explicit) {
-    return explicit;
-  }
-  // Last resort fallback (should not happen in browser context)
-  throw new Error('Frontend base URL could not be determined. Set VITE_APP_BASE_URL or ensure window.location is available.');
-})();
-
 // Helper function to ensure a safe, validated return URL
 // Prevents open-redirect vulnerabilities by validating URLs before returning them
 // Throws errors instead of silently falling back
@@ -84,6 +67,27 @@ function ensureValidReturnUrl(url: string | undefined | null, _practiceId?: stri
 
   // URL is not same-origin and not in allowlist - reject it
   throw new Error(`Invalid return URL: origin ${parsed.origin} is not allowed. Allowed origins: ${window.location.origin}, ${TRUSTED_RETURN_URL_HOSTS.join(', ')}`);
+}
+
+// Callback URLs may be relative (path-only) or absolute.
+function ensureValidCallbackUrl(url: string | undefined | null): string {
+  if (!url || typeof url !== 'string') {
+    throw new Error(`Invalid callback URL: ${url === null ? 'null' : url === undefined ? 'undefined' : 'not a string'}`);
+  }
+
+  const trimmed = url.trim();
+  if (trimmed.length === 0) {
+    throw new Error('Invalid callback URL: empty string');
+  }
+
+  if (trimmed.startsWith('/')) {
+    if (trimmed.startsWith('//') || trimmed.includes('://')) {
+      throw new Error(`Invalid callback URL format: ${trimmed}`);
+    }
+    return trimmed;
+  }
+
+  return ensureValidReturnUrl(trimmed);
 }
 
 // Helper functions for safe type extraction from API responses
@@ -215,21 +219,17 @@ export const usePaymentUpgrade = () => {
   const { showError, showSuccess } = useToastContext();
 
   const buildSuccessUrl = useCallback((practiceId?: string) => {
-    const url = new URL('/business-onboarding', FRONTEND_BASE_URL);
-    url.searchParams.set('subscription', 'success');
+    const params = new URLSearchParams();
+    params.set('subscription', 'success');
     if (practiceId) {
-      url.searchParams.set('practiceId', practiceId);
+      params.set('practiceId', practiceId);
     }
-    return url.toString();
+    const query = params.toString();
+    return `/business-onboarding${query ? `?${query}` : ''}`;
   }, []);
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {
-    if (typeof window === 'undefined') {
-      return `${FRONTEND_BASE_URL}/?subscription=cancelled`;
-    }
-    const url = new URL('/', FRONTEND_BASE_URL);
-    url.searchParams.set('subscription', 'cancelled');
-    return url.toString();
+    return '/?subscription=cancelled';
   }, []);
 
   const resolveReturnUrl = useCallback(
@@ -355,8 +355,8 @@ export const usePaymentUpgrade = () => {
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
 
         // Ensure URLs are valid
-        const validatedSuccessUrl = ensureValidReturnUrl(rawSuccessUrl, resolvedPracticeId);
-        const validatedCancelUrl = ensureValidReturnUrl(rawCancelUrl, resolvedPracticeId);
+        const validatedSuccessUrl = ensureValidCallbackUrl(rawSuccessUrl);
+        const validatedCancelUrl = ensureValidCallbackUrl(rawCancelUrl);
 
         // Step 3: Create subscription using remote API /api/subscriptions/create endpoint
         try {
