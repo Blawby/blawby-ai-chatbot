@@ -143,6 +143,17 @@ function extractProperty<T>(result: unknown, property: string): T | undefined {
   return undefined;
 }
 
+function headersToObject(headers: Headers | null): Record<string, string> | null {
+  if (!headers) {
+    return null;
+  }
+  const result: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    result[key] = value;
+  });
+  return result;
+}
+
 // Error codes for subscription operations (matching backend)
 enum SubscriptionErrorCode {
   SUBSCRIPTION_ALREADY_ACTIVE = 'SUBSCRIPTION_ALREADY_ACTIVE',
@@ -359,24 +370,53 @@ export const usePaymentUpgrade = () => {
 
           // Use fetch with Better Auth token (not axios)
           const response = await getClient().subscription.upgrade(createPayload);
+          const isResponseObject = typeof response === 'object' && response !== null;
+          const hasHeaders = isResponseObject &&
+            'headers' in response &&
+            (response as { headers?: Headers }).headers instanceof Headers;
+          const headers = hasHeaders ? (response as { headers: Headers }).headers : null;
+
+          const isBetterFetchResponse =
+            isResponseObject &&
+            'data' in response &&
+            'error' in response &&
+            !hasHeaders;
 
           // Log response for debugging
           if (import.meta.env.DEV) {
-            console.log('[UPGRADE] Response status:', response.status);
-            console.log('[UPGRADE] Response headers:', Object.fromEntries(response.headers.entries()));
+            const status = isResponseObject && 'status' in response
+              ? (response as { status?: number }).status
+              : undefined;
+            console.log('[UPGRADE] Response status:', status);
+            console.log('[UPGRADE] Response headers:', headersToObject(headers));
           }
 
           // Check for Location header (in case of redirect)
-          const locationHeader = response.headers.get('location') || response.headers.get('Location');
+          const locationHeader = headers
+            ? headers.get('location') || headers.get('Location')
+            : null;
 
           // Parse response body
           let data: unknown;
-          const contentType = response.headers.get('content-type');
-          if (contentType?.includes('application/json')) {
-            data = await response.json();
+          if (isBetterFetchResponse) {
+            const { data: responseData, error: responseError } = response as {
+              data: unknown;
+              error: unknown;
+            };
+            if (responseError) {
+              throw new Error(JSON.stringify(responseError));
+            }
+            data = responseData;
+          } else if (headers) {
+            const contentType = headers.get('content-type');
+            if (contentType?.includes('application/json')) {
+              data = await (response as Response).json();
+            } else {
+              const text = await (response as Response).text();
+              data = text ? JSON.parse(text) : null;
+            }
           } else {
-            const text = await response.text();
-            data = text ? JSON.parse(text) : null;
+            data = response;
           }
 
           if (import.meta.env.DEV) {
@@ -406,8 +446,10 @@ export const usePaymentUpgrade = () => {
 
           if (!checkoutUrl || typeof checkoutUrl !== 'string') {
             console.error('[UPGRADE] Missing checkoutUrl. Full response:', {
-              status: response.status,
-              headers: Object.fromEntries(response.headers.entries()),
+              status: isResponseObject && 'status' in response
+                ? (response as { status?: number }).status
+                : undefined,
+              headers: headersToObject(headers),
               data
             });
             throw new Error(`Invalid response from subscription creation. Expected checkoutUrl, got: ${JSON.stringify(data)}`);

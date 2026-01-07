@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS contact_forms (
 CREATE TABLE IF NOT EXISTS matters (
   id TEXT PRIMARY KEY,
   practice_id TEXT NOT NULL,
+  organization_id TEXT,
   user_id TEXT,
   client_name TEXT NOT NULL,
   client_email TEXT,
