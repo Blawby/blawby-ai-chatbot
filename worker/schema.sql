@@ -31,6 +31,10 @@ PRAGMA foreign_keys = ON;
 --
 -- See: worker/services/RemoteApiService.validatePractice()
 -- See: worker/services/ConversationService (validates before inserts)
+--
+-- NOTE: We do not store organization_id locally. practice_id is the sole external
+-- reference for scoping, and any organization data should be derived via remote API
+-- using the practice_id when needed.
 
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
