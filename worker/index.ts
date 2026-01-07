@@ -51,7 +51,6 @@ function validateRequest(request: Request): boolean {
 }
 
 async function handleRequestInternal(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-  console.log('🔍 Auth server URL:', env);
   const url = new URL(request.url);
   const path = url.pathname;
 

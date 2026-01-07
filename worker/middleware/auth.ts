@@ -19,6 +19,24 @@ export interface AuthContext {
   isAnonymous?: boolean; // Flag for anonymous users (Better Auth anonymous plugin)
 }
 
+const REMOTE_API_STAGING_FALLBACK = 'https://staging-api.blawby.com';
+
+function isProductionEnv(env: Env): boolean {
+  const nodeEnv = env.NODE_ENV?.toLowerCase();
+  const productionFlag = env.IS_PRODUCTION?.toLowerCase();
+  return nodeEnv === 'production' || productionFlag === 'true' || productionFlag === '1';
+}
+
+function resolveRemoteApiUrl(env: Env, context = 'remote API'): string {
+  if (env.REMOTE_API_URL) {
+    return env.REMOTE_API_URL;
+  }
+  if (isProductionEnv(env)) {
+    throw HttpErrors.internalServerError(`REMOTE_API_URL must be configured in production (${context})`);
+  }
+  return REMOTE_API_STAGING_FALLBACK;
+}
+
 /**
  * Validate Bearer token by calling remote Better Auth API directly
  * 
@@ -37,8 +55,8 @@ async function validateTokenWithRemoteServer(
   env: Env
 ): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }> {
   // ENV VAR: REMOTE_API_URL (worker/.dev.vars or wrangler.toml)
-  // Points to Better Auth backend (e.g., http://localhost:3000 or https://staging-api.blawby.com)
-  const authServerUrl = env.REMOTE_API_URL || 'https://staging-api.blawby.com';
+  // Points to Better Auth backend (e.g., http://localhost:3000 or remote API)
+  const authServerUrl = resolveRemoteApiUrl(env, 'Better Auth validation');
 
   const AUTH_TIMEOUT_MS = 3000; // 3 second timeout for auth validation
 
@@ -238,7 +256,7 @@ async function fetchMemberRoleFromRemote(
   userEmail: string
 ): Promise<string> {
   // ENV VAR: REMOTE_API_URL (worker/.dev.vars or wrangler.toml)
-  const baseUrl = env.REMOTE_API_URL || 'https://staging-api.blawby.com';
+  const baseUrl = resolveRemoteApiUrl(env, 'practice membership verification');
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);

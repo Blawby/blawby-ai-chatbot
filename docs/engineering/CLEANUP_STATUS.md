@@ -73,17 +73,9 @@ export function getRemoteApiUrl(): string {
 - Can be removed in future cleanup
 
 ### 3. Mock Data Hardcoded URL
-**Status**: ✅ **ACCEPTABLE** - Testing only
+**Status**: ✅ **REMOVED**
 
-```typescript
-// src/mocks/mockData.ts line 410
-export const MOCK_REMOTE_BASE = 'https://staging-api.blawby.com';
-```
-
-**Why it's OK:**
-- Only used in test/mock scenarios
-- Has comment explaining it's for backward compatibility
-- Not used in production code paths
+The `MOCK_REMOTE_BASE` export was deleted; mock handlers and tests should derive the backend base URL with `getBackendApiUrl()` (or the same fallback used by `apiClient.ts`/`authClient.ts`) instead of relying on the hardcoded staging URL.
 
 ### 4. Comments Mentioning Specific URLs
 **Status**: ✅ **DOCUMENTATION** - Just comments
@@ -196,4 +188,3 @@ If you want to do further cleanup:
 **The codebase is now MUCH cleaner and more maintainable.** The major inconsistencies and bad code patterns have been fixed. The remaining items are either intentional (fallbacks) or backward compatibility (deprecated functions), which are acceptable.
 
 **For AI assistants**: The code is now much easier to understand. All URL logic is in `src/config/urls.ts` with clear documentation.
-

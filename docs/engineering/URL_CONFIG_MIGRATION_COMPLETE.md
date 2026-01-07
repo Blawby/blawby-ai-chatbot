@@ -16,7 +16,7 @@
 
 2. **Updated `src/vite-env.d.ts`**
    - Added new variables: `VITE_WORKER_API_URL`, `VITE_BACKEND_API_URL`
-   - Marked old variables as deprecated: `VITE_API_URL`, `VITE_REMOTE_API_URL`
+   - Retained `VITE_API_URL` for compatibility while removing `VITE_REMOTE_API_URL`
    - Removed unused `VITE_BETTER_AUTH_URL`
    - Added documentation comments
 
@@ -52,10 +52,10 @@
 
 ## Environment Variable Changes
 
-### Old Variables (Deprecated)
-- `VITE_API_URL` → Use `VITE_WORKER_API_URL` instead
-- `VITE_REMOTE_API_URL` → Use `VITE_BACKEND_API_URL` instead
-- `VITE_BETTER_AUTH_URL` → Removed (was never used)
+### Legacy Variables
+- `VITE_API_URL` → Still typed for compatibility; prefer `VITE_WORKER_API_URL`/`getWorkerApiUrl()` in new code
+- `VITE_REMOTE_API_URL` → Removed in favor of `VITE_BACKEND_API_URL`
+- `VITE_BETTER_AUTH_URL` → Removed (unused)
 
 ### New Variables
 - `VITE_WORKER_API_URL` - Cloudflare Worker API (optional, auto-detected)
@@ -133,7 +133,6 @@ const url = getBackendApiUrl();
 
 ## Notes
 
-- Old variable names (`VITE_API_URL`, `VITE_REMOTE_API_URL`) still work via deprecated functions
+- Legacy names no longer drive runtime behavior; `VITE_API_URL` stays typed for compatibility while `VITE_REMOTE_API_URL`/`VITE_BETTER_AUTH_URL` were removed
 - This allows gradual migration without breaking existing deployments
 - All new code should use the centralized `urls.ts` functions
-

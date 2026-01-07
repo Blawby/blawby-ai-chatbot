@@ -93,6 +93,7 @@ export function useConversations({
         if (!isDisposedRef.current) {
           setError(errorMessage);
           onErrorRef.current?.(errorMessage);
+          setIsLoading(false);
         }
         return;
       }
