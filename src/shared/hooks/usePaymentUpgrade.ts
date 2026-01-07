@@ -411,10 +411,18 @@ export const usePaymentUpgrade = () => {
             const contentType = headers.get('content-type');
             if (contentType?.includes('application/json')) {
               data = await (response as Response).json();
+          } else {
+            const text = await (response as Response).text();
+            if (text) {
+              try {
+                data = JSON.parse(text);
+              } catch {
+                data = { rawText: text };
+              }
             } else {
-              const text = await (response as Response).text();
-              data = text ? JSON.parse(text) : null;
+              data = null;
             }
+          }
           } else {
             data = response;
           }

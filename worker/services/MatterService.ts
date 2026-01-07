@@ -305,9 +305,9 @@ export class MatterService {
     const counterName = `matter_number_${year}`;
     // Use SQLite UPSERT with RETURNING to atomically increment and fetch value
     const row = await this.env.DB.prepare(
-      `INSERT INTO counters (organization_id, name, next_value)
+      `INSERT INTO counters (practice_id, name, next_value)
          VALUES (?, ?, 1)
-         ON CONFLICT(organization_id, name)
+         ON CONFLICT(practice_id, name)
          DO UPDATE SET next_value = counters.next_value + 1
          RETURNING next_value`
     ).bind(practiceId, counterName).first<{ next_value?: number } | null>();

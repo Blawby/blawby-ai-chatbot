@@ -126,7 +126,6 @@ export interface ConversationConfig {
     enabled: boolean;
     apiKey?: string | null;
     apiKeyHash?: string;
-    organizationUlid?: string;
     apiUrl?: string;
   };
   testMode?: boolean;

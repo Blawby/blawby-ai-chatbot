@@ -289,9 +289,6 @@ export class RemoteApiService {
         if (typeof apiObj.apiKeyHash === 'string') {
           result.apiKeyHash = apiObj.apiKeyHash;
         }
-        if (typeof apiObj.organizationUlid === 'string') {
-          result.organizationUlid = apiObj.organizationUlid;
-        }
         if (typeof apiObj.apiUrl === 'string') {
           result.apiUrl = apiObj.apiUrl;
         }

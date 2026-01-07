@@ -443,9 +443,7 @@ export const handlers = [
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           userId: user.id,
-          user_id: user.id,
-          activeOrganizationId: null,
-          active_organization_id: null
+          user_id: user.id
         }
       }
     }, {
@@ -485,8 +483,7 @@ export const handlers = [
       session: {
         id: `session-${user.id}`,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        user_id: user.id,
-        active_organization_id: null
+        user_id: user.id
       }
     });
   }),

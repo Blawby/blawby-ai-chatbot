@@ -10,7 +10,7 @@
 -- - subscriptions (subscription management now handled by remote API)
 -- - pii_access_audit (PII audit logging now handled by remote API)
 --
--- Note: organizations table is kept for workspace endpoints
+-- Note: organizations table is no longer used locally (removed in later migration)
 -- Note: members and invitations tables were later removed in migration 20251130_remove_members_invitations_tables.sql
 
 PRAGMA foreign_keys = OFF;
@@ -27,4 +27,3 @@ DROP TABLE IF EXISTS users;
 DROP VIEW IF EXISTS user_auth_summary;
 
 PRAGMA foreign_keys = ON;
-

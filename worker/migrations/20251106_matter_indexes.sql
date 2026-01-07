@@ -3,7 +3,7 @@
 -- db.exec() and `wrangler d1 execute`.
 --
 -- Manual creation (until runner is updated):
---   CREATE INDEX IF NOT EXISTS idx_matters_org_status_created_at ON matters(organization_id, status, created_at DESC);
+--   CREATE INDEX IF NOT EXISTS idx_matters_practice_status_created_at ON matters(practice_id, status, created_at DESC);
 --   CREATE INDEX IF NOT EXISTS idx_matter_events_matter_type_date ON matter_events(matter_id, event_type, event_date DESC);
 --
 -- Follow-up tasks:

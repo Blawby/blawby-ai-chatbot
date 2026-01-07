@@ -4,10 +4,10 @@
 -- 
 -- Table being removed:
 -- - organizations (all data now in remote API or hardcoded defaults)
--- - usage_quotas (quota tracking handled remotely; organization_id remains as TEXT references elsewhere)
+-- - usage_quotas (quota tracking handled remotely; practice_id remains as TEXT references elsewhere)
 --
--- Note: Chatbot tables (conversations, messages, contact_forms, files, etc.) keep organization_id
--- as TEXT reference only (no FK constraint). All organization data is fetched from remote API.
+-- Note: Chatbot tables (conversations, messages, contact_forms, files, etc.) keep practice_id
+-- as a TEXT reference only (no FK constraint). All organization data is fetched via practice.
 
 PRAGMA foreign_keys = OFF;
 
@@ -23,7 +23,6 @@ DROP INDEX IF EXISTS idx_organizations_stripe_customer_id;
 DROP INDEX IF EXISTS idx_organizations_is_personal;
 
 PRAGMA foreign_keys = ON;
-
 
 
 
