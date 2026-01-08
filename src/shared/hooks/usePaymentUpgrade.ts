@@ -337,10 +337,15 @@ export const usePaymentUpgrade = () => {
         // Ensure URLs are valid
         const currentOrigin = window.location.origin;
 
-        // Force the URLs to be absolute
-        // If rawSuccessUrl is "/dashboard", this becomes "https://local.blawby.com/dashboard"
-        const validatedSuccessUrl = new URL(rawSuccessUrl, currentOrigin).toString();
-        const validatedCancelUrl = new URL(rawCancelUrl, currentOrigin).toString();
+        // Validate URLs against trusted hosts to prevent open redirects
+        const validatedSuccessUrl = ensureValidReturnUrl(
+          new URL(rawSuccessUrl, currentOrigin).toString(),
+          resolvedPracticeId
+        );
+        const validatedCancelUrl = ensureValidReturnUrl(
+          new URL(rawCancelUrl, currentOrigin).toString(),
+          resolvedPracticeId
+        );
 
 
         // Step 3: Create subscription using remote API /api/subscriptions/create endpoint

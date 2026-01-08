@@ -1,9 +1,10 @@
-import { useMemo } from 'preact/hooks';
+import { useMemo, useEffect, useRef } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useInbox } from '@/shared/hooks/useInbox';
 import { Button } from '@/shared/ui/Button';
+import { linkConversationToUser } from '@/shared/lib/apiClient';
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -27,6 +28,7 @@ export const PracticeDashboardPage = () => {
   const { navigate } = useNavigation();
   const { currentPractice } = usePracticeManagement();
   const { activePracticeId } = useSessionContext();
+  const linkingHandledRef = useRef(false);
 
   const {
     conversations,
@@ -43,6 +45,55 @@ export const PracticeDashboardPage = () => {
     { label: 'Unassigned', value: stats?.unassigned ?? 0 },
     { label: 'High priority', value: stats?.highPriority ?? 0 },
   ]), [stats?.active, stats?.unassigned, stats?.highPriority]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (linkingHandledRef.current) return;
+
+    const postAuthRedirectKey = 'post-auth-redirect';
+    const url = new URL(window.location.href);
+    const conversationId = url.searchParams.get('conversationId');
+    const practiceId = url.searchParams.get('practiceId');
+    const postAuthRedirect = sessionStorage.getItem(postAuthRedirectKey);
+    const isSafeRedirect = (path: string) => path.startsWith('/') && !path.startsWith('//');
+
+    if (!conversationId || !practiceId) {
+      if (postAuthRedirect) {
+        sessionStorage.removeItem(postAuthRedirectKey);
+        if (isSafeRedirect(postAuthRedirect)) {
+          window.location.href = postAuthRedirect;
+        }
+      }
+      return;
+    }
+
+    linkingHandledRef.current = true;
+
+    const cleanupUrl = () => {
+      url.searchParams.delete('conversationId');
+      url.searchParams.delete('practiceId');
+      const cleaned = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState({}, '', cleaned);
+    };
+
+    (async () => {
+      try {
+        await linkConversationToUser(conversationId, practiceId);
+      } catch (error) {
+        console.error('[Dashboard] Failed to link conversation from OAuth redirect', error);
+      }
+
+      if (postAuthRedirect) {
+        sessionStorage.removeItem(postAuthRedirectKey);
+        if (isSafeRedirect(postAuthRedirect)) {
+          window.location.href = postAuthRedirect;
+          return;
+        }
+      }
+
+      cleanupUrl();
+    })();
+  }, []);
 
   return (
     <div className="h-full overflow-y-auto p-6">
