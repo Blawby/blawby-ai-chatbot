@@ -25,9 +25,15 @@ interface UserProfileDisplayProps {
   isCollapsed?: boolean;
   currentPractice?: {
     id: string;
-    subscriptionTier?: string;
+    subscriptionTier?: SubscriptionTier;
   } | null;
 }
+
+const VALID_TIERS: SubscriptionTier[] = ['free', 'business', 'premium', 'enterprise'];
+
+const isValidSubscriptionTier = (tier: string | undefined): tier is SubscriptionTier => {
+  return typeof tier === 'string' && VALID_TIERS.includes(tier as SubscriptionTier);
+};
 
 export const UserProfileDisplay = ({ 
   isCollapsed = false, 
@@ -46,8 +52,8 @@ export const UserProfileDisplay = ({
   const isMobile = useMobileDetection();
   const practiceForTier = currentPractice ?? managedPractice ?? null;
   const derivedSubscriptionTier = practiceForTier?.subscriptionTier;
-  const resolvedSubscriptionTier: SubscriptionTier = derivedSubscriptionTier
-    ? (derivedSubscriptionTier as SubscriptionTier)
+  const resolvedSubscriptionTier: SubscriptionTier = derivedSubscriptionTier && isValidSubscriptionTier(derivedSubscriptionTier)
+    ? derivedSubscriptionTier
     : (isPracticeEnabled ? 'business' : 'free');
 
   // Derive user data from session and practice
