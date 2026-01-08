@@ -74,11 +74,17 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
 
 const normalizeSubscription = (items: AuthSubscriptionListItem[]): CurrentSubscription | null => {
   if (!items.length) return null;
-  const active = items.find((item) => {
+  const eligibleStatuses = new Set(['active', 'trialing', 'paused', 'past_due', 'unpaid']);
+  const validItems = items.filter((item) => {
+    const status = typeof item.status === 'string' ? item.status.toLowerCase() : '';
+    return eligibleStatuses.has(status);
+  });
+  if (!validItems.length) return null;
+  const active = validItems.find((item) => {
     const status = typeof item.status === 'string' ? item.status.toLowerCase() : '';
     return status === 'active' || status === 'trialing';
   });
-  const candidate = active ?? items[0];
+  const candidate = active ?? validItems[0];
   const plan = isPlanRecord(candidate.plan)
     ? {
       id: toNullableString(candidate.plan.id),

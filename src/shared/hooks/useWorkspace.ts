@@ -40,9 +40,9 @@ export function useWorkspace(): UseWorkspaceResult {
 
   const preferredWorkspace = primaryWorkspace ?? null;
   const defaultWorkspace: WorkspacePreference = isPracticeEnabled
-    ? (preferredWorkspace ?? 'practice')
+    ? (preferredWorkspace ?? (hasPractice ? 'practice' : 'client'))
     : 'client';
-  const canAccessPractice = isPracticeEnabled;
+  const canAccessPractice = isPracticeEnabled && hasPractice;
 
   return {
     workspaceFromPath,
