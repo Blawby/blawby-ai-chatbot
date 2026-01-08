@@ -29,7 +29,7 @@ interface UserProfileDisplayProps {
   } | null;
 }
 
-const VALID_TIERS: SubscriptionTier[] = ['free', 'business', 'premium', 'enterprise'];
+const VALID_TIERS: SubscriptionTier[] = ['free', 'plus', 'business', 'enterprise'];
 
 const isValidSubscriptionTier = (tier: string | undefined): tier is SubscriptionTier => {
   return typeof tier === 'string' && VALID_TIERS.includes(tier as SubscriptionTier);
