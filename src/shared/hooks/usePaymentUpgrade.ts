@@ -355,8 +355,13 @@ export const usePaymentUpgrade = () => {
         const rawCancelUrl = cancelUrl ?? buildCancelUrl(resolvedPracticeId);
 
         // Ensure URLs are valid
-        const validatedSuccessUrl = ensureValidCallbackUrl(rawSuccessUrl);
-        const validatedCancelUrl = ensureValidCallbackUrl(rawCancelUrl);
+        const currentOrigin = window.location.origin;
+
+        // Force the URLs to be absolute
+        // If rawSuccessUrl is "/dashboard", this becomes "https://local.blawby.com/dashboard"
+        const validatedSuccessUrl = new URL(rawSuccessUrl, currentOrigin).toString();
+        const validatedCancelUrl = new URL(rawCancelUrl, currentOrigin).toString();
+
 
         // Step 3: Create subscription using remote API /api/subscriptions/create endpoint
         try {
@@ -411,18 +416,18 @@ export const usePaymentUpgrade = () => {
             const contentType = headers.get('content-type');
             if (contentType?.includes('application/json')) {
               data = await (response as Response).json();
-          } else {
-            const text = await (response as Response).text();
-            if (text) {
-              try {
-                data = JSON.parse(text);
-              } catch {
-                data = { rawText: text };
-              }
             } else {
-              data = null;
+              const text = await (response as Response).text();
+              if (text) {
+                try {
+                  data = JSON.parse(text);
+                } catch {
+                  data = { rawText: text };
+                }
+              } else {
+                data = null;
+              }
             }
-          }
           } else {
             data = response;
           }

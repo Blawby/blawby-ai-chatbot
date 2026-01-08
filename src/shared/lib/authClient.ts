@@ -15,15 +15,33 @@ type TypedSessionData = AuthSessionData extends { user: unknown; session: infer 
   : AuthSessionData;
 
 // ENV VAR: VITE_BACKEND_API_URL (via getBackendApiUrl() from src/config/urls.ts)
-function getAuthBaseUrl(): string {
+// In development, use Vite proxy if backend is localhost, otherwise use direct URL.
+// In production, always use remote backend URL.
+function getAuthBaseUrl(): string | undefined {
   if (typeof window === 'undefined') {
     return 'https://placeholder-auth-server.com';
   }
+
+  if (import.meta.env.DEV) {
+    const backendUrl = import.meta.env.VITE_APP_BASE_URL;
+
+    // If backend is localhost, use Vite proxy (relative URLs)
+    // Vite proxy routes /api/auth to the local backend (e.g., http://localhost:3000/api/auth)
+    if (backendUrl.startsWith('http://localhost:') || backendUrl.startsWith('http://127.0.0.1:')) {
+      return undefined; // Use relative URLs, let Vite proxy handle it
+    }
+
+    // Remote backend (staging-api.blawby.com) - use direct URL with credentials
+    return getBackendApiUrl();
+  }
+
+  // In production, always use remote backend URL
   return getBackendApiUrl();
 }
 
-// Cached auth client instance with context tracking (created lazily on first access)
-let cachedAuthClient: { client: AuthClientType; context: 'ssr' | 'browser' } | null = null;
+// Cached auth client instance (only one is ever created and cached - the browser client)
+// Note: During SSR/build (prerender), a placeholder is created but never cached or used at runtime
+let cachedAuthClient: AuthClientType | null = null;
 
 /**
  * Get or create the auth client instance.
@@ -34,22 +52,32 @@ let cachedAuthClient: { client: AuthClientType; context: 'ssr' | 'browser' } | n
  * 
  * @throws {Error} If VITE_BACKEND_API_URL is missing in production (browser context)
  */
+/**
+ * Get or create the auth client instance.
+ * 
+ * IMPORTANT: Only ONE client is ever active at runtime:
+ * - During build/prerender: Returns a minimal placeholder (prevents build errors, never cached)
+ * - At runtime (browser): Creates and caches the real client (reused for all subsequent calls)
+ * 
+ * The SSR placeholder is discarded after build - the browser client replaces it on first access.
+ * 
+ * @throws {Error} If VITE_BACKEND_API_URL is missing in production (browser context)
+ */
 function getAuthClient(): AuthClientType {
-  const currentContext = typeof window === 'undefined' ? 'ssr' : 'browser';
-
-  // If already created and cached for the same context, return it
-  if (cachedAuthClient && cachedAuthClient.context === currentContext) {
-    return cachedAuthClient.client;
+  // If already created (browser context), return cached client
+  if (cachedAuthClient) {
+    return cachedAuthClient;
   }
 
-  // During SSR/build, create a placeholder client that won't be used
-  // This prevents build errors while still allowing the code to be analyzed
-  if (currentContext === 'ssr') {
+  // During SSR/build (prerender), return minimal placeholder (not cached)
+  // This is ONLY to prevent build errors - it's never used at runtime
+  if (typeof window === 'undefined') {
     const placeholderBaseURL = getAuthBaseUrl(); // Returns placeholder during SSR
-    const client = createAuthClient({
+    return createAuthClient({
       plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
       baseURL: placeholderBaseURL,
       fetchOptions: {
+        credentials: 'include',
         auth: {
           type: "Bearer",
           token: async () => "",
@@ -57,18 +85,16 @@ function getAuthClient(): AuthClientType {
         onSuccess: async () => { },
       }
     });
-    cachedAuthClient = { client, context: 'ssr' };
-    return client;
   }
 
-  // Browser context - validate baseURL before creating client
+  // Browser context - create the REAL client (only one is ever created and cached)
   const baseURL = getAuthBaseUrl();
 
-  // Create and cache the client
   const client = createAuthClient({
     plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
-    baseURL,
+    baseURL: import.meta.env.VITE_BACKEND_API_URL,
     fetchOptions: {
+      credentials: 'include',
       auth: {
         type: "Bearer",
         token: async () => {
@@ -99,7 +125,8 @@ function getAuthClient(): AuthClientType {
     }
   });
 
-  cachedAuthClient = { client, context: 'browser' };
+  // Cache the browser client (only one is ever created)
+  cachedAuthClient = client;
   return client;
 }
 

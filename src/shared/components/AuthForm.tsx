@@ -211,7 +211,7 @@ const AuthForm = ({
       // With Bearer token auth, the token will be in the Set-Auth-Token header
       const result = await client.signIn.social({
         provider: 'google',
-        callbackURL: typeof window !== 'undefined' ? `${window.location.origin}/` : '/',
+        callbackURL: '/dashboard',
       });
 
       if (result.error) {
