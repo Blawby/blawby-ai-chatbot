@@ -19,6 +19,7 @@ import { type SubscriptionTier } from '@/shared/types/user';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { setActivePractice } from '@/shared/lib/apiClient';
+import { useSubscription } from '@/shared/hooks/useSubscription';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
@@ -37,6 +38,7 @@ export const UserProfileDisplay = ({
   const { showError } = useToastContext();
   const { currentPractice: managedPractice, practices } = usePracticeManagement();
   const { workspaceFromPath, preferredWorkspace, preferredPracticeId, canAccessPractice } = useWorkspace();
+  const { isPracticeEnabled } = useSubscription();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -53,7 +55,7 @@ export const UserProfileDisplay = ({
     practiceId: practiceForTier?.id || null,
     role: 'user',
     phone: null,
-    subscriptionTier: (practiceForTier?.subscriptionTier || 'free') as SubscriptionTier
+    subscriptionTier: (isPracticeEnabled ? 'business' : 'free') as SubscriptionTier
   } : null;
 
 
