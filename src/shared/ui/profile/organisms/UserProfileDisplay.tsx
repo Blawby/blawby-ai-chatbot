@@ -44,7 +44,11 @@ export const UserProfileDisplay = ({
   const { showError } = useToastContext();
   const { currentPractice: managedPractice, practices } = usePracticeManagement();
   const { workspaceFromPath, preferredWorkspace, preferredPracticeId, canAccessPractice } = useWorkspace();
-  const { isPracticeEnabled } = useSubscription();
+  const {
+    isPracticeEnabled,
+    isLoading: isSubscriptionLoading,
+    error: subscriptionError
+  } = useSubscription();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -54,7 +58,7 @@ export const UserProfileDisplay = ({
   const derivedSubscriptionTier = practiceForTier?.subscriptionTier;
   const resolvedSubscriptionTier: SubscriptionTier = derivedSubscriptionTier && isValidSubscriptionTier(derivedSubscriptionTier)
     ? derivedSubscriptionTier
-    : (isPracticeEnabled ? 'business' : 'free');
+    : 'free';
 
   // Derive user data from session and practice
   const user = session?.user ? {
@@ -69,7 +73,10 @@ export const UserProfileDisplay = ({
   } : null;
 
 
-  const loading = isPending;
+  const loading = isPending || isSubscriptionLoading;
+  if (subscriptionError) {
+    console.warn('[Profile] Subscription fetch error (isPracticeEnabled=%s):', isPracticeEnabled, subscriptionError);
+  }
 
   // Handle dropdown close when clicking outside or pressing Escape
   useEffect(() => {
