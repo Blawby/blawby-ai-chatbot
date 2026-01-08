@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { type ConfigEnv, defineConfig, loadEnv } from 'vite';
 import preact from '@preact/preset-vite';
 import { resolve } from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -59,7 +59,9 @@ const criticalCssPlugin = (): Plugin => {
 		enforce: 'post', // Ensure this runs after all other plugins
 		async closeBundle() {
 			// Wait a bit to ensure all files are written
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise<void>((resolve) => {
+				globalThis.setTimeout(() => resolve(), 100);
+			});
 
 			const Critters = (await import('critters')).default;
 			const critters = new Critters({
@@ -95,7 +97,8 @@ const criticalCssPlugin = (): Plugin => {
 	};
 };
 
-const proxyEndpoints = [
+// Worker API endpoints (proxied to localhost:8787)
+const workerEndpoints = [
 	'agent',
 	'sessions',
 	'lawyers',
@@ -110,177 +113,194 @@ const proxyEndpoints = [
 	'health',
 ];
 
-const createProxyConfig = () => ({
+// Proxy configuration types from http-proxy-middleware
+const createWorkerProxyConfig = () => ({
 	target: 'http://localhost:8787',
 	changeOrigin: true,
 	secure: false,
 	configure: (proxy: any, _options: any) => {
 		proxy.on('error', (err: Error) => {
-			console.log('proxy error', err);
+			console.log('[Vite Proxy] Worker proxy error:', err);
 		});
 		proxy.on('proxyReq', (_proxyReq: any, req: any) => {
-			console.log('Sending Request to the Target:', req.method, req.url);
+			console.log('[Vite Proxy] Worker →', req.method, req.url);
 		});
 		proxy.on('proxyRes', (proxyRes: any, req: any) => {
-			console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+			console.log('[Vite Proxy] Worker ←', proxyRes.statusCode, req.url);
 		});
 	},
 });
 
-const buildProxyEntries = () => {
-	const entries: Record<string, any> = {};
-	proxyEndpoints.forEach((endpoint) => {
-		entries[`/api/${endpoint}`] = createProxyConfig();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const buildProxyEntries = (): Record<string, any> => {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const entries: Record<string, any> = {} as Record<string, any>;
+
+	// Worker API endpoints (always proxied to localhost:8787)
+	workerEndpoints.forEach((endpoint) => {
+		entries[`/api/${endpoint}`] = createWorkerProxyConfig();
 	});
+
 	return entries;
 };
 
 // https://vitejs.dev/config/
-export default defineConfig({
-	plugins: [
-		preact({
-			prerender: {
-				enabled: true,
-				renderTarget: '#app',
-			},
-		}),
-		// Replace with custom compression
-		customCompressionPlugin({ algorithm: 'gzip' }),
-		customCompressionPlugin({ algorithm: 'brotli' }),
-		// Bundle visualization for production builds
-		visualizer({
-			gzipSize: true,
-			brotliSize: true,
-			open: false, // Set to true to auto-open visualization after build
-			filename: 'dist/stats.html',
-		}),
-		// PWA support
-		VitePWA({
-			registerType: 'autoUpdate',
-			includeAssets: ['favicon.svg'],
-			manifest: {
-				name: 'Blawby Chat',
-				short_name: 'Blawby Chat',
-				description: 'Chat interface for Blawby AI assistant',
-				theme_color: '#ffffff',
-				background_color: '#ffffff',
-				display: 'standalone',
-				icons: [
-					{
-						src: 'favicon.svg',
-						sizes: '192x192',
-						type: 'image/svg+xml',
-						purpose: 'any maskable'
-					},
-					{
-						src: 'favicon.svg',
-						sizes: '512x512',
-						type: 'image/svg+xml',
-						purpose: 'any maskable'
-					}
-				]
-			},
-			workbox: {
-				// Workbox options
-				globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,gif,webp}'],
-				navigateFallbackDenylist: [
-					/^\/api\//,
-					/^\/__better-auth__/,
-				],
-				runtimeCaching: [
-					{
-						urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-						handler: 'CacheFirst',
-						options: {
-							cacheName: 'google-fonts-cache',
-							expiration: {
-								maxEntries: 10,
-								maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-							},
-							cacheableResponse: {
-								statuses: [0, 200]
+export default defineConfig(({ mode }: ConfigEnv) => {
+	const env = loadEnv(mode, process.cwd(), '');
+	return {
+		plugins: [
+			preact({
+				prerender: {
+					enabled: true,
+					renderTarget: '#app',
+				},
+			}),
+			// Replace with custom compression
+			customCompressionPlugin({ algorithm: 'gzip' }),
+			customCompressionPlugin({ algorithm: 'brotli' }),
+			// Bundle visualization for production builds
+			visualizer({
+				gzipSize: true,
+				brotliSize: true,
+				open: false, // Set to true to auto-open visualization after build
+				filename: 'dist/stats.html',
+			}),
+			// PWA support
+			VitePWA({
+				registerType: 'autoUpdate',
+				includeAssets: ['favicon.svg'],
+				manifest: {
+					name: 'Blawby Chat',
+					short_name: 'Blawby Chat',
+					description: 'Chat interface for Blawby AI assistant',
+					theme_color: '#ffffff',
+					background_color: '#ffffff',
+					display: 'standalone',
+					icons: [
+						{
+							src: 'favicon.svg',
+							sizes: '192x192',
+							type: 'image/svg+xml',
+							purpose: 'any maskable'
+						},
+						{
+							src: 'favicon.svg',
+							sizes: '512x512',
+							type: 'image/svg+xml',
+							purpose: 'any maskable'
+						}
+					]
+				},
+				workbox: {
+					// Workbox options
+					globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,gif,webp}'],
+					navigateFallbackDenylist: [
+						/^\/api\//,
+						/^\/__better-auth__/,
+					],
+					runtimeCaching: [
+						{
+							urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+							handler: 'CacheFirst',
+							options: {
+								cacheName: 'google-fonts-cache',
+								expiration: {
+									maxEntries: 10,
+									maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+								},
+								cacheableResponse: {
+									statuses: [0, 200]
+								}
 							}
 						}
-					}
-				]
-			}
-		}),
-		// Process HTML with critical CSS extraction
-		createHtmlPlugin({
-			minify: true,
-			inject: {
-				data: {
-					title: 'Blawby Chat',
-					description: 'Chat interface for Blawby AI assistant',
+					]
 				}
-			}
-		}),
-		// Critical CSS extraction
-		criticalCssPlugin(),
-	],
-	build: {
-		minify: 'terser',
-		terserOptions: {
-			compress: {
-				drop_console: true,
-				passes: 2,
-				drop_debugger: true,
-				pure_funcs: ['console.log', 'console.info', 'console.debug'],
-			},
-			format: {
-				comments: false
-			}
-		},
-		rollupOptions: {
-			input: {
-				main: resolve(__dirname, 'index.html'),
-			},
-			output: {
-				dir: 'dist',
-				entryFileNames: 'assets/[name]-[hash].js',
-				chunkFileNames: 'assets/[name]-[hash].js',
-				assetFileNames: ({ name }) => {
-					// Different output paths for different asset types
-					if (/\.(gif|jpe?g|png|svg|webp)$/.test(name ?? '')) {
-						return 'assets/images/[name]-[hash][extname]';
+			}),
+			// Process HTML with critical CSS extraction
+			createHtmlPlugin({
+				minify: true,
+				inject: {
+					data: {
+						title: 'Blawby Chat',
+						description: 'Chat interface for Blawby AI assistant',
 					}
-					if (/\.(woff2?|eot|ttf|otf)$/.test(name ?? '')) {
-						return 'assets/fonts/[name]-[hash][extname]';
-					}
-					return 'assets/[name]-[hash][extname]';
+				}
+			}),
+			// Critical CSS extraction
+			criticalCssPlugin(),
+		],
+		build: {
+			minify: 'terser',
+			terserOptions: {
+				compress: {
+					drop_console: true,
+					passes: 2,
+					drop_debugger: true,
+					pure_funcs: ['console.log', 'console.info', 'console.debug'],
 				},
-				// Manualchunks configuration for better code splitting
-				manualChunks: {
-					vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat'],
-					ui: ['./src/app/ErrorBoundary.tsx']
+				format: {
+					comments: false
 				}
 			},
+			rollupOptions: {
+				input: {
+					main: resolve(__dirname, 'index.html'),
+				},
+				output: {
+					dir: 'dist',
+					entryFileNames: 'assets/[name]-[hash].js',
+					chunkFileNames: 'assets/[name]-[hash].js',
+					assetFileNames: ({ name }) => {
+						// Different output paths for different asset types
+						if (/\.(gif|jpe?g|png|svg|webp)$/.test(name ?? '')) {
+							return 'assets/images/[name]-[hash][extname]';
+						}
+						if (/\.(woff2?|eot|ttf|otf)$/.test(name ?? '')) {
+							return 'assets/fonts/[name]-[hash][extname]';
+						}
+						return 'assets/[name]-[hash][extname]';
+					},
+					// Manualchunks configuration for better code splitting
+					manualChunks: {
+						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat'],
+						ui: ['./src/app/ErrorBoundary.tsx']
+					}
+				},
+			},
+			cssCodeSplit: true,
+			reportCompressedSize: true,
+			emptyOutDir: true,
+			sourcemap: false,  // Change to true for development
+			target: 'esnext', // Modern browsers for better optimization
+			assetsInlineLimit: 4096, // 4kb - small assets will be inlined
 		},
-		cssCodeSplit: true,
-		reportCompressedSize: true,
-		emptyOutDir: true,
-		sourcemap: false,  // Change to true for development
-		target: 'esnext', // Modern browsers for better optimization
-		assetsInlineLimit: 4096, // 4kb - small assets will be inlined
-	},
-	optimizeDeps: {
-		include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector'],
-	},
-	resolve: {
-		alias: {
-			'@': resolve(__dirname, './src'),
-			'react': 'preact/compat',
-			'react-dom': 'preact/compat',
-			'react/jsx-runtime': 'preact/jsx-runtime',
-			'worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts'),
-			'node:worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts')
+		optimizeDeps: {
+			include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+		},
+		resolve: {
+			alias: {
+				'@': resolve(__dirname, './src'),
+				'react': 'preact/compat',
+				'react-dom': 'preact/compat',
+				'react/jsx-runtime': 'preact/jsx-runtime',
+				'worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts'),
+				'node:worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts')
+			}
+		},
+		server: {
+			port: 5137,      // Matches your current setup
+			strictPort: true, // Fail if port is busy (tunnel expects this exact port)
+			allowedHosts: ['local.blawby.com'], // Allow the public tunnel domain
+			proxy: {
+				...buildProxyEntries(),
+
+				'/api': {
+					target: env.VITE_BACKEND_API_URL, // e.g. https://api.blawby.com
+					changeOrigin: true,
+					secure: true,
+				}
+			}
 		}
-	},
-	server: {
-		// Proxy API calls to local backend for chatbot endpoints only
-		// Management endpoints (auth, organizations CRUD, payment, subscription) are handled by remote API
-		// and will bypass the proxy entirely, using remote API via frontend helpers
-		proxy: buildProxyEntries()
 	}
 	// Note: URL configuration is now centralized in src/config/urls.ts
 	// No need to override environment variables here - use .env file or Cloudflare Pages settings

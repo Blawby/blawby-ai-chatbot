@@ -6,6 +6,7 @@ import { Input, EmailInput, PasswordInput } from '@/shared/ui/input';
 import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { useNavigation } from '@/shared/utils/navigation';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -36,6 +37,7 @@ const AuthForm = ({
   className = ''
 }: AuthFormProps) => {
   const { t } = useTranslation('auth');
+  const { navigate } = useNavigation();
   const [currentMode, setCurrentMode] = useState<AuthMode>(mode ?? defaultMode);
   const [formData, setFormData] = useState({
     name: '',
@@ -49,6 +51,48 @@ const AuthForm = ({
   const [linkingError, setLinkingError] = useState('');
   const [conversationLinked, setConversationLinked] = useState(false);
   const linkingInProgress = useRef(false);
+  const postAuthRedirectKey = 'post-auth-redirect';
+
+  const storePostAuthRedirect = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const currentUrl = new URL(window.location.href);
+      const redirectParam = currentUrl.searchParams.get('redirect');
+      let safeRedirect: string | null = null;
+
+      if (redirectParam) {
+        const decodedRedirect = decodeURIComponent(redirectParam);
+        try {
+          const redirectUrl = new URL(decodedRedirect, window.location.origin);
+          if (redirectUrl.origin === window.location.origin) {
+            safeRedirect = `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`;
+          }
+        } catch {
+          safeRedirect = null;
+        }
+      }
+
+      const fallbackPath = currentUrl.pathname + currentUrl.search + currentUrl.hash;
+      const shouldAvoidAuthPage = currentUrl.pathname.startsWith('/auth');
+      const redirectTarget = safeRedirect ?? (shouldAvoidAuthPage ? '/' : fallbackPath);
+      sessionStorage.setItem(postAuthRedirectKey, redirectTarget);
+    } catch {
+      // Ignore sessionStorage failures and proceed with auth flow
+    }
+  }, []);
+
+  const navigateToStoredRedirect = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const storedRedirect = sessionStorage.getItem(postAuthRedirectKey);
+      if (storedRedirect) {
+        sessionStorage.removeItem(postAuthRedirectKey);
+        navigate(storedRedirect);
+      }
+    } catch {
+      // Ignore sessionStorage failures
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const nextMode = mode ?? defaultMode;
@@ -116,6 +160,7 @@ const AuthForm = ({
     setError('');
     setMessage('');
     setLinkingError('');
+    storePostAuthRedirect();
 
     try {
       if (currentMode === 'signup') {
@@ -151,6 +196,7 @@ const AuthForm = ({
         setMessage(t('messages.accountCreated'));
         await linkConversationIfNeeded();
         await notifySuccess(result.data?.user ?? null);
+        navigateToStoredRedirect();
       } else {
         const client = getClient();
         const result = await client.signIn.email({
@@ -179,6 +225,7 @@ const AuthForm = ({
         setMessage(t('messages.signedIn'));
         await linkConversationIfNeeded();
         await notifySuccess(result.data?.user ?? null);
+        navigateToStoredRedirect();
       }
     } catch (err) {
       console.error('Auth error:', err);
@@ -207,11 +254,16 @@ const AuthForm = ({
 
     try {
       const client = getClient();
+      storePostAuthRedirect();
+
       // callbackURL tells Better Auth where to redirect after OAuth completes
       // With Bearer token auth, the token will be in the Set-Auth-Token header
+      const callbackURL = conversationContext?.conversationId && conversationContext?.practiceId
+        ? `/dashboard?conversationId=${encodeURIComponent(conversationContext.conversationId)}&practiceId=${encodeURIComponent(conversationContext.practiceId)}`
+        : '/dashboard';
       const result = await client.signIn.social({
         provider: 'google',
-        callbackURL: typeof window !== 'undefined' ? `${window.location.origin}/` : '/',
+        callbackURL,
       });
 
       if (result.error) {

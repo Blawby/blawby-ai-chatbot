@@ -19,6 +19,8 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [conversationContext, setConversationContext] = useState<{ conversationId?: string | null; practiceId?: string | null }>({});
+  const isSafeRedirectPath = (path: string | null): path is string =>
+    Boolean(path && path.startsWith('/') && !path.startsWith('//'));
   const getSafeRedirectPath = (decodedRedirect: string): string | null => {
     if (!decodedRedirect || decodedRedirect.startsWith('//')) {
       return null;
@@ -92,7 +94,14 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     }
 
     const delay = redirectDelay;
-    const destination = redirectPath && redirectPath.startsWith('/') ? redirectPath : '/';
+    const postAuthRedirectKey = 'post-auth-redirect';
+    const storedRedirect = sessionStorage.getItem(postAuthRedirectKey);
+    if (storedRedirect) {
+      sessionStorage.removeItem(postAuthRedirectKey);
+    }
+    const destination = isSafeRedirectPath(storedRedirect)
+      ? storedRedirect
+      : (redirectPath && redirectPath.startsWith('/') ? redirectPath : '/');
 
     if (delay > 0) {
       setTimeout(() => {
