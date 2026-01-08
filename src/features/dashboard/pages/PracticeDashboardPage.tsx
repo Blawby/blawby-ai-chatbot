@@ -55,13 +55,20 @@ export const PracticeDashboardPage = () => {
     const conversationId = url.searchParams.get('conversationId');
     const practiceId = url.searchParams.get('practiceId');
     const postAuthRedirect = sessionStorage.getItem(postAuthRedirectKey);
-    const isSafeRedirect = (path: string) => path.startsWith('/') && !path.startsWith('//');
+    const isSafeRedirect = (path: string) => {
+      try {
+        const parsed = new URL(path, window.location.origin);
+        return parsed.origin === window.location.origin;
+      } catch {
+        return path.startsWith('/') && !path.match(/^\/[\\/]/);
+      }
+    };
 
     if (!conversationId || !practiceId) {
       if (postAuthRedirect) {
         sessionStorage.removeItem(postAuthRedirectKey);
         if (isSafeRedirect(postAuthRedirect)) {
-          window.location.href = postAuthRedirect;
+          navigate(postAuthRedirect);
         }
       }
       return;
@@ -86,14 +93,14 @@ export const PracticeDashboardPage = () => {
       if (postAuthRedirect) {
         sessionStorage.removeItem(postAuthRedirectKey);
         if (isSafeRedirect(postAuthRedirect)) {
-          window.location.href = postAuthRedirect;
+          navigate(postAuthRedirect);
           return;
         }
       }
 
       cleanupUrl();
     })();
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="h-full overflow-y-auto p-6">
