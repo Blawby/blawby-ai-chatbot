@@ -88,8 +88,6 @@ function getAuthClient(): AuthClientType {
   }
 
   // Browser context - create the REAL client (only one is ever created and cached)
-  const baseURL = getAuthBaseUrl();
-
   const client = createAuthClient({
     plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
     baseURL: import.meta.env.VITE_BACKEND_API_URL,

@@ -38,7 +38,9 @@ function loadToken(): string | null {
                 // Skip comments and empty lines
                 if (!trimmed || trimmed.startsWith('#')) continue;
                 if (trimmed.startsWith('CLOUDFLARE_TUNNEL_TOKEN=')) {
-                    token = trimmed.split('=')[1]?.trim().replace(/^["']|["']$/g, '') || null;
+                    const index = trimmed.indexOf('=');
+                    const value = index === -1 ? '' : trimmed.substring(index + 1);
+                    token = value.trim().replace(/^["']|["']$/g, '') || null;
                     break;
                 }
             }
@@ -58,7 +60,9 @@ function loadToken(): string | null {
                 const trimmed = line.trim();
                 if (!trimmed || trimmed.startsWith('#')) continue;
                 if (trimmed.startsWith('CLOUDFLARE_TUNNEL_TOKEN=')) {
-                    token = trimmed.split('=')[1]?.trim().replace(/^["']|["']$/g, '') || null;
+                    const index = trimmed.indexOf('=');
+                    const value = index === -1 ? '' : trimmed.substring(index + 1);
+                    token = value.trim().replace(/^["']|["']$/g, '') || null;
                     break;
                 }
             }
@@ -108,4 +112,3 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
     cloudflared.kill('SIGTERM');
 });
-

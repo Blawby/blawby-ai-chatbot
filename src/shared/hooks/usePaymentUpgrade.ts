@@ -70,26 +70,6 @@ function ensureValidReturnUrl(url: string | undefined | null, _practiceId?: stri
 }
 
 // Callback URLs may be relative (path-only) or absolute.
-function ensureValidCallbackUrl(url: string | undefined | null): string {
-  if (!url || typeof url !== 'string') {
-    throw new Error(`Invalid callback URL: ${url === null ? 'null' : url === undefined ? 'undefined' : 'not a string'}`);
-  }
-
-  const trimmed = url.trim();
-  if (trimmed.length === 0) {
-    throw new Error('Invalid callback URL: empty string');
-  }
-
-  if (trimmed.startsWith('/')) {
-    if (trimmed.startsWith('//') || trimmed.includes('://')) {
-      throw new Error(`Invalid callback URL format: ${trimmed}`);
-    }
-    return trimmed;
-  }
-
-  return ensureValidReturnUrl(trimmed);
-}
-
 // Helper functions for safe type extraction from API responses
 function extractUrl(result: unknown): string | undefined {
   if (result && typeof result === 'object' && result !== null) {
