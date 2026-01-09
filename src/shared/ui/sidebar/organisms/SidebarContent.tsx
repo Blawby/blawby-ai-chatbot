@@ -12,6 +12,7 @@ import { ChatBubbleOvalLeftEllipsisIcon, RocketLaunchIcon, HomeIcon } from '@her
 import UserProfile from '@/shared/components/UserProfile';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 import type { ComponentChildren } from 'preact';
+import type { SubscriptionTier } from '@/shared/types/user';
 
 interface SidebarContentProps {
   practiceConfig?: {
@@ -29,7 +30,7 @@ interface SidebarContentProps {
   chatSidebarContent?: ComponentChildren;
   currentPractice?: {
     id: string;
-    subscriptionTier?: string;
+    subscriptionTier?: SubscriptionTier;
   } | null;
   onboardingStatus?: BusinessOnboardingStatus;
   onboardingHasDraft?: boolean;

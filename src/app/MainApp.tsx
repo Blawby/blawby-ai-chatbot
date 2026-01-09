@@ -5,7 +5,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
 import AppLayout from './AppLayout';
 import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
-import { useSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { SubscriptionTier } from '@/shared/types/user';
 import { resolvePracticeKind } from '@/shared/utils/subscription';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -148,7 +148,7 @@ export function MainApp({
   }, [basePath, conversationId, location.path, navigate]);
 
   // Use session from Better Auth
-  const { data: session, isPending: sessionIsPending } = useSession();
+  const { session, isPending: sessionIsPending } = useSessionContext();
   const isAnonymousUser = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
   const isPracticeWorkspace = workspace === 'practice';
   const effectivePracticeId = practiceId || undefined;

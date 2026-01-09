@@ -1,10 +1,10 @@
-import { useSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { useSubscription } from '@/shared/hooks/useSubscription';
 
 const ClientHomePage = () => {
-  const { data: session } = useSession();
+  const { session } = useSessionContext();
   const { navigate } = useNavigation();
   const { isPracticeEnabled } = useSubscription();
   const name = session?.user?.name || session?.user?.email || 'there';

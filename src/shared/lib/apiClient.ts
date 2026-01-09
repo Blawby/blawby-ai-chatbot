@@ -692,11 +692,17 @@ function normalizeSubscriptionListResponse(payload: unknown): Record<string, unk
 }
 
 export async function listAuthSubscriptions(
+  referenceId: string,
   config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<AuthSubscriptionListItem[]> {
+  if (!referenceId) {
+    throw new Error('referenceId is required');
+  }
+
   const response = await apiClient.get(
     getSubscriptionListEndpoint(),
     {
+      params: { referenceId },
       baseURL: undefined, // Use full URL from getSubscriptionListEndpoint
       signal: config?.signal
     }

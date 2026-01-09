@@ -28,6 +28,7 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import Modal from '@/shared/components/Modal';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import type { WorkspaceType } from '@/shared/types/workspace';
+import type { SubscriptionTier } from '@/shared/types/user';
 
 // Simple messages object for localization
 const messages = {
@@ -51,7 +52,7 @@ interface AppLayoutProps {
   };
   currentPractice?: {
     id: string;
-    subscriptionTier?: string;
+    subscriptionTier?: SubscriptionTier;
     businessOnboardingStatus?: BusinessOnboardingStatus;
     businessOnboardingCompletedAt?: number | null;
     businessOnboardingHasDraft?: boolean;

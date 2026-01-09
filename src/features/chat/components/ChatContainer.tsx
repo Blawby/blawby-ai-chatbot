@@ -11,7 +11,7 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import LawyerSearchInline from '@/features/lawyer-search/components/LawyerSearchInline';
 import WelcomeState from '@/features/welcome/components/WelcomeState';
-import { useSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
 import { extractProgressFromPracticeMetadata } from '@/shared/utils/practiceOnboarding';
@@ -78,7 +78,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isAnonymousUser,
   canChat = true
 }) => {
-  const { data: session } = useSession();
+  const { session } = useSessionContext();
   const { currentPractice, loading: practiceLoading } = usePracticeManagement();
   const { navigate } = useNavigation();
   const isAuthenticated = Boolean(session?.user);

@@ -31,7 +31,6 @@ import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
-import { getStoredWorkspace } from '@/shared/utils/workspace';
 
 
 export interface SettingsPageProps {
@@ -51,10 +50,8 @@ export const SettingsPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const [apps, setApps] = useState<App[]>(mockApps);
   const { loading: practicesLoading } = usePracticeManagement({ autoFetchPractices: true });
-  const { defaultWorkspace, canAccessPractice } = useWorkspace();
-  const storedWorkspace = getStoredWorkspace();
-  const activeWorkspace = storedWorkspace ?? defaultWorkspace;
-  const canShowPracticeSettings = activeWorkspace === 'practice' && canAccessPractice;
+  const { canAccessPractice } = useWorkspace();
+  const canShowPracticeSettings = canAccessPractice;
   
   // Get current page from URL path
   const getCurrentPage = () => {

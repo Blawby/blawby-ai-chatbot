@@ -205,7 +205,7 @@ export const usePaymentUpgrade = () => {
       params.set('practiceId', practiceId);
     }
     const query = params.toString();
-    return `/business-onboarding${query ? `?${query}` : ''}`;
+    return `/practice/dashboard${query ? `?${query}` : ''}`;
   }, []);
 
   const buildCancelUrl = useCallback((_practiceId?: string) => {

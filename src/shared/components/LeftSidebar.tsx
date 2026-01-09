@@ -3,6 +3,7 @@ import { SidebarContent } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 import type { ComponentChildren } from 'preact';
+import type { SubscriptionTier } from '@/shared/types/user';
 
 interface LeftSidebarProps {
   currentRoute: string;
@@ -20,7 +21,7 @@ interface LeftSidebarProps {
   };
   currentPractice?: {
     id: string;
-    subscriptionTier?: string;
+    subscriptionTier?: SubscriptionTier;
   } | null;
   onboardingStatus?: BusinessOnboardingStatus;
   onboardingHasDraft?: boolean;

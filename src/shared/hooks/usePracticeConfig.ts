@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { z } from 'zod';
 import type { PracticeConfig } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { useSession } from '@/shared/lib/authClient';
 import { DEFAULT_PRACTICE_ID } from '@/shared/utils/constants';
 import { listPractices, getPractice } from '@/shared/lib/apiClient';
 import { PLATFORM_SETTINGS } from '@/config/platform';
@@ -42,8 +41,7 @@ export const usePracticeConfig = ({
   practiceId: explicitPracticeId,
   allowUnauthenticated = false
 }: UsePracticeConfigOptions = {}) => {
-  const { activePracticeId } = useSessionContext();
-  const { data: session } = useSession();
+  const { activePracticeId, session } = useSessionContext();
   const isAuthenticated = Boolean(session?.user);
   const [practiceId, setPracticeId] = useState<string>('');
   const [practiceNotFound, setPracticeNotFound] = useState<boolean>(false);

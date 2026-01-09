@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { ArrowLeftIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
-import { authClient } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { normalizeSeats } from '@/shared/utils/subscription';
 import { Button } from '@/shared/ui/Button';
@@ -19,7 +19,7 @@ interface PracticeTeamPageProps {
 }
 
 export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
-  const { data: session } = authClient.useSession();
+  const { session } = useSessionContext();
   const {
     currentPractice,
     getMembers,

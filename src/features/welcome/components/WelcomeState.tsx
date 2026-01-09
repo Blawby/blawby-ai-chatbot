@@ -24,7 +24,7 @@ interface WelcomeStateProps {
 const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> = [
   { step: 'firm-basics', labelKey: 'welcome.lawyer.todo.createPractice' },
   { step: 'business-details', labelKey: 'welcome.lawyer.todo.businessDetails' },
-  { step: 'trust-account-intro', labelKey: 'welcome.lawyer.todo.trustAccount' },
+  { step: 'stripe-onboarding', labelKey: 'welcome.lawyer.todo.trustAccount' },
   { step: 'services', labelKey: 'welcome.lawyer.todo.services' },
   { step: 'review-and-launch', labelKey: 'welcome.lawyer.todo.launch' }
 ];

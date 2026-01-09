@@ -14,7 +14,7 @@ import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
 import { useNavigation } from '@/shared/utils/navigation';
-import { authClient } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -130,7 +130,7 @@ interface LeadSummary {
 }
 
 export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
-  const { data: session } = authClient.useSession();
+  const { session } = useSessionContext();
   const { 
     currentPractice, 
     getMembers,

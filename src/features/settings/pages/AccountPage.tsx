@@ -5,7 +5,7 @@ import Modal from '@/shared/components/Modal';
 import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import { useSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { signOut } from '@/shared/utils/auth';
 import { TIER_FEATURES } from '@/shared/utils/stripe-products';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -49,7 +49,7 @@ export const AccountPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch, getMembers, fetchMembers } = usePracticeManagement();
-  const { data: session, isPending } = useSession();
+  const { session, isPending } = useSessionContext();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);

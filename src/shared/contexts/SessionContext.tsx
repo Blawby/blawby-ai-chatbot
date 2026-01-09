@@ -1,10 +1,11 @@
 import { createContext, useContext, useMemo } from 'preact/compat';
 import { ComponentChildren } from 'preact';
 import { useTypedSession } from '@/shared/lib/authClient';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
 export interface SessionContextValue {
   session: ReturnType<typeof useTypedSession>['data'];
+  isPending: boolean;
+  error: unknown;
   isAnonymous: boolean;
   activePracticeId: string | null;
   primaryWorkspace: 'client' | 'practice' | null;
@@ -15,33 +16,48 @@ export interface SessionContextValue {
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
-  const { data: sessionData } = useTypedSession();
+  const { data: sessionData, isPending, error } = useTypedSession();
 
   const isAnonymous = !sessionData?.user;
-  const { currentPractice } = usePracticeManagement();
+
+  const sessionRecord = sessionData?.session as Record<string, unknown> | undefined;
+  const activeOrgId =
+    (typeof sessionRecord?.activeOrganizationId === 'string'
+      ? sessionRecord.activeOrganizationId
+      : typeof sessionRecord?.active_organization_id === 'string'
+        ? sessionRecord.active_organization_id
+        : null);
 
   const activePracticeIdFromSession =
-    sessionData?.user?.practiceId ?? sessionData?.user?.activePracticeId ?? null;
+    sessionData?.user?.practiceId ??
+    sessionData?.user?.activePracticeId ??
+    activeOrgId ??
+    null;
 
-  const activePracticeId = currentPractice?.id ?? activePracticeIdFromSession ?? null;
+  const activePracticeId = activePracticeIdFromSession ?? null;
   const primaryWorkspace = sessionData?.user?.primaryWorkspace ?? null;
   const preferredPracticeId = sessionData?.user?.preferredPracticeId ?? null;
   const practiceCount = sessionData?.user?.practiceCount ?? null;
   const hasPracticeFlag = sessionData?.user?.hasPractice ?? null;
+  const hasActivePractice = Boolean(activePracticeIdFromSession);
+  const hasPreferredPractice = Boolean(preferredPracticeId);
   const hasPractice = Boolean(
     (typeof hasPracticeFlag === 'boolean' ? hasPracticeFlag : null) ??
     (typeof practiceCount === 'number' ? practiceCount > 0 : null) ??
-    currentPractice
+    (hasActivePractice ? true : null) ??
+    (hasPreferredPractice ? true : null)
   );
 
   const value = useMemo<SessionContextValue>(() => ({
     session: sessionData ?? null,
+    isPending,
+    error,
     isAnonymous,
     activePracticeId,
     primaryWorkspace,
     preferredPracticeId,
     hasPractice
-  }), [sessionData, isAnonymous, activePracticeId, primaryWorkspace, preferredPracticeId, hasPractice]);
+  }), [sessionData, isPending, error, isAnonymous, activePracticeId, primaryWorkspace, preferredPracticeId, hasPractice]);
 
   return (
     <SessionContext.Provider value={value}>

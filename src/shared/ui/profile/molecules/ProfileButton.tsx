@@ -54,22 +54,18 @@ export const ProfileButton = ({
             {name}
           </p>
           <div className="-mt-0.5">
-            {tier !== 'enterprise' && <TierBadge tier={tier} />}
+            <TierBadge tier={tier} />
           </div>
         </div>
       </button>
 
-      {/* Upgrade Button - unified for all non-enterprise tiers */}
-      {tier !== 'enterprise' && onUpgrade && (
+      {/* Upgrade Button - only for free tier */}
+      {tier === 'free' && onUpgrade && (
         <UpgradeButton onClick={onUpgrade} variant="short" />
       )}
 
-      {/* Enterprise Badge - non-clickable for max tier users */}
-      {tier === 'enterprise' && (
-        <TierBadge tier={tier} variant="enterprise" />
-      )}
+      {tier === 'enterprise' && <TierBadge tier={tier} variant="enterprise" />}
     </div>
   );
 };
-
 

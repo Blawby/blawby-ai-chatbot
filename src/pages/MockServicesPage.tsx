@@ -193,6 +193,8 @@ const mockSession = {
 function MockSessionProvider({ children }: { children: preact.ComponentChildren }) {
   const value = useMemo<SessionContextValue>(() => ({
     session: mockSession.data,
+    isPending: false,
+    error: null,
     activePracticeId: mockSession.data.user.activePracticeId,
     isAnonymous: false,
     primaryWorkspace: 'practice' as const,

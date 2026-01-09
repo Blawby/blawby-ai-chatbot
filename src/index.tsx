@@ -5,8 +5,8 @@ import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
-import { SessionProvider } from '@/shared/contexts/SessionContext';
-import { useTypedSession, getClient, updateUser } from '@/shared/lib/authClient';
+import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
+import { getClient, updateUser } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -115,7 +115,7 @@ function SettingsRoute() {
 }
 
 function RootRoute() {
-  const { data: session, isPending } = useTypedSession();
+  const { session, isPending } = useSessionContext();
   const {
     defaultWorkspace,
     preferredPracticeId,
@@ -201,7 +201,7 @@ function RootRoute() {
 }
 
 function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
-  const { data: session, isPending } = useTypedSession();
+  const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
 
   useEffect(() => {
@@ -234,7 +234,7 @@ function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
 }
 
 function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
-  const { data: session, isPending } = useTypedSession();
+  const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
   const { preferredPracticeId, activePracticeId, hasPractice, isPracticeEnabled, canAccessPractice } = useWorkspace();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
@@ -293,7 +293,7 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
 
 function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
   const location = useLocation();
-  const { data: session, isPending: sessionIsPending } = useTypedSession();
+  const { session, isPending: sessionIsPending } = useSessionContext();
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
   }, []);
