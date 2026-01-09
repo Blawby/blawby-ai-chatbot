@@ -6,9 +6,12 @@ import { useInbox } from '@/shared/hooks/useInbox';
 import { Button } from '@/shared/ui/Button';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { NextStepsCard, type NextStepsStatus } from '@/shared/ui/cards/NextStepsCard';
-import { extractProgressFromPracticeMetadata, ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
+import { ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
+import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
+import { getActiveOrganizationId } from '@/shared/utils/session';
+import { hasOnboardingStepData, type LocalOnboardingProgress } from '@/shared/utils/onboardingStorage';
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -28,15 +31,21 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> = [
-  { step: 'firm-basics', labelKey: 'welcome.lawyer.todo.createPractice' },
-  { step: 'business-details', labelKey: 'welcome.lawyer.todo.businessDetails' },
-  { step: 'stripe-onboarding', labelKey: 'welcome.lawyer.todo.trustAccount' },
-  { step: 'services', labelKey: 'welcome.lawyer.todo.services' },
-  { step: 'review-and-launch', labelKey: 'welcome.lawyer.todo.launch' }
-];
+const CHECKLIST_LABELS: Partial<Record<OnboardingStep, string>> = {
+  'firm-basics': 'welcome.lawyer.todo.createPractice',
+  'stripe-onboarding': 'welcome.lawyer.todo.trustAccount',
+  'business-details': 'welcome.lawyer.todo.businessDetails',
+  services: 'welcome.lawyer.todo.services',
+  'review-and-launch': 'welcome.lawyer.todo.launch'
+};
 
-const resolveResumeStep = (progress: ReturnType<typeof extractProgressFromPracticeMetadata>): OnboardingStep | undefined => {
+const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> =
+  ONBOARDING_STEP_SEQUENCE.flatMap((step) => {
+    const labelKey = CHECKLIST_LABELS[step];
+    return labelKey ? [{ step, labelKey }] : [];
+  });
+
+const resolveResumeStep = (progress: LocalOnboardingProgress): OnboardingStep | undefined => {
   if (!progress?.data) return undefined;
   const candidate = progress.data.__meta?.resumeStep;
   return isValidOnboardingStep(candidate) ? candidate : undefined;
@@ -44,7 +53,7 @@ const resolveResumeStep = (progress: ReturnType<typeof extractProgressFromPracti
 
 const getChecklistStatus = (
   targetStep: OnboardingStep,
-  progress: ReturnType<typeof extractProgressFromPracticeMetadata>
+  progress: LocalOnboardingProgress
 ): NextStepsStatus => {
   const isComplete =
     progress?.status === 'completed' ||
@@ -59,9 +68,10 @@ const getChecklistStatus = (
   const resumeStep = resolveResumeStep(progress);
   const targetIndex = ONBOARDING_STEP_SEQUENCE.indexOf(targetStep);
   const resumeIndex = resumeStep ? ONBOARDING_STEP_SEQUENCE.indexOf(resumeStep) : -1;
+  const hasStepData = hasOnboardingStepData(targetStep, progress?.data ?? null);
 
   if (resumeIndex >= 0 && targetIndex >= 0) {
-    if (targetIndex < resumeIndex) return 'completed';
+    if (targetIndex < resumeIndex) return hasStepData ? 'completed' : 'incomplete';
     if (targetIndex === resumeIndex) return 'pending';
     return 'incomplete';
   }
@@ -75,12 +85,10 @@ export const PracticeDashboardPage = () => {
   const { navigate } = useNavigation();
   const { t } = useTranslation('common');
   const { currentPractice } = usePracticeManagement();
-  const { activePracticeId } = useSessionContext();
+  const { session, activePracticeId } = useSessionContext();
   const linkingHandledRef = useRef(false);
-  const onboardingProgress = useMemo(
-    () => extractProgressFromPracticeMetadata(currentPractice?.metadata),
-    [currentPractice?.metadata]
-  );
+  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const onboardingProgress = useLocalOnboardingProgress(organizationId);
 
   const {
     conversations,

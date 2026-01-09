@@ -4,25 +4,25 @@ import BusinessOnboardingModal from '@/features/onboarding/components/BusinessOn
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { isForcePaidEnabled } from '@/shared/utils/devFlags';
 import { resolvePracticeKind } from '@/shared/utils/subscription';
 import { useSubscription } from '@/shared/hooks/useSubscription';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import {
-  updatePractice
-} from '@/shared/lib/apiClient';
-import {
-  buildPracticeOnboardingMetadata,
-  extractProgressFromPracticeMetadata,
   ONBOARDING_STEP_SEQUENCE,
   type OnboardingStatusValue
 } from '@/shared/utils/practiceOnboarding';
+import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
+import { updateLocalOnboardingState } from '@/shared/utils/onboardingStorage';
+import { getActiveOrganizationId } from '@/shared/utils/session';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { currentPractice, practices, refetch, loading, error } = usePracticeManagement();
   const { showSuccess, showError } = useToastContext();
+  const { session } = useSessionContext();
   const devForcePaid = isForcePaidEnabled();
   const [isOpen] = useState(true);
   const [ready, setReady] = useState(false);
@@ -54,28 +54,26 @@ export const BusinessOnboardingPage = () => {
     referenceId: targetPracticeId ?? undefined,
     enabled: Boolean(targetPracticeId)
   });
-  const metadataSource = targetPractice?.metadata;
-  const onboardingProgress = useMemo(
-    () => extractProgressFromPracticeMetadata(metadataSource),
-    [metadataSource]
-  );
+  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const onboardingProgress = useLocalOnboardingProgress(organizationId);
   const onboardingStatus = onboardingProgress?.status;
   const markOnboardingStatus = useCallback(
     async (status: OnboardingStatusValue) => {
-      if (!targetPracticeId) return;
+      if (!organizationId) return;
       try {
-        const metadata = buildPracticeOnboardingMetadata(metadataSource, {
+        updateLocalOnboardingState(organizationId, (prev) => ({
           status,
-          savedAt: Date.now()
-        });
-        await updatePractice(targetPracticeId, { metadata });
-        await refetch();
+          resumeStep: prev?.resumeStep,
+          savedAt: Date.now(),
+          completedAt: status === 'completed' ? Date.now() : prev?.completedAt ?? null,
+          data: prev?.data ?? null
+        }));
       } catch (error) {
         console.error(`[ONBOARDING][STATUS] Failed to update status to ${status}`, error);
         throw error;
       }
     },
-    [targetPracticeId, metadataSource, refetch]
+    [organizationId]
   );
 
   // Local timeout to avoid indefinite spinner when practices loading takes too long

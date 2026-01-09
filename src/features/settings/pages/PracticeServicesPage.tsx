@@ -1,17 +1,13 @@
 import { useMemo, useRef, useState, useCallback } from 'preact/hooks';
-import { ArrowLeftIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
-import { Button } from '@/shared/ui/Button';
-import { ServicesList } from '@/features/services/components/ServicesList';
+import { ServicesEditor } from '@/features/services/components/ServicesEditor';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
-import { useServices } from '@/features/services/hooks/useServices';
 import { createServiceId, type Service } from '@/features/services/types';
 import { getServiceDetailsForSave, getServiceTitles, normalizeServices } from '@/features/services/utils';
 import type { PracticeConfig } from '../../../../worker/types';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import Modal from '@/shared/components/Modal';
-import { ServiceForm } from '@/features/services/components/ServiceForm';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -117,11 +113,6 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
   const { navigate: baseNavigate } = useNavigation();
   const navigate = onNavigate ?? baseNavigate;
   const [servicesError, setServicesError] = useState<string | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addDraft, setAddDraft] = useState<{ title: string; description: string }>({
-    title: '',
-    description: ''
-  });
   const lastSavedKeyRef = useRef<string>('');
   const lastToastAtRef = useRef(0);
   const toastCooldownMs = 4000;
@@ -180,31 +171,6 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
     }
   }, [conversationConfig, currentPractice, showError, showSuccess, updatePractice]);
 
-  const {
-    services: serviceDrafts,
-    addCustomService,
-    updateService,
-    removeService
-  } = useServices({
-    initialServices: initialServiceDetails,
-    catalog: SERVICE_CATALOG,
-    onChange: (nextServices) => {
-      void saveServices(nextServices);
-    }
-  });
-
-  const openAddModal = () => {
-    setAddDraft({ title: '', description: '' });
-    setIsAddModalOpen(true);
-  };
-
-  const handleAddService = () => {
-    if (!addDraft.title.trim()) return;
-    addCustomService(addDraft);
-    setAddDraft({ title: '', description: '' });
-    setIsAddModalOpen(false);
-  };
-
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -214,7 +180,7 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full min-h-0 flex flex-col">
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         <div className="pt-4 pb-6">
           <button
@@ -234,12 +200,6 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
                 Manage the legal services shown to clients during intake.
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button size="sm" onClick={openAddModal}>
-                <PlusIcon className="w-4 h-4 mr-2" />
-                Add Service
-              </Button>
-            </div>
           </div>
         </div>
 
@@ -249,36 +209,12 @@ export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) 
           </p>
         )}
 
-        <ServicesList
-          services={serviceDrafts}
-          onUpdateService={updateService}
-          onRemoveService={removeService}
-          emptyMessage="Use Add Service to create your first service."
+        <ServicesEditor
+          services={initialServiceDetails}
+          onChange={(nextServices) => void saveServices(nextServices)}
+          catalog={SERVICE_CATALOG}
         />
       </div>
-
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title="Add Service"
-      >
-        <div className="space-y-4">
-          <ServiceForm
-            value={addDraft}
-            onChange={setAddDraft}
-            titleLabel="Service Title"
-            descriptionLabel="Description"
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setIsAddModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" onClick={handleAddService} disabled={!addDraft.title.trim()}>
-              Add Service
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

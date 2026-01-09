@@ -101,3 +101,19 @@ export const extractStripeStatusFromPayload = (
 
   return null;
 };
+
+export const extractClientSecretFromPayload = (payload: unknown): string | null => {
+  const normalized = unwrapOnboardingPayload(payload);
+  if (!normalized || typeof normalized !== 'object') {
+    return null;
+  }
+
+  const candidate = normalized as Record<string, unknown>;
+  const secret = candidate.client_secret ?? candidate.clientSecret;
+
+  if (typeof secret === 'string' && secret.trim().length > 0) {
+    return secret;
+  }
+
+  return null;
+};

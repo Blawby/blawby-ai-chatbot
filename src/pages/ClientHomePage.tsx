@@ -4,9 +4,12 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { useSubscription } from '@/shared/hooks/useSubscription';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { extractProgressFromPracticeMetadata, ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
+import { ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import { NextStepsCard, type NextStepsStatus, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
+import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
+import { getActiveOrganizationId } from '@/shared/utils/session';
+import { hasOnboardingStepData, type LocalOnboardingProgress } from '@/shared/utils/onboardingStorage';
 
 const ClientHomePage = () => {
   const { session } = useSessionContext();
@@ -15,10 +18,8 @@ const ClientHomePage = () => {
   const { currentPractice } = usePracticeManagement();
   const name = session?.user?.name || session?.user?.email || 'there';
   const showUpgrade = !isPracticeEnabled;
-  const onboardingProgress = useMemo(
-    () => extractProgressFromPracticeMetadata(currentPractice?.metadata),
-    [currentPractice?.metadata]
-  );
+  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const onboardingProgress = useLocalOnboardingProgress(organizationId);
   const showPracticeOnboarding =
     isPracticeEnabled &&
     Boolean(currentPractice?.id) &&
@@ -111,15 +112,21 @@ const ClientHomePage = () => {
   );
 };
 
-const CHECKLIST_STEPS: Array<{ step: OnboardingStep; label: string }> = [
-  { step: 'firm-basics', label: 'Add your firm basics' },
-  { step: 'business-details', label: 'Add your business info' },
-  { step: 'stripe-onboarding', label: 'Connect Stripe' },
-  { step: 'services', label: 'Add your services' },
-  { step: 'review-and-launch', label: 'Launch your intake assistant' }
-];
+const CHECKLIST_LABELS: Partial<Record<OnboardingStep, string>> = {
+  'firm-basics': 'Add your firm basics',
+  'stripe-onboarding': 'Connect Stripe',
+  'business-details': 'Add your business info',
+  services: 'Add your services',
+  'review-and-launch': 'Launch your intake assistant'
+};
 
-const resolveResumeStep = (progress: ReturnType<typeof extractProgressFromPracticeMetadata>): OnboardingStep | undefined => {
+const CHECKLIST_STEPS: Array<{ step: OnboardingStep; label: string }> =
+  ONBOARDING_STEP_SEQUENCE.flatMap((step) => {
+    const label = CHECKLIST_LABELS[step];
+    return label ? [{ step, label }] : [];
+  });
+
+const resolveResumeStep = (progress: LocalOnboardingProgress): OnboardingStep | undefined => {
   if (!progress?.data) return undefined;
   const candidate = progress.data.__meta?.resumeStep;
   return isValidOnboardingStep(candidate) ? candidate : undefined;
@@ -127,7 +134,7 @@ const resolveResumeStep = (progress: ReturnType<typeof extractProgressFromPracti
 
 const getChecklistStatus = (
   targetStep: OnboardingStep,
-  progress: ReturnType<typeof extractProgressFromPracticeMetadata>
+  progress: LocalOnboardingProgress
 ): NextStepsStatus => {
   const isComplete =
     progress?.status === 'completed' ||
@@ -142,9 +149,10 @@ const getChecklistStatus = (
   const resumeStep = resolveResumeStep(progress);
   const targetIndex = ONBOARDING_STEP_SEQUENCE.indexOf(targetStep);
   const resumeIndex = resumeStep ? ONBOARDING_STEP_SEQUENCE.indexOf(resumeStep) : -1;
+  const hasStepData = hasOnboardingStepData(targetStep, progress?.data ?? null);
 
   if (resumeIndex >= 0 && targetIndex >= 0) {
-    if (targetIndex < resumeIndex) return 'completed';
+    if (targetIndex < resumeIndex) return hasStepData ? 'completed' : 'incomplete';
     if (targetIndex === resumeIndex) return 'pending';
     return 'incomplete';
   }

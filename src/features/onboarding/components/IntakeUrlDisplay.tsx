@@ -14,12 +14,18 @@ interface IntakeUrlDisplayProps {
   url: string;
   onCopy?: (url: string) => void;
   className?: string;
+  title?: string;
+  description?: string;
+  icon?: string;
 }
 
 export const IntakeUrlDisplay = ({
   url,
   onCopy,
-  className = ''
+  className = '',
+  title = 'Your intake page URL',
+  description = 'After launching, share this link on your website, in emails, or on social media to start collecting client intake.',
+  icon = '🔗'
 }: IntakeUrlDisplayProps) => {
   const [copied, setCopied] = useState(false);
   const resetTimerRef = useRef<number | null>(null);
@@ -63,8 +69,8 @@ export const IntakeUrlDisplay = ({
     <InfoCard
       variant="blue"
       size="md"
-      icon="🔗"
-      title="Your intake page URL"
+      icon={icon}
+      title={title}
       className={className}
     >
       <div className="space-y-3">
@@ -89,7 +95,7 @@ export const IntakeUrlDisplay = ({
         </Button>
         
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          After launching, share this link on your website, in emails, or on social media to start collecting client intake.
+          {description}
         </p>
       </div>
     </InfoCard>

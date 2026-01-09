@@ -6,7 +6,6 @@ export interface MockPractice {
   id: string;
   slug: string;
   name: string;
-  description?: string;
   kind: 'personal' | 'business';
   subscriptionStatus: string;
   subscriptionTier?: string | null;
@@ -23,7 +22,7 @@ export interface MockPractice {
   primaryColor?: string | null;
   accentColor?: string | null;
   introMessage?: string | null;
-  overview?: string | null;
+  description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 }
@@ -62,6 +61,7 @@ export interface OnboardingState {
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
   stripeAccountId: string | null;
+  clientSecret?: string | null;
 }
 
 export interface MockConversation {
@@ -324,7 +324,8 @@ const defaultOnboarding: OnboardingState = {
   chargesEnabled: false,
   payoutsEnabled: false,
   detailsSubmitted: false,
-  stripeAccountId: null
+  stripeAccountId: null,
+  clientSecret: null
 };
 
 const defaultPreferences: PreferencesResponse['data'] = {

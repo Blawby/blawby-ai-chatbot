@@ -14,7 +14,8 @@ import WelcomeState from '@/features/welcome/components/WelcomeState';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
-import { extractProgressFromPracticeMetadata } from '@/shared/utils/practiceOnboarding';
+import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
+import { getActiveOrganizationId } from '@/shared/utils/session';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -87,10 +88,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const isMobile = useMobileDetection();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
-  const onboardingProgress = useMemo(
-    () => extractProgressFromPracticeMetadata(currentPractice?.metadata),
-    [currentPractice?.metadata]
-  );
+  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const onboardingProgress = useLocalOnboardingProgress(organizationId);
 
 
   // Simple resize handler for window size changes

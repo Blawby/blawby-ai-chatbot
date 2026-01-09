@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
+import { PayoutsPage } from './PayoutsPage';
 import { SecurityPage } from './SecurityPage';
 import { HelpPage } from './HelpPage';
 import { PracticePage } from './PracticePage';
@@ -70,6 +71,11 @@ export const SettingsPage = ({
     return segments[2] || '';
   };
 
+  const getAccountSubPage = () => {
+    const segments = location.path.split('/').filter(Boolean);
+    return segments[2] || '';
+  };
+
   const getCurrentAppId = () => {
     const segments = location.path.split('/').filter(Boolean);
     return segments[2];
@@ -77,6 +83,7 @@ export const SettingsPage = ({
 
   const currentAppId = getCurrentAppId();
   const practiceSubPage = getPracticeSubPage();
+  const accountSubPage = getAccountSubPage();
   const currentPage = getCurrentPage();
 
   // Redirect legacy 'organization' URLs to 'practice'
@@ -147,6 +154,9 @@ export const SettingsPage = ({
     if (currentPage === 'practice' && practiceSubPage === 'team') {
       return t('settings:practice.team');
     }
+    if (currentPage === 'account' && accountSubPage === 'payouts') {
+      return 'Payouts';
+    }
     return navigationItems.find(item => item.id === currentPage)?.label || 'Settings';
   })();
 
@@ -163,6 +173,9 @@ export const SettingsPage = ({
       case 'notifications':
         return <NotificationsPage className="h-full" />;
       case 'account':
+        if (accountSubPage === 'payouts') {
+          return <PayoutsPage className="h-full" />;
+        }
         return <AccountPage isMobile={isMobile} onClose={onClose} className="h-full" />;
       case 'practice':
         if (practiceSubPage === 'services') {
@@ -215,7 +228,7 @@ export const SettingsPage = ({
   // Mobile layout - show navigation or content based on current page
   if (isMobile) {
     return (
-      <div className={cn('h-full flex flex-col', className)}>
+    <div className={cn('h-full min-h-0 flex flex-col', className)}>
         {currentPage === 'navigation' ? (
           // Main settings page (navigation)
           <>
@@ -273,7 +286,7 @@ export const SettingsPage = ({
             </div>
 
             {/* Mobile Content - Show specific settings page */}
-            <div className="flex-1 overflow-y-auto bg-white dark:bg-dark-bg">
+            <div className="flex-1 min-h-0 overflow-y-auto bg-white dark:bg-dark-bg">
               {renderContent()}
             </div>
           </>
@@ -284,7 +297,7 @@ export const SettingsPage = ({
 
   // Desktop layout - two panel
   return (
-    <div className={cn('h-full flex', className)}>
+    <div className={cn('h-full min-h-0 flex', className)}>
       {/* Left Navigation Panel */}
       <div className="w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-dark-border flex flex-col">
         {/* Close Button - Top of Sidebar */}
@@ -311,7 +324,7 @@ export const SettingsPage = ({
       </div>
 
       {/* Right Content Panel */}
-      <div className="flex-1 bg-white dark:bg-dark-bg">
+      <div className="flex-1 min-h-0 bg-white dark:bg-dark-bg flex flex-col">
         {renderContent()}
       </div>
     </div>

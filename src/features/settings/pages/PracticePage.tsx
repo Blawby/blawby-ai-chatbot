@@ -9,7 +9,7 @@ import {
 import { usePracticeManagement, type MatterWorkflowStatus, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
-import { Input, PhoneInput, Switch, Textarea, URLInput } from '@/shared/ui/input';
+import { CurrencyInput, EmailInput, FileInput, Input, Switch, Textarea } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -21,6 +21,8 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { StackedAvatars } from '@/shared/ui/profile';
 import type { PracticeConfig } from '../../../../worker/types';
+import { PracticeContactFields } from '@/shared/ui/practice/PracticeContactFields';
+import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -32,7 +34,7 @@ interface OnboardingDetails {
   postalCode?: string;
   country?: string;
   introMessage?: string;
-  overview?: string;
+  description?: string;
   isPublic?: boolean;
   services?: Array<Record<string, unknown>>;
 }
@@ -51,7 +53,7 @@ const resolveOnboardingData = (practice: Practice | null): OnboardingDetails => 
     postalCode: practice.postalCode ?? undefined,
     country: practice.country ?? undefined,
     introMessage: practice.introMessage ?? undefined,
-    overview: practice.overview ?? undefined,
+    description: practice.description ?? undefined,
     isPublic: practice.isPublic ?? undefined,
     services: practice.services ?? undefined,
     contactPhone: practice.businessPhone ?? undefined
@@ -160,8 +162,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [editPracticeForm, setEditPracticeForm] = useState({
     name: '',
     slug: '',
-    description: ''
+    businessEmail: '',
+    consultationFee: undefined as number | undefined,
+    logo: ''
   });
+  const [logoFiles, setLogoFiles] = useState<File[]>([]);
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -253,8 +258,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const introMessageValue = typeof onboardingData.introMessage === 'string' && onboardingData.introMessage.trim()
     ? onboardingData.introMessage
     : (conversationConfig?.introMessage || '');
-  const overviewValue = typeof onboardingData.overview === 'string' && onboardingData.overview.trim()
-    ? onboardingData.overview
+  const descriptionValue = typeof onboardingData.description === 'string' && onboardingData.description.trim()
+    ? onboardingData.description
     : (conversationConfig?.description || '');
   const isPublicValue = typeof onboardingData.isPublic === 'boolean'
     ? onboardingData.isPublic
@@ -262,8 +267,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const practiceUrlValue = currentPractice?.slug
     ? `ai.blawby.com/p/${currentPractice.slug}`
     : 'ai.blawby.com/p/your-practice';
-  const overviewPreview = overviewValue ? truncateText(overviewValue, 140) : 'Not set';
-  const descriptionValue = currentPractice?.description?.trim() || '';
   const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
   const teamAvatars = useMemo(
     () => members.map((member) => ({
@@ -288,7 +291,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     country: ''
   });
   const [introDraft, setIntroDraft] = useState('');
-  const [overviewDraft, setOverviewDraft] = useState('');
+  const [descriptionDraft, setDescriptionDraft] = useState('');
 
   const loadLeadQueue = useCallback(async () => {
     if (!currentPractice?.id || !canReviewLeads) {
@@ -399,8 +402,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       setEditPracticeForm({
         name: currentPractice.name,
         slug: currentPractice.slug || '',
-        description: currentPractice.description || ''
+        businessEmail: currentPractice.businessEmail || '',
+        consultationFee: typeof currentPractice.consultationFee === 'number'
+          ? currentPractice.consultationFee
+          : undefined,
+        logo: currentPractice.logo || ''
       });
+      setLogoFiles([]);
       
       // Fetch related data only once when practice changes
       const fetchMembersData = async () => {
@@ -473,10 +481,28 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     setEditPracticeForm({
       name: currentPractice.name,
       slug: currentPractice.slug || '',
-      description: currentPractice.description || ''
+      businessEmail: currentPractice.businessEmail || '',
+      consultationFee: typeof currentPractice.consultationFee === 'number'
+        ? currentPractice.consultationFee
+        : undefined,
+      logo: currentPractice.logo || ''
     });
-    setOverviewDraft(overviewValue);
+    setLogoFiles([]);
+    setDescriptionDraft(descriptionValue);
     setIsEditPracticeModalOpen(true);
+  };
+
+  const handleLogoChange = (files: FileList | File[]) => {
+    const [file] = Array.isArray(files) ? files : Array.from(files);
+    setLogoFiles(file ? [file] : []);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setEditPracticeForm(prev => ({ ...prev, logo: reader.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUpdatePractice = async () => {
@@ -488,20 +514,24 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
     setIsSettingsSaving(true);
     try {
-      const trimmedOverview = overviewDraft.trim();
+      const trimmedDescription = descriptionDraft.trim();
 
       await updatePractice(currentPractice.id, {
-        ...editPracticeForm
+        name: editPracticeForm.name,
+        slug: editPracticeForm.slug || undefined,
+        businessEmail: editPracticeForm.businessEmail || undefined,
+        consultationFee: editPracticeForm.consultationFee ?? undefined,
+        logo: editPracticeForm.logo || undefined
       });
 
       try {
         await updatePracticeDetails(currentPractice.id, {
-          overview: trimmedOverview
+          description: trimmedDescription
         });
         showSuccess('Practice updated successfully!');
       } catch (detailsError) {
         console.warn('Practice details update failed after core update:', detailsError);
-        showError('Practice updated', 'Overview could not be updated. Please try again.');
+        showError('Practice updated', 'Description could not be updated. Please try again.');
       }
       setIsEditPracticeModalOpen(false);
 		} catch (err) {
@@ -533,7 +563,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         ...(typeof updates.postalCode === 'string' ? { postalCode: updates.postalCode } : {}),
         ...(typeof updates.country === 'string' ? { country: updates.country } : {}),
         ...(typeof updates.introMessage === 'string' ? { introMessage: updates.introMessage } : {}),
-        ...(typeof updates.overview === 'string' ? { overview: updates.overview } : {}),
+        ...(typeof updates.description === 'string' ? { description: updates.description } : {}),
         ...(typeof updates.isPublic === 'boolean' ? { isPublic: updates.isPublic } : {}),
         ...(Array.isArray(updates.services) ? { services: updates.services } : {})
       });
@@ -676,12 +706,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                         URL
                       </span>
                       <span>{practiceUrlValue}</span>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                        Overview
-                      </span>
-                      <span>{overviewPreview}</span>
                     </div>
                     <div className="flex items-start gap-3">
                       <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
@@ -1079,24 +1103,46 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           </div>
 
           <div>
-            <FormLabel htmlFor="edit-practice-description">Description (optional)</FormLabel>
-            <Input
-              id="edit-practice-description"
-              value={editPracticeForm.description}
-              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, description: value }))}
-              placeholder="Brief description of your practice"
+            <EmailInput
+              label="Business email"
+              value={editPracticeForm.businessEmail}
+              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, businessEmail: value }))}
+              placeholder="contact@yourfirm.com"
               disabled={isSettingsSaving}
+              showValidation
             />
           </div>
 
           <div>
-            <FormLabel htmlFor="edit-practice-overview">Overview</FormLabel>
-            <Textarea
-              id="edit-practice-overview"
-              value={overviewDraft}
-              onChange={setOverviewDraft}
-              placeholder="Share a brief description of your practice."
-              rows={4}
+            <CurrencyInput
+              label="Consultation fee (optional)"
+              value={editPracticeForm.consultationFee}
+              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, consultationFee: value }))}
+              placeholder="150.00"
+              disabled={isSettingsSaving}
+              step={0.01}
+            />
+          </div>
+
+          <FileInput
+            label="Upload logo (optional)"
+            description="Upload a square logo. Maximum 5 MB."
+            accept="image/*"
+            multiple={false}
+            maxFileSize={5 * 1024 * 1024}
+            value={logoFiles}
+            onChange={handleLogoChange}
+            disabled={isSettingsSaving}
+          />
+
+          <div>
+            <PracticeProfileTextFields
+              description={descriptionDraft}
+              onDescriptionChange={setDescriptionDraft}
+              showIntro={false}
+              descriptionRows={4}
+              descriptionLabel="Business description"
+              descriptionPlaceholder="Tell us about your business..."
               disabled={isSettingsSaving}
             />
           </div>
@@ -1123,94 +1169,32 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         title="Contact"
       >
         <div className="space-y-4">
-          <div>
-            <FormLabel htmlFor="practice-website">Website</FormLabel>
-            <URLInput
-              id="practice-website"
-              value={contactDraft.website}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, website: value }))}
-              placeholder="https://yourfirm.com"
-              disabled={isSettingsSaving}
-            />
-          </div>
-
-          <div>
-            <FormLabel htmlFor="practice-phone">Phone</FormLabel>
-            <PhoneInput
-              id="practice-phone"
-              value={contactDraft.phone}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, phone: value }))}
-              placeholder="(555) 123-4567"
-              disabled={isSettingsSaving}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <FormLabel htmlFor="practice-address-line1">Address Line 1</FormLabel>
-              <Input
-                id="practice-address-line1"
-                value={contactDraft.addressLine1}
-                onChange={(value) => setContactDraft(prev => ({ ...prev, addressLine1: value }))}
-                placeholder="123 Main Street"
-                disabled={isSettingsSaving}
-              />
-            </div>
-            <div>
-              <FormLabel htmlFor="practice-address-line2">Address Line 2</FormLabel>
-              <Input
-                id="practice-address-line2"
-                value={contactDraft.addressLine2}
-                onChange={(value) => setContactDraft(prev => ({ ...prev, addressLine2: value }))}
-                placeholder="Suite 100"
-                disabled={isSettingsSaving}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <FormLabel htmlFor="practice-address-city">City</FormLabel>
-              <Input
-                id="practice-address-city"
-                value={contactDraft.city}
-                onChange={(value) => setContactDraft(prev => ({ ...prev, city: value }))}
-                placeholder="San Francisco"
-                disabled={isSettingsSaving}
-              />
-            </div>
-            <div>
-              <FormLabel htmlFor="practice-address-state">State</FormLabel>
-              <Input
-                id="practice-address-state"
-                value={contactDraft.state}
-                onChange={(value) => setContactDraft(prev => ({ ...prev, state: value }))}
-                placeholder="CA"
-                disabled={isSettingsSaving}
-              />
-            </div>
-            <div>
-              <FormLabel htmlFor="practice-address-postal">Postal Code</FormLabel>
-              <Input
-                id="practice-address-postal"
-                value={contactDraft.postalCode}
-                onChange={(value) => setContactDraft(prev => ({ ...prev, postalCode: value }))}
-                placeholder="94102"
-                disabled={isSettingsSaving}
-              />
-            </div>
-          </div>
-
-          <div>
-            <FormLabel htmlFor="practice-address-country">Country</FormLabel>
-            <Input
-              id="practice-address-country"
-              value={contactDraft.country}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, country: value }))}
-              placeholder="US"
-              disabled={isSettingsSaving}
-            />
-          </div>
+          <PracticeContactFields
+            data={{
+              website: contactDraft.website,
+              contactPhone: contactDraft.phone,
+              addressLine1: contactDraft.addressLine1,
+              addressLine2: contactDraft.addressLine2,
+              city: contactDraft.city,
+              state: contactDraft.state,
+              postalCode: contactDraft.postalCode,
+              country: contactDraft.country
+            }}
+            onChange={(next) => {
+              setContactDraft((prev) => ({
+                ...prev,
+                website: next.website ?? '',
+                phone: next.contactPhone ?? '',
+                addressLine1: next.addressLine1,
+                addressLine2: next.addressLine2,
+                city: next.city,
+                state: next.state,
+                postalCode: next.postalCode,
+                country: next.country
+              }));
+            }}
+            disabled={isSettingsSaving}
+          />
 
           <div className="flex justify-end gap-3 pt-4">
             <Button
@@ -1234,17 +1218,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         title="Intro Message"
       >
         <div className="space-y-4">
-          <div>
-            <FormLabel htmlFor="practice-intro-message">Intro Message</FormLabel>
-            <Textarea
-              id="practice-intro-message"
-              value={introDraft}
-              onChange={setIntroDraft}
-              placeholder="Welcome to our firm. How can we help?"
-              rows={4}
-              disabled={isSettingsSaving}
-            />
-          </div>
+          <PracticeProfileTextFields
+            introMessage={introDraft}
+            onIntroChange={setIntroDraft}
+            showDescription={false}
+            introRows={4}
+            disabled={isSettingsSaving}
+          />
           <div className="flex justify-end gap-3 pt-4">
             <Button
               variant="secondary"

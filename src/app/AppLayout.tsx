@@ -29,6 +29,9 @@ import Modal from '@/shared/components/Modal';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import type { SubscriptionTier } from '@/shared/types/user';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
+import { getActiveOrganizationId } from '@/shared/utils/session';
 
 // Simple messages object for localization
 const messages = {
@@ -274,6 +277,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     }
   }, [currentPractice?.id, practiceId, showError, navigate, location.path]);
 
+  const { session } = useSessionContext();
+  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
+
   if (practiceNotFound) {
     return <PracticeNotFound practiceId={practiceId} onRetry={onRetryPracticeConfig} />;
   }
@@ -292,8 +299,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   };
 
   const canShowOnboarding = workspace === 'practice';
-  const onboardingStatus = canShowOnboarding ? currentPractice?.businessOnboardingStatus : undefined;
-  const hasOnboardingDraft = canShowOnboarding ? (currentPractice?.businessOnboardingHasDraft ?? false) : false;
+  const onboardingStatus = canShowOnboarding
+    ? (localOnboardingProgress?.status ?? 'pending')
+    : undefined;
+  const hasOnboardingDraft = canShowOnboarding ? (localOnboardingProgress?.hasDraft ?? false) : false;
   const _onboardingPracticeId = currentPractice?.id;
 
   return (

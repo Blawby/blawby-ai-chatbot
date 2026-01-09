@@ -2,14 +2,12 @@
  * Firm Basics Step Component
  */
 
-import { Input, EmailInput, PhoneInput, URLInput, FileInput } from '@/shared/ui/input';
-import { ValidationAlert } from '../components/ValidationAlert';
+import { Input, EmailInput, FileInput } from '@/shared/ui/input';
 
 interface FirmBasicsData {
   firmName: string;
   contactEmail: string;
-  contactPhone?: string;
-  website?: string;
+  slug?: string;
 }
 
 interface FirmBasicsStepProps {
@@ -22,17 +20,11 @@ interface FirmBasicsStepProps {
 export function FirmBasicsStep({ 
   data, 
   onChange, 
-  errors,
+  errors: _errors,
   disabled = false
 }: FirmBasicsStepProps) {
   return (
     <div className="space-y-6">
-      {errors && (
-        <ValidationAlert type="error">
-          {errors}
-        </ValidationAlert>
-      )}
-
       <Input
         label="Business name"
         value={data.firmName}
@@ -50,19 +42,12 @@ export function FirmBasicsStep({
         showValidation
       />
 
-      <PhoneInput
-        label="Business phone (optional)"
-        value={data.contactPhone || ''}
-        onChange={(value) => onChange({ ...data, contactPhone: value })}
+      <Input
+        label="Slug (optional)"
+        value={data.slug || ''}
+        onChange={(value) => onChange({ ...data, slug: value })}
         disabled={disabled}
-      />
-
-      <URLInput
-        label="Website (optional)"
-        value={data.website || ''}
-        onChange={(value) => onChange({ ...data, website: value })}
-        disabled={disabled}
-        placeholder="https://yourbusiness.com"
+        placeholder="your-law-firm"
       />
 
       <FileInput

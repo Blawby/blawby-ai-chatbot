@@ -7,16 +7,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { OnboardingStep } from './useStepValidation';
+import { ONBOARDING_STEP_SEQUENCE } from '@/shared/utils/practiceOnboarding';
 
-const STEP_ORDER: OnboardingStep[] = [
-  'welcome',
-  'firm-basics',
-  'trust-account-intro',
-  'stripe-onboarding',
-  'business-details',
-  'services',
-  'review-and-launch'
-];
+const STEP_ORDER: OnboardingStep[] = ONBOARDING_STEP_SEQUENCE;
 
 export const useStepNavigation = (
   onStepChange?: (step: OnboardingStep, prevStep: OnboardingStep) => void | Promise<void>

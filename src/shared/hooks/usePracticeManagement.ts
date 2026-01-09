@@ -61,6 +61,8 @@ export interface Practice {
   description?: string;
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
+  consultationFee?: number | null;
+  paymentUrl?: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
@@ -95,7 +97,6 @@ export interface Practice {
   primaryColor?: string | null;
   accentColor?: string | null;
   introMessage?: string | null;
-  overview?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 }
@@ -132,6 +133,9 @@ export interface UpdatePracticeData {
   slug?: string;
   description?: string;
   businessPhone?: string;
+  businessEmail?: string;
+  consultationFee?: number | null;
+  logo?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -372,21 +376,37 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     return undefined;
   })();
 
+  const topLevelDescription = typeof raw.description === 'string' && raw.description.trim().length > 0
+    ? raw.description
+    : undefined;
+  const configDescription = cfg && typeof (cfg as Record<string, unknown>).description === 'string'
+    ? (cfg as unknown as { description: string }).description
+    : undefined;
+
   return {
     id,
     slug,
     name,
-    // Prefer top-level description; fall back to config.description if present
-    description: typeof raw.description === 'string' && raw.description.trim().length > 0
-      ? raw.description
-      : (cfg && typeof (cfg as Record<string, unknown>).description === 'string'
-          ? (cfg as unknown as { description: string }).description
-          : undefined),
+    description: topLevelDescription ?? configDescription,
     stripeCustomerId: (() => {
       const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
       return typeof val === 'string' && val.trim().length > 0 ? val : null;
     })(),
-    subscriptionTier: normalizedTier,
+  consultationFee: (() => {
+    const val = raw.consultationFee ?? raw.consultation_fee ?? null;
+    if (val === null) return null;
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    if (typeof val === 'string' && val.trim().length > 0) {
+      const num = Number(val);
+      return Number.isFinite(num) ? num : null;
+    }
+    return undefined;
+  })(),
+  paymentUrl: (() => {
+    const val = raw.paymentUrl ?? raw.payment_url ?? null;
+    return typeof val === 'string' && val.trim().length > 0 ? val : null;
+  })(),
+  subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
@@ -409,7 +429,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     primaryColor: getDetailString('primaryColor', 'primary_color'),
     accentColor: getDetailString('accentColor', 'accent_color'),
     introMessage: getDetailString('introMessage', 'intro_message'),
-    overview: getDetailString('overview', 'overview'),
     isPublic: getDetailBoolean('isPublic', 'is_public'),
     services
   };
@@ -767,6 +786,18 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     if (typeof data.businessPhone === 'string' && data.businessPhone.trim().length > 0) {
       payload.businessPhone = data.businessPhone.trim();
+    }
+
+    if (typeof data.businessEmail === 'string' && data.businessEmail.trim().length > 0) {
+      payload.businessEmail = data.businessEmail.trim();
+    }
+
+    if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
+      payload.consultationFee = data.consultationFee;
+    }
+
+    if (typeof data.logo === 'string' && data.logo.trim().length > 0) {
+      payload.logo = data.logo.trim();
     }
 
     const existingPractice = practices.find(practice => practice.id === id);

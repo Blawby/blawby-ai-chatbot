@@ -87,6 +87,8 @@ export interface Practice {
   metadata?: PracticeMetadata;
   businessPhone?: string | null;
   businessEmail?: string | null;
+  consultationFee?: number | null;
+  paymentUrl?: string | null;
   calendlyUrl?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -100,7 +102,6 @@ export interface Practice {
   primaryColor?: string | null;
   accentColor?: string | null;
   introMessage?: string | null;
-  overview?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 
@@ -133,6 +134,8 @@ export interface CreatePracticeRequest {
   metadata?: PracticeMetadata;
   businessPhone?: string;
   businessEmail?: string;
+  consultationFee?: number | null;
+  paymentUrl?: string | null;
   calendlyUrl?: string;
 }
 
@@ -149,7 +152,7 @@ export interface PracticeDetailsUpdate {
   primaryColor?: string | null;
   accentColor?: string | null;
   introMessage?: string | null;
-  overview?: string | null;
+  description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 }
@@ -163,6 +166,7 @@ export interface ConnectedAccountResponse {
   practiceUuid: string;
   stripeAccountId: string;
   clientSecret: string | null;
+  onboardingUrl?: string | null;
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
@@ -171,6 +175,7 @@ export interface ConnectedAccountResponse {
 export interface OnboardingStatus {
   practiceUuid: string;
   stripeAccountId: string | null;
+  clientSecret?: string | null;
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
@@ -317,6 +322,10 @@ function normalizePracticePayload(payload: unknown): Practice {
     metadata: isRecord(payload.metadata) ? payload.metadata : undefined,
     businessPhone: toNullableString(payload.businessPhone ?? payload.business_phone),
     businessEmail: toNullableString(payload.businessEmail ?? payload.business_email),
+    consultationFee: typeof (payload.consultationFee ?? payload.consultation_fee) === 'number'
+      ? Number(payload.consultationFee ?? payload.consultation_fee)
+      : null,
+    paymentUrl: toNullableString(payload.paymentUrl ?? payload.payment_url),
     calendlyUrl: toNullableString(payload.calendlyUrl ?? payload.calendly_url),
     createdAt: toNullableString(payload.createdAt ?? payload.created_at),
     updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at),
@@ -330,7 +339,7 @@ function normalizePracticePayload(payload: unknown): Practice {
     primaryColor: toNullableString(payload.primaryColor ?? payload.primary_color),
     accentColor: toNullableString(payload.accentColor ?? payload.accent_color),
     introMessage: toNullableString(payload.introMessage ?? payload.intro_message),
-    overview: toNullableString(payload.overview),
+    description: toNullableString(payload.description ?? payload.overview),
     isPublic: 'isPublic' in payload || 'is_public' in payload
       ? Boolean(payload.isPublic ?? payload.is_public)
       : null,
@@ -382,6 +391,7 @@ function normalizeConnectedAccountResponse(payload: unknown): ConnectedAccountRe
     practiceUuid: String(payload.practice_uuid ?? payload.practiceUuid ?? ''),
     stripeAccountId: String(payload.stripe_account_id ?? payload.stripeAccountId ?? ''),
     clientSecret: toNullableString(payload.client_secret ?? payload.clientSecret),
+    onboardingUrl: toNullableString(payload.onboarding_url ?? payload.onboardingUrl ?? payload.url),
     chargesEnabled: Boolean(payload.charges_enabled ?? payload.chargesEnabled),
     payoutsEnabled: Boolean(payload.payouts_enabled ?? payload.payoutsEnabled),
     detailsSubmitted: Boolean(payload.details_submitted ?? payload.detailsSubmitted)
@@ -397,6 +407,7 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
   return {
     practiceUuid: String(normalized.practice_uuid ?? normalized.practiceUuid ?? ''),
     stripeAccountId: toNullableString(normalized.stripe_account_id ?? normalized.stripeAccountId),
+    clientSecret: toNullableString(normalized.client_secret ?? normalized.clientSecret),
     chargesEnabled: Boolean(normalized.charges_enabled ?? normalized.chargesEnabled),
     payoutsEnabled: Boolean(normalized.payouts_enabled ?? normalized.payoutsEnabled),
     detailsSubmitted: Boolean(normalized.details_submitted ?? normalized.detailsSubmitted),
@@ -453,9 +464,13 @@ export async function updatePractice(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.put(`/api/practice/${encodeURIComponent(practiceId)}`, payload, {
+  const response = await apiClient.put(
+    `/api/practice/${encodeURIComponent(practiceId)}`,
+    normalizePracticeUpdatePayload(payload),
+    {
     signal: config?.signal
-  });
+    }
+  );
   return unwrapPracticeResponse(response.data);
 }
 
@@ -537,23 +552,25 @@ export async function deletePracticeMember(
   );
 }
 
-export async function getOnboardingStatus(practiceId: string): Promise<OnboardingStatus> {
-  if (!practiceId) {
-    throw new Error('practiceId is required');
+export async function getOnboardingStatus(organizationId: string): Promise<OnboardingStatus> {
+  if (!organizationId) {
+    throw new Error('organizationId is required');
   }
-  const response = await apiClient.get(`/api/onboarding/practice/${encodeURIComponent(practiceId)}/status`);
+  const response = await apiClient.get(
+    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`
+  );
   return normalizeOnboardingStatus(response.data);
 }
 
 export async function getOnboardingStatusPayload(
-  practiceId: string,
+  organizationId: string,
   config?: Pick<AxiosRequestConfig, 'signal'>
 ): Promise<unknown> {
-  if (!practiceId) {
-    throw new Error('practiceId is required');
+  if (!organizationId) {
+    throw new Error('organizationId is required');
   }
   const response = await apiClient.get(
-    `/api/onboarding/practice/${encodeURIComponent(practiceId)}/status`,
+    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
     { signal: config?.signal }
   );
   return response.data;
@@ -582,12 +599,77 @@ export async function updatePracticeDetails(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.patch(
+  const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
-    details,
+    normalizePracticeDetailsPayload(details),
     { signal: config?.signal }
   );
   return extractApiData<PracticeDetailsUpdate>(response.data);
+}
+
+function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+
+  if ('name' in payload && payload.name !== undefined) normalized.name = payload.name;
+  if ('slug' in payload && payload.slug !== undefined) normalized.slug = payload.slug;
+  if ('logo' in payload && payload.logo !== undefined) normalized.logo = payload.logo;
+  if ('metadata' in payload && payload.metadata !== undefined) normalized.metadata = payload.metadata;
+
+  if ('businessEmail' in payload && payload.businessEmail !== undefined) {
+    normalized.business_email = payload.businessEmail;
+  }
+  if ('businessPhone' in payload && payload.businessPhone !== undefined) {
+    normalized.business_phone = payload.businessPhone;
+  }
+  if ('consultationFee' in payload && payload.consultationFee !== undefined) {
+    normalized.consultation_fee = payload.consultationFee;
+  }
+  if ('paymentUrl' in payload && payload.paymentUrl !== undefined) {
+    normalized.payment_url = payload.paymentUrl;
+  }
+  if ('calendlyUrl' in payload && payload.calendlyUrl !== undefined) {
+    normalized.calendly_url = payload.calendlyUrl;
+  }
+
+  return normalized;
+}
+
+function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+
+  if ('website' in payload && payload.website !== undefined) normalized.website = payload.website;
+  if ('addressLine1' in payload && payload.addressLine1 !== undefined) {
+    normalized.address_line_1 = payload.addressLine1;
+  }
+  if ('addressLine2' in payload && payload.addressLine2 !== undefined) {
+    normalized.address_line_2 = payload.addressLine2;
+  }
+  if ('city' in payload && payload.city !== undefined) normalized.city = payload.city;
+  if ('state' in payload && payload.state !== undefined) normalized.state = payload.state;
+  if ('postalCode' in payload && payload.postalCode !== undefined) {
+    normalized.postal_code = payload.postalCode;
+  }
+  if ('country' in payload && payload.country !== undefined) normalized.country = payload.country;
+  if ('primaryColor' in payload && payload.primaryColor !== undefined) {
+    normalized.primary_color = payload.primaryColor;
+  }
+  if ('accentColor' in payload && payload.accentColor !== undefined) {
+    normalized.accent_color = payload.accentColor;
+  }
+  if ('introMessage' in payload && payload.introMessage !== undefined) {
+    normalized.intro_message = payload.introMessage;
+  }
+  if ('description' in payload && payload.description !== undefined) {
+    normalized.overview = payload.description;
+  }
+  if ('isPublic' in payload && payload.isPublic !== undefined) {
+    normalized.is_public = payload.isPublic;
+  }
+  if ('services' in payload && payload.services !== undefined) {
+    normalized.services = payload.services;
+  }
+
+  return normalized;
 }
 
 export async function requestBillingPortalSession(

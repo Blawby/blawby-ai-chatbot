@@ -3,7 +3,6 @@
  */
 
 import { ChecklistItem } from '../components/ChecklistItem';
-import { InfoCard } from '../components/InfoCard';
  
 export function TrustAccountIntroStep() {
   return (
@@ -20,13 +19,6 @@ export function TrustAccountIntroStep() {
         </ChecklistItem>
       </div>
 
-      <InfoCard
-        variant="amber"
-        icon="⚖️"
-        title="Important Notice"
-      >
-        Do not use your operating account for this step.
-      </InfoCard>
     </div>
   );
 }

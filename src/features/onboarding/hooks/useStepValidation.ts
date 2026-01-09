@@ -25,6 +25,25 @@ export interface ValidationError {
 export const useStepValidation = () => {
   const [errors, setErrors] = useState<ValidationError[]>([]);
 
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const isValidPhone = (phone: string): boolean => {
+    const phoneRegex = /^\+?[\d\s-()]+$/;
+    return phoneRegex.test(phone);
+  };
+
+  const isValidUrl = (value: string): boolean => {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   const validateStep = useCallback((step: OnboardingStep, formData: OnboardingFormData): string | null => {
     const validationErrors: ValidationError[] = [];
 
@@ -35,12 +54,22 @@ export const useStepValidation = () => {
         }
         if (!formData.contactEmail.trim()) {
           validationErrors.push({ field: 'contactEmail', message: 'Business email address is required' });
+        } else if (!isValidEmail(formData.contactEmail.trim())) {
+          validationErrors.push({ field: 'contactEmail', message: 'Enter a valid business email address' });
         }
         // contactPhone is optional, no validation needed
         break;
 
       case 'business-details':
-        // Business details are optional, no validation needed
+        if (formData.website?.trim() && !isValidUrl(formData.website.trim())) {
+          validationErrors.push({ field: 'website', message: 'Enter a valid website URL' });
+        }
+        if (formData.contactPhone?.trim() && !isValidPhone(formData.contactPhone.trim())) {
+          validationErrors.push({ field: 'contactPhone', message: 'Enter a valid phone number' });
+        }
+        if (typeof formData.consultationFee === 'number' && formData.consultationFee < 0) {
+          validationErrors.push({ field: 'consultationFee', message: 'Consultation fee must be 0 or greater' });
+        }
         break;
 
       case 'services':
@@ -54,8 +83,18 @@ export const useStepValidation = () => {
         }
         if (!formData.contactEmail.trim()) {
           validationErrors.push({ field: 'contactEmail', message: 'Business email address is required' });
+        } else if (!isValidEmail(formData.contactEmail.trim())) {
+          validationErrors.push({ field: 'contactEmail', message: 'Enter a valid business email address' });
         }
-        // contactPhone is optional, no validation needed
+        if (formData.website?.trim() && !isValidUrl(formData.website.trim())) {
+          validationErrors.push({ field: 'website', message: 'Enter a valid website URL' });
+        }
+        if (formData.contactPhone?.trim() && !isValidPhone(formData.contactPhone.trim())) {
+          validationErrors.push({ field: 'contactPhone', message: 'Enter a valid phone number' });
+        }
+        if (typeof formData.consultationFee === 'number' && formData.consultationFee < 0) {
+          validationErrors.push({ field: 'consultationFee', message: 'Consultation fee must be 0 or greater' });
+        }
         break;
 
       default:

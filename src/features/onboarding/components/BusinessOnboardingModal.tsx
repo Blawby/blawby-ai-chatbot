@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
+import { isAxiosError } from 'axios';
 import type { ComponentChildren } from 'preact';
 import Modal from '@/shared/components/Modal';
 import { OnboardingContainer } from './OnboardingContainer';
@@ -8,6 +9,7 @@ import { useOnboardingState } from '@/features/onboarding/hooks/useOnboardingSta
 import { useStepValidation } from '@/features/onboarding/hooks/useStepValidation';
 import { useStepNavigation } from '@/features/onboarding/hooks/useStepNavigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { OnboardingFormData } from '@/features/onboarding/hooks/useOnboardingState';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import {
@@ -15,7 +17,8 @@ import {
   getOnboardingStatusPayload,
   getPractice,
   updatePractice,
-  type Practice,
+  updatePracticeDetails,
+  type PracticeDetailsUpdate,
   type UpdatePracticeRequest
 } from '@/shared/lib/apiClient';
 import type { StripeConnectStatus } from '../types';
@@ -23,12 +26,15 @@ import {
   extractStripeStatusFromPayload,
 } from '../utils';
 import {
-  buildPracticeOnboardingMetadata,
-  extractProgressFromPracticeMetadata,
   ONBOARDING_STEP_SEQUENCE,
   type OnboardingStatusValue,
-  type PersistedOnboardingSnapshot,
 } from '@/shared/utils/practiceOnboarding';
+import {
+  buildLocalSnapshot,
+  loadLocalOnboardingState,
+  saveLocalOnboardingState
+} from '@/shared/utils/onboardingStorage';
+import { getActiveOrganizationId } from '@/shared/utils/session';
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
   welcome: 'Welcome to Blawby',
@@ -80,18 +86,29 @@ const BusinessOnboardingModal = ({
   const [isLoadingData, setIsLoadingData] = useState(false);
   const { showError, showSuccess } = useToastContext();
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
-  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [stripeRequestPending, setStripeRequestPending] = useState(false);
-  const [practiceMetadata, setPracticeMetadata] = useState<Record<string, unknown> | null>(null);
-  const [practiceSnapshot, setPracticeSnapshot] = useState<Practice | null>(null);
   const [footerContent, setFooterContent] = useState<ComponentChildren | null>(null);
+  const { session } = useSessionContext();
+  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const resolveApiErrorMessage = useCallback((error: unknown, fallback: string) => {
+    if (isAxiosError(error)) {
+      const data = error.response?.data as { message?: unknown } | undefined;
+      if (typeof data?.message === 'string' && data.message.trim().length > 0) {
+        return data.message;
+      }
+      if (typeof error.message === 'string' && error.message.trim().length > 0) {
+        return error.message;
+      }
+    }
+    return error instanceof Error && error.message.trim().length > 0 ? error.message : fallback;
+  }, []);
   const fetchStripeStatus = useCallback(async () => {
-    if (!practiceId) {
+    if (!organizationId) {
       return;
     }
 
     try {
-      const payload = await getOnboardingStatusPayload(practiceId);
+      const payload = await getOnboardingStatusPayload(organizationId);
       const status = extractStripeStatusFromPayload(payload);
       if (status) {
         setStripeStatus(status);
@@ -99,57 +116,110 @@ const BusinessOnboardingModal = ({
     } catch (error) {
       console.warn('[ONBOARDING][STATUS] Failed to load Stripe status:', error);
     }
-  }, [practiceId]);
+  }, [organizationId]);
   
   // Create save function that calls the API
   const saveOnboardingData = useCallback(
-    async (data: OnboardingFormData, resumeStep: OnboardingStep, statusOverride?: OnboardingStatusValue) => {
+    async (
+      data: OnboardingFormData,
+      resumeStep: OnboardingStep,
+      statusOverride?: OnboardingStatusValue,
+      currentStep?: OnboardingStep
+    ): Promise<string | null> => {
       if (!practiceId) {
         throw new Error('Missing practice');
       }
-
-      try {
-        const snapshot: PersistedOnboardingSnapshot = {
-          ...data,
-          __meta: {
-            resumeStep,
-            savedAt: Date.now()
-          }
-        };
-
-        const metadata = buildPracticeOnboardingMetadata(
-          practiceMetadata ?? practiceSnapshot?.metadata,
-          {
-            snapshot,
-            resumeStep,
-            status: statusOverride ?? 'pending',
-            savedAt: Date.now()
-          }
-        );
-
-        const updatePayload: UpdatePracticeRequest = {
-          name: data.firmName,
-          businessEmail: data.contactEmail,
-          businessPhone: data.contactPhone,
-          logo: data.profileImage,
-          metadata
-        };
-
-        const updatedPractice = await updatePractice(practiceId, updatePayload);
-        setPracticeSnapshot(updatedPractice);
-        setPracticeMetadata(
-          updatedPractice.metadata && typeof updatedPractice.metadata === 'object' && !Array.isArray(updatedPractice.metadata)
-            ? (updatedPractice.metadata as Record<string, unknown>)
-            : null
-        );
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to save onboarding progress';
-        console.error('[ONBOARDING][SAVE] Error:', errorMessage);
-        showError('Save Failed', 'Could not save your progress. Please try again.');
-        throw error;
+      if (!organizationId) {
+        throw new Error('Missing active organization');
       }
+
+      let saveError: string | null = null;
+      try {
+        const snapshot = buildLocalSnapshot(data, resumeStep);
+        const status = statusOverride ?? 'pending';
+        const savedAt = Date.now();
+
+        saveLocalOnboardingState(organizationId, {
+          status,
+          resumeStep,
+          savedAt,
+          completedAt: status === 'completed' ? savedAt : null,
+          data: snapshot
+        });
+
+        const practicePayload: UpdatePracticeRequest = {};
+        const trimmedName = data.firmName.trim();
+        const trimmedEmail = data.contactEmail.trim();
+        const trimmedPhone = data.contactPhone?.trim();
+        const trimmedSlug = data.slug?.trim();
+        const trimmedLogo = data.profileImage.trim();
+
+        if (trimmedName) practicePayload.name = trimmedName;
+        if (trimmedEmail) practicePayload.businessEmail = trimmedEmail;
+        if (trimmedPhone) practicePayload.businessPhone = trimmedPhone;
+        if (trimmedSlug) practicePayload.slug = trimmedSlug;
+        if (trimmedLogo) practicePayload.logo = trimmedLogo;
+
+        if (Object.keys(practicePayload).length > 0) {
+          await updatePractice(practiceId, practicePayload);
+        }
+
+        const shouldPersistDetails = currentStep
+          ? STEP_SEQUENCE.indexOf(currentStep) >= STEP_SEQUENCE.indexOf('business-details')
+          : true;
+
+        const detailsPayload: PracticeDetailsUpdate = {};
+        const trimmedWebsite = data.website?.trim();
+        const trimmedAddress1 = data.addressLine1.trim();
+        const trimmedAddress2 = data.addressLine2.trim();
+        const trimmedCity = data.city.trim();
+        const trimmedState = data.state.trim();
+        const trimmedPostal = data.postalCode.trim();
+        const trimmedCountry = data.country.trim();
+        const trimmedIntroMessage = data.introMessage.trim();
+        const trimmedDescription = data.description.trim();
+
+        if (trimmedWebsite) detailsPayload.website = trimmedWebsite;
+        if (trimmedAddress1) detailsPayload.addressLine1 = trimmedAddress1;
+        if (trimmedAddress2) detailsPayload.addressLine2 = trimmedAddress2;
+        if (trimmedCity) detailsPayload.city = trimmedCity;
+        if (trimmedState) detailsPayload.state = trimmedState;
+        if (trimmedPostal) detailsPayload.postalCode = trimmedPostal;
+        if (trimmedCountry) detailsPayload.country = trimmedCountry;
+        if (trimmedIntroMessage) detailsPayload.introMessage = trimmedIntroMessage;
+        if (trimmedDescription) detailsPayload.description = trimmedDescription;
+        if (Array.isArray(data.services) && data.services.length > 0) {
+          const normalizedServices = data.services
+            .filter((service) => service.title.trim().length > 0)
+            .map(({ title, description }) => ({
+              title: title.trim(),
+              description: description.trim()
+            }));
+          if (normalizedServices.length > 0) {
+            detailsPayload.services = normalizedServices;
+          }
+        }
+        const allowVisibilityUpdate = currentStep === 'review-and-launch' || Boolean(data.isPublic);
+        if (allowVisibilityUpdate) {
+          detailsPayload.isPublic = Boolean(data.isPublic);
+        }
+
+        if (shouldPersistDetails && Object.keys(detailsPayload).length > 0) {
+          await updatePracticeDetails(practiceId, detailsPayload);
+        }
+
+        if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
+          await updatePractice(practiceId, { consultationFee: data.consultationFee });
+        }
+      } catch (error) {
+        const errorMessage = resolveApiErrorMessage(error, 'Failed to save onboarding progress');
+        console.error('[ONBOARDING][SAVE] Error:', errorMessage);
+        showError('Save Failed', errorMessage);
+        saveError = errorMessage;
+      }
+      return saveError;
     },
-    [practiceId, practiceMetadata, practiceSnapshot, showError]
+    [practiceId, organizationId, resolveApiErrorMessage, showError]
   );
 
   // Custom hook for state management (no auto-save)
@@ -171,8 +241,11 @@ const BusinessOnboardingModal = ({
     if (!practiceId) {
       throw new Error('Missing practice');
     }
+    if (!organizationId) {
+      throw new Error('Missing active organization');
+    }
 
-    if (stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled) {
+    if (stripeStatus?.details_submitted) {
       showSuccess('Already Connected', 'Your Stripe account is already connected.');
       return;
     }
@@ -188,18 +261,17 @@ const BusinessOnboardingModal = ({
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
-        practiceUuid: practiceId
+        practiceUuid: organizationId
       });
 
-      const secret = connectedAccount.clientSecret ?? '';
-      setStripeClientSecret(secret.length > 0 ? secret : null);
+      if (connectedAccount.onboardingUrl) {
+        window.location.href = connectedAccount.onboardingUrl;
+        return;
+      }
 
-      await fetchStripeStatus();
-
-      showSuccess(
-        'Stripe Session Created',
-        'Complete the Stripe onboarding form to finish trust account setup.'
-      );
+      const message = 'Stripe hosted onboarding is not available. Please try again later.';
+      showError('Stripe Setup Failed', message);
+      throw new Error(message);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start Stripe onboarding';
       showError('Stripe Setup Failed', message);
@@ -207,7 +279,7 @@ const BusinessOnboardingModal = ({
     } finally {
       setStripeRequestPending(false);
     }
-  }, [practiceId, stripeStatus, formData.contactEmail, fallbackContactEmail, fetchStripeStatus, showError, showSuccess]);
+  }, [practiceId, organizationId, stripeStatus, formData.contactEmail, fallbackContactEmail, showError, showSuccess]);
 
   const handleStepChange = useCallback((step: OnboardingStep, _prevStep: OnboardingStep) => {
     if (onStepChange) onStepChange(step);
@@ -216,15 +288,7 @@ const BusinessOnboardingModal = ({
   const { currentStep, goNext, goBack, goToStep, progress, isFirstStep, isLastStep } = useStepNavigation(handleStepChange);
 
   // Initialize validation before handlers that use clearErrors
-  const { validateStep, clearErrors, errors } = useStepValidation();
-
-  // Advance to next step without saving (Skip for now)
-  const handleSkip = useCallback(() => {
-    if (isLoadingData) return;
-    goNext();
-    clearErrors();
-    setSubmitError(null);
-  }, [isLoadingData, goNext, clearErrors]);
+  const { validateStep, clearErrors } = useStepValidation();
 
   useEffect(() => {
     if (!currentStepFromUrl) return;
@@ -240,29 +304,33 @@ const BusinessOnboardingModal = ({
       setIsLoadingData(true);
       try {
         const practiceRecord = await getPractice(practiceId);
-        setPracticeSnapshot(practiceRecord);
-        const metadataRecord =
-          practiceRecord.metadata && typeof practiceRecord.metadata === 'object' && !Array.isArray(practiceRecord.metadata)
-            ? (practiceRecord.metadata as Record<string, unknown>)
-            : null;
-        setPracticeMetadata(metadataRecord);
-
         await fetchStripeStatus();
 
-        const progress = extractProgressFromPracticeMetadata(metadataRecord);
         const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
+        const localState = organizationId ? loadLocalOnboardingState(organizationId) : null;
 
-        if (progress?.data) {
-          const { __meta, ...restRaw } = progress.data;
-          const rest = restRaw as unknown as OnboardingFormData;
+        if (localState?.data) {
+          const { __meta, ...restRaw } = localState.data;
+          const rest = restRaw as Record<string, unknown>;
+          const { overview: _legacyOverview, ...restWithoutOverview } = rest;
+          const restData = restWithoutOverview as Partial<OnboardingFormData>;
+          const descriptionFromLegacy = typeof restData.description === 'string'
+            ? restData.description
+            : (typeof rest.overview === 'string' ? rest.overview : undefined);
+          const contactEmailFromRest = restData.contactEmail;
+
           setFormData((prev) => ({
             ...prev,
-            ...rest,
-            contactEmail: rest.contactEmail ?? prev.contactEmail ?? fallbackContactEmail ?? ''
+            ...restData,
+            description: descriptionFromLegacy ?? prev.description,
+            contactEmail: contactEmailFromRest ?? prev.contactEmail
+              ?? fallbackContactEmail
+              ?? practiceRecord.businessEmail
+              ?? ''
           }));
 
           if (!hasValidUrlStep) {
-            if (progress.status === 'completed') {
+            if (localState.status === 'completed') {
               goToStep('review-and-launch');
             } else if (__meta?.resumeStep && STEP_SEQUENCE.includes(__meta.resumeStep)) {
               goToStep(__meta.resumeStep);
@@ -273,11 +341,23 @@ const BusinessOnboardingModal = ({
             ...prev,
             firmName: practiceRecord.name || prev.firmName,
             contactEmail: practiceRecord.businessEmail ?? prev.contactEmail ?? fallbackContactEmail ?? '',
+            slug: practiceRecord.slug ?? prev.slug,
             contactPhone: practiceRecord.businessPhone || prev.contactPhone,
-            profileImage: typeof practiceRecord.logo === 'string' ? practiceRecord.logo : prev.profileImage
+            website: practiceRecord.website ?? prev.website,
+            profileImage: typeof practiceRecord.logo === 'string' ? practiceRecord.logo : prev.profileImage,
+            addressLine1: practiceRecord.addressLine1 ?? prev.addressLine1,
+            addressLine2: practiceRecord.addressLine2 ?? prev.addressLine2,
+            city: practiceRecord.city ?? prev.city,
+            state: practiceRecord.state ?? prev.state,
+            postalCode: practiceRecord.postalCode ?? prev.postalCode,
+            country: practiceRecord.country ?? prev.country,
+            introMessage: practiceRecord.introMessage ?? prev.introMessage,
+            description: practiceRecord.description ?? prev.description,
+            isPublic: typeof practiceRecord.isPublic === 'boolean' ? practiceRecord.isPublic : prev.isPublic,
+            consultationFee: practiceRecord.consultationFee ?? prev.consultationFee
           }));
 
-          if (progress?.status === 'completed' && !hasValidUrlStep) {
+          if (localState?.status === 'completed' && !hasValidUrlStep) {
             goToStep('review-and-launch');
           }
         }
@@ -296,7 +376,8 @@ const BusinessOnboardingModal = ({
     setFormData,
     goToStep,
     currentStepFromUrl,
-    fetchStripeStatus
+    fetchStripeStatus,
+    organizationId
   ]);
 
   // useStepValidation already initialized above
@@ -312,51 +393,54 @@ const BusinessOnboardingModal = ({
     // Validate current step before proceeding
     const validationError = validateStep(currentStep, formData);
     if (validationError) {
+      showError('Check your details', validationError);
       setLoading(false);
       return;
     }
 
-    if (currentStep === 'stripe-onboarding' && !stripeClientSecret) {
-      if (stripeStatus?.charges_enabled && stripeStatus?.payouts_enabled) {
-        // Already connected – allow navigation to continue
-      } else {
-        try {
-          await startStripeOnboarding();
-        } catch (error) {
-          console.error('[ONBOARDING][STRIPE] Failed to start onboarding session:', error);
-          setSubmitError('Unable to start Stripe onboarding. Please try again.');
-        } finally {
-          setLoading(false);
-        }
-        return;
+    if (currentStep === 'stripe-onboarding' && !stripeStatus?.details_submitted) {
+      try {
+        await startStripeOnboarding();
+      } catch (error) {
+        console.error('[ONBOARDING][STRIPE] Failed to start onboarding session:', error);
+        setSubmitError('Unable to start Stripe onboarding. Please try again.');
+      } finally {
+        setLoading(false);
       }
+      return;
     }
 
     const resumeStep = isLastStep ? currentStep : getAdjacentStep(currentStep, 1);
 
     // Save current step data before navigation (explicit save)
-    try {
-      await saveOnboardingData(formData, resumeStep, isLastStep ? 'completed' : undefined);
-      if (isLastStep) {
-        showSuccess('Onboarding Complete', 'Your business onboarding is finished. You can now publish your assistant.');
-        try {
-          if (onCompleted) {
-            await onCompleted();
-          }
-        } catch (e) {
-          console.warn('[ONBOARDING][COMPLETE] onCompleted callback failed:', e);
-        }
-        onClose();
-      } else {
-        goNext();
-      }
-    } catch (error) {
-      console.warn('[ONBOARDING][CONTINUE] Failed to save before navigation:', error);
-      setSubmitError('Failed to save onboarding progress');
-      return;
-    } finally {
-      setLoading(false);
+    const saveError = await saveOnboardingData(
+      formData,
+      resumeStep,
+      isLastStep ? 'completed' : undefined,
+      currentStep
+    );
+    if (saveError) {
+      console.warn('[ONBOARDING][CONTINUE] Failed to save before navigation:', saveError);
+      setSubmitError(saveError);
     }
+    if (isLastStep) {
+      if (saveError) {
+        setLoading(false);
+        return;
+      }
+      showSuccess('Onboarding Complete', 'Your business onboarding is finished. You can now publish your assistant.');
+      try {
+        if (onCompleted) {
+          await onCompleted();
+        }
+      } catch (e) {
+        console.warn('[ONBOARDING][COMPLETE] onCompleted callback failed:', e);
+      }
+      onClose();
+    } else {
+      goNext();
+    }
+    setLoading(false);
   }, [
     clearErrors,
     currentStep,
@@ -368,9 +452,9 @@ const BusinessOnboardingModal = ({
     onClose,
     onCompleted,
     saveOnboardingData,
+    showError,
     showSuccess,
     startStripeOnboarding,
-    stripeClientSecret,
     stripeStatus,
     validateStep
   ]);
@@ -387,12 +471,10 @@ const BusinessOnboardingModal = ({
     const resumeStep = getAdjacentStep(currentStep, -1);
 
     // Save current step data before navigation (explicit save)
-    try {
-      await saveOnboardingData(formData, resumeStep);
-    } catch (error) {
-      console.warn('[ONBOARDING][BACK] Failed to save before navigation:', error);
-      setSubmitError('Failed to save onboarding progress');
-      return;
+    const saveError = await saveOnboardingData(formData, resumeStep, undefined, currentStep);
+    if (saveError) {
+      console.warn('[ONBOARDING][BACK] Failed to save before navigation:', saveError);
+      setSubmitError(saveError);
     }
     
     goBack();
@@ -422,7 +504,7 @@ const BusinessOnboardingModal = ({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} type="fullscreen" showCloseButton={false}>
+    <Modal isOpen={isOpen} onClose={handleClose} type="fullscreen" showCloseButton={true}>
       <OnboardingContainer
         loading={actionLoading}
         error={submitError}
@@ -443,12 +525,10 @@ const BusinessOnboardingModal = ({
           onChange={updateField}
           onContinue={handleStepContinue}
           onBack={handleBack}
-          errors={errors && errors.length > 0 ? errors[0].message : null}
           practiceSlug={practiceSlug || practiceName?.toLowerCase().replace(/\s+/g, '-') || 'your-firm'}
           disabled={isLoadingData}
-          onSkip={handleSkip}
           stripeStatus={stripeStatus}
-          stripeClientSecret={stripeClientSecret}
+          stripeClientSecret={null}
           stripeLoading={loading || stripeRequestPending}
           onFooterChange={setFooterContent}
           actionLoading={actionLoading}

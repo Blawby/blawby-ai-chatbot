@@ -22,7 +22,9 @@ interface ReviewAndLaunchStepProps {
     state: string;
     postalCode: string;
     country: string;
-    overview: string;
+    description: string;
+    introMessage?: string;
+    consultationFee?: number;
     services: Array<{ title: string; description: string }>;
     isPublic: boolean;
   };
@@ -36,20 +38,22 @@ export function ReviewAndLaunchStep({
   onVisibilityChange,
 }: ReviewAndLaunchStepProps) {
   const { t } = useTranslation('common');
-  const intakeUrl = `https://ai.blawby.com/p/${encodeURIComponent((practiceSlug || 'your-firm').trim())}`;
+  const normalizedSlug = (practiceSlug || 'your-firm').trim();
+  const intakeUrl = `https://ai.blawby.com/p/${encodeURIComponent(normalizedSlug)}`;
+  const paymentUrl = `https://pay.blawby.com/p/${encodeURIComponent(normalizedSlug)}`;
   const validServices = data.services.filter(service => service.title.trim().length > 0);
 
   const launchFeatures = [
     {
-      text: t('onboarding:reviewAndLaunch.launchFeatures.assistantAvailable'),
+      text: t('onboarding.reviewAndLaunch.launchFeatures.assistantAvailable'),
       variant: 'default' as const
     },
     {
-      text: t('onboarding:reviewAndLaunch.launchFeatures.clientsCanChat'),
+      text: t('onboarding.reviewAndLaunch.launchFeatures.clientsCanChat'),
       variant: 'default' as const
     },
     {
-      text: t('onboarding:reviewAndLaunch.launchFeatures.notifications'),
+      text: t('onboarding.reviewAndLaunch.launchFeatures.notifications'),
       variant: 'default' as const
     }
   ];
@@ -59,33 +63,36 @@ export function ReviewAndLaunchStep({
       {/* Review Section */}
       <div className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.05] p-6 space-y-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {t('onboarding:reviewAndLaunch.title')}
+          {t('onboarding.reviewAndLaunch.title')}
         </h3>
         <SummaryTable
           rows={[
-            { label: t('onboarding:reviewAndLaunch.labels.name'), value: data.firmName || '-' },
-            { label: t('onboarding:reviewAndLaunch.sections.services'), value: (validServices.length === 0)
-              ? t('onboarding:reviewAndLaunch.messages.noServicesConfigured')
+            { label: t('onboarding.reviewAndLaunch.labels.name'), value: data.firmName || '-' },
+            { label: t('onboarding.reviewAndLaunch.sections.services'), value: (validServices.length === 0)
+              ? t('onboarding.reviewAndLaunch.messages.noServicesConfigured')
               : `${validServices.length} configured` },
-            { label: t('onboarding:reviewAndLaunch.visibility.title'), value: data.isPublic ? t('onboarding:reviewAndLaunch.visibility.public') || 'Public' : t('onboarding:reviewAndLaunch.visibility.private') || 'Private' },
+            { label: t('onboarding.reviewAndLaunch.visibility.title'), value: data.isPublic ? t('onboarding.reviewAndLaunch.visibility.public') || 'Public' : t('onboarding.reviewAndLaunch.visibility.private') || 'Private' },
           ]}
         />
 
         {/* Firm Information */}
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding:reviewAndLaunch.sections.firmInformation')}</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding.reviewAndLaunch.sections.firmInformation')}</h4>
           <div className="space-y-1">
-            <ReviewField label={t('onboarding:reviewAndLaunch.labels.name')} value={data.firmName} />
-            <ReviewField label={t('onboarding:reviewAndLaunch.labels.email')} value={data.contactEmail} />
-            {data.contactPhone && <ReviewField label={t('onboarding:reviewAndLaunch.labels.phone')} value={data.contactPhone} />}
-            {data.website && <ReviewField label={t('onboarding:reviewAndLaunch.labels.website')} value={data.website} />}
+            <ReviewField label={t('onboarding.reviewAndLaunch.labels.name')} value={data.firmName} />
+            <ReviewField label={t('onboarding.reviewAndLaunch.labels.email')} value={data.contactEmail} />
+            {data.contactPhone && <ReviewField label={t('onboarding.reviewAndLaunch.labels.phone')} value={data.contactPhone} />}
+            {data.website && <ReviewField label={t('onboarding.reviewAndLaunch.labels.website')} value={data.website} />}
+            {typeof data.consultationFee === 'number' && (
+              <ReviewField label="Consultation fee" value={`$${data.consultationFee}`} />
+            )}
           </div>
         </div>
 
         {/* Address */}
         {(data.addressLine1 || data.city) && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding:reviewAndLaunch.sections.address')}</h4>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding.reviewAndLaunch.sections.address')}</h4>
             <div className="text-sm text-gray-600 dark:text-gray-400">
               {data.addressLine1 && <p>{data.addressLine1}</p>}
               {data.addressLine2 && <p>{data.addressLine2}</p>}
@@ -102,16 +109,23 @@ export function ReviewAndLaunchStep({
         )}
 
         {/* Business Description */}
-        {data.overview && (
+        {data.description && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding:reviewAndLaunch.sections.description')}</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{data.overview}</p>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding.reviewAndLaunch.sections.description')}</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{data.description}</p>
+          </div>
+        )}
+
+        {data.introMessage && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Intro message</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{data.introMessage}</p>
           </div>
         )}
 
         {/* Services */}
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding:reviewAndLaunch.sections.services')}</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding.reviewAndLaunch.sections.services')}</h4>
           {validServices.length > 0 ? (
             <ul className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
               {validServices.map((service, i) => (
@@ -122,7 +136,7 @@ export function ReviewAndLaunchStep({
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-gray-500">{t('onboarding:reviewAndLaunch.messages.noServicesConfigured')}</p>
+            <p className="text-sm text-gray-500">{t('onboarding.reviewAndLaunch.messages.noServicesConfigured')}</p>
           )}
         </div>
       </div>
@@ -131,10 +145,10 @@ export function ReviewAndLaunchStep({
       <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-white/10 rounded-lg">
         <div>
           <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {t('onboarding:reviewAndLaunch.visibility.title')}
+            {t('onboarding.reviewAndLaunch.visibility.title')}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {t('onboarding:reviewAndLaunch.visibility.description')}
+            {t('onboarding.reviewAndLaunch.visibility.description')}
           </p>
         </div>
         <Switch
@@ -146,10 +160,16 @@ export function ReviewAndLaunchStep({
       {/* Intake URL */}
       <IntakeUrlDisplay url={intakeUrl} />
 
+      <IntakeUrlDisplay
+        url={paymentUrl}
+        title="Your payment link"
+        description="Share this link with clients to collect consultation fees and payments."
+      />
+
       {/* What happens when you launch */}
       <InfoCard
         variant="default"
-        title={t('onboarding:reviewAndLaunch.launchFeatures.title')}
+        title={t('onboarding.reviewAndLaunch.launchFeatures.title')}
       >
         <FeatureList items={launchFeatures} size="sm" />
       </InfoCard>

@@ -658,6 +658,21 @@ export const AccountPage = ({
 
           <SectionDivider />
 
+          <SettingRow
+            label="Payouts"
+            description="Manage external payout accounts and submit verification details."
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/settings/account/payouts')}
+            >
+              Manage
+            </Button>
+          </SettingRow>
+
+          <SectionDivider />
+
           {/* Links Section */}
           <SettingSection title={t('settings:account.links.title')}>
             {/* Domain Selector */}

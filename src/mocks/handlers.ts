@@ -284,7 +284,7 @@ export const handlers = [
     return HttpResponse.json({ subscription: mockDb.subscription });
   }),
 
-  http.patch('/api/practice/:practiceId/details', async ({ request, params }) => {
+  http.put('/api/practice/:practiceId/details', async ({ request, params }) => {
     const practiceId = String(params.practiceId);
     const practice = findPractice(practiceId);
     if (!practice) {
@@ -301,10 +301,10 @@ export const handlers = [
     return HttpResponse.json({ data: next });
   }),
 
-  http.get('/api/onboarding/practice/:practiceId/status', ({ params }) => {
-    const practiceId = String(params.practiceId);
-    ensurePracticeCollections(practiceId);
-    const state = mockDb.onboarding[practiceId];
+  http.get('/api/onboarding/organization/:organizationId/status', ({ params }) => {
+    const organizationId = String(params.organizationId);
+    ensurePracticeCollections(organizationId);
+    const state = mockDb.onboarding[organizationId];
     return HttpResponse.json({
       status: state.status,
       completed: state.completed,
@@ -313,8 +313,9 @@ export const handlers = [
       lastSavedAt: state.lastSavedAt,
       hasDraft: state.hasDraft,
       data: state.data,
-      practice_uuid: practiceId,
+      practice_uuid: organizationId,
       stripe_account_id: state.stripeAccountId,
+      client_secret: state.clientSecret ?? null,
       charges_enabled: state.chargesEnabled,
       payouts_enabled: state.payoutsEnabled,
       details_submitted: state.detailsSubmitted
@@ -345,10 +346,11 @@ export const handlers = [
     ensurePracticeCollections(practiceUuid);
     const state = mockDb.onboarding[practiceUuid];
     state.stripeAccountId = randomId('acct');
+    state.clientSecret = `acct_${state.stripeAccountId}_secret`;
     return HttpResponse.json({
       practice_uuid: practiceUuid,
       stripe_account_id: state.stripeAccountId,
-      client_secret: `acct_${state.stripeAccountId}_secret`,
+      client_secret: state.clientSecret,
       charges_enabled: state.chargesEnabled,
       payouts_enabled: state.payoutsEnabled,
       details_submitted: state.detailsSubmitted
