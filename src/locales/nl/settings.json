@@ -93,10 +93,10 @@
       }
     },
     "payouts": {
-      "title": "Payouts",
-      "sectionTitle": "Payouts",
-      "description": "Manage external payout accounts and submit verification details.",
-      "manage": "Manage"
+      "title": "[NEEDS TRANSLATION] Payouts",
+      "sectionTitle": "[NEEDS TRANSLATION] Payouts",
+      "description": "[NEEDS TRANSLATION] Manage external payout accounts and submit verification details.",
+      "manage": "[NEEDS TRANSLATION] Manage"
     },
     "links": {
       "title": "[NEEDS TRANSLATION] Links",

@@ -61,8 +61,11 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
           onChange?.(undefined);
           return;
         }
-        // Allow only standard decimal notation (no exponential or infinity)
-        if (!/^-?\d*\.?\d+$/.test(trimmed)) {
+        // Allow standard decimal notation and intermediate states ("1.", "-")
+        if (!/^-?\d*\.?\d*$/.test(trimmed)) {
+          return;
+        }
+        if (trimmed === '-' || trimmed.endsWith('.')) {
           return;
         }
         const parsed = Number(trimmed);

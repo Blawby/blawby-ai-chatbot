@@ -27,7 +27,7 @@ const mapPracticeStatusToOnboardingStatus = (
 export const mergePracticeAndLocalProgress = (
   localProgress: LocalOnboardingProgress | null | undefined,
   practice?: PracticeProgressSource
-): LocalOnboardingProgress => {
+): LocalOnboardingProgress | null => {
   if (localProgress) {
     return localProgress;
   }

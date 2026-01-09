@@ -65,6 +65,7 @@ export const saveLocalOnboardingState = (
     dispatchOnboardingEvent(organizationId);
   } catch (error) {
     console.error('[ONBOARDING][STORAGE] Failed to save state:', error);
+    throw error;
   }
 };
 

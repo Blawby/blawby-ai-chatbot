@@ -20,7 +20,10 @@ export const validateChecklistLabels = (
   }
 
   const formatted = missing.map((step) => `'${step}'`).join(', ');
-  const fallback = expectedSteps.length === ONBOARDING_STEP_SEQUENCE.length
+  const isDefaultSequence =
+    expectedSteps.length === ONBOARDING_STEP_SEQUENCE.length &&
+    expectedSteps.every((step, idx) => step === ONBOARDING_STEP_SEQUENCE[idx]);
+  const fallback = isDefaultSequence
     ? 'ONBOARDING_STEP_SEQUENCE'
     : expectedSteps.join(', ');
 

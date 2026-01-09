@@ -39,9 +39,6 @@ export function ReviewAndLaunchStep({
 }: ReviewAndLaunchStepProps) {
   const { t } = useTranslation('common');
   const normalizedSlug = practiceSlug?.trim() || 'your-firm';
-  if (!normalizedSlug) {
-    throw new Error('Practice slug cannot be empty');
-  }
   const intakeUrl = `https://ai.blawby.com/p/${encodeURIComponent(normalizedSlug)}`;
   const paymentUrl = `https://pay.blawby.com/p/${encodeURIComponent(normalizedSlug)}`;
   const validServices = data.services.filter(service => service.title.trim().length > 0);

@@ -7,7 +7,7 @@ import { Button } from '@/shared/ui/Button';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { NextStepsCard, type NextStepsStatus } from '@/shared/ui/cards/NextStepsCard';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
+import { isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
 import { getActiveOrganizationId } from '@/shared/utils/session';
@@ -70,8 +70,8 @@ const getChecklistStatus = (
   }
 
   const resumeStep = resolveResumeStep(progress);
-  const targetIndex = ONBOARDING_STEP_SEQUENCE.indexOf(targetStep);
-  const resumeIndex = resumeStep ? ONBOARDING_STEP_SEQUENCE.indexOf(resumeStep) : -1;
+  const targetIndex = CHECKLIST_STEP_ORDER.indexOf(targetStep);
+  const resumeIndex = resumeStep ? CHECKLIST_STEP_ORDER.indexOf(resumeStep) : -1;
   const hasStepData = hasOnboardingStepData(targetStep, progress?.data ?? null);
 
   if (resumeIndex >= 0 && targetIndex >= 0) {
@@ -80,7 +80,7 @@ const getChecklistStatus = (
     return 'incomplete';
   }
 
-  return targetIndex === ONBOARDING_STEP_SEQUENCE.indexOf('firm-basics')
+  return targetIndex === CHECKLIST_STEP_ORDER.indexOf('firm-basics')
     ? 'pending'
     : 'incomplete';
 };
