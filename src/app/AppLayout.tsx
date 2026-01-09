@@ -300,10 +300,11 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 
   const canShowOnboarding = workspace === 'practice';
   const onboardingStatus = canShowOnboarding
-    ? (localOnboardingProgress?.status ?? 'pending')
+    ? currentPractice?.businessOnboardingStatus ?? (localOnboardingProgress?.status ?? 'pending')
     : undefined;
-  const hasOnboardingDraft = canShowOnboarding ? (localOnboardingProgress?.hasDraft ?? false) : false;
-  const _onboardingPracticeId = currentPractice?.id;
+  const hasOnboardingDraft = canShowOnboarding
+    ? localOnboardingProgress?.hasDraft ?? Boolean(currentPractice?.businessOnboardingHasDraft)
+    : false;
 
   return (
     <div className="max-md:h-[100dvh] md:h-screen w-full flex bg-white dark:bg-dark-bg">

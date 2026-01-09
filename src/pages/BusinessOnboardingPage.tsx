@@ -16,6 +16,7 @@ import {
 import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
 import { updateLocalOnboardingState } from '@/shared/utils/onboardingStorage';
 import { getActiveOrganizationId } from '@/shared/utils/session';
+import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
 
 export const BusinessOnboardingPage = () => {
   const location = useLocation();
@@ -55,7 +56,21 @@ export const BusinessOnboardingPage = () => {
     enabled: Boolean(targetPracticeId)
   });
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
-  const onboardingProgress = useLocalOnboardingProgress(organizationId);
+  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
+  const onboardingProgress = useMemo(
+    () =>
+      mergePracticeAndLocalProgress(localOnboardingProgress, {
+        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
+        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
+        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
+      }),
+    [
+      localOnboardingProgress,
+      currentPractice?.businessOnboardingStatus,
+      currentPractice?.businessOnboardingCompletedAt,
+      currentPractice?.businessOnboardingHasDraft
+    ]
+  );
   const onboardingStatus = onboardingProgress?.status;
   const markOnboardingStatus = useCallback(
     async (status: OnboardingStatusValue) => {

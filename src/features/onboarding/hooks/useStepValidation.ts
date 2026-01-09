@@ -31,8 +31,14 @@ export const useStepValidation = () => {
   };
 
   const isValidPhone = (phone: string): boolean => {
-    const phoneRegex = /^\+?[\d\s-()]+$/;
-    return phoneRegex.test(phone);
+    const phoneRegex = /^\+?[\d\s\-()]{7,}$/;
+    const digitCount = (phone.match(/\d/g) || []).length;
+    return phoneRegex.test(phone) && digitCount >= 7;
+  };
+
+  const isValidSlug = (value: string): boolean => {
+    const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    return slugRegex.test(value);
   };
 
   const isValidUrl = (value: string): boolean => {
@@ -56,6 +62,12 @@ export const useStepValidation = () => {
           validationErrors.push({ field: 'contactEmail', message: 'Business email address is required' });
         } else if (!isValidEmail(formData.contactEmail.trim())) {
           validationErrors.push({ field: 'contactEmail', message: 'Enter a valid business email address' });
+        }
+        if (formData.slug?.trim() && !isValidSlug(formData.slug.trim())) {
+          validationErrors.push({
+            field: 'slug',
+            message: 'Slug can only contain lowercase letters, numbers, and single hyphens'
+          });
         }
         // contactPhone is optional, no validation needed
         break;
@@ -85,6 +97,12 @@ export const useStepValidation = () => {
           validationErrors.push({ field: 'contactEmail', message: 'Business email address is required' });
         } else if (!isValidEmail(formData.contactEmail.trim())) {
           validationErrors.push({ field: 'contactEmail', message: 'Enter a valid business email address' });
+        }
+        if (formData.slug?.trim() && !isValidSlug(formData.slug.trim())) {
+          validationErrors.push({
+            field: 'slug',
+            message: 'Slug can only contain lowercase letters, numbers, and single hyphens'
+          });
         }
         if (formData.website?.trim() && !isValidUrl(formData.website.trim())) {
           validationErrors.push({ field: 'website', message: 'Enter a valid website URL' });

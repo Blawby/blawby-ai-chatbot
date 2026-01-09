@@ -92,6 +92,12 @@
         }
       }
     },
+    "payouts": {
+      "title": "Payouts",
+      "sectionTitle": "Payouts",
+      "description": "Manage external payout accounts and submit verification details.",
+      "manage": "Manage"
+    },
     "links": {
       "title": "[NEEDS TRANSLATION] Links",
       "domainLabel": "[NEEDS TRANSLATION] Select a domain",

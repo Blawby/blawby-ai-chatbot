@@ -32,11 +32,11 @@ export interface OnboardingFormData {
   postalCode: string;
   country: string;
   introMessage: string;
-  description: string;
+  description?: string;
   isPublic: boolean;
 
   // Payment details
-  consultationFee?: number;
+  consultationFee?: number | null;
   
   // Services
   services: Array<{ id: string; title: string; description: string }>;

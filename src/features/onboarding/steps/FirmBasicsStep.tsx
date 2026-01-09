@@ -13,16 +13,28 @@ interface FirmBasicsData {
 interface FirmBasicsStepProps {
   data: FirmBasicsData;
   onChange: (data: FirmBasicsData) => void;
-  errors?: string | null;
   disabled?: boolean;
 }
 
-export function FirmBasicsStep({ 
-  data, 
-  onChange, 
-  errors: _errors,
+const sanitizeSlug = (value: string): string => {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/^-+|-+$/g, '');
+};
+
+const SLUG_PATTERN = '^[a-z0-9]+(?:-[a-z0-9]+)*$';
+
+export function FirmBasicsStep({
+  data,
+  onChange,
   disabled = false
 }: FirmBasicsStepProps) {
+  const handleSlugChange = (value: string) => {
+    onChange({ ...data, slug: sanitizeSlug(value) });
+  };
+
   return (
     <div className="space-y-6">
       <Input
@@ -45,9 +57,11 @@ export function FirmBasicsStep({
       <Input
         label="Slug (optional)"
         value={data.slug || ''}
-        onChange={(value) => onChange({ ...data, slug: value })}
+        onChange={handleSlugChange}
         disabled={disabled}
         placeholder="your-law-firm"
+        pattern={SLUG_PATTERN}
+        description="Use lowercase letters, numbers, and hyphens only"
       />
 
       <FileInput

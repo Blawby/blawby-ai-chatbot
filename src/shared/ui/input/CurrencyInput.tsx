@@ -42,7 +42,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
     <Input
       ref={ref}
       id={id}
-      type="number"
+      type="text"
       label={label}
       description={description}
       error={error}
@@ -55,14 +55,18 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
   icon={<span className="flex h-full w-full items-center justify-center text-gray-500">$</span>}
   iconPosition="left"
   value={stringValue}
-  onChange={(nextValue) => {
+      onChange={(nextValue) => {
         const trimmed = nextValue.trim();
         if (!trimmed) {
           onChange?.(undefined);
           return;
         }
+        // Allow only standard decimal notation (no exponential or infinity)
+        if (!/^-?\d*\.?\d+$/.test(trimmed)) {
+          return;
+        }
         const parsed = Number(trimmed);
-        if (!Number.isNaN(parsed)) {
+        if (Number.isFinite(parsed)) {
           onChange?.(parsed);
         }
       }}

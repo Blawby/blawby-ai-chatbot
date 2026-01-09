@@ -6,12 +6,14 @@ import { useInbox } from '@/shared/hooks/useInbox';
 import { Button } from '@/shared/ui/Button';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { NextStepsCard, type NextStepsStatus } from '@/shared/ui/cards/NextStepsCard';
-import { ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
 import { getActiveOrganizationId } from '@/shared/utils/session';
 import { hasOnboardingStepData, type LocalOnboardingProgress } from '@/shared/utils/onboardingStorage';
+import { validateChecklistLabels, CHECKLIST_STEP_ORDER } from '@/features/onboarding/utils/checklistLabels';
+import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -39,8 +41,10 @@ const CHECKLIST_LABELS: Partial<Record<OnboardingStep, string>> = {
   'review-and-launch': 'welcome.lawyer.todo.launch'
 };
 
+validateChecklistLabels(CHECKLIST_LABELS, CHECKLIST_STEP_ORDER, 'PracticeDashboardPage');
+
 const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> =
-  ONBOARDING_STEP_SEQUENCE.flatMap((step) => {
+  CHECKLIST_STEP_ORDER.flatMap((step) => {
     const labelKey = CHECKLIST_LABELS[step];
     return labelKey ? [{ step, labelKey }] : [];
   });
@@ -88,7 +92,21 @@ export const PracticeDashboardPage = () => {
   const { session, activePracticeId } = useSessionContext();
   const linkingHandledRef = useRef(false);
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
-  const onboardingProgress = useLocalOnboardingProgress(organizationId);
+  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
+  const onboardingProgress = useMemo(
+    () =>
+      mergePracticeAndLocalProgress(localOnboardingProgress, {
+        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
+        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
+        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
+      }),
+    [
+      localOnboardingProgress,
+      currentPractice?.businessOnboardingStatus,
+      currentPractice?.businessOnboardingCompletedAt,
+      currentPractice?.businessOnboardingHasDraft
+    ]
+  );
 
   const {
     conversations,

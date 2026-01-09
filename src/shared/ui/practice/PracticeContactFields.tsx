@@ -7,12 +7,12 @@ import { Input, PhoneInput, URLInput } from '@/shared/ui/input';
 export interface PracticeContactData {
   website?: string;
   contactPhone?: string;
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
 }
 
 interface PracticeContactFieldsProps {

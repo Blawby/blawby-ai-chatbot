@@ -155,7 +155,7 @@ export const SettingsPage = ({
       return t('settings:practice.team');
     }
     if (currentPage === 'account' && accountSubPage === 'payouts') {
-      return 'Payouts';
+      return t('settings:account.payouts.title');
     }
     return navigationItems.find(item => item.id === currentPage)?.label || 'Settings';
   })();

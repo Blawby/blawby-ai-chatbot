@@ -24,6 +24,7 @@ export interface InputProps {
   placeholderKey?: string;
   errorKey?: string;
   namespace?: string;
+  pattern?: string;
   min?: number;
   max?: number;
   step?: number;

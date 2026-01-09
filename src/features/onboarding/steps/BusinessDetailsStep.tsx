@@ -9,7 +9,7 @@ import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileT
 interface BusinessDetailsData {
   website?: string;
   contactPhone?: string;
-  consultationFee?: number;
+  consultationFee?: number | null;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -17,17 +17,16 @@ interface BusinessDetailsData {
   postalCode: string;
   country: string;
   introMessage?: string;
-  description: string;
+  description?: string;
 }
 
 interface BusinessDetailsStepProps {
   data: BusinessDetailsData;
   onChange: (data: BusinessDetailsData) => void;
-  errors?: string | null;
   disabled?: boolean;
 }
 
-export function BusinessDetailsStep({ data, onChange, errors: _errors, disabled = false }: BusinessDetailsStepProps) {
+export function BusinessDetailsStep({ data, onChange, disabled = false }: BusinessDetailsStepProps) {
   return (
     <div className="space-y-6">
       <PracticeContactFields
@@ -49,8 +48,8 @@ export function BusinessDetailsStep({ data, onChange, errors: _errors, disabled 
 
       <CurrencyInput
         label="Consultation fee (optional)"
-        value={data.consultationFee}
-        onChange={(value) => onChange({ ...data, consultationFee: value })}
+        value={data.consultationFee ?? undefined}
+        onChange={(value) => onChange({ ...data, consultationFee: value ?? null })}
         disabled={disabled}
         placeholder="150.00"
         step={0.01}

@@ -111,8 +111,9 @@ export const extractClientSecretFromPayload = (payload: unknown): string | null 
   const candidate = normalized as Record<string, unknown>;
   const secret = candidate.client_secret ?? candidate.clientSecret;
 
-  if (typeof secret === 'string' && secret.trim().length > 0) {
-    return secret;
+  const trimmedSecret = typeof secret === 'string' ? secret.trim() : '';
+  if (trimmedSecret.length > 0) {
+    return trimmedSecret;
   }
 
   return null;

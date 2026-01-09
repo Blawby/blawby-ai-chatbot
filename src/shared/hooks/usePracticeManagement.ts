@@ -379,9 +379,10 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   const topLevelDescription = typeof raw.description === 'string' && raw.description.trim().length > 0
     ? raw.description
     : undefined;
-  const configDescription = cfg && typeof (cfg as Record<string, unknown>).description === 'string'
-    ? (cfg as unknown as { description: string }).description
-    : undefined;
+  const configDescription = (() => {
+    const desc = cfg && (cfg as Record<string, unknown>).description;
+    return typeof desc === 'string' && desc.trim().length > 0 ? desc : undefined;
+  })();
 
   return {
     id,
@@ -392,20 +393,20 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
       const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
       return typeof val === 'string' && val.trim().length > 0 ? val : null;
     })(),
-  consultationFee: (() => {
-    const val = raw.consultationFee ?? raw.consultation_fee ?? null;
-    if (val === null) return null;
-    if (typeof val === 'number' && Number.isFinite(val)) return val;
-    if (typeof val === 'string' && val.trim().length > 0) {
-      const num = Number(val);
-      return Number.isFinite(num) ? num : null;
-    }
-    return undefined;
-  })(),
-  paymentUrl: (() => {
-    const val = raw.paymentUrl ?? raw.payment_url ?? null;
-    return typeof val === 'string' && val.trim().length > 0 ? val : null;
-  })(),
+    consultationFee: (() => {
+      const val = raw.consultationFee ?? raw.consultation_fee ?? null;
+      if (val === null) return null;
+      if (typeof val === 'number' && Number.isFinite(val)) return val;
+      if (typeof val === 'string' && val.trim().length > 0) {
+        const num = Number(val);
+        return Number.isFinite(num) ? num : null;
+      }
+      return null;
+    })(),
+    paymentUrl: (() => {
+      const val = raw.paymentUrl ?? raw.payment_url ?? null;
+      return typeof val === 'string' && val.trim().length > 0 ? val : null;
+    })(),
   subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
@@ -792,7 +793,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       payload.businessEmail = data.businessEmail.trim();
     }
 
-    if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
+    if (data.consultationFee === null) {
+      payload.consultationFee = null;
+    } else if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
       payload.consultationFee = data.consultationFee;
     }
 

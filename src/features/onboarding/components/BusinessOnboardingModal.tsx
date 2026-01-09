@@ -58,6 +58,109 @@ const STEP_DESCRIPTIONS: Record<OnboardingStep, string> = {
 
 const STEP_SEQUENCE: OnboardingStep[] = ONBOARDING_STEP_SEQUENCE;
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const trimToString = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value.trim() : undefined;
+
+type NormalizableStringField =
+  | 'firmName'
+  | 'contactEmail'
+  | 'contactPhone'
+  | 'website'
+  | 'slug'
+  | 'profileImage'
+  | 'addressLine1'
+  | 'addressLine2'
+  | 'city'
+  | 'state'
+  | 'postalCode'
+  | 'country'
+  | 'introMessage';
+
+const normalizeServices = (value: unknown): OnboardingFormData['services'] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((service, index) => {
+      if (!isPlainObject(service)) {
+        return null;
+      }
+      const title = trimToString(service.title);
+      if (!title) {
+        return null;
+      }
+      const description = trimToString(service.description) ?? '';
+      const idCandidate = trimToString(service.id);
+      const id = idCandidate ?? `service-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
+      return { id, title, description };
+    })
+    .filter((item): item is OnboardingFormData['services'][number] => Boolean(item));
+};
+
+const normalizeSnapshotData = (snapshot: Record<string, unknown>): Partial<OnboardingFormData> => {
+  const normalized: Partial<OnboardingFormData> = {};
+
+  const assignString = (field: NormalizableStringField, value: unknown) => {
+    const trimmed = trimToString(value);
+    if (trimmed !== undefined) {
+      normalized[field] = trimmed as OnboardingFormData[typeof field];
+    }
+  };
+
+  assignString('firmName', snapshot.firmName);
+  assignString('contactEmail', snapshot.contactEmail);
+  assignString('contactPhone', snapshot.contactPhone);
+  assignString('website', snapshot.website);
+  assignString('slug', snapshot.slug);
+  assignString('profileImage', snapshot.profileImage);
+  assignString('addressLine1', snapshot.addressLine1);
+  assignString('addressLine2', snapshot.addressLine2);
+  assignString('city', snapshot.city);
+  assignString('state', snapshot.state);
+  assignString('postalCode', snapshot.postalCode);
+  assignString('country', snapshot.country);
+  assignString('introMessage', snapshot.introMessage);
+
+  const descriptionValue = trimToString(snapshot.description);
+  const legacyOverview = trimToString(snapshot.overview);
+  if (descriptionValue !== undefined) {
+    normalized.description = descriptionValue;
+  } else if (legacyOverview !== undefined) {
+    normalized.description = legacyOverview;
+  }
+
+  if (typeof snapshot.isPublic === 'boolean') {
+    normalized.isPublic = snapshot.isPublic;
+  }
+
+  if (snapshot.consultationFee === null) {
+    normalized.consultationFee = null;
+  } else if (typeof snapshot.consultationFee === 'number' && Number.isFinite(snapshot.consultationFee)) {
+    normalized.consultationFee = snapshot.consultationFee;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(snapshot, 'services')) {
+    normalized.services = normalizeServices(snapshot.services);
+  }
+
+  return normalized;
+};
+
+const extractResumeStepFromMeta = (meta: unknown): OnboardingStep | undefined => {
+  if (!isPlainObject(meta)) {
+    return undefined;
+  }
+  const candidate = meta.resumeStep;
+  if (typeof candidate !== 'string') {
+    return undefined;
+  }
+  return STEP_SEQUENCE.includes(candidate as OnboardingStep) ? (candidate as OnboardingStep) : undefined;
+};
+
 interface BusinessOnboardingModalProps {
   isOpen: boolean;
   practiceId: string;
@@ -138,14 +241,7 @@ const BusinessOnboardingModal = ({
         const snapshot = buildLocalSnapshot(data, resumeStep);
         const status = statusOverride ?? 'pending';
         const savedAt = Date.now();
-
-        saveLocalOnboardingState(organizationId, {
-          status,
-          resumeStep,
-          savedAt,
-          completedAt: status === 'completed' ? savedAt : null,
-          data: snapshot
-        });
+        const completedAt = status === 'completed' ? savedAt : null;
 
         const practicePayload: UpdatePracticeRequest = {};
         const trimmedName = data.firmName.trim();
@@ -160,10 +256,6 @@ const BusinessOnboardingModal = ({
         if (trimmedSlug) practicePayload.slug = trimmedSlug;
         if (trimmedLogo) practicePayload.logo = trimmedLogo;
 
-        if (Object.keys(practicePayload).length > 0) {
-          await updatePractice(practiceId, practicePayload);
-        }
-
         const shouldPersistDetails = currentStep
           ? STEP_SEQUENCE.indexOf(currentStep) >= STEP_SEQUENCE.indexOf('business-details')
           : true;
@@ -177,7 +269,7 @@ const BusinessOnboardingModal = ({
         const trimmedPostal = data.postalCode.trim();
         const trimmedCountry = data.country.trim();
         const trimmedIntroMessage = data.introMessage.trim();
-        const trimmedDescription = data.description.trim();
+        const trimmedDescription = data.description?.trim();
 
         if (trimmedWebsite) detailsPayload.website = trimmedWebsite;
         if (trimmedAddress1) detailsPayload.addressLine1 = trimmedAddress1;
@@ -204,16 +296,48 @@ const BusinessOnboardingModal = ({
           detailsPayload.isPublic = Boolean(data.isPublic);
         }
 
-        if (shouldPersistDetails && Object.keys(detailsPayload).length > 0) {
-          await updatePracticeDetails(practiceId, detailsPayload);
+        const runOperation = async (label: string, action: () => Promise<unknown>) => {
+          try {
+            await action();
+          } catch (operationError) {
+            const fallbackMessage = `Failed to save ${label}`;
+            const message = resolveApiErrorMessage(operationError, fallbackMessage);
+            throw new Error(message);
+          }
+        };
+
+        if (Object.keys(practicePayload).length > 0) {
+          await runOperation('practice profile', () => updatePractice(practiceId, practicePayload));
         }
 
-        if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
-          await updatePractice(practiceId, { consultationFee: data.consultationFee });
+        if (shouldPersistDetails && Object.keys(detailsPayload).length > 0) {
+          await runOperation('business details', () => updatePracticeDetails(practiceId, detailsPayload));
+        }
+
+        if (data.consultationFee === null) {
+          await runOperation('consultation fee', () =>
+            updatePractice(practiceId, { consultationFee: null })
+          );
+        } else if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
+          await runOperation('consultation fee', () =>
+            updatePractice(practiceId, { consultationFee: data.consultationFee })
+          );
+        }
+
+        try {
+          saveLocalOnboardingState(organizationId, {
+            status,
+            resumeStep,
+            savedAt,
+            completedAt,
+            data: snapshot
+          });
+        } catch (storageError) {
+          console.warn('[ONBOARDING][SAVE] Failed to persist local snapshot:', storageError);
         }
       } catch (error) {
-        const errorMessage = resolveApiErrorMessage(error, 'Failed to save onboarding progress');
-        console.error('[ONBOARDING][SAVE] Error:', errorMessage);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to save onboarding progress';
+        console.error('[ONBOARDING][SAVE] Error:', error);
         showError('Save Failed', errorMessage);
         saveError = errorMessage;
       }
@@ -309,21 +433,16 @@ const BusinessOnboardingModal = ({
         const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
         const localState = organizationId ? loadLocalOnboardingState(organizationId) : null;
 
-        if (localState?.data) {
-          const { __meta, ...restRaw } = localState.data;
-          const rest = restRaw as Record<string, unknown>;
-          const { overview: _legacyOverview, ...restWithoutOverview } = rest;
-          const restData = restWithoutOverview as Partial<OnboardingFormData>;
-          const descriptionFromLegacy = typeof restData.description === 'string'
-            ? restData.description
-            : (typeof rest.overview === 'string' ? rest.overview : undefined);
-          const contactEmailFromRest = restData.contactEmail;
+        if (localState?.data && isPlainObject(localState.data)) {
+          const snapshotRecord = localState.data;
+          const normalizedData = normalizeSnapshotData(snapshotRecord);
+          const resumeStep = extractResumeStepFromMeta(snapshotRecord.__meta);
+          const contactEmailFromSnapshot = normalizedData.contactEmail;
 
           setFormData((prev) => ({
             ...prev,
-            ...restData,
-            description: descriptionFromLegacy ?? prev.description,
-            contactEmail: contactEmailFromRest ?? prev.contactEmail
+            ...normalizedData,
+            contactEmail: contactEmailFromSnapshot ?? prev.contactEmail
               ?? fallbackContactEmail
               ?? practiceRecord.businessEmail
               ?? ''
@@ -332,8 +451,8 @@ const BusinessOnboardingModal = ({
           if (!hasValidUrlStep) {
             if (localState.status === 'completed') {
               goToStep('review-and-launch');
-            } else if (__meta?.resumeStep && STEP_SEQUENCE.includes(__meta.resumeStep)) {
-              goToStep(__meta.resumeStep);
+            } else if (resumeStep) {
+              goToStep(resumeStep);
             }
           }
         } else {
@@ -354,7 +473,9 @@ const BusinessOnboardingModal = ({
             introMessage: practiceRecord.introMessage ?? prev.introMessage,
             description: practiceRecord.description ?? prev.description,
             isPublic: typeof practiceRecord.isPublic === 'boolean' ? practiceRecord.isPublic : prev.isPublic,
-            consultationFee: practiceRecord.consultationFee ?? prev.consultationFee
+            consultationFee: practiceRecord.consultationFee === undefined
+              ? prev.consultationFee
+              : practiceRecord.consultationFee
           }));
 
           if (localState?.status === 'completed' && !hasValidUrlStep) {

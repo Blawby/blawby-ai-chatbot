@@ -22,7 +22,7 @@ interface ReviewAndLaunchStepProps {
     state: string;
     postalCode: string;
     country: string;
-    description: string;
+    description?: string;
     introMessage?: string;
     consultationFee?: number;
     services: Array<{ title: string; description: string }>;
@@ -38,7 +38,10 @@ export function ReviewAndLaunchStep({
   onVisibilityChange,
 }: ReviewAndLaunchStepProps) {
   const { t } = useTranslation('common');
-  const normalizedSlug = (practiceSlug || 'your-firm').trim();
+  const normalizedSlug = practiceSlug?.trim() || 'your-firm';
+  if (!normalizedSlug) {
+    throw new Error('Practice slug cannot be empty');
+  }
   const intakeUrl = `https://ai.blawby.com/p/${encodeURIComponent(normalizedSlug)}`;
   const paymentUrl = `https://pay.blawby.com/p/${encodeURIComponent(normalizedSlug)}`;
   const validServices = data.services.filter(service => service.title.trim().length > 0);
@@ -84,7 +87,10 @@ export function ReviewAndLaunchStep({
             {data.contactPhone && <ReviewField label={t('onboarding.reviewAndLaunch.labels.phone')} value={data.contactPhone} />}
             {data.website && <ReviewField label={t('onboarding.reviewAndLaunch.labels.website')} value={data.website} />}
             {typeof data.consultationFee === 'number' && (
-              <ReviewField label="Consultation fee" value={`$${data.consultationFee}`} />
+              <ReviewField 
+                label={t('onboarding.reviewAndLaunch.labels.consultationFee')}
+                value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(data.consultationFee)}
+              />
             )}
           </div>
         </div>
@@ -118,7 +124,7 @@ export function ReviewAndLaunchStep({
 
         {data.introMessage && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Intro message</h4>
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('onboarding.reviewAndLaunch.sections.introMessage')}</h4>
             <p className="text-sm text-gray-600 dark:text-gray-400">{data.introMessage}</p>
           </div>
         )}
@@ -162,8 +168,8 @@ export function ReviewAndLaunchStep({
 
       <IntakeUrlDisplay
         url={paymentUrl}
-        title="Your payment link"
-        description="Share this link with clients to collect consultation fees and payments."
+        title={t('onboarding.reviewAndLaunch.paymentLink.title')}
+        description={t('onboarding.reviewAndLaunch.paymentLink.description')}
       />
 
       {/* What happens when you launch */}

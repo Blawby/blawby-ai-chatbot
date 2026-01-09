@@ -10,6 +10,7 @@ import { NextStepsCard, type NextStepsStatus, type NextStepsItem } from '@/share
 import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
 import { getActiveOrganizationId } from '@/shared/utils/session';
 import { hasOnboardingStepData, type LocalOnboardingProgress } from '@/shared/utils/onboardingStorage';
+import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
 
 const ClientHomePage = () => {
   const { session } = useSessionContext();
@@ -19,7 +20,21 @@ const ClientHomePage = () => {
   const name = session?.user?.name || session?.user?.email || 'there';
   const showUpgrade = !isPracticeEnabled;
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
-  const onboardingProgress = useLocalOnboardingProgress(organizationId);
+  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
+  const onboardingProgress = useMemo(
+    () =>
+      mergePracticeAndLocalProgress(localOnboardingProgress, {
+        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
+        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
+        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
+      }),
+    [
+      localOnboardingProgress,
+      currentPractice?.businessOnboardingStatus,
+      currentPractice?.businessOnboardingCompletedAt,
+      currentPractice?.businessOnboardingHasDraft
+    ]
+  );
   const showPracticeOnboarding =
     isPracticeEnabled &&
     Boolean(currentPractice?.id) &&

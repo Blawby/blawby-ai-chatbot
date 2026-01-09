@@ -3,14 +3,12 @@ import { ChecklistItem, type ChecklistItemStatus } from '@/features/onboarding/c
 import { InfoCard } from '@/features/onboarding/components/InfoCard';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
-import {
-  ONBOARDING_STEP_SEQUENCE,
-  isValidOnboardingStep
-} from '@/shared/utils/practiceOnboarding';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import { hasOnboardingStepData, type LocalOnboardingProgress } from '@/shared/utils/onboardingStorage';
+import { validateChecklistLabels, CHECKLIST_STEP_ORDER } from '@/features/onboarding/utils/checklistLabels';
 
 type OnboardingProgress = LocalOnboardingProgress | null | undefined;
 
@@ -28,8 +26,10 @@ const CHECKLIST_LABELS: Partial<Record<OnboardingStep, string>> = {
   'review-and-launch': 'welcome.lawyer.todo.launch'
 };
 
+validateChecklistLabels(CHECKLIST_LABELS, CHECKLIST_STEP_ORDER, 'WelcomeState');
+
 const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> =
-  ONBOARDING_STEP_SEQUENCE.flatMap((step) => {
+  CHECKLIST_STEP_ORDER.flatMap((step) => {
     const labelKey = CHECKLIST_LABELS[step];
     return labelKey ? [{ step, labelKey }] : [];
   });

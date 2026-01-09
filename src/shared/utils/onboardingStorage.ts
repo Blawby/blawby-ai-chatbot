@@ -23,6 +23,11 @@ export type LocalOnboardingProgress = PracticeOnboardingProgress<OnboardingFormD
 export const getOnboardingStorageKey = (organizationId: string): string =>
   `${STORAGE_PREFIX}:${organizationId}`;
 
+const VALID_STATUSES: OnboardingStatusValue[] = ['pending', 'completed', 'skipped'];
+
+const isValidStatus = (value: unknown): value is OnboardingStatusValue =>
+  typeof value === 'string' && VALID_STATUSES.includes(value as OnboardingStatusValue);
+
 export const loadLocalOnboardingState = (organizationId: string): LocalOnboardingState | null => {
   if (typeof window === 'undefined') return null;
 
@@ -33,7 +38,9 @@ export const loadLocalOnboardingState = (organizationId: string): LocalOnboardin
   try {
     const parsed = JSON.parse(raw) as LocalOnboardingState;
     if (!parsed || typeof parsed !== 'object') return null;
-    if (typeof parsed.status !== 'string') return null;
+    if (!isValidStatus(parsed.status)) return null;
+    if (parsed.savedAt !== undefined && typeof parsed.savedAt !== 'number') return null;
+    if (parsed.completedAt !== undefined && parsed.completedAt !== null && typeof parsed.completedAt !== 'number') return null;
     return parsed;
   } catch {
     return null;
@@ -53,18 +60,27 @@ export const saveLocalOnboardingState = (
 ): void => {
   if (typeof window === 'undefined') return;
   const key = getOnboardingStorageKey(organizationId);
-  localStorage.setItem(key, JSON.stringify(state));
-  dispatchOnboardingEvent(organizationId);
+  try {
+    localStorage.setItem(key, JSON.stringify(state));
+    dispatchOnboardingEvent(organizationId);
+  } catch (error) {
+    console.error('[ONBOARDING][STORAGE] Failed to save state:', error);
+  }
 };
 
 export const updateLocalOnboardingState = (
   organizationId: string,
   updater: (prev: LocalOnboardingState | null) => LocalOnboardingState
 ): LocalOnboardingState => {
-  const previous = loadLocalOnboardingState(organizationId);
-  const next = updater(previous);
-  saveLocalOnboardingState(organizationId, next);
-  return next;
+  try {
+    const previous = loadLocalOnboardingState(organizationId);
+    const next = updater(previous);
+    saveLocalOnboardingState(organizationId, next);
+    return next;
+  } catch (error) {
+    console.error('[ONBOARDING][STORAGE] Failed to update state:', error);
+    throw error;
+  }
 };
 
 export const getLocalOnboardingProgress = (organizationId: string): LocalOnboardingProgress => {
@@ -105,30 +121,29 @@ export const hasOnboardingStepData = (
   data?: PersistedOnboardingSnapshot<OnboardingFormData> | null
 ): boolean => {
   if (!data) return false;
-  const snapshot = data as OnboardingFormData;
-
   switch (step) {
     case 'firm-basics':
-      return hasValue(snapshot.firmName) && hasValue(snapshot.contactEmail);
+      return hasValue(data.firmName) && hasValue(data.contactEmail);
     case 'business-details':
       return Boolean(
-        hasValue(snapshot.website) ||
-        hasValue(snapshot.contactPhone) ||
-        (typeof snapshot.consultationFee === 'number' && Number.isFinite(snapshot.consultationFee)) ||
-        hasValue(snapshot.addressLine1) ||
-        hasValue(snapshot.addressLine2) ||
-        hasValue(snapshot.city) ||
-        hasValue(snapshot.state) ||
-        hasValue(snapshot.postalCode) ||
-        hasValue(snapshot.country) ||
-        hasValue(snapshot.description) ||
-        hasValue(snapshot.introMessage)
+        hasValue(data.website) ||
+        hasValue(data.contactPhone) ||
+        (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) ||
+        hasValue(data.addressLine1) ||
+        hasValue(data.addressLine2) ||
+        hasValue(data.city) ||
+        hasValue(data.state) ||
+        hasValue(data.postalCode) ||
+        hasValue(data.country) ||
+        hasValue(data.description) ||
+        hasValue(data.introMessage)
       );
     case 'services':
-      return Array.isArray(snapshot.services)
-        ? snapshot.services.some((service) => hasValue(service.title))
+      return Array.isArray(data.services)
+        ? data.services.some((service) => hasValue(service.title))
         : false;
     default:
+      // Default to true so generic/no-data steps remain accessible; adjust if new steps require validation.
       return true;
   }
 };

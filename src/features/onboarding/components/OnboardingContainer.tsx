@@ -7,6 +7,7 @@
 
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { cn } from '@/shared/utils/cn';
+import { ValidationAlert } from './ValidationAlert';
 import type { ComponentChildren } from 'preact';
 
 interface OnboardingContainerProps {
@@ -23,7 +24,7 @@ export const OnboardingContainer = ({
   children,
   header,
   loading = false,
-  error: _error = null,
+  error = null,
   className = '',
   footer,
   footerSticky = true
@@ -36,6 +37,11 @@ export const OnboardingContainer = ({
         <div className="mt-8 flex-1 flex flex-col">
           <div className="bg-white dark:bg-dark-card-bg border border-gray-200 dark:border-white/10 shadow-lg sm:rounded-xl flex flex-col h-full">
             <div className="flex-1 overflow-y-auto pb-24 px-5 sm:px-10 py-8">
+              {error && (
+                <div className="mb-6">
+                  <ValidationAlert>{error}</ValidationAlert>
+                </div>
+              )}
               {loading ? (
                 <div className="flex items-center justify-center py-10">
                   <LoadingSpinner size="lg" ariaLabel="Loading onboarding step" />

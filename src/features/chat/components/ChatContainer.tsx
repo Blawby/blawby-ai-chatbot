@@ -16,6 +16,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
 import { getActiveOrganizationId } from '@/shared/utils/session';
+import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -89,7 +90,21 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
-  const onboardingProgress = useLocalOnboardingProgress(organizationId);
+  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
+  const onboardingProgress = useMemo(
+    () =>
+      mergePracticeAndLocalProgress(localOnboardingProgress, {
+        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
+        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
+        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
+      }),
+    [
+      localOnboardingProgress,
+      currentPractice?.businessOnboardingStatus,
+      currentPractice?.businessOnboardingCompletedAt,
+      currentPractice?.businessOnboardingHasDraft
+    ]
+  );
 
 
   // Simple resize handler for window size changes
