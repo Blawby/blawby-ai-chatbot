@@ -10,9 +10,7 @@ import {
   SparklesIcon,
   Cog6ToothIcon,
   QuestionMarkCircleIcon,
-  ArrowRightOnRectangleIcon,
-  UserIcon,
-  BuildingOfficeIcon
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { type SubscriptionTier } from '@/shared/types/user';
@@ -23,11 +21,6 @@ interface ProfileDropdownProps {
   onSettings: () => void;
   onHelp: () => void;
   onLogout: () => void;
-  onSwitchToClient?: () => void;
-  onSwitchToPractice?: () => void;
-  workspace?: 'client' | 'practice';
-  hasPractice?: boolean;
-  practiceLabel?: string | null;
   signOutError?: string | null;
   className?: string;
 }
@@ -38,19 +31,10 @@ export const ProfileDropdown = ({
   onSettings, 
   onHelp, 
   onLogout,
-  onSwitchToClient,
-  onSwitchToPractice,
-  workspace,
-  hasPractice = false,
-  practiceLabel,
   signOutError,
   className = ''
 }: ProfileDropdownProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const showWorkspaceSwitcher = Boolean(onSwitchToClient && onSwitchToPractice && hasPractice);
-  const practiceLabelText = practiceLabel
-    ? t('profile:practiceViewWithName', { practiceLabel })
-    : t('profile:practiceView');
 
   return (
     <div 
@@ -59,8 +43,8 @@ export const ProfileDropdown = ({
       aria-label="Profile menu"
       className={`absolute bottom-full right-0 mb-2 w-full max-w-xs bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50 ${className}`}
     >
-      {/* Upgrade Plan - unified for all non-enterprise tiers */}
-      {tier !== 'enterprise' && (
+      {/* Upgrade Plan - only for free tier */}
+      {tier === 'free' && (
         <ProfileMenuItem
           icon={<SparklesIcon />}
           label={t('profile:menu.upgrade')}
@@ -75,29 +59,6 @@ export const ProfileDropdown = ({
         onClick={onSettings}
       />
 
-      {showWorkspaceSwitcher && (
-        <>
-          {/* Separator */}
-          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-
-          <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-gray-400">
-            {t('profile:workspace')}
-          </div>
-          <ProfileMenuItem
-            icon={<UserIcon />}
-            label={t('profile:clientView')}
-            onClick={onSwitchToClient ?? (() => {})}
-            isActive={workspace === 'client'}
-          />
-          <ProfileMenuItem
-            icon={<BuildingOfficeIcon />}
-            label={practiceLabelText}
-            onClick={onSwitchToPractice ?? (() => {})}
-            isActive={workspace === 'practice'}
-          />
-        </>
-      )}
-      
       {/* Separator */}
       <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
       

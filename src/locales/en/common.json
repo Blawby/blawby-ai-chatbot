@@ -218,9 +218,9 @@
       "subtitle": "Set up your practice to start receiving client intakes",
       "getStarted": "Get Started",
       "todo": {
-        "createPractice": "Create your practice profile",
-        "businessDetails": "Set up your business details",
-        "trustAccount": "Connect your trust account",
+        "createPractice": "Add your firm basics",
+        "businessDetails": "Add your business info",
+        "trustAccount": "Connect Stripe",
         "services": "Add your services",
         "launch": "Launch your intake assistant"
       }
@@ -244,5 +244,16 @@
       }
     },
     "goToSettings": "Go to Practice Settings"
+  },
+  "dashboard": {
+    "onboarding": {
+      "title": "Your next steps",
+      "subtitle": "Complete onboarding to start receiving client intakes.",
+      "continueAction": "Continue onboarding",
+      "open": "Open"
+    }
+  },
+  "common": {
+    "open": "Open"
   }
 }

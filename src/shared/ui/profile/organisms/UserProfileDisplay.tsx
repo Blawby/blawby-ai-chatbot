@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';
-import { useSession, updateUser } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { signOut } from '@/shared/utils/auth';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -17,14 +17,13 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { type SubscriptionTier } from '@/shared/types/user';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { useWorkspace } from '@/shared/hooks/useWorkspace';
-import { setActivePractice } from '@/shared/lib/apiClient';
+import { useSubscription } from '@/shared/hooks/useSubscription';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
   currentPractice?: {
     id: string;
-    subscriptionTier?: string;
+    subscriptionTier?: SubscriptionTier;
   } | null;
 }
 
@@ -33,16 +32,22 @@ export const UserProfileDisplay = ({
   currentPractice 
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const { data: session, isPending, error } = useSession();
+  const { session, isPending, error } = useSessionContext();
   const { showError } = useToastContext();
-  const { currentPractice: managedPractice, practices } = usePracticeManagement();
-  const { workspaceFromPath, preferredWorkspace, preferredPracticeId, canAccessPractice } = useWorkspace();
+  const { currentPractice: managedPractice } = usePracticeManagement();
+  const {
+    isPracticeEnabled,
+    isLoading: isSubscriptionLoading,
+    error: subscriptionError
+  } = useSubscription();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
   const practiceForTier = currentPractice ?? managedPractice ?? null;
+  const resolvedSubscriptionTier: SubscriptionTier =
+    practiceForTier?.subscriptionTier ?? (isPracticeEnabled ? 'business' : 'free');
 
   // Derive user data from session and practice
   const user = session?.user ? {
@@ -53,11 +58,14 @@ export const UserProfileDisplay = ({
     practiceId: practiceForTier?.id || null,
     role: 'user',
     phone: null,
-    subscriptionTier: (practiceForTier?.subscriptionTier || 'free') as SubscriptionTier
+    subscriptionTier: resolvedSubscriptionTier
   } : null;
 
 
-  const loading = isPending;
+  const loading = isPending || isSubscriptionLoading;
+  if (subscriptionError) {
+    console.warn('[Profile] Subscription fetch error (isPracticeEnabled=%s):', isPracticeEnabled, subscriptionError);
+  }
 
   // Handle dropdown close when clicking outside or pressing Escape
   useEffect(() => {
@@ -123,60 +131,6 @@ export const UserProfileDisplay = ({
     navigate('/settings/help');
   };
 
-  const resolvedPracticeId = preferredPracticeId ?? practiceForTier?.id ?? practices[0]?.id ?? null;
-  const practiceLabel = managedPractice?.name ?? practices[0]?.name ?? null;
-  const resolvedPreferredWorkspace = preferredWorkspace === 'practice' && !canAccessPractice
-    ? 'client'
-    : preferredWorkspace;
-
-  const currentWorkspace = (workspaceFromPath === 'client' || workspaceFromPath === 'practice')
-    ? workspaceFromPath
-    : (resolvedPreferredWorkspace ?? (canAccessPractice ? 'practice' : 'client'));
-
-  const handleSwitchToClient = async () => {
-    setShowDropdown(false);
-    try {
-      await updateUser({ primaryWorkspace: 'client', preferredPracticeId: null });
-      navigate('/app', true);
-    } catch (_error) {
-      showError('Workspace switch failed', 'We could not switch to the client view.');
-    }
-  };
-
-  const handleSwitchToPractice = async () => {
-    setShowDropdown(false);
-    if (!canAccessPractice) {
-      showError('Upgrade required', 'Please upgrade to access the practice workspace.');
-      return;
-    }
-    const previousPreferredPracticeId = preferredPracticeId ?? practiceForTier?.id ?? null;
-    try {
-      if (resolvedPracticeId) {
-        await setActivePractice(resolvedPracticeId);
-      }
-      await updateUser({
-        primaryWorkspace: 'practice',
-        preferredPracticeId: resolvedPracticeId
-      });
-      navigate(resolvedPracticeId ? '/practice' : '/cart', true);
-    } catch (_error) {
-      console.error('[Profile] Failed to switch to practice workspace', {
-        resolvedPracticeId,
-        error: _error
-      });
-      if (previousPreferredPracticeId && previousPreferredPracticeId !== resolvedPracticeId) {
-        try {
-          await setActivePractice(previousPreferredPracticeId);
-        } catch (rollbackError) {
-          console.error('[Profile] Failed to restore previous practice selection', {
-            previousPreferredPracticeId,
-            error: rollbackError
-          });
-        }
-      }
-      showError('Workspace switch failed', 'We could not switch to the practice view.');
-    }
-  };
 
   const handleLogoutClick = async () => {
     setShowDropdown(false);
@@ -274,11 +228,6 @@ export const UserProfileDisplay = ({
             onSettings={handleSettingsClick}
             onHelp={handleHelpClick}
             onLogout={handleLogoutClick}
-            onSwitchToClient={handleSwitchToClient}
-            onSwitchToPractice={handleSwitchToPractice}
-            workspace={currentWorkspace}
-            hasPractice={canAccessPractice}
-            practiceLabel={practiceLabel}
             signOutError={signOutError}
           />
         )}

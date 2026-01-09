@@ -4,8 +4,9 @@ import BusinessOnboardingModal from '@/features/onboarding/components/BusinessOn
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { resolvePracticeKind, normalizeSubscriptionStatus } from '@/shared/utils/subscription';
 import { isForcePaidEnabled } from '@/shared/utils/devFlags';
+import { resolvePracticeKind } from '@/shared/utils/subscription';
+import { useSubscription } from '@/shared/hooks/useSubscription';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import {
   updatePractice
@@ -49,7 +50,11 @@ export const BusinessOnboardingPage = () => {
   }, [practices, currentPractice]);
   
   const targetPracticeId = targetPractice?.id ?? practiceId;
-  const metadataSource = targetPractice?.config?.metadata;
+  const { isPracticeEnabled, isLoading: isSubscriptionLoading } = useSubscription({
+    referenceId: targetPracticeId ?? undefined,
+    enabled: Boolean(targetPracticeId)
+  });
+  const metadataSource = targetPractice?.metadata;
   const onboardingProgress = useMemo(
     () => extractProgressFromPracticeMetadata(metadataSource),
     [metadataSource]
@@ -160,24 +165,17 @@ export const BusinessOnboardingPage = () => {
 
   // Guard: Only allow business/enterprise tiers (after initial sync ready)
   useEffect(() => {
-    if (!ready || !targetPractice) return;
+    if (!ready || !targetPractice || isSubscriptionLoading) return;
     if (devForcePaid) {
       console.debug('[ONBOARDING][DEV_FORCE_PAID] Bypassing subscription eligibility guard.');
       return;
     }
-    const resolvedKind = resolvePracticeKind(targetPractice.kind, targetPractice.isPersonal ?? null);
-    const resolvedStatus = normalizeSubscriptionStatus(targetPractice.subscriptionStatus, resolvedKind);
-    const allowedStatuses = new Set(['active', 'trialing', 'paused']);
-    const eligible = resolvedKind === 'business' && allowedStatuses.has(resolvedStatus);
-    if (!eligible) {
-      console.warn('❌ Onboarding access denied: insufficient subscription state', {
-        kind: resolvedKind,
-        status: resolvedStatus,
-      });
+    if (!isPracticeEnabled) {
+      console.warn('❌ Onboarding access denied: missing active subscription');
       showError('Not Available', 'Business onboarding is only available for active business subscriptions.');
       navigate('/');
     }
-  }, [ready, targetPractice, showError, navigate, devForcePaid]);
+  }, [ready, targetPractice, isSubscriptionLoading, isPracticeEnabled, showError, navigate, devForcePaid]);
 
   // Guard: Redirect if onboarding already completed
   useEffect(() => {

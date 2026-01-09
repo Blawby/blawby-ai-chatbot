@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { useSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 
@@ -9,7 +9,7 @@ interface UseWelcomeModalResult {
 }
 
 export function useWelcomeModal(): UseWelcomeModalResult {
-  const { data: session, isPending: sessionIsPending } = useSession();
+  const { session, isPending: sessionIsPending } = useSessionContext();
   const [shouldShow, setShouldShow] = useState(false);
   const bcRef = useRef<BroadcastChannel | null>(null);
 

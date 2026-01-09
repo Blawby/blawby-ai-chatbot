@@ -3,7 +3,8 @@ import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import { useSession, authClient } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { authClient } from '@/shared/lib/authClient';
 import Modal from '@/shared/components/Modal';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -74,7 +75,7 @@ export const SecurityPage = ({
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
-  const { data: session, isPending } = useSession();
+  const { session, isPending } = useSessionContext();
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isChangingPassword, setIsChangingPassword] = useState(false);

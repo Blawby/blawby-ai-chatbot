@@ -3,7 +3,7 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import Modal from '@/shared/components/Modal';
 import PersonalInfoStep from './PersonalInfoStep';
 import UseCaseStep from './UseCaseStep';
-import { useSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
@@ -20,7 +20,7 @@ type OnboardingStep = 'personal' | 'useCase';
 const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) => {
   const { t } = useTranslation('common');
   const { showError, showSuccess } = useToastContext();
-  const { data: session } = useSession();
+  const { session } = useSessionContext();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('personal');
   const [onboardingData, setOnboardingData] = useState<OnboardingFormData>({
     personalInfo: {

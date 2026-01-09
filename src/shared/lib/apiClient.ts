@@ -663,6 +663,54 @@ export interface SubscriptionListResponse {
   data?: SubscriptionListItem[];
 }
 
+export interface AuthSubscriptionListItem {
+  id?: string | null;
+  status?: string | null;
+  cancelAtPeriodEnd?: boolean | null;
+  cancel_at_period_end?: boolean | null;
+  currentPeriodEnd?: string | null;
+  current_period_end?: string | null;
+  plan?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+function normalizeSubscriptionListResponse(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) {
+    return payload.filter(isRecord);
+  }
+  if (isRecord(payload)) {
+    const subscriptions = payload.subscriptions;
+    if (Array.isArray(subscriptions)) {
+      return subscriptions.filter(isRecord);
+    }
+    const data = payload.data;
+    if (Array.isArray(data)) {
+      return data.filter(isRecord);
+    }
+  }
+  return [];
+}
+
+export async function listAuthSubscriptions(
+  referenceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<AuthSubscriptionListItem[]> {
+  if (!referenceId) {
+    throw new Error('referenceId is required');
+  }
+
+  const response = await apiClient.get(
+    getSubscriptionListEndpoint(),
+    {
+      params: { referenceId },
+      baseURL: undefined, // Use full URL from getSubscriptionListEndpoint
+      signal: config?.signal
+    }
+  );
+
+  return normalizeSubscriptionListResponse(response.data) as AuthSubscriptionListItem[];
+}
+
 export async function listSubscriptions(
   referenceId: string,
   config?: Pick<AxiosRequestConfig, 'signal'>
@@ -683,16 +731,7 @@ export async function listSubscriptions(
 
   // Handle different response shapes
   const data = response.data as SubscriptionListResponse;
-  if (Array.isArray(data)) {
-    return data;
-  }
-  if (data?.subscriptions && Array.isArray(data.subscriptions)) {
-    return data.subscriptions;
-  }
-  if (data?.data && Array.isArray(data.data)) {
-    return data.data;
-  }
-  return [];
+  return normalizeSubscriptionListResponse(data) as SubscriptionListItem[];
 }
 
 apiClient.interceptors.response.use(

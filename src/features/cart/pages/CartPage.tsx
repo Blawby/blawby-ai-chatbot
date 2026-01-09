@@ -12,13 +12,13 @@ import {
   hasManagedSubscription,
 } from '@/shared/utils/subscription';
 import { isForcePaidEnabled } from '@/shared/utils/devFlags';
-import { useSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 
 export const CartPage = () => {
   const location = useLocation();
   const { navigate, navigateToAuth } = useNavigation();
-  const { data: session, isPending: isSessionPending } = useSession();
+  const { session, isPending: isSessionPending } = useSessionContext();
   const { submitUpgrade, submitting, openBillingPortal } = usePaymentUpgrade();
   const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();

@@ -31,7 +31,7 @@ import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
-import { getStoredWorkspace } from '@/shared/utils/workspace';
+import { useSubscription } from '@/shared/hooks/useSubscription';
 
 
 export interface SettingsPageProps {
@@ -50,12 +50,10 @@ export const SettingsPage = ({
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
   const [apps, setApps] = useState<App[]>(mockApps);
-  const { practices, currentPractice, loading: practicesLoading } = usePracticeManagement({ autoFetchPractices: true });
-  const hasPractice = practices.length > 0 || currentPractice !== null;
-  const { defaultWorkspace, canAccessPractice } = useWorkspace();
-  const storedWorkspace = getStoredWorkspace();
-  const activeWorkspace = storedWorkspace ?? defaultWorkspace;
-  const canShowPracticeSettings = activeWorkspace === 'practice' && hasPractice && canAccessPractice;
+  const { loading: practicesLoading } = usePracticeManagement({ autoFetchPractices: true });
+  const { canAccessPractice } = useWorkspace();
+  const { isLoading: subscriptionLoading } = useSubscription();
+  const canShowPracticeSettings = canAccessPractice;
   
   // Get current page from URL path
   const getCurrentPage = () => {
@@ -89,10 +87,13 @@ export const SettingsPage = ({
   }, [currentPage, navigate]);
   
   useEffect(() => {
-    if (!practicesLoading && !canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
+    if (practicesLoading || subscriptionLoading) {
+      return;
+    }
+    if (!canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
       navigate('/settings');
     }
-  }, [canShowPracticeSettings, currentPage, navigate, practicesLoading]);
+  }, [canShowPracticeSettings, currentPage, navigate, practicesLoading, subscriptionLoading]);
 
   if (currentPage === 'organization') {
     return null;

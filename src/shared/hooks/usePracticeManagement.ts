@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
-import { useTypedSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import {
   listPractices,
   createPractice as apiCreatePractice,
@@ -20,6 +20,21 @@ import { extractPracticeOnboardingMetadata } from '@/shared/utils/practiceOnboar
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+type SharedPracticeSnapshot = {
+  practices: Practice[];
+  currentPractice: Practice | null;
+};
+
+let sharedPracticeSnapshot: SharedPracticeSnapshot | null = null;
+let sharedPracticePromise: Promise<SharedPracticeSnapshot> | null = null;
+let sharedPracticeUserId: string | null = null;
+
+const resetSharedPracticeCache = () => {
+  sharedPracticeSnapshot = null;
+  sharedPracticePromise = null;
+  sharedPracticeUserId = null;
+};
 
 // Types
 export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
@@ -469,7 +484,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     autoFetchPractices = true,
     fetchInvitations: shouldFetchInvitations = true,
   } = options;
-  const { data: session, isPending: sessionLoading } = useTypedSession();
+  const { session, isPending: sessionLoading } = useSessionContext();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const [members, setMembers] = useState<Record<string, Member[]>>({});
@@ -539,9 +554,49 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   // Fetch user's practices
   const fetchPractices = useCallback(async () => {
+    let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
       if (practicesFetchedRef.current && session?.user) {
         return;
+      }
+
+      const userId = session?.user?.id ?? null;
+      if (!userId) {
+        setPractices([]);
+        setCurrentPractice(null);
+        setLoading(false);
+        practicesFetchedRef.current = false;
+        resetSharedPracticeCache();
+        return;
+      }
+
+      if (sharedPracticeUserId && sharedPracticeUserId !== userId) {
+        resetSharedPracticeCache();
+      }
+
+      if (sharedPracticeSnapshot) {
+        setPractices(sharedPracticeSnapshot.practices);
+        setCurrentPractice(sharedPracticeSnapshot.currentPractice);
+        setLoading(false);
+        practicesFetchedRef.current = true;
+        return;
+      }
+
+      if (sharedPracticePromise) {
+        const cachedPromise = sharedPracticePromise;
+        try {
+          const cached = await sharedPracticePromise;
+          setPractices(cached.practices);
+          setCurrentPractice(cached.currentPractice);
+          setLoading(false);
+          practicesFetchedRef.current = true;
+          return;
+        } catch (_err) {
+          console.warn('Cached practice promise failed, retrying with fresh fetch.');
+          if (sharedPracticePromise === cachedPromise) {
+            sharedPracticePromise = null;
+          }
+        }
       }
 
       if (currentRequestRef.current) {
@@ -554,33 +609,35 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       setLoading(true);
       setError(null);
 
-      if (!session?.user) {
-        setPractices([]);
-        setCurrentPractice(null);
-        setLoading(false);
-        practicesFetchedRef.current = false;
-        return;
-      }
+      sharedPracticePromise = (async () => {
+        const rawPracticeList = await listPractices({ signal: controller.signal, scope: 'all' });
 
-      const rawPracticeList = await listPractices({ signal: controller.signal, scope: 'all' });
+        const normalizedList = rawPracticeList
+          .filter((item): item is Practice => typeof item === 'object' && item !== null)
+          .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
+          .filter((practice) => practice.id.length > 0);
 
-      const normalizedList = rawPracticeList
-        .filter((item): item is Practice => typeof item === 'object' && item !== null)
-        .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
-        .filter((practice) => practice.id.length > 0);
+        const preferredPracticeId =
+          session?.user?.preferredPracticeId ??
+          session?.user?.practiceId ??
+          session?.user?.activePracticeId ??
+          null;
+        const preferredPractice = preferredPracticeId
+          ? normalizedList.find(practice => practice.id === preferredPracticeId)
+          : undefined;
+        const personalPractice = normalizedList.find(practice => practice.kind === 'personal');
+        const currentPracticeNext = preferredPractice || personalPractice || normalizedList[0] || null;
 
-      const preferredPracticeId =
-        session?.user?.preferredPracticeId ??
-        session?.user?.practiceId ??
-        session?.user?.activePracticeId ??
-        null;
-      const preferredPractice = preferredPracticeId
-        ? normalizedList.find(practice => practice.id === preferredPracticeId)
-        : undefined;
-      const personalPractice = normalizedList.find(practice => practice.kind === 'personal');
+        return { practices: normalizedList, currentPractice: currentPracticeNext };
+      })();
+      currentFetchPromise = sharedPracticePromise;
 
-      setPractices(normalizedList);
-      setCurrentPractice(preferredPractice || personalPractice || normalizedList[0] || null);
+      const snapshot = await sharedPracticePromise;
+      sharedPracticeSnapshot = snapshot;
+      sharedPracticeUserId = userId;
+
+      setPractices(snapshot.practices);
+      setCurrentPractice(snapshot.currentPractice);
       practicesFetchedRef.current = true;
     } catch (err) {
       if (err instanceof Error && err.name === 'CanceledError') {
@@ -593,6 +650,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     } finally {
       setLoading(false);
       currentRequestRef.current = null;
+      if (sharedPracticePromise === currentFetchPromise) {
+        sharedPracticePromise = null;
+      }
     }
   }, [session]);
 
@@ -946,6 +1006,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const refetch = useCallback(async () => {
     // Reset the fetched flag to ensure we actually refetch
     practicesFetchedRef.current = false;
+    resetSharedPracticeCache();
     
     const promises = [fetchPractices()];
     
@@ -979,6 +1040,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     // Reset the fetched flag and refetch trigger
     practicesFetchedRef.current = false;
     refetchTriggeredRef.current = false;
+
+    const userId = session?.user?.id ?? null;
+    if (sharedPracticePromise && userId) {
+      return;
+    }
+    if (sharedPracticeUserId && userId && sharedPracticeUserId === userId) {
+      return;
+    }
+    resetSharedPracticeCache();
   }, [session?.user?.id]);
 
   return {

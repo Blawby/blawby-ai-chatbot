@@ -5,8 +5,8 @@ import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
-import { SessionProvider } from '@/shared/contexts/SessionContext';
-import { useTypedSession, getClient, updateUser } from '@/shared/lib/authClient';
+import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
+import { getClient, updateUser } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -67,7 +67,7 @@ function AppShell() {
 
   const handleCloseSettings = useCallback(() => {
     const returnPath = getSettingsReturnPath();
-    const fallback = defaultWorkspace === 'practice' ? '/practice' : '/app';
+    const fallback = defaultWorkspace === 'practice' ? '/practice' : '/dashboard';
     navigate(returnPath ?? fallback, true);
   }, [defaultWorkspace, navigate]);
 
@@ -85,8 +85,8 @@ function AppShell() {
         <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
         <Route path="/practice" component={PracticeAppRoute} />
         <Route path="/practice/*" component={PracticeAppRoute} />
-        <Route path="/app" component={ClientAppRoute} />
-        <Route path="/app/*" component={ClientAppRoute} />
+        <Route path="/dashboard" component={ClientAppRoute} />
+        <Route path="/dashboard/*" component={ClientAppRoute} />
         <Route default component={RootRoute} />
       </Router>
 
@@ -115,7 +115,7 @@ function SettingsRoute() {
 }
 
 function RootRoute() {
-  const { data: session, isPending } = useTypedSession();
+  const { session, isPending } = useSessionContext();
   const {
     defaultWorkspace,
     preferredPracticeId,
@@ -173,7 +173,7 @@ function RootRoute() {
           }
         }
         if (isMountedRef.current) {
-          navigate('/app', true);
+          navigate('/dashboard', true);
         }
       };
       void resetWorkspace();
@@ -181,11 +181,11 @@ function RootRoute() {
     }
 
     if (defaultWorkspace === 'practice' && !canAccessPractice) {
-      navigate('/app', true);
+      navigate('/dashboard', true);
       return;
     }
 
-    navigate(defaultWorkspace === 'practice' ? '/practice' : '/app', true);
+    navigate(defaultWorkspace === 'practice' ? '/practice' : '/dashboard', true);
   }, [
     activePracticeId,
     canAccessPractice,
@@ -201,7 +201,7 @@ function RootRoute() {
 }
 
 function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
-  const { data: session, isPending } = useTypedSession();
+  const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
 
   useEffect(() => {
@@ -234,10 +234,16 @@ function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
 }
 
 function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
-  const { data: session, isPending } = useTypedSession();
+  const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
-  const { preferredPracticeId, activePracticeId, hasPractice, isPracticeEnabled, canAccessPractice } = useWorkspace();
+  const { preferredPracticeId, activePracticeId, isPracticeEnabled, canAccessPractice } = useWorkspace();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
+  const hasPracticeCandidate = Boolean(
+    preferredPracticeId ||
+    activePracticeId ||
+    currentPractice?.id ||
+    practices[0]?.id
+  );
 
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
@@ -261,10 +267,10 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
   useEffect(() => {
     if (settingsMode || isPending || practicesLoading) return;
     if (!session?.user) return;
-    if (!isPracticeEnabled || !canAccessPractice) {
-      navigate('/app', true);
+    if (!isPracticeEnabled || (!canAccessPractice && !hasPracticeCandidate)) {
+      navigate('/dashboard', true);
     }
-  }, [canAccessPractice, isPracticeEnabled, isPending, navigate, practicesLoading, session?.user, settingsMode]);
+  }, [canAccessPractice, hasPracticeCandidate, isPracticeEnabled, isPending, navigate, practicesLoading, session?.user, settingsMode]);
 
   if (isPending || practicesLoading || isLoading) {
     return <LoadingScreen />;
@@ -274,8 +280,15 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
     return <AuthPage />;
   }
 
-  if (!hasPractice || !practiceId) {
+  if (!hasPracticeCandidate) {
     return <ClientHomePage />;
+  }
+
+  if (!practiceId) {
+    if (practiceNotFound) {
+      return <ClientHomePage />;
+    }
+    return <LoadingScreen />;
   }
 
   return (
@@ -293,7 +306,7 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
 
 function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
   const location = useLocation();
-  const { data: session, isPending: sessionIsPending } = useTypedSession();
+  const { session, isPending: sessionIsPending } = useSessionContext();
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
   }, []);

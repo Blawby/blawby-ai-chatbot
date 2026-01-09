@@ -5,6 +5,10 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useInbox } from '@/shared/hooks/useInbox';
 import { Button } from '@/shared/ui/Button';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { NextStepsCard, type NextStepsStatus } from '@/shared/ui/cards/NextStepsCard';
+import { extractProgressFromPracticeMetadata, ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
+import { useTranslation } from '@/shared/i18n/hooks';
+import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -24,11 +28,59 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
+const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> = [
+  { step: 'firm-basics', labelKey: 'welcome.lawyer.todo.createPractice' },
+  { step: 'business-details', labelKey: 'welcome.lawyer.todo.businessDetails' },
+  { step: 'stripe-onboarding', labelKey: 'welcome.lawyer.todo.trustAccount' },
+  { step: 'services', labelKey: 'welcome.lawyer.todo.services' },
+  { step: 'review-and-launch', labelKey: 'welcome.lawyer.todo.launch' }
+];
+
+const resolveResumeStep = (progress: ReturnType<typeof extractProgressFromPracticeMetadata>): OnboardingStep | undefined => {
+  if (!progress?.data) return undefined;
+  const candidate = progress.data.__meta?.resumeStep;
+  return isValidOnboardingStep(candidate) ? candidate : undefined;
+};
+
+const getChecklistStatus = (
+  targetStep: OnboardingStep,
+  progress: ReturnType<typeof extractProgressFromPracticeMetadata>
+): NextStepsStatus => {
+  const isComplete =
+    progress?.status === 'completed' ||
+    progress?.completed ||
+    progress?.status === 'skipped' ||
+    progress?.skipped;
+
+  if (isComplete) {
+    return 'completed';
+  }
+
+  const resumeStep = resolveResumeStep(progress);
+  const targetIndex = ONBOARDING_STEP_SEQUENCE.indexOf(targetStep);
+  const resumeIndex = resumeStep ? ONBOARDING_STEP_SEQUENCE.indexOf(resumeStep) : -1;
+
+  if (resumeIndex >= 0 && targetIndex >= 0) {
+    if (targetIndex < resumeIndex) return 'completed';
+    if (targetIndex === resumeIndex) return 'pending';
+    return 'incomplete';
+  }
+
+  return targetIndex === ONBOARDING_STEP_SEQUENCE.indexOf('firm-basics')
+    ? 'pending'
+    : 'incomplete';
+};
+
 export const PracticeDashboardPage = () => {
   const { navigate } = useNavigation();
+  const { t } = useTranslation('common');
   const { currentPractice } = usePracticeManagement();
   const { activePracticeId } = useSessionContext();
   const linkingHandledRef = useRef(false);
+  const onboardingProgress = useMemo(
+    () => extractProgressFromPracticeMetadata(currentPractice?.metadata),
+    [currentPractice?.metadata]
+  );
 
   const {
     conversations,
@@ -102,6 +154,24 @@ export const PracticeDashboardPage = () => {
     })();
   }, [navigate]);
 
+  const checklistItems = useMemo(
+    () =>
+      CHECKLIST_STEPS.map(({ step, labelKey }) => ({
+        id: step,
+        title: t(labelKey),
+        status: getChecklistStatus(step, onboardingProgress),
+        action: {
+          label: t('common.open'),
+          onClick: () => navigate(`/business-onboarding/${step}`),
+          variant: 'secondary' as const,
+          size: 'sm' as const
+        }
+      })),
+    [navigate, onboardingProgress, t]
+  );
+
+  const showOnboardingChecklist = onboardingProgress?.status !== 'completed';
+
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -113,6 +183,15 @@ export const PracticeDashboardPage = () => {
             Track new leads, keep your team aligned, and jump back into active conversations.
           </p>
         </div>
+
+        {showOnboardingChecklist && (
+          <NextStepsCard
+            title={t('dashboard.onboarding.title')}
+            subtitle={t('dashboard.onboarding.subtitle')}
+            items={checklistItems}
+            action={{ label: t('dashboard.onboarding.continueAction'), onClick: () => navigate('/business-onboarding') }}
+          />
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {highlightCards.map(card => (

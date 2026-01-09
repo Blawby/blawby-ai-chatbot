@@ -5,7 +5,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/features/media/components/DragDropOverlay';
 import AppLayout from './AppLayout';
 import { ConversationHeader } from '@/features/chat/components/ConversationHeader';
-import { useSession } from '@/shared/lib/authClient';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { SubscriptionTier } from '@/shared/types/user';
 import { resolvePracticeKind } from '@/shared/utils/subscription';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -75,19 +75,26 @@ export function MainApp({
 
   const basePath = useMemo(() => {
     if (workspace === 'practice') return '/practice';
-    if (workspace === 'client') return '/app';
+    if (workspace === 'client') return '/dashboard';
     return null;
   }, [workspace]);
   const chatsBasePath = useMemo(() => (basePath ? `${basePath}/chats` : null), [basePath]);
 
+  const dashboardPath = useMemo(() => {
+    if (!basePath) return null;
+    return basePath === '/dashboard' ? basePath : `${basePath}/dashboard`;
+  }, [basePath]);
+
   const tabFromPath = useMemo(() => {
     if (!basePath) return null;
-    if (location.path === basePath || location.path === `${basePath}/`) return 'dashboard';
-    if (location.path.startsWith(`${basePath}/dashboard`)) return 'dashboard';
     if (location.path.startsWith(`${basePath}/chats`)) return 'chats';
     if (location.path.startsWith(`${basePath}/matter`)) return 'matter';
+    if (location.path === basePath || location.path === `${basePath}/`) return 'dashboard';
+    if (dashboardPath && (location.path === dashboardPath || location.path.startsWith(`${dashboardPath}/`))) {
+      return 'dashboard';
+    }
     return null;
-  }, [basePath, location.path]);
+  }, [basePath, dashboardPath, location.path]);
 
   const conversationIdFromPath = useMemo(() => {
     if (!chatsBasePath) return null;
@@ -107,11 +114,11 @@ export function MainApp({
   }, [chatsBasePath, location.path]);
 
   useEffect(() => {
-    if (!basePath) return;
+    if (!basePath || !dashboardPath) return;
     if (location.path === basePath || location.path === `${basePath}/`) {
-      navigate(`${basePath}/dashboard`, true);
+      navigate(dashboardPath, true);
     }
-  }, [basePath, location.path, navigate]);
+  }, [basePath, dashboardPath, location.path, navigate]);
 
   useEffect(() => {
     if (!tabFromPath || tabFromPath === currentTab) return;
@@ -136,19 +143,19 @@ export function MainApp({
 
   const handleTabChange = useCallback((tab: 'dashboard' | 'chats' | 'matter') => {
     setCurrentTab(tab);
-    if (!basePath) return;
+    if (!basePath || !dashboardPath) return;
     const nextPath = tab === 'dashboard'
-      ? `${basePath}/dashboard`
+      ? dashboardPath
       : tab === 'chats' && conversationId
         ? `${basePath}/chats/${encodeURIComponent(conversationId)}`
         : `${basePath}/${tab}`;
     if (location.path !== nextPath) {
       navigate(nextPath);
     }
-  }, [basePath, conversationId, location.path, navigate]);
+  }, [basePath, conversationId, dashboardPath, location.path, navigate]);
 
   // Use session from Better Auth
-  const { data: session, isPending: sessionIsPending } = useSession();
+  const { session, isPending: sessionIsPending } = useSessionContext();
   const isAnonymousUser = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
   const isPracticeWorkspace = workspace === 'practice';
   const effectivePracticeId = practiceId || undefined;
