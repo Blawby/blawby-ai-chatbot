@@ -285,6 +285,9 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
   }
 
   if (!practiceId) {
+    if (practiceNotFound) {
+      return <ClientHomePage />;
+    }
     return <LoadingScreen />;
   }
 

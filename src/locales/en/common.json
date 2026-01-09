@@ -244,5 +244,16 @@
       }
     },
     "goToSettings": "Go to Practice Settings"
+  },
+  "dashboard": {
+    "onboarding": {
+      "title": "Your next steps",
+      "subtitle": "Complete onboarding to start receiving client intakes.",
+      "continueAction": "Continue onboarding",
+      "open": "Open"
+    }
+  },
+  "common": {
+    "open": "Open"
   }
 }

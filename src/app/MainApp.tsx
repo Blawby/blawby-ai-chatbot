@@ -87,10 +87,10 @@ export function MainApp({
 
   const tabFromPath = useMemo(() => {
     if (!basePath) return null;
-    if (location.path === basePath || location.path === `${basePath}/`) return 'dashboard';
-    if (dashboardPath && location.path.startsWith(dashboardPath)) return 'dashboard';
     if (location.path.startsWith(`${basePath}/chats`)) return 'chats';
     if (location.path.startsWith(`${basePath}/matter`)) return 'matter';
+    if (location.path === basePath || location.path === `${basePath}/`) return 'dashboard';
+    if (dashboardPath && location.path.startsWith(dashboardPath)) return 'dashboard';
     return null;
   }, [basePath, dashboardPath, location.path]);
 

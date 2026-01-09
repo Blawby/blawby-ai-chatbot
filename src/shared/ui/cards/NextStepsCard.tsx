@@ -10,6 +10,7 @@ export interface NextStepsAction {
 }
 
 export interface NextStepsItem {
+  id: string;
   title: string;
   description?: string;
   status?: NextStepsStatus;
@@ -57,7 +58,7 @@ export const NextStepsCard = ({ title, subtitle, items, action }: NextStepsCardP
       {items.map((item) => {
         const statusStyles = getStatusStyles(item.status);
         return (
-        <div key={item.title} className="flex items-start gap-3">
+        <div key={item.id} className="flex items-start gap-3">
           <span
             className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-xs ${statusStyles.wrapper}`}
             aria-hidden="true"

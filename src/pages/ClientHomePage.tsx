@@ -24,6 +24,7 @@ const ClientHomePage = () => {
   const practiceChecklistItems = useMemo<NextStepsItem[]>(
     () =>
       CHECKLIST_STEPS.map(({ step, label }) => ({
+        id: step,
         title: label,
         status: getChecklistStatus(step, onboardingProgress),
         action: {
@@ -39,6 +40,7 @@ const ClientHomePage = () => {
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [
       {
+        id: 'client-case',
         title: 'Create your case',
         description: 'Start an intake so you can reuse the details across future chats.',
         status: 'pending'
@@ -47,6 +49,7 @@ const ClientHomePage = () => {
 
     if (showUpgrade) {
       items.push({
+        id: 'client-upgrade',
         title: 'Upgrade to legal practice',
         description: 'Accept client intake forms, manage your team, and unlock practice tools.',
         status: 'pending',

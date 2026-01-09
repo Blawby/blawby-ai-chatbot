@@ -157,10 +157,11 @@ export const PracticeDashboardPage = () => {
   const checklistItems = useMemo(
     () =>
       CHECKLIST_STEPS.map(({ step, labelKey }) => ({
+        id: step,
         title: t(labelKey),
         status: getChecklistStatus(step, onboardingProgress),
         action: {
-          label: 'Open',
+          label: t('common.open'),
           onClick: () => navigate(`/business-onboarding/${step}`),
           variant: 'secondary' as const,
           size: 'sm' as const
@@ -185,10 +186,10 @@ export const PracticeDashboardPage = () => {
 
         {showOnboardingChecklist && (
           <NextStepsCard
-            title="Your next steps"
-            subtitle="Complete onboarding to start receiving client intakes."
+            title={t('dashboard.onboarding.title')}
+            subtitle={t('dashboard.onboarding.subtitle')}
             items={checklistItems}
-            action={{ label: 'Continue onboarding', onClick: () => navigate('/business-onboarding') }}
+            action={{ label: t('dashboard.onboarding.continueAction'), onClick: () => navigate('/business-onboarding') }}
           />
         )}
 

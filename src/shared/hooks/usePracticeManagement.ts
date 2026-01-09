@@ -554,6 +554,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   // Fetch user's practices
   const fetchPractices = useCallback(async () => {
+    let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
       if (practicesFetchedRef.current && session?.user) {
         return;
@@ -590,8 +591,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           practicesFetchedRef.current = true;
           return;
         } catch (_err) {
-          // Downstream consumer already handled the rejection; reset so we can refetch.
-          sharedPracticePromise = null;
+          console.warn('Cached practice promise failed, retrying with fresh fetch.');
         }
       }
 
@@ -626,6 +626,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
         return { practices: normalizedList, currentPractice: currentPracticeNext };
       })();
+      currentFetchPromise = sharedPracticePromise;
 
       const snapshot = await sharedPracticePromise;
       sharedPracticeSnapshot = snapshot;
@@ -645,7 +646,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     } finally {
       setLoading(false);
       currentRequestRef.current = null;
-      sharedPracticePromise = null;
+      if (sharedPracticePromise === currentFetchPromise) {
+        sharedPracticePromise = null;
+      }
     }
   }, [session]);
 
