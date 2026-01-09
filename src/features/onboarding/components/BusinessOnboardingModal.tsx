@@ -35,6 +35,7 @@ import {
   saveLocalOnboardingState
 } from '@/shared/utils/onboardingStorage';
 import { getActiveOrganizationId } from '@/shared/utils/session';
+import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
   welcome: 'Welcome to Blawby',
@@ -389,8 +390,14 @@ const BusinessOnboardingModal = ({
       });
 
       if (connectedAccount.onboardingUrl) {
-        window.location.href = connectedAccount.onboardingUrl;
-        return;
+        const validatedUrl = getValidatedStripeOnboardingUrl(connectedAccount.onboardingUrl);
+        if (validatedUrl) {
+          window.location.href = validatedUrl;
+          return;
+        }
+        const message = 'Received an invalid Stripe onboarding link. Please try again.';
+        showError('Stripe Setup Failed', message);
+        throw new Error(message);
       }
 
       const message = 'Stripe hosted onboarding is not available. Please try again later.';

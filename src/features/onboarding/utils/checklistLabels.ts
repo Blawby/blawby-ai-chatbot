@@ -1,4 +1,3 @@
-import { ONBOARDING_STEP_SEQUENCE } from '@/shared/utils/practiceOnboarding';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 
 export const CHECKLIST_STEP_ORDER: OnboardingStep[] = [
@@ -21,8 +20,8 @@ export const validateChecklistLabels = (
 
   const formatted = missing.map((step) => `'${step}'`).join(', ');
   const isDefaultSequence =
-    expectedSteps.length === ONBOARDING_STEP_SEQUENCE.length &&
-    expectedSteps.every((step, idx) => step === ONBOARDING_STEP_SEQUENCE[idx]);
+    expectedSteps.length === CHECKLIST_STEP_ORDER.length &&
+    expectedSteps.every((step, idx) => step === CHECKLIST_STEP_ORDER[idx]);
   const fallback = isDefaultSequence
     ? 'ONBOARDING_STEP_SEQUENCE'
     : expectedSteps.join(', ');

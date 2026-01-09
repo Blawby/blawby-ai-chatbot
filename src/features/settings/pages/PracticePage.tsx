@@ -498,9 +498,19 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
+      if (reader.readyState !== FileReader.DONE) return;
       if (typeof reader.result === 'string') {
         setEditPracticeForm(prev => ({ ...prev, logo: reader.result as string }));
+        return;
       }
+      console.warn('Unexpected logo file reader result:', reader.result);
+      showError('Logo upload failed', 'Unable to read the selected logo.');
+      setLogoFiles([]);
+    };
+    reader.onerror = () => {
+      console.error('Failed to read logo file:', reader.error);
+      showError('Logo upload failed', 'Unable to read the selected logo.');
+      setLogoFiles([]);
     };
     reader.readAsDataURL(file);
   };

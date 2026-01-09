@@ -9,6 +9,7 @@ import type {
 export const ONBOARDING_STORAGE_EVENT = 'blawby:onboarding-updated';
 
 const STORAGE_PREFIX = 'blawby:onboarding';
+const ONBOARDING_STATE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 export interface LocalOnboardingState {
   status: OnboardingStatusValue;
@@ -32,15 +33,22 @@ export const loadLocalOnboardingState = (organizationId: string): LocalOnboardin
   if (typeof window === 'undefined') return null;
 
   const key = getOnboardingStorageKey(organizationId);
-  const raw = localStorage.getItem(key);
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(key);
+  } catch (error) {
+    console.warn('[ONBOARDING][STORAGE] Failed to read state:', error);
+    return null;
+  }
   if (!raw) return null;
 
   try {
     const parsed = JSON.parse(raw) as LocalOnboardingState;
     if (!parsed || typeof parsed !== 'object') return null;
     if (!isValidStatus(parsed.status)) return null;
-    if (parsed.savedAt !== undefined && typeof parsed.savedAt !== 'number') return null;
+    if (typeof parsed.savedAt !== 'number') return null;
     if (parsed.completedAt !== undefined && parsed.completedAt !== null && typeof parsed.completedAt !== 'number') return null;
+    if (Date.now() - parsed.savedAt > ONBOARDING_STATE_TTL_MS) return null;
     return parsed;
   } catch {
     return null;

@@ -32,6 +32,7 @@ import type { SubscriptionTier } from '@/shared/types/user';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
 import { getActiveOrganizationId } from '@/shared/utils/session';
+import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
 
 // Simple messages object for localization
 const messages = {
@@ -280,6 +281,20 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const { session } = useSessionContext();
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
   const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
+  const mergedOnboardingProgress = useMemo(
+    () =>
+      mergePracticeAndLocalProgress(localOnboardingProgress, {
+        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
+        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
+        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
+      }),
+    [
+      localOnboardingProgress,
+      currentPractice?.businessOnboardingStatus,
+      currentPractice?.businessOnboardingCompletedAt,
+      currentPractice?.businessOnboardingHasDraft
+    ]
+  );
 
   if (practiceNotFound) {
     return <PracticeNotFound practiceId={practiceId} onRetry={onRetryPracticeConfig} />;
@@ -300,10 +315,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 
   const canShowOnboarding = workspace === 'practice';
   const onboardingStatus = canShowOnboarding
-    ? currentPractice?.businessOnboardingStatus ?? (localOnboardingProgress?.status ?? 'pending')
+    ? mergedOnboardingProgress?.status ?? 'pending'
     : undefined;
   const hasOnboardingDraft = canShowOnboarding
-    ? localOnboardingProgress?.hasDraft ?? Boolean(currentPractice?.businessOnboardingHasDraft)
+    ? mergedOnboardingProgress?.hasDraft ?? false
     : false;
 
   return (

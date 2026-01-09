@@ -383,12 +383,18 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     const desc = cfg && (cfg as Record<string, unknown>).description;
     return typeof desc === 'string' && desc.trim().length > 0 ? desc : undefined;
   })();
+  const metadataDescription = (() => {
+    const metadata = cfg && (cfg as Record<string, unknown>).metadata;
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined;
+    const desc = (metadata as Record<string, unknown>).description;
+    return typeof desc === 'string' && desc.trim().length > 0 ? desc : undefined;
+  })();
 
   return {
     id,
     slug,
     name,
-    description: topLevelDescription ?? configDescription,
+    description: topLevelDescription ?? configDescription ?? metadataDescription,
     stripeCustomerId: (() => {
       const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
       return typeof val === 'string' && val.trim().length > 0 ? val : null;

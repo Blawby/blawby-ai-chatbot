@@ -14,6 +14,7 @@ import { StripeOnboardingStep } from '@/features/onboarding/steps/StripeOnboardi
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getActiveOrganizationId } from '@/shared/utils/session';
+import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { CheckCircleIcon, LockClosedIcon, ShieldCheckIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 
 export const PayoutsPage = ({ className = '' }: { className?: string }) => {
@@ -25,28 +26,43 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (signal: AbortSignal) => {
     if (!organizationId) {
       return;
     }
 
     setIsLoading(true);
     try {
-      const payload = await getOnboardingStatusPayload(organizationId);
+      const payload = await getOnboardingStatusPayload(organizationId, { signal });
+      if (signal.aborted) {
+        return;
+      }
       const status = extractStripeStatusFromPayload(payload);
       if (status) {
         setStripeStatus(status);
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
+      if ((error as { name?: string }).name === 'AbortError') {
+        return;
+      }
       console.warn('[PAYOUTS] Failed to load Stripe status:', error);
       showError('Payouts', 'Unable to load payout account status.');
     } finally {
-      setIsLoading(false);
+      if (!signal.aborted) {
+        setIsLoading(false);
+      }
     }
   }, [organizationId, showError]);
 
   useEffect(() => {
-    void fetchStatus();
+    const controller = new AbortController();
+    void fetchStatus(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [fetchStatus]);
 
   const handleSubmitDetails = useCallback(async () => {
@@ -69,7 +85,12 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
       });
 
       if (connectedAccount.onboardingUrl) {
-        window.location.href = connectedAccount.onboardingUrl;
+        const validatedUrl = getValidatedStripeOnboardingUrl(connectedAccount.onboardingUrl);
+        if (validatedUrl) {
+          window.location.href = validatedUrl;
+          return;
+        }
+        showError('Payouts', 'Received an invalid Stripe onboarding link. Please try again.');
         return;
       }
 

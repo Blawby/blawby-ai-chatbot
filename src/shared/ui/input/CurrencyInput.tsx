@@ -1,4 +1,5 @@
 import { forwardRef } from 'preact/compat';
+import { useRef, useState } from 'preact/hooks';
 import { Input } from './Input';
 
 export interface CurrencyInputProps {
@@ -34,9 +35,17 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
   step = 0.01,
   id
 }, ref) => {
-  const stringValue = typeof value === 'number' && Number.isFinite(value)
-    ? String(value)
-    : '';
+  const formatValue = (nextValue?: number): string =>
+    typeof nextValue === 'number' && Number.isFinite(nextValue) ? String(nextValue) : '';
+  const [displayValue, setDisplayValue] = useState(() => formatValue(value));
+  const lastValueRef = useRef(value);
+  if (lastValueRef.current !== value) {
+    lastValueRef.current = value;
+    const nextDisplay = formatValue(value);
+    if (nextDisplay !== displayValue) {
+      setDisplayValue(nextDisplay);
+    }
+  }
 
   return (
     <Input
@@ -54,18 +63,19 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
       variant={variant}
   icon={<span className="flex h-full w-full items-center justify-center text-gray-500">$</span>}
   iconPosition="left"
-  value={stringValue}
+  value={displayValue}
       onChange={(nextValue) => {
         const trimmed = nextValue.trim();
+        if (trimmed && !/^\d*\.?\d*$/.test(trimmed)) {
+          return;
+        }
+        setDisplayValue(nextValue);
         if (!trimmed) {
           onChange?.(undefined);
           return;
         }
-        // Allow standard decimal notation and intermediate states ("1.", "-")
-        if (!/^-?\d*\.?\d*$/.test(trimmed)) {
-          return;
-        }
-        if (trimmed === '-' || trimmed.endsWith('.')) {
+        // Allow standard decimal notation and intermediate states ("1.")
+        if (trimmed.endsWith('.')) {
           return;
         }
         const parsed = Number(trimmed);
