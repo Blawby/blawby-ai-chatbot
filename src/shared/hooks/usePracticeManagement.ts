@@ -582,12 +582,17 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
 
       if (sharedPracticePromise) {
-        const cached = await sharedPracticePromise;
-        setPractices(cached.practices);
-        setCurrentPractice(cached.currentPractice);
-        setLoading(false);
-        practicesFetchedRef.current = true;
-        return;
+        try {
+          const cached = await sharedPracticePromise;
+          setPractices(cached.practices);
+          setCurrentPractice(cached.currentPractice);
+          setLoading(false);
+          practicesFetchedRef.current = true;
+          return;
+        } catch (_err) {
+          // Downstream consumer already handled the rejection; reset so we can refetch.
+          sharedPracticePromise = null;
+        }
       }
 
       if (currentRequestRef.current) {

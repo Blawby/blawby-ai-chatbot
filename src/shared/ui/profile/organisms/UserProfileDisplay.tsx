@@ -46,7 +46,8 @@ export const UserProfileDisplay = ({
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
   const practiceForTier = currentPractice ?? managedPractice ?? null;
-  const resolvedSubscriptionTier: SubscriptionTier = isPracticeEnabled ? 'business' : 'free';
+  const resolvedSubscriptionTier: SubscriptionTier =
+    practiceForTier?.subscriptionTier ?? (isPracticeEnabled ? 'business' : 'free');
 
   // Derive user data from session and practice
   const user = session?.user ? {

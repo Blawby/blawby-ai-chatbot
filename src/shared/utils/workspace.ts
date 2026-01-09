@@ -5,7 +5,7 @@ export const SETTINGS_RETURN_KEY = 'settings:returnPath';
 
 export function resolveWorkspaceFromPath(path: string): WorkspaceType | null {
   if (path === '/practice' || path.startsWith('/practice/')) return 'practice';
-  if (path === '/app' || path.startsWith('/app/')) return 'client';
+  if (path === '/dashboard' || path.startsWith('/dashboard/')) return 'client';
   if (path === '/p' || path.startsWith('/p/')) return 'public';
   return null;
 }
