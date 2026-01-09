@@ -583,6 +583,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
 
       if (sharedPracticePromise) {
+        const cachedPromise = sharedPracticePromise;
         try {
           const cached = await sharedPracticePromise;
           setPractices(cached.practices);
@@ -592,6 +593,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           return;
         } catch (_err) {
           console.warn('Cached practice promise failed, retrying with fresh fetch.');
+          if (sharedPracticePromise === cachedPromise) {
+            sharedPracticePromise = null;
+          }
         }
       }
 

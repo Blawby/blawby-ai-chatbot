@@ -19,7 +19,10 @@ const ClientHomePage = () => {
     () => extractProgressFromPracticeMetadata(currentPractice?.metadata),
     [currentPractice?.metadata]
   );
-  const showPracticeOnboarding = isPracticeEnabled && Boolean(currentPractice?.id);
+  const showPracticeOnboarding =
+    isPracticeEnabled &&
+    Boolean(currentPractice?.id) &&
+    onboardingProgress?.status !== 'completed';
 
   const practiceChecklistItems = useMemo<NextStepsItem[]>(
     () =>

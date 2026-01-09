@@ -31,6 +31,7 @@ import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { useSubscription } from '@/shared/hooks/useSubscription';
 
 
 export interface SettingsPageProps {
@@ -51,6 +52,7 @@ export const SettingsPage = ({
   const [apps, setApps] = useState<App[]>(mockApps);
   const { loading: practicesLoading } = usePracticeManagement({ autoFetchPractices: true });
   const { canAccessPractice } = useWorkspace();
+  const { isLoading: subscriptionLoading } = useSubscription();
   const canShowPracticeSettings = canAccessPractice;
   
   // Get current page from URL path
@@ -85,10 +87,13 @@ export const SettingsPage = ({
   }, [currentPage, navigate]);
   
   useEffect(() => {
-    if (!practicesLoading && !canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
+    if (practicesLoading || subscriptionLoading) {
+      return;
+    }
+    if (!canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
       navigate('/settings');
     }
-  }, [canShowPracticeSettings, currentPage, navigate, practicesLoading]);
+  }, [canShowPracticeSettings, currentPage, navigate, practicesLoading, subscriptionLoading]);
 
   if (currentPage === 'organization') {
     return null;

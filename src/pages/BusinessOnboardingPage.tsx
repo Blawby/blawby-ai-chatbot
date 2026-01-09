@@ -24,7 +24,6 @@ export const BusinessOnboardingPage = () => {
   const { currentPractice, practices, refetch, loading, error } = usePracticeManagement();
   const { showSuccess, showError } = useToastContext();
   const devForcePaid = isForcePaidEnabled();
-  const { isPracticeEnabled, isLoading: isSubscriptionLoading } = useSubscription();
   const [isOpen] = useState(true);
   const [ready, setReady] = useState(false);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
@@ -51,6 +50,10 @@ export const BusinessOnboardingPage = () => {
   }, [practices, currentPractice]);
   
   const targetPracticeId = targetPractice?.id ?? practiceId;
+  const { isPracticeEnabled, isLoading: isSubscriptionLoading } = useSubscription({
+    referenceId: targetPracticeId ?? undefined,
+    enabled: Boolean(targetPracticeId)
+  });
   const metadataSource = targetPractice?.config?.metadata;
   const onboardingProgress = useMemo(
     () => extractProgressFromPracticeMetadata(metadataSource),

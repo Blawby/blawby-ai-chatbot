@@ -90,7 +90,9 @@ export function MainApp({
     if (location.path.startsWith(`${basePath}/chats`)) return 'chats';
     if (location.path.startsWith(`${basePath}/matter`)) return 'matter';
     if (location.path === basePath || location.path === `${basePath}/`) return 'dashboard';
-    if (dashboardPath && location.path.startsWith(dashboardPath)) return 'dashboard';
+    if (dashboardPath && (location.path === dashboardPath || location.path.startsWith(`${dashboardPath}/`))) {
+      return 'dashboard';
+    }
     return null;
   }, [basePath, dashboardPath, location.path]);
 

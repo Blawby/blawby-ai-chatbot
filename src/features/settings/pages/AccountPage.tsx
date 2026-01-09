@@ -11,14 +11,8 @@ import { TIER_FEATURES } from '@/shared/utils/stripe-products';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import {
-  describeSubscriptionPlan,
-  hasManagedSubscription,
-  hasActiveSubscriptionStatus,
-  resolvePracticeKind,
-  normalizeSubscriptionStatus,
-  displayPlan,
-} from '@/shared/utils/subscription';
+import { useSubscription } from '@/shared/hooks/useSubscription';
+import { displayPlan } from '@/shared/utils/subscription';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { UserLinks, EmailSettings, SubscriptionTier } from '@/shared/types/user';
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
@@ -49,6 +43,7 @@ export const AccountPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch, getMembers, fetchMembers } = usePracticeManagement();
+  const { isPracticeEnabled, isLoading: isSubscriptionLoading } = useSubscription();
   const { session, isPending } = useSessionContext();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
@@ -62,24 +57,8 @@ export const AccountPage = ({
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
   
 
-  const resolvedPracticeKind = resolvePracticeKind(currentPractice?.kind, currentPractice?.isPersonal ?? null);
-  const resolvedSubscriptionStatus = normalizeSubscriptionStatus(currentPractice?.subscriptionStatus, resolvedPracticeKind);
-  const managedSubscription = hasManagedSubscription(
-    currentPractice?.kind,
-    currentPractice?.subscriptionStatus,
-    currentPractice?.isPersonal ?? null
-  );
-  const _activeSubscription = hasActiveSubscriptionStatus(resolvedSubscriptionStatus);
-  const _planLabel = describeSubscriptionPlan(
-    currentPractice?.kind,
-    currentPractice?.subscriptionStatus,
-    currentPractice?.subscriptionTier,
-    currentPractice?.isPersonal ?? null
-  );
-  const canManageBilling = managedSubscription && Boolean(currentPractice?.stripeCustomerId);
-  
-  // Determine if we have a subscription (not free)
-  const hasSubscription = managedSubscription && resolvedSubscriptionStatus !== 'none';
+  const canManageBilling = Boolean(currentPractice?.stripeCustomerId);
+  const hasSubscription = isPracticeEnabled;
   
   // Get renewal date from subscription period_end (stored in seconds, from Stripe webhooks)
   const renewalDate = useMemo(() => {
@@ -144,9 +123,7 @@ export const AccountPage = ({
       };
       
       const practiceTier = currentPractice?.subscriptionTier;
-      // Always default to 'free' when subscriptionTier is unset to prevent showing
-      // paid-tier features to unsubscribed practices, regardless of practice kind
-      const displayTier = practiceTier || 'free';
+      const displayTier = practiceTier ?? (isPracticeEnabled ? 'business' : 'free');
       
       setLinks(linksData);
       setEmailSettings(emailData);
@@ -155,15 +132,15 @@ export const AccountPage = ({
       console.error('Failed to load account data:', error);
       setError(error instanceof Error ? error.message : String(error));
     }
-  }, [session?.user, currentPractice?.subscriptionTier]);
+  }, [session?.user, currentPractice?.subscriptionTier, isPracticeEnabled]);
 
   // Load account data when component mounts or practice changes
   // Only load when practice data is available (not loading) and session is available
   useEffect(() => {
-    if (!practiceLoading && currentPractice !== undefined && session?.user) {
+    if (!practiceLoading && !isSubscriptionLoading && currentPractice !== undefined && session?.user) {
       loadAccountData();
     }
-  }, [loadAccountData, practiceLoading, currentPractice, session?.user]);
+  }, [loadAccountData, practiceLoading, isSubscriptionLoading, currentPractice, session?.user]);
 
   // Detect OAuth vs password users based on lastLoginMethod
   const userWithExtendedProps = session?.user as typeof session.user & {
@@ -197,7 +174,7 @@ export const AccountPage = ({
 
   // Subscription deletion guard for personal account deletion (compute after isOwner)
   const hasManagedSub = Boolean(currentPractice?.stripeCustomerId);
-  const subStatus = (resolvedSubscriptionStatus || 'none').toLowerCase();
+  const subStatus = (currentPractice?.subscriptionStatus ?? 'none').toLowerCase();
   const deletionBlockedBySubscription = isOwner && hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
 
   // SSR-safe origin for return URLs
@@ -646,18 +623,20 @@ export const AccountPage = ({
             }
           >
             <div className="flex gap-2">
-              {currentPractice && isOwner && canManageBilling ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => openBillingPortal({ 
-                    practiceId: currentPractice.id, 
-                    returnUrl: `${window.location.origin}/settings/account?sync=1` 
-                  })}
-                  disabled={submitting}
-                >
-                  {t('settings:account.plan.manage')}
-                </Button>
+              {hasSubscription ? (
+                currentPractice && isOwner && canManageBilling ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => openBillingPortal({
+                      practiceId: currentPractice.id,
+                      returnUrl: `${window.location.origin}/settings/account?sync=1`
+                    })}
+                    disabled={submitting}
+                  >
+                    {t('settings:account.plan.manage')}
+                  </Button>
+                ) : null
               ) : (
                 <Button
                   variant="secondary"
