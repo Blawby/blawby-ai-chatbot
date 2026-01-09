@@ -32,8 +32,17 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                 onClick={() => onSelect(app.id)}
                 className="w-full py-4 flex items-center gap-4 text-left"
               >
-                <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                  <PuzzlePieceIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+                <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                  {app.logo ? (
+                    <img
+                      src={app.logo}
+                      alt={`${app.name} logo`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <PuzzlePieceIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
