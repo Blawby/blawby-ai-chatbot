@@ -54,7 +54,7 @@ export const BusinessOnboardingPage = () => {
     referenceId: targetPracticeId ?? undefined,
     enabled: Boolean(targetPracticeId)
   });
-  const metadataSource = targetPractice?.config?.metadata;
+  const metadataSource = targetPractice?.metadata;
   const onboardingProgress = useMemo(
     () => extractProgressFromPracticeMetadata(metadataSource),
     [metadataSource]
