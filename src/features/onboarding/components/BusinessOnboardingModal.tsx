@@ -251,11 +251,11 @@ const BusinessOnboardingModal = ({
         const trimmedSlug = data.slug?.trim();
         const trimmedLogo = data.profileImage.trim();
 
-        if (trimmedName) practicePayload.name = trimmedName;
-        if (trimmedEmail) practicePayload.businessEmail = trimmedEmail;
-        if (trimmedPhone) practicePayload.businessPhone = trimmedPhone;
-        if (trimmedSlug) practicePayload.slug = trimmedSlug;
-        if (trimmedLogo) practicePayload.logo = trimmedLogo;
+        if (trimmedName !== '') practicePayload.name = trimmedName;
+        if (trimmedEmail !== '') practicePayload.businessEmail = trimmedEmail;
+        if (trimmedPhone !== undefined && trimmedPhone !== '') practicePayload.businessPhone = trimmedPhone;
+        if (trimmedSlug !== undefined && trimmedSlug !== '') practicePayload.slug = trimmedSlug;
+        if (trimmedLogo !== '') practicePayload.logo = trimmedLogo;
 
         const shouldPersistDetails = currentStep
           ? STEP_SEQUENCE.indexOf(currentStep) >= STEP_SEQUENCE.indexOf('business-details')

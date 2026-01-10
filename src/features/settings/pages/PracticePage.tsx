@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'preact/hooks';
 import {
   ChevronRightIcon,
   GlobeAltIcon,
@@ -292,6 +292,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
+  const logoReadTokenRef = useRef(0);
 
   const loadLeadQueue = useCallback(async () => {
     if (!currentPractice?.id || !canReviewLeads) {
@@ -494,10 +495,31 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const handleLogoChange = (files: FileList | File[]) => {
     const [file] = Array.isArray(files) ? files : Array.from(files);
-    setLogoFiles(file ? [file] : []);
-    if (!file) return;
+    if (!file) {
+      setLogoFiles([]);
+      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
+      return;
+    }
+    const maxLogoBytes = 5 * 1024 * 1024;
+    const isImage = typeof file.type === 'string' && file.type.startsWith('image/');
+    if (!isImage) {
+      showError('Logo upload failed', 'Please upload a valid image file.');
+      setLogoFiles([]);
+      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
+      return;
+    }
+    if (file.size > maxLogoBytes) {
+      showError('Logo upload failed', 'Logo files must be 5 MB or smaller.');
+      setLogoFiles([]);
+      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
+      return;
+    }
+    setLogoFiles([file]);
+    const readToken = logoReadTokenRef.current + 1;
+    logoReadTokenRef.current = readToken;
     const reader = new FileReader();
     reader.onload = () => {
+      if (logoReadTokenRef.current !== readToken) return;
       if (typeof reader.result === 'string') {
         setEditPracticeForm(prev => ({ ...prev, logo: reader.result as string }));
         return;
@@ -505,11 +527,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       console.warn('Unexpected logo file reader result:', reader.result);
       showError('Logo upload failed', 'Unable to read the selected logo.');
       setLogoFiles([]);
+      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
     };
     reader.onerror = () => {
+      if (logoReadTokenRef.current !== readToken) return;
       console.error('Failed to read logo file:', reader.error);
       showError('Logo upload failed', 'Unable to read the selected logo.');
       setLogoFiles([]);
+      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
     };
     reader.readAsDataURL(file);
   };
@@ -613,14 +638,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const handleSaveContact = async () => {
     const success = await saveOnboardingSettings(
       {
-        website: contactDraft.website.trim(),
-        contactPhone: contactDraft.phone.trim(),
-        addressLine1: contactDraft.addressLine1.trim(),
-        addressLine2: contactDraft.addressLine2.trim(),
-        city: contactDraft.city.trim(),
-        state: contactDraft.state.trim(),
-        postalCode: contactDraft.postalCode.trim(),
-        country: contactDraft.country.trim()
+        website: (contactDraft.website ?? '').trim(),
+        contactPhone: (contactDraft.phone ?? '').trim(),
+        addressLine1: (contactDraft.addressLine1 ?? '').trim(),
+        addressLine2: (contactDraft.addressLine2 ?? '').trim(),
+        city: (contactDraft.city ?? '').trim(),
+        state: (contactDraft.state ?? '').trim(),
+        postalCode: (contactDraft.postalCode ?? '').trim(),
+        country: (contactDraft.country ?? '').trim()
       },
       'Contact details updated.'
     );
@@ -1195,14 +1220,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             onChange={(next) => {
               setContactDraft((prev) => ({
                 ...prev,
-                website: next.website ?? '',
-                phone: next.contactPhone ?? '',
-                addressLine1: next.addressLine1,
-                addressLine2: next.addressLine2,
-                city: next.city,
-                state: next.state,
-                postalCode: next.postalCode,
-                country: next.country
+                website: next.website ?? prev.website ?? '',
+                phone: next.contactPhone ?? prev.phone ?? '',
+                addressLine1: next.addressLine1 ?? prev.addressLine1 ?? '',
+                addressLine2: next.addressLine2 ?? prev.addressLine2 ?? '',
+                city: next.city ?? prev.city ?? '',
+                state: next.state ?? prev.state ?? '',
+                postalCode: next.postalCode ?? prev.postalCode ?? '',
+                country: next.country ?? prev.country ?? ''
               }));
             }}
             disabled={isSettingsSaving}

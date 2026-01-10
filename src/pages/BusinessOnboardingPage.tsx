@@ -60,15 +60,15 @@ export const BusinessOnboardingPage = () => {
   const onboardingProgress = useMemo(
     () =>
       mergePracticeAndLocalProgress(localOnboardingProgress, {
-        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
-        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
-        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
+        businessOnboardingStatus: targetPractice?.businessOnboardingStatus,
+        businessOnboardingCompletedAt: targetPractice?.businessOnboardingCompletedAt,
+        businessOnboardingHasDraft: targetPractice?.businessOnboardingHasDraft
       }),
     [
       localOnboardingProgress,
-      currentPractice?.businessOnboardingStatus,
-      currentPractice?.businessOnboardingCompletedAt,
-      currentPractice?.businessOnboardingHasDraft
+      targetPractice?.businessOnboardingStatus,
+      targetPractice?.businessOnboardingCompletedAt,
+      targetPractice?.businessOnboardingHasDraft
     ]
   );
   const onboardingStatus = onboardingProgress?.status;

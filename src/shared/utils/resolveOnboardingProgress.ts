@@ -28,13 +28,21 @@ export const mergePracticeAndLocalProgress = (
   localProgress: LocalOnboardingProgress | null | undefined,
   practice?: PracticeProgressSource
 ): LocalOnboardingProgress | null => {
-  if (localProgress) {
-    return localProgress;
-  }
-
   const status = mapPracticeStatusToOnboardingStatus(
     practice?.businessOnboardingStatus
   );
+  if (localProgress) {
+    if (status === 'completed' && localProgress.status !== 'completed') {
+      return {
+        ...localProgress,
+        status: 'completed',
+        completed: true,
+        skipped: false,
+        completedAt: practice?.businessOnboardingCompletedAt ?? localProgress.completedAt ?? null
+      };
+    }
+    return localProgress;
+  }
   if (!status) {
     return null;
   }
