@@ -322,21 +322,6 @@ export const handlers = [
     });
   }),
 
-  http.post('/api/onboarding/save', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as {
-      practiceId?: string;
-      data?: Record<string, unknown>;
-    };
-    if (!body.practiceId) {
-      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
-    }
-    ensurePracticeCollections(body.practiceId);
-    mockDb.onboarding[body.practiceId].data = body.data ?? null;
-    mockDb.onboarding[body.practiceId].hasDraft = Boolean(body.data);
-    mockDb.onboarding[body.practiceId].lastSavedAt = Date.now();
-    return HttpResponse.json({ success: true });
-  }),
-
   http.post('/api/onboarding/connected-accounts', async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as {
       practice_uuid?: string;
@@ -355,31 +340,6 @@ export const handlers = [
       payouts_enabled: state.payoutsEnabled,
       details_submitted: state.detailsSubmitted
     });
-  }),
-
-  http.post('/api/onboarding/complete', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { practiceId?: string };
-    if (!body.practiceId) {
-      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
-    }
-    ensurePracticeCollections(body.practiceId);
-    const state = mockDb.onboarding[body.practiceId];
-    state.completed = true;
-    state.completedAt = Date.now();
-    state.status = 'completed';
-    return HttpResponse.json({ success: true });
-  }),
-
-  http.post('/api/onboarding/skip', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { practiceId?: string };
-    if (!body.practiceId) {
-      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
-    }
-    ensurePracticeCollections(body.practiceId);
-    const state = mockDb.onboarding[body.practiceId];
-    state.skipped = true;
-    state.status = 'skipped';
-    return HttpResponse.json({ success: true });
   }),
 
   http.post('*/api/auth/subscription/upgrade', async () => {

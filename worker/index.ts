@@ -18,10 +18,6 @@ import { handleStatus } from './routes/status.js';
 import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
-
-// Add RequestInit type for TypeScript
-type RequestInit = globalThis.RequestInit;
-import { requireAuth } from './middleware/auth.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 
 // Basic request validation
@@ -79,50 +75,12 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
-    } else if (path.startsWith('/api/practice')) {
-      response = await proxyPracticeRequest(request, env, path, url.search);
-    } else if (path.startsWith('/api/auth')) {
-      // Auth requests are handled by remote auth server
-      response = new Response(JSON.stringify({ error: 'Auth endpoints are handled by remote auth server' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
     } else if (path.startsWith('/api/activity')) {
       response = await handleActivity(request, env);
     } else if (path.startsWith('/api/files')) {
       response = await handleFiles(request, env);
     } else if (path === '/api/analyze') {
       response = await handleAnalyze(request, env);
-    } else if (path === '/api/stripe/webhook') {
-      // Stripe webhooks are handled by remote API
-      response = new Response(JSON.stringify({ error: 'Stripe webhook endpoints are handled by remote API' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else if (path.startsWith('/api/subscription')) {
-      // Subscription management is handled by remote API
-      response = new Response(JSON.stringify({ error: 'Subscription management endpoints are handled by remote API' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else if (path.startsWith('/api/onboarding')) {
-      // Onboarding is handled by remote API
-      response = new Response(JSON.stringify({ error: 'Onboarding endpoints are handled by remote API' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else if (path.startsWith('/api/payment')) {
-      // Payment management is handled by remote API
-      response = new Response(JSON.stringify({ error: 'Payment endpoints are handled by remote API' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else if (path.startsWith('/api/users')) {
-      // User management is handled by remote API
-      response = new Response(JSON.stringify({ error: 'User management endpoints are handled by remote API' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
     } else if (path.startsWith('/api/pdf')) {
       response = await handlePDF(request, env);
     } else if (path.startsWith('/api/debug') || path.startsWith('/api/test')) {
@@ -170,57 +128,6 @@ export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 export default {
   fetch: handleRequest
 };
-
-async function proxyPracticeRequest(request: Request, env: Env, path: string, search: string): Promise<Response> {
-  await requireAuth(request, env);
-  if (!env.REMOTE_API_URL) {
-    return new Response(JSON.stringify({ error: 'Server configuration error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const baseUrl = env.REMOTE_API_URL;
-  const targetUrl = new URL(path + search, baseUrl).toString();
-  const method = request.method.toUpperCase();
-  const headers = new Headers();
-  const authHeader = request.headers.get('Authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    headers.set('Authorization', authHeader);
-  }
-  const contentType = request.headers.get('content-type');
-  if (contentType) {
-    headers.set('Content-Type', contentType);
-  }
-
-  const init: RequestInit = {
-    method,
-    headers,
-    redirect: 'manual',
-  };
-
-  if (method !== 'GET' && method !== 'HEAD') {
-    init.body = request.body;
-  }
-
-  const proxiedRequest = new Request(targetUrl, init);
-  const response = await fetch(proxiedRequest);
-
-  if (!response.ok) {
-    const body = await response.text();
-    console.error('[PracticeProxy] Remote API error', {
-      path,
-      status: response.status,
-      statusText: response.statusText,
-    });
-    return new Response(body || 'Remote API error', {
-      status: response.status,
-      headers: response.headers,
-    });
-  }
-
-  return response;
-}
 
 // Scheduled event for cleanup (runs daily)
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
