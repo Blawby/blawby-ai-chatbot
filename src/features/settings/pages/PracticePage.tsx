@@ -148,7 +148,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     rejectMatter
   } = usePracticeManagement();
   
-  const { showSuccess, showError } = useToastContext();
+  const { showSuccess, showError, showWarning } = useToastContext();
   const { navigate } = useNavigation();
   const navigateTo = onNavigate ?? navigate;
   const location = useLocation();
@@ -498,7 +498,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      if (reader.readyState !== FileReader.DONE) return;
       if (typeof reader.result === 'string') {
         setEditPracticeForm(prev => ({ ...prev, logo: reader.result as string }));
         return;
@@ -541,7 +540,10 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         showSuccess('Practice updated successfully!');
       } catch (detailsError) {
         console.warn('Practice details update failed after core update:', detailsError);
-        showError('Practice updated', 'Description could not be updated. Please try again.');
+        showWarning(
+          'Practice updated with warning',
+          'Core fields were saved, but the description could not be updated. Please try again.'
+        );
       }
       setIsEditPracticeModalOpen(false);
 		} catch (err) {

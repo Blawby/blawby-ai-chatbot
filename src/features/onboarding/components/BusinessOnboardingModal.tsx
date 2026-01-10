@@ -188,7 +188,7 @@ const BusinessOnboardingModal = ({
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const { showError, showSuccess } = useToastContext();
+  const { showError, showSuccess, showWarning } = useToastContext();
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [stripeRequestPending, setStripeRequestPending] = useState(false);
   const [footerContent, setFooterContent] = useState<ComponentChildren | null>(null);
@@ -335,6 +335,10 @@ const BusinessOnboardingModal = ({
           });
         } catch (storageError) {
           console.warn('[ONBOARDING][SAVE] Failed to persist local snapshot:', storageError);
+          showWarning(
+            'Auto-save failed',
+            'Your progress may not be saved locally. Please keep this window open while we sync.'
+          );
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to save onboarding progress';
@@ -344,7 +348,7 @@ const BusinessOnboardingModal = ({
       }
       return saveError;
     },
-    [practiceId, organizationId, resolveApiErrorMessage, showError]
+    [practiceId, organizationId, resolveApiErrorMessage, showError, showWarning]
   );
 
   // Custom hook for state management (no auto-save)
@@ -550,6 +554,11 @@ const BusinessOnboardingModal = ({
     if (saveError) {
       console.warn('[ONBOARDING][CONTINUE] Failed to save before navigation:', saveError);
       setSubmitError(saveError);
+    }
+    if (saveError && !isLastStep) {
+      showError('Save failed', saveError);
+      setLoading(false);
+      return;
     }
     if (isLastStep) {
       if (saveError) {

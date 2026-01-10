@@ -309,6 +309,23 @@ export const BusinessOnboardingPage = () => {
     );
   }
 
+  if (!organizationId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-700 mb-2">We could not find an active organization for your account.</p>
+          <p className="text-gray-600 mb-4">Please select a workspace with an active organization and try again.</p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+          >
+            Go Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Retry banner for refetch errors */}
