@@ -14,7 +14,7 @@ const ONBOARDING_STATE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 export interface LocalOnboardingState {
   status: OnboardingStatusValue;
   resumeStep?: OnboardingStep;
-  savedAt?: number;
+  savedAt: number;
   completedAt?: number | null;
   data?: PersistedOnboardingSnapshot<OnboardingFormData> | null;
 }

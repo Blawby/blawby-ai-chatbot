@@ -23,7 +23,7 @@ export const validateChecklistLabels = (
     expectedSteps.length === CHECKLIST_STEP_ORDER.length &&
     expectedSteps.every((step, idx) => step === CHECKLIST_STEP_ORDER[idx]);
   const fallback = isDefaultSequence
-    ? 'ONBOARDING_STEP_SEQUENCE'
+    ? 'CHECKLIST_STEP_ORDER'
     : expectedSteps.join(', ');
 
   const message = `[${context}] Checklist labels missing for: ${formatted}. Expected steps (${fallback}).`;
