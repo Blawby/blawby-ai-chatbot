@@ -2,37 +2,42 @@
  * Firm Basics Step Component
  */
 
-import { Input, EmailInput, PhoneInput, URLInput, FileInput } from '@/shared/ui/input';
-import { ValidationAlert } from '../components/ValidationAlert';
+import { Input, EmailInput, FileInput } from '@/shared/ui/input';
 
 interface FirmBasicsData {
   firmName: string;
   contactEmail: string;
-  contactPhone?: string;
-  website?: string;
+  slug?: string;
 }
 
 interface FirmBasicsStepProps {
   data: FirmBasicsData;
   onChange: (data: FirmBasicsData) => void;
-  errors?: string | null;
   disabled?: boolean;
 }
 
-export function FirmBasicsStep({ 
-  data, 
-  onChange, 
-  errors,
+const sanitizeSlug = (value: string): string => {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
+const SLUG_PATTERN = '^[a-z0-9]+(?:-[a-z0-9]+)*$';
+
+export function FirmBasicsStep({
+  data,
+  onChange,
   disabled = false
 }: FirmBasicsStepProps) {
+  const handleSlugChange = (value: string) => {
+    onChange({ ...data, slug: sanitizeSlug(value) });
+  };
+
   return (
     <div className="space-y-6">
-      {errors && (
-        <ValidationAlert type="error">
-          {errors}
-        </ValidationAlert>
-      )}
-
       <Input
         label="Business name"
         value={data.firmName}
@@ -50,19 +55,14 @@ export function FirmBasicsStep({
         showValidation
       />
 
-      <PhoneInput
-        label="Business phone (optional)"
-        value={data.contactPhone || ''}
-        onChange={(value) => onChange({ ...data, contactPhone: value })}
+      <Input
+        label="Slug (optional)"
+        value={data.slug || ''}
+        onChange={handleSlugChange}
         disabled={disabled}
-      />
-
-      <URLInput
-        label="Website (optional)"
-        value={data.website || ''}
-        onChange={(value) => onChange({ ...data, website: value })}
-        disabled={disabled}
-        placeholder="https://yourbusiness.com"
+        placeholder="your-law-firm"
+        pattern={SLUG_PATTERN}
+        description="Use lowercase letters, numbers, and hyphens only"
       />
 
       <FileInput

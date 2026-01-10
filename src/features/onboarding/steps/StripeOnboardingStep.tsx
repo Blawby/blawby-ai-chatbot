@@ -1,84 +1,26 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
-import { ConnectAccountOnboarding, ConnectComponentsProvider } from '@stripe/react-connect-js';
-import { loadConnectAndInitialize, type StripeConnectInstance } from '@stripe/connect-js';
+import { useEffect, useMemo } from 'preact/hooks';
 import { InfoCard } from '../components/InfoCard';
 import type { StripeConnectStatus } from '../types';
-
-const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 interface StripeOnboardingStepProps {
   status?: StripeConnectStatus | null;
   loading?: boolean;
   clientSecret?: string | null;
   onActionLoadingChange?: (loading: boolean) => void;
+  showIntro?: boolean;
+  showInfoCard?: boolean;
+  showStatus?: boolean;
 }
 
 export function StripeOnboardingStep({
   status,
   loading = false,
-  clientSecret,
-  onActionLoadingChange
+  clientSecret: _clientSecret,
+  onActionLoadingChange,
+  showIntro = true,
+  showInfoCard = true,
+  showStatus = true
 }: StripeOnboardingStepProps) {
-  const [connectInstance, setConnectInstance] = useState<StripeConnectInstance | null>(null);
-  const [connectError, setConnectError] = useState<string | null>(null);
-  const [connectLoading, setConnectLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    let instance: StripeConnectInstance | null = null;
-
-    if (typeof window === 'undefined') {
-      return () => {
-        (instance as { destroy?: () => void } | null)?.destroy?.();
-      };
-    }
-
-    if (!clientSecret || !STRIPE_PUBLISHABLE_KEY) {
-      setConnectInstance(null);
-      setConnectLoading(false);
-      // Don't set connectError when publishable key is missing - we show a dedicated warning instead
-      setConnectError(null);
-      return () => {
-        (instance as { destroy?: () => void } | null)?.destroy?.();
-      };
-    }
-
-    setConnectError(null);
-    setConnectLoading(true);
-    setConnectInstance(null);
-
-    Promise.resolve(
-      loadConnectAndInitialize({
-        publishableKey: STRIPE_PUBLISHABLE_KEY,
-        fetchClientSecret: async () => clientSecret,
-      })
-    )
-      .then((connect) => {
-        if (cancelled) {
-          (connect as { destroy?: () => void }).destroy?.();
-          return;
-        }
-        instance = connect;
-        setConnectInstance(connect);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Failed to initialize Stripe Connect';
-          setConnectError(message);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setConnectLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      (instance as { destroy?: () => void } | null)?.destroy?.();
-    };
-  }, [clientSecret]);
-
   const statusItems = useMemo(
     () => [
       {
@@ -97,9 +39,7 @@ export function StripeOnboardingStep({
     [status]
   );
 
-  const showConnectEmbed = Boolean(clientSecret && connectInstance && !connectError);
-  const showPublishableKeyWarning = !STRIPE_PUBLISHABLE_KEY;
-  const actionLoading = loading || connectLoading;
+  const actionLoading = loading;
 
   useEffect(() => {
     onActionLoadingChange?.(actionLoading);
@@ -107,60 +47,36 @@ export function StripeOnboardingStep({
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Start Stripe onboarding to verify your trust account and enable payouts.
-        </p>
-      </div>
-      
-      <InfoCard
-        variant="blue"
-        icon="💳"
-        title="Connect with Stripe"
-      >
-        <p className="text-center text-sm">
-          Secure payment processing for your legal practice
-        </p>
-      </InfoCard>
-
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2 bg-white dark:bg-gray-900/40">
-        {statusItems.map((item) => (
-          <div key={item.label} className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
-            <span className="font-semibold text-gray-900 dark:text-gray-100">
-              {item.value}
-            </span>
-          </div>
-        ))}
-        {clientSecret && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 pt-2">
-            A secure Stripe onboarding session is ready. Complete the embedded form to finish verification.
+      {showIntro && (
+        <div className="text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Start Stripe onboarding to verify your trust account and enable payouts.
           </p>
-        )}
-      </div>
-
-      {showPublishableKeyWarning && (
-        <div className="rounded-lg border border-red-500 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-300">
-          Stripe publishable key is not configured. Set VITE_STRIPE_PUBLISHABLE_KEY to enable embedded onboarding.
         </div>
       )}
 
-      {connectError && (
-        <div className="rounded-lg border border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 p-4 text-sm text-yellow-800 dark:text-yellow-200">
-          {connectError}
-        </div>
+      {showInfoCard && (
+        <InfoCard
+          variant="blue"
+          icon="💳"
+          title="Connect with Stripe"
+        >
+          <p className="text-center text-sm">
+            Secure payment processing for your legal practice
+          </p>
+        </InfoCard>
       )}
 
-      {showConnectEmbed && connectInstance && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4">
-          <ConnectComponentsProvider connectInstance={connectInstance}>
-            <ConnectAccountOnboarding
-              // Required by Stripe typings; we rely on the user closing the embed via Stripe UI
-              onExit={() => {
-                // No-op for now – parent flow handles continuation
-              }}
-            />
-          </ConnectComponentsProvider>
+      {showStatus && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2 bg-white dark:bg-gray-900/40">
+          {statusItems.map((item) => (
+            <div key={item.label} className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">{item.label}</span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                {item.value}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -21,6 +21,7 @@ export interface OnboardingFormData {
   contactEmail: string;
   contactPhone?: string;
   website?: string;
+  slug?: string;
   profileImage: string;
   
   // Business details
@@ -31,8 +32,11 @@ export interface OnboardingFormData {
   postalCode: string;
   country: string;
   introMessage: string;
-  overview: string;
+  description?: string;
   isPublic: boolean;
+
+  // Payment details
+  consultationFee?: number | null;
   
   // Services
   services: Array<{ id: string; title: string; description: string }>;
@@ -41,6 +45,7 @@ export interface OnboardingFormData {
 const initialFormData: OnboardingFormData = {
   firmName: '',
   contactEmail: '',
+  slug: '',
   profileImage: '',
   addressLine1: '',
   addressLine2: '',
@@ -49,9 +54,10 @@ const initialFormData: OnboardingFormData = {
   postalCode: '',
   country: '',
   introMessage: '',
-  overview: '',
+  description: '',
   isPublic: false,
-  services: []
+  services: [],
+  consultationFee: undefined
 };
 
 export const useOnboardingState = (

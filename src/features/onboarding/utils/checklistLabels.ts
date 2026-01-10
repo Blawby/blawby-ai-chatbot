@@ -1,0 +1,35 @@
+import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
+
+export const CHECKLIST_STEP_ORDER: OnboardingStep[] = [
+  'firm-basics',
+  'stripe-onboarding',
+  'business-details',
+  'services',
+  'review-and-launch'
+];
+
+export const validateChecklistLabels = (
+  labels: Partial<Record<OnboardingStep, string>>,
+  expectedSteps: OnboardingStep[] = CHECKLIST_STEP_ORDER,
+  context: string
+): void => {
+  const missing = expectedSteps.filter((step) => !labels[step]);
+  if (missing.length === 0) {
+    return;
+  }
+
+  const formatted = missing.map((step) => `'${step}'`).join(', ');
+  const isDefaultSequence =
+    expectedSteps.length === CHECKLIST_STEP_ORDER.length &&
+    expectedSteps.every((step, idx) => step === CHECKLIST_STEP_ORDER[idx]);
+  const fallback = isDefaultSequence
+    ? 'CHECKLIST_STEP_ORDER'
+    : expectedSteps.join(', ');
+
+  const message = `[${context}] Checklist labels missing for: ${formatted}. Expected steps (${fallback}).`;
+  if (typeof globalThis === 'object' && typeof globalThis?.console?.warn === 'function') {
+    globalThis.console.warn(message);
+  } else {
+    console.warn(message);
+  }
+};

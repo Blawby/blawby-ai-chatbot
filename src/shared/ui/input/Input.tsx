@@ -24,6 +24,11 @@ export interface InputProps {
   placeholderKey?: string;
   errorKey?: string;
   namespace?: string;
+  pattern?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
   // ARIA props
   id?: string;
   'aria-label'?: string;

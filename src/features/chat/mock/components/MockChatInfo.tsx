@@ -50,7 +50,7 @@ export function MockChatInfo({ mock }: MockChatInfoProps) {
       </div>
 
       <div>
-        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Props overview</p>
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Props description</p>
         <ul className="mt-2 space-y-1 text-xs text-gray-700 dark:text-gray-200">
           <li className="flex items-center justify-between">
             <span>previewFiles</span>

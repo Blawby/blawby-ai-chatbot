@@ -14,7 +14,9 @@ import WelcomeState from '@/features/welcome/components/WelcomeState';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
-import { extractProgressFromPracticeMetadata } from '@/shared/utils/practiceOnboarding';
+import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
+import { getActiveOrganizationId } from '@/shared/utils/session';
+import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -87,9 +89,21 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const isMobile = useMobileDetection();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
+  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
   const onboardingProgress = useMemo(
-    () => extractProgressFromPracticeMetadata(currentPractice?.metadata),
-    [currentPractice?.metadata]
+    () =>
+      mergePracticeAndLocalProgress(localOnboardingProgress, {
+        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
+        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
+        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
+      }),
+    [
+      localOnboardingProgress,
+      currentPractice?.businessOnboardingStatus,
+      currentPractice?.businessOnboardingCompletedAt,
+      currentPractice?.businessOnboardingHasDraft
+    ]
   );
 
 

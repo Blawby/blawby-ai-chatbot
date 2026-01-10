@@ -284,7 +284,7 @@ export const handlers = [
     return HttpResponse.json({ subscription: mockDb.subscription });
   }),
 
-  http.patch('/api/practice/:practiceId/details', async ({ request, params }) => {
+  http.put('/api/practice/:practiceId/details', async ({ request, params }) => {
     const practiceId = String(params.practiceId);
     const practice = findPractice(practiceId);
     if (!practice) {
@@ -301,10 +301,10 @@ export const handlers = [
     return HttpResponse.json({ data: next });
   }),
 
-  http.get('/api/onboarding/practice/:practiceId/status', ({ params }) => {
-    const practiceId = String(params.practiceId);
-    ensurePracticeCollections(practiceId);
-    const state = mockDb.onboarding[practiceId];
+  http.get('/api/onboarding/organization/:organizationId/status', ({ params }) => {
+    const organizationId = String(params.organizationId);
+    ensurePracticeCollections(organizationId);
+    const state = mockDb.onboarding[organizationId];
     return HttpResponse.json({
       status: state.status,
       completed: state.completed,
@@ -313,27 +313,13 @@ export const handlers = [
       lastSavedAt: state.lastSavedAt,
       hasDraft: state.hasDraft,
       data: state.data,
-      practice_uuid: practiceId,
+      practice_uuid: organizationId,
       stripe_account_id: state.stripeAccountId,
+      client_secret: state.clientSecret ?? null,
       charges_enabled: state.chargesEnabled,
       payouts_enabled: state.payoutsEnabled,
       details_submitted: state.detailsSubmitted
     });
-  }),
-
-  http.post('/api/onboarding/save', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as {
-      practiceId?: string;
-      data?: Record<string, unknown>;
-    };
-    if (!body.practiceId) {
-      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
-    }
-    ensurePracticeCollections(body.practiceId);
-    mockDb.onboarding[body.practiceId].data = body.data ?? null;
-    mockDb.onboarding[body.practiceId].hasDraft = Boolean(body.data);
-    mockDb.onboarding[body.practiceId].lastSavedAt = Date.now();
-    return HttpResponse.json({ success: true });
   }),
 
   http.post('/api/onboarding/connected-accounts', async ({ request }) => {
@@ -345,39 +331,15 @@ export const handlers = [
     ensurePracticeCollections(practiceUuid);
     const state = mockDb.onboarding[practiceUuid];
     state.stripeAccountId = randomId('acct');
+    state.clientSecret = `acct_${state.stripeAccountId}_secret`;
     return HttpResponse.json({
       practice_uuid: practiceUuid,
       stripe_account_id: state.stripeAccountId,
-      client_secret: `acct_${state.stripeAccountId}_secret`,
+      client_secret: state.clientSecret,
       charges_enabled: state.chargesEnabled,
       payouts_enabled: state.payoutsEnabled,
       details_submitted: state.detailsSubmitted
     });
-  }),
-
-  http.post('/api/onboarding/complete', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { practiceId?: string };
-    if (!body.practiceId) {
-      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
-    }
-    ensurePracticeCollections(body.practiceId);
-    const state = mockDb.onboarding[body.practiceId];
-    state.completed = true;
-    state.completedAt = Date.now();
-    state.status = 'completed';
-    return HttpResponse.json({ success: true });
-  }),
-
-  http.post('/api/onboarding/skip', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { practiceId?: string };
-    if (!body.practiceId) {
-      return HttpResponse.json({ error: 'practiceId required' }, { status: 400 });
-    }
-    ensurePracticeCollections(body.practiceId);
-    const state = mockDb.onboarding[body.practiceId];
-    state.skipped = true;
-    state.status = 'skipped';
-    return HttpResponse.json({ success: true });
   }),
 
   http.post('*/api/auth/subscription/upgrade', async () => {

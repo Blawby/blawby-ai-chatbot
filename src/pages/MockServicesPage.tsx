@@ -149,7 +149,7 @@ const _mockPractice: Practice = {
         postalCode: '94102',
         country: 'US',
         introMessage: 'Welcome to Mock Law Firm. How can we help you today?',
-        overview: 'We provide excellent legal services',
+        description: 'We provide excellent legal services',
         isPublic: true,
         services: mockServiceDetails,
         __meta: {

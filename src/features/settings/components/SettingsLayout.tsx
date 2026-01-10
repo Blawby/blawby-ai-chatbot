@@ -97,7 +97,7 @@ export const SettingsLayout = ({
           <motion.div
             key="settings-panel"
             ref={dropdownRef}
-            className={`fixed bg-white dark:bg-dark-bg overflow-hidden rounded-lg shadow-2xl ${
+            className={`fixed bg-white dark:bg-dark-bg overflow-hidden rounded-lg shadow-2xl settings-panel ${
               isMobile 
                 ? 'inset-x-0 bottom-0 top-0' // Full screen on mobile
                 : 'top-8 left-8 right-8 bottom-8 max-w-4xl mx-auto' // Centered modal on desktop
@@ -114,7 +114,7 @@ export const SettingsLayout = ({
             aria-modal="true"
             aria-labelledby="settings-dialog-title"
           >
-            <div className="h-full">
+            <div className="h-full min-h-0 flex flex-col">
               <h1 id="settings-dialog-title" className="sr-only">Settings</h1>
               <SettingsPage 
                 isMobile={isMobile}

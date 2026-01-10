@@ -27,7 +27,6 @@ interface OnboardingStepRendererProps {
   onContinue: () => void;
   onBack: () => void;
   onSkip?: () => void;
-  errors?: string | null;
   practiceSlug?: string;
   disabled?: boolean;
   stripeStatus?: StripeConnectStatus | null;
@@ -46,7 +45,6 @@ export const OnboardingStepRenderer = ({
   onContinue,
   onBack,
   onSkip,
-  errors,
   practiceSlug,
   disabled = false,
   stripeStatus,
@@ -139,16 +137,13 @@ export const OnboardingStepRenderer = ({
           data={{
             firmName: stepData.firmName,
             contactEmail: stepData.contactEmail,
-            contactPhone: stepData.contactPhone,
-            website: stepData.website
+            slug: stepData.slug
           }}
           onChange={(data) => {
             onChange('firmName', data.firmName);
             onChange('contactEmail', data.contactEmail);
-            onChange('contactPhone', data.contactPhone);
-            onChange('website', data.website);
+            onChange('slug', data.slug);
           }}
-          errors={errors}
         />
       );
 
@@ -170,24 +165,31 @@ export const OnboardingStepRenderer = ({
         <BusinessDetailsStep
           disabled={disabled}
           data={{
+            website: stepData.website,
+            contactPhone: stepData.contactPhone,
+            consultationFee: stepData.consultationFee,
             addressLine1: stepData.addressLine1,
             addressLine2: stepData.addressLine2,
             city: stepData.city,
             state: stepData.state,
             postalCode: stepData.postalCode,
             country: stepData.country,
-            overview: stepData.overview
+            description: stepData.description,
+            introMessage: stepData.introMessage
           }}
           onChange={(data) => {
+            onChange('website', data.website);
+            onChange('contactPhone', data.contactPhone);
+            onChange('consultationFee', data.consultationFee);
             onChange('addressLine1', data.addressLine1);
             onChange('addressLine2', data.addressLine2);
             onChange('city', data.city);
             onChange('state', data.state);
             onChange('postalCode', data.postalCode);
             onChange('country', data.country);
-            onChange('overview', data.overview);
+            onChange('description', data.description);
+            onChange('introMessage', data.introMessage ?? '');
           }}
-          errors={errors}
         />
       );
 
@@ -196,7 +198,6 @@ export const OnboardingStepRenderer = ({
         <ServicesStep
           data={stepData.services}
           onChange={(services) => onChange('services', services)}
-          errors={errors}
         />
       );
     }

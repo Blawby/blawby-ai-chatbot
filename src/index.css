@@ -45,6 +45,10 @@
     /* Safari and Chrome */
   }
 
+  .settings-panel .overflow-y-auto {
+    padding-bottom: 2.5rem;
+  }
+
   /* Mobile viewport handling */
   @media (max-width: 768px) {
     .h-screen {

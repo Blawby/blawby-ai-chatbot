@@ -3,17 +3,14 @@ import { ChecklistItem, type ChecklistItemStatus } from '@/features/onboarding/c
 import { InfoCard } from '@/features/onboarding/components/InfoCard';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
-import {
-  ONBOARDING_STEP_SEQUENCE,
-  extractProgressFromPracticeMetadata,
-  isValidOnboardingStep,
-  type PracticeOnboardingProgress
-} from '@/shared/utils/practiceOnboarding';
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { ONBOARDING_STEP_SEQUENCE, isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
+import { hasOnboardingStepData, type LocalOnboardingProgress } from '@/shared/utils/onboardingStorage';
+import { validateChecklistLabels, CHECKLIST_STEP_ORDER } from '@/features/onboarding/utils/checklistLabels';
 
-type OnboardingProgress = PracticeOnboardingProgress<Record<string, unknown>> | null | undefined;
+type OnboardingProgress = LocalOnboardingProgress | null | undefined;
 
 interface WelcomeStateProps {
   currentPractice?: Practice | null;
@@ -21,13 +18,21 @@ interface WelcomeStateProps {
   onboardingProgress?: OnboardingProgress;
 }
 
-const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> = [
-  { step: 'firm-basics', labelKey: 'welcome.lawyer.todo.createPractice' },
-  { step: 'business-details', labelKey: 'welcome.lawyer.todo.businessDetails' },
-  { step: 'stripe-onboarding', labelKey: 'welcome.lawyer.todo.trustAccount' },
-  { step: 'services', labelKey: 'welcome.lawyer.todo.services' },
-  { step: 'review-and-launch', labelKey: 'welcome.lawyer.todo.launch' }
-];
+const CHECKLIST_LABELS: Partial<Record<OnboardingStep, string>> = {
+  'firm-basics': 'welcome.lawyer.todo.createPractice',
+  'stripe-onboarding': 'welcome.lawyer.todo.trustAccount',
+  'business-details': 'welcome.lawyer.todo.businessDetails',
+  services: 'welcome.lawyer.todo.services',
+  'review-and-launch': 'welcome.lawyer.todo.launch'
+};
+
+validateChecklistLabels(CHECKLIST_LABELS, CHECKLIST_STEP_ORDER, 'WelcomeState');
+
+const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> =
+  CHECKLIST_STEP_ORDER.flatMap((step) => {
+    const labelKey = CHECKLIST_LABELS[step];
+    return labelKey ? [{ step, labelKey }] : [];
+  });
 
 const resolveResumeStep = (progress: OnboardingProgress): OnboardingStep | undefined => {
   if (!progress?.data) return undefined;
@@ -52,9 +57,10 @@ const getChecklistStatus = (
   const resumeStep = resolveResumeStep(progress);
   const targetIndex = ONBOARDING_STEP_SEQUENCE.indexOf(targetStep);
   const resumeIndex = resumeStep ? ONBOARDING_STEP_SEQUENCE.indexOf(resumeStep) : -1;
+  const hasStepData = hasOnboardingStepData(targetStep, progress?.data ?? null);
 
   if (resumeIndex >= 0 && targetIndex >= 0) {
-    if (targetIndex < resumeIndex) return 'completed';
+    if (targetIndex < resumeIndex) return hasStepData ? 'completed' : 'incomplete';
     if (targetIndex === resumeIndex) return 'pending';
     return 'incomplete';
   }
@@ -72,8 +78,7 @@ const WelcomeState = ({
   const { t } = useTranslation('common');
   const { navigate } = useNavigation();
 
-  const progress =
-    onboardingProgress || extractProgressFromPracticeMetadata(currentPractice?.metadata);
+  const progress = onboardingProgress;
 
   const checklistItems = useMemo(
     () =>
