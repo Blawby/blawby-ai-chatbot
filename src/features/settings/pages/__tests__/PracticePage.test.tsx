@@ -16,6 +16,7 @@ vi.mock('@/shared/lib/authClient', () => ({
 import { render, screen, fireEvent, waitFor } from '../../../../__tests__/test-utils';
 import { PracticePage } from '../PracticePage';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 
 // Mock the practice management hook
 const mockCreatePractice = vi.fn();
@@ -56,6 +57,11 @@ const usePracticeMgmtMock = {
     id: 'practice-1',
     name: 'Test Practice',
     slug: 'test-practice',
+    consultationFee: null,
+    paymentUrl: null,
+    businessPhone: null,
+    businessEmail: null,
+    calendlyUrl: null,
   },
   getMembers: mockGetMembers,
   invitations: [],
@@ -85,6 +91,13 @@ const usePracticeMgmtMock = {
 
 vi.mock('@/shared/hooks/usePracticeManagement', () => ({
   usePracticeManagement: vi.fn(),
+}));
+
+const mockFetchDetails = vi.fn();
+const mockUpdateDetails = vi.fn();
+
+vi.mock('@/shared/hooks/usePracticeDetails', () => ({
+  usePracticeDetails: vi.fn(),
 }));
 
 // Mock the toast context
@@ -176,6 +189,11 @@ describe('PracticePage', () => {
       id: 'practice-1',
       name: 'Test Practice',
       slug: 'test-practice',
+      consultationFee: null,
+      paymentUrl: null,
+      businessPhone: null,
+      businessEmail: null,
+      calendlyUrl: null,
     };
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
@@ -208,6 +226,12 @@ describe('PracticePage', () => {
     
     // Set up the mock return value
     vi.mocked(usePracticeManagement).mockReturnValue(usePracticeMgmtMock);
+    vi.mocked(usePracticeDetails).mockReturnValue({
+      details: null,
+      fetchDetails: mockFetchDetails,
+      updateDetails: mockUpdateDetails,
+      setDetails: vi.fn()
+    });
   });
 
   afterEach(() => {
@@ -217,6 +241,11 @@ describe('PracticePage', () => {
       id: 'practice-1',
       name: 'Test Practice',
       slug: 'test-practice',
+      consultationFee: null,
+      paymentUrl: null,
+      businessPhone: null,
+      businessEmail: null,
+      calendlyUrl: null,
     };
   });
 
@@ -547,6 +576,11 @@ describe('PracticePage', () => {
       id: 'practice-1',
       name: 'Test Practice',
       slug: 'test-practice',
+      consultationFee: null,
+      paymentUrl: null,
+      businessPhone: null,
+      businessEmail: null,
+      calendlyUrl: null,
     };
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
@@ -563,6 +597,48 @@ describe('PracticePage', () => {
     expect(screen.getByLabelText('Description (optional)')).toBeInTheDocument();
     expect(screen.getByText('Save Changes')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
+  });
+
+  it('should call updateDetails with edited values when saving', async () => {
+    mockGetMembers.mockReturnValue([]);
+    mockUpdateDetails.mockResolvedValueOnce(null);
+
+    usePracticeMgmtMock.practices = [];
+    usePracticeMgmtMock.currentPractice = {
+      id: 'practice-1',
+      name: 'Test Practice',
+      slug: 'test-practice',
+      consultationFee: null,
+      paymentUrl: null,
+      businessPhone: null,
+      businessEmail: 'old@example.com',
+      calendlyUrl: null,
+    };
+    usePracticeMgmtMock.getMembers = mockGetMembers;
+    usePracticeMgmtMock.invitations = [];
+    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.error = null;
+
+    render(<PracticePage />);
+
+    const editButton = screen.getByText('Edit');
+    fireEvent.click(editButton);
+
+    const emailInput = screen.getByLabelText('Business email');
+    const feeInput = screen.getByLabelText('Consultation fee (optional)');
+    fireEvent.input(emailInput, { target: { value: 'updated@example.com' } });
+    fireEvent.input(feeInput, { target: { value: '200' } });
+
+    const saveButton = screen.getByText('Save Changes');
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockUpdateDetails).toHaveBeenCalled();
+      expect(mockUpdateDetails).toHaveBeenCalledWith({
+        businessEmail: 'updated@example.com',
+        consultationFee: 200
+      });
+    });
   });
 
   it('should show empty state when no practices or invitations', () => {

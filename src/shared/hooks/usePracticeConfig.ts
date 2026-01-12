@@ -8,14 +8,15 @@ import { PLATFORM_SETTINGS } from '@/config/platform';
 import { isPlatformPractice } from '@/shared/utils/practice';
 
 // Zod schema for API response validation
+// Note: createdAt/updatedAt can be either number (timestamp) or string (ISO date) depending on the API
 const PracticeSchema = z.object({
   slug: z.string().optional(),
   id: z.string().optional(),
   name: z.string().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
   domain: z.string().nullable().optional(), // API can return null
-  createdAt: z.number().optional(),
-  updatedAt: z.number().optional(),
+  createdAt: z.union([z.number(), z.string()]).optional(),
+  updatedAt: z.union([z.number(), z.string()]).nullable().optional(), // API can return null or string
   stripeCustomerId: z.string().nullable().optional(), // API can return null
   subscriptionTier: z.string().optional(),
   seats: z.number().optional(),

@@ -103,6 +103,7 @@ const workerEndpoints = [
 	'sessions',
 	'lawyers',
 	'files',
+	'conversations',
 	'activity',
 	'analyze',
 	'review',
@@ -111,6 +112,7 @@ const workerEndpoints = [
 	'status',
 	'config',
 	'health',
+	'inbox',
 ];
 
 // Proxy configuration types from http-proxy-middleware

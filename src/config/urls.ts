@@ -49,9 +49,10 @@ import { isDevelopment } from '@/shared/utils/environment';
  * 
  * Priority:
  * 1. VITE_WORKER_API_URL (if explicitly set)
- * 2. Development: http://localhost:8787
- * 3. Production: window.location.origin (same as frontend)
- * 4. SSR/Build fallback: https://ai.blawby.com
+ * 2. VITE_API_URL (current alias in frontend envs)
+ * 3. Development: http://localhost:8787
+ * 4. Production: window.location.origin (same as frontend)
+ * 5. SSR/Build fallback: https://ai.blawby.com
  * 
  * @returns The base URL for the Worker API
  */
@@ -60,18 +61,21 @@ export function getWorkerApiUrl(): string {
 	if (import.meta.env.VITE_WORKER_API_URL) {
 		return import.meta.env.VITE_WORKER_API_URL;
 	}
+	if (import.meta.env.VITE_API_URL) {
+		return import.meta.env.VITE_API_URL;
+	}
 
-	// 2. Development: use localhost
+	// 3. Development: use localhost
 	if (isDevelopment()) {
 		return 'http://localhost:8787';
 	}
 
-	// 3. Production: same origin as frontend (Worker is deployed with frontend)
+	// 4. Production: same origin as frontend (Worker is deployed with frontend)
 	if (typeof window !== 'undefined' && window.location?.origin) {
 		return window.location.origin;
 	}
 
-	// 4. SSR/Build fallback (shouldn't be used at runtime)
+	// 5. SSR/Build fallback (shouldn't be used at runtime)
 	return 'https://ai.blawby.com';
 }
 
@@ -217,4 +221,3 @@ export function getTrustedHosts(): string[] {
 
 	return Array.from(new Set(hosts));
 }
-

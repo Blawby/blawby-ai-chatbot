@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
-import { getPracticeWorkspaceEndpoint } from '@/config/api';
+import { getPracticeWorkspaceEndpoint, getRemoteApiUrl } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import {
   listPractices,
   createPractice as apiCreatePractice,
   updatePractice as apiUpdatePractice,
   type PracticeDetailsUpdate,
+  type PracticeDetails,
+  getPracticeDetails,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
   listPracticeInvitations,
@@ -17,6 +19,7 @@ import {
 } from '@/shared/lib/apiClient';
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { extractPracticeOnboardingMetadata } from '@/shared/utils/practiceOnboarding';
+import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -61,8 +64,8 @@ export interface Practice {
   description?: string;
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
-  consultationFee?: number | null;
-  paymentUrl?: string | null;
+  consultationFee: number | null;
+  paymentUrl: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
@@ -82,9 +85,9 @@ export interface Practice {
   // Additional fields from apiClient
   logo?: string | null;
   metadata?: Record<string, unknown> | null;
-  businessPhone?: string | null;
-  businessEmail?: string | null;
-  calendlyUrl?: string | null;
+  businessPhone: string | null;
+  businessEmail: string | null;
+  calendlyUrl: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   website?: string | null;
@@ -164,7 +167,7 @@ interface UsePracticeManagementReturn {
   // Practice operations
   createPractice: (data: CreatePracticeData) => Promise<Practice>;
   updatePractice: (id: string, data: UpdatePracticeData) => Promise<void>;
-  updatePracticeDetails: (id: string, details: PracticeDetailsUpdate) => Promise<void>;
+  updatePracticeDetails: (id: string, details: PracticeDetailsUpdate) => Promise<PracticeDetails | null>;
   deletePractice: (id: string) => Promise<void>;
   
   // Team management
@@ -413,7 +416,10 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
       const val = raw.paymentUrl ?? raw.payment_url ?? null;
       return typeof val === 'string' && val.trim().length > 0 ? val : null;
     })(),
-  subscriptionTier: normalizedTier,
+    businessPhone: getDetailString('businessPhone', 'business_phone') ?? null,
+    businessEmail: getDetailString('businessEmail', 'business_email') ?? null,
+    calendlyUrl: getDetailString('calendlyUrl', 'calendly_url') ?? null,
+    subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
@@ -438,6 +444,46 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     introMessage: getDetailString('introMessage', 'intro_message'),
     isPublic: getDetailBoolean('isPublic', 'is_public'),
     services
+  };
+}
+
+function mergePracticeDetails(practice: Practice, details: PracticeDetails | null): Practice {
+  if (!details) {
+    return practice;
+  }
+  const patch: Partial<Practice> = {};
+  const setIfDefined = <K extends keyof Practice>(key: K, value: Practice[K] | undefined) => {
+    if (value !== undefined) {
+      patch[key] = value;
+    }
+  };
+  const setIfNonNull = <K extends keyof Practice>(key: K, value: Practice[K] | undefined | null) => {
+    if (value !== undefined && value !== null) {
+      patch[key] = value as Practice[K];
+    }
+  };
+
+  setIfDefined('businessPhone', details.businessPhone as Practice['businessPhone'] | undefined);
+  setIfDefined('businessEmail', details.businessEmail as Practice['businessEmail'] | undefined);
+  setIfDefined('consultationFee', details.consultationFee as Practice['consultationFee'] | undefined);
+  setIfDefined('paymentUrl', details.paymentUrl as Practice['paymentUrl'] | undefined);
+  setIfDefined('calendlyUrl', details.calendlyUrl as Practice['calendlyUrl'] | undefined);
+  setIfNonNull('website', details.website as Practice['website'] | undefined | null);
+  setIfNonNull('addressLine1', details.addressLine1 as Practice['addressLine1'] | undefined | null);
+  setIfNonNull('addressLine2', details.addressLine2 as Practice['addressLine2'] | undefined | null);
+  setIfNonNull('city', details.city as Practice['city'] | undefined | null);
+  setIfNonNull('state', details.state as Practice['state'] | undefined | null);
+  setIfNonNull('postalCode', details.postalCode as Practice['postalCode'] | undefined | null);
+  setIfNonNull('country', details.country as Practice['country'] | undefined | null);
+  setIfNonNull('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined | null);
+  setIfNonNull('accentColor', details.accentColor as Practice['accentColor'] | undefined | null);
+  setIfNonNull('introMessage', details.introMessage as Practice['introMessage'] | undefined | null);
+  setIfNonNull('description', details.description as Practice['description'] | undefined | null);
+  setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
+  setIfDefined('services', details.services as Practice['services'] | undefined);
+  return {
+    ...practice,
+    ...patch
   };
 }
 
@@ -516,7 +562,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const [members, setMembers] = useState<Record<string, Member[]>>({});
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
-  const [loading, setLoading] = useState(false);
+  // Initialize loading to true when autoFetchPractices is enabled
+  // This ensures the UI shows a loading state during the first render before the fetch effect runs
+  const [loading, setLoading] = useState(autoFetchPractices);
   const [error, setError] = useState<string | null>(null);
   
   // Track if we've already fetched practices to prevent duplicate calls
@@ -593,6 +641,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         setLoading(false);
         practicesFetchedRef.current = false;
         resetSharedPracticeCache();
+        resetPracticeDetailsStore();
         return;
       }
 
@@ -653,8 +702,28 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           : undefined;
         const personalPractice = normalizedList.find(practice => practice.kind === 'personal');
         const currentPracticeNext = preferredPractice || personalPractice || normalizedList[0] || null;
+        let details: PracticeDetails | null = null;
+        if (currentPracticeNext) {
+          try {
+            details = await getPracticeDetails(currentPracticeNext.id, { signal: controller.signal });
+            setPracticeDetailsEntry(currentPracticeNext.id, details);
+          } catch (detailsError) {
+            console.warn('Failed to fetch practice details:', detailsError);
+          }
+        }
 
-        return { practices: normalizedList, currentPractice: currentPracticeNext };
+        const mergedPractices = details
+          ? normalizedList.map((practice) =>
+            practice.id === currentPracticeNext?.id
+              ? mergePracticeDetails(practice, details)
+              : practice
+          )
+          : normalizedList;
+        const mergedCurrentPractice = currentPracticeNext
+          ? mergePracticeDetails(currentPracticeNext, details)
+          : null;
+
+        return { practices: mergedPractices, currentPractice: mergedCurrentPractice };
       })();
       currentFetchPromise = sharedPracticePromise;
 
@@ -682,14 +751,19 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [session]);
 
-  // Fetch pending invitations
+  // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {
-    try {
-      if (!session?.user) {
-        setInvitations([]);
-        return;
-      }
+    if (!session?.user?.id) return;
 
+    // Skip on staging due to backend routing bug (shadowed endpoint)
+    // The endpoint /api/practice/invitations is shadowed by /api/practice/:uuid
+    if (getRemoteApiUrl().includes('staging')) {
+      console.debug('Skipping fetchInvitations on staging due to known backend routing bug');
+      return;
+    }
+
+    try {
+      // Use imported function directly
       const rawInvitations = await listPracticeInvitations();
 
       // Define valid role and status values
@@ -741,8 +815,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         .filter((invitation): invitation is Invitation => invitation !== null);
 
       setInvitations(validatedInvitations);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch invitations');
+    } catch (err: unknown) {
+      // Don't set global error for invitation failures as it blocks the main UI
+      const axiosError = err as { response?: { status: number, data: unknown }, message?: string };
+      if (axiosError.response) {
+        // Use debug for expected API errors (like 400 Invalid Practice UUID) to avoid console noise
+        console.debug('Failed to fetch invitations:', axiosError.response.status, axiosError.response.data);
+      } else {
+        console.debug('Failed to fetch invitations:', axiosError.message || err);
+      }
       setInvitations([]);
     }
   }, [session]);
@@ -860,14 +941,37 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [fetchPractices, fetchInvitations, shouldFetchInvitations, practices]);
 
-  const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<void> => {
+  const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
     if (!id) {
       throw new Error('Practice id is required for details update');
     }
-    await apiUpdatePracticeDetails(id, details);
-    practicesFetchedRef.current = false;
-    await fetchPractices();
-  }, [fetchPractices]);
+    const updatedDetails = await apiUpdatePracticeDetails(id, details);
+    setPracticeDetailsEntry(id, updatedDetails);
+    if (updatedDetails) {
+      if (sharedPracticeSnapshot) {
+        const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
+          practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
+        );
+        const nextCurrentPractice = sharedPracticeSnapshot.currentPractice?.id === id
+          ? mergePracticeDetails(sharedPracticeSnapshot.currentPractice, updatedDetails)
+          : sharedPracticeSnapshot.currentPractice;
+        sharedPracticeSnapshot = {
+          practices: nextPractices,
+          currentPractice: nextCurrentPractice
+        };
+      }
+      setCurrentPractice((prev) => {
+        if (!prev || prev.id !== id) return prev;
+        return mergePracticeDetails(prev, updatedDetails);
+      });
+      setPractices((prev) =>
+        prev.map((practice) =>
+          practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
+        )
+      );
+    }
+    return updatedDetails;
+  }, []);
 
   // Delete practice
   const deletePractice = useCallback(async (id: string): Promise<void> => {
@@ -1060,36 +1164,27 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   // Refetch when session changes
   useEffect(() => {
-    if (!autoFetchPractices) {
+    if (!autoFetchPractices || sessionLoading) {
       return;
     }
-    if (!sessionLoading && session?.user?.id && !refetchTriggeredRef.current) {
-      refetchTriggeredRef.current = true;
-      fetchPractices();
-    }
-  }, [autoFetchPractices, session?.user?.id, sessionLoading, fetchPractices]);
 
-  // Clear fetched flag and abort in-flight requests when session changes
-  useEffect(() => {
-    // Abort any in-flight request from the previous session
-    if (currentRequestRef.current) {
-      currentRequestRef.current.abort();
-      currentRequestRef.current = null;
-    }
-    
-    // Reset the fetched flag and refetch trigger
-    practicesFetchedRef.current = false;
-    refetchTriggeredRef.current = false;
+    void fetchPractices().then(() => {
+      if (shouldFetchInvitations) {
+        void fetchInvitations();
+      }
+    });
 
-    const userId = session?.user?.id ?? null;
-    if (sharedPracticePromise && userId) {
-      return;
-    }
-    if (sharedPracticeUserId && userId && sharedPracticeUserId === userId) {
-      return;
-    }
-    resetSharedPracticeCache();
-  }, [session?.user?.id]);
+    return () => {
+      currentRequestRef.current?.abort();
+    };
+  }, [
+    autoFetchPractices,
+    sessionLoading,
+    session?.user?.id,
+    fetchPractices,
+    fetchInvitations,
+    shouldFetchInvitations
+  ]);
 
   return {
     practices,

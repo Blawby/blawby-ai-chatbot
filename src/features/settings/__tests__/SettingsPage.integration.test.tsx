@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, mockNavigate, resetMockPath, mockRoute } from '../../../__tests__/test-utils';
 import { SettingsPage } from '../pages/SettingsPage';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { i18n } from '@/shared/i18n';
 
 // Mock react-i18next to use the real i18n instance but avoid React provider issues
@@ -122,6 +123,10 @@ vi.mock('@/shared/hooks/usePracticeManagement', () => ({
   usePracticeManagement: vi.fn(),
 }));
 
+vi.mock('@/shared/hooks/usePracticeDetails', () => ({
+  usePracticeDetails: vi.fn(),
+}));
+
 // Mock the toast context
 vi.mock('@/shared/contexts/ToastContext', async () => {
   const actual = await vi.importActual<typeof import('@/shared/contexts/ToastContext')>(
@@ -220,6 +225,12 @@ describe('SettingsPage Integration Tests', () => {
     
     // Set up the mock return value
     vi.mocked(usePracticeManagement).mockReturnValue(usePracticeMgmtMock);
+    vi.mocked(usePracticeDetails).mockReturnValue({
+      details: null,
+      fetchDetails: vi.fn(),
+      updateDetails: vi.fn(),
+      setDetails: vi.fn()
+    });
     // Reset mocked path to base settings route
     resetMockPath();
   });

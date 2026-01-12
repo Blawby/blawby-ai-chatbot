@@ -28,6 +28,9 @@ export interface Env {
   LAWYER_SEARCH_API_URL?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_PUBLIC_URL?: string;
+  DOMAIN?: string;
+  BETTER_AUTH_URL?: string;
 
   // Environment flags
   NODE_ENV?: string;

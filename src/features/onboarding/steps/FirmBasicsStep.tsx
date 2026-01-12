@@ -14,6 +14,10 @@ interface FirmBasicsStepProps {
   data: FirmBasicsData;
   onChange: (data: FirmBasicsData) => void;
   disabled?: boolean;
+  logoFiles?: File[];
+  logoUploading?: boolean;
+  logoUploadProgress?: number | null;
+  onLogoChange?: (files: FileList | File[]) => void;
 }
 
 const sanitizeSlug = (value: string): string => {
@@ -30,11 +34,16 @@ const SLUG_PATTERN = '^[a-z0-9]+(?:-[a-z0-9]+)*$';
 export function FirmBasicsStep({
   data,
   onChange,
-  disabled = false
+  disabled = false,
+  logoFiles,
+  logoUploading = false,
+  logoUploadProgress = null,
+  onLogoChange
 }: FirmBasicsStepProps) {
   const handleSlugChange = (value: string) => {
     onChange({ ...data, slug: sanitizeSlug(value) });
   };
+  const showLogoProgress = logoUploading || logoUploadProgress !== null;
 
   return (
     <div className="space-y-6">
@@ -71,10 +80,16 @@ export function FirmBasicsStep({
         accept="image/*"
         multiple={false}
         maxFileSize={5 * 1024 * 1024}
-        value={[]}
-        onChange={() => {}} // Placeholder - no actual upload
-        disabled={disabled}
+        value={logoFiles ?? []}
+        onChange={onLogoChange}
+        disabled={disabled || logoUploading}
       />
+      {showLogoProgress && (
+        <p className="text-xs text-gray-500 mt-2">
+          {logoUploading ? 'Uploading logo' : 'Upload progress'}
+          {logoUploadProgress !== null ? ` • ${logoUploadProgress}%` : ''}
+        </p>
+      )}
     </div>
   );
 }

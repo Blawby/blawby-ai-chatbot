@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'preact/hooks';
 import { isAxiosError } from 'axios';
 import type { ComponentChildren } from 'preact';
 import Modal from '@/shared/components/Modal';
@@ -10,6 +10,7 @@ import { useStepValidation } from '@/features/onboarding/hooks/useStepValidation
 import { useStepNavigation } from '@/features/onboarding/hooks/useStepNavigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { OnboardingFormData } from '@/features/onboarding/hooks/useOnboardingState';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import {
@@ -17,7 +18,7 @@ import {
   getOnboardingStatusPayload,
   getPractice,
   updatePractice,
-  updatePracticeDetails,
+  type Practice,
   type PracticeDetailsUpdate,
   type UpdatePracticeRequest
 } from '@/shared/lib/apiClient';
@@ -36,6 +37,7 @@ import {
 } from '@/shared/utils/onboardingStorage';
 import { getActiveOrganizationId } from '@/shared/utils/session';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
+import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
   welcome: 'Welcome to Blawby',
@@ -65,6 +67,24 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 const trimToString = (value: unknown): string | undefined =>
   typeof value === 'string' ? value.trim() : undefined;
 
+const isValidHttpUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const toAbsoluteHttpUrl = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (typeof window !== 'undefined' && trimmed.startsWith('/')) {
+    return new URL(trimmed, window.location.origin).toString();
+  }
+  return isValidHttpUrl(trimmed) ? trimmed : null;
+};
+
 type NormalizableStringField =
   | 'firmName'
   | 'contactEmail'
@@ -90,7 +110,7 @@ const normalizeServices = (value: unknown): OnboardingFormData['services'] => {
       if (!isPlainObject(service)) {
         return null;
       }
-      const title = trimToString(service.title);
+      const title = trimToString(service.title ?? service.name);
       if (!title) {
         return null;
       }
@@ -165,6 +185,7 @@ const extractResumeStepFromMeta = (meta: unknown): OnboardingStep | undefined =>
 interface BusinessOnboardingModalProps {
   isOpen: boolean;
   practiceId: string;
+  practice?: Practice | null;
   practiceName?: string;
   practiceSlug?: string;
   fallbackContactEmail?: string | undefined;
@@ -177,6 +198,7 @@ interface BusinessOnboardingModalProps {
 const BusinessOnboardingModal = ({
   isOpen,
   practiceId,
+  practice,
   practiceName,
   practiceSlug,
   fallbackContactEmail,
@@ -192,8 +214,12 @@ const BusinessOnboardingModal = ({
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [stripeRequestPending, setStripeRequestPending] = useState(false);
   const [footerContent, setFooterContent] = useState<ComponentChildren | null>(null);
+  const [logoFiles, setLogoFiles] = useState<File[]>([]);
+  const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const { session } = useSessionContext();
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const { details, fetchDetails, updateDetails } = usePracticeDetails(practiceId);
   const resolveApiErrorMessage = useCallback((error: unknown, fallback: string) => {
     if (isAxiosError(error)) {
       const data = error.response?.data as { message?: unknown } | undefined;
@@ -250,15 +276,15 @@ const BusinessOnboardingModal = ({
         const trimmedPhone = data.contactPhone?.trim();
         const trimmedSlug = data.slug?.trim();
         const trimmedLogo = data.profileImage.trim();
+        const resolvedLogo = toAbsoluteHttpUrl(trimmedLogo);
 
         if (trimmedName !== '') practicePayload.name = trimmedName;
-        if (trimmedEmail !== '') practicePayload.businessEmail = trimmedEmail;
-        if (trimmedPhone !== undefined && trimmedPhone !== '') practicePayload.businessPhone = trimmedPhone;
         if (trimmedSlug !== undefined && trimmedSlug !== '') practicePayload.slug = trimmedSlug;
-        if (trimmedLogo !== '') practicePayload.logo = trimmedLogo;
+        if (resolvedLogo) practicePayload.logo = resolvedLogo;
 
+        const shouldPersistPractice = !currentStep || currentStep === 'firm-basics';
         const shouldPersistDetails = currentStep
-          ? STEP_SEQUENCE.indexOf(currentStep) >= STEP_SEQUENCE.indexOf('business-details')
+          ? STEP_SEQUENCE.indexOf(currentStep) >= STEP_SEQUENCE.indexOf('firm-basics')
           : true;
 
         const detailsPayload: PracticeDetailsUpdate = {};
@@ -272,6 +298,8 @@ const BusinessOnboardingModal = ({
         const trimmedIntroMessage = data.introMessage.trim();
         const trimmedDescription = data.description?.trim();
 
+        if (trimmedEmail !== '') detailsPayload.businessEmail = trimmedEmail;
+        if (trimmedPhone !== undefined && trimmedPhone !== '') detailsPayload.businessPhone = trimmedPhone;
         if (trimmedWebsite) detailsPayload.website = trimmedWebsite;
         if (trimmedAddress1) detailsPayload.addressLine1 = trimmedAddress1;
         if (trimmedAddress2) detailsPayload.addressLine2 = trimmedAddress2;
@@ -281,11 +309,17 @@ const BusinessOnboardingModal = ({
         if (trimmedCountry) detailsPayload.country = trimmedCountry;
         if (trimmedIntroMessage) detailsPayload.introMessage = trimmedIntroMessage;
         if (trimmedDescription) detailsPayload.description = trimmedDescription;
+        if (data.consultationFee === null) {
+          detailsPayload.consultationFee = null;
+        } else if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
+          detailsPayload.consultationFee = data.consultationFee;
+        }
         if (Array.isArray(data.services) && data.services.length > 0) {
           const normalizedServices = data.services
-            .filter((service) => service.title.trim().length > 0)
-            .map(({ title, description }) => ({
-              title: title.trim(),
+            .filter((service) => service.id.trim().length > 0 && service.title.trim().length > 0)
+            .map(({ id, title, description }) => ({
+              id: id.trim(),
+              name: title.trim(),
               description: description.trim()
             }));
           if (normalizedServices.length > 0) {
@@ -307,22 +341,12 @@ const BusinessOnboardingModal = ({
           }
         };
 
-        if (Object.keys(practicePayload).length > 0) {
+        if (shouldPersistPractice && Object.keys(practicePayload).length > 0) {
           await runOperation('practice profile', () => updatePractice(practiceId, practicePayload));
         }
 
         if (shouldPersistDetails && Object.keys(detailsPayload).length > 0) {
-          await runOperation('business details', () => updatePracticeDetails(practiceId, detailsPayload));
-        }
-
-        if (data.consultationFee === null) {
-          await runOperation('consultation fee', () =>
-            updatePractice(practiceId, { consultationFee: null })
-          );
-        } else if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
-          await runOperation('consultation fee', () =>
-            updatePractice(practiceId, { consultationFee: data.consultationFee })
-          );
+          await runOperation('business details', () => updateDetails(detailsPayload));
         }
 
         try {
@@ -348,7 +372,7 @@ const BusinessOnboardingModal = ({
       }
       return saveError;
     },
-    [practiceId, organizationId, resolveApiErrorMessage, showError, showWarning]
+    [practiceId, organizationId, resolveApiErrorMessage, showError, showWarning, updateDetails]
   );
 
   // Custom hook for state management (no auto-save)
@@ -357,6 +381,37 @@ const BusinessOnboardingModal = ({
       contactEmail: fallbackContactEmail || ''
     }
   );
+
+  const handleLogoChange = useCallback(async (files: FileList | File[]) => {
+    if (!practiceId) {
+      showError('Logo upload failed', 'Missing practice for logo upload.');
+      return;
+    }
+
+    const [file] = Array.isArray(files) ? files : Array.from(files);
+    if (!file) {
+      setLogoFiles([]);
+      return;
+    }
+
+    setLogoFiles([file]);
+    setLogoUploading(true);
+    setLogoUploadProgress(0);
+    try {
+      const logoUrl = await uploadPracticeLogo(file, practiceId, (percentage) => {
+        setLogoUploadProgress(percentage);
+      });
+      updateField('profileImage', logoUrl);
+      showSuccess('Logo uploaded', 'Logo will be saved when you continue.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Logo upload failed';
+      showError('Logo upload failed', message);
+      setLogoFiles([]);
+    } finally {
+      setLogoUploading(false);
+      setLogoUploadProgress(null);
+    }
+  }, [practiceId, showError, showSuccess, updateField]);
 
   const getAdjacentStep = useCallback((step: OnboardingStep, delta: number): OnboardingStep => {
     const index = STEP_SEQUENCE.indexOf(step);
@@ -386,11 +441,17 @@ const BusinessOnboardingModal = ({
       throw new Error(message);
     }
 
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : undefined;
+    const returnUrl = currentUrl || (origin ? `${origin}/business-onboarding` : undefined);
+
     setStripeRequestPending(true);
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
-        practiceUuid: organizationId
+        practiceUuid: organizationId,
+        returnUrl,
+        refreshUrl: returnUrl
       });
 
       if (connectedAccount.onboardingUrl) {
@@ -404,7 +465,7 @@ const BusinessOnboardingModal = ({
         throw new Error(message);
       }
 
-      const message = 'Stripe hosted onboarding is not available. Please try again later.';
+      const message = 'Stripe hosted onboarding link was not provided. Please try again later.';
       showError('Stripe Setup Failed', message);
       throw new Error(message);
     } catch (error) {
@@ -432,13 +493,20 @@ const BusinessOnboardingModal = ({
   }, [currentStepFromUrl, goToStep]);
 
   // Load saved data on mount
+  const initializedIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isOpen || !practiceId) return;
+    if (initializedIdRef.current === practiceId) return;
 
     const loadSavedData = async () => {
+      // Mark as initialized immediately to prevent double-fire
+      initializedIdRef.current = practiceId;
       setIsLoadingData(true);
       try {
-        const practiceRecord = await getPractice(practiceId);
+        const [practiceRecord, detailsRecord] = await Promise.all([
+          practice ? Promise.resolve(practice) : getPractice(practiceId),
+          details ? Promise.resolve(details) : fetchDetails()
+        ]);
         await fetchStripeStatus();
 
         const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
@@ -467,26 +535,45 @@ const BusinessOnboardingModal = ({
             }
           }
         } else {
+          const detailsServices = Array.isArray(detailsRecord?.services)
+            ? normalizeServices(detailsRecord.services)
+            : [];
+          const practiceServices = Array.isArray(practiceRecord.services)
+            ? normalizeServices(practiceRecord.services)
+            : [];
           setFormData((prev) => ({
             ...prev,
             firmName: practiceRecord.name || prev.firmName,
-            contactEmail: practiceRecord.businessEmail ?? prev.contactEmail ?? fallbackContactEmail ?? '',
+            contactEmail: detailsRecord?.businessEmail
+              ?? practiceRecord.businessEmail
+              ?? prev.contactEmail
+              ?? fallbackContactEmail
+              ?? '',
             slug: practiceRecord.slug ?? prev.slug,
-            contactPhone: practiceRecord.businessPhone || prev.contactPhone,
-            website: practiceRecord.website ?? prev.website,
+            contactPhone: detailsRecord?.businessPhone
+              ?? practiceRecord.businessPhone
+              ?? prev.contactPhone,
+            website: detailsRecord?.website ?? practiceRecord.website ?? prev.website,
             profileImage: typeof practiceRecord.logo === 'string' ? practiceRecord.logo : prev.profileImage,
-            addressLine1: practiceRecord.addressLine1 ?? prev.addressLine1,
-            addressLine2: practiceRecord.addressLine2 ?? prev.addressLine2,
-            city: practiceRecord.city ?? prev.city,
-            state: practiceRecord.state ?? prev.state,
-            postalCode: practiceRecord.postalCode ?? prev.postalCode,
-            country: practiceRecord.country ?? prev.country,
-            introMessage: practiceRecord.introMessage ?? prev.introMessage,
-            description: practiceRecord.description ?? prev.description,
-            isPublic: typeof practiceRecord.isPublic === 'boolean' ? practiceRecord.isPublic : prev.isPublic,
-            consultationFee: practiceRecord.consultationFee === undefined
-              ? prev.consultationFee
-              : practiceRecord.consultationFee
+            addressLine1: detailsRecord?.addressLine1 ?? practiceRecord.addressLine1 ?? prev.addressLine1,
+            addressLine2: detailsRecord?.addressLine2 ?? practiceRecord.addressLine2 ?? prev.addressLine2,
+            city: detailsRecord?.city ?? practiceRecord.city ?? prev.city,
+            state: detailsRecord?.state ?? practiceRecord.state ?? prev.state,
+            postalCode: detailsRecord?.postalCode ?? practiceRecord.postalCode ?? prev.postalCode,
+            country: detailsRecord?.country ?? practiceRecord.country ?? prev.country,
+            introMessage: detailsRecord?.introMessage ?? practiceRecord.introMessage ?? prev.introMessage,
+            description: detailsRecord?.description ?? practiceRecord.description ?? prev.description,
+            isPublic: typeof detailsRecord?.isPublic === 'boolean'
+              ? detailsRecord.isPublic
+              : (typeof practiceRecord.isPublic === 'boolean' ? practiceRecord.isPublic : prev.isPublic),
+            services: detailsServices.length > 0
+              ? detailsServices
+              : (practiceServices.length > 0 ? practiceServices : prev.services),
+            consultationFee: detailsRecord && detailsRecord.consultationFee !== undefined
+              ? detailsRecord.consultationFee
+              : (practiceRecord.consultationFee === undefined
+                ? prev.consultationFee
+                : practiceRecord.consultationFee)
           }));
 
           if (localState?.status === 'completed' && !hasValidUrlStep) {
@@ -504,11 +591,14 @@ const BusinessOnboardingModal = ({
   }, [
     isOpen,
     practiceId,
+    practice,
+    details,
     fallbackContactEmail,
     setFormData,
     goToStep,
     currentStepFromUrl,
     fetchStripeStatus,
+    fetchDetails,
     organizationId
   ]);
 
@@ -631,10 +721,13 @@ const BusinessOnboardingModal = ({
 
 
   const handleClose = () => {
+    setLogoFiles([]);
+    setLogoUploadProgress(null);
+    setLogoUploading(false);
     onClose();
   };
 
-  const actionLoading = loading || isLoadingData || stripeRequestPending;
+  const actionLoading = loading || isLoadingData || stripeRequestPending || logoUploading;
 
   if (!isOpen) {
     return null;
@@ -664,8 +757,11 @@ const BusinessOnboardingModal = ({
           onBack={handleBack}
           practiceSlug={practiceSlug || practiceName?.toLowerCase().replace(/\s+/g, '-') || 'your-firm'}
           disabled={isLoadingData}
+          logoFiles={logoFiles}
+          logoUploading={logoUploading}
+          logoUploadProgress={logoUploadProgress}
+          onLogoChange={handleLogoChange}
           stripeStatus={stripeStatus}
-          stripeClientSecret={null}
           stripeLoading={loading || stripeRequestPending}
           onFooterChange={setFooterContent}
           actionLoading={actionLoading}

@@ -81,7 +81,7 @@ async function updateStatusWithRetry(
 const fileUploadValidationSchema = z.object({
   file: z.instanceof(File, { message: 'File is required' }),
   practiceId: z.string().optional(), // Make practiceId optional to allow practice-context fallback
-  conversationId: z.string().min(1, 'Conversation ID is required')
+  conversationId: z.string().min(1, 'Conversation ID is required').optional()
 });
 
 // File type validation
@@ -127,6 +127,35 @@ const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (increased for larger SVG files 
 // Disallowed file extensions for security
 const DISALLOWED_EXTENSIONS = ['exe', 'bat', 'cmd', 'com', 'pif', 'scr', 'vbs', 'js', 'jar', 'msi', 'app'];
 
+const normalizeOrigin = (value: string | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    try {
+      return new URL(`https://${trimmed}`).origin;
+    } catch {
+      return null;
+    }
+  }
+};
+
+const resolvePublicOrigin = (request: Request, env: Env): string => {
+  const explicitOrigin = normalizeOrigin(env.CLOUDFLARE_PUBLIC_URL);
+
+  if (explicitOrigin) {
+    return explicitOrigin;
+  }
+
+  return '';
+};
+
 function validateFile(file: File): { isValid: boolean; error?: string } {
   // Check file size
   if (file.size > MAX_FILE_SIZE) {
@@ -147,7 +176,13 @@ function validateFile(file: File): { isValid: boolean; error?: string } {
   return { isValid: true };
 }
 
-async function storeFile(file: File, practiceId: string, conversationId: string, env: Env): Promise<{ fileId: string; url: string; storageKey: string }> {
+async function storeFile(
+  file: File,
+  practiceId: string,
+  conversationId: string,
+  env: Env,
+  request?: Request
+): Promise<{ fileId: string; url: string; storageKey: string }> {
   if (!env.FILES_BUCKET) {
     throw HttpErrors.internalServerError('File storage is not configured');
   }
@@ -159,7 +194,7 @@ async function storeFile(file: File, practiceId: string, conversationId: string,
 
   // Check if the practice exists - this is required for file operations
   // This check MUST happen before any R2 upload to prevent orphaned files
-  const existingPractice = await RemoteApiService.validatePractice(env, practiceId);
+  const existingPractice = await RemoteApiService.validatePractice(env, practiceId, request);
   
   if (!existingPractice) {
     // Log anomaly for monitoring and alerting
@@ -248,8 +283,23 @@ async function storeFile(file: File, practiceId: string, conversationId: string,
     // Continue with the upload since the file is already stored in R2
   }
 
-  // Generate public URL (in production, this would be a CDN URL)
-  const url = `/api/files/${fileId}`;
+  // Generate public URL based on trusted env origin.
+  // Falls back to relative path if no explicit origin is configured.
+  const getPublicUrl = (fileIdStr: string, req?: Request): string => {
+    const relativePath = `/api/files/${fileIdStr}`;
+    
+    if (req) {
+      const publicOrigin = resolvePublicOrigin(req, env);
+      if (publicOrigin) {
+        return `${publicOrigin}${relativePath}`;
+      }
+    }
+    
+    // Fallback to relative URL (shouldn't happen in practice)
+    return relativePath;
+  };
+  
+  const url = getPublicUrl(fileId, request);
 
   // Create activity event for file upload (non-blocking)
   const createActivityEvent = async () => {
@@ -318,7 +368,10 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       const file = formData.get('file') as File;
       const rawPracticeId = formData.get('practiceId');
       const practiceId = typeof rawPracticeId === 'string' && rawPracticeId.trim() ? rawPracticeId.trim() : undefined;
-      const conversationId = formData.get('conversationId') as string;
+      const rawConversationId = formData.get('conversationId');
+      const conversationId = typeof rawConversationId === 'string' && rawConversationId.trim()
+        ? rawConversationId.trim()
+        : undefined;
       
       // Extract optional metadata fields
       const description = formData.get('description') as string | null;
@@ -362,58 +415,72 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
       
       const normalizedPracticeId = contextPracticeId;
       
-      const normalizedConversationId = conversationId.trim();
+      const normalizedConversationId = conversationId ?? null;
 
       // Validate that trimmed IDs are not empty
       if (!normalizedPracticeId) {
         throw HttpErrors.badRequest('practiceId cannot be empty after trimming');
       }
-      if (!normalizedConversationId) {
-        throw HttpErrors.badRequest('conversationId cannot be empty after trimming');
-      }
 
-      // Validate conversation exists and belongs to practice
-      const { ConversationService } = await import('../services/ConversationService.js');
-      const conversationService = new ConversationService(env);
-      try {
-        const conversation = await conversationService.getConversation(normalizedConversationId, normalizedPracticeId);
-        resolvedPracticeId = conversation.practice_id;
-        resolvedConversationId = conversation.id;
-      } catch (error) {
-        throw HttpErrors.badRequest(`Conversation not found or does not belong to practice: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const hasConversation = Boolean(normalizedConversationId);
+      const storageConversationId = hasConversation
+        ? normalizedConversationId as string
+        : `upload-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      if (hasConversation) {
+        // Validate conversation exists and belongs to practice
+        const { ConversationService } = await import('../services/ConversationService.js');
+        const conversationService = new ConversationService(env);
+        try {
+          const conversation = await conversationService.getConversation(
+            normalizedConversationId as string,
+            normalizedPracticeId
+          );
+          resolvedPracticeId = conversation.practice_id;
+          resolvedConversationId = conversation.id;
+        } catch (error) {
+          throw HttpErrors.badRequest(
+            `Conversation not found or does not belong to practice: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
+        }
+      } else {
+        resolvedPracticeId = normalizedPracticeId;
+        resolvedConversationId = storageConversationId;
       }
 
       // Update status to indicate file stored
       let statusId: string | null = null;
       let statusCreatedAt: number | null = null;
-      try {
-        // StatusService migration completed: now uses conversationId instead of sessionId
-        // See: [TRACKING-ISSUE: StatusService sessionId->conversationId migration]
-        // Migration date: 2025-01-XX
-        // Note: Status records have 24h TTL, so old records with sessionId will expire naturally
-        statusId = await StatusService.createFileProcessingStatus(
-          env,
-          resolvedConversationId,
-          resolvedPracticeId,
-          file.name,
-          'processing',
-          10
-        );
-        // Get the createdAt timestamp for this statusId to preserve it across updates
-        if (statusId) {
-          statusCreatedAt = await StatusService.getStatusCreatedAt(env, statusId);
+      if (hasConversation) {
+        try {
+          // StatusService migration completed: now uses conversationId instead of sessionId
+          // See: [TRACKING-ISSUE: StatusService sessionId->conversationId migration]
+          // Migration date: 2025-01-XX
+          // Note: Status records have 24h TTL, so old records with sessionId will expire naturally
+          statusId = await StatusService.createFileProcessingStatus(
+            env,
+            resolvedConversationId,
+            resolvedPracticeId,
+            file.name,
+            'processing',
+            10
+          );
+          // Get the createdAt timestamp for this statusId to preserve it across updates
+          if (statusId) {
+            statusCreatedAt = await StatusService.getStatusCreatedAt(env, statusId);
+          }
+        } catch (statusError) {
+          Logger.warn('Failed to create initial file processing status:', statusError);
+          // Continue without status tracking if status creation fails
         }
-      } catch (statusError) {
-        Logger.warn('Failed to create initial file processing status:', statusError);
-        // Continue without status tracking if status creation fails
       }
 
       // Store file with error handling
-      let fileId: string, url: string;
-      const result = await storeFile(file, resolvedPracticeId, resolvedConversationId, env);
+      let fileId: string, url: string, storageKey: string;
+      const result = await storeFile(file, resolvedPracticeId, resolvedConversationId, env, request);
       fileId = result.fileId;
       url = result.url;
-      // storageKey is available in result but not used here
+      storageKey = result.storageKey;
 
       // Update status to indicate file stored
       if (statusId) {
@@ -444,7 +511,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
         fileType: file.type,
         fileSize: file.size,
         practiceId: resolvedPracticeId,
-        conversationId: resolvedConversationId,
+        conversationId: hasConversation ? resolvedConversationId : null,
         url,
         statusId
       });
@@ -461,8 +528,10 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
           fileType: file.type,
           fileSize: file.size,
           url,
+          storageKey,
           statusId,
           message: 'File uploaded successfully',
+          ...(hasConversation ? { conversationId: resolvedConversationId } : {}),
           // Include metadata fields if provided
           ...(description && { description }),
           ...(category && { category }),

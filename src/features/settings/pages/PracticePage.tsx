@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'preact/hooks';
+import { useState, useMemo, useCallback } from 'preact/hooks';
 import {
   ChevronRightIcon,
   GlobeAltIcon,
@@ -20,9 +20,17 @@ import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { StackedAvatars } from '@/shared/ui/profile';
-import type { PracticeConfig } from '../../../../worker/types';
 import { PracticeContactFields } from '@/shared/ui/practice/PracticeContactFields';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import type { PracticeDetails, PracticeDetailsUpdate } from '@/shared/lib/apiClient';
+import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
+import {
+  useLeadQueueAutoLoad,
+  usePracticeMembersSync,
+  usePracticeSyncParamRefetch,
+  type EditPracticeFormState
+} from '@/features/settings/hooks/usePracticePageEffects';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -39,11 +47,24 @@ interface OnboardingDetails {
   services?: Array<Record<string, unknown>>;
 }
 
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const resolveOnboardingData = (practice: Practice | null): OnboardingDetails => {
+const resolveOnboardingData = (practice: Practice | null, details: PracticeDetails | null): OnboardingDetails => {
   if (!practice) return {};
+  const baseFromDetails: OnboardingDetails = details
+    ? {
+      website: details.website ?? undefined,
+      addressLine1: details.addressLine1 ?? undefined,
+      addressLine2: details.addressLine2 ?? undefined,
+      city: details.city ?? undefined,
+      state: details.state ?? undefined,
+      postalCode: details.postalCode ?? undefined,
+      country: details.country ?? undefined,
+      introMessage: details.introMessage ?? undefined,
+      description: details.description ?? undefined,
+      isPublic: details.isPublic ?? undefined,
+      services: details.services ?? undefined,
+      contactPhone: details.businessPhone ?? undefined
+    }
+    : {};
   const baseFromPractice: OnboardingDetails = {
     website: practice.website ?? undefined,
     addressLine1: practice.addressLine1 ?? undefined,
@@ -58,42 +79,21 @@ const resolveOnboardingData = (practice: Practice | null): OnboardingDetails => 
     services: practice.services ?? undefined,
     contactPhone: practice.businessPhone ?? undefined
   };
-  const metadata = practice.metadata;
-  if (!isPlainObject(metadata)) return baseFromPractice;
-  const onboarding = metadata.onboarding;
-  if (!isPlainObject(onboarding)) return baseFromPractice;
-  const data = onboarding.data;
-  if (!isPlainObject(data)) return baseFromPractice;
-  return { ...(data as OnboardingDetails), ...baseFromPractice };
-};
-
-const resolveConversationConfig = (practice: Practice | null): PracticeConfig | null => {
-  if (!practice) return null;
-  const metadata = practice.metadata;
-  if (isPlainObject(metadata)) {
-    const candidate = metadata.conversationConfig;
-    if (isPlainObject(candidate)) {
-      if ('availableServices' in candidate || 'serviceQuestions' in candidate || 'introMessage' in candidate) {
-        return candidate as unknown as PracticeConfig;
-      }
-    }
-  }
-  const config = practice.config;
-  if (isPlainObject(config)) {
-    const nestedCandidate = (config as Record<string, unknown>).conversationConfig;
-    if (isPlainObject(nestedCandidate)) {
-      return nestedCandidate as unknown as PracticeConfig;
-    }
-    if ('availableServices' in config || 'serviceQuestions' in config || 'introMessage' in config) {
-      return config as unknown as PracticeConfig;
-    }
-  }
-  return null;
+  return { ...baseFromPractice, ...baseFromDetails };
 };
 
 const truncateText = (value: string, maxLength: number) => {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, maxLength).trim()}...`;
+};
+
+const isValidHttpUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
 };
 
 const formatAddressSummary = (data: OnboardingDetails) => {
@@ -132,14 +132,14 @@ interface LeadSummary {
 }
 
 export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
-  const { session } = useSessionContext();
+  const { session, isPending: sessionPending, hasPractice: sessionHasPractice } = useSessionContext();
   const { 
-    currentPractice, 
+    currentPractice,
+    practices,
     getMembers,
     loading, 
     error,
     updatePractice,
-    updatePracticeDetails,
     createPractice,
     deletePractice,
     fetchMembers,
@@ -147,6 +147,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     acceptMatter,
     rejectMatter
   } = usePracticeManagement();
+  const activePracticeId = currentPractice?.id ?? practices[0]?.id ?? null;
+  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId);
   
   const { showSuccess, showError, showWarning } = useToastContext();
   const { navigate } = useNavigation();
@@ -159,14 +161,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const currentUserEmail = session?.user?.email || '';
   
   // Form states
-  const [editPracticeForm, setEditPracticeForm] = useState({
+  const [editPracticeForm, setEditPracticeForm] = useState<EditPracticeFormState>({
     name: '',
     slug: '',
     businessEmail: '',
-    consultationFee: undefined as number | undefined,
+    consultationFee: undefined,
     logo: ''
   });
-  const [logoFiles, setLogoFiles] = useState<File[]>([]);
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -178,6 +179,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [isEditPracticeModalOpen, setIsEditPracticeModalOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [logoFiles, setLogoFiles] = useState<File[]>([]);
+  const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [leadQueue, setLeadQueue] = useState<LeadSummary[]>([]);
   const [leadLoading, setLeadLoading] = useState(false);
   const [leadError, setLeadError] = useState<string | null>(null);
@@ -186,86 +190,74 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [decisionReason, setDecisionReason] = useState('');
   const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
-  const hasPractice = !!currentPractice;
-  const members = useMemo(() => currentPractice ? getMembers(currentPractice.id) : [], [currentPractice, getMembers]);
+  const practice = currentPractice ?? practices[0] ?? null;
+  const hasPractice = !!practice;
+  const members = useMemo(() => practice ? getMembers(practice.id) : [], [practice, getMembers]);
   
   // Better approach - get role directly from current practice context
   const currentMember = useMemo(() => {
-    if (!currentPractice || !currentUserEmail) return null;
+    if (!practice || !currentUserEmail) return null;
     return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) || 
            members.find(m => m.userId === session?.user?.id);
-  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
+  }, [practice, currentUserEmail, members, session?.user?.id]);
 
   const currentUserRole = currentMember?.role || 'paralegal';
   const isOwner = currentUserRole === 'owner';
   const isAdmin = (currentUserRole === 'admin' || isOwner) ?? false;
   const canReviewLeads = isAdmin || isOwner;
   const servicesList = useMemo(() => {
-    const sanitize = (value: unknown) => {
-      if (!Array.isArray(value)) return [];
-      const seen = new Set<string>();
-      const result: string[] = [];
-      value.forEach((item) => {
-        if (typeof item !== 'string') return;
-        const trimmed = item.trim();
+    const source = practiceDetails?.services ?? practice?.services;
+    if (!Array.isArray(source)) return [];
+
+    const seen = new Set<string>();
+    const result: string[] = [];
+    const entries = source as Array<Record<string, unknown> | string>;
+    entries.forEach((entry) => {
+      if (typeof entry === 'string') {
+        const trimmed = entry.trim();
         if (!trimmed) return;
         const key = trimmed.toLowerCase();
         if (seen.has(key)) return;
         seen.add(key);
         result.push(trimmed);
-      });
-      return result;
-    };
-
-    if (Array.isArray(currentPractice?.services)) {
-      const names = currentPractice?.services
-        .map((entry) => {
-          if (typeof entry === 'string') return entry;
-          if (entry && typeof entry === 'object') {
-            const candidate = (entry as Record<string, unknown>).title ?? (entry as Record<string, unknown>).name;
-            if (typeof candidate === 'string') return candidate;
-          }
-          return '';
-        })
-        .filter((item) => typeof item === 'string' && item.trim().length > 0);
-      const normalized = sanitize(names);
-      if (normalized.length) return normalized;
-    }
-
-    const metadata = currentPractice?.metadata;
-    if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
-      const conversationConfig = (metadata as Record<string, unknown>).conversationConfig;
-      if (conversationConfig && typeof conversationConfig === 'object' && !Array.isArray(conversationConfig)) {
-        const list = sanitize((conversationConfig as Record<string, unknown>).availableServices);
-        if (list.length) return list;
+        return;
       }
-    }
-    const config = currentPractice?.config;
-    if (config && typeof config === 'object' && !Array.isArray(config)) {
-      const list = sanitize((config as Record<string, unknown>).availableServices);
-      if (list.length) return list;
-    }
-    return [];
-  }, [currentPractice]);
-  const onboardingData = useMemo(() => resolveOnboardingData(currentPractice), [currentPractice]);
-  const conversationConfig = useMemo(() => resolveConversationConfig(currentPractice), [currentPractice]);
+      if (entry && typeof entry === 'object') {
+        const record = entry as Record<string, unknown>;
+        const candidate = typeof record.name === 'string'
+          ? record.name
+          : (typeof record.title === 'string' ? record.title : '');
+        const trimmed = candidate.trim();
+        if (!trimmed) return;
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        result.push(trimmed);
+      }
+    });
+    return result;
+  }, [practiceDetails?.services, practice?.services]);
+  const onboardingData = useMemo(
+    () => resolveOnboardingData(practice, practiceDetails),
+    [practice, practiceDetails]
+  );
 
   const websiteValue = typeof onboardingData.website === 'string' ? onboardingData.website.trim() : '';
   const addressSummary = formatAddressSummary(onboardingData);
   const phoneValue = (typeof onboardingData.contactPhone === 'string'
     ? onboardingData.contactPhone
-    : (currentPractice?.businessPhone || '')).trim();
-  const introMessageValue = typeof onboardingData.introMessage === 'string' && onboardingData.introMessage.trim()
-    ? onboardingData.introMessage
-    : (conversationConfig?.introMessage || '');
-  const descriptionValue = typeof onboardingData.description === 'string' && onboardingData.description.trim()
-    ? onboardingData.description
-    : (conversationConfig?.description || '');
+    : (practice?.businessPhone || '')).trim();
+  const introMessageValue = typeof onboardingData.introMessage === 'string'
+    ? onboardingData.introMessage.trim()
+    : '';
+  const descriptionValue = typeof onboardingData.description === 'string'
+    ? onboardingData.description.trim()
+    : '';
   const isPublicValue = typeof onboardingData.isPublic === 'boolean'
     ? onboardingData.isPublic
-    : (typeof conversationConfig?.isPublic === 'boolean' ? conversationConfig.isPublic : false);
-  const practiceUrlValue = currentPractice?.slug
-    ? `ai.blawby.com/p/${currentPractice.slug}`
+    : false;
+  const practiceUrlValue = practice?.slug
+    ? `ai.blawby.com/p/${practice.slug}`
     : 'ai.blawby.com/p/your-practice';
   const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
   const teamAvatars = useMemo(
@@ -292,10 +284,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
-  const logoReadTokenRef = useRef(0);
 
   const loadLeadQueue = useCallback(async () => {
-    if (!currentPractice?.id || !canReviewLeads) {
+    if (!practice?.id || !canReviewLeads) {
       setLeadQueue([]);
       return;
     }
@@ -304,7 +295,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     setLeadError(null);
 
     try {
-      const endpoint = `${getPracticeWorkspaceEndpoint(currentPractice.id, 'matters')}?status=lead`;
+      const endpoint = `${getPracticeWorkspaceEndpoint(practice.id, 'matters')}?status=lead`;
       const response = await fetch(endpoint, {
         method: 'GET',
         credentials: 'include',
@@ -335,11 +326,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     } finally {
       setLeadLoading(false);
     }
-  }, [currentPractice?.id, canReviewLeads]);
+  }, [practice?.id, canReviewLeads]);
 
-  useEffect(() => {
-    void loadLeadQueue();
-  }, [loadLeadQueue]);
+  useLeadQueueAutoLoad(loadLeadQueue);
 
   const openDecisionModal = (lead: LeadSummary, action: 'accept' | 'reject') => {
     setDecisionLead(lead);
@@ -355,14 +344,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   };
 
   const handleDecision = async () => {
-    if (!currentPractice?.id || !decisionLead || !decisionAction) return;
+    if (!practice?.id || !decisionLead || !decisionAction) return;
     setDecisionSubmitting(true);
     try {
       if (decisionAction === 'accept') {
-        await acceptMatter(currentPractice.id, decisionLead.id);
+        await acceptMatter(practice.id, decisionLead.id);
         showSuccess('Lead accepted', 'The client has been notified.');
       } else {
-        await rejectMatter(currentPractice.id, decisionLead.id, decisionReason);
+        await rejectMatter(practice.id, decisionLead.id, decisionReason);
         showSuccess('Lead rejected', 'The client has been notified.');
       }
       setDecisionSubmitting(false);
@@ -381,12 +370,12 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     : '';
 
   // Subscription guard for deletion
-  const hasManagedSub = Boolean(currentPractice?.stripeCustomerId);
-  const subStatus = (currentPractice?.subscriptionStatus || 'none').toLowerCase();
+  const hasManagedSub = Boolean(practice?.stripeCustomerId);
+  const subStatus = (practice?.subscriptionStatus || 'none').toLowerCase();
   const deletionBlockedBySubscription = hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
   const deletionBlockedMessage = (() => {
     if (!deletionBlockedBySubscription) return '';
-    const ts = currentPractice?.subscriptionPeriodEnd;
+    const ts = practice?.subscriptionPeriodEnd;
     const end = (typeof ts === 'number' && Number.isFinite(ts)) ? new Date(ts * 1000) : null;
     if (end) {
       return `Subscription must be canceled before deleting. Access ends on ${formatDate(end)}.`;
@@ -398,63 +387,22 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   // Current user email is now derived from session - removed redirect to keep practice settings accessible
 
   // Initialize form with current practice data
-  useEffect(() => {
-    if (currentPractice) {
-      setEditPracticeForm({
-        name: currentPractice.name,
-        slug: currentPractice.slug || '',
-        businessEmail: currentPractice.businessEmail || '',
-        consultationFee: typeof currentPractice.consultationFee === 'number'
-          ? currentPractice.consultationFee
-          : undefined,
-        logo: currentPractice.logo || ''
-      });
-      setLogoFiles([]);
-      
-      // Fetch related data only once when practice changes
-      const fetchMembersData = async () => {
-        try {
-          await fetchMembers(currentPractice.id);
-        } catch (err) {
-          showError(err?.message || String(err) || 'Failed to fetch practice members');
-        }
-      };
-      
-      fetchMembersData();
-    }
-  }, [currentPractice, fetchMembers, showError]);
+  // Note: usePracticeManagement already fetches practice details during initialization,
+  // so we only need to fetch members here. Details are available via practiceDetailsStore.
+  usePracticeMembersSync({
+    practice,
+    setEditPracticeForm,
+    fetchMembers,
+    showError
+  });
 
   // Refetch after return from portal
-  useEffect(() => {
-    const syncParam = (() => {
-      const q = (location as unknown as { query?: Record<string, unknown> } | undefined)?.query;
-      if (q && typeof q === 'object' && 'sync' in q) {
-        const v = (q as Record<string, unknown>)['sync'] as unknown;
-        const val = Array.isArray(v) ? v[0] : (v as string | undefined);
-        return val;
-      }
-      if (typeof window !== 'undefined') {
-        return new URLSearchParams(window.location.search).get('sync') ?? undefined;
-      }
-      return undefined;
-    })();
-    if (String(syncParam) === '1' && currentPractice?.id) {
-      refetch()
-        .then(() => {
-          showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        })
-        .catch((error) => {
-          console.error('Failed to refresh subscription:', error);
-          // Don't show error toast - refetch failure is not critical
-        })
-        .finally(() => {
-          // Remove sync param to prevent re-trigger (URL hygiene)
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('sync');
-          window.history.replaceState({}, '', newUrl.toString());
-        });
-    }
-  }, [location, currentPractice?.id, refetch, showSuccess]);
+  usePracticeSyncParamRefetch({
+    location,
+    practiceId: practice?.id ?? null,
+    refetch,
+    showSuccess
+  });
 
   const handleCreatePractice = async () => {
     if (!createForm.name.trim()) {
@@ -478,71 +426,63 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   };
 
   const openEditPracticeModal = () => {
-    if (!currentPractice) return;
-    setEditPracticeForm({
-      name: currentPractice.name,
-      slug: currentPractice.slug || '',
-      businessEmail: currentPractice.businessEmail || '',
-      consultationFee: typeof currentPractice.consultationFee === 'number'
-        ? currentPractice.consultationFee
-        : undefined,
-      logo: currentPractice.logo || ''
-    });
+    if (!practice) return;
+    const detailsEmail = practiceDetails?.businessEmail ?? practice.businessEmail ?? '';
+    const detailsFee = practiceDetails && practiceDetails.consultationFee !== undefined
+      ? practiceDetails.consultationFee
+      : practice.consultationFee;
     setLogoFiles([]);
+    setLogoUploadProgress(null);
+    setLogoUploading(false);
+    setEditPracticeForm({
+      name: practice.name,
+      slug: practice.slug || '',
+      businessEmail: detailsEmail,
+      consultationFee: typeof detailsFee === 'number'
+        ? detailsFee
+        : undefined,
+      logo: practice.logo || ''
+    });
     setDescriptionDraft(descriptionValue);
     setIsEditPracticeModalOpen(true);
   };
 
-  const handleLogoChange = (files: FileList | File[]) => {
+  const handleLogoChange = async (files: FileList | File[]) => {
+    if (!practice) return;
     const [file] = Array.isArray(files) ? files : Array.from(files);
     if (!file) {
       setLogoFiles([]);
-      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
       return;
     }
-    const maxLogoBytes = 5 * 1024 * 1024;
-    const isImage = typeof file.type === 'string' && file.type.startsWith('image/');
-    if (!isImage) {
-      showError('Logo upload failed', 'Please upload a valid image file.');
-      setLogoFiles([]);
-      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
-      return;
-    }
-    if (file.size > maxLogoBytes) {
-      showError('Logo upload failed', 'Logo files must be 5 MB or smaller.');
-      setLogoFiles([]);
-      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
-      return;
-    }
+
     setLogoFiles([file]);
-    const readToken = logoReadTokenRef.current + 1;
-    logoReadTokenRef.current = readToken;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (logoReadTokenRef.current !== readToken) return;
-      if (typeof reader.result === 'string') {
-        setEditPracticeForm(prev => ({ ...prev, logo: reader.result as string }));
-        return;
-      }
-      console.warn('Unexpected logo file reader result:', reader.result);
-      showError('Logo upload failed', 'Unable to read the selected logo.');
+    setLogoUploading(true);
+    setLogoUploadProgress(0);
+    try {
+      const logoUrl = await uploadPracticeLogo(file, practice.id, (percentage) => {
+        setLogoUploadProgress(percentage);
+      });
+      setEditPracticeForm(prev => ({ ...prev, logo: logoUrl }));
+      showSuccess('Logo uploaded', 'Logo ready to save. Click Save Changes to persist.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Logo upload failed';
+      showError('Logo upload failed', message);
       setLogoFiles([]);
-      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
-    };
-    reader.onerror = () => {
-      if (logoReadTokenRef.current !== readToken) return;
-      console.error('Failed to read logo file:', reader.error);
-      showError('Logo upload failed', 'Unable to read the selected logo.');
-      setLogoFiles([]);
-      setEditPracticeForm(prev => ({ ...prev, logo: '' }));
-    };
-    reader.readAsDataURL(file);
+    } finally {
+      setLogoUploading(false);
+      setLogoUploadProgress(null);
+    }
   };
 
   const handleUpdatePractice = async () => {
-    if (!currentPractice) return;
+    if (!practice) return;
     if (!editPracticeForm.name.trim()) {
       showError('Practice name is required');
+      return;
+    }
+    const trimmedLogo = editPracticeForm.logo.trim();
+    if (trimmedLogo && !isValidHttpUrl(trimmedLogo)) {
+      showError('Logo URL is invalid');
       return;
     }
 
@@ -550,18 +490,54 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     try {
       const trimmedDescription = descriptionDraft.trim();
 
-      await updatePractice(currentPractice.id, {
-        name: editPracticeForm.name,
-        slug: editPracticeForm.slug || undefined,
-        businessEmail: editPracticeForm.businessEmail || undefined,
-        consultationFee: editPracticeForm.consultationFee ?? undefined,
-        logo: editPracticeForm.logo || undefined
-      });
+      const corePayload = (() => {
+        const payload: {
+          name?: string;
+          slug?: string;
+          logo?: string;
+        } = {};
+
+        const trimmedName = editPracticeForm.name.trim();
+        if (trimmedName && trimmedName !== practice.name) {
+          payload.name = trimmedName;
+        }
+
+        const trimmedSlug = editPracticeForm.slug.trim();
+        if (trimmedSlug && trimmedSlug !== (practice.slug ?? '')) {
+          payload.slug = trimmedSlug;
+        }
+
+        const nextLogo = trimmedLogo;
+        const currentLogo = practice.logo || '';
+        if (nextLogo && nextLogo !== currentLogo) {
+          payload.logo = nextLogo;
+        }
+
+        return payload;
+      })();
+
+      if (Object.keys(corePayload).length > 0) {
+        await updatePractice(practice.id, corePayload);
+      }
 
       try {
-        await updatePracticeDetails(currentPractice.id, {
-          description: trimmedDescription
-        });
+        const detailsPayload: PracticeDetailsUpdate = {};
+        const trimmedEmail = editPracticeForm.businessEmail.trim();
+        if (trimmedEmail) {
+          detailsPayload.businessEmail = trimmedEmail;
+        }
+        if (editPracticeForm.consultationFee === null) {
+          detailsPayload.consultationFee = null;
+        } else if (typeof editPracticeForm.consultationFee === 'number') {
+          detailsPayload.consultationFee = editPracticeForm.consultationFee;
+        }
+        if (trimmedDescription) {
+          detailsPayload.description = trimmedDescription;
+        }
+
+        if (Object.keys(detailsPayload).length > 0) {
+          await updateDetails(detailsPayload);
+        }
         showSuccess('Practice updated successfully!');
       } catch (detailsError) {
         console.warn('Practice details update failed after core update:', detailsError);
@@ -582,25 +558,36 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     updates: Partial<OnboardingDetails>,
     toastBody: string
   ): Promise<boolean> => {
-    if (!currentPractice) return false;
+    if (!practice) return false;
     setIsSettingsSaving(true);
     try {
-      if (typeof updates.contactPhone === 'string') {
-        await updatePractice(currentPractice.id, {
-          businessPhone: updates.contactPhone
-        });
-      }
+      const normalizeOptionalText = (value?: string): string | null | undefined => {
+        if (typeof value !== 'string') return undefined;
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      };
+      const contactPhone = normalizeOptionalText(updates.contactPhone);
+      const website = normalizeOptionalText(updates.website);
+      const addressLine1 = normalizeOptionalText(updates.addressLine1);
+      const addressLine2 = normalizeOptionalText(updates.addressLine2);
+      const city = normalizeOptionalText(updates.city);
+      const state = normalizeOptionalText(updates.state);
+      const postalCode = normalizeOptionalText(updates.postalCode);
+      const country = normalizeOptionalText(updates.country);
+      const introMessage = normalizeOptionalText(updates.introMessage);
+      const description = normalizeOptionalText(updates.description);
 
-      await updatePracticeDetails(currentPractice.id, {
-        ...(typeof updates.website === 'string' ? { website: updates.website } : {}),
-        ...(typeof updates.addressLine1 === 'string' ? { addressLine1: updates.addressLine1 } : {}),
-        ...(typeof updates.addressLine2 === 'string' ? { addressLine2: updates.addressLine2 } : {}),
-        ...(typeof updates.city === 'string' ? { city: updates.city } : {}),
-        ...(typeof updates.state === 'string' ? { state: updates.state } : {}),
-        ...(typeof updates.postalCode === 'string' ? { postalCode: updates.postalCode } : {}),
-        ...(typeof updates.country === 'string' ? { country: updates.country } : {}),
-        ...(typeof updates.introMessage === 'string' ? { introMessage: updates.introMessage } : {}),
-        ...(typeof updates.description === 'string' ? { description: updates.description } : {}),
+      await updateDetails({
+        ...(contactPhone !== undefined ? { businessPhone: contactPhone } : {}),
+        ...(website !== undefined ? { website } : {}),
+        ...(addressLine1 !== undefined ? { addressLine1 } : {}),
+        ...(addressLine2 !== undefined ? { addressLine2 } : {}),
+        ...(city !== undefined ? { city } : {}),
+        ...(state !== undefined ? { state } : {}),
+        ...(postalCode !== undefined ? { postalCode } : {}),
+        ...(country !== undefined ? { country } : {}),
+        ...(introMessage !== undefined ? { introMessage } : {}),
+        ...(description !== undefined ? { description } : {}),
         ...(typeof updates.isPublic === 'boolean' ? { isPublic: updates.isPublic } : {}),
         ...(Array.isArray(updates.services) ? { services: updates.services } : {})
       });
@@ -676,15 +663,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   };
 
   const handleDeletePractice = async () => {
-    if (!currentPractice) return;
+    if (!practice) return;
     
-    if (deleteConfirmText !== currentPractice.name) {
+    if (deleteConfirmText.trim() !== practice.name) {
       showError('Practice name must match exactly');
       return;
     }
 
     try {
-      await deletePractice(currentPractice.id);
+      await deletePractice(practice.id);
       showSuccess('Practice deleted successfully!');
       setShowDeleteModal(false);
       setDeleteConfirmText('');
@@ -694,7 +681,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     }
   };
 
-  if (loading) {
+  // Loading state: show loading only when actively fetching
+  // Once loading is complete (loading=false, sessionPending=false), show the result:
+  // - practice data if available
+  // - error state if error
+  // - "no data" state if neither (this prompts user to reload)
+  const shouldShowLoading = loading || sessionPending;
+
+  if (shouldShowLoading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="text-center">
@@ -718,6 +712,26 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     );
   }
 
+  if (!practice) {
+    return (
+      <div className={`h-full flex items-center justify-center ${className}`}>
+        <div className="text-center space-y-3">
+          <p className="text-sm text-gray-500">No practice data is available yet.</p>
+          <div className="flex items-center justify-center gap-2">
+            <Button size="sm" variant="secondary" onClick={refetch}>
+              Reload
+            </Button>
+            {!sessionHasPractice && (
+              <Button size="sm" onClick={() => setShowCreateModal(true)}>
+                Create Practice
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`h-full flex flex-col ${className}`}>
       <div className="px-6 py-4">
@@ -735,7 +749,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               <div className="flex items-center justify-between py-3">
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {currentPractice.name || 'Practice'}
+                    {practice.name || 'Practice'}
                   </h3>
                   <div className="mt-2 space-y-2 text-xs text-gray-500 dark:text-gray-400">
                     <div className="flex items-start gap-3">
@@ -1027,9 +1041,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            if (!currentPractice?.id) return;
+                            if (!practice?.id) return;
                             openBillingPortal({ 
-                              practiceId: currentPractice.id, 
+                              practiceId: practice.id, 
                               returnUrl: origin ? `${origin}/settings/practice?sync=1` : '/settings/practice?sync=1' 
                             });
                           }}
@@ -1161,16 +1175,23 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             />
           </div>
 
-          <FileInput
-            label="Upload logo (optional)"
-            description="Upload a square logo. Maximum 5 MB."
-            accept="image/*"
-            multiple={false}
-            maxFileSize={5 * 1024 * 1024}
-            value={logoFiles}
-            onChange={handleLogoChange}
-            disabled={isSettingsSaving}
-          />
+          <div>
+            <FileInput
+              label="Upload logo (optional)"
+              description="Upload a square logo. Maximum 5 MB."
+              accept="image/*"
+              multiple={false}
+              maxFileSize={5 * 1024 * 1024}
+              value={logoFiles}
+              onChange={handleLogoChange}
+              disabled={isSettingsSaving || logoUploading}
+            />
+            {(logoUploading || logoUploadProgress !== null) && (
+              <p className="text-xs text-gray-500 mt-2">
+                {logoUploading ? 'Uploading logo' : 'Upload progress'}{logoUploadProgress !== null ? ` • ${logoUploadProgress}%` : ''}
+              </p>
+            )}
+          </div>
 
           <div>
             <PracticeProfileTextFields
@@ -1192,7 +1213,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             >
               Cancel
             </Button>
-            <Button onClick={handleUpdatePractice} disabled={isSettingsSaving}>
+            <Button onClick={handleUpdatePractice} disabled={isSettingsSaving || logoUploading}>
               Save Changes
             </Button>
           </div>
@@ -1348,7 +1369,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           
           <div>
             <FormLabel htmlFor="delete-confirm">
-              Type the practice name to confirm: <strong>{currentPractice?.name}</strong>
+              Type the practice name to confirm: <strong>{practice?.name}</strong>
             </FormLabel>
             <Input
               id="delete-confirm"
@@ -1365,7 +1386,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <Button 
               variant="ghost"
               onClick={handleDeletePractice}
-              disabled={deleteConfirmText !== currentPractice?.name}
+              disabled={deleteConfirmText.trim() !== practice?.name}
               className="text-red-600 hover:text-red-700"
             >
               Delete Practice

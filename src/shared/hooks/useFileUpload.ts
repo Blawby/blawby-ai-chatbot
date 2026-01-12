@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { FileAttachment } from '../../../worker/types';
-import { uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
+import { getWorkerRequestUrl, uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
+import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 export type FileStatus = 
   | 'uploading'      // Browser → Workers
@@ -51,9 +52,21 @@ async function _uploadFileToBackend(file: File, practiceId: string, conversation
     formData.append('practiceId', practiceId);
     formData.append('conversationId', conversationId);
 
-    const response = await fetch('/api/files/upload', {
+    let token: string | null | undefined;
+    try {
+      token = await getTokenAsync();
+    } catch {
+      // Allow cookie-based auth to proceed if token storage is unavailable.
+      token = null;
+    }
+
+    const headers: Record<string, string> | undefined =
+      token ? { Authorization: `Bearer ${token}` } : undefined;
+
+    const response = await fetch(getWorkerRequestUrl('/api/files/upload'), {
       method: 'POST',
       body: formData,
+      ...(headers ? { headers } : {}),
       signal,
       credentials: 'include'
     });
@@ -168,7 +181,7 @@ export const useFileUpload = ({ practiceId, conversationId, onError }: UseFileUp
                 name: upload.file.name,
                 size: upload.file.size,
                 type: upload.file.type,
-                url: `/api/files/${result.fileId}`, // Use proper file URL instead of blob URL
+                url: result.url,
                 storageKey: result.storageKey
               }]);
               

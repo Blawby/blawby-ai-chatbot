@@ -71,6 +71,9 @@ const _mockPractice: Practice = {
   updatedAt: new Date().toISOString(),
   businessEmail: 'owner@mock-law.test',
   businessPhone: '+1-555-0123',
+  consultationFee: null,
+  paymentUrl: null,
+  calendlyUrl: null,
   logo: null,
   businessOnboardingStatus: 'completed', // Completed onboarding
   businessOnboardingCompletedAt: onboardingCompletedAt,
