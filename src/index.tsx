@@ -145,16 +145,25 @@ function RootRoute() {
       practiceWorkspaceRef.current = true;
       promotionInProgressRef.current = true;
       const nextPreferredPracticeId = preferredPracticeId ?? activePracticeId ?? null;
-      updateUser({
-        primaryWorkspace: 'practice',
-        preferredPracticeId: nextPreferredPracticeId
-      }).catch((error) => {
-        console.warn('[Workspace] Failed to promote workspace to practice', error);
-        practiceWorkspaceRef.current = false;
-        promotionInProgressRef.current = false;
-      }).finally(() => {
-        promotionInProgressRef.current = false;
-      });
+
+      const promoteWorkspace = async () => {
+        try {
+          await updateUser({
+            primaryWorkspace: 'practice',
+            preferredPracticeId: nextPreferredPracticeId
+          });
+          navigate('/practice', true);
+        } catch (error) {
+          console.warn('[Workspace] Failed to promote workspace to practice', error);
+          practiceWorkspaceRef.current = false;
+          promotionInProgressRef.current = false;
+        } finally {
+          promotionInProgressRef.current = false;
+        }
+      };
+
+      void promoteWorkspace();
+      return;
     }
 
     if (
