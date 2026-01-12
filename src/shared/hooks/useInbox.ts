@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
-import { getApiConfig } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
 
 export interface InboxFilters {
@@ -62,6 +61,7 @@ interface UseInboxReturn {
 /**
  * Hook for team inbox functionality
  * Allows practice members to view, filter, assign, and manage conversations
+ * Uses relative URLs to target the Worker via Vite Proxy
  */
 export function useInbox({
   practiceId,
@@ -108,19 +108,10 @@ export function useInbox({
 
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        const authError = 'Authentication required to view the inbox.';
-        setError(authError);
-        onError?.(authError);
-        return;
-      }
-
-      // Always attach the bearer token even though Better Auth cookies are sent via credentials: 'include'
-      // so we have an explicit user identity for worker-side authorization checks.
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
       };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const params = new URLSearchParams();
       if (filters.assignedTo !== undefined) {
@@ -139,12 +130,13 @@ export function useInbox({
       params.set('offset', offset.toString());
       params.set('sortBy', sortBy);
       params.set('sortOrder', sortOrder);
+      // Explicitly pass practiceId for Worker middleware
+      params.set('practiceId', practiceId);
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/inbox/conversations?${params.toString()}`, {
+      // Relative URL to use Vite Proxy
+      const response = await fetch(`/api/inbox/conversations?${params.toString()}`, {
         method: 'GET',
         headers,
-        credentials: 'include',
         signal: abortControllerRef.current?.signal,
       });
 
@@ -159,10 +151,9 @@ export function useInbox({
         data?: {
           conversations: InboxConversation[];
           total: number;
-          limit: number;
-          offset: number;
         };
       };
+
       if (!data.success || !data.data) {
         throw new Error(data.error || 'Failed to fetch inbox conversations');
       }
@@ -174,7 +165,7 @@ export function useInbox({
       }
     } catch (err) {
       if (isDisposedRef.current) return;
-      if (err instanceof Error && err.name === 'AbortError') return;
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch inbox conversations';
       setError(errorMessage);
       onError?.(errorMessage);
@@ -191,21 +182,14 @@ export function useInbox({
 
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        console.warn('Skipping inbox stats fetch because no auth token is available.');
-        return;
-      }
-
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
       };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/inbox/stats`, {
+      const response = await fetch(`/api/inbox/stats?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'GET',
         headers,
-        credentials: 'include',
         signal: abortControllerRef.current?.signal,
       });
 
@@ -215,12 +199,13 @@ export function useInbox({
         success: boolean;
         data?: InboxStats;
       };
+
       if (data.success && data.data && !isDisposedRef.current) {
         setStats(data.data);
       }
     } catch (err) {
       // Stats fetch failure is non-critical, just log
-      if (err instanceof Error && err.name !== 'AbortError') {
+      if (err instanceof Error && err.name !== 'AbortError' && err.name !== 'CanceledError') {
         console.warn('Failed to fetch inbox stats:', err);
       }
     }
@@ -236,27 +221,17 @@ export function useInbox({
     conversationId: string,
     assignedTo: string | null | 'me'
   ) => {
-    // Create dedicated AbortController for this mutation
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        const authError = 'Authentication required to assign conversations.';
-        setError(authError);
-        onError?.(authError);
-        throw new Error(authError);
-      }
-
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
       };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}/assign`, {
+      const response = await fetch(`/api/inbox/conversations/${conversationId}/assign?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'POST',
         headers,
-        credentials: 'include',
         signal: mutationController.signal,
         body: JSON.stringify({ assigned_to: assignedTo }),
       });
@@ -266,18 +241,14 @@ export function useInbox({
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      // Refresh conversations after assignment
       await refresh();
     } catch (err) {
-      if (isDisposedRef.current) {
-        throw err;
-      }
+      if (isDisposedRef.current) throw err;
       const errorMessage = err instanceof Error ? err.message : 'Failed to assign conversation';
       setError(errorMessage);
       onError?.(errorMessage);
       throw err;
     } finally {
-      // Clean up mutation controller
       mutationController.abort();
     }
   }, [refresh, onError]);
@@ -293,27 +264,17 @@ export function useInbox({
       status?: 'active' | 'archived' | 'closed';
     }
   ) => {
-    // Create dedicated AbortController for this mutation
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        const authError = 'Authentication required to update conversations.';
-        setError(authError);
-        onError?.(authError);
-        throw new Error(authError);
-      }
-
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
       };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}`, {
+      const response = await fetch(`/api/inbox/conversations/${conversationId}?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'PATCH',
         headers,
-        credentials: 'include',
         signal: mutationController.signal,
         body: JSON.stringify(updates),
       });
@@ -323,18 +284,14 @@ export function useInbox({
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      // Refresh conversations after update
       await refresh();
     } catch (err) {
-      if (isDisposedRef.current) {
-        throw err;
-      }
+      if (isDisposedRef.current) throw err;
       const errorMessage = err instanceof Error ? err.message : 'Failed to update conversation';
       setError(errorMessage);
       onError?.(errorMessage);
       throw err;
     } finally {
-      // Clean up mutation controller
       mutationController.abort();
     }
   }, [refresh, onError]);
@@ -345,27 +302,17 @@ export function useInbox({
     content: string,
     metadata?: Record<string, unknown>
   ) => {
-    // Create dedicated AbortController for this mutation
     const mutationController = new AbortController();
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        const authError = 'Authentication required to send messages.';
-        setError(authError);
-        onError?.(authError);
-        throw new Error(authError);
-      }
-
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
       };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const config = getApiConfig();
-      const response = await fetch(`${config.baseUrl}/api/inbox/conversations/${conversationId}/messages`, {
+      const response = await fetch(`/api/inbox/conversations/${conversationId}/messages?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'POST',
         headers,
-        credentials: 'include',
         signal: mutationController.signal,
         body: JSON.stringify({ content, metadata }),
       });
@@ -375,25 +322,20 @@ export function useInbox({
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      // Refresh conversations to update last_message_at
       await refresh();
     } catch (err) {
-      if (isDisposedRef.current) {
-        throw err;
-      }
+      if (isDisposedRef.current) throw err;
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
       setError(errorMessage);
       onError?.(errorMessage);
       throw err;
     } finally {
-      // Clean up mutation controller
       mutationController.abort();
     }
   }, [refresh, onError]);
 
   // Initial load and refetch when filters change
   useEffect(() => {
-    // Define inline to avoid dependency on refresh
     const loadData = async () => {
       await Promise.all([fetchConversations(), fetchStats()]);
     };
@@ -403,7 +345,6 @@ export function useInbox({
       return;
     }
 
-    // Abort any existing requests before creating a new AbortController
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -411,7 +352,6 @@ export function useInbox({
     abortControllerRef.current = new AbortController();
     loadData();
 
-    // Set up auto-refresh if enabled
     if (autoRefresh) {
       refreshTimerRef.current = window.setInterval(() => {
         loadData();

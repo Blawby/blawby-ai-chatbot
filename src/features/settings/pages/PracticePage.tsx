@@ -501,17 +501,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         setLogoUploadProgress(percentage);
       });
       setEditPracticeForm(prev => ({ ...prev, logo: logoUrl }));
-      try {
-        await updatePractice(practice.id, {
-          logo: logoUrl,
-          name: practice.name,
-          slug: practice.slug || undefined
-        });
-        showSuccess('Logo updated', 'Logo saved successfully.');
-      } catch (saveError) {
-        const message = saveError instanceof Error ? saveError.message : 'Failed to save logo';
-        showError('Logo save failed', message);
-      }
+      showSuccess('Logo uploaded', 'Logo ready to save. Click Save Changes to persist.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Logo upload failed';
       showError('Logo upload failed', message);
@@ -609,10 +599,10 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     if (!practice) return false;
     setIsSettingsSaving(true);
     try {
-      const normalizeOptionalText = (value?: string) => {
+      const normalizeOptionalText = (value?: string): string | null | undefined => {
         if (typeof value !== 'string') return undefined;
         const trimmed = value.trim();
-        return trimmed.length > 0 ? trimmed : undefined;
+        return trimmed.length > 0 ? trimmed : null;
       };
       const contactPhone = normalizeOptionalText(updates.contactPhone);
       const website = normalizeOptionalText(updates.website);
@@ -626,16 +616,16 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       const description = normalizeOptionalText(updates.description);
 
       await updateDetails({
-        ...(contactPhone ? { businessPhone: contactPhone } : {}),
-        ...(website ? { website } : {}),
-        ...(addressLine1 ? { addressLine1 } : {}),
-        ...(addressLine2 ? { addressLine2 } : {}),
-        ...(city ? { city } : {}),
-        ...(state ? { state } : {}),
-        ...(postalCode ? { postalCode } : {}),
-        ...(country ? { country } : {}),
-        ...(introMessage ? { introMessage } : {}),
-        ...(description ? { description } : {}),
+        ...(contactPhone !== undefined ? { businessPhone: contactPhone } : {}),
+        ...(website !== undefined ? { website } : {}),
+        ...(addressLine1 !== undefined ? { addressLine1 } : {}),
+        ...(addressLine2 !== undefined ? { addressLine2 } : {}),
+        ...(city !== undefined ? { city } : {}),
+        ...(state !== undefined ? { state } : {}),
+        ...(postalCode !== undefined ? { postalCode } : {}),
+        ...(country !== undefined ? { country } : {}),
+        ...(introMessage !== undefined ? { introMessage } : {}),
+        ...(description !== undefined ? { description } : {}),
         ...(typeof updates.isPublic === 'boolean' ? { isPublic: updates.isPublic } : {}),
         ...(Array.isArray(updates.services) ? { services: updates.services } : {})
       });

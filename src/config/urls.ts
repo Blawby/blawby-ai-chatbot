@@ -49,6 +49,7 @@ import { isDevelopment } from '@/shared/utils/environment';
  * 
  * Priority:
  * 1. VITE_WORKER_API_URL (if explicitly set)
+ * 2. VITE_API_URL (legacy alias)
  * 2. Development: http://localhost:8787
  * 3. Production: window.location.origin (same as frontend)
  * 4. SSR/Build fallback: https://ai.blawby.com
@@ -59,6 +60,10 @@ export function getWorkerApiUrl(): string {
 	// ENV VAR: VITE_WORKER_API_URL (optional - auto-detected if not set)
 	if (import.meta.env.VITE_WORKER_API_URL) {
 		return import.meta.env.VITE_WORKER_API_URL;
+	}
+	// Legacy alias for Worker API base
+	if (import.meta.env.VITE_API_URL) {
+		return import.meta.env.VITE_API_URL;
 	}
 
 	// 2. Development: use localhost

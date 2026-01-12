@@ -36,6 +36,7 @@ import {
 } from '@/shared/utils/onboardingStorage';
 import { getActiveOrganizationId } from '@/shared/utils/session';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
+import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 
 const STEP_TITLES: Record<OnboardingStep, string> = {
   welcome: 'Welcome to Blawby',
@@ -201,6 +202,9 @@ const BusinessOnboardingModal = ({
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [stripeRequestPending, setStripeRequestPending] = useState(false);
   const [footerContent, setFooterContent] = useState<ComponentChildren | null>(null);
+  const [logoFiles, setLogoFiles] = useState<File[]>([]);
+  const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const { session } = useSessionContext();
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
   const { fetchDetails, updateDetails } = usePracticeDetails(practiceId);
@@ -364,6 +368,37 @@ const BusinessOnboardingModal = ({
       contactEmail: fallbackContactEmail || ''
     }
   );
+
+  const handleLogoChange = useCallback(async (files: FileList | File[]) => {
+    if (!practiceId) {
+      showError('Logo upload failed', 'Missing practice for logo upload.');
+      return;
+    }
+
+    const [file] = Array.isArray(files) ? files : Array.from(files);
+    if (!file) {
+      setLogoFiles([]);
+      return;
+    }
+
+    setLogoFiles([file]);
+    setLogoUploading(true);
+    setLogoUploadProgress(0);
+    try {
+      const logoUrl = await uploadPracticeLogo(file, practiceId, (percentage) => {
+        setLogoUploadProgress(percentage);
+      });
+      updateField('profileImage', logoUrl);
+      showSuccess('Logo uploaded', 'Logo will be saved when you continue.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Logo upload failed';
+      showError('Logo upload failed', message);
+      setLogoFiles([]);
+    } finally {
+      setLogoUploading(false);
+      setLogoUploadProgress(null);
+    }
+  }, [practiceId, showError, showSuccess, updateField]);
 
   const getAdjacentStep = useCallback((step: OnboardingStep, delta: number): OnboardingStep => {
     const index = STEP_SEQUENCE.indexOf(step);
@@ -667,10 +702,13 @@ const BusinessOnboardingModal = ({
 
 
   const handleClose = () => {
+    setLogoFiles([]);
+    setLogoUploadProgress(null);
+    setLogoUploading(false);
     onClose();
   };
 
-  const actionLoading = loading || isLoadingData || stripeRequestPending;
+  const actionLoading = loading || isLoadingData || stripeRequestPending || logoUploading;
 
   if (!isOpen) {
     return null;
@@ -700,6 +738,10 @@ const BusinessOnboardingModal = ({
           onBack={handleBack}
           practiceSlug={practiceSlug || practiceName?.toLowerCase().replace(/\s+/g, '-') || 'your-firm'}
           disabled={isLoadingData}
+          logoFiles={logoFiles}
+          logoUploading={logoUploading}
+          logoUploadProgress={logoUploadProgress}
+          onLogoChange={handleLogoChange}
           stripeStatus={stripeStatus}
           stripeLoading={loading || stripeRequestPending}
           onFooterChange={setFooterContent}

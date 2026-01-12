@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
-import { getPracticeWorkspaceEndpoint } from '@/config/api';
+import { getPracticeWorkspaceEndpoint, getRemoteApiUrl } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import {
   listPractices,
@@ -735,14 +735,19 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [session]);
 
-  // Fetch pending invitations
+  // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {
-    try {
-      if (!session?.user) {
-        setInvitations([]);
-        return;
-      }
+    if (!session?.user?.id) return;
 
+    // Skip on staging due to backend routing bug (shadowed endpoint)
+    // The endpoint /api/practice/invitations is shadowed by /api/practice/:uuid
+    if (getRemoteApiUrl().includes('staging')) {
+      console.debug('Skipping fetchInvitations on staging due to known backend routing bug');
+      return;
+    }
+
+    try {
+      // Use imported function directly
       const rawInvitations = await listPracticeInvitations();
 
       // Define valid role and status values
@@ -794,8 +799,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         .filter((invitation): invitation is Invitation => invitation !== null);
 
       setInvitations(validatedInvitations);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch invitations');
+    } catch (err: unknown) {
+      // Don't set global error for invitation failures as it blocks the main UI
+      const axiosError = err as { response?: { status: number, data: unknown }, message?: string };
+      if (axiosError.response) {
+        // Use debug for expected API errors (like 400 Invalid Practice UUID) to avoid console noise
+        console.debug('Failed to fetch invitations:', axiosError.response.status, axiosError.response.data);
+      } else {
+        console.debug('Failed to fetch invitations:', axiosError.message || err);
+      }
       setInvitations([]);
     }
   }, [session]);
@@ -1126,6 +1138,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Main data fetching effect
   // Simple pattern: When user ID changes (and we are supposed to auto-fetch), load the data.
   // Use AbortController to handle race conditions/cancellations naturally.
+  // Main data fetching effect
   useEffect(() => {
     // 1. Conditions to skip
     if (!autoFetchPractices || sessionLoading || !session?.user?.id) {
@@ -1152,37 +1165,98 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         setLoading(true);
         setError(null);
         
-        // Check shared cache first to avoid network call
+        // 1. Check shared cache first (Synchronous fast-path)
         if (sharedPracticeSnapshot && sharedPracticeUserId === session.user.id) {
           setPractices(sharedPracticeSnapshot.practices);
           setCurrentPractice(sharedPracticeSnapshot.currentPractice);
-          setLoading(false);
+          practicesFetchedRef.current = true;
+          // Still fetch invitations if needed since they are not in shared snapshot
+          if (shouldFetchInvitations) {
+            fetchInvitations();
+          }
           return;
         }
 
-        const list = await listPractices({ signal: controller.signal, scope: 'all' });
-        
-        // Normalize
-        const normalizedList = list
-          .filter((item): item is Practice => typeof item === 'object' && item !== null)
-          .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>));
-        
-        // Update state (only if not aborted)
-        if (!controller.signal.aborted) {
-          setPractices(normalizedList);
-          
-          // Determine active practice
-          const active = normalizedList[0] || null;
-          setCurrentPractice(active);
-          
-          // Update shared cache
-          sharedPracticeSnapshot = { practices: normalizedList, currentPractice: active };
-          sharedPracticeUserId = session.user.id;
+        // 2. Check for in-flight promise (Async deduplication)
+        if (sharedPracticePromise && sharedPracticeUserId === session.user.id) {
+            const result = await sharedPracticePromise;
+            if (!controller.signal.aborted) {
+                setPractices(result.practices);
+                setCurrentPractice(result.currentPractice);
+                practicesFetchedRef.current = true;
+                if (shouldFetchInvitations) {
+                    fetchInvitations();
+                }
+            }
+            return;
         }
+
+        // 3. Initiate new fetch (Shared)
+        // Note: We intentionally DO NOT pass the abort signal to the shared Fetch
+        // so that the request survives component unmounting (preventing race conditions)
+        const fetchTask = (async () => {
+            const list = await listPractices({ scope: 'all' });
+            
+            // Normalize
+            const normalizedList = list
+                .filter((item): item is Practice => typeof item === 'object' && item !== null)
+                .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>));
+
+            // Determine active practice priority
+            const preferredPracticeId =
+                session?.user?.preferredPracticeId ??
+                session?.user?.practiceId ??
+                session?.user?.activePracticeId ??
+                null;
+            
+            const preferredPractice = preferredPracticeId
+                ? normalizedList.find(p => p.id === preferredPracticeId)
+                : undefined;
+            const personalPractice = normalizedList.find(p => p.kind === 'personal');
+            const active = preferredPractice || personalPractice || normalizedList[0] || null;
+
+            // Fetch details for active practice
+            let mergedActive = active;
+            if (active) {
+                try {
+                    const details = await getPracticeDetails(active.id); // No signal
+                    setPracticeDetailsEntry(active.id, details);
+                    mergedActive = { ...active, ...details };
+                } catch (detailsError) {
+                    console.warn('Failed to fetch practice details:', detailsError);
+                }
+            }
+            
+            const finalPractices = normalizedList.map(p => p.id === mergedActive?.id ? mergedActive! : p);
+            return { practices: finalPractices, currentPractice: mergedActive };
+        })();
+
+        // Assign shared promise
+        sharedPracticePromise = fetchTask;
+        sharedPracticeUserId = session.user.id;
+        
+        try {
+            const result = await fetchTask;
+            // Update cache
+            sharedPracticeSnapshot = result;
+
+            if (!controller.signal.aborted) {
+                setPractices(result.practices);
+                setCurrentPractice(result.currentPractice);
+                practicesFetchedRef.current = true;
+                if (shouldFetchInvitations) {
+                    fetchInvitations();
+                }
+            }
+        } catch (taskErr) {
+            sharedPracticePromise = null; // Clear on error
+            throw taskErr;
+        }
+
       } catch (err) {
         if (!controller.signal.aborted) {
-          // Ignore abort errors
-          if (err instanceof Error && err.name === 'AbortError') return;
+          // Ignore abort errors and axios cancellations
+          if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) return;
           
           console.error('Failed to load practices:', err);
           setError(err instanceof Error ? err.message : 'Failed to load practices');
@@ -1200,7 +1274,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     return () => {
       controller.abort();
     };
-  }, [autoFetchPractices, session?.user?.id, sessionLoading]);
+  }, [autoFetchPractices, session?.user?.id, sessionLoading, shouldFetchInvitations]);
 
   return {
     practices,

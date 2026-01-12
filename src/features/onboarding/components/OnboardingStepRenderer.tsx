@@ -29,6 +29,10 @@ interface OnboardingStepRendererProps {
   onSkip?: () => void;
   practiceSlug?: string;
   disabled?: boolean;
+  logoFiles?: File[];
+  logoUploading?: boolean;
+  logoUploadProgress?: number | null;
+  onLogoChange?: (files: FileList | File[]) => void;
   stripeStatus?: StripeConnectStatus | null;
   stripeLoading?: boolean;
   onFooterChange?: (footer: ComponentChildren | null) => void;
@@ -46,6 +50,10 @@ export const OnboardingStepRenderer = ({
   onSkip,
   practiceSlug,
   disabled = false,
+  logoFiles,
+  logoUploading = false,
+  logoUploadProgress = null,
+  onLogoChange,
   stripeStatus,
   stripeLoading = false,
   onFooterChange,
@@ -137,6 +145,10 @@ export const OnboardingStepRenderer = ({
             contactEmail: stepData.contactEmail,
             slug: stepData.slug
           }}
+          logoFiles={logoFiles}
+          logoUploading={logoUploading}
+          logoUploadProgress={logoUploadProgress}
+          onLogoChange={onLogoChange}
           onChange={(data) => {
             onChange('firmName', data.firmName);
             onChange('contactEmail', data.contactEmail);

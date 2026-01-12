@@ -6,6 +6,7 @@
  */
 
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
+import { getWorkerApiUrl } from '@/config/urls';
 
 export interface UploadProgress {
   loaded: number;
@@ -30,6 +31,19 @@ export interface UploadOptions {
   onError?: (error: Error) => void;
   signal?: AbortSignal;
 }
+
+export const getWorkerRequestUrl = (path: string): string => {
+  const baseUrl = getWorkerApiUrl();
+  try {
+    const resolved = new URL(path, baseUrl);
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && resolved.protocol === 'http:') {
+      return path;
+    }
+    return resolved.toString();
+  } catch {
+    return path;
+  }
+};
 
 /**
  * Upload a file with progress tracking using XMLHttpRequest
@@ -188,7 +202,7 @@ export async function uploadWithProgress(
     }
 
     // Send request to existing endpoint
-    xhr.open('POST', '/api/files/upload');
+    xhr.open('POST', getWorkerRequestUrl('/api/files/upload'));
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }

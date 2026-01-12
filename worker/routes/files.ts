@@ -127,6 +127,53 @@ const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB (increased for larger SVG files 
 // Disallowed file extensions for security
 const DISALLOWED_EXTENSIONS = ['exe', 'bat', 'cmd', 'com', 'pif', 'scr', 'vbs', 'js', 'jar', 'msi', 'app'];
 
+const normalizeOrigin = (value: string | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    try {
+      return new URL(`https://${trimmed}`).origin;
+    } catch {
+      return null;
+    }
+  }
+};
+
+const resolvePublicOrigin = (request: Request, env: Env): string => {
+  const explicitOrigin = normalizeOrigin(env.CLOUDFLARE_PUBLIC_URL)
+    ?? normalizeOrigin(env.DOMAIN)
+    ?? normalizeOrigin(env.BETTER_AUTH_URL);
+
+  if (explicitOrigin) {
+    return explicitOrigin;
+  }
+
+  const originHeader = normalizeOrigin(request.headers.get('Origin'));
+  if (originHeader) {
+    return originHeader;
+  }
+
+  const refererHeader = normalizeOrigin(request.headers.get('Referer'));
+  if (refererHeader) {
+    return refererHeader;
+  }
+
+  const forwardedHost = request.headers.get('X-Forwarded-Host');
+  if (forwardedHost) {
+    const proto = request.headers.get('X-Forwarded-Proto') || 'https';
+    return `${proto}://${forwardedHost}`;
+  }
+
+  return new URL(request.url).origin;
+};
+
 function validateFile(file: File): { isValid: boolean; error?: string } {
   // Check file size
   if (file.size > MAX_FILE_SIZE) {
@@ -261,8 +308,8 @@ async function storeFile(
     
     // Try to get origin from request
     if (req) {
-      const requestUrl = new URL(req.url);
-      return `${requestUrl.origin}${relativePath}`;
+      const publicOrigin = resolvePublicOrigin(req, env);
+      return `${publicOrigin}${relativePath}`;
     }
     
     // Fallback to relative URL (shouldn't happen in practice)

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { FileAttachment } from '../../../worker/types';
-import { uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
+import { getWorkerRequestUrl, uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 export type FileStatus = 
@@ -58,7 +58,7 @@ async function _uploadFileToBackend(file: File, practiceId: string, conversation
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch('/api/files/upload', {
+    const response = await fetch(getWorkerRequestUrl('/api/files/upload'), {
       method: 'POST',
       body: formData,
       headers,
@@ -176,7 +176,7 @@ export const useFileUpload = ({ practiceId, conversationId, onError }: UseFileUp
                 name: upload.file.name,
                 size: upload.file.size,
                 type: upload.file.type,
-                url: `/api/files/${result.fileId}`, // Use proper file URL instead of blob URL
+                url: result.url,
                 storageKey: result.storageKey
               }]);
               
