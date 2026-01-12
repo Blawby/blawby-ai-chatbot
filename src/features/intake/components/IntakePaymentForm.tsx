@@ -113,15 +113,19 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           if (latestStatus === 'succeeded') {
             setStatus('succeeded');
             if (typeof window !== 'undefined' && intakeUuid) {
-              const payload = {
-                practiceName,
-                amount,
-                currency
-              };
-              window.sessionStorage.setItem(
-                `intakePaymentSuccess:${intakeUuid}`,
-                JSON.stringify(payload)
-              );
+              try {
+                const payload = {
+                  practiceName,
+                  amount,
+                  currency
+                };
+                window.sessionStorage.setItem(
+                  `intakePaymentSuccess:${intakeUuid}`,
+                  JSON.stringify(payload)
+                );
+              } catch {
+                // sessionStorage may be unavailable in private browsing.
+              }
             }
             onSuccess?.();
             return;
@@ -130,7 +134,10 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         await wait(1500);
       }
 
-      setStatus('processing');
+      setErrorMessage(
+        'Payment is being verified. Please wait a moment and refresh, or contact support if the issue persists.'
+      );
+      setStatus('idle');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Payment failed. Please try again.');
       setStatus('idle');
@@ -185,7 +192,9 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
               onReturn();
               return;
             }
-            window.location.href = returnTo;
+            if (typeof window !== 'undefined') {
+              window.location.href = returnTo;
+            }
           }}
         >
           Return to chat

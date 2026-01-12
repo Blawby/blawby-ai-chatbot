@@ -11,13 +11,18 @@ export type IntakePaymentRequest = {
 
 const getQueryValue = (value?: string) => (value && value.trim().length > 0 ? value.trim() : undefined);
 
-export const buildIntakePaymentUrl = (request: IntakePaymentRequest) => {
+export const buildIntakePaymentUrl = (
+  request: IntakePaymentRequest,
+  options?: { includeClientSecret?: boolean }
+) => {
   const params = new URLSearchParams();
 
-  const clientSecret = getQueryValue(request.clientSecret);
-  if (clientSecret) params.set('client_secret', clientSecret);
+  if (options?.includeClientSecret) {
+    const clientSecret = getQueryValue(request.clientSecret);
+    if (clientSecret) params.set('client_secret', clientSecret);
+  }
 
-  if (typeof request.amount === 'number') {
+  if (typeof request.amount === 'number' && Number.isFinite(request.amount)) {
     params.set('amount', String(request.amount));
   }
 

@@ -25,8 +25,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
     [paymentRequest.amount, paymentRequest.currency, locale]
   );
 
-  const practiceName = paymentRequest.practiceName || 'the practice';
-  const paymentUrl = buildIntakePaymentUrl(paymentRequest);
+  const practiceName = paymentRequest.practiceName || 'The practice';
+  const paymentUrl = buildIntakePaymentUrl(paymentRequest, { includeClientSecret: true });
   const handlePay = () => {
     if (onOpenPayment) {
       onOpenPayment(paymentRequest);

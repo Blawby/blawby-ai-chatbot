@@ -20,7 +20,10 @@ export const IntakePaymentPage: FunctionComponent = () => {
   const currency = resolveQueryValue(location.query?.currency);
   const practiceName = resolveQueryValue(location.query?.practice) || 'the practice';
   const intakeUuid = resolveQueryValue(location.query?.uuid);
-  const returnTo = resolveQueryValue(location.query?.return_to) || '/';
+  const rawReturnTo = resolveQueryValue(location.query?.return_to) || '/';
+  const returnTo = rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
+    ? rawReturnTo
+    : '/';
 
   const amount = amountRaw ? Number(amountRaw) : undefined;
 

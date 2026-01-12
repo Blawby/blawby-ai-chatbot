@@ -331,30 +331,34 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             practiceSlug: resolvedPracticeSlug,
             returnTo
           });
-
-          setMessages(prev => [
-            ...prev,
-            {
-              id: paymentMessageId,
-              role: 'assistant',
-              content: 'One more step: submit the consultation fee to complete your intake.',
-              timestamp: Date.now(),
-              isUser: false,
-              paymentRequest: {
-                intakeUuid: paymentDetails.uuid,
-                clientSecret: paymentDetails.clientSecret,
-                amount: paymentDetails.amount,
-                currency: paymentDetails.currency,
-                practiceName: paymentDetails.organizationName,
-                practiceLogo: paymentDetails.organizationLogo,
-                practiceSlug: resolvedPracticeSlug,
-                returnTo
-              },
-              metadata: {
-                paymentUrl
-              }
+          setMessages(prev => {
+            if (prev.some((msg) => msg.id === paymentMessageId)) {
+              return prev;
             }
-          ]);
+            return [
+              ...prev,
+              {
+                id: paymentMessageId,
+                role: 'assistant',
+                content: 'One more step: submit the consultation fee to complete your intake.',
+                timestamp: Date.now(),
+                isUser: false,
+                paymentRequest: {
+                  intakeUuid: paymentDetails.uuid,
+                  clientSecret: paymentDetails.clientSecret,
+                  amount: paymentDetails.amount,
+                  currency: paymentDetails.currency,
+                  practiceName: paymentDetails.organizationName,
+                  practiceLogo: paymentDetails.organizationLogo,
+                  practiceSlug: resolvedPracticeSlug,
+                  returnTo
+                },
+                metadata: {
+                  paymentUrl
+                }
+              }
+            ];
+          });
         }
       }
     } catch (error) {
@@ -547,6 +551,11 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const newMessages = [...prev];
       let changed = false;
 
+      const baseMaxTimestamp = newMessages.length > 0
+        ? Math.max(...newMessages.map(m => m.timestamp))
+        : Date.now();
+      let tempTimestamp = baseMaxTimestamp;
+
       if (typeof window !== 'undefined') {
         const paymentKeys: string[] = [];
         for (let i = 0; i < window.sessionStorage.length; i += 1) {
@@ -582,16 +591,16 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             id: messageId,
             role: 'assistant',
             content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
-            timestamp: Date.now(),
+            timestamp: ++tempTimestamp,
             isUser: false
           });
           changed = true;
           window.sessionStorage.removeItem(key);
         });
       }
-      
+
       // Use monotonically increasing timestamps to ensure stable ordering
-      const maxTimestamp = newMessages.length > 0 
+      const maxTimestamp = newMessages.length > 0
         ? Math.max(...newMessages.map(m => m.timestamp))
         : Date.now();
       let nextTimestamp = maxTimestamp + 1;
