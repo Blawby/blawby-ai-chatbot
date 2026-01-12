@@ -152,11 +152,12 @@ function RootRoute() {
             primaryWorkspace: 'practice',
             preferredPracticeId: nextPreferredPracticeId
           });
-          navigate('/practice', true);
+          if (isMountedRef.current) {
+            navigate('/practice', true);
+          }
         } catch (error) {
           console.warn('[Workspace] Failed to promote workspace to practice', error);
           practiceWorkspaceRef.current = false;
-          promotionInProgressRef.current = false;
         } finally {
           promotionInProgressRef.current = false;
         }
