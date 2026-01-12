@@ -124,6 +124,7 @@ function RootRoute() {
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
   const practiceWorkspaceRef = useRef(false);
+  const promotionInProgressRef = useRef(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -142,6 +143,7 @@ function RootRoute() {
 
     if (canAccessPractice && session.user.primaryWorkspace !== 'practice' && !practiceWorkspaceRef.current) {
       practiceWorkspaceRef.current = true;
+      promotionInProgressRef.current = true;
       const nextPreferredPracticeId = preferredPracticeId ?? activePracticeId ?? null;
       updateUser({
         primaryWorkspace: 'practice',
@@ -149,10 +151,18 @@ function RootRoute() {
       }).catch((error) => {
         console.warn('[Workspace] Failed to promote workspace to practice', error);
         practiceWorkspaceRef.current = false;
+        promotionInProgressRef.current = false;
+      }).finally(() => {
+        promotionInProgressRef.current = false;
       });
     }
 
-    if (!session.user.primaryWorkspace && !workspaceInitRef.current) {
+    if (
+      !session.user.primaryWorkspace &&
+      !workspaceInitRef.current &&
+      !promotionInProgressRef.current &&
+      !practiceWorkspaceRef.current
+    ) {
       workspaceInitRef.current = true;
       const nextPreferredPracticeId =
         defaultWorkspace === 'practice'
