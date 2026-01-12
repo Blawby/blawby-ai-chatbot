@@ -251,7 +251,7 @@ export function useInbox({
     } finally {
       mutationController.abort();
     }
-  }, [refresh, onError]);
+  }, [practiceId, refresh, onError]);
 
   // Update conversation
   const updateConversation = useCallback(async (
@@ -294,7 +294,7 @@ export function useInbox({
     } finally {
       mutationController.abort();
     }
-  }, [refresh, onError]);
+  }, [practiceId, refresh, onError]);
 
   // Send message as practice member
   const sendMessage = useCallback(async (
@@ -332,7 +332,7 @@ export function useInbox({
     } finally {
       mutationController.abort();
     }
-  }, [refresh, onError]);
+  }, [practiceId, refresh, onError]);
 
   // Initial load and refetch when filters change
   useEffect(() => {

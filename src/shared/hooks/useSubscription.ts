@@ -21,12 +21,18 @@ const subscriptionInFlight = new Map<string, Promise<AuthSubscriptionListItem[]>
 let subscriptionCacheUserId: string | null = null;
 
 export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscriptionResult {
-  const { session, activePracticeId, preferredPracticeId, isPending: sessionIsPending } = useSessionContext();
+  const {
+    session,
+    activeOrganizationId,
+    activePracticeId,
+    preferredPracticeId,
+    isPending: sessionIsPending
+  } = useSessionContext();
   const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const referenceId = options.referenceId ?? activePracticeId ?? preferredPracticeId ?? null;
+  const referenceId = options.referenceId ?? activeOrganizationId ?? activePracticeId ?? preferredPracticeId ?? null;
   const userId = session?.user?.id ?? null;
   const hasUser = Boolean(session?.user);
   const shouldFetch = (options.enabled ?? true) && hasUser && Boolean(referenceId) && !sessionIsPending;

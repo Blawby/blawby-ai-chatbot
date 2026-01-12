@@ -5,15 +5,6 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useInbox } from '@/shared/hooks/useInbox';
 import { Button } from '@/shared/ui/Button';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
-import { NextStepsCard, type NextStepsStatus } from '@/shared/ui/cards/NextStepsCard';
-import { useTranslation } from '@/shared/i18n/hooks';
-import { isValidOnboardingStep } from '@/shared/utils/practiceOnboarding';
-import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
-import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
-import { getActiveOrganizationId } from '@/shared/utils/session';
-import { hasOnboardingStepData, type LocalOnboardingProgress } from '@/shared/utils/onboardingStorage';
-import { validateChecklistLabels, CHECKLIST_STEP_ORDER } from '@/features/onboarding/utils/checklistLabels';
-import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -33,80 +24,11 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-const CHECKLIST_LABELS: Partial<Record<OnboardingStep, string>> = {
-  'firm-basics': 'welcome.lawyer.todo.createPractice',
-  'stripe-onboarding': 'welcome.lawyer.todo.trustAccount',
-  'business-details': 'welcome.lawyer.todo.businessDetails',
-  services: 'welcome.lawyer.todo.services',
-  'review-and-launch': 'welcome.lawyer.todo.launch'
-};
-
-validateChecklistLabels(CHECKLIST_LABELS, CHECKLIST_STEP_ORDER, 'PracticeDashboardPage');
-
-const CHECKLIST_STEPS: Array<{ step: OnboardingStep; labelKey: string }> =
-  CHECKLIST_STEP_ORDER.flatMap((step) => {
-    const labelKey = CHECKLIST_LABELS[step];
-    return labelKey ? [{ step, labelKey }] : [];
-  });
-
-const resolveResumeStep = (progress: LocalOnboardingProgress): OnboardingStep | undefined => {
-  if (!progress?.data) return undefined;
-  const candidate = progress.data.__meta?.resumeStep;
-  return isValidOnboardingStep(candidate) ? candidate : undefined;
-};
-
-const getChecklistStatus = (
-  targetStep: OnboardingStep,
-  progress: LocalOnboardingProgress
-): NextStepsStatus => {
-  const isComplete =
-    progress?.status === 'completed' ||
-    progress?.completed ||
-    progress?.status === 'skipped' ||
-    progress?.skipped;
-
-  if (isComplete) {
-    return 'completed';
-  }
-
-  const resumeStep = resolveResumeStep(progress);
-  const targetIndex = CHECKLIST_STEP_ORDER.indexOf(targetStep);
-  const resumeIndex = resumeStep ? CHECKLIST_STEP_ORDER.indexOf(resumeStep) : -1;
-  const hasStepData = hasOnboardingStepData(targetStep, progress?.data ?? null);
-
-  if (resumeIndex >= 0 && targetIndex >= 0) {
-    if (targetIndex < resumeIndex) return hasStepData ? 'completed' : 'incomplete';
-    if (targetIndex === resumeIndex) return 'pending';
-    return 'incomplete';
-  }
-
-  return targetIndex === CHECKLIST_STEP_ORDER.indexOf('firm-basics')
-    ? 'pending'
-    : 'incomplete';
-};
-
 export const PracticeDashboardPage = () => {
   const { navigate } = useNavigation();
-  const { t } = useTranslation('common');
   const { currentPractice } = usePracticeManagement();
-  const { session, activePracticeId } = useSessionContext();
+  const { activePracticeId } = useSessionContext();
   const linkingHandledRef = useRef(false);
-  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
-  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
-  const onboardingProgress = useMemo(
-    () =>
-      mergePracticeAndLocalProgress(localOnboardingProgress, {
-        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
-        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
-        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
-      }),
-    [
-      localOnboardingProgress,
-      currentPractice?.businessOnboardingStatus,
-      currentPractice?.businessOnboardingCompletedAt,
-      currentPractice?.businessOnboardingHasDraft
-    ]
-  );
 
   const {
     conversations,
@@ -180,24 +102,6 @@ export const PracticeDashboardPage = () => {
     })();
   }, [navigate]);
 
-  const checklistItems = useMemo(
-    () =>
-      CHECKLIST_STEPS.map(({ step, labelKey }) => ({
-        id: step,
-        title: t(labelKey),
-        status: getChecklistStatus(step, onboardingProgress),
-        action: {
-          label: t('common.open'),
-          onClick: () => navigate(`/business-onboarding/${step}`),
-          variant: 'secondary' as const,
-          size: 'sm' as const
-        }
-      })),
-    [navigate, onboardingProgress, t]
-  );
-
-  const showOnboardingChecklist = onboardingProgress?.status !== 'completed';
-
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -209,15 +113,6 @@ export const PracticeDashboardPage = () => {
             Track new leads, keep your team aligned, and jump back into active conversations.
           </p>
         </div>
-
-        {showOnboardingChecklist && (
-          <NextStepsCard
-            title={t('dashboard.onboarding.title')}
-            subtitle={t('dashboard.onboarding.subtitle')}
-            items={checklistItems}
-            action={{ label: t('dashboard.onboarding.continueAction'), onClick: () => navigate('/business-onboarding') }}
-          />
-        )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {highlightCards.map(card => (

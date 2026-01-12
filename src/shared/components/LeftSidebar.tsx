@@ -1,7 +1,6 @@
 import { useState } from 'preact/hooks';
 import { SidebarContent } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
-import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 import type { ComponentChildren } from 'preact';
 import type { SubscriptionTier } from '@/shared/types/user';
 
@@ -9,7 +8,6 @@ interface LeftSidebarProps {
   currentRoute: string;
   onGoToDashboard?: () => void;
   onGoToChats?: () => void;
-  onOpenOnboarding?: () => void;
   onClose?: () => void;
   showDashboardTab?: boolean;
   showChatsTab?: boolean;
@@ -23,23 +21,18 @@ interface LeftSidebarProps {
     id: string;
     subscriptionTier?: SubscriptionTier;
   } | null;
-  onboardingStatus?: BusinessOnboardingStatus;
-  onboardingHasDraft?: boolean;
 }
 
 const LeftSidebar = ({
   currentRoute,
   onGoToDashboard,
   onGoToChats,
-  onOpenOnboarding,
   onClose,
   showDashboardTab = true,
   showChatsTab = true,
   chatSidebarContent,
   practiceConfig,
-  currentPractice,
-  onboardingStatus,
-  onboardingHasDraft
+  currentPractice
 }: LeftSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useMobileDetection();
@@ -54,14 +47,11 @@ const LeftSidebar = ({
         currentRoute={currentRoute}
         onGoToDashboard={onGoToDashboard}
         onGoToChats={onGoToChats}
-        onOpenOnboarding={onOpenOnboarding}
         onClose={onClose}
         showDashboardTab={showDashboardTab}
         showChatsTab={showChatsTab}
         chatSidebarContent={chatSidebarContent}
         currentPractice={currentPractice}
-        onboardingStatus={onboardingStatus}
-        onboardingHasDraft={onboardingHasDraft}
         isCollapsed={shouldShowCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
       />

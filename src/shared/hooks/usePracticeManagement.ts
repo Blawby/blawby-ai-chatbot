@@ -8,6 +8,7 @@ import {
   type PracticeDetailsUpdate,
   type PracticeDetails,
   getPracticeDetails,
+  getOnboardingStatusPayload,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
   listPracticeInvitations,
@@ -18,7 +19,6 @@ import {
   deletePracticeMember as apiDeletePracticeMember
 } from '@/shared/lib/apiClient';
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
-import { extractPracticeOnboardingMetadata } from '@/shared/utils/practiceOnboarding';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -269,7 +269,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     }
     return null;
   })();
-  const onboardingMeta = extractPracticeOnboardingMetadata(metadataRecord);
   const betterAuthOrgId = (() => {
     const direct = (raw as Record<string, unknown>).betterAuthOrgId;
     if (typeof direct === 'string' && direct.trim().length > 0) return direct;
@@ -279,9 +278,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   })();
 
   const onboardingCompletedAt = (() => {
-    if (onboardingMeta?.completedAt !== undefined) {
-      return onboardingMeta.completedAt;
-    }
     const camel = (raw as Record<string, unknown>).businessOnboardingCompletedAt;
     const snake = (raw as Record<string, unknown>).business_onboarding_completed_at;
     const value = camel !== undefined ? camel : snake;
@@ -295,9 +291,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   })();
 
   const onboardingSkipped = (() => {
-    if (typeof onboardingMeta?.skipped === 'boolean') {
-      return onboardingMeta.skipped;
-    }
     const camel = (raw as Record<string, unknown>).businessOnboardingSkipped;
     const snake = (raw as Record<string, unknown>).business_onboarding_skipped;
     const value = camel !== undefined ? camel : snake;
@@ -311,9 +304,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   })();
 
   const onboardingData = (() => {
-    if (onboardingMeta?.data) {
-      return onboardingMeta.data;
-    }
     const camel = (raw as Record<string, unknown>).businessOnboardingData;
     const snake = (raw as Record<string, unknown>).business_onboarding_data;
     const value = camel !== undefined ? camel : snake;
@@ -333,10 +323,6 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   const onboardingStatus: BusinessOnboardingStatus = (() => {
     if (resolvedKind === 'personal') {
       return 'not_required';
-    }
-    if (typeof onboardingMeta?.status === 'string') {
-      if (onboardingMeta.status === 'completed') return 'completed';
-      if (onboardingMeta.status === 'skipped') return 'skipped';
     }
     if (typeof onboardingCompletedAt === 'number') {
       return 'completed';
@@ -544,6 +530,30 @@ function normalizeMatterTransitionResult(raw: unknown): MatterTransitionResult {
   };
 }
 
+function resolveStripeDetailsSubmitted(payload: unknown): boolean | null {
+  let current = payload;
+  const visited = new Set<unknown>();
+
+  while (
+    current &&
+    typeof current === 'object' &&
+    'data' in (current as Record<string, unknown>) &&
+    (current as Record<string, unknown>).data !== undefined &&
+    !visited.has(current)
+  ) {
+    visited.add(current);
+    current = (current as Record<string, unknown>).data;
+  }
+
+  if (!current || typeof current !== 'object') {
+    return null;
+  }
+
+  const record = current as Record<string, unknown>;
+  const candidate = record.details_submitted ?? record.detailsSubmitted;
+  return typeof candidate === 'boolean' ? candidate : null;
+}
+
 function _generateIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -570,7 +580,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Track if we've already fetched practices to prevent duplicate calls
   const practicesFetchedRef = useRef(false);
   const currentRequestRef = useRef<AbortController | null>(null);
-  const refetchTriggeredRef = useRef(false);
 
   // Helper for workspace/local endpoints still served by the Worker
   const workspaceCall = useCallback(async (url: string, options: RequestInit = {}, timeoutMs: number = 15000) => {
@@ -703,6 +712,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         const personalPractice = normalizedList.find(practice => practice.kind === 'personal');
         const currentPracticeNext = preferredPractice || personalPractice || normalizedList[0] || null;
         let details: PracticeDetails | null = null;
+        let stripeDetailsSubmitted: boolean | null = null;
         if (currentPracticeNext) {
           try {
             details = await getPracticeDetails(currentPracticeNext.id, { signal: controller.signal });
@@ -710,17 +720,43 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           } catch (detailsError) {
             console.warn('Failed to fetch practice details:', detailsError);
           }
+          try {
+            const payload = await getOnboardingStatusPayload(
+              currentPracticeNext.betterAuthOrgId ?? currentPracticeNext.id,
+              { signal: controller.signal }
+            );
+            stripeDetailsSubmitted = resolveStripeDetailsSubmitted(payload);
+          } catch (stripeError) {
+            console.warn('Failed to fetch onboarding status:', stripeError);
+          }
         }
+
+        const applyStripeOverride = (practice: Practice): Practice => {
+          if (stripeDetailsSubmitted === null || practice.id !== currentPracticeNext?.id) {
+            return practice;
+          }
+          return {
+            ...practice,
+            businessOnboardingStatus: stripeDetailsSubmitted ? 'completed' : 'pending',
+            businessOnboardingCompletedAt: stripeDetailsSubmitted
+              ? practice.businessOnboardingCompletedAt ?? Date.now()
+              : null
+          };
+        };
 
         const mergedPractices = details
           ? normalizedList.map((practice) =>
             practice.id === currentPracticeNext?.id
-              ? mergePracticeDetails(practice, details)
+              ? applyStripeOverride(mergePracticeDetails(practice, details))
               : practice
           )
-          : normalizedList;
+          : normalizedList.map((practice) =>
+            practice.id === currentPracticeNext?.id
+              ? applyStripeOverride(practice)
+              : practice
+          );
         const mergedCurrentPractice = currentPracticeNext
-          ? mergePracticeDetails(currentPracticeNext, details)
+          ? applyStripeOverride(mergePracticeDetails(currentPracticeNext, details))
           : null;
 
         return { practices: mergedPractices, currentPractice: mergedCurrentPractice };

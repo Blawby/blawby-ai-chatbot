@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'preact/hooks';
-import { ServicesStep } from '@/features/onboarding/steps/ServicesStep';
+import { ServicesEditor } from '@/features/services/components/ServicesEditor';
 import { PracticePage } from '@/features/settings/pages/PracticePage';
 import { PracticeServicesPage } from '@/features/settings/pages/PracticeServicesPage';
 import { PracticeTeamPage } from '@/features/settings/pages/PracticeTeamPage';
@@ -198,6 +198,7 @@ function MockSessionProvider({ children }: { children: preact.ComponentChildren 
     session: mockSession.data,
     isPending: false,
     error: null,
+    activeOrganizationId: MOCK_PRACTICE_ID,
     activePracticeId: mockSession.data.user.activePracticeId,
     isAnonymous: false,
     primaryWorkspace: 'practice' as const,
@@ -272,14 +273,14 @@ export function MockServicesPage() {
                   <div className="p-6 max-w-4xl mx-auto">
                     <div className="mb-6 pb-4 border-b border-gray-200 dark:border-dark-border">
                       <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                        Onboarding Services Step
+                        Services Editor
                       </h2>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Current onboarding UI for adding services during practice setup
+                        Shared services UI used in practice settings
                       </p>
                     </div>
-                    <ServicesStep
-                      data={mock.state.services}
+                    <ServicesEditor
+                      services={mock.state.services}
                       onChange={(services) => {
                         mock.updateServices(services);
                       }}

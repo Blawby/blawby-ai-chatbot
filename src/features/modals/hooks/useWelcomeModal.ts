@@ -3,26 +3,46 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 
+interface UseWelcomeModalOptions {
+  enabled?: boolean;
+}
+
 interface UseWelcomeModalResult {
   shouldShow: boolean;
   markAsShown: () => Promise<void>;
 }
 
-export function useWelcomeModal(): UseWelcomeModalResult {
+export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcomeModalResult {
+  const { enabled = true } = options;
   const { session, isPending: sessionIsPending } = useSessionContext();
   const [shouldShow, setShouldShow] = useState(false);
   const bcRef = useRef<BroadcastChannel | null>(null);
 
+  const getStoredShown = (userId: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    const key = `welcomeModalShown_v1_${userId}`;
+    return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+  };
+
+  const setStoredShown = (userId: string) => {
+    if (typeof window === 'undefined') return;
+    const key = `welcomeModalShown_v1_${userId}`;
+    try { localStorage.setItem(key, '1'); } catch (err) {
+      console.warn('[WELCOME_MODAL] Failed to set localStorage key', err);
+    }
+    try { sessionStorage.setItem(key, '1'); } catch (err) {
+      console.warn('[WELCOME_MODAL] Failed to set sessionStorage key', err);
+    }
+  };
+
   useEffect(() => {
+    if (!enabled) return;
     if (typeof window === 'undefined') return;
     try {
       bcRef.current = new BroadcastChannel('welcome');
       const handler = (e: MessageEvent) => {
         if (e?.data === 'shown' && session?.user?.id) {
-          const sessionKey = `welcomeModalShown_v1_${session.user.id}`;
-          try { sessionStorage.setItem(sessionKey, '1'); } catch (err) {
-            console.warn('[WELCOME_MODAL] Failed to set sessionStorage sessionKey', err);
-          }
+          setStoredShown(session.user.id);
           setShouldShow(false);
         }
       };
@@ -38,15 +58,18 @@ export function useWelcomeModal(): UseWelcomeModalResult {
     } catch (err) {
       console.error('[WELCOME_MODAL] Failed to initialize BroadcastChannel', err);
     }
-  }, [session?.user?.id]);
+  }, [enabled, session?.user?.id]);
 
   useEffect(() => {
+    if (!enabled) {
+      setShouldShow(false);
+      return;
+    }
     if (sessionIsPending || !session?.user?.id) {
       setShouldShow(false);
       return;
     }
-    const sessionKey = `welcomeModalShown_v1_${session.user.id}`;
-    const alreadyShown = typeof window !== 'undefined' ? sessionStorage.getItem(sessionKey) : null;
+    const alreadyShown = getStoredShown(session.user.id);
     if (alreadyShown) {
       setShouldShow(false);
       return;
@@ -74,7 +97,7 @@ export function useWelcomeModal(): UseWelcomeModalResult {
     return () => {
       isMounted = false;
     };
-  }, [session, session?.user, sessionIsPending]);
+  }, [enabled, session, session?.user, sessionIsPending]);
 
   const markAsShown = useCallback(async () => {
     if (!session?.user?.id) {
@@ -82,10 +105,7 @@ export function useWelcomeModal(): UseWelcomeModalResult {
       return;
     }
     const userId = session.user.id;
-    const sessionKey = `welcomeModalShown_v1_${userId}`;
-    try { sessionStorage.setItem(sessionKey, '1'); } catch (err) {
-      console.warn('[WELCOME_MODAL] Failed to set sessionStorage sessionKey', err);
-    }
+    setStoredShown(userId);
     setShouldShow(false);
     try { bcRef.current?.postMessage('shown'); } catch (err) {
       console.warn('[WELCOME_MODAL] BroadcastChannel postMessage failed', err);

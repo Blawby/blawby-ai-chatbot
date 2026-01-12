@@ -10,7 +10,6 @@ import { getClient, updateUser } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
-import { BusinessOnboardingPage } from '@/pages/BusinessOnboardingPage';
 import { MockChatPage } from '@/pages/MockChatPage';
 import { MockServicesPage } from '@/pages/MockServicesPage';
 import { CartPage } from '@/features/cart/pages/CartPage';
@@ -78,8 +77,6 @@ function AppShell() {
         <Route path="/cart" component={CartPage} />
         <Route path="/dev/mock-chat" component={MockChatPage} />
         <Route path="/dev/mock-services" component={MockServicesPage} />
-        <Route path="/business-onboarding" component={BusinessOnboardingPage} />
-        <Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
         <Route path="/settings" component={SettingsRoute} />
         <Route path="/settings/*" component={SettingsRoute} />
         <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
@@ -126,6 +123,7 @@ function RootRoute() {
   const { navigate } = useNavigation();
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
+  const practiceWorkspaceRef = useRef(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -140,6 +138,18 @@ function RootRoute() {
     if (!session?.user) {
       navigate('/auth', true);
       return;
+    }
+
+    if (canAccessPractice && session.user.primaryWorkspace !== 'practice' && !practiceWorkspaceRef.current) {
+      practiceWorkspaceRef.current = true;
+      const nextPreferredPracticeId = preferredPracticeId ?? activePracticeId ?? null;
+      updateUser({
+        primaryWorkspace: 'practice',
+        preferredPracticeId: nextPreferredPracticeId
+      }).catch((error) => {
+        console.warn('[Workspace] Failed to promote workspace to practice', error);
+        practiceWorkspaceRef.current = false;
+      });
     }
 
     if (!session.user.primaryWorkspace && !workspaceInitRef.current) {

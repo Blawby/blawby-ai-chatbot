@@ -26,6 +26,7 @@ import type { OnboardingPreferences } from '@/shared/types/preferences';
 import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ConversationSidebar } from '@/features/chats/components/ConversationSidebar';
 
 // Main application component (non-auth pages)
@@ -57,11 +58,9 @@ export function MainApp({
   const location = useLocation();
   const { navigate } = useNavigation();
   const isSettingsRouteNow = location.path.startsWith('/settings');
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
-  // Removed legacy business setup modal flow (replaced by /business-onboarding route)
 
   useEffect(() => {
     setConversationId(null);
@@ -172,13 +171,13 @@ export function MainApp({
   }, [showError]);
   const {
     currentPractice,
-    refetch: refetchPractices,
     acceptMatter,
     rejectMatter,
     updateMatterStatus,
     getMembers,
     fetchMembers
   } = usePracticeManagement();
+  const { details: practiceDetails } = usePracticeDetails(isPracticeWorkspace ? practiceId : null);
 
   const {
     conversations,
@@ -378,10 +377,10 @@ export function MainApp({
   // Session error handling removed - no longer using sessions
 
   // Welcome modal state via server-truth + session debounce
-  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal();
-  useEffect(() => {
-    setShowWelcomeModal(shouldShowWelcome);
-  }, [shouldShowWelcome]);
+  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal({
+    enabled: workspace !== 'public'
+  });
+  const showWelcomeModal = shouldShowWelcome && workspace !== 'public';
 
   // Note: Auto-practice creation removed - clients don't need practices.
   // Practice members (lawyers) will create practices through onboarding/upgrade flow.
@@ -611,12 +610,10 @@ export function MainApp({
   // Handle welcome modal using server-truth hook
   const handleWelcomeComplete = async () => {
     await markWelcomeAsShown();
-    setShowWelcomeModal(false);
   };
 
   const handleWelcomeClose = async () => {
     await markWelcomeAsShown();
-    setShowWelcomeModal(false);
   };
 
   const handleBusinessWelcomeClose = () => {
@@ -748,7 +745,7 @@ export function MainApp({
           description: practiceConfig?.description ?? ''
         }}
         currentPractice={currentPractice}
-        onOnboardingCompleted={refetchPractices}
+        practiceDetails={practiceDetails}
         messages={messages}
         onSendMessage={handleSendMessage}
         onUploadDocument={async (files: File[], _metadata?: { documentType?: string; matterId?: string }) => {
@@ -825,6 +822,7 @@ export function MainApp({
         isOpen={showWelcomeModal}
         onClose={handleWelcomeClose}
         onComplete={handleWelcomeComplete}
+        workspace={workspace === 'practice' ? 'practice' : 'client'}
       />
 
       {/* Business Welcome Modal */}
