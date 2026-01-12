@@ -89,8 +89,17 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center border border-gray-200 dark:border-dark-border">
-                <PuzzlePieceIcon className="w-8 h-8 text-gray-700 dark:text-gray-200" aria-hidden="true" />
+              <div className="w-16 h-16 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center border border-gray-200 dark:border-dark-border overflow-hidden">
+                {app.logo ? (
+                  <img
+                    src={app.logo}
+                    alt={`${app.name} logo`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <PuzzlePieceIcon className="w-8 h-8 text-gray-700 dark:text-gray-200" aria-hidden="true" />
+                )}
               </div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{app.name}</h2>
             </div>
