@@ -21,6 +21,7 @@ import { getSettingsReturnPath, getStoredWorkspace } from '@/shared/utils/worksp
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import ClientHomePage from '@/pages/ClientHomePage';
 import { PracticeDashboardPage } from '@/features/dashboard/pages/PracticeDashboardPage';
+import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -77,6 +78,7 @@ function AppShell() {
         <Route path="/cart" component={CartPage} />
         <Route path="/dev/mock-chat" component={MockChatPage} />
         <Route path="/dev/mock-services" component={MockServicesPage} />
+        <Route path="/intake/pay" component={IntakePaymentPage} />
         <Route path="/settings" component={SettingsRoute} />
         <Route path="/settings/*" component={SettingsRoute} />
         <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />

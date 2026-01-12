@@ -12,16 +12,6 @@ interface MatterRecord {
   client_name?: string | null;
 }
 
-interface CreateLeadInput {
-  practiceId: string;
-  sessionId?: string | null;
-  name?: string | null;
-  email: string;
-  phoneNumber: string;
-  matterDetails: string;
-  leadSource?: string | null;
-}
-
 interface StatusTransitionResult {
   matterId: string;
   status: MatterStatus;
@@ -65,78 +55,6 @@ export class MatterService {
     ).bind(practiceId, sessionId).first<{ id: string } | null>();
 
     return record?.id ?? null;
-  }
-
-  async createLeadFromContactForm(input: CreateLeadInput): Promise<{ matterId: string; matterNumber: string; createdAt: string }> {
-    const now = new Date();
-    const matterId = crypto.randomUUID();
-    const createdAt = now.toISOString();
-
-    const clientName = input.name?.trim() || 'New Lead';
-    const leadSource = input.leadSource?.trim() || 'contact_form';
-
-    const customFields = {
-      sessionId: input.sessionId ?? null,
-      source: 'contact_form',
-      submittedAt: createdAt
-    };
-    // Atomically allocate next matter number using DB-backed counter
-    const matterNumber = await this.generateMatterNumber(input.practiceId);
-
-    await this.env.DB.prepare(
-      `INSERT INTO matters (
-         id,
-         practice_id,
-         client_name,
-         client_email,
-         client_phone,
-         matter_type,
-         title,
-         description,
-         status,
-         priority,
-         lead_source,
-         matter_number,
-         custom_fields,
-         created_at,
-         updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'lead', 'normal', ?, ?, ?, ?, ?)`
-    ).bind(
-      matterId,
-      input.practiceId,
-      clientName,
-      input.email.trim(),
-      input.phoneNumber.trim(),
-      'General Consultation',
-      `Lead: ${clientName}`,
-      input.matterDetails.trim(),
-      leadSource,
-      matterNumber,
-      JSON.stringify(customFields),
-      createdAt,
-      createdAt
-    ).run();
-
-    await this.activityService.createEvent({
-      type: 'matter_event',
-      eventType: 'matter_created',
-      title: 'Lead Created',
-      description: `${clientName} submitted a new lead via contact form.`,
-      eventDate: createdAt,
-      actorType: 'system',
-      metadata: {
-        matterId,
-        practiceId: input.practiceId,
-        source: leadSource,
-        sessionId: input.sessionId ?? null
-      }
-    }, input.practiceId);
-
-    return {
-      matterId,
-      matterNumber,
-      createdAt
-    };
   }
 
   async acceptLead(options: { practiceId: string; matterId: string; actorUserId: string }): Promise<StatusTransitionResult> {

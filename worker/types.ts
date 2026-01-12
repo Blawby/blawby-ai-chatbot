@@ -373,6 +373,16 @@ export interface UIMessageExtras {
       opposingParty?: string;
     };
   };
+  paymentRequest?: {
+    intakeUuid?: string;
+    clientSecret?: string;
+    amount?: number;
+    currency?: string;
+    practiceName?: string;
+    practiceLogo?: string;
+    practiceSlug?: string;
+    returnTo?: string;
+  };
   /** @deprecated Prefer deriving loading from aiState. */
   isLoading?: boolean;
   /** Custom message to show during tool calls */

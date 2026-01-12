@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
 import { FileAttachment } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
+import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
 import { MessageBubble } from './MessageBubble';
 import { MessageAvatar } from './MessageAvatar';
@@ -42,6 +43,7 @@ interface MessageProps {
 			opposingParty?: string;
 		};
 	};
+	paymentRequest?: IntakePaymentRequest;
 	documentChecklist?: {
 		matterType: string;
 		documents: Array<{
@@ -88,6 +90,7 @@ interface MessageProps {
 	};
 	onOpenSidebar?: () => void;
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
+	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	isLoading?: boolean;
 	toolMessage?: string;
 	id?: string;
@@ -108,9 +111,11 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	documentChecklist,
 	lawyerSearchResults,
 	generatedPDF,
+	paymentRequest,
 	practiceConfig: _practiceConfig,
 	onOpenSidebar: _onOpenSidebar,
 	onContactFormSubmit,
+	onOpenPayment,
 	isLoading,
 	toolMessage,
 	id: _id,
@@ -180,6 +185,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					documentChecklist={documentChecklist}
 					lawyerSearchResults={lawyerSearchResults}
 					generatedPDF={generatedPDF}
+					paymentRequest={paymentRequest}
+					onOpenPayment={onOpenPayment}
 					onContactFormSubmit={onContactFormSubmit}
 				/>
 				

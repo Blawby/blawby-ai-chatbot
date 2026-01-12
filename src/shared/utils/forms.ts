@@ -1,4 +1,7 @@
-import { getFormsEndpoint } from '@/config/api';
+import {
+  getPracticeClientIntakeCreateEndpoint,
+  getPracticeClientIntakeSettingsEndpoint
+} from '@/config/api';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -34,6 +37,83 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
   };
 }
 
+type IntakeSettingsResponse = {
+  success?: boolean;
+  data?: {
+    organization?: {
+      name?: string;
+      logo?: string;
+    };
+    settings?: {
+      paymentLinkEnabled?: boolean;
+      prefillAmount?: number;
+    };
+  };
+  error?: string;
+};
+
+type IntakeCreateResponse = {
+  success?: boolean;
+  data?: {
+    uuid?: string;
+    client_secret?: string;
+    amount?: number;
+    currency?: string;
+    status?: string;
+    organization?: {
+      name?: string;
+      logo?: string;
+    };
+  };
+  error?: string;
+};
+
+export type IntakeSubmissionResult = IntakeCreateResponse & {
+  intake?: {
+    uuid?: string;
+    clientSecret?: string;
+    amount?: number;
+    currency?: string;
+    paymentLinkEnabled: boolean;
+    organizationName?: string;
+    organizationLogo?: string;
+  };
+};
+
+const clampAmount = (amount: number) => {
+  const min = 50;
+  const max = 99999999;
+  if (Number.isNaN(amount)) return min;
+  return Math.min(max, Math.max(min, Math.round(amount)));
+};
+
+const formatDescriptionWithLocation = (description?: string, location?: string) => {
+  const parts = [];
+  if (description) parts.push(description);
+  if (location) parts.push(`Location: ${location}`);
+  return parts.length > 0 ? parts.join('\n') : undefined;
+};
+
+async function fetchIntakeSettings(practiceSlug: string): Promise<IntakeSettingsResponse | null> {
+  try {
+    const response = await fetch(getPracticeClientIntakeSettingsEndpoint(practiceSlug), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json() as IntakeSettingsResponse;
+  } catch (error) {
+    console.warn('[Intake] Failed to fetch intake settings', error);
+    return null;
+  }
+}
+
 // Submit contact form to API
 export async function submitContactForm(
   formData: Record<string, unknown>, 
@@ -41,23 +121,47 @@ export async function submitContactForm(
   onLoadingMessage?: (messageId: string) => void,
   onUpdateMessage?: (messageId: string, content: string, isLoading: boolean) => void,
   onError?: (error: string) => void
-) {
+): Promise<IntakeSubmissionResult> {
   const loadingMessageId = crypto.randomUUID();
   
   try {
     onLoadingMessage?.(loadingMessageId);
     
     const formPayload = formatFormData(formData, practiceSlug);
-    const response = await fetch(getFormsEndpoint(), {
+    const settings = await fetchIntakeSettings(practiceSlug);
+    const prefillAmount = settings?.data?.settings?.prefillAmount;
+    const paymentLinkEnabled = settings?.data?.settings?.paymentLinkEnabled !== false;
+    const amount = clampAmount(typeof prefillAmount === 'number' ? prefillAmount : 50);
+
+    if (!paymentLinkEnabled) {
+      console.info('[Intake] Payment link disabled for practice intake');
+    }
+
+    const descriptionWithLocation = formatDescriptionWithLocation(
+      formPayload.description as string | undefined,
+      formPayload.location as string | undefined
+    );
+
+    const createPayload = {
+      slug: formPayload.slug,
+      amount,
+      email: formPayload.email,
+      name: formPayload.name,
+      ...(formPayload.phone ? { phone: formPayload.phone } : {}),
+      ...(descriptionWithLocation ? { description: descriptionWithLocation } : {}),
+      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {})
+    };
+
+    const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(formPayload)
+      body: JSON.stringify(createPayload)
     });
 
     if (response.ok) {
-      const result = await response.json() as { success?: boolean; data?: Record<string, unknown>; error?: string };
+      const result = await response.json() as IntakeCreateResponse;
       if (result.success === false) {
         throw new Error(result.error || 'Form submission failed');
       }
@@ -81,7 +185,18 @@ export async function submitContactForm(
         }, 300);
       }
       
-      return result;
+      return {
+        ...result,
+        intake: {
+          uuid: result.data?.uuid,
+          clientSecret: result.data?.client_secret,
+          amount: typeof result.data?.amount === 'number' ? result.data?.amount : amount,
+          currency: result.data?.currency ?? 'usd',
+          paymentLinkEnabled,
+          organizationName: result.data?.organization?.name ?? settings?.data?.organization?.name,
+          organizationLogo: result.data?.organization?.logo ?? settings?.data?.organization?.logo
+        }
+      };
     } else {
       const errorData = await response.json().catch(() => ({})) as { error?: string; message?: string };
       throw new Error(errorData.error || errorData.message || 'Form submission failed');

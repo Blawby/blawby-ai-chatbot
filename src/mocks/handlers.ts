@@ -855,25 +855,56 @@ export const handlers = [
     });
   }),
 
-  http.post('/api/practice-client-intakes/submit', async ({ request }) => {
-    const body = await request.json().catch(() => ({})) as { slug?: string };
-    let practiceId = randomId('practice');
+  http.get('/api/practice-client-intakes/:slug/intake', async ({ params }) => {
+    const slug = params.slug as string;
+    const practice = findPractice(slug);
+    if (!practice) {
+      return HttpResponse.json({ success: false, error: 'Organization not found' }, { status: 404 });
+    }
+    return HttpResponse.json({
+      success: true,
+      data: {
+        organization: {
+          id: practice.id,
+          name: practice.name,
+          slug: practice.slug,
+          logo: ''
+        },
+        settings: {
+          paymentLinkEnabled: true,
+          prefillAmount: 200
+        },
+        connectedAccount: {
+          id: randomId('acct'),
+          chargesEnabled: true
+        }
+      }
+    });
+  }),
+
+  http.post('/api/practice-client-intakes/create', async ({ request }) => {
+    const body = await request.json().catch(() => ({})) as { slug?: string; amount?: number };
+    let practiceName = 'Practice';
     if (body.slug) {
       const practice = findPractice(body.slug);
       if (practice) {
-        practiceId = practice.id;
+        practiceName = practice.name;
       }
     }
     return HttpResponse.json({
       success: true,
       data: {
-        matter_id: randomId('matter'),
-        matter_number: `MAT-${randomId('num')}`,
-        practice_id: practiceId,
-        status: 'lead',
-        message: 'Lead submitted successfully. A team member will follow up soon.'
+        uuid: randomId('intake'),
+        client_secret: randomId('secret'),
+        amount: body.amount ?? 200,
+        currency: 'usd',
+        status: 'requires_payment_method',
+        organization: {
+          name: practiceName,
+          logo: ''
+        }
       }
-    });
+    }, { status: 201 });
   }),
 
   http.post('/api/users/welcome', async () => {

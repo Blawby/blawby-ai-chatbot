@@ -56,6 +56,7 @@ export function MockChatPage() {
               mock.clearPreviewFiles();
             }}
             onContactFormSubmit={mock.simulateContactFormSubmit}
+            onAddMessage={(message) => mock.addMessage(message as ChatMessageUI)}
             practiceConfig={practiceConfig}
             onOpenSidebar={() => undefined}
             practiceId={practiceConfig.practiceId}

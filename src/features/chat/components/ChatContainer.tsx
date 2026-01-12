@@ -5,6 +5,8 @@ import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
+import { IntakePaymentModal } from '@/features/intake/components/IntakePaymentModal';
+import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
@@ -19,6 +21,7 @@ interface ChatContainerProps {
   messages: ChatMessageUI[];
   onSendMessage: (message: string, attachments: FileAttachment[]) => void;
   onContactFormSubmit?: (data: ContactData) => void;
+  onAddMessage?: (message: ChatMessageUI) => void;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
@@ -56,6 +59,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   messages,
   onSendMessage,
   onContactFormSubmit,
+  onAddMessage,
   practiceConfig,
   onOpenSidebar,
   practiceId,
@@ -86,6 +90,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const isMobile = useMobileDetection();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
+  const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const handleOpenPracticeSettings = () => {
     navigate('/settings/practice');
   };
@@ -187,6 +193,31 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     setShowAuthPrompt(false);
   };
 
+  const handleOpenPayment = (request: IntakePaymentRequest) => {
+    setPaymentRequest(request);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleClosePayment = () => {
+    setIsPaymentModalOpen(false);
+  };
+
+  const handlePaymentSuccess = () => {
+    if (!paymentRequest || !onAddMessage) {
+      handleClosePayment();
+      return;
+    }
+
+    onAddMessage({
+      id: `system-payment-confirm-${paymentRequest.intakeUuid ?? Date.now()}`,
+      role: 'assistant',
+      content: `Payment received. ${paymentRequest.practiceName || 'The practice'} will review your intake and follow up here shortly.`,
+      timestamp: Date.now(),
+      isUser: false
+    });
+    handleClosePayment();
+  };
+
   return (
     <div className="flex flex-col h-screen md:h-screen w-full m-0 p-0 relative overflow-hidden bg-white dark:bg-dark-bg" data-testid="chat-container">
       <main className="flex flex-col h-full w-full overflow-hidden relative bg-white dark:bg-dark-bg">
@@ -197,6 +228,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               practiceConfig={practiceConfig}
               onOpenSidebar={onOpenSidebar}
               onContactFormSubmit={onContactFormSubmit}
+              onOpenPayment={handleOpenPayment}
               practiceId={practiceId}
               intakeStatus={intakeStatus}
             />
@@ -249,6 +281,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         onSuccess={handleAuthSuccess}
         conversationId={conversationId ?? undefined}
         practiceId={practiceId}
+      />
+
+      <IntakePaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={handleClosePayment}
+        paymentRequest={paymentRequest}
+        onSuccess={handlePaymentSuccess}
       />
     </div>
   );
