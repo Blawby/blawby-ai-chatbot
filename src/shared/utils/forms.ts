@@ -89,7 +89,7 @@ const clampAmount = (amount: number) => {
 };
 
 const formatDescriptionWithLocation = (description?: string, location?: string) => {
-  const parts = [];
+  const parts: string[] = [];
   if (description) parts.push(description);
   if (location) parts.push(`Location: ${location}`);
   return parts.length > 0 ? parts.join('\n') : undefined;

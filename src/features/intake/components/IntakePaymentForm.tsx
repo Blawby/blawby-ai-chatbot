@@ -1,5 +1,5 @@
-import { FunctionComponent } from 'preact';
-import { useCallback, useMemo, useState } from 'preact/hooks';
+import type { FunctionComponent } from 'preact/compat';
+import { useCallback, useMemo, useState } from 'preact/compat';
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
@@ -17,8 +17,19 @@ interface IntakePaymentFormProps {
 
 const formatIntakeAmount = (amount?: number, currency?: string, locale?: string) => {
   if (typeof amount !== 'number') return null;
-  const normalizedCurrency = typeof currency === 'string' ? currency.toUpperCase() : 'USD';
-  return formatCurrency(amount / 100, normalizedCurrency, locale || 'en');
+  const rawCurrency = typeof currency === 'string' ? currency.toUpperCase() : 'USD';
+  const normalizedCurrency = /^[A-Z]{3}$/.test(rawCurrency) ? rawCurrency : 'USD';
+  const resolvedLocale = locale || 'en';
+  try {
+    return formatCurrency(amount / 100, normalizedCurrency, resolvedLocale);
+  } catch (error) {
+    console.warn('[IntakePayment] Failed to format currency', error);
+    try {
+      return formatCurrency(amount / 100, 'USD', 'en');
+    } catch {
+      return null;
+    }
+  }
 };
 
 export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
@@ -46,10 +57,14 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
 
   const pollIntakeStatus = useCallback(async () => {
     if (!intakeUuid) return null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
       const response = await fetch(getPracticeClientIntakeStatusEndpoint(intakeUuid), {
-        method: 'GET'
+        method: 'GET',
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         return null;
@@ -62,6 +77,10 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
 
       return payload.data?.status ?? null;
     } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        return null;
+      }
       console.warn('[IntakePayment] Failed to fetch intake status', error);
       return null;
     }
@@ -69,7 +88,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
 
   const wait = useCallback((ms: number) => new Promise(resolve => setTimeout(resolve, ms)), []);
 
-  const handleSubmit = useCallback(async (event: Event) => {
+  const handleSubmit = useCallback(async (event: SubmitEvent) => {
     event.preventDefault();
     setErrorMessage(null);
     setStatusDetail(null);
@@ -99,12 +118,12 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         return;
       }
 
-      if (result.paymentIntent?.status === 'succeeded') {
+      if (result.paymentIntent) {
         setPaymentSubmitted(true);
         setStatus('processing');
       }
 
-      const maxAttempts = 6;
+      const maxAttempts = 8;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const latestStatus = await pollIntakeStatus();
         if (latestStatus) {
