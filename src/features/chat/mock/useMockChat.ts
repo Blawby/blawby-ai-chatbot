@@ -252,6 +252,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
 
       setState((prev) => {
         const hasContactForm = prev.messages.some((existing) => existing.id === 'system-contact-form');
+        const hasPaymentRequest = prev.messages.some((existing) => existing.id === 'system-payment-request');
         let messages = [...prev.messages];
         const maxTimestamp = messages.length > 0
           ? messages.reduce((max, m) => Math.max(max, m.timestamp), -Infinity)
@@ -283,6 +284,28 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
             timestamp: nextTimestamp++
           } as MockMessage
         ];
+
+        if (!hasPaymentRequest) {
+          messages = [
+            ...messages,
+            {
+              id: 'system-payment-request',
+              content: 'One more step: submit the consultation fee to complete your intake.',
+              isUser: false,
+              role: 'assistant' as const,
+              timestamp: nextTimestamp++,
+              paymentRequest: {
+                intakeUuid: randomId(),
+                clientSecret: `cs_test_${randomId()}`,
+                amount: 20000,
+                currency: 'usd',
+                practiceName: 'Mock Practice',
+                practiceSlug: 'mock-practice',
+                returnTo: '/dev/mock-chat'
+              }
+            } as MockMessage
+          ];
+        }
 
         return {
           ...prev,
@@ -452,6 +475,13 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
     setDebugEvents([]);
   }, []);
 
+  const addMessage = useCallback((message: MockMessage) => {
+    setState((prev) => ({
+      ...prev,
+      messages: [...prev.messages, message]
+    }));
+  }, []);
+
   const handleFileSelect = useCallback(
     async (files: File[]) => {
       const attachments: FileAttachment[] = files.map((file) => ({
@@ -524,6 +554,7 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
     simulateScenario,
     resetConversation,
     clearDebugEvents,
+    addMessage,
     setIsAnonymous,
     setSimulationSpeed,
     setSimulateDeliveryDelay,

@@ -5,6 +5,7 @@ import { ContactData } from '@/features/intake/components/ContactForm';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getChatMessagesEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
+import { buildIntakePaymentUrl } from '@/shared/utils/intakePayments';
 import type { ConversationMessage } from '@/shared/types/conversation';
 
 // Global interface for window API base override and debug properties
@@ -249,7 +250,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         throw new Error('Practice slug is required to submit intake');
       }
 
-      await submitContactForm(
+      const intakeResult = await submitContactForm(
         {
           ...contactData,
           sessionId: conversationId
@@ -311,12 +312,61 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       if (import.meta.env.DEV) {
         console.log('[ContactForm] Successfully submitted contact information');
       }
+
+      const paymentDetails = intakeResult.intake;
+      if (paymentDetails?.paymentLinkEnabled && paymentDetails.clientSecret) {
+        const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
+        const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
+        if (!paymentMessageExists) {
+          const returnTo = typeof window !== 'undefined'
+            ? `${window.location.pathname}${window.location.search}`
+            : undefined;
+          const paymentUrl = buildIntakePaymentUrl({
+            intakeUuid: paymentDetails.uuid,
+            clientSecret: paymentDetails.clientSecret,
+            amount: paymentDetails.amount,
+            currency: paymentDetails.currency,
+            practiceName: paymentDetails.organizationName,
+            practiceLogo: paymentDetails.organizationLogo,
+            practiceSlug: resolvedPracticeSlug,
+            returnTo
+          });
+          setMessages(prev => {
+            if (prev.some((msg) => msg.id === paymentMessageId)) {
+              return prev;
+            }
+            return [
+              ...prev,
+              {
+                id: paymentMessageId,
+                role: 'assistant',
+                content: 'One more step: submit the consultation fee to complete your intake.',
+                timestamp: Date.now(),
+                isUser: false,
+                paymentRequest: {
+                  intakeUuid: paymentDetails.uuid,
+                  clientSecret: paymentDetails.clientSecret,
+                  amount: paymentDetails.amount,
+                  currency: paymentDetails.currency,
+                  practiceName: paymentDetails.organizationName,
+                  practiceLogo: paymentDetails.organizationLogo,
+                  practiceSlug: resolvedPracticeSlug,
+                  returnTo
+                },
+                metadata: {
+                  paymentUrl
+                }
+              }
+            ];
+          });
+        }
+      }
     } catch (error) {
       console.error('Error submitting contact form:', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
       throw error; // Re-throw so form can handle the error state
     }
-  }, [conversationId, practiceId, practiceSlug, toUIMessage, onError, logDev]);
+  }, [conversationId, practiceId, practiceSlug, toUIMessage, onError, logDev, messages]);
 
   // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {
@@ -500,9 +550,57 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
       const newMessages = [...prev];
       let changed = false;
-      
+
+      const baseMaxTimestamp = newMessages.length > 0
+        ? Math.max(...newMessages.map(m => m.timestamp))
+        : Date.now();
+      let tempTimestamp = baseMaxTimestamp;
+
+      if (typeof window !== 'undefined') {
+        const paymentKeys: string[] = [];
+        for (let i = 0; i < window.sessionStorage.length; i += 1) {
+          const key = window.sessionStorage.key(i);
+          if (key && key.startsWith('intakePaymentSuccess:')) {
+            paymentKeys.push(key);
+          }
+        }
+
+        paymentKeys.forEach((key) => {
+          const uuid = key.split(':')[1] || 'unknown';
+          const messageId = `system-payment-confirm-${uuid}`;
+          const alreadyExists = newMessages.some((m) => m.id === messageId);
+          if (alreadyExists) {
+            window.sessionStorage.removeItem(key);
+            return;
+          }
+
+          let practiceName = 'the practice';
+          try {
+            const raw = window.sessionStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw) as { practiceName?: string };
+              if (parsed.practiceName && parsed.practiceName.trim().length > 0) {
+                practiceName = parsed.practiceName.trim();
+              }
+            }
+          } catch (error) {
+            console.warn('[Intake] Failed to parse payment success flag', error);
+          }
+
+          newMessages.push({
+            id: messageId,
+            role: 'assistant',
+            content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
+            timestamp: ++tempTimestamp,
+            isUser: false
+          });
+          changed = true;
+          window.sessionStorage.removeItem(key);
+        });
+      }
+
       // Use monotonically increasing timestamps to ensure stable ordering
-      const maxTimestamp = newMessages.length > 0 
+      const maxTimestamp = newMessages.length > 0
         ? Math.max(...newMessages.map(m => m.timestamp))
         : Date.now();
       let nextTimestamp = maxTimestamp + 1;

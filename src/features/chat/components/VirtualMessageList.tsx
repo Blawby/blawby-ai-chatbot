@@ -7,6 +7,7 @@ import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
+import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
@@ -18,6 +19,7 @@ interface VirtualMessageListProps {
     };
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
+    onOpenPayment?: (request: IntakePaymentRequest) => void;
     practiceId?: string;
     intakeStatus?: {
         step: string;
@@ -33,6 +35,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     practiceConfig,
     onOpenSidebar,
     onContactFormSubmit,
+    onOpenPayment,
     practiceId,
     intakeStatus: _intakeStatus
 }) => {
@@ -176,9 +179,11 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             matterCanvas={message.matterCanvas}
                             contactForm={message.contactForm}
                             generatedPDF={message.generatedPDF}
+                            paymentRequest={message.paymentRequest}
                             practiceConfig={practiceConfig}
                             onOpenSidebar={onOpenSidebar}
                             onContactFormSubmit={onContactFormSubmit}
+                            onOpenPayment={onOpenPayment}
                             isLoading={message.isLoading}
                             // REMOVED: aiState - AI functionality removed
                             toolMessage={message.toolMessage}

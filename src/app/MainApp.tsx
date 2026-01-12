@@ -669,6 +669,7 @@ export function MainApp({
               messages={messages}
               onSendMessage={handleSendMessage}
               onContactFormSubmit={handleContactFormSubmit}
+              onAddMessage={addMessage}
               practiceConfig={{
                 name: practiceConfig.name ?? '',
                 profileImage: practiceConfig?.profileImage ?? null,

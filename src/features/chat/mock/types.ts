@@ -68,6 +68,7 @@ export interface UseMockChatResult {
   simulateScenario: (scenarioId: string) => Promise<void>;
   resetConversation: () => void;
   clearDebugEvents: () => void;
+  addMessage: (message: MockMessage) => void;
   setIsAnonymous: (value: boolean) => void;
   setSimulationSpeed: (speed: number) => void;
   setSimulateDeliveryDelay: (value: boolean) => void;

@@ -1,6 +1,8 @@
 import { FunctionComponent } from 'preact';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { ContactForm, ContactData } from '@/features/intake/components/ContactForm';
+import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
+import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import DocumentChecklist from '@/features/intake/components/DocumentChecklist';
 import LawyerSearchResults from '@/features/lawyer-search/components/LawyerSearchResults';
 import MatterCanvas from '@/features/matters/components/MatterCanvas';
@@ -29,6 +31,8 @@ interface MessageActionsProps {
 			opposingParty?: string;
 		};
 	};
+	paymentRequest?: IntakePaymentRequest;
+	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	documentChecklist?: {
 		matterType: string;
 		documents: Array<{
@@ -78,6 +82,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	documentChecklist,
 	lawyerSearchResults,
 	generatedPDF,
+	paymentRequest,
+	onOpenPayment,
 	onContactFormSubmit,
 	className = ''
 }) => {
@@ -105,6 +111,10 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					initialValues={contactForm.initialValues}
 					onSubmit={onContactFormSubmit}
 				/>
+			)}
+
+			{paymentRequest && (
+				<IntakePaymentCard paymentRequest={paymentRequest} onOpenPayment={onOpenPayment} />
 			)}
 			
 			{/* Display document checklist */}
