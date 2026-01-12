@@ -457,23 +457,28 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
       patch[key] = value;
     }
   };
+  const setIfNonNull = <K extends keyof Practice>(key: K, value: Practice[K] | undefined | null) => {
+    if (value !== undefined && value !== null) {
+      patch[key] = value as Practice[K];
+    }
+  };
 
   setIfDefined('businessPhone', details.businessPhone as Practice['businessPhone'] | undefined);
   setIfDefined('businessEmail', details.businessEmail as Practice['businessEmail'] | undefined);
   setIfDefined('consultationFee', details.consultationFee as Practice['consultationFee'] | undefined);
   setIfDefined('paymentUrl', details.paymentUrl as Practice['paymentUrl'] | undefined);
   setIfDefined('calendlyUrl', details.calendlyUrl as Practice['calendlyUrl'] | undefined);
-  setIfDefined('website', details.website as Practice['website'] | undefined);
-  setIfDefined('addressLine1', details.addressLine1 as Practice['addressLine1'] | undefined);
-  setIfDefined('addressLine2', details.addressLine2 as Practice['addressLine2'] | undefined);
-  setIfDefined('city', details.city as Practice['city'] | undefined);
-  setIfDefined('state', details.state as Practice['state'] | undefined);
-  setIfDefined('postalCode', details.postalCode as Practice['postalCode'] | undefined);
-  setIfDefined('country', details.country as Practice['country'] | undefined);
-  setIfDefined('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined);
-  setIfDefined('accentColor', details.accentColor as Practice['accentColor'] | undefined);
-  setIfDefined('introMessage', details.introMessage as Practice['introMessage'] | undefined);
-  setIfDefined('description', details.description as Practice['description'] | undefined);
+  setIfNonNull('website', details.website as Practice['website'] | undefined | null);
+  setIfNonNull('addressLine1', details.addressLine1 as Practice['addressLine1'] | undefined | null);
+  setIfNonNull('addressLine2', details.addressLine2 as Practice['addressLine2'] | undefined | null);
+  setIfNonNull('city', details.city as Practice['city'] | undefined | null);
+  setIfNonNull('state', details.state as Practice['state'] | undefined | null);
+  setIfNonNull('postalCode', details.postalCode as Practice['postalCode'] | undefined | null);
+  setIfNonNull('country', details.country as Practice['country'] | undefined | null);
+  setIfNonNull('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined | null);
+  setIfNonNull('accentColor', details.accentColor as Practice['accentColor'] | undefined | null);
+  setIfNonNull('introMessage', details.introMessage as Practice['introMessage'] | undefined | null);
+  setIfNonNull('description', details.description as Practice['description'] | undefined | null);
   setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
   setIfDefined('services', details.services as Practice['services'] | undefined);
   return {
@@ -943,6 +948,18 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     const updatedDetails = await apiUpdatePracticeDetails(id, details);
     setPracticeDetailsEntry(id, updatedDetails);
     if (updatedDetails) {
+      if (sharedPracticeSnapshot) {
+        const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
+          practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
+        );
+        const nextCurrentPractice = sharedPracticeSnapshot.currentPractice?.id === id
+          ? mergePracticeDetails(sharedPracticeSnapshot.currentPractice, updatedDetails)
+          : sharedPracticeSnapshot.currentPractice;
+        sharedPracticeSnapshot = {
+          practices: nextPractices,
+          currentPractice: nextCurrentPractice
+        };
+      }
       setCurrentPractice((prev) => {
         if (!prev || prev.id !== id) return prev;
         return mergePracticeDetails(prev, updatedDetails);

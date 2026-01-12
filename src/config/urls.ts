@@ -70,12 +70,12 @@ export function getWorkerApiUrl(): string {
 		return 'http://localhost:8787';
 	}
 
-	// 3. Production: same origin as frontend (Worker is deployed with frontend)
+	// 4. Production: same origin as frontend (Worker is deployed with frontend)
 	if (typeof window !== 'undefined' && window.location?.origin) {
 		return window.location.origin;
 	}
 
-	// 4. SSR/Build fallback (shouldn't be used at runtime)
+	// 5. SSR/Build fallback (shouldn't be used at runtime)
 	return 'https://ai.blawby.com';
 }
 

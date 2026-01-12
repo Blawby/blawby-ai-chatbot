@@ -121,9 +121,7 @@ export async function uploadWithProgress(
           const response = JSON.parse(xhr.responseText);
           
           if (response.success && response.data) {
-            const prefix = conversationId
-              ? `uploads/${practiceId}/${conversationId}`
-              : `uploads/${practiceId}`;
+            const prefix = `uploads/${practiceId}/${conversationId}`;
             const result: UploadResult = {
               fileId: response.data.fileId,
               fileName: response.data.fileName,

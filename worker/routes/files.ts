@@ -153,7 +153,7 @@ const resolvePublicOrigin = (request: Request, env: Env): string => {
     return explicitOrigin;
   }
 
-  return new URL(request.url).origin;
+  return '';
 };
 
 function validateFile(file: File): { isValid: boolean; error?: string } {
@@ -283,15 +283,16 @@ async function storeFile(
     // Continue with the upload since the file is already stored in R2
   }
 
-  // Generate public URL based on request origin
-  // This ensures the URL is accessible by external services (e.g., remote backend API)
+  // Generate public URL based on trusted env origin.
+  // Falls back to relative path if no explicit origin is configured.
   const getPublicUrl = (fileIdStr: string, req?: Request): string => {
     const relativePath = `/api/files/${fileIdStr}`;
     
-    // Try to get origin from request
     if (req) {
       const publicOrigin = resolvePublicOrigin(req, env);
-      return `${publicOrigin}${relativePath}`;
+      if (publicOrigin) {
+        return `${publicOrigin}${relativePath}`;
+      }
     }
     
     // Fallback to relative URL (shouldn't happen in practice)
