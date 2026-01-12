@@ -121,16 +121,24 @@ export async function uploadWithProgress(
           const response = JSON.parse(xhr.responseText);
           
           if (response.success && response.data) {
-            const prefix = `uploads/${practiceId}/${conversationId}`;
+            const prefix = conversationId
+              ? `uploads/${practiceId}/${conversationId}`
+              : null;
+            const storageKey = response.data.storageKey || (prefix
+              ? (response.data.fileExtension
+                ? `${prefix}/${response.data.fileId}.${response.data.fileExtension}`
+                : `${prefix}/${response.data.fileId}`)
+              : undefined);
+            if (!storageKey) {
+              throw new Error('Upload failed: missing storageKey');
+            }
             const result: UploadResult = {
               fileId: response.data.fileId,
               fileName: response.data.fileName,
               fileType: response.data.fileType,
               fileSize: response.data.fileSize,
               url: response.data.url,
-              storageKey: response.data.storageKey || (response.data.fileExtension 
-                ? `${prefix}/${response.data.fileId}.${response.data.fileExtension}`
-                : `${prefix}/${response.data.fileId}`)
+              storageKey
             };
 
             // Final progress update to 100%
