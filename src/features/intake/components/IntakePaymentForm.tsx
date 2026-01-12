@@ -36,6 +36,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded'>('idle');
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
+  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
 
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
   const formattedAmount = useMemo(
@@ -102,6 +103,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       }
 
       if (result.paymentIntent?.status === 'succeeded') {
+        setPaymentSubmitted(true);
         setStatus('processing');
       }
 
@@ -200,9 +202,13 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           Return to chat
         </Button>
         {status !== 'succeeded' && (
-          <Button variant="primary" type="submit" disabled={isSubmitting || !stripe || !elements}>
-            {isSubmitting ? 'Processing payment…' : 'Pay now'}
-          </Button>
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={isSubmitting || paymentSubmitted || !stripe || !elements}
+        >
+          {isSubmitting ? 'Processing payment…' : 'Pay now'}
+        </Button>
         )}
       </div>
     </form>
