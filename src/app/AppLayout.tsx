@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
 import LeftSidebar from '@/shared/components/LeftSidebar';
-// Onboarding is now routed via /business-onboarding
 import MobileTopNav from '@/shared/components/MobileTopNav';
 import MediaSidebar from '@/features/media/components/MediaSidebar';
 import PracticeProfile from '@/features/practice/components/PracticeProfile';
@@ -22,17 +21,14 @@ import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
 import { THEME } from '@/shared/utils/constants';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import { useLocation } from 'preact-iso';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import Modal from '@/shared/components/Modal';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import type { SubscriptionTier } from '@/shared/types/user';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
-import { getActiveOrganizationId } from '@/shared/utils/session';
-import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
+import type { PracticeDetails } from '@/shared/lib/apiClient';
+import AnnouncementBanner from '@/shared/components/AnnouncementBanner';
 
 // Simple messages object for localization
 const messages = {
@@ -60,7 +56,22 @@ interface AppLayoutProps {
     businessOnboardingStatus?: BusinessOnboardingStatus;
     businessOnboardingCompletedAt?: number | null;
     businessOnboardingHasDraft?: boolean;
+    name?: string | null;
+    businessEmail?: string | null;
+    businessPhone?: string | null;
+    website?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+    introMessage?: string | null;
+    description?: string | null;
+    services?: Array<Record<string, unknown>> | null;
+    isPublic?: boolean | null;
   } | null;
+  practiceDetails?: PracticeDetails | null;
   messages: ChatMessageUI[];
   onRequestConsultation?: () => void | Promise<void>;
   onSendMessage?: (message: string) => void;
@@ -68,7 +79,6 @@ interface AppLayoutProps {
   dashboardContent?: ComponentChildren;
   chatSidebarContent?: ComponentChildren;
   children: ComponentChildren; // ChatContainer component
-  onOnboardingCompleted?: () => Promise<void> | void;
 }
 
 const AppLayout: FunctionComponent<AppLayoutProps> = ({
@@ -90,13 +100,12 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   dashboardContent,
   chatSidebarContent,
   children,
-  onOnboardingCompleted: _onOnboardingCompleted
+  practiceDetails
 }) => {
   // Matter state management
   const { matter, status: matterStatus } = useMatterState(chatMessages);
   const { showError } = useToastContext();
   const { navigate } = useNavigation();
-  const location = useLocation();
   const { openBillingPortal } = usePaymentUpgrade();
   const [matterAction, setMatterAction] = useState<'pay' | 'pdf' | 'share' | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
@@ -263,38 +272,72 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     debounceMs: 0
   });
 
-  const handleOpenOnboarding = useCallback(() => {
-    const targetPracticeId = currentPractice?.id || practiceId;
-    if (!targetPracticeId) {
-      showError('Practice loading', 'Select a practice before starting onboarding.');
-      return;
-    }
-    // If launching from settings, replace directly to onboarding (single history replace)
-    if (location.path.startsWith('/settings')) {
-      navigate(`/business-onboarding?practiceId=${encodeURIComponent(targetPracticeId)}`, true);
-    } else {
-      // Otherwise push normally to preserve previous page in history
-      navigate(`/business-onboarding?practiceId=${encodeURIComponent(targetPracticeId)}`);
-    }
-  }, [currentPractice?.id, practiceId, showError, navigate, location.path]);
+  const practiceBanner = useMemo(() => {
+    if (workspace !== 'practice') return null;
+    if (!currentPractice?.id) return null;
 
-  const { session } = useSessionContext();
-  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
-  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
-  const mergedOnboardingProgress = useMemo(
-    () =>
-      mergePracticeAndLocalProgress(localOnboardingProgress, {
-        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
-        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
-        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
-      }),
-    [
-      localOnboardingProgress,
-      currentPractice?.businessOnboardingStatus,
-      currentPractice?.businessOnboardingCompletedAt,
-      currentPractice?.businessOnboardingHasDraft
-    ]
-  );
+    const hasValue = (value: unknown): boolean =>
+      typeof value === 'string' && value.trim().length > 0;
+
+    const businessEmail = practiceDetails?.businessEmail ?? currentPractice.businessEmail ?? '';
+    const businessPhone = practiceDetails?.businessPhone ?? currentPractice.businessPhone ?? '';
+    const website = practiceDetails?.website ?? currentPractice.website ?? '';
+    const addressLine1 = practiceDetails?.addressLine1 ?? currentPractice.addressLine1 ?? '';
+    const city = practiceDetails?.city ?? currentPractice.city ?? '';
+    const state = practiceDetails?.state ?? currentPractice.state ?? '';
+    const postalCode = practiceDetails?.postalCode ?? currentPractice.postalCode ?? '';
+    const country = practiceDetails?.country ?? currentPractice.country ?? '';
+    const introMessage = practiceDetails?.introMessage ?? currentPractice.introMessage ?? '';
+    const description = practiceDetails?.description ?? currentPractice.description ?? '';
+    const isPublic = practiceDetails?.isPublic ?? currentPractice.isPublic ?? false;
+    const services = practiceDetails?.services ?? currentPractice.services ?? [];
+    const hasServices = Array.isArray(services)
+      ? services.some((service) => {
+        if (!service || typeof service !== 'object') return false;
+        const record = service as Record<string, unknown>;
+        const name = record.name ?? record.title;
+        return hasValue(name);
+      })
+      : false;
+
+    const hasProfileBasics = hasValue(currentPractice.name) && hasValue(businessEmail);
+    const hasContactInfo = hasValue(businessPhone) && hasValue(website);
+    const hasAddress =
+      hasValue(addressLine1) &&
+      hasValue(city) &&
+      hasValue(state) &&
+      hasValue(postalCode) &&
+      hasValue(country);
+    const hasMessaging = hasValue(introMessage) && hasValue(description);
+    const stripeReady = currentPractice.businessOnboardingStatus === 'completed';
+
+    const profileReady =
+      hasProfileBasics &&
+      hasContactInfo &&
+      hasAddress &&
+      hasMessaging &&
+      hasServices &&
+      isPublic;
+
+    if (profileReady && stripeReady) return null;
+
+    return {
+      title: 'Complete your practice profile to launch.',
+      description: 'Add missing practice details and connect payouts so clients can discover and pay your firm.',
+      actions: [
+        {
+          label: 'Practice settings',
+          onClick: () => navigate('/settings/practice'),
+          variant: 'secondary' as const
+        },
+        {
+          label: 'Payouts',
+          onClick: () => navigate('/settings/account/payouts'),
+          variant: 'secondary' as const
+        }
+      ]
+    };
+  }, [currentPractice, navigate, practiceDetails, workspace]);
 
   if (practiceNotFound) {
     return <PracticeNotFound practiceId={practiceId} onRetry={onRetryPracticeConfig} />;
@@ -313,14 +356,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     }
   };
 
-  const canShowOnboarding = workspace === 'practice';
-  const onboardingStatus = canShowOnboarding
-    ? mergedOnboardingProgress?.status ?? 'pending'
-    : undefined;
-  const hasOnboardingDraft = canShowOnboarding
-    ? mergedOnboardingProgress?.hasDraft ?? false
-    : false;
-
   return (
     <div className="max-md:h-[100dvh] md:h-screen w-full flex bg-white dark:bg-dark-bg">
       {/* Left Sidebar - Desktop: always visible, Mobile: slide-out, Hidden when settings modal is open on mobile */}
@@ -334,7 +369,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               showChatsTab={showChatsTab}
               onGoToDashboard={showDashboardTab ? handleGoToDashboard : undefined}
               onGoToChats={showChatsTab ? handleGoToChats : undefined}
-              onOpenOnboarding={canShowOnboarding ? handleOpenOnboarding : undefined}
               chatSidebarContent={chatSidebarContent}
               practiceConfig={{
                 name: practiceConfig.name,
@@ -342,8 +376,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                 practiceId
               }}
               currentPractice={currentPractice}
-              onboardingStatus={onboardingStatus}
-              onboardingHasDraft={hasOnboardingDraft}
             />
           </div>
           
@@ -396,10 +428,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       handleGoToChats();
                       onToggleMobileSidebar(false);
                     } : undefined}
-                    onOpenOnboarding={canShowOnboarding ? () => {
-                      handleOpenOnboarding();
-                      onToggleMobileSidebar(false);
-                    } : undefined}
                     onClose={() => onToggleMobileSidebar(false)}
                     chatSidebarContent={chatSidebarContent}
                     practiceConfig={{
@@ -408,8 +436,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       practiceId
                     }}
                     currentPractice={currentPractice}
-                    onboardingStatus={onboardingStatus}
-                    onboardingHasDraft={hasOnboardingDraft}
                   />
                 </motion.div>
               </motion.div>
@@ -419,39 +445,51 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       )}
 
       {/* Main Content Area - Flex grow, full width on mobile */}
-      <div className="flex-1 bg-white dark:bg-dark-bg overflow-y-auto">
-        <ErrorBoundary>
-          {currentTab === 'dashboard' ? (
-            <div className="h-full">
-              {dashboardContent ?? (
-                <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-                  Dashboard coming soon.
-                </div>
-              )}
-            </div>
-          ) : currentTab === 'chats' ? (
-            children
-          ) : (
-            <div className="h-full">
-              <MatterTab
-                matter={matter}
-                status={matterStatus}
-                onStartChat={handleGoToChats}
-                onViewInChat={handleContinueInChat}
-                onPayNow={() => {
-                  openMatterAction('pay');
-                }}
-                onViewPDF={() => {
-                  openMatterAction('pdf');
-                }}
-                onShareMatter={() => {
-                  openMatterAction('share');
-                }}
-                onUploadDocument={onUploadDocument}
-              />
-            </div>
-          )}
-        </ErrorBoundary>
+      <div className="flex-1 bg-white dark:bg-dark-bg flex flex-col min-h-0">
+        {practiceBanner && (
+          <div className="px-4 pt-4">
+            <AnnouncementBanner
+              title={practiceBanner.title}
+              description={practiceBanner.description}
+              actions={practiceBanner.actions}
+              tone="warning"
+            />
+          </div>
+        )}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <ErrorBoundary>
+            {currentTab === 'dashboard' ? (
+              <div className="h-full">
+                {dashboardContent ?? (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                    Dashboard coming soon.
+                  </div>
+                )}
+              </div>
+            ) : currentTab === 'chats' ? (
+              children
+            ) : (
+              <div className="h-full">
+                <MatterTab
+                  matter={matter}
+                  status={matterStatus}
+                  onStartChat={handleGoToChats}
+                  onViewInChat={handleContinueInChat}
+                  onPayNow={() => {
+                    openMatterAction('pay');
+                  }}
+                  onViewPDF={() => {
+                    openMatterAction('pdf');
+                  }}
+                  onShareMatter={() => {
+                    openMatterAction('share');
+                  }}
+                  onUploadDocument={onUploadDocument}
+                />
+              </div>
+            )}
+          </ErrorBoundary>
+        </div>
       </div>
 
       {/* Right Sidebar - Fixed width, hidden on mobile */}
@@ -570,7 +608,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
         )}
       </Modal>
 
-      {/* Onboarding modal handled by /business-onboarding route */}
     </div>
   );
 };

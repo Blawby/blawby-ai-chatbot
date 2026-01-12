@@ -7,6 +7,7 @@ export interface SessionContextValue {
   isPending: boolean;
   error: unknown;
   isAnonymous: boolean;
+  activeOrganizationId: string | null;
   activePracticeId: string | null;
   primaryWorkspace: 'client' | 'practice' | null;
   preferredPracticeId: string | null;
@@ -28,10 +29,11 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
         ? sessionRecord.active_organization_id
         : null);
 
+  const activeOrganizationId = activeOrgId ?? null;
   const activePracticeIdFromSession =
+    activeOrganizationId ??
     sessionData?.user?.practiceId ??
     sessionData?.user?.activePracticeId ??
-    activeOrgId ??
     null;
 
   const activePracticeId = activePracticeIdFromSession ?? null;
@@ -53,11 +55,22 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     isPending,
     error,
     isAnonymous,
+    activeOrganizationId,
     activePracticeId,
     primaryWorkspace,
     preferredPracticeId,
     hasPractice
-  }), [sessionData, isPending, error, isAnonymous, activePracticeId, primaryWorkspace, preferredPracticeId, hasPractice]);
+  }), [
+    sessionData,
+    isPending,
+    error,
+    isAnonymous,
+    activeOrganizationId,
+    activePracticeId,
+    primaryWorkspace,
+    preferredPracticeId,
+    hasPractice
+  ]);
 
   return (
     <SessionContext.Provider value={value}>

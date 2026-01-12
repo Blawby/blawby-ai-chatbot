@@ -23,8 +23,9 @@ import { StackedAvatars } from '@/shared/ui/profile';
 import { PracticeContactFields } from '@/shared/ui/practice/PracticeContactFields';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import type { PracticeDetails, PracticeDetailsUpdate } from '@/shared/lib/apiClient';
+import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
+import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import {
   useLeadQueueAutoLoad,
   usePracticeMembersSync,
@@ -489,52 +490,30 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     setIsSettingsSaving(true);
     try {
       const trimmedDescription = descriptionDraft.trim();
+      const trimmedEmail = editPracticeForm.businessEmail.trim();
+      const businessEmail = trimmedEmail ? trimmedEmail : undefined;
+      const comparison = {
+        name: practice.name,
+        slug: practice.slug ?? null,
+        logo: practice.logo ?? null,
+        businessEmail: practiceDetails?.businessEmail ?? practice.businessEmail ?? null,
+        consultationFee: practiceDetails?.consultationFee ?? practice.consultationFee ?? null,
+        description: practiceDetails?.description ?? practice.description ?? null
+      };
+      const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
+        name: editPracticeForm.name,
+        slug: editPracticeForm.slug,
+        logo: trimmedLogo ? trimmedLogo : undefined,
+        businessEmail,
+        consultationFee: editPracticeForm.consultationFee,
+        description: trimmedDescription ? trimmedDescription : undefined
+      }, { compareTo: comparison });
 
-      const corePayload = (() => {
-        const payload: {
-          name?: string;
-          slug?: string;
-          logo?: string;
-        } = {};
-
-        const trimmedName = editPracticeForm.name.trim();
-        if (trimmedName && trimmedName !== practice.name) {
-          payload.name = trimmedName;
-        }
-
-        const trimmedSlug = editPracticeForm.slug.trim();
-        if (trimmedSlug && trimmedSlug !== (practice.slug ?? '')) {
-          payload.slug = trimmedSlug;
-        }
-
-        const nextLogo = trimmedLogo;
-        const currentLogo = practice.logo || '';
-        if (nextLogo && nextLogo !== currentLogo) {
-          payload.logo = nextLogo;
-        }
-
-        return payload;
-      })();
-
-      if (Object.keys(corePayload).length > 0) {
-        await updatePractice(practice.id, corePayload);
+      if (Object.keys(practicePayload).length > 0) {
+        await updatePractice(practice.id, practicePayload);
       }
 
       try {
-        const detailsPayload: PracticeDetailsUpdate = {};
-        const trimmedEmail = editPracticeForm.businessEmail.trim();
-        if (trimmedEmail) {
-          detailsPayload.businessEmail = trimmedEmail;
-        }
-        if (editPracticeForm.consultationFee === null) {
-          detailsPayload.consultationFee = null;
-        } else if (typeof editPracticeForm.consultationFee === 'number') {
-          detailsPayload.consultationFee = editPracticeForm.consultationFee;
-        }
-        if (trimmedDescription) {
-          detailsPayload.description = trimmedDescription;
-        }
-
         if (Object.keys(detailsPayload).length > 0) {
           await updateDetails(detailsPayload);
         }
@@ -561,36 +540,24 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     if (!practice) return false;
     setIsSettingsSaving(true);
     try {
-      const normalizeOptionalText = (value?: string): string | null | undefined => {
-        if (typeof value !== 'string') return undefined;
-        const trimmed = value.trim();
-        return trimmed.length > 0 ? trimmed : null;
-      };
-      const contactPhone = normalizeOptionalText(updates.contactPhone);
-      const website = normalizeOptionalText(updates.website);
-      const addressLine1 = normalizeOptionalText(updates.addressLine1);
-      const addressLine2 = normalizeOptionalText(updates.addressLine2);
-      const city = normalizeOptionalText(updates.city);
-      const state = normalizeOptionalText(updates.state);
-      const postalCode = normalizeOptionalText(updates.postalCode);
-      const country = normalizeOptionalText(updates.country);
-      const introMessage = normalizeOptionalText(updates.introMessage);
-      const description = normalizeOptionalText(updates.description);
-
-      await updateDetails({
-        ...(contactPhone !== undefined ? { businessPhone: contactPhone } : {}),
-        ...(website !== undefined ? { website } : {}),
-        ...(addressLine1 !== undefined ? { addressLine1 } : {}),
-        ...(addressLine2 !== undefined ? { addressLine2 } : {}),
-        ...(city !== undefined ? { city } : {}),
-        ...(state !== undefined ? { state } : {}),
-        ...(postalCode !== undefined ? { postalCode } : {}),
-        ...(country !== undefined ? { country } : {}),
-        ...(introMessage !== undefined ? { introMessage } : {}),
-        ...(description !== undefined ? { description } : {}),
-        ...(typeof updates.isPublic === 'boolean' ? { isPublic: updates.isPublic } : {}),
-        ...(Array.isArray(updates.services) ? { services: updates.services } : {})
+      const { detailsPayload } = buildPracticeProfilePayloads({
+        businessPhone: updates.contactPhone,
+        website: updates.website,
+        addressLine1: updates.addressLine1,
+        addressLine2: updates.addressLine2,
+        city: updates.city,
+        state: updates.state,
+        postalCode: updates.postalCode,
+        country: updates.country,
+        introMessage: updates.introMessage,
+        description: updates.description,
+        isPublic: updates.isPublic,
+        services: updates.services
       });
+
+      if (Object.keys(detailsPayload).length > 0) {
+        await updateDetails(detailsPayload);
+      }
 
       showSuccess('Practice updated', toastBody);
       return true;

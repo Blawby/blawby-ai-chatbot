@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
@@ -10,13 +10,10 @@ import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import LawyerSearchInline from '@/features/lawyer-search/components/LawyerSearchInline';
-import WelcomeState from '@/features/welcome/components/WelcomeState';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useNavigation } from '@/shared/utils/navigation';
-import { useLocalOnboardingProgress } from '@/shared/hooks/useLocalOnboardingProgress';
-import { getActiveOrganizationId } from '@/shared/utils/session';
-import { mergePracticeAndLocalProgress } from '@/shared/utils/resolveOnboardingProgress';
+import { Button } from '@/shared/ui/Button';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -89,22 +86,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const isMobile = useMobileDetection();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
-  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
-  const localOnboardingProgress = useLocalOnboardingProgress(organizationId);
-  const onboardingProgress = useMemo(
-    () =>
-      mergePracticeAndLocalProgress(localOnboardingProgress, {
-        businessOnboardingStatus: currentPractice?.businessOnboardingStatus,
-        businessOnboardingCompletedAt: currentPractice?.businessOnboardingCompletedAt,
-        businessOnboardingHasDraft: currentPractice?.businessOnboardingHasDraft
-      }),
-    [
-      localOnboardingProgress,
-      currentPractice?.businessOnboardingStatus,
-      currentPractice?.businessOnboardingCompletedAt,
-      currentPractice?.businessOnboardingHasDraft
-    ]
-  );
+  const handleOpenPracticeSettings = () => {
+    navigate('/settings/practice');
+  };
 
 
   // Simple resize handler for window size changes
@@ -242,11 +226,17 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             Loading…
           </div>
         ) : isAuthenticated && !currentPractice ? (
-          <WelcomeState
-            currentPractice={currentPractice}
-            onStartOnboarding={() => navigate('/business-onboarding')}
-            onboardingProgress={onboardingProgress}
-          />
+          <div className="flex flex-1 items-center justify-center">
+            <div className="max-w-md rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-900 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
+              <p className="text-sm font-semibold">Practice profile not ready</p>
+              <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">
+                Finish your practice details to unlock chat and intake tools.
+              </p>
+              <Button onClick={handleOpenPracticeSettings} variant="secondary" size="sm" className="mt-4">
+                Open practice settings
+              </Button>
+            </div>
+          </div>
         ) : (
           <LawyerSearchInline />
         )}

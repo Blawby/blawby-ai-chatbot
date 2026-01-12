@@ -15,9 +15,10 @@ interface WelcomeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: () => void;
+  workspace: 'client' | 'practice';
 }
 
-const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
+const WelcomeModal = ({ isOpen, onClose, onComplete, workspace }: WelcomeModalProps) => {
   const { t } = useTranslation('common');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -52,6 +53,13 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
     }
   };
 
+  const title = workspace === 'practice'
+    ? t('welcome.lawyer.title')
+    : t('onboarding.welcome.title');
+  const subtitle = workspace === 'practice'
+    ? t('welcome.lawyer.subtitle')
+    : t('onboarding.welcome.subtitle');
+
   return (
     <Modal
       isOpen={isOpen}
@@ -61,8 +69,8 @@ const WelcomeModal = ({ isOpen, onClose, onComplete }: WelcomeModalProps) => {
     >
       <ModalBody>
         <ModalHeader
-          title={t('onboarding.welcome.title')}
-          subtitle={t('onboarding.welcome.subtitle')}
+          title={title}
+          subtitle={subtitle}
         />
 
         {/* Tips */}

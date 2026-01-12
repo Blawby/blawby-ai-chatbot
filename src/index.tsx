@@ -10,7 +10,6 @@ import { getClient, updateUser } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
-import { BusinessOnboardingPage } from '@/pages/BusinessOnboardingPage';
 import { MockChatPage } from '@/pages/MockChatPage';
 import { MockServicesPage } from '@/pages/MockServicesPage';
 import { CartPage } from '@/features/cart/pages/CartPage';
@@ -78,8 +77,6 @@ function AppShell() {
         <Route path="/cart" component={CartPage} />
         <Route path="/dev/mock-chat" component={MockChatPage} />
         <Route path="/dev/mock-services" component={MockServicesPage} />
-        <Route path="/business-onboarding" component={BusinessOnboardingPage} />
-        <Route path="/business-onboarding/*" component={BusinessOnboardingPage} />
         <Route path="/settings" component={SettingsRoute} />
         <Route path="/settings/*" component={SettingsRoute} />
         <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
@@ -126,6 +123,8 @@ function RootRoute() {
   const { navigate } = useNavigation();
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
+  const practiceWorkspaceRef = useRef(false);
+  const promotionInProgressRef = useRef(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -142,7 +141,38 @@ function RootRoute() {
       return;
     }
 
-    if (!session.user.primaryWorkspace && !workspaceInitRef.current) {
+    if (canAccessPractice && session.user.primaryWorkspace !== 'practice' && !practiceWorkspaceRef.current) {
+      practiceWorkspaceRef.current = true;
+      promotionInProgressRef.current = true;
+      const nextPreferredPracticeId = preferredPracticeId ?? activePracticeId ?? null;
+
+      const promoteWorkspace = async () => {
+        try {
+          await updateUser({
+            primaryWorkspace: 'practice',
+            preferredPracticeId: nextPreferredPracticeId
+          });
+          if (isMountedRef.current) {
+            navigate('/practice', true);
+          }
+        } catch (error) {
+          console.warn('[Workspace] Failed to promote workspace to practice', error);
+          practiceWorkspaceRef.current = false;
+        } finally {
+          promotionInProgressRef.current = false;
+        }
+      };
+
+      void promoteWorkspace();
+      return;
+    }
+
+    if (
+      !session.user.primaryWorkspace &&
+      !workspaceInitRef.current &&
+      !promotionInProgressRef.current &&
+      !practiceWorkspaceRef.current
+    ) {
       workspaceInitRef.current = true;
       const nextPreferredPracticeId =
         defaultWorkspace === 'practice'

@@ -81,18 +81,27 @@ const AuthForm = ({
     }
   }, []);
 
+  const defaultPostAuthPath = useCallback(() => {
+    if (conversationContext?.conversationId && conversationContext?.practiceId) {
+      return `/dashboard?conversationId=${encodeURIComponent(conversationContext.conversationId)}&practiceId=${encodeURIComponent(conversationContext.practiceId)}`;
+    }
+    return '/';
+  }, [conversationContext?.conversationId, conversationContext?.practiceId]);
+
   const navigateToStoredRedirect = useCallback(() => {
     if (typeof window === 'undefined') return;
     try {
       const storedRedirect = sessionStorage.getItem(postAuthRedirectKey);
-      if (storedRedirect) {
-        sessionStorage.removeItem(postAuthRedirectKey);
-        navigate(storedRedirect);
-      }
+      const target = storedRedirect || defaultPostAuthPath();
+      sessionStorage.removeItem(postAuthRedirectKey);
+      const shouldRouteToRoot =
+        target.startsWith('/dashboard') &&
+        !(conversationContext?.conversationId && conversationContext?.practiceId);
+      navigate(shouldRouteToRoot ? '/' : target);
     } catch {
       // Ignore sessionStorage failures
     }
-  }, [navigate]);
+  }, [conversationContext?.conversationId, conversationContext?.practiceId, defaultPostAuthPath, navigate]);
 
   useEffect(() => {
     const nextMode = mode ?? defaultMode;
@@ -258,9 +267,7 @@ const AuthForm = ({
 
       // callbackURL tells Better Auth where to redirect after OAuth completes
       // With Bearer token auth, the token will be in the Set-Auth-Token header
-      const callbackURL = conversationContext?.conversationId && conversationContext?.practiceId
-        ? `/dashboard?conversationId=${encodeURIComponent(conversationContext.conversationId)}&practiceId=${encodeURIComponent(conversationContext.practiceId)}`
-        : '/dashboard';
+      const callbackURL = defaultPostAuthPath();
       const result = await client.signIn.social({
         provider: 'google',
         callbackURL,
