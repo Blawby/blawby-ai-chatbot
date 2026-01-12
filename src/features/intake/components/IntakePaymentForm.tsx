@@ -147,6 +147,11 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {(!stripe || !elements) && (
+        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+          Loading secure payment form…
+        </div>
+      )}
       <div className="rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
