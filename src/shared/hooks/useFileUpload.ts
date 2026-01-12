@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { FileAttachment } from '../../../worker/types';
 import { uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
+import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 export type FileStatus = 
   | 'uploading'      // Browser → Workers
@@ -51,9 +52,16 @@ async function _uploadFileToBackend(file: File, practiceId: string, conversation
     formData.append('practiceId', practiceId);
     formData.append('conversationId', conversationId);
 
+    const token = await getTokenAsync();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await fetch('/api/files/upload', {
       method: 'POST',
       body: formData,
+      headers,
       signal,
       credentials: 'include'
     });

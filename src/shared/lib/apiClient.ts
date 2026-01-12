@@ -142,6 +142,11 @@ export interface CreatePracticeRequest {
 export type UpdatePracticeRequest = Partial<CreatePracticeRequest>;
 
 export interface PracticeDetailsUpdate {
+  businessPhone?: string | null;
+  businessEmail?: string | null;
+  consultationFee?: number | null;
+  paymentUrl?: string | null;
+  calendlyUrl?: string | null;
   website?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
@@ -157,9 +162,13 @@ export interface PracticeDetailsUpdate {
   services?: Array<Record<string, unknown>> | null;
 }
 
+export type PracticeDetails = PracticeDetailsUpdate;
+
 export interface ConnectedAccountRequest {
   practiceEmail: string;
   practiceUuid: string;
+  returnUrl?: string;
+  refreshUrl?: string;
 }
 
 export interface ConnectedAccountResponse {
@@ -251,23 +260,6 @@ export async function linkConversationToUser(
   return conversation;
 }
 
-function extractApiData<T>(payload: unknown): T | null {
-  const normalized = unwrapApiData(payload);
-
-  if (isRecord(normalized) && 'success' in normalized) {
-    if (!normalized.success) {
-      const message =
-        typeof normalized.error === 'string'
-          ? normalized.error
-          : 'Request failed';
-      throw new Error(message);
-    }
-    return (normalized.data ?? null) as T | null;
-  }
-
-  return normalized as T;
-}
-
 async function postSubscriptionEndpoint(
   url: string,
   body: Record<string, unknown>
@@ -310,41 +302,49 @@ function normalizePracticePayload(payload: unknown): Practice {
     throw new Error('Invalid practice payload');
   }
 
-  const id = String(payload.id ?? payload.practice_id ?? '');
-  const name = String(payload.name ?? 'Practice');
-  const slug = toNullableString(payload.slug) ?? id;
+  const record = isRecord(payload.practice) ? payload.practice : payload;
+  const id = String(
+    record.id ??
+    record.uuid ??
+    record.practice_id ??
+    record.practice_uuid ??
+    record.practiceUuid ??
+    ''
+  );
+  const name = String(record.name ?? 'Practice');
+  const slug = toNullableString(record.slug) ?? id;
 
   return {
     id,
     name,
     slug,
-    logo: toNullableString(payload.logo),
-    metadata: isRecord(payload.metadata) ? payload.metadata : undefined,
-    businessPhone: toNullableString(payload.businessPhone ?? payload.business_phone),
-    businessEmail: toNullableString(payload.businessEmail ?? payload.business_email),
-    consultationFee: typeof (payload.consultationFee ?? payload.consultation_fee) === 'number'
-      ? Number(payload.consultationFee ?? payload.consultation_fee)
+    logo: toNullableString(record.logo),
+    metadata: isRecord(record.metadata) ? record.metadata : undefined,
+    businessPhone: toNullableString(record.businessPhone ?? record.business_phone),
+    businessEmail: toNullableString(record.businessEmail ?? record.business_email),
+    consultationFee: typeof (record.consultationFee ?? record.consultation_fee) === 'number'
+      ? Number(record.consultationFee ?? record.consultation_fee)
       : null,
-    paymentUrl: toNullableString(payload.paymentUrl ?? payload.payment_url),
-    calendlyUrl: toNullableString(payload.calendlyUrl ?? payload.calendly_url),
-    createdAt: toNullableString(payload.createdAt ?? payload.created_at),
-    updatedAt: toNullableString(payload.updatedAt ?? payload.updated_at),
-    website: toNullableString(payload.website),
-    addressLine1: toNullableString(payload.addressLine1 ?? payload.address_line_1),
-    addressLine2: toNullableString(payload.addressLine2 ?? payload.address_line_2),
-    city: toNullableString(payload.city),
-    state: toNullableString(payload.state),
-    postalCode: toNullableString(payload.postalCode ?? payload.postal_code),
-    country: toNullableString(payload.country),
-    primaryColor: toNullableString(payload.primaryColor ?? payload.primary_color),
-    accentColor: toNullableString(payload.accentColor ?? payload.accent_color),
-    introMessage: toNullableString(payload.introMessage ?? payload.intro_message),
-    description: toNullableString(payload.description ?? payload.overview),
-    isPublic: 'isPublic' in payload || 'is_public' in payload
-      ? Boolean(payload.isPublic ?? payload.is_public)
+    paymentUrl: toNullableString(record.paymentUrl ?? record.payment_url),
+    calendlyUrl: toNullableString(record.calendlyUrl ?? record.calendly_url),
+    createdAt: toNullableString(record.createdAt ?? record.created_at),
+    updatedAt: toNullableString(record.updatedAt ?? record.updated_at),
+    website: toNullableString(record.website),
+    addressLine1: toNullableString(record.addressLine1 ?? record.address_line_1),
+    addressLine2: toNullableString(record.addressLine2 ?? record.address_line_2),
+    city: toNullableString(record.city),
+    state: toNullableString(record.state),
+    postalCode: toNullableString(record.postalCode ?? record.postal_code),
+    country: toNullableString(record.country),
+    primaryColor: toNullableString(record.primaryColor ?? record.primary_color),
+    accentColor: toNullableString(record.accentColor ?? record.accent_color),
+    introMessage: toNullableString(record.introMessage ?? record.intro_message),
+    description: toNullableString(record.description ?? record.overview),
+    isPublic: 'isPublic' in record || 'is_public' in record
+      ? Boolean(record.isPublic ?? record.is_public)
       : null,
-    services: Array.isArray(payload.services)
-      ? (payload.services as Array<Record<string, unknown>>)
+    services: Array.isArray(record.services)
+      ? (record.services as Array<Record<string, unknown>>)
       : null
   };
 }
@@ -376,6 +376,15 @@ function unwrapPracticeListResponse(data: unknown): Practice[] {
     }
     if (Array.isArray(data.data)) {
       return data.data.map(normalizePracticePayload);
+    }
+    if (isRecord(data.data)) {
+      const nested = data.data as Record<string, unknown>;
+      if (Array.isArray(nested.practices)) {
+        return nested.practices.map(normalizePracticePayload);
+      }
+      if (Array.isArray(nested.items)) {
+        return nested.items.map(normalizePracticePayload);
+      }
     }
   }
 
@@ -464,9 +473,13 @@ export async function updatePractice(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
+  const normalized = normalizePracticeUpdatePayload(payload);
+  if (import.meta.env.DEV) {
+    console.info('[apiClient] updatePractice payload', { practiceId, payload: normalized });
+  }
   const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}`,
-    normalizePracticeUpdatePayload(payload),
+    normalized,
     {
     signal: config?.signal
     }
@@ -585,7 +598,9 @@ export async function createConnectedAccount(
 
   const response = await apiClient.post('/api/onboarding/connected-accounts', {
     practice_email: payload.practiceEmail,
-    practice_uuid: payload.practiceUuid
+    practice_uuid: payload.practiceUuid,
+    return_url: payload.returnUrl,
+    refresh_url: payload.refreshUrl
   });
 
   return normalizeConnectedAccountResponse(response.data);
@@ -595,16 +610,41 @@ export async function updatePracticeDetails(
   practiceId: string,
   details: PracticeDetailsUpdate,
   config?: Pick<AxiosRequestConfig, 'signal'>
-): Promise<PracticeDetailsUpdate | null> {
+): Promise<PracticeDetails | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
+  const normalized = normalizePracticeDetailsPayload(details);
+  if (import.meta.env.DEV) {
+    console.info('[apiClient] updatePracticeDetails payload', { practiceId, payload: normalized });
+  }
   const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
-    normalizePracticeDetailsPayload(details),
+    normalized,
     { signal: config?.signal }
   );
-  return extractApiData<PracticeDetailsUpdate>(response.data);
+  return normalizePracticeDetailsResponse(response.data);
+}
+
+export async function getPracticeDetails(
+  practiceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<PracticeDetails | null> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+  try {
+    const response = await apiClient.get(
+      `/api/practice/${encodeURIComponent(practiceId)}/details`,
+      { signal: config?.signal }
+    );
+    return normalizePracticeDetailsResponse(response.data);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<string, unknown> {
@@ -636,40 +676,147 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
+  const normalizeText = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
 
-  if ('website' in payload && payload.website !== undefined) normalized.website = payload.website;
-  if ('addressLine1' in payload && payload.addressLine1 !== undefined) {
-    normalized.address_line_1 = payload.addressLine1;
+  const businessEmail = normalizeText(payload.businessEmail);
+  if (businessEmail !== undefined) {
+    normalized.business_email = businessEmail;
   }
-  if ('addressLine2' in payload && payload.addressLine2 !== undefined) {
-    normalized.address_line_2 = payload.addressLine2;
+  const businessPhone = normalizeText(payload.businessPhone);
+  if (businessPhone !== undefined) {
+    normalized.business_phone = businessPhone;
   }
-  if ('city' in payload && payload.city !== undefined) normalized.city = payload.city;
-  if ('state' in payload && payload.state !== undefined) normalized.state = payload.state;
-  if ('postalCode' in payload && payload.postalCode !== undefined) {
-    normalized.postal_code = payload.postalCode;
+  if ('consultationFee' in payload && payload.consultationFee !== undefined) {
+    normalized.consultation_fee = payload.consultationFee;
   }
-  if ('country' in payload && payload.country !== undefined) normalized.country = payload.country;
+  const paymentUrl = normalizeText(payload.paymentUrl);
+  if (paymentUrl !== undefined) {
+    normalized.payment_url = paymentUrl;
+  }
+  const calendlyUrl = normalizeText(payload.calendlyUrl);
+  if (calendlyUrl !== undefined) {
+    normalized.calendly_url = calendlyUrl;
+  }
+  const website = normalizeText(payload.website);
+  if (website !== undefined) {
+    normalized.website = website;
+  }
+  const address: Record<string, unknown> = {};
+  const addressLine1 = normalizeText(payload.addressLine1);
+  if (addressLine1 !== undefined) {
+    address.line1 = addressLine1;
+  }
+  const addressLine2 = normalizeText(payload.addressLine2);
+  if (addressLine2 !== undefined) {
+    address.line2 = addressLine2;
+  }
+  const city = normalizeText(payload.city);
+  if (city !== undefined) address.city = city;
+  const state = normalizeText(payload.state);
+  if (state !== undefined) address.state = state;
+  const postalCode = normalizeText(payload.postalCode);
+  if (postalCode !== undefined) {
+    address.postal_code = postalCode;
+  }
+  const country = normalizeText(payload.country);
+  if (country !== undefined) address.country = country;
+  if (Object.keys(address).length > 0) {
+    normalized.address = address;
+  }
   if ('primaryColor' in payload && payload.primaryColor !== undefined) {
     normalized.primary_color = payload.primaryColor;
   }
   if ('accentColor' in payload && payload.accentColor !== undefined) {
     normalized.accent_color = payload.accentColor;
   }
-  if ('introMessage' in payload && payload.introMessage !== undefined) {
-    normalized.intro_message = payload.introMessage;
+  const introMessage = normalizeText(payload.introMessage);
+  if (introMessage !== undefined) {
+    normalized.intro_message = introMessage;
   }
-  if ('description' in payload && payload.description !== undefined) {
-    normalized.overview = payload.description;
+  const description = normalizeText(payload.description);
+  if (description !== undefined) {
+    normalized.overview = description;
   }
   if ('isPublic' in payload && payload.isPublic !== undefined) {
     normalized.is_public = payload.isPublic;
   }
   if ('services' in payload && payload.services !== undefined) {
-    normalized.services = payload.services;
+    if (Array.isArray(payload.services)) {
+      normalized.services = payload.services
+        .map((service) => {
+          if (!isRecord(service)) {
+            return null;
+          }
+          const id = toNullableString(service.id);
+          const name = toNullableString(service.name ?? service.title);
+          if (!id || !name) {
+            return null;
+          }
+          const description = toNullableString(service.description);
+          const next: Record<string, unknown> = { id, name };
+          if (description) {
+            next.description = description;
+          }
+          return next;
+        })
+        .filter((service): service is Record<string, unknown> => Boolean(service));
+    } else {
+      normalized.services = payload.services;
+    }
   }
 
   return normalized;
+}
+
+function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | null {
+  const normalized = unwrapApiData(payload);
+  if (!isRecord(normalized)) {
+    return null;
+  }
+  const container = (() => {
+    if ('details' in normalized && isRecord(normalized.details)) {
+      return normalized.details;
+    }
+    if ('data' in normalized && isRecord(normalized.data) && 'details' in normalized.data && isRecord(normalized.data.details)) {
+      return normalized.data.details;
+    }
+    return normalized;
+  })();
+
+  const address = isRecord(container.address) ? container.address : {};
+
+  return {
+    businessPhone: toNullableString(container.business_phone ?? container.businessPhone),
+    businessEmail: toNullableString(container.business_email ?? container.businessEmail),
+    consultationFee: typeof (container.consultation_fee ?? container.consultationFee) === 'number'
+      ? Number(container.consultation_fee ?? container.consultationFee)
+      : null,
+    paymentUrl: toNullableString(container.payment_url ?? container.paymentUrl),
+    calendlyUrl: toNullableString(container.calendly_url ?? container.calendlyUrl),
+    website: toNullableString(container.website),
+    introMessage: toNullableString(container.intro_message ?? container.introMessage),
+    description: toNullableString(container.overview ?? container.description),
+    isPublic: 'is_public' in container || 'isPublic' in container
+      ? Boolean(container.is_public ?? container.isPublic)
+      : null,
+    services: Array.isArray(container.services)
+      ? (container.services as Array<Record<string, unknown>>)
+      : null,
+    addressLine1: toNullableString(address.line1 ?? address.line_1 ?? address.address_line_1 ?? container.addressLine1),
+    addressLine2: toNullableString(address.line2 ?? address.line_2 ?? address.address_line_2 ?? container.addressLine2),
+    city: toNullableString(address.city ?? container.city),
+    state: toNullableString(address.state ?? container.state),
+    postalCode: toNullableString(address.postal_code ?? address.postalCode ?? container.postal_code),
+    country: toNullableString(address.country ?? container.country),
+    primaryColor: toNullableString(container.primary_color ?? container.primaryColor),
+    accentColor: toNullableString(container.accent_color ?? container.accentColor)
+  };
 }
 
 export async function requestBillingPortalSession(

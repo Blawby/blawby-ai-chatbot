@@ -30,7 +30,7 @@ import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { useSubscription } from '@/shared/hooks/useSubscription';
 
@@ -51,7 +51,7 @@ export const SettingsPage = ({
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
   const [apps, setApps] = useState<App[]>(mockApps);
-  const { loading: practicesLoading } = usePracticeManagement({ autoFetchPractices: true });
+  const { isPending: sessionPending } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
   const { isLoading: subscriptionLoading } = useSubscription();
   const canShowPracticeSettings = canAccessPractice;
@@ -94,13 +94,13 @@ export const SettingsPage = ({
   }, [currentPage, navigate]);
   
   useEffect(() => {
-    if (practicesLoading || subscriptionLoading) {
+    if (sessionPending || subscriptionLoading) {
       return;
     }
     if (!canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
       navigate('/settings');
     }
-  }, [canShowPracticeSettings, currentPage, navigate, practicesLoading, subscriptionLoading]);
+  }, [canShowPracticeSettings, currentPage, navigate, sessionPending, subscriptionLoading]);
 
   if (currentPage === 'organization') {
     return null;

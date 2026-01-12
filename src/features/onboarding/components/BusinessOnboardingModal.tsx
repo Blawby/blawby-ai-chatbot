@@ -10,6 +10,7 @@ import { useStepValidation } from '@/features/onboarding/hooks/useStepValidation
 import { useStepNavigation } from '@/features/onboarding/hooks/useStepNavigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { OnboardingFormData } from '@/features/onboarding/hooks/useOnboardingState';
 import type { OnboardingStep } from '@/features/onboarding/hooks/useStepValidation';
 import {
@@ -17,7 +18,6 @@ import {
   getOnboardingStatusPayload,
   getPractice,
   updatePractice,
-  updatePracticeDetails,
   type PracticeDetailsUpdate,
   type UpdatePracticeRequest
 } from '@/shared/lib/apiClient';
@@ -65,6 +65,15 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 const trimToString = (value: unknown): string | undefined =>
   typeof value === 'string' ? value.trim() : undefined;
 
+const isValidHttpUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 type NormalizableStringField =
   | 'firmName'
   | 'contactEmail'
@@ -90,7 +99,7 @@ const normalizeServices = (value: unknown): OnboardingFormData['services'] => {
       if (!isPlainObject(service)) {
         return null;
       }
-      const title = trimToString(service.title);
+      const title = trimToString(service.title ?? service.name);
       if (!title) {
         return null;
       }
@@ -194,6 +203,7 @@ const BusinessOnboardingModal = ({
   const [footerContent, setFooterContent] = useState<ComponentChildren | null>(null);
   const { session } = useSessionContext();
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const { fetchDetails, updateDetails } = usePracticeDetails(practiceId);
   const resolveApiErrorMessage = useCallback((error: unknown, fallback: string) => {
     if (isAxiosError(error)) {
       const data = error.response?.data as { message?: unknown } | undefined;
@@ -252,13 +262,12 @@ const BusinessOnboardingModal = ({
         const trimmedLogo = data.profileImage.trim();
 
         if (trimmedName !== '') practicePayload.name = trimmedName;
-        if (trimmedEmail !== '') practicePayload.businessEmail = trimmedEmail;
-        if (trimmedPhone !== undefined && trimmedPhone !== '') practicePayload.businessPhone = trimmedPhone;
         if (trimmedSlug !== undefined && trimmedSlug !== '') practicePayload.slug = trimmedSlug;
-        if (trimmedLogo !== '') practicePayload.logo = trimmedLogo;
+        if (trimmedLogo !== '' && isValidHttpUrl(trimmedLogo)) practicePayload.logo = trimmedLogo;
 
+        const shouldPersistPractice = !currentStep || currentStep === 'firm-basics';
         const shouldPersistDetails = currentStep
-          ? STEP_SEQUENCE.indexOf(currentStep) >= STEP_SEQUENCE.indexOf('business-details')
+          ? STEP_SEQUENCE.indexOf(currentStep) >= STEP_SEQUENCE.indexOf('firm-basics')
           : true;
 
         const detailsPayload: PracticeDetailsUpdate = {};
@@ -272,6 +281,8 @@ const BusinessOnboardingModal = ({
         const trimmedIntroMessage = data.introMessage.trim();
         const trimmedDescription = data.description?.trim();
 
+        if (trimmedEmail !== '') detailsPayload.businessEmail = trimmedEmail;
+        if (trimmedPhone !== undefined && trimmedPhone !== '') detailsPayload.businessPhone = trimmedPhone;
         if (trimmedWebsite) detailsPayload.website = trimmedWebsite;
         if (trimmedAddress1) detailsPayload.addressLine1 = trimmedAddress1;
         if (trimmedAddress2) detailsPayload.addressLine2 = trimmedAddress2;
@@ -281,11 +292,17 @@ const BusinessOnboardingModal = ({
         if (trimmedCountry) detailsPayload.country = trimmedCountry;
         if (trimmedIntroMessage) detailsPayload.introMessage = trimmedIntroMessage;
         if (trimmedDescription) detailsPayload.description = trimmedDescription;
+        if (data.consultationFee === null) {
+          detailsPayload.consultationFee = null;
+        } else if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
+          detailsPayload.consultationFee = data.consultationFee;
+        }
         if (Array.isArray(data.services) && data.services.length > 0) {
           const normalizedServices = data.services
-            .filter((service) => service.title.trim().length > 0)
-            .map(({ title, description }) => ({
-              title: title.trim(),
+            .filter((service) => service.id.trim().length > 0 && service.title.trim().length > 0)
+            .map(({ id, title, description }) => ({
+              id: id.trim(),
+              name: title.trim(),
               description: description.trim()
             }));
           if (normalizedServices.length > 0) {
@@ -307,22 +324,12 @@ const BusinessOnboardingModal = ({
           }
         };
 
-        if (Object.keys(practicePayload).length > 0) {
+        if (shouldPersistPractice && Object.keys(practicePayload).length > 0) {
           await runOperation('practice profile', () => updatePractice(practiceId, practicePayload));
         }
 
         if (shouldPersistDetails && Object.keys(detailsPayload).length > 0) {
-          await runOperation('business details', () => updatePracticeDetails(practiceId, detailsPayload));
-        }
-
-        if (data.consultationFee === null) {
-          await runOperation('consultation fee', () =>
-            updatePractice(practiceId, { consultationFee: null })
-          );
-        } else if (typeof data.consultationFee === 'number' && Number.isFinite(data.consultationFee)) {
-          await runOperation('consultation fee', () =>
-            updatePractice(practiceId, { consultationFee: data.consultationFee })
-          );
+          await runOperation('business details', () => updateDetails(detailsPayload));
         }
 
         try {
@@ -348,7 +355,7 @@ const BusinessOnboardingModal = ({
       }
       return saveError;
     },
-    [practiceId, organizationId, resolveApiErrorMessage, showError, showWarning]
+    [practiceId, organizationId, resolveApiErrorMessage, showError, showWarning, updateDetails]
   );
 
   // Custom hook for state management (no auto-save)
@@ -386,11 +393,17 @@ const BusinessOnboardingModal = ({
       throw new Error(message);
     }
 
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : undefined;
+    const returnUrl = currentUrl || (origin ? `${origin}/business-onboarding` : undefined);
+
     setStripeRequestPending(true);
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
-        practiceUuid: organizationId
+        practiceUuid: organizationId,
+        returnUrl,
+        refreshUrl: returnUrl
       });
 
       if (connectedAccount.onboardingUrl) {
@@ -404,7 +417,7 @@ const BusinessOnboardingModal = ({
         throw new Error(message);
       }
 
-      const message = 'Stripe hosted onboarding is not available. Please try again later.';
+      const message = 'Stripe hosted onboarding link was not provided. Please try again later.';
       showError('Stripe Setup Failed', message);
       throw new Error(message);
     } catch (error) {
@@ -438,7 +451,10 @@ const BusinessOnboardingModal = ({
     const loadSavedData = async () => {
       setIsLoadingData(true);
       try {
-        const practiceRecord = await getPractice(practiceId);
+        const [practiceRecord, detailsRecord] = await Promise.all([
+          getPractice(practiceId),
+          fetchDetails()
+        ]);
         await fetchStripeStatus();
 
         const hasValidUrlStep = currentStepFromUrl && STEP_SEQUENCE.includes(currentStepFromUrl);
@@ -467,26 +483,45 @@ const BusinessOnboardingModal = ({
             }
           }
         } else {
+          const detailsServices = Array.isArray(detailsRecord?.services)
+            ? normalizeServices(detailsRecord.services)
+            : [];
+          const practiceServices = Array.isArray(practiceRecord.services)
+            ? normalizeServices(practiceRecord.services)
+            : [];
           setFormData((prev) => ({
             ...prev,
             firmName: practiceRecord.name || prev.firmName,
-            contactEmail: practiceRecord.businessEmail ?? prev.contactEmail ?? fallbackContactEmail ?? '',
+            contactEmail: detailsRecord?.businessEmail
+              ?? practiceRecord.businessEmail
+              ?? prev.contactEmail
+              ?? fallbackContactEmail
+              ?? '',
             slug: practiceRecord.slug ?? prev.slug,
-            contactPhone: practiceRecord.businessPhone || prev.contactPhone,
-            website: practiceRecord.website ?? prev.website,
+            contactPhone: detailsRecord?.businessPhone
+              ?? practiceRecord.businessPhone
+              ?? prev.contactPhone,
+            website: detailsRecord?.website ?? practiceRecord.website ?? prev.website,
             profileImage: typeof practiceRecord.logo === 'string' ? practiceRecord.logo : prev.profileImage,
-            addressLine1: practiceRecord.addressLine1 ?? prev.addressLine1,
-            addressLine2: practiceRecord.addressLine2 ?? prev.addressLine2,
-            city: practiceRecord.city ?? prev.city,
-            state: practiceRecord.state ?? prev.state,
-            postalCode: practiceRecord.postalCode ?? prev.postalCode,
-            country: practiceRecord.country ?? prev.country,
-            introMessage: practiceRecord.introMessage ?? prev.introMessage,
-            description: practiceRecord.description ?? prev.description,
-            isPublic: typeof practiceRecord.isPublic === 'boolean' ? practiceRecord.isPublic : prev.isPublic,
-            consultationFee: practiceRecord.consultationFee === undefined
-              ? prev.consultationFee
-              : practiceRecord.consultationFee
+            addressLine1: detailsRecord?.addressLine1 ?? practiceRecord.addressLine1 ?? prev.addressLine1,
+            addressLine2: detailsRecord?.addressLine2 ?? practiceRecord.addressLine2 ?? prev.addressLine2,
+            city: detailsRecord?.city ?? practiceRecord.city ?? prev.city,
+            state: detailsRecord?.state ?? practiceRecord.state ?? prev.state,
+            postalCode: detailsRecord?.postalCode ?? practiceRecord.postalCode ?? prev.postalCode,
+            country: detailsRecord?.country ?? practiceRecord.country ?? prev.country,
+            introMessage: detailsRecord?.introMessage ?? practiceRecord.introMessage ?? prev.introMessage,
+            description: detailsRecord?.description ?? practiceRecord.description ?? prev.description,
+            isPublic: typeof detailsRecord?.isPublic === 'boolean'
+              ? detailsRecord.isPublic
+              : (typeof practiceRecord.isPublic === 'boolean' ? practiceRecord.isPublic : prev.isPublic),
+            services: detailsServices.length > 0
+              ? detailsServices
+              : (practiceServices.length > 0 ? practiceServices : prev.services),
+            consultationFee: detailsRecord && detailsRecord.consultationFee !== undefined
+              ? detailsRecord.consultationFee
+              : (practiceRecord.consultationFee === undefined
+                ? prev.consultationFee
+                : practiceRecord.consultationFee)
           }));
 
           if (localState?.status === 'completed' && !hasValidUrlStep) {
@@ -509,6 +544,7 @@ const BusinessOnboardingModal = ({
     goToStep,
     currentStepFromUrl,
     fetchStripeStatus,
+    fetchDetails,
     organizationId
   ]);
 
@@ -665,7 +701,6 @@ const BusinessOnboardingModal = ({
           practiceSlug={practiceSlug || practiceName?.toLowerCase().replace(/\s+/g, '-') || 'your-firm'}
           disabled={isLoadingData}
           stripeStatus={stripeStatus}
-          stripeClientSecret={null}
           stripeLoading={loading || stripeRequestPending}
           onFooterChange={setFooterContent}
           actionLoading={actionLoading}

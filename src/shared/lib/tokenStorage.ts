@@ -9,6 +9,7 @@ const LEGACY_TOKEN_KEYS = [
   'access_token',
   'better_auth_token',
   '__better-auth_token',
+  'sb-local.blawby.com-auth-token', // Supabase token for local dev
 ];
 
 let dbPromise: Promise<IDBDatabase> | null = null;

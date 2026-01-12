@@ -5,6 +5,8 @@
  * Integrates with existing Cloudflare Workers /api/files/upload endpoint.
  */
 
+import { getTokenAsync } from '@/shared/lib/tokenStorage';
+
 export interface UploadProgress {
   loaded: number;
   total: number;
@@ -22,7 +24,7 @@ export interface UploadResult {
 
 export interface UploadOptions {
   practiceId: string;
-  conversationId: string;
+  conversationId?: string;
   onProgress?: (progress: UploadProgress) => void;
   onSuccess?: (result: UploadResult) => void;
   onError?: (error: Error) => void;
@@ -41,6 +43,7 @@ export async function uploadWithProgress(
   options: UploadOptions
 ): Promise<UploadResult> {
   const { practiceId, conversationId, onProgress, onSuccess, onError, signal } = options;
+  const token = await getTokenAsync();
 
   return new Promise((resolve, reject) => {
     // Preflight abort check - if already aborted, don't create XHR
@@ -52,6 +55,7 @@ export async function uploadWithProgress(
     }
 
     const xhr = new XMLHttpRequest();
+    xhr.withCredentials = true;
     
     // Track last progress values for accurate final progress update
     let lastProgress: { loaded: number; total: number } | null = null;
@@ -101,6 +105,9 @@ export async function uploadWithProgress(
           const response = JSON.parse(xhr.responseText);
           
           if (response.success && response.data) {
+            const prefix = conversationId
+              ? `uploads/${practiceId}/${conversationId}`
+              : `uploads/${practiceId}`;
             const result: UploadResult = {
               fileId: response.data.fileId,
               fileName: response.data.fileName,
@@ -108,8 +115,8 @@ export async function uploadWithProgress(
               fileSize: response.data.fileSize,
               url: response.data.url,
               storageKey: response.data.storageKey || (response.data.fileExtension 
-                ? `uploads/${practiceId}/${conversationId}/${response.data.fileId}.${response.data.fileExtension}`
-                : `uploads/${practiceId}/${conversationId}/${response.data.fileId}`)
+                ? `${prefix}/${response.data.fileId}.${response.data.fileExtension}`
+                : `${prefix}/${response.data.fileId}`)
             };
 
             // Final progress update to 100%
@@ -176,10 +183,15 @@ export async function uploadWithProgress(
     const formData = new FormData();
     formData.append('file', file);
     formData.append('practiceId', practiceId);
-    formData.append('conversationId', conversationId);
+    if (conversationId) {
+      formData.append('conversationId', conversationId);
+    }
 
     // Send request to existing endpoint
     xhr.open('POST', '/api/files/upload');
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.send(formData);
   });

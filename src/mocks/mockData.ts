@@ -12,6 +12,11 @@ export interface MockPractice {
   seats?: number | null;
   config?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  businessEmail?: string | null;
+  businessPhone?: string | null;
+  consultationFee?: number | null;
+  paymentUrl?: string | null;
+  calendlyUrl?: string | null;
   website?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;

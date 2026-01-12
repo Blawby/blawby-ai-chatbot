@@ -77,11 +77,16 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
       return;
     }
 
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const payoutsUrl = origin ? `${origin}/settings/account/payouts` : undefined;
+
     setIsSubmitting(true);
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
-        practiceUuid: organizationId
+        practiceUuid: organizationId,
+        returnUrl: payoutsUrl,
+        refreshUrl: payoutsUrl
       });
 
       if (connectedAccount.onboardingUrl) {
@@ -94,7 +99,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
         return;
       }
 
-      const message = 'Stripe hosted onboarding is not available. Please try again later.';
+      const message = 'Stripe hosted onboarding link was not provided. Please try again later.';
       showError('Payouts', message);
       return;
     } catch (error) {
@@ -174,7 +179,6 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
               <StripeOnboardingStep
                 status={stripeStatus}
                 loading={isLoading}
-                clientSecret={null}
                 showIntro={false}
                 showInfoCard={false}
               />

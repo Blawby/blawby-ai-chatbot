@@ -30,7 +30,6 @@ interface OnboardingStepRendererProps {
   practiceSlug?: string;
   disabled?: boolean;
   stripeStatus?: StripeConnectStatus | null;
-  stripeClientSecret?: string | null;
   stripeLoading?: boolean;
   onFooterChange?: (footer: ComponentChildren | null) => void;
   actionLoading?: boolean;
@@ -48,7 +47,6 @@ export const OnboardingStepRenderer = ({
   practiceSlug,
   disabled = false,
   stripeStatus,
-  stripeClientSecret,
   stripeLoading = false,
   onFooterChange,
   actionLoading = false,
@@ -155,7 +153,6 @@ export const OnboardingStepRenderer = ({
         <StripeOnboardingStep
           status={stripeStatus}
           loading={stripeLoading}
-          clientSecret={stripeClientSecret}
           onActionLoadingChange={handleActionLoadingChange}
         />
       );

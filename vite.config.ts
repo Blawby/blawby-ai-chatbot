@@ -103,6 +103,7 @@ const workerEndpoints = [
 	'sessions',
 	'lawyers',
 	'files',
+	'conversations',
 	'activity',
 	'analyze',
 	'review',

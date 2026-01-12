@@ -16,6 +16,7 @@ vi.mock('@/shared/lib/authClient', () => ({
 import { render, screen, fireEvent, waitFor } from '../../../../__tests__/test-utils';
 import { PracticePage } from '../PracticePage';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 
 // Mock the practice management hook
 const mockCreatePractice = vi.fn();
@@ -85,6 +86,13 @@ const usePracticeMgmtMock = {
 
 vi.mock('@/shared/hooks/usePracticeManagement', () => ({
   usePracticeManagement: vi.fn(),
+}));
+
+const mockFetchDetails = vi.fn();
+const mockUpdateDetails = vi.fn();
+
+vi.mock('@/shared/hooks/usePracticeDetails', () => ({
+  usePracticeDetails: vi.fn(),
 }));
 
 // Mock the toast context
@@ -208,6 +216,12 @@ describe('PracticePage', () => {
     
     // Set up the mock return value
     vi.mocked(usePracticeManagement).mockReturnValue(usePracticeMgmtMock);
+    vi.mocked(usePracticeDetails).mockReturnValue({
+      details: null,
+      fetchDetails: mockFetchDetails,
+      updateDetails: mockUpdateDetails,
+      setDetails: vi.fn()
+    });
   });
 
   afterEach(() => {

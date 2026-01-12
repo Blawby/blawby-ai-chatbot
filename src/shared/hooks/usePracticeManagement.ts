@@ -6,6 +6,8 @@ import {
   createPractice as apiCreatePractice,
   updatePractice as apiUpdatePractice,
   type PracticeDetailsUpdate,
+  type PracticeDetails,
+  getPracticeDetails,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
   listPracticeInvitations,
@@ -17,6 +19,7 @@ import {
 } from '@/shared/lib/apiClient';
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { extractPracticeOnboardingMetadata } from '@/shared/utils/practiceOnboarding';
+import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -164,7 +167,7 @@ interface UsePracticeManagementReturn {
   // Practice operations
   createPractice: (data: CreatePracticeData) => Promise<Practice>;
   updatePractice: (id: string, data: UpdatePracticeData) => Promise<void>;
-  updatePracticeDetails: (id: string, details: PracticeDetailsUpdate) => Promise<void>;
+  updatePracticeDetails: (id: string, details: PracticeDetailsUpdate) => Promise<PracticeDetails | null>;
   deletePractice: (id: string) => Promise<void>;
   
   // Team management
@@ -441,6 +444,33 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   };
 }
 
+function mergePracticeDetails(practice: Practice, details: PracticeDetails | null): Practice {
+  if (!details) {
+    return practice;
+  }
+  return {
+    ...practice,
+    businessPhone: details.businessPhone,
+    businessEmail: details.businessEmail,
+    consultationFee: details.consultationFee,
+    paymentUrl: details.paymentUrl,
+    calendlyUrl: details.calendlyUrl,
+    website: details.website,
+    addressLine1: details.addressLine1,
+    addressLine2: details.addressLine2,
+    city: details.city,
+    state: details.state,
+    postalCode: details.postalCode,
+    country: details.country,
+    primaryColor: details.primaryColor,
+    accentColor: details.accentColor,
+    introMessage: details.introMessage,
+    description: details.description,
+    isPublic: details.isPublic,
+    services: details.services
+  };
+}
+
 function normalizeWorkflowStatus(value: unknown): MatterWorkflowStatus {
   const str = typeof value === 'string' ? value.toLowerCase() : '';
   switch (str) {
@@ -516,7 +546,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const [members, setMembers] = useState<Record<string, Member[]>>({});
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
-  const [loading, setLoading] = useState(false);
+  // Initialize loading to true when autoFetchPractices is enabled
+  // This ensures the UI shows a loading state during the first render before the fetch effect runs
+  const [loading, setLoading] = useState(autoFetchPractices);
   const [error, setError] = useState<string | null>(null);
   
   // Track if we've already fetched practices to prevent duplicate calls
@@ -593,6 +625,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         setLoading(false);
         practicesFetchedRef.current = false;
         resetSharedPracticeCache();
+        resetPracticeDetailsStore();
         return;
       }
 
@@ -653,8 +686,28 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           : undefined;
         const personalPractice = normalizedList.find(practice => practice.kind === 'personal');
         const currentPracticeNext = preferredPractice || personalPractice || normalizedList[0] || null;
+        let details: PracticeDetails | null = null;
+        if (currentPracticeNext) {
+          try {
+            details = await getPracticeDetails(currentPracticeNext.id, { signal: controller.signal });
+            setPracticeDetailsEntry(currentPracticeNext.id, details);
+          } catch (detailsError) {
+            console.warn('Failed to fetch practice details:', detailsError);
+          }
+        }
 
-        return { practices: normalizedList, currentPractice: currentPracticeNext };
+        const mergedPractices = details
+          ? normalizedList.map((practice) =>
+            practice.id === currentPracticeNext?.id
+              ? mergePracticeDetails(practice, details)
+              : practice
+          )
+          : normalizedList;
+        const mergedCurrentPractice = currentPracticeNext
+          ? mergePracticeDetails(currentPracticeNext, details)
+          : null;
+
+        return { practices: mergedPractices, currentPractice: mergedCurrentPractice };
       })();
       currentFetchPromise = sharedPracticePromise;
 
@@ -860,14 +913,25 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [fetchPractices, fetchInvitations, shouldFetchInvitations, practices]);
 
-  const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<void> => {
+  const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
     if (!id) {
       throw new Error('Practice id is required for details update');
     }
-    await apiUpdatePracticeDetails(id, details);
-    practicesFetchedRef.current = false;
-    await fetchPractices();
-  }, [fetchPractices]);
+    const updatedDetails = await apiUpdatePracticeDetails(id, details);
+    setPracticeDetailsEntry(id, updatedDetails);
+    if (updatedDetails) {
+      setCurrentPractice((prev) => {
+        if (!prev || prev.id !== id) return prev;
+        return mergePracticeDetails(prev, updatedDetails);
+      });
+      setPractices((prev) =>
+        prev.map((practice) =>
+          practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
+        )
+      );
+    }
+    return updatedDetails;
+  }, []);
 
   // Delete practice
   const deletePractice = useCallback(async (id: string): Promise<void> => {
@@ -1059,37 +1123,84 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
 
   // Refetch when session changes
+  // Main data fetching effect
+  // Simple pattern: When user ID changes (and we are supposed to auto-fetch), load the data.
+  // Use AbortController to handle race conditions/cancellations naturally.
   useEffect(() => {
-    if (!autoFetchPractices) {
+    // 1. Conditions to skip
+    if (!autoFetchPractices || sessionLoading || !session?.user?.id) {
+      if (!sessionLoading && !session?.user?.id && practices.length > 0) {
+        // Clear data if user logs out
+        setPractices([]);
+        setCurrentPractice(null);
+        setMembers({});
+        setInvitations([]);
+        setWorkspaceData({});
+      }
+      if (!sessionLoading && !session?.user?.id && loading) {
+         setLoading(false);
+      }
       return;
     }
-    if (!sessionLoading && session?.user?.id && !refetchTriggeredRef.current) {
-      refetchTriggeredRef.current = true;
-      fetchPractices();
-    }
-  }, [autoFetchPractices, session?.user?.id, sessionLoading, fetchPractices]);
 
-  // Clear fetched flag and abort in-flight requests when session changes
-  useEffect(() => {
-    // Abort any in-flight request from the previous session
-    if (currentRequestRef.current) {
-      currentRequestRef.current.abort();
-      currentRequestRef.current = null;
-    }
-    
-    // Reset the fetched flag and refetch trigger
-    practicesFetchedRef.current = false;
-    refetchTriggeredRef.current = false;
+    // 2. Setup cancellation
+    const controller = new AbortController();
+    currentRequestRef.current = controller;
 
-    const userId = session?.user?.id ?? null;
-    if (sharedPracticePromise && userId) {
-      return;
-    }
-    if (sharedPracticeUserId && userId && sharedPracticeUserId === userId) {
-      return;
-    }
-    resetSharedPracticeCache();
-  }, [session?.user?.id]);
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Check shared cache first to avoid network call
+        if (sharedPracticeSnapshot && sharedPracticeUserId === session.user.id) {
+          setPractices(sharedPracticeSnapshot.practices);
+          setCurrentPractice(sharedPracticeSnapshot.currentPractice);
+          setLoading(false);
+          return;
+        }
+
+        const list = await listPractices({ signal: controller.signal, scope: 'all' });
+        
+        // Normalize
+        const normalizedList = list
+          .filter((item): item is Practice => typeof item === 'object' && item !== null)
+          .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>));
+        
+        // Update state (only if not aborted)
+        if (!controller.signal.aborted) {
+          setPractices(normalizedList);
+          
+          // Determine active practice
+          const active = normalizedList[0] || null;
+          setCurrentPractice(active);
+          
+          // Update shared cache
+          sharedPracticeSnapshot = { practices: normalizedList, currentPractice: active };
+          sharedPracticeUserId = session.user.id;
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          // Ignore abort errors
+          if (err instanceof Error && err.name === 'AbortError') return;
+          
+          console.error('Failed to load practices:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load practices');
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+
+    // 3. Cleanup: Abort in-flight request if dependencies change/unmount
+    return () => {
+      controller.abort();
+    };
+  }, [autoFetchPractices, session?.user?.id, sessionLoading]);
 
   return {
     practices,

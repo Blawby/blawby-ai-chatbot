@@ -21,6 +21,35 @@ function notFound(message: string) {
   return HttpResponse.json({ success: false, error: message }, { status: 404 });
 }
 
+function normalizeNullableString(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  return typeof value === 'string' ? value : undefined;
+}
+
+function buildPracticeDetails(practice: MockPractice) {
+  return {
+    business_phone: practice.businessPhone ?? null,
+    business_email: practice.businessEmail ?? null,
+    consultation_fee: typeof practice.consultationFee === 'number' ? practice.consultationFee : null,
+    payment_url: practice.paymentUrl ?? null,
+    calendly_url: practice.calendlyUrl ?? null,
+    website: practice.website ?? null,
+    intro_message: practice.introMessage ?? null,
+    overview: practice.description ?? null,
+    is_public: typeof practice.isPublic === 'boolean' ? practice.isPublic : null,
+    services: practice.services ?? null,
+    address: {
+      line1: practice.addressLine1 ?? null,
+      line2: practice.addressLine2 ?? null,
+      city: practice.city ?? null,
+      state: practice.state ?? null,
+      postal_code: practice.postalCode ?? null,
+      country: practice.country ?? null
+    }
+  };
+}
+
 function getOrCreateConversation(request: StrictRequest<DefaultBodyType>): { conversation: MockConversation } | { error: HttpResponse<unknown> } {
   const url = new URL(request.url);
   const practiceId = url.searchParams.get('practiceId');
@@ -126,6 +155,15 @@ export const handlers = [
     }
     return HttpResponse.json({ practice });
   }),
+
+  http.get('/api/practice/:practiceId/details', ({ params }) => {
+    const practice = findPractice(String(params.practiceId));
+    if (!practice) {
+      return notFound('Practice not found');
+    }
+    return HttpResponse.json({ details: buildPracticeDetails(practice) });
+  }),
+
 
   http.put('/api/practice/:practiceId', async ({ params, request }) => {
     const practice = findPractice(String(params.practiceId));
@@ -291,14 +329,72 @@ export const handlers = [
       return notFound('Practice not found');
     }
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const next = { ...practice, ...body };
+    const next: MockPractice = { ...practice };
+    const businessEmail = normalizeNullableString(body.business_email ?? body.businessEmail);
+    if (businessEmail !== undefined) {
+      next.businessEmail = businessEmail;
+    }
+    const businessPhone = normalizeNullableString(body.business_phone ?? body.businessPhone);
+    if (businessPhone !== undefined) {
+      next.businessPhone = businessPhone;
+    }
+    if ('consultation_fee' in body || 'consultationFee' in body) {
+      const fee = body.consultation_fee ?? body.consultationFee;
+      next.consultationFee = typeof fee === 'number' ? fee : (fee === null ? null : next.consultationFee);
+    }
+    const paymentUrl = normalizeNullableString(body.payment_url ?? body.paymentUrl);
+    if (paymentUrl !== undefined) {
+      next.paymentUrl = paymentUrl;
+    }
+    const calendlyUrl = normalizeNullableString(body.calendly_url ?? body.calendlyUrl);
+    if (calendlyUrl !== undefined) {
+      next.calendlyUrl = calendlyUrl;
+    }
+    const website = normalizeNullableString(body.website);
+    if (website !== undefined) {
+      next.website = website;
+    }
+    const introMessage = normalizeNullableString(body.intro_message ?? body.introMessage);
+    if (introMessage !== undefined) {
+      next.introMessage = introMessage;
+    }
+    if ('overview' in body || 'description' in body) {
+      const overview = normalizeNullableString(body.overview ?? body.description);
+      if (overview !== undefined) {
+        next.description = overview;
+      }
+    }
+    if ('is_public' in body || 'isPublic' in body) {
+      const isPublic = body.is_public ?? body.isPublic;
+      if (typeof isPublic === 'boolean' || isPublic === null) {
+        next.isPublic = isPublic as boolean | null;
+      }
+    }
+    if ('services' in body) {
+      next.services = Array.isArray(body.services) ? body.services as Array<Record<string, unknown>> : next.services;
+    }
+    const address = (body.address && typeof body.address === 'object') ? body.address as Record<string, unknown> : null;
+    if (address) {
+      const line1 = normalizeNullableString(address.line1 ?? address.line_1 ?? address.address_line_1);
+      if (line1 !== undefined) next.addressLine1 = line1;
+      const line2 = normalizeNullableString(address.line2 ?? address.line_2 ?? address.address_line_2);
+      if (line2 !== undefined) next.addressLine2 = line2;
+      const city = normalizeNullableString(address.city);
+      if (city !== undefined) next.city = city;
+      const state = normalizeNullableString(address.state);
+      if (state !== undefined) next.state = state;
+      const postal = normalizeNullableString(address.postal_code ?? address.postalCode);
+      if (postal !== undefined) next.postalCode = postal;
+      const country = normalizeNullableString(address.country);
+      if (country !== undefined) next.country = country;
+    }
     const index = mockDb.practices.findIndex((item) => item.id === practice.id);
     if (index >= 0) {
       mockDb.practices[index] = next;
     } else {
       return HttpResponse.json({ error: 'Practice not found' }, { status: 404 });
     }
-    return HttpResponse.json({ data: next });
+    return HttpResponse.json({ details: buildPracticeDetails(next) });
   }),
 
   http.get('/api/onboarding/organization/:organizationId/status', ({ params }) => {

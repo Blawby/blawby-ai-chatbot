@@ -5,7 +5,6 @@ import type { StripeConnectStatus } from '../types';
 interface StripeOnboardingStepProps {
   status?: StripeConnectStatus | null;
   loading?: boolean;
-  clientSecret?: string | null;
   onActionLoadingChange?: (loading: boolean) => void;
   showIntro?: boolean;
   showInfoCard?: boolean;
@@ -15,7 +14,6 @@ interface StripeOnboardingStepProps {
 export function StripeOnboardingStep({
   status,
   loading = false,
-  clientSecret: _clientSecret,
   onActionLoadingChange,
   showIntro = true,
   showInfoCard = true,
