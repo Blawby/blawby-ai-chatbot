@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'preact/hooks';
 import { isAxiosError } from 'axios';
 import type { ComponentChildren } from 'preact';
 import Modal from '@/shared/components/Modal';
@@ -18,6 +18,7 @@ import {
   getOnboardingStatusPayload,
   getPractice,
   updatePractice,
+  type Practice,
   type PracticeDetailsUpdate,
   type UpdatePracticeRequest
 } from '@/shared/lib/apiClient';
@@ -73,6 +74,15 @@ const isValidHttpUrl = (value: string): boolean => {
   } catch {
     return false;
   }
+};
+
+const toAbsoluteHttpUrl = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (typeof window !== 'undefined' && trimmed.startsWith('/')) {
+    return new URL(trimmed, window.location.origin).toString();
+  }
+  return isValidHttpUrl(trimmed) ? trimmed : null;
 };
 
 type NormalizableStringField =
@@ -175,6 +185,7 @@ const extractResumeStepFromMeta = (meta: unknown): OnboardingStep | undefined =>
 interface BusinessOnboardingModalProps {
   isOpen: boolean;
   practiceId: string;
+  practice?: Practice | null;
   practiceName?: string;
   practiceSlug?: string;
   fallbackContactEmail?: string | undefined;
@@ -187,6 +198,7 @@ interface BusinessOnboardingModalProps {
 const BusinessOnboardingModal = ({
   isOpen,
   practiceId,
+  practice,
   practiceName,
   practiceSlug,
   fallbackContactEmail,
@@ -207,7 +219,7 @@ const BusinessOnboardingModal = ({
   const [logoUploading, setLogoUploading] = useState(false);
   const { session } = useSessionContext();
   const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
-  const { fetchDetails, updateDetails } = usePracticeDetails(practiceId);
+  const { details, fetchDetails, updateDetails } = usePracticeDetails(practiceId);
   const resolveApiErrorMessage = useCallback((error: unknown, fallback: string) => {
     if (isAxiosError(error)) {
       const data = error.response?.data as { message?: unknown } | undefined;
@@ -264,10 +276,11 @@ const BusinessOnboardingModal = ({
         const trimmedPhone = data.contactPhone?.trim();
         const trimmedSlug = data.slug?.trim();
         const trimmedLogo = data.profileImage.trim();
+        const resolvedLogo = toAbsoluteHttpUrl(trimmedLogo);
 
         if (trimmedName !== '') practicePayload.name = trimmedName;
         if (trimmedSlug !== undefined && trimmedSlug !== '') practicePayload.slug = trimmedSlug;
-        if (trimmedLogo !== '' && isValidHttpUrl(trimmedLogo)) practicePayload.logo = trimmedLogo;
+        if (resolvedLogo) practicePayload.logo = resolvedLogo;
 
         const shouldPersistPractice = !currentStep || currentStep === 'firm-basics';
         const shouldPersistDetails = currentStep
@@ -480,15 +493,19 @@ const BusinessOnboardingModal = ({
   }, [currentStepFromUrl, goToStep]);
 
   // Load saved data on mount
+  const initializedIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isOpen || !practiceId) return;
+    if (initializedIdRef.current === practiceId) return;
 
     const loadSavedData = async () => {
+      // Mark as initialized immediately to prevent double-fire
+      initializedIdRef.current = practiceId;
       setIsLoadingData(true);
       try {
         const [practiceRecord, detailsRecord] = await Promise.all([
-          getPractice(practiceId),
-          fetchDetails()
+          practice ? Promise.resolve(practice) : getPractice(practiceId),
+          details ? Promise.resolve(details) : fetchDetails()
         ]);
         await fetchStripeStatus();
 
@@ -574,6 +591,8 @@ const BusinessOnboardingModal = ({
   }, [
     isOpen,
     practiceId,
+    practice,
+    details,
     fallbackContactEmail,
     setFormData,
     goToStep,

@@ -64,8 +64,8 @@ export interface Practice {
   description?: string;
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
-  consultationFee?: number | null;
-  paymentUrl?: string | null;
+  consultationFee: number | null;
+  paymentUrl: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
   subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'unpaid' | 'paused';
@@ -85,9 +85,9 @@ export interface Practice {
   // Additional fields from apiClient
   logo?: string | null;
   metadata?: Record<string, unknown> | null;
-  businessPhone?: string | null;
-  businessEmail?: string | null;
-  calendlyUrl?: string | null;
+  businessPhone: string | null;
+  businessEmail: string | null;
+  calendlyUrl: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   website?: string | null;
@@ -416,7 +416,10 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
       const val = raw.paymentUrl ?? raw.payment_url ?? null;
       return typeof val === 'string' && val.trim().length > 0 ? val : null;
     })(),
-  subscriptionTier: normalizedTier,
+    businessPhone: getDetailString('businessPhone', 'business_phone') ?? null,
+    businessEmail: getDetailString('businessEmail', 'business_email') ?? null,
+    calendlyUrl: getDetailString('calendlyUrl', 'calendly_url') ?? null,
+    subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
     subscriptionPeriodEnd,
@@ -448,26 +451,34 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   if (!details) {
     return practice;
   }
+  const patch: Partial<Practice> = {};
+  const setIfDefined = <K extends keyof Practice>(key: K, value: Practice[K] | undefined) => {
+    if (value !== undefined) {
+      patch[key] = value;
+    }
+  };
+
+  setIfDefined('businessPhone', details.businessPhone as Practice['businessPhone'] | undefined);
+  setIfDefined('businessEmail', details.businessEmail as Practice['businessEmail'] | undefined);
+  setIfDefined('consultationFee', details.consultationFee as Practice['consultationFee'] | undefined);
+  setIfDefined('paymentUrl', details.paymentUrl as Practice['paymentUrl'] | undefined);
+  setIfDefined('calendlyUrl', details.calendlyUrl as Practice['calendlyUrl'] | undefined);
+  setIfDefined('website', details.website as Practice['website'] | undefined);
+  setIfDefined('addressLine1', details.addressLine1 as Practice['addressLine1'] | undefined);
+  setIfDefined('addressLine2', details.addressLine2 as Practice['addressLine2'] | undefined);
+  setIfDefined('city', details.city as Practice['city'] | undefined);
+  setIfDefined('state', details.state as Practice['state'] | undefined);
+  setIfDefined('postalCode', details.postalCode as Practice['postalCode'] | undefined);
+  setIfDefined('country', details.country as Practice['country'] | undefined);
+  setIfDefined('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined);
+  setIfDefined('accentColor', details.accentColor as Practice['accentColor'] | undefined);
+  setIfDefined('introMessage', details.introMessage as Practice['introMessage'] | undefined);
+  setIfDefined('description', details.description as Practice['description'] | undefined);
+  setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
+  setIfDefined('services', details.services as Practice['services'] | undefined);
   return {
     ...practice,
-    businessPhone: details.businessPhone,
-    businessEmail: details.businessEmail,
-    consultationFee: details.consultationFee,
-    paymentUrl: details.paymentUrl,
-    calendlyUrl: details.calendlyUrl,
-    website: details.website,
-    addressLine1: details.addressLine1,
-    addressLine2: details.addressLine2,
-    city: details.city,
-    state: details.state,
-    postalCode: details.postalCode,
-    country: details.country,
-    primaryColor: details.primaryColor,
-    accentColor: details.accentColor,
-    introMessage: details.introMessage,
-    description: details.description,
-    isPublic: details.isPublic,
-    services: details.services
+    ...patch
   };
 }
 
@@ -1135,146 +1146,28 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
 
   // Refetch when session changes
-  // Main data fetching effect
-  // Simple pattern: When user ID changes (and we are supposed to auto-fetch), load the data.
-  // Use AbortController to handle race conditions/cancellations naturally.
-  // Main data fetching effect
   useEffect(() => {
-    // 1. Conditions to skip
-    if (!autoFetchPractices || sessionLoading || !session?.user?.id) {
-      if (!sessionLoading && !session?.user?.id && practices.length > 0) {
-        // Clear data if user logs out
-        setPractices([]);
-        setCurrentPractice(null);
-        setMembers({});
-        setInvitations([]);
-        setWorkspaceData({});
-      }
-      if (!sessionLoading && !session?.user?.id && loading) {
-         setLoading(false);
-      }
+    if (!autoFetchPractices || sessionLoading) {
       return;
     }
 
-    // 2. Setup cancellation
-    const controller = new AbortController();
-    currentRequestRef.current = controller;
-
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // 1. Check shared cache first (Synchronous fast-path)
-        if (sharedPracticeSnapshot && sharedPracticeUserId === session.user.id) {
-          setPractices(sharedPracticeSnapshot.practices);
-          setCurrentPractice(sharedPracticeSnapshot.currentPractice);
-          practicesFetchedRef.current = true;
-          // Still fetch invitations if needed since they are not in shared snapshot
-          if (shouldFetchInvitations) {
-            fetchInvitations();
-          }
-          return;
-        }
-
-        // 2. Check for in-flight promise (Async deduplication)
-        if (sharedPracticePromise && sharedPracticeUserId === session.user.id) {
-            const result = await sharedPracticePromise;
-            if (!controller.signal.aborted) {
-                setPractices(result.practices);
-                setCurrentPractice(result.currentPractice);
-                practicesFetchedRef.current = true;
-                if (shouldFetchInvitations) {
-                    fetchInvitations();
-                }
-            }
-            return;
-        }
-
-        // 3. Initiate new fetch (Shared)
-        // Note: We intentionally DO NOT pass the abort signal to the shared Fetch
-        // so that the request survives component unmounting (preventing race conditions)
-        const fetchTask = (async () => {
-            const list = await listPractices({ scope: 'all' });
-            
-            // Normalize
-            const normalizedList = list
-                .filter((item): item is Practice => typeof item === 'object' && item !== null)
-                .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>));
-
-            // Determine active practice priority
-            const preferredPracticeId =
-                session?.user?.preferredPracticeId ??
-                session?.user?.practiceId ??
-                session?.user?.activePracticeId ??
-                null;
-            
-            const preferredPractice = preferredPracticeId
-                ? normalizedList.find(p => p.id === preferredPracticeId)
-                : undefined;
-            const personalPractice = normalizedList.find(p => p.kind === 'personal');
-            const active = preferredPractice || personalPractice || normalizedList[0] || null;
-
-            // Fetch details for active practice
-            let mergedActive = active;
-            if (active) {
-                try {
-                    const details = await getPracticeDetails(active.id); // No signal
-                    setPracticeDetailsEntry(active.id, details);
-                    mergedActive = { ...active, ...details };
-                } catch (detailsError) {
-                    console.warn('Failed to fetch practice details:', detailsError);
-                }
-            }
-            
-            const finalPractices = normalizedList.map(p => p.id === mergedActive?.id ? mergedActive! : p);
-            return { practices: finalPractices, currentPractice: mergedActive };
-        })();
-
-        // Assign shared promise
-        sharedPracticePromise = fetchTask;
-        sharedPracticeUserId = session.user.id;
-        
-        try {
-            const result = await fetchTask;
-            // Update cache
-            sharedPracticeSnapshot = result;
-
-            if (!controller.signal.aborted) {
-                setPractices(result.practices);
-                setCurrentPractice(result.currentPractice);
-                practicesFetchedRef.current = true;
-                if (shouldFetchInvitations) {
-                    fetchInvitations();
-                }
-            }
-        } catch (taskErr) {
-            sharedPracticePromise = null; // Clear on error
-            throw taskErr;
-        }
-
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          // Ignore abort errors and axios cancellations
-          if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) return;
-          
-          console.error('Failed to load practices:', err);
-          setError(err instanceof Error ? err.message : 'Failed to load practices');
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+    void fetchPractices().then(() => {
+      if (shouldFetchInvitations) {
+        void fetchInvitations();
       }
-    };
+    });
 
-    load();
-
-    // 3. Cleanup: Abort in-flight request if dependencies change/unmount
     return () => {
-      controller.abort();
+      currentRequestRef.current?.abort();
     };
-  }, [autoFetchPractices, session?.user?.id, sessionLoading, shouldFetchInvitations]);
+  }, [
+    autoFetchPractices,
+    sessionLoading,
+    session?.user?.id,
+    fetchPractices,
+    fetchInvitations,
+    shouldFetchInvitations
+  ]);
 
   return {
     practices,

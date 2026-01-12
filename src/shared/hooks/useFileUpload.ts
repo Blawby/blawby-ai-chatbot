@@ -52,16 +52,21 @@ async function _uploadFileToBackend(file: File, practiceId: string, conversation
     formData.append('practiceId', practiceId);
     formData.append('conversationId', conversationId);
 
-    const token = await getTokenAsync();
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
+    let token: string | null | undefined;
+    try {
+      token = await getTokenAsync();
+    } catch {
+      // Allow cookie-based auth to proceed if token storage is unavailable.
+      token = null;
     }
+
+    const headers: Record<string, string> | undefined =
+      token ? { Authorization: `Bearer ${token}` } : undefined;
 
     const response = await fetch(getWorkerRequestUrl('/api/files/upload'), {
       method: 'POST',
       body: formData,
-      headers,
+      ...(headers ? { headers } : {}),
       signal,
       credentials: 'include'
     });

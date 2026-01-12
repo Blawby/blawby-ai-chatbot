@@ -121,6 +121,11 @@ export const handlers = [
       subscriptionStatus: 'trialing',
       subscriptionTier: 'business',
       seats: 1,
+      businessEmail: typeof body.business_email === 'string' ? body.business_email : null,
+      businessPhone: null,
+      consultationFee: null,
+      paymentUrl: null,
+      calendlyUrl: null,
       config: {
         ownerEmail: body.business_email ?? 'owner@example.com',
         metadata: {
@@ -371,22 +376,38 @@ export const handlers = [
       }
     }
     if ('services' in body) {
-      next.services = Array.isArray(body.services) ? body.services as Array<Record<string, unknown>> : next.services;
+      const services = body.services;
+      if (services === null) {
+        next.services = null;
+      } else if (Array.isArray(services)) {
+        next.services = services as Array<Record<string, unknown>>;
+      }
     }
-    const address = (body.address && typeof body.address === 'object') ? body.address as Record<string, unknown> : null;
-    if (address) {
-      const line1 = normalizeNullableString(address.line1 ?? address.line_1 ?? address.address_line_1);
-      if (line1 !== undefined) next.addressLine1 = line1;
-      const line2 = normalizeNullableString(address.line2 ?? address.line_2 ?? address.address_line_2);
-      if (line2 !== undefined) next.addressLine2 = line2;
-      const city = normalizeNullableString(address.city);
-      if (city !== undefined) next.city = city;
-      const state = normalizeNullableString(address.state);
-      if (state !== undefined) next.state = state;
-      const postal = normalizeNullableString(address.postal_code ?? address.postalCode);
-      if (postal !== undefined) next.postalCode = postal;
-      const country = normalizeNullableString(address.country);
-      if (country !== undefined) next.country = country;
+
+    if ('address' in body) {
+      const rawAddress = body.address;
+      if (rawAddress === null) {
+        next.addressLine1 = null;
+        next.addressLine2 = null;
+        next.city = null;
+        next.state = null;
+        next.postalCode = null;
+        next.country = null;
+      } else if (rawAddress && typeof rawAddress === 'object' && !Array.isArray(rawAddress)) {
+        const address = rawAddress as Record<string, unknown>;
+        const line1 = normalizeNullableString(address.line1 ?? address.line_1 ?? address.address_line_1);
+        if (line1 !== undefined) next.addressLine1 = line1;
+        const line2 = normalizeNullableString(address.line2 ?? address.line_2 ?? address.address_line_2);
+        if (line2 !== undefined) next.addressLine2 = line2;
+        const city = normalizeNullableString(address.city);
+        if (city !== undefined) next.city = city;
+        const state = normalizeNullableString(address.state);
+        if (state !== undefined) next.state = state;
+        const postal = normalizeNullableString(address.postal_code ?? address.postalCode);
+        if (postal !== undefined) next.postalCode = postal;
+        const country = normalizeNullableString(address.country);
+        if (country !== undefined) next.country = country;
+      }
     }
     const index = mockDb.practices.findIndex((item) => item.id === practice.id);
     if (index >= 0) {

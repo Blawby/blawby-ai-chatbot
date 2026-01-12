@@ -389,6 +389,7 @@ export const BusinessOnboardingPage = () => {
       )}
       <BusinessOnboardingModal
         isOpen={isOpen}
+        practice={targetPractice}
         practiceId={targetPracticeId}
         practiceName={targetPractice?.name}
         practiceSlug={targetPractice?.slug}

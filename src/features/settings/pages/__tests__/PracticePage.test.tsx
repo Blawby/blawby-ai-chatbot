@@ -57,6 +57,11 @@ const usePracticeMgmtMock = {
     id: 'practice-1',
     name: 'Test Practice',
     slug: 'test-practice',
+    consultationFee: null,
+    paymentUrl: null,
+    businessPhone: null,
+    businessEmail: null,
+    calendlyUrl: null,
   },
   getMembers: mockGetMembers,
   invitations: [],
@@ -184,6 +189,11 @@ describe('PracticePage', () => {
       id: 'practice-1',
       name: 'Test Practice',
       slug: 'test-practice',
+      consultationFee: null,
+      paymentUrl: null,
+      businessPhone: null,
+      businessEmail: null,
+      calendlyUrl: null,
     };
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
@@ -231,6 +241,11 @@ describe('PracticePage', () => {
       id: 'practice-1',
       name: 'Test Practice',
       slug: 'test-practice',
+      consultationFee: null,
+      paymentUrl: null,
+      businessPhone: null,
+      businessEmail: null,
+      calendlyUrl: null,
     };
   });
 
@@ -561,6 +576,11 @@ describe('PracticePage', () => {
       id: 'practice-1',
       name: 'Test Practice',
       slug: 'test-practice',
+      consultationFee: null,
+      paymentUrl: null,
+      businessPhone: null,
+      businessEmail: null,
+      calendlyUrl: null,
     };
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];

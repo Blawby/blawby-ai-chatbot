@@ -77,8 +77,11 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
       return;
     }
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const payoutsUrl = origin ? `${origin}/settings/account/payouts` : undefined;
+    if (typeof window === 'undefined') {
+      showError('Payouts', 'Unable to start Stripe onboarding in this environment.');
+      return;
+    }
+    const payoutsUrl = `${window.location.origin}${window.location.pathname}`;
 
     setIsSubmitting(true);
     try {

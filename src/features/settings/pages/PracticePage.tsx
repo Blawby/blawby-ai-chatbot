@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
+import { useState, useMemo, useCallback } from 'preact/hooks';
 import {
   ChevronRightIcon,
   GlobeAltIcon,
@@ -23,8 +23,14 @@ import { StackedAvatars } from '@/shared/ui/profile';
 import { PracticeContactFields } from '@/shared/ui/practice/PracticeContactFields';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import type { PracticeDetails } from '@/shared/lib/apiClient';
+import type { PracticeDetails, PracticeDetailsUpdate } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
+import {
+  useLeadQueueAutoLoad,
+  usePracticeMembersSync,
+  usePracticeSyncParamRefetch,
+  type EditPracticeFormState
+} from '@/features/settings/hooks/usePracticePageEffects';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -155,11 +161,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const currentUserEmail = session?.user?.email || '';
   
   // Form states
-  const [editPracticeForm, setEditPracticeForm] = useState({
+  const [editPracticeForm, setEditPracticeForm] = useState<EditPracticeFormState>({
     name: '',
     slug: '',
     businessEmail: '',
-    consultationFee: undefined as number | undefined,
+    consultationFee: undefined,
     logo: ''
   });
   
@@ -322,9 +328,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     }
   }, [practice?.id, canReviewLeads]);
 
-  useEffect(() => {
-    void loadLeadQueue();
-  }, [loadLeadQueue]);
+  useLeadQueueAutoLoad(loadLeadQueue);
 
   const openDecisionModal = (lead: LeadSummary, action: 'accept' | 'reject') => {
     setDecisionLead(lead);
@@ -385,62 +389,20 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   // Initialize form with current practice data
   // Note: usePracticeManagement already fetches practice details during initialization,
   // so we only need to fetch members here. Details are available via practiceDetailsStore.
-  useEffect(() => {
-    if (practice) {
-      setEditPracticeForm({
-        name: practice.name,
-        slug: practice.slug || '',
-        businessEmail: practice.businessEmail || '',
-        consultationFee: typeof practice.consultationFee === 'number'
-          ? practice.consultationFee
-          : undefined,
-        logo: practice.logo || ''
-      });
-      
-      // Fetch members only - practice details are already loaded by usePracticeManagement
-      const fetchMembersData = async () => {
-        try {
-          await fetchMembers(practice.id);
-        } catch (err) {
-          showError(err?.message || String(err) || 'Failed to fetch practice members');
-        }
-      };
-
-      fetchMembersData();
-    }
-  }, [practice, fetchMembers, showError]);
+  usePracticeMembersSync({
+    practice,
+    setEditPracticeForm,
+    fetchMembers,
+    showError
+  });
 
   // Refetch after return from portal
-  useEffect(() => {
-    const syncParam = (() => {
-      const q = (location as unknown as { query?: Record<string, unknown> } | undefined)?.query;
-      if (q && typeof q === 'object' && 'sync' in q) {
-        const v = (q as Record<string, unknown>)['sync'] as unknown;
-        const val = Array.isArray(v) ? v[0] : (v as string | undefined);
-        return val;
-      }
-      if (typeof window !== 'undefined') {
-        return new URLSearchParams(window.location.search).get('sync') ?? undefined;
-      }
-      return undefined;
-    })();
-    if (String(syncParam) === '1' && practice?.id) {
-      refetch()
-        .then(() => {
-          showSuccess('Subscription updated', 'Your subscription status has been refreshed.');
-        })
-        .catch((error) => {
-          console.error('Failed to refresh subscription:', error);
-          // Don't show error toast - refetch failure is not critical
-        })
-        .finally(() => {
-          // Remove sync param to prevent re-trigger (URL hygiene)
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('sync');
-          window.history.replaceState({}, '', newUrl.toString());
-        });
-    }
-  }, [location, practice?.id, refetch, showSuccess]);
+  usePracticeSyncParamRefetch({
+    location,
+    practiceId: practice?.id ?? null,
+    refetch,
+    showSuccess
+  });
 
   const handleCreatePractice = async () => {
     if (!createForm.name.trim()) {
@@ -559,7 +521,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       }
 
       try {
-        const detailsPayload: PracticeDetails = {};
+        const detailsPayload: PracticeDetailsUpdate = {};
         const trimmedEmail = editPracticeForm.businessEmail.trim();
         if (trimmedEmail) {
           detailsPayload.businessEmail = trimmedEmail;
@@ -703,7 +665,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const handleDeletePractice = async () => {
     if (!practice) return;
     
-    if (deleteConfirmText !== practice.name) {
+    if (deleteConfirmText.trim() !== practice.name) {
       showError('Practice name must match exactly');
       return;
     }
@@ -1251,7 +1213,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             >
               Cancel
             </Button>
-            <Button onClick={handleUpdatePractice} disabled={isSettingsSaving}>
+            <Button onClick={handleUpdatePractice} disabled={isSettingsSaving || logoUploading}>
               Save Changes
             </Button>
           </div>
@@ -1424,7 +1386,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <Button 
               variant="ghost"
               onClick={handleDeletePractice}
-              disabled={deleteConfirmText !== practice?.name}
+              disabled={deleteConfirmText.trim() !== practice?.name}
               className="text-red-600 hover:text-red-700"
             >
               Delete Practice

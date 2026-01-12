@@ -147,28 +147,10 @@ const normalizeOrigin = (value: string | null | undefined): string | null => {
 };
 
 const resolvePublicOrigin = (request: Request, env: Env): string => {
-  const explicitOrigin = normalizeOrigin(env.CLOUDFLARE_PUBLIC_URL)
-    ?? normalizeOrigin(env.DOMAIN)
-    ?? normalizeOrigin(env.BETTER_AUTH_URL);
+  const explicitOrigin = normalizeOrigin(env.CLOUDFLARE_PUBLIC_URL);
 
   if (explicitOrigin) {
     return explicitOrigin;
-  }
-
-  const originHeader = normalizeOrigin(request.headers.get('Origin'));
-  if (originHeader) {
-    return originHeader;
-  }
-
-  const refererHeader = normalizeOrigin(request.headers.get('Referer'));
-  if (refererHeader) {
-    return refererHeader;
-  }
-
-  const forwardedHost = request.headers.get('X-Forwarded-Host');
-  if (forwardedHost) {
-    const proto = request.headers.get('X-Forwarded-Proto') || 'https';
-    return `${proto}://${forwardedHost}`;
   }
 
   return new URL(request.url).origin;

@@ -37,7 +37,9 @@ export const getWorkerRequestUrl = (path: string): string => {
   try {
     const resolved = new URL(path, baseUrl);
     if (typeof window !== 'undefined' && window.location.protocol === 'https:' && resolved.protocol === 'http:') {
-      return path;
+      console.warn('[UploadTransport] Worker API is HTTP on an HTTPS page; upgrading to HTTPS:', baseUrl);
+      resolved.protocol = 'https:';
+      return resolved.toString();
     }
     return resolved.toString();
   } catch {

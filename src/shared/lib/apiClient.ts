@@ -85,11 +85,11 @@ export interface Practice {
   slug: string;
   logo?: string | null;
   metadata?: PracticeMetadata;
-  businessPhone?: string | null;
-  businessEmail?: string | null;
-  consultationFee?: number | null;
-  paymentUrl?: string | null;
-  calendlyUrl?: string | null;
+  businessPhone: string | null;
+  businessEmail: string | null;
+  consultationFee: number | null; // USD dollars.
+  paymentUrl: string | null;
+  calendlyUrl: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   website?: string | null;
@@ -134,8 +134,8 @@ export interface CreatePracticeRequest {
   metadata?: PracticeMetadata;
   businessPhone?: string;
   businessEmail?: string;
-  consultationFee?: number | null;
-  paymentUrl?: string | null;
+  consultationFee?: number;
+  paymentUrl?: string;
   calendlyUrl?: string;
 }
 
@@ -162,7 +162,26 @@ export interface PracticeDetailsUpdate {
   services?: Array<Record<string, unknown>> | null;
 }
 
-export type PracticeDetails = PracticeDetailsUpdate;
+export interface PracticeDetails {
+  businessPhone?: string | null;
+  businessEmail?: string | null;
+  consultationFee?: number | null;
+  paymentUrl?: string | null;
+  calendlyUrl?: string | null;
+  website?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  introMessage?: string | null;
+  description?: string | null;
+  isPublic?: boolean | null;
+  services?: Array<Record<string, unknown>> | null;
+}
 
 export interface ConnectedAccountRequest {
   practiceEmail: string;
@@ -676,55 +695,39 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
-  const normalizeText = (value: unknown): string | undefined => {
-    if (typeof value !== 'string') {
-      return undefined;
-    }
+  const normalizeTextOrNull = (value: unknown): string | null | undefined => {
+    if (value === undefined) return undefined; // Not provided
+    if (value === null) return null; // Explicit clear
+    if (typeof value !== 'string') return undefined;
     const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
+    return trimmed.length > 0 ? trimmed : null;
   };
 
-  const businessEmail = normalizeText(payload.businessEmail);
-  if (businessEmail !== undefined) {
-    normalized.business_email = businessEmail;
-  }
-  const businessPhone = normalizeText(payload.businessPhone);
-  if (businessPhone !== undefined) {
-    normalized.business_phone = businessPhone;
-  }
+  const businessEmail = normalizeTextOrNull(payload.businessEmail);
+  if (businessEmail !== undefined) normalized.business_email = businessEmail;
+  const businessPhone = normalizeTextOrNull(payload.businessPhone);
+  if (businessPhone !== undefined) normalized.business_phone = businessPhone;
   if ('consultationFee' in payload && payload.consultationFee !== undefined) {
     normalized.consultation_fee = payload.consultationFee;
   }
-  const paymentUrl = normalizeText(payload.paymentUrl);
-  if (paymentUrl !== undefined) {
-    normalized.payment_url = paymentUrl;
-  }
-  const calendlyUrl = normalizeText(payload.calendlyUrl);
-  if (calendlyUrl !== undefined) {
-    normalized.calendly_url = calendlyUrl;
-  }
-  const website = normalizeText(payload.website);
-  if (website !== undefined) {
-    normalized.website = website;
-  }
+  const paymentUrl = normalizeTextOrNull(payload.paymentUrl);
+  if (paymentUrl !== undefined) normalized.payment_url = paymentUrl;
+  const calendlyUrl = normalizeTextOrNull(payload.calendlyUrl);
+  if (calendlyUrl !== undefined) normalized.calendly_url = calendlyUrl;
+  const website = normalizeTextOrNull(payload.website);
+  if (website !== undefined) normalized.website = website;
   const address: Record<string, unknown> = {};
-  const addressLine1 = normalizeText(payload.addressLine1);
-  if (addressLine1 !== undefined) {
-    address.line1 = addressLine1;
-  }
-  const addressLine2 = normalizeText(payload.addressLine2);
-  if (addressLine2 !== undefined) {
-    address.line2 = addressLine2;
-  }
-  const city = normalizeText(payload.city);
+  const addressLine1 = normalizeTextOrNull(payload.addressLine1);
+  if (addressLine1 !== undefined) address.line1 = addressLine1;
+  const addressLine2 = normalizeTextOrNull(payload.addressLine2);
+  if (addressLine2 !== undefined) address.line2 = addressLine2;
+  const city = normalizeTextOrNull(payload.city);
   if (city !== undefined) address.city = city;
-  const state = normalizeText(payload.state);
+  const state = normalizeTextOrNull(payload.state);
   if (state !== undefined) address.state = state;
-  const postalCode = normalizeText(payload.postalCode);
-  if (postalCode !== undefined) {
-    address.postal_code = postalCode;
-  }
-  const country = normalizeText(payload.country);
+  const postalCode = normalizeTextOrNull(payload.postalCode);
+  if (postalCode !== undefined) address.postal_code = postalCode;
+  const country = normalizeTextOrNull(payload.country);
   if (country !== undefined) address.country = country;
   if (Object.keys(address).length > 0) {
     normalized.address = address;
@@ -735,14 +738,10 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if ('accentColor' in payload && payload.accentColor !== undefined) {
     normalized.accent_color = payload.accentColor;
   }
-  const introMessage = normalizeText(payload.introMessage);
-  if (introMessage !== undefined) {
-    normalized.intro_message = introMessage;
-  }
-  const description = normalizeText(payload.description);
-  if (description !== undefined) {
-    normalized.overview = description;
-  }
+  const introMessage = normalizeTextOrNull(payload.introMessage);
+  if (introMessage !== undefined) normalized.intro_message = introMessage;
+  const description = normalizeTextOrNull(payload.description);
+  if (description !== undefined) normalized.overview = description;
   if ('isPublic' in payload && payload.isPublic !== undefined) {
     normalized.is_public = payload.isPublic;
   }
@@ -790,32 +789,50 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
   })();
 
   const address = isRecord(container.address) ? container.address : {};
+  const getOptionalNullableString = (
+    source: Record<string, unknown>,
+    keys: string[]
+  ): string | null | undefined => {
+    for (const key of keys) {
+      if (key in source) {
+        return toNullableString(source[key]);
+      }
+    }
+    return undefined;
+  };
 
   return {
-    businessPhone: toNullableString(container.business_phone ?? container.businessPhone),
-    businessEmail: toNullableString(container.business_email ?? container.businessEmail),
-    consultationFee: typeof (container.consultation_fee ?? container.consultationFee) === 'number'
-      ? Number(container.consultation_fee ?? container.consultationFee)
-      : null,
-    paymentUrl: toNullableString(container.payment_url ?? container.paymentUrl),
-    calendlyUrl: toNullableString(container.calendly_url ?? container.calendlyUrl),
-    website: toNullableString(container.website),
-    introMessage: toNullableString(container.intro_message ?? container.introMessage),
-    description: toNullableString(container.overview ?? container.description),
+    businessPhone: getOptionalNullableString(container, ['business_phone', 'businessPhone']),
+    businessEmail: getOptionalNullableString(container, ['business_email', 'businessEmail']),
+    consultationFee: (() => {
+      if ('consultation_fee' in container || 'consultationFee' in container) {
+        const value = container.consultation_fee ?? container.consultationFee;
+        return typeof value === 'number' ? Number(value) : null;
+      }
+      return undefined;
+    })(),
+    paymentUrl: getOptionalNullableString(container, ['payment_url', 'paymentUrl']),
+    calendlyUrl: getOptionalNullableString(container, ['calendly_url', 'calendlyUrl']),
+    website: getOptionalNullableString(container, ['website']),
+    introMessage: getOptionalNullableString(container, ['intro_message', 'introMessage']),
+    description: getOptionalNullableString(container, ['overview', 'description']),
     isPublic: 'is_public' in container || 'isPublic' in container
       ? Boolean(container.is_public ?? container.isPublic)
-      : null,
-    services: Array.isArray(container.services)
-      ? (container.services as Array<Record<string, unknown>>)
-      : null,
-    addressLine1: toNullableString(address.line1 ?? address.line_1 ?? address.address_line_1 ?? container.addressLine1),
-    addressLine2: toNullableString(address.line2 ?? address.line_2 ?? address.address_line_2 ?? container.addressLine2),
-    city: toNullableString(address.city ?? container.city),
-    state: toNullableString(address.state ?? container.state),
-    postalCode: toNullableString(address.postal_code ?? address.postalCode ?? container.postal_code),
-    country: toNullableString(address.country ?? container.country),
-    primaryColor: toNullableString(container.primary_color ?? container.primaryColor),
-    accentColor: toNullableString(container.accent_color ?? container.accentColor)
+      : undefined,
+    services: 'services' in container
+      ? (Array.isArray(container.services) ? (container.services as Array<Record<string, unknown>>) : null)
+      : undefined,
+    addressLine1: getOptionalNullableString(address, ['line1', 'line_1', 'address_line_1'])
+      ?? getOptionalNullableString(container, ['addressLine1']),
+    addressLine2: getOptionalNullableString(address, ['line2', 'line_2', 'address_line_2'])
+      ?? getOptionalNullableString(container, ['addressLine2']),
+    city: getOptionalNullableString(address, ['city']) ?? getOptionalNullableString(container, ['city']),
+    state: getOptionalNullableString(address, ['state']) ?? getOptionalNullableString(container, ['state']),
+    postalCode: getOptionalNullableString(address, ['postal_code'])
+      ?? getOptionalNullableString(container, ['postalCode', 'postal_code']),
+    country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
+    primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),
+    accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor'])
   };
 }
 

@@ -12,11 +12,11 @@ export interface MockPractice {
   seats?: number | null;
   config?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
-  businessEmail?: string | null;
-  businessPhone?: string | null;
-  consultationFee?: number | null;
-  paymentUrl?: string | null;
-  calendlyUrl?: string | null;
+  businessEmail: string | null;
+  businessPhone: string | null;
+  consultationFee: number | null;
+  paymentUrl: string | null;
+  calendlyUrl: string | null;
   website?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
@@ -134,6 +134,11 @@ const personalPractice: MockPractice = {
   subscriptionStatus: 'active',
   subscriptionTier: 'business',
   seats: 1,
+  businessEmail: null,
+  businessPhone: null,
+  consultationFee: null,
+  paymentUrl: null,
+  calendlyUrl: null,
   config: {
     ownerEmail: 'owner@example.com',
     metadata: {
@@ -154,6 +159,11 @@ const businessPractice: MockPractice = {
   subscriptionStatus: 'trialing',
   subscriptionTier: 'business',
   seats: 5,
+  businessEmail: null,
+  businessPhone: null,
+  consultationFee: null,
+  paymentUrl: null,
+  calendlyUrl: null,
   config: {
     ownerEmail: 'admin@acme-law.test',
     metadata: {
@@ -176,6 +186,11 @@ const mockPractice: MockPractice = {
   subscriptionStatus: 'active',
   subscriptionTier: 'business',
   seats: 1,
+  businessEmail: null,
+  businessPhone: null,
+  consultationFee: null,
+  paymentUrl: null,
+  calendlyUrl: null,
   config: {
     ownerEmail: 'owner@mock-law.test',
     profileImage: null,
@@ -203,6 +218,11 @@ const inboxPractice: MockPractice = {
   subscriptionStatus: 'active',
   subscriptionTier: 'business',
   seats: 5,
+  businessEmail: null,
+  businessPhone: null,
+  consultationFee: null,
+  paymentUrl: null,
+  calendlyUrl: null,
   config: {
     ownerEmail: 'inbox@mock-law.test',
     profileImage: null,

@@ -35,11 +35,12 @@ const resolveServiceDetails = (
   details: { services?: Array<Record<string, unknown>> | null } | null,
   practice: Practice | null
 ): Service[] => {
-  if (details?.services) {
+  if (Array.isArray(details?.services)) {
     const fromDetails = coerceServiceDetails(details.services);
-    if (fromDetails.length > 0) {
-      return normalizeServices(fromDetails, SERVICE_CATALOG);
-    }
+    return normalizeServices(fromDetails, SERVICE_CATALOG);
+  }
+  if (details?.services === null) {
+    return [];
   }
   if (practice?.services) {
     const fromPractice = coerceServiceDetails(practice.services);
