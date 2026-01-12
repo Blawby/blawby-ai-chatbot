@@ -152,6 +152,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         await wait(1500);
       }
 
+      setPaymentSubmitted(false);
       setErrorMessage(
         'Payment is being verified. Please wait a moment and refresh, or contact support if the issue persists.'
       );

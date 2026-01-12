@@ -131,11 +131,10 @@ export async function submitContactForm(
     const formPayload = formatFormData(formData, practiceSlug);
     const settings = await fetchIntakeSettings(practiceSlug);
     const prefillAmount = settings?.data?.settings?.prefillAmount;
-    const paymentLinkEnabled =
-      Boolean(settings) && settings.data?.settings?.paymentLinkEnabled === true;
+    const paymentLinkEnabled = settings?.data?.settings?.paymentLinkEnabled === true;
     const amount = clampAmount(typeof prefillAmount === 'number' ? prefillAmount : 50);
 
-    if (!paymentLinkEnabled) {
+    if (settings && settings.data?.settings?.paymentLinkEnabled === false) {
       console.info('[Intake] Payment link disabled for practice intake');
     }
 
