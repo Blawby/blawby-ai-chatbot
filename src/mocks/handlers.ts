@@ -865,18 +865,12 @@ export const handlers = [
       success: true,
       data: {
         organization: {
-          id: practice.id,
           name: practice.name,
-          slug: practice.slug,
           logo: ''
         },
         settings: {
           paymentLinkEnabled: true,
           prefillAmount: 200
-        },
-        connectedAccount: {
-          id: randomId('acct'),
-          chargesEnabled: true
         }
       }
     });

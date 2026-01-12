@@ -42,7 +42,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
     };
   }, [clientSecret]);
 
-  if (!paymentRequest || !STRIPE_PUBLIC_KEY || !stripePromise) {
+  if (!paymentRequest) {
     return null;
   }
 
@@ -55,8 +55,12 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
       title="Consultation fee"
       type="drawer"
     >
-      {elementsOptions ? (
-        <Elements stripe={stripePromise} options={elementsOptions}>
+      {!STRIPE_PUBLIC_KEY || !stripePromise ? (
+        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+          Payments are unavailable right now. Please try again later.
+        </div>
+      ) : elementsOptions ? (
+        <Elements key={clientSecret} stripe={stripePromise} options={elementsOptions}>
           <IntakePaymentForm
             practiceName={paymentRequest.practiceName || 'the practice'}
             amount={paymentRequest.amount}

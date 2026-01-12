@@ -48,10 +48,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     if (!intakeUuid) return null;
     try {
       const response = await fetch(getPracticeClientIntakeStatusEndpoint(intakeUuid), {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        method: 'GET'
       });
 
       if (!response.ok) {
@@ -195,7 +192,25 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
               return;
             }
             if (typeof window !== 'undefined') {
-              window.location.href = returnTo;
+              const candidate = returnTo || '/';
+              const safe =
+                candidate.startsWith('/') &&
+                !candidate.startsWith('//') &&
+                !candidate.includes('://');
+              if (safe) {
+                window.location.href = candidate;
+                return;
+              }
+              try {
+                const url = new URL(candidate, window.location.origin);
+                if (url.origin === window.location.origin) {
+                  window.location.href = url.pathname + url.search + url.hash;
+                  return;
+                }
+              } catch {
+                // Fall through to default.
+              }
+              window.location.href = '/';
             }
           }}
         >

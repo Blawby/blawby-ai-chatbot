@@ -5,6 +5,7 @@ import { DebugPanel } from '@/features/chat/mock/components/DebugPanel';
 import { MockChatInfo } from '@/features/chat/mock/components/MockChatInfo';
 import { useMockChat } from '@/features/chat/mock/useMockChat';
 import type { ChatMessageUI } from '../../worker/types';
+import type { MockMessage } from '@/features/chat/mock/types';
 
 export function MockChatPage() {
   const [isDevMode, setIsDevMode] = useState(import.meta.env.DEV || import.meta.env.MODE === 'development');
@@ -56,7 +57,7 @@ export function MockChatPage() {
               mock.clearPreviewFiles();
             }}
             onContactFormSubmit={mock.simulateContactFormSubmit}
-            onAddMessage={(message) => mock.addMessage(message as ChatMessageUI)}
+            onAddMessage={(message) => mock.addMessage(message as MockMessage)}
             practiceConfig={practiceConfig}
             onOpenSidebar={() => undefined}
             practiceId={practiceConfig.practiceId}

@@ -11,7 +11,7 @@ interface IntakePaymentCardProps {
 }
 
 const resolveDisplayAmount = (amount?: number, currency?: string, locale?: string) => {
-  if (typeof amount !== 'number') return null;
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
   const normalizedCurrency = typeof currency === 'string' ? currency.toUpperCase() : 'USD';
   const displayAmount = amount / 100;
   return formatCurrency(displayAmount, normalizedCurrency, locale || 'en');
@@ -25,8 +25,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
     [paymentRequest.amount, paymentRequest.currency, locale]
   );
 
-  const practiceName = paymentRequest.practiceName || 'The practice';
-  const paymentUrl = buildIntakePaymentUrl(paymentRequest, { includeClientSecret: true });
+  const practiceName = paymentRequest.practiceName || 'the practice';
+  const paymentUrl = buildIntakePaymentUrl(paymentRequest);
   const handlePay = () => {
     if (onOpenPayment) {
       onOpenPayment(paymentRequest);

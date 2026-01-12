@@ -80,6 +80,7 @@ export type IntakeSubmissionResult = IntakeCreateResponse & {
   };
 };
 
+// Amounts are stored as integer cents (minor units).
 const clampAmount = (amount: number) => {
   const min = 50;
   const max = 99999999;
@@ -130,7 +131,8 @@ export async function submitContactForm(
     const formPayload = formatFormData(formData, practiceSlug);
     const settings = await fetchIntakeSettings(practiceSlug);
     const prefillAmount = settings?.data?.settings?.prefillAmount;
-    const paymentLinkEnabled = settings?.data?.settings?.paymentLinkEnabled !== false;
+    const paymentLinkEnabled =
+      Boolean(settings) && settings.data?.settings?.paymentLinkEnabled === true;
     const amount = clampAmount(typeof prefillAmount === 'number' ? prefillAmount : 50);
 
     if (!paymentLinkEnabled) {
@@ -142,6 +144,7 @@ export async function submitContactForm(
       formPayload.location as string | undefined
     );
 
+    const sessionId = formPayload.session_id as string | undefined;
     const createPayload = {
       slug: formPayload.slug,
       amount,
@@ -149,7 +152,8 @@ export async function submitContactForm(
       name: formPayload.name,
       ...(formPayload.phone ? { phone: formPayload.phone } : {}),
       ...(descriptionWithLocation ? { description: descriptionWithLocation } : {}),
-      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {})
+      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {}),
+      ...(sessionId ? { session_id: sessionId } : {})
     };
 
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {

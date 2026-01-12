@@ -10,6 +10,11 @@ export type IntakePaymentRequest = {
 };
 
 const getQueryValue = (value?: string) => (value && value.trim().length > 0 ? value.trim() : undefined);
+const sanitizeReturnTo = (value?: string) => {
+  const trimmed = getQueryValue(value);
+  if (!trimmed) return undefined;
+  return trimmed.startsWith('/') && !trimmed.startsWith('//') ? trimmed : undefined;
+};
 
 export const buildIntakePaymentUrl = (
   request: IntakePaymentRequest,
@@ -32,13 +37,16 @@ export const buildIntakePaymentUrl = (
   const practiceName = getQueryValue(request.practiceName);
   if (practiceName) params.set('practice', practiceName);
 
+  const practiceLogo = getQueryValue(request.practiceLogo);
+  if (practiceLogo) params.set('logo', practiceLogo);
+
   const practiceSlug = getQueryValue(request.practiceSlug);
   if (practiceSlug) params.set('slug', practiceSlug);
 
   const intakeUuid = getQueryValue(request.intakeUuid);
   if (intakeUuid) params.set('uuid', intakeUuid);
 
-  const returnTo = getQueryValue(request.returnTo);
+  const returnTo = sanitizeReturnTo(request.returnTo);
   if (returnTo) params.set('return_to', returnTo);
 
   const query = params.toString();
