@@ -15,14 +15,12 @@ const LEGACY_TOKEN_KEYS = [
 let dbPromise: Promise<IDBDatabase> | null = null;
 let migrationCompleted = false;
 
-function dispatchAuthTokenEvent(name: 'auth:token-updated' | 'auth:token-cleared', token?: string | null): void {
+function dispatchAuthTokenEvent(name: 'auth:token-updated' | 'auth:token-cleared'): void {
     if (typeof window === 'undefined') {
         return;
     }
 
-    window.dispatchEvent(new CustomEvent(name, {
-        detail: token ? { token } : undefined
-    }));
+    window.dispatchEvent(new CustomEvent(name));
 }
 
 function getDB(): Promise<IDBDatabase> {
@@ -142,7 +140,7 @@ export async function setToken(token: string): Promise<void> {
                 if (import.meta.env.DEV) {
                     console.log('[TokenStorage] Token saved to IndexedDB and cache updated');
                 }
-                dispatchAuthTokenEvent('auth:token-updated', token);
+                dispatchAuthTokenEvent('auth:token-updated');
                 resolve();
             };
             request.onerror = () => reject(request.error);

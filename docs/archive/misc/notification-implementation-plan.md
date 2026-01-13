@@ -248,7 +248,7 @@ This section reflects the updated OneSignal direction.
 - [x] Notification publishing + enqueue flow in `worker/services/NotificationPublisher.ts`.
 - [x] Notifications API + SSE streaming in `worker/routes/notifications.ts` and `worker/durable-objects/NotificationHub.ts`.
 - [x] D1 notifications + destination tables in `worker/migrations/20260201_add_notifications.sql` and `worker/schema.sql`.
-- [x] Placeholder service worker in `public/sw.js` (OneSignal Web SDK still pending).
+- [x] OneSignal managed service worker configured (no local `public/sw.js` file required).
 
 ### Phase 0: Foundation (done)
 - [x] D1 notifications table

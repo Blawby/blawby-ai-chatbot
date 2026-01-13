@@ -65,13 +65,11 @@ export function initOneSignal(): void {
   window.addEventListener('auth:token-updated', handleTokenUpdated);
 }
 
-function handleTokenUpdated(event: Event): void {
-  const detail = (event as CustomEvent<{ token?: string }>).detail;
-  if (!detail?.token || !pendingOneSignalId) {
+function handleTokenUpdated(): void {
+  if (!pendingOneSignalId) {
     return;
   }
-
-  void registerDestination(pendingOneSignalId, detail.token);
+  void registerDestinationWhenTokenReady(pendingOneSignalId);
 }
 
 async function initializeSdk(OneSignal: OneSignalSDK, appId: string): Promise<void> {
@@ -103,6 +101,15 @@ async function initializeSdk(OneSignal: OneSignalSDK, appId: string): Promise<vo
 
   pendingOneSignalId = onesignalId;
 
+  const token = await getTokenAsync();
+  if (!token) {
+    return;
+  }
+
+  await registerDestination(onesignalId, token);
+}
+
+async function registerDestinationWhenTokenReady(onesignalId: string): Promise<void> {
   const token = await getTokenAsync();
   if (!token) {
     return;
@@ -162,7 +169,7 @@ async function registerDestination(onesignalId: string, token: string): Promise<
     return;
   }
 
-  if (inFlightRegistration) {
+  while (inFlightRegistration) {
     await inFlightRegistration;
     if (lastRegistrationKey === registrationKey) {
       return;
