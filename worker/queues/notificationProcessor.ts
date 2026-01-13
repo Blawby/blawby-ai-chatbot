@@ -2,7 +2,9 @@ import type { MessageBatch } from '@cloudflare/workers-types';
 import type { Env, NotificationQueueMessage, NotificationRecipientSnapshot } from '../types.js';
 import { Logger } from '../utils/logger.js';
 import { NotificationStore } from '../services/NotificationStore.js';
-import { OneSignalService } from '../services/OneSignalService.js';
+import { NotificationDeliveryStore } from '../services/NotificationDeliveryStore.js';
+import { NotificationDestinationStore } from '../services/NotificationDestinationStore.js';
+import { OneSignalService, type OneSignalSendResult } from '../services/OneSignalService.js';
 
 function shouldSendEmail(recipient: NotificationRecipientSnapshot): boolean {
   if (recipient.preferences?.emailEnabled === false) {
@@ -25,9 +27,9 @@ async function sendEmailNotification(
   oneSignal: OneSignalService,
   recipient: NotificationRecipientSnapshot,
   message: NotificationQueueMessage
-): Promise<void> {
-  if (!recipient.email) return;
-  await oneSignal.sendEmail(recipient.email, {
+): Promise<OneSignalSendResult | null> {
+  if (!recipient.email) return null;
+  return await oneSignal.sendEmail(recipient.email, {
     title: message.title,
     body: message.body ?? '',
     url: message.link ?? null,
@@ -44,8 +46,8 @@ async function sendPushNotification(
   oneSignal: OneSignalService,
   recipient: NotificationRecipientSnapshot,
   message: NotificationQueueMessage
-): Promise<void> {
-  await oneSignal.sendPush(recipient.userId, {
+): Promise<OneSignalSendResult> {
+  return await oneSignal.sendPush(recipient.userId, {
     title: message.title,
     body: message.body ?? '',
     url: message.link ?? null,
@@ -68,6 +70,15 @@ async function publishSse(env: Env, userId: string, payload: Record<string, unkn
   });
 }
 
+function isInvalidRecipientError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const lowered = message.toLowerCase();
+  return lowered.includes('no recipients')
+    || lowered.includes('no users with this external user id')
+    || lowered.includes('not subscribed')
+    || lowered.includes('invalid_player_ids');
+}
+
 export async function handleNotificationQueue(
   batch: MessageBatch<NotificationQueueMessage>,
   env: Env
@@ -78,6 +89,8 @@ export async function handleNotificationQueue(
   });
 
   const store = new NotificationStore(env);
+  const deliveryStore = new NotificationDeliveryStore(env);
+  const destinationStore = new NotificationDestinationStore(env);
   const oneSignal = OneSignalService.isConfigured(env) ? new OneSignalService(env) : null;
   if (!oneSignal) {
     Logger.warn('OneSignal delivery disabled - missing credentials');
@@ -119,11 +132,54 @@ export async function handleNotificationQueue(
         });
 
         if (shouldSendEmail(recipient) && oneSignal) {
-          await sendEmailNotification(oneSignal, recipient, payload);
+          try {
+            await sendEmailNotification(oneSignal, recipient, payload);
+            await deliveryStore.recordResult({
+              notificationId: insertResult.id,
+              userId: recipient.userId,
+              channel: 'email',
+              provider: 'onesignal',
+              status: 'success'
+            });
+          } catch (error) {
+            await deliveryStore.recordResult({
+              notificationId: insertResult.id,
+              userId: recipient.userId,
+              channel: 'email',
+              provider: 'onesignal',
+              status: 'failure',
+              errorMessage: error instanceof Error ? error.message : String(error)
+            });
+            throw error;
+          }
         }
 
         if (shouldSendPush(recipient) && oneSignal) {
-          await sendPushNotification(oneSignal, recipient, payload);
+          try {
+            await sendPushNotification(oneSignal, recipient, payload);
+            await deliveryStore.recordResult({
+              notificationId: insertResult.id,
+              userId: recipient.userId,
+              channel: 'push',
+              provider: 'onesignal',
+              status: 'success',
+              externalUserId: recipient.userId
+            });
+          } catch (error) {
+            await deliveryStore.recordResult({
+              notificationId: insertResult.id,
+              userId: recipient.userId,
+              channel: 'push',
+              provider: 'onesignal',
+              status: 'failure',
+              errorMessage: error instanceof Error ? error.message : String(error),
+              externalUserId: recipient.userId
+            });
+            if (isInvalidRecipientError(error)) {
+              await destinationStore.disableDestinationsForUser(recipient.userId);
+            }
+            throw error;
+          }
         }
       } catch (error) {
         Logger.warn('Failed to process notification message', {

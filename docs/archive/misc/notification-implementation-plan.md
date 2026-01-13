@@ -242,6 +242,14 @@ await env.NOTIFICATION_EVENTS.send({
 
 This section reflects the updated OneSignal direction.
 
+### ✅ Status Update (Verified in codebase)
+- [x] OneSignal REST API client in `worker/services/OneSignalService.ts`.
+- [x] Notification queue consumer sends email + push via OneSignal in `worker/queues/notificationProcessor.ts`.
+- [x] Notification publishing + enqueue flow in `worker/services/NotificationPublisher.ts`.
+- [x] Notifications API + SSE streaming in `worker/routes/notifications.ts` and `worker/durable-objects/NotificationHub.ts`.
+- [x] D1 notifications + destination tables in `worker/migrations/20260201_add_notifications.sql` and `worker/schema.sql`.
+- [x] Placeholder service worker in `public/sw.js` (OneSignal Web SDK still pending).
+
 ### Phase 0: Foundation (done)
 - [x] D1 notifications table
 - [x] NotificationStore for D1 reads/writes
@@ -253,16 +261,18 @@ This section reflects the updated OneSignal direction.
 - [x] Remove custom VAPID web push path (OneSignal integration)
 
 ### Phase 1: OneSignal registration + mapping
-- [ ] Decide OneSignal Web SDK approach (managed service worker vs custom).
-- [ ] Add endpoint to associate OneSignal subscription id to our user.
+- [x] Decide OneSignal Web SDK approach (managed service worker vs custom).
+- [x] Add endpoint to associate OneSignal subscription id to our user.
 - [x] Add D1 table for OneSignal destinations (user_id, onesignal_id, platform, created_at, last_seen_at, disabled_at).
-- [ ] Store `external_user_id` in OneSignal as our user id for targeting.
+- [x] Store `external_user_id` in OneSignal as our user id for targeting.
+
+**Decision**: Use the OneSignal managed service worker for initial web push rollout to minimize maintenance and keep integration lightweight. A custom worker can be revisited later if advanced push handling or offline/PWA logic is required.
 
 ### Phase 2: Delivery + queue
 - [x] Add OneSignal REST API client.
 - [x] Update queue consumer to call OneSignal for push + email delivery.
-- [ ] Configure DLQ + retry policy for `notification-events`.
-- [ ] Record delivery results and disable invalid subscriptions.
+- [x] Configure DLQ + retry policy for `notification-events`.
+- [x] Record delivery results and disable invalid subscriptions.
 
 ### Phase 3: User-facing UI
 - [ ] Notification center with tabs (messages, system, payments, intakes, matters).

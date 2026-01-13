@@ -7,6 +7,12 @@ export interface OneSignalNotificationInput {
   data?: Record<string, unknown> | null;
 }
 
+export interface OneSignalSendResult {
+  id?: string;
+  recipients?: number;
+  errors?: unknown;
+}
+
 const DEFAULT_API_BASE = 'https://onesignal.com/api/v1';
 
 function escapeHtml(value: string): string {
@@ -42,8 +48,8 @@ export class OneSignalService {
     return Boolean(env.ONESIGNAL_APP_ID && env.ONESIGNAL_REST_API_KEY);
   }
 
-  async sendPush(externalUserId: string, input: OneSignalNotificationInput): Promise<void> {
-    await this.send({
+  async sendPush(externalUserId: string, input: OneSignalNotificationInput): Promise<OneSignalSendResult> {
+    return await this.send({
       app_id: this.appId,
       headings: { en: input.title },
       contents: { en: input.body ?? '' },
@@ -54,8 +60,8 @@ export class OneSignalService {
     });
   }
 
-  async sendEmail(email: string, input: OneSignalNotificationInput): Promise<void> {
-    await this.send({
+  async sendEmail(email: string, input: OneSignalNotificationInput): Promise<OneSignalSendResult> {
+    return await this.send({
       app_id: this.appId,
       headings: { en: input.title },
       contents: { en: input.body ?? '' },
@@ -67,7 +73,30 @@ export class OneSignalService {
     });
   }
 
-  private async send(payload: Record<string, unknown>): Promise<void> {
+  async setExternalUserId(onesignalId: string, externalUserId: string): Promise<void> {
+    if (!this.appId || !this.restApiKey) {
+      throw new Error('OneSignal is not configured');
+    }
+
+    const response = await fetch(`${this.apiBase}/players/${onesignalId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Basic ${this.restApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        app_id: this.appId,
+        external_user_id: externalUserId
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`OneSignal player update failed (${response.status}): ${errorText}`);
+    }
+  }
+
+  private async send(payload: Record<string, unknown>): Promise<OneSignalSendResult> {
     if (!this.appId || !this.restApiKey) {
       throw new Error('OneSignal is not configured');
     }
@@ -81,9 +110,20 @@ export class OneSignalService {
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`OneSignal request failed (${response.status}): ${errorText}`);
+    const responseText = await response.text().catch(() => '');
+    let parsed: OneSignalSendResult = {};
+    if (responseText) {
+      try {
+        parsed = JSON.parse(responseText) as OneSignalSendResult;
+      } catch {
+        parsed = {};
+      }
     }
+
+    if (!response.ok) {
+      throw new Error(`OneSignal request failed (${response.status}): ${responseText}`);
+    }
+
+    return parsed;
   }
 }

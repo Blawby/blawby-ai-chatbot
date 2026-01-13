@@ -292,11 +292,25 @@ CREATE TABLE IF NOT EXISTS notification_destinations (
   disabled_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS notification_delivery_results (
+  id TEXT PRIMARY KEY,
+  notification_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  status TEXT NOT NULL,
+  error_message TEXT,
+  external_user_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe ON notifications(user_id, dedupe_key);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_category ON notifications(user_id, category, read_at, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_destinations_provider_id ON notification_destinations(provider, onesignal_id);
 CREATE INDEX IF NOT EXISTS idx_notification_destinations_user ON notification_destinations(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notification_delivery_user_created ON notification_delivery_results(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notification_delivery_notification ON notification_delivery_results(notification_id, created_at DESC);
 
 -- Auth views removed - user management is handled by remote API
 
