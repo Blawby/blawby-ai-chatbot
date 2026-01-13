@@ -85,6 +85,7 @@ export async function handleNotificationQueue(
 
   for (const msg of batch.messages) {
     const payload = msg.body;
+    let hadFailure = false;
 
     for (const recipient of payload.recipients) {
       try {
@@ -130,8 +131,16 @@ export async function handleNotificationQueue(
           recipient: recipient.userId,
           error: error instanceof Error ? error.message : String(error)
         });
-        throw error;
+        hadFailure = true;
       }
     }
+
+    if (hadFailure) {
+      Logger.warn('Notification message partially failed; skipping retry to avoid duplicates', {
+        eventId: payload.eventId
+      });
+    }
+
+    msg.ack();
   }
 }
