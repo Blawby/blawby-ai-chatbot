@@ -124,7 +124,8 @@ npm run lint:i18n          # Validate locale files stay in sync
 Copy `dev.vars.example` to `worker/.dev.vars` and add your API keys:
 - `LAWYER_SEARCH_API_KEY` - Lawyer search API key
 - `CLOUDFLARE_API_TOKEN` - Cloudflare operations API key
-- `RESEND_API_KEY` - Email notifications API key
+- `ONESIGNAL_APP_ID` - OneSignal app id
+- `ONESIGNAL_REST_API_KEY` - OneSignal REST API key
 
 **Note:** Wrangler reads `.dev.vars` from the same directory as `wrangler.toml`. Since `wrangler.toml` is in the `worker/` directory, create `worker/.dev.vars` directly.
 

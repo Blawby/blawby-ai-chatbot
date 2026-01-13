@@ -39,7 +39,8 @@ describe('handleConversations - participants endpoint', () => {
   const env = {
     DB: {} as Env['DB'],
     CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
-    RESEND_API_KEY: 'test-key',
+    ONESIGNAL_APP_ID: 'test-app',
+    ONESIGNAL_REST_API_KEY: 'test-key',
   } as Env;
 
   beforeEach(() => {

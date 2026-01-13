@@ -26,7 +26,7 @@ Worker & Backend
 
 API responses and middleware (worker/index.ts:1, worker/utils/responseUtils.ts:1, worker/middleware/*.ts, worker/routes/*.ts, worker/services/*.ts) return user-visible error messages; decide whether to localize or return codes consumed by the frontend translator.
 Legal intake prompts (worker/agents/legal-intake/promptTemplates.ts:1, worker/agents/legal-intake/index.ts:1, worker/agents/legal-intake/errors.ts:1) embed English guidance that shapes AI output; scope a follow-up initiative to internationalize prompt text or provide per-locale variants.
-Email/PDF generators (worker/services/PDFGenerationService.ts:1, worker/lib/pdf.ts:1, worker/services/EmailService.ts:1) should load translated templates, with locale chosen via request metadata.
+Email/PDF generators (worker/services/PDFGenerationService.ts:1, worker/lib/pdf.ts:1, worker/services/OneSignalService.ts:1) should load translated templates, with locale chosen via request metadata.
 Docs, Build, Tests
 
 Update onboarding docs (README.md:1, quickstart.sh:1, NOTIFICATION_IMPLEMENTATION_PLAN.md:1, intake_form_chatbot_plan.md:1) to explain locale management, translation workflow, and required env vars (e.g., DEFAULT_LOCALE, SUPPORTED_LOCALES).

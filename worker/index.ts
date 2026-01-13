@@ -9,6 +9,7 @@ import {
   handlePDF,
   handleDebug,
   handleConfig,
+  handleNotifications,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleChat } from './routes/chat.js';
@@ -19,6 +20,7 @@ import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
+import { handleNotificationQueue } from './queues/notificationProcessor.js';
 
 // Basic request validation
 function validateRequest(request: Request): boolean {
@@ -87,6 +89,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleDebug(request, env);
     } else if (path.startsWith('/api/status')) {
       response = await handleStatus(request, env);
+    } else if (path.startsWith('/api/notifications')) {
+      response = await handleNotifications(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
     } else if (path.startsWith('/api/lawyers')) {
@@ -126,7 +130,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 
 export default {
-  fetch: handleRequest
+  fetch: handleRequest,
+  queue: handleNotificationQueue
 };
 
 // Scheduled event for cleanup (runs daily)
@@ -148,3 +153,4 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 }
 
 // Export Durable Object classes (none currently)
+export { NotificationHub } from './durable-objects/NotificationHub';

@@ -1,5 +1,5 @@
-// Simple service worker for Blawby Chat
-// This prevents 404 errors when the browser tries to fetch sw.js
+// Placeholder service worker for Blawby Chat.
+// OneSignal Web SDK will provide the push worker once integrated.
 
 self.addEventListener('install', (event) => {
   // Skip waiting to activate immediately
@@ -15,4 +15,4 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // For now, just let the browser handle all requests normally
   // This prevents 404 errors for sw.js requests
-}); 
+});

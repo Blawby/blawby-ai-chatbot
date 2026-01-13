@@ -1,10 +1,42 @@
-import type { KVNamespace, R2Bucket, D1Database } from '@cloudflare/workers-types';
+import type { KVNamespace, R2Bucket, D1Database, Queue, DurableObjectNamespace } from '@cloudflare/workers-types';
+
+export type NotificationCategory = 'message' | 'payment' | 'intake' | 'matter' | 'system';
+export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
+
+export interface NotificationRecipientSnapshot {
+  userId: string;
+  email?: string | null;
+  preferences?: {
+    pushEnabled?: boolean;
+    emailEnabled?: boolean;
+    desktopPushEnabled?: boolean;
+  };
+}
+
+export interface NotificationQueueMessage {
+  eventId: string;
+  dedupeKey?: string | null;
+  practiceId?: string | null;
+  category: NotificationCategory;
+  entityType?: string | null;
+  entityId?: string | null;
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  senderName?: string | null;
+  senderAvatarUrl?: string | null;
+  severity?: NotificationSeverity | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string;
+  recipients: NotificationRecipientSnapshot[];
+}
 
 // Environment interface with proper Cloudflare Workers types
 export interface Env {
   DB: D1Database;
   CHAT_SESSIONS: KVNamespace;
-  RESEND_API_KEY: string;
+  NOTIFICATION_EVENTS: Queue<NotificationQueueMessage>;
+  NOTIFICATION_HUB: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;
@@ -41,6 +73,11 @@ export interface Env {
   DEFAULT_PLATFORM_SLUG?: string;
   // SSE Configuration
   SSE_POLL_INTERVAL?: string;
+
+  // OneSignal configuration
+  ONESIGNAL_APP_ID?: string;
+  ONESIGNAL_REST_API_KEY?: string;
+  ONESIGNAL_API_BASE?: string;
 
 }
 

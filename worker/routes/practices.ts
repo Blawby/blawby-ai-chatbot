@@ -5,6 +5,7 @@ import { requireAuth, requirePracticeMemberRole } from '../middleware/auth.js';
 import { handleError, HttpErrors } from '../errorHandler.js';
 import { parseJsonBody } from '../utils.js';
 import { NotificationService } from '../services/NotificationService.js';
+import { enqueueNotification, getAdminRecipients } from '../services/NotificationPublisher.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { Buffer } from 'buffer';
 
@@ -125,6 +126,37 @@ async function notifyIntakeDecision(options: {
   } catch (error) {
     console.error('[Practice] Failed to notify intake decision in conversation:', error);
   }
+}
+
+async function enqueueMatterNotification(options: {
+  env: Env;
+  request: Request;
+  practiceId: string;
+  practiceName: string;
+  matterId: string;
+  actorUserId: string;
+  title: string;
+  body: string;
+  metadata: Record<string, unknown>;
+}): Promise<void> {
+  const { env, request, practiceId, practiceName, matterId, actorUserId, title, body, metadata } = options;
+
+  const recipients = await getAdminRecipients(env, practiceId, request, { actorUserId, category: 'matter' });
+  if (recipients.length === 0) return;
+
+  await enqueueNotification(env, {
+    eventId: crypto.randomUUID(),
+    dedupeKey: `matter:${matterId}:${metadata.action ?? 'update'}:${metadata.toStatus ?? 'unknown'}`,
+    practiceId,
+    category: 'matter',
+    entityType: 'matter',
+    entityId: matterId,
+    title,
+    body,
+    senderName: practiceName,
+    metadata,
+    recipients
+  });
 }
 
 function normalizeMatterStatus(value: string): MatterStatusValue {
@@ -388,6 +420,25 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                 });
               } catch (error) { void error; }
 
+              try {
+                await enqueueMatterNotification({
+                  env,
+                  request,
+                  practiceId: practice.id,
+                  practiceName: practice.name,
+                  matterId,
+                  actorUserId: authContext.user.id,
+                  title: 'Lead accepted',
+                  body: `Matter moved to ${result.status}.`,
+                  metadata: {
+                    action: 'accept',
+                    fromStatus: (result as unknown as { previousStatus?: unknown }).previousStatus ?? null,
+                    toStatus: result.status,
+                    actorUserId: authContext.user.id
+                  }
+                });
+              } catch (error) { void error; }
+
               await notifyIntakeDecision({
                 env,
                 practiceId: practice.id,
@@ -440,6 +491,26 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                     fromStatus: prevStatus,
                     toStatus: result.status,
                     actorId: authContext.user.id
+                  }
+                });
+              } catch (error) { void error; }
+
+              try {
+                await enqueueMatterNotification({
+                  env,
+                  request,
+                  practiceId: practice.id,
+                  practiceName: practice.name,
+                  matterId,
+                  actorUserId: authContext.user.id,
+                  title: 'Lead rejected',
+                  body: `Matter moved to ${result.status}.`,
+                  metadata: {
+                    action: 'reject',
+                    fromStatus: (result as unknown as { previousStatus?: unknown }).previousStatus ?? null,
+                    toStatus: result.status,
+                    actorUserId: authContext.user.id,
+                    reason
                   }
                 });
               } catch (error) { void error; }
@@ -505,6 +576,26 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                     fromStatus: prevStatus,
                     toStatus: result.status,
                     actorId: authContext.user.id
+                  }
+                });
+              } catch (error) { void error; }
+
+              try {
+                await enqueueMatterNotification({
+                  env,
+                  request,
+                  practiceId: practice.id,
+                  practiceName: practice.name,
+                  matterId,
+                  actorUserId: authContext.user.id,
+                  title: 'Matter status updated',
+                  body: `Matter moved to ${result.status}.`,
+                  metadata: {
+                    action: 'status_change',
+                    fromStatus: (result as unknown as { previousStatus?: unknown }).previousStatus ?? null,
+                    toStatus: result.status,
+                    actorUserId: authContext.user.id,
+                    reason
                   }
                 });
               } catch (error) { void error; }

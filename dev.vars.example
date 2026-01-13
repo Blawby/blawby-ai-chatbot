@@ -9,7 +9,8 @@
 # API Keys and Tokens (SENSITIVE)
 LAWYER_SEARCH_API_KEY=your_lawyer_search_api_key_here
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
-RESEND_API_KEY=your_resend_api_key_here
+ONESIGNAL_APP_ID=your_onesignal_app_id_here
+ONESIGNAL_REST_API_KEY=your_onesignal_rest_api_key_here
 
 # Account IDs (SENSITIVE)
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id_here

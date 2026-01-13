@@ -6,7 +6,8 @@ import type { Env } from '../../../worker/types';
 const mockEnv: Env = {
   DB: {} as any,
   CHAT_SESSIONS: {} as any,
-  RESEND_API_KEY: 'test-key',
+  ONESIGNAL_APP_ID: 'test-app',
+  ONESIGNAL_REST_API_KEY: 'test-key',
   NODE_ENV: 'production'
 } as Env;
 

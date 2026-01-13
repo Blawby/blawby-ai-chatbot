@@ -35,7 +35,9 @@ declare namespace Cloudflare {
 		BETTER_AUTH_URL: "http://localhost:8787" | "https://ai.blawby.com";
 		LAWYER_SEARCH_API_KEY: string;
 		CLOUDFLARE_API_TOKEN: string;
-		RESEND_API_KEY: string;
+		ONESIGNAL_APP_ID: string;
+		ONESIGNAL_REST_API_KEY: string;
+		ONESIGNAL_API_BASE: string;
 		CLOUDFLARE_ACCOUNT_ID: string;
 		ADOBE_CLIENT_ID: string;
 		ADOBE_CLIENT_SECRET: string;

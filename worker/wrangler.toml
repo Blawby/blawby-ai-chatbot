@@ -18,6 +18,23 @@ migrations_dir = "migrations"
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
 
+[[queues.producers]]
+queue = "notification-events"
+binding = "NOTIFICATION_EVENTS"
+
+[[queues.consumers]]
+queue = "notification-events"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[[durable_objects.bindings]]
+name = "NOTIFICATION_HUB"
+class_name = "NotificationHub"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["NotificationHub"]
+
 [env.dev]
 name = "blawby-ai-chatbot-dev"
 kv_namespaces = [
