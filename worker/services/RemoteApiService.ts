@@ -210,6 +210,79 @@ export class RemoteApiService {
   }
 
   /**
+   * Get practice members from remote API
+   */
+  static async getPracticeMembers(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null }>> {
+    const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}/members`, request);
+    const data = await response.json() as { members?: Array<{ user_id: string; email?: string | null; role?: string | null }> };
+
+    if (!Array.isArray(data.members)) {
+      return [];
+    }
+
+    return data.members;
+  }
+
+  /**
+   * Get notification preferences for the authenticated user.
+   */
+  static async getNotificationPreferences(
+    env: Env,
+    request?: Request
+  ): Promise<Record<string, unknown> | null> {
+    if (!request) return null;
+    const response = await this.fetchFromRemoteApi(env, '/api/preferences', request);
+    const payload = await response.json() as { data?: { notifications?: Record<string, unknown> | null } };
+    return payload.data?.notifications ?? null;
+  }
+
+  /**
+   * Get notification preferences for practice members (admin endpoint).
+   * Falls back to empty map if the endpoint is not yet available.
+   */
+  static async getPracticeMemberNotificationPreferences(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<Record<string, Record<string, unknown>>> {
+    if (!request) return {};
+
+    try {
+      const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}/members/preferences`, request);
+      const payload = await response.json() as {
+        members?: Array<{ user_id?: string; notifications?: Record<string, unknown>; preferences?: { notifications?: Record<string, unknown> } }>;
+        preferences?: Record<string, Record<string, unknown>>;
+      };
+
+      if (payload.preferences && typeof payload.preferences === 'object') {
+        return payload.preferences;
+      }
+
+      if (Array.isArray(payload.members)) {
+        return payload.members.reduce<Record<string, Record<string, unknown>>>((acc, member) => {
+          if (!member.user_id) return acc;
+          const notifications = member.notifications ?? member.preferences?.notifications;
+          if (notifications && typeof notifications === 'object') {
+            acc[member.user_id] = notifications;
+          }
+          return acc;
+        }, {});
+      }
+
+      return {};
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 404) {
+        return {};
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Extract conversation config from practice.metadata.conversationConfig
    * Returns null if not found
    */

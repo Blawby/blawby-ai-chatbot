@@ -11,7 +11,8 @@ const createMockEnv = () => {
   const env = {
     DB: { prepare } as unknown as Env['DB'],
     CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
-    RESEND_API_KEY: 'test-key',
+    ONESIGNAL_APP_ID: 'test-app',
+    ONESIGNAL_REST_API_KEY: 'test-key',
   } as Env;
 
   return { env, prepare, bind, run };

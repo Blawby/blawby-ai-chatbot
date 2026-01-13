@@ -9,6 +9,7 @@ export { handleConfig } from './config';
 
 export { handleFiles } from './files';
 export { handleAnalyze } from './analyze';
+export { handleNotifications } from './notifications';
 
 // Payment, subscription, onboarding, and user management are handled by remote API
 export { handlePDF } from './pdf';

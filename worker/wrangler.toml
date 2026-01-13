@@ -18,6 +18,23 @@ migrations_dir = "migrations"
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
 
+[[queues.producers]]
+queue = "notification-events"
+binding = "NOTIFICATION_EVENTS"
+
+[[queues.consumers]]
+queue = "notification-events"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[[durable_objects.bindings]]
+name = "NOTIFICATION_HUB"
+class_name = "NotificationHub"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["NotificationHub"]
+
 [env.dev]
 name = "blawby-ai-chatbot-dev"
 kv_namespaces = [
@@ -29,6 +46,19 @@ d1_databases = [
 [[env.dev.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
+
+[[env.dev.queues.producers]]
+queue = "notification-events"
+binding = "NOTIFICATION_EVENTS"
+
+[[env.dev.queues.consumers]]
+queue = "notification-events"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[[env.dev.durable_objects.bindings]]
+name = "NOTIFICATION_HUB"
+class_name = "NotificationHub"
 
 [env.dev.vars]
 NODE_ENV = "development"
@@ -60,6 +90,19 @@ d1_databases = [
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
+
+[[env.production.queues.producers]]
+queue = "notification-events"
+binding = "NOTIFICATION_EVENTS"
+
+[[env.production.queues.consumers]]
+queue = "notification-events"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[[env.production.durable_objects.bindings]]
+name = "NOTIFICATION_HUB"
+class_name = "NotificationHub"
 
 [env.production.vars]
 NODE_ENV = "production"

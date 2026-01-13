@@ -1,6 +1,7 @@
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
 import type { PracticeOrWorkspace } from '../types.js';
+import { OneSignalService } from './OneSignalService.js';
 
 export interface NotificationRequest {
   type: 'lawyer_review' | 'matter_created' | 'matter_update';
@@ -44,12 +45,16 @@ function extractOwnerEmail(practiceConfig: PracticeOrWorkspace | null): string |
 }
 
 export class NotificationService {
+  private oneSignal: OneSignalService | null;
+
   constructor(private env: Env) {
     // Initialize Logger with environment variables for Cloudflare Workers compatibility
     Logger.initialize({
       DEBUG: env.DEBUG,
       NODE_ENV: env.NODE_ENV
     });
+
+    this.oneSignal = OneSignalService.isConfigured(env) ? new OneSignalService(env) : null;
   }
 
   async sendLawyerReviewNotification(request: NotificationRequest): Promise<void> {
@@ -57,20 +62,19 @@ export class NotificationService {
     const effectivePractice = practiceConfig ?? practice ?? null;
     
     try {
-      const { EmailService } = await import('./EmailService.js');
-      const emailService = new EmailService(this.env.RESEND_API_KEY);
-      
       const ownerEmail = extractOwnerEmail(effectivePractice);
       if (!ownerEmail) {
         Logger.info('No owner email configured for practice - skipping lawyer review notification');
         return;
       }
+      if (!this.oneSignal) {
+        Logger.info('OneSignal not configured - skipping lawyer review notification');
+        return;
+      }
 
-      await emailService.send({
-        from: 'noreply@blawby.com',
-        to: ownerEmail,
-        subject: `Urgent Legal Matter Review Required - ${matterInfo?.type || 'Unknown'}`,
-        text: `A new urgent legal matter requires immediate review:
+      await this.oneSignal.sendEmail(ownerEmail, {
+        title: `Urgent Legal Matter Review Required - ${matterInfo?.type || 'Unknown'}`,
+        body: `A new urgent legal matter requires immediate review:
 
 Matter Type: ${matterInfo?.type || 'Unknown'}
 Urgency: ${matterInfo?.urgency || 'Standard'}
@@ -91,20 +95,19 @@ Please review this matter as soon as possible.`
     const effectivePractice = practiceConfig ?? practice ?? null;
     
     try {
-      const { EmailService } = await import('./EmailService.js');
-      const emailService = new EmailService(this.env.RESEND_API_KEY);
-      
       const ownerEmail = extractOwnerEmail(effectivePractice);
       if (!ownerEmail) {
         Logger.info('No owner email configured for practice - skipping matter creation notification');
         return;
       }
+      if (!this.oneSignal) {
+        Logger.info('OneSignal not configured - skipping matter creation notification');
+        return;
+      }
 
-      await emailService.send({
-        from: 'noreply@blawby.com',
-        to: ownerEmail,
-        subject: `New Legal Matter Created - ${matterInfo?.type || 'Unknown'}`,
-        text: `A new legal matter has been created:
+      await this.oneSignal.sendEmail(ownerEmail, {
+        title: `New Legal Matter Created - ${matterInfo?.type || 'Unknown'}`,
+        body: `A new legal matter has been created:
 
 Client: ${clientInfo?.name || 'Unknown'}
 Contact: ${clientInfo?.email || 'No email'}, ${clientInfo?.phone || 'No phone'}
@@ -150,23 +153,22 @@ Please review and take appropriate action.`
         return;
       }
 
-      const { EmailService } = await import('./EmailService.js');
-      const emailService = new EmailService(this.env.RESEND_API_KEY);
-
       const ownerEmail = extractOwnerEmail(effectivePractice);
       if (!ownerEmail) {
         Logger.info('No owner email configured for practice - skipping matter update notification');
+        return;
+      }
+      if (!this.oneSignal) {
+        Logger.info('OneSignal not configured - skipping matter update notification');
         return;
       }
 
       const actionLabel = (update?.action || 'status_change').replace('_', ' ');
       const subjectMatter = matterInfo?.type || 'Matter';
 
-      await emailService.send({
-        from: 'noreply@blawby.com',
-        to: ownerEmail,
-        subject: `${subjectMatter}: ${actionLabel}`,
-        text: `A matter was updated:
+      await this.oneSignal.sendEmail(ownerEmail, {
+        title: `${subjectMatter}: ${actionLabel}`,
+        body: `A matter was updated:
 
 Action: ${actionLabel}
 From: ${update?.fromStatus || 'n/a'}

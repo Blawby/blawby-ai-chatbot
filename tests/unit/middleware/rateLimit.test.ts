@@ -12,7 +12,8 @@ const createMockEnv = (): Env => {
       get: mockGet,
       put: mockPut
     } as any, // Use any to avoid KVNamespace type conflicts
-    RESEND_API_KEY: 'test-key',
+    ONESIGNAL_APP_ID: 'test-app',
+    ONESIGNAL_REST_API_KEY: 'test-key',
   } as Env;
 };
 

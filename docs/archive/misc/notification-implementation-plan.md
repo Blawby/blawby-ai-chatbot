@@ -4,10 +4,10 @@
 
 ### ✅ Existing Infrastructure
 
-**Email Notifications (Resend Integration)**
-- **File**: `worker/services/EmailService.ts` (lines 1-32)
+**Email Notifications (OneSignal Integration)**
+- **File**: `worker/services/OneSignalService.ts`
 - **File**: `worker/services/NotificationService.ts` (lines 1-128)
-- **Current Types**: `lawyer_review`, `matter_created`, `payment_required`
+- **Current Types**: `lawyer_review`, `matter_created`, `matter_update`
 - **Integration**: Used in `worker/services/ContactIntakeOrchestrator.ts` (lines 186-235)
 
 **Real-time Communication (SSE)**
@@ -27,6 +27,14 @@
 - **File**: `src/components/Toast.tsx` - Toast UI component
 - **File**: `src/components/ToastContainer.tsx` - Toast container
 
+**Notification Backend (Worker)**
+- **File**: `worker/queues/notificationProcessor.ts` - Queue consumer (email/SSE/push)
+- **File**: `worker/services/NotificationPublisher.ts` - Enqueue + recipient resolution
+- **File**: `worker/services/NotificationStore.ts` - D1 access
+- **File**: `worker/services/OneSignalService.ts` - OneSignal REST API client
+- **File**: `worker/durable-objects/NotificationHub.ts` - SSE hub
+- **File**: `worker/routes/notifications.ts` - Notifications API + SSE stream
+
 **Settings Infrastructure**
 - **File**: `src/components/settings/SettingsPage.tsx` (lines 1-189)
 - **File**: `src/components/settings/hooks/useSettingsData.ts` (lines 1-118)
@@ -35,11 +43,14 @@
 ### 🔧 Cloudflare Workers Environment
 
 **Available Resources** (`worker/types.ts` lines 4-37):
-- `RESEND_API_KEY` - Email service
+- `ONESIGNAL_APP_ID` - OneSignal app id
+- `ONESIGNAL_REST_API_KEY` - OneSignal REST API key
 - `CHAT_SESSIONS: KVNamespace` - Session storage
 - `DB: D1Database` - Database
 - `DOC_EVENTS: Queue` - Background processing (currently used for file analysis)
 - `PARALEGAL_TASKS: Queue` - Task processing
+- `NOTIFICATION_EVENTS: Queue` - Notification fanout queue
+- `NOTIFICATION_HUB: DurableObjectNamespace` - SSE hub
 
 **Existing Queue Infrastructure**:
 - **Producer**: `worker/routes/files.ts` (lines 120-126) - Enqueues file processing
@@ -67,6 +78,47 @@ export default {
   }
 }
 ```
+
+## Direction Update (OneSignal for Push + Email)
+
+This section is the current direction and supersedes older plan details below.
+
+### Goals
+- One Workers backend handles in-app, email, and push notifications.
+- Push + email delivery via OneSignal; in-app via SSE + D1.
+- Bake in operational safety: queues, retries, DLQ, rate limits, secrets, observability.
+
+### Channel split
+- In-app: D1 + SSE (ours).
+- Email: OneSignal.
+- Push (web + iOS + Android): OneSignal.
+
+### Recommended architecture
+1. Client registers with OneSignal SDK.
+   - Web: OneSignal Web SDK + service worker integration.
+   - Mobile: OneSignal SDK for iOS/Android.
+2. Link OneSignal subscription to our user.
+   - Set `external_user_id` to our user id.
+   - Store OneSignal subscription ids in D1 for audit and opt-out control.
+3. Event happens in app -> enqueue a notification job.
+4. Queue consumer calls OneSignal REST API to deliver push and records status.
+5. In-app notifications continue via SSE/D1.
+
+### Operational practices
+- Do not send pushes inline in request handlers.
+- Store OneSignal REST API key + App ID in Workers secrets.
+- Keep APNs/FCM credentials inside OneSignal console (not in Worker env vars).
+- Minimize push payload content for privacy; use deep links + ids.
+- Add rate limiting at the edge plus app-level quotas.
+
+### Provider choice guidance
+- OneSignal is the push provider for web + native; we are not implementing VAPID/APNs/FCM directly.
+
+### References to keep open while building
+- OneSignal Web SDK docs
+- OneSignal Mobile SDK docs (iOS/Android)
+- OneSignal REST API docs
+- Cloudflare Queues + D1 + Logs
 
 ## Authentication Integration
 
@@ -176,7 +228,7 @@ await apiClient.post(`/api/notifications/${id}/read`);
 **Queue Events Include Organization Context**:
 ```typescript
 // Queue messages must include organizationId for proper routing
-await env.NOTIFICATION_QUEUE.send({
+await env.NOTIFICATION_EVENTS.send({
   type: 'email',
   notificationType: 'matter_created',
   recipient: ownerEmail,
@@ -188,192 +240,47 @@ await env.NOTIFICATION_QUEUE.send({
 
 ## Implementation Strategy
 
-### Phase 1: Enhanced Email Notifications with Queue Processing
+This section reflects the updated OneSignal direction.
 
-**Extend Existing Files:**
+### Phase 0: Foundation (done)
+- [x] D1 notifications table
+- [x] NotificationStore for D1 reads/writes
+- [x] NotificationPublisher to enqueue jobs + resolve recipients
+- [x] Queue consumer: `worker/queues/notificationProcessor.ts` (email + SSE)
+- [x] NotificationHub Durable Object + `/api/notifications/stream`
+- [x] `/api/notifications` endpoints (list/read/unread)
+- [x] Service worker placeholder in place (OneSignal Web SDK still pending)
+- [x] Remove custom VAPID web push path (OneSignal integration)
 
-1. **`worker/services/EmailService.ts`**
-   - Add HTML template support
-   - Add email analytics tracking
-   - Add attachment support
-   - Add email preferences validation
+### Phase 1: OneSignal registration + mapping
+- [ ] Decide OneSignal Web SDK approach (managed service worker vs custom).
+- [ ] Add endpoint to associate OneSignal subscription id to our user.
+- [x] Add D1 table for OneSignal destinations (user_id, onesignal_id, platform, created_at, last_seen_at, disabled_at).
+- [ ] Store `external_user_id` in OneSignal as our user id for targeting.
 
-2. **`worker/services/NotificationService.ts`**
-   - Add new notification types: `system_alert`, `matter_update`, `payment_completed`, `document_ready`
-   - Add HTML email templates
-   - Add email preference checking
-   - **Queue Integration**: Enqueue email notifications instead of sending immediately
+### Phase 2: Delivery + queue
+- [x] Add OneSignal REST API client.
+- [x] Update queue consumer to call OneSignal for push + email delivery.
+- [ ] Configure DLQ + retry policy for `notification-events`.
+- [ ] Record delivery results and disable invalid subscriptions.
 
-3. **New Queue Consumer**: `worker/consumers/notification-processor.ts`
-   - Process email notifications from queue
-   - Handle retry logic with exponential backoff
-   - Track delivery status and analytics
-   - Follow existing pattern from `doc-processor.ts`
+### Phase 3: User-facing UI
+- [ ] Notification center with tabs (messages, system, payments, intakes, matters).
+- [ ] Settings panel for per-user preferences (email, push, desktop).
+- [ ] OS notification permission UX.
 
-4. **Database Schema** (New migration)
-   - Add `notification_preferences` table
-   - Add `email_templates` table
-   - Add `notification_logs` table
+### Phase 4: Ops hardening
+- [ ] Edge rate limiting for register/send endpoints.
+- [ ] App-level quotas (per user/day, per practice/min).
+- [ ] Structured logs + dashboards for delivery outcomes.
 
-**Queue Integration Pattern**:
-```typescript
-// Producer (NotificationService.ts)
-await env.NOTIFICATION_QUEUE.send({
-  type: 'email',
-  notificationType: 'matter_created',
-  recipient: ownerEmail,
-  template: 'matter_created',
-  data: { matterInfo, clientInfo },
-  organizationId,
-  sessionId
-});
+## OneSignal Alignment (Status)
 
-// Consumer (notification-processor.ts)
-export default {
-  async queue(batch: MessageBatch<NotificationEvent>, env: Env, ctx: ExecutionContext) {
-    for (const msg of batch.messages) {
-      // Process email notifications
-      // Handle retries, analytics, delivery tracking
-    }
-  }
-}
-```
-
-### Phase 2: Live In-App Notifications with Queue Integration
-
-**Extend Existing SSE Infrastructure:**
-
-1. **`worker/routes/agent.ts`**
-   - Add new SSE event types for notifications
-   - Extend existing streaming response (lines 201-295)
-   - Add notification-specific middleware
-
-2. **`src/hooks/useMessageHandling.ts`**
-   - Extend SSE event handling (lines 174-203)
-   - Add notification state management
-   - Add notification persistence
-
-3. **Queue Integration for Live Notifications:**
-   - **Producer**: Enqueue live notifications in `NotificationService.ts`
-   - **Consumer**: `worker/consumers/live-notification-processor.ts`
-   - **SSE Delivery**: Process queue and deliver via existing SSE infrastructure
-
-4. **New Files to Create:**
-   - `worker/services/LiveNotificationService.ts`
-   - `worker/consumers/live-notification-processor.ts`
-   - `src/hooks/useNotifications.ts`
-   - `src/components/NotificationCenter.tsx`
-   - `src/components/NotificationItem.tsx`
-
-**Live Notification Queue Pattern**:
-```typescript
-// Producer (NotificationService.ts)
-await env.LIVE_NOTIFICATION_QUEUE.send({
-  type: 'live',
-  notificationType: 'matter_update',
-  userId: userId,
-  organizationId: organizationId,
-  sessionId: sessionId,
-  data: { matterId, status, message },
-  priority: 'high'
-});
-
-// Consumer (live-notification-processor.ts)
-export default {
-  async queue(batch: MessageBatch<LiveNotificationEvent>, env: Env, ctx: ExecutionContext) {
-    for (const msg of batch.messages) {
-      // Deliver via SSE to active sessions
-      // Store in KV for offline users
-      // Update notification preferences
-    }
-  }
-}
-```
-
-### Phase 3: Browser Push Notifications with Queue Processing
-
-**Extend Service Worker:**
-
-1. **`public/sw.js`**
-   - Add push event listeners
-   - Add notification click handlers
-   - Add background sync for offline notifications
-
-2. **Queue Integration for Push Notifications:**
-   - **Producer**: Enqueue push notifications in `NotificationService.ts`
-   - **Consumer**: `worker/consumers/push-notification-processor.ts`
-   - **Web Push API**: Process queue and send via Web Push API
-
-3. **New Files to Create:**
-   - `worker/routes/push.ts` - Push notification endpoint
-   - `worker/consumers/push-notification-processor.ts`
-   - `src/hooks/usePushNotifications.ts`
-   - `src/utils/pushSubscription.ts`
-
-4. **Database Schema** (New migration)
-   - Add `push_subscriptions` table
-   - Add `notification_delivery_logs` table
-
-**Push Notification Queue Pattern**:
-```typescript
-// Producer (NotificationService.ts)
-await env.PUSH_NOTIFICATION_QUEUE.send({
-  type: 'push',
-  notificationType: 'urgent_matter',
-  subscription: pushSubscription,
-  payload: {
-    title: 'Urgent Legal Matter',
-    body: 'New urgent matter requires attention',
-    data: { matterId, organizationId, url: '/matters/123' }
-  },
-  organizationId,
-  userId
-});
-
-// Consumer (push-notification-processor.ts)
-export default {
-  async queue(batch: MessageBatch<PushNotificationEvent>, env: Env, ctx: ExecutionContext) {
-    for (const msg of batch.messages) {
-      // Send via Web Push API
-      // Handle delivery failures and retries
-      // Track delivery analytics
-    }
-  }
-}
-```
-
-### Phase 4: Notification Settings & Preferences
-
-**Extend Settings Infrastructure:**
-
-1. **`src/components/settings/SettingsPage.tsx`**
-   - Add notification preferences section (line 510-514 in plan.md shows this was removed)
-   - Add navigation to notification settings
-
-2. **New Files to Create:**
-   - `src/components/settings/pages/NotificationPage.tsx`
-   - `src/components/settings/hooks/useNotificationPreferences.ts`
-   - `src/components/settings/NotificationPreferenceItem.tsx`
-
-3. **Backend Support:**
-   - `worker/routes/notifications.ts` - CRUD for notification preferences
-   - `worker/services/NotificationPreferencesService.ts`
-
-### Phase 5: Advanced Features
-
-**Real-time Updates:**
-1. **WebSocket Support** (Optional)
-   - New file: `worker/routes/websocket.ts`
-   - Extend `worker/middleware/cors.ts` (lines 115-118 already handle WebSocket upgrades)
-
-2. **Notification Analytics:**
-   - Extend `worker/services/NotificationService.ts`
-   - Add tracking for open rates, click rates, delivery status
-
-3. **Smart Notifications:**
-   - Add notification batching
-   - Add notification scheduling
-   - Add notification frequency limits
+- [x] Remove `worker/services/WebPushService.ts` and related VAPID logic.
+- [x] Remove `notification_push_subscriptions` table and related routes.
+- [x] Remove `/api/notifications/push/*` endpoints.
+- [x] Update queue consumer to call OneSignal REST API for push + email delivery.
+- [ ] Align `public/sw.js` with OneSignal Web SDK (or switch to their managed service worker).
 
 ## File Structure Overview
 
@@ -381,95 +288,65 @@ export default {
 ```
 worker/
 ├── services/
-│   ├── EmailService.ts (enhance)
-│   └── NotificationService.ts (enhance)
+│   ├── OneSignalService.ts (push + email delivery)
+│   ├── NotificationPublisher.ts (enqueue + recipient resolution)
+│   ├── NotificationStore.ts (D1 access)
+│   ├── NotificationService.ts (transactional emails via OneSignal)
 ├── routes/
-│   └── agent.ts (extend SSE)
-├── middleware/
-│   └── cors.ts (WebSocket support)
-└── types.ts (add notification types)
-
-src/
-├── hooks/
-│   └── useMessageHandling.ts (extend SSE handling)
-├── contexts/
-│   └── ToastContext.tsx (extend for notifications)
-├── components/
-│   ├── settings/
-│   │   ├── SettingsPage.tsx (add notification section)
-│   │   └── hooks/
-│   │       ├── useSettingsData.ts (extend)
-│   │       └── useSettingsNavigation.ts (extend)
-│   └── Toast.tsx (enhance for notifications)
-└── config/
-    └── features.ts (add notification feature flags)
+│   ├── notifications.ts (list/read/unread/stream; push registration to be revised)
+│   └── practices.ts (enqueue status notifications)
+├── queues/
+│   └── notificationProcessor.ts (fanout delivery)
+├── durable-objects/
+│   └── NotificationHub.ts (SSE)
+├── schema.sql (tables)
+└── types.ts (notification types + Env)
 
 public/
-└── sw.js (enhance for push notifications)
+└── sw.js (minimal placeholder; OneSignal Web SDK to follow)
 ```
 
-### Files to Create (New)
+### Files to Create (Next)
 ```
 worker/
 ├── services/
-│   ├── LiveNotificationService.ts
-│   ├── NotificationPreferencesService.ts
-│   └── PushNotificationService.ts
+│   └── NotificationDestinationStore.ts
 ├── routes/
-│   ├── notifications.ts
-│   └── push.ts
-├── consumers/
-│   ├── notification-processor.ts
-│   ├── live-notification-processor.ts
-│   └── push-notification-processor.ts
-└── schemas/
-    └── notificationSchemas.ts
+│   └── push.ts (or extend notifications.ts with /api/push/register/*)
+├── migrations/
+│   └── (none - destinations added to `20260201_add_notifications.sql`)
 
 src/
 ├── hooks/
 │   ├── useNotifications.ts
-│   ├── usePushNotifications.ts
-│   └── useNotificationPreferences.ts
+│   ├── useNotificationSettings.ts
+│   └── usePushRegistration.ts (OneSignal SDK bootstrap)
 ├── components/
 │   ├── NotificationCenter.tsx
 │   ├── NotificationItem.tsx
 │   └── settings/
-│       ├── pages/
-│       │   └── NotificationPage.tsx
-│       └── NotificationPreferenceItem.tsx
+│       └── NotificationPage.tsx
 └── utils/
-    └── pushSubscription.ts
-
-migrations/
-├── add_notification_preferences.sql
-├── add_notification_logs.sql
-└── add_push_subscriptions.sql
+    └── oneSignalRegistration.ts
 ```
 
 ## Cloudflare Best Practices Integration
 
-### 1. **Edge Computing**
-- Use Cloudflare Workers for notification processing
-- Leverage KV for notification preferences caching
-- Use D1 for persistent notification data
+### 1. Edge + Async
+- Use Workers for request handling and queue producers.
+- Use Queues for delivery fanout with retries and a DLQ.
 
-### 2. **Performance**
-- **Queue-based Processing**: Leverage existing Queue infrastructure for async notification processing
-- **Batch Processing**: Process multiple notifications in queue consumers
-- **KV Caching**: Cache notification templates and user preferences in KV
-- **Global Edge**: Use Cloudflare's global network for fast delivery
+### 2. Data
+- Use D1 for notifications and destination storage.
+- Optional KV for caching read-heavy preferences or templates.
 
-### 3. **Security**
-- Validate notification permissions
-- Use Cloudflare's security headers
-- Implement rate limiting for notification endpoints
+### 3. Security
+- Store OneSignal REST API key + App ID in Workers secrets.
+- Rate limit registration/send endpoints and enforce app-level quotas.
 
-### 4. **Scalability**
-- **Existing Queue Infrastructure**: Extend current `DOC_EVENTS` and `PARALEGAL_TASKS` queues
-- **New Queue Bindings**: Add `NOTIFICATION_QUEUE`, `LIVE_NOTIFICATION_QUEUE`, `PUSH_NOTIFICATION_QUEUE`
-- **Queue Consumers**: Follow existing pattern from `doc-processor.ts`
-- **Auto-scaling**: Leverage Cloudflare's auto-scaling for queue processing
-- **Deduplication**: Implement notification deduplication in queue consumers
+### 4. Observability
+- Log request id, user id, destination type, provider status/error.
+- Use Workers Logs and Tail for debugging.
 
 ## Preact Integration Strategy
 
@@ -490,33 +367,29 @@ migrations/
 
 ## Queue Integration Strategy Summary
 
-### ✅ **Leverage Existing Queue Infrastructure**
+### Current Queue Pattern
+- Producer: `NotificationPublisher` -> `env.NOTIFICATION_EVENTS.send`
+- Consumer: `worker/queues/notificationProcessor.ts`
+- Queue binding: `NOTIFICATION_EVENTS` in `worker/index.ts`
+- Error handling: built-in retries; add DLQ for poison messages
 
-**Current Queue Pattern** (from `doc-processor.ts`):
-- **Producer**: `worker/routes/files.ts` enqueues file processing
-- **Consumer**: `worker/consumers/doc-processor.ts` processes in batches
-- **Queue Binding**: `DOC_EVENTS` in `worker/index.ts`
-- **Error Handling**: Retry logic and structured logging
+### Notification Queue Flow
+1. Event -> enqueue `notification-events` with recipients and metadata.
+2. Consumer writes to D1, publishes SSE, and sends email/push.
+3. Provider failures are logged; invalid destinations are disabled.
 
-**Notification Queue Extensions**:
-1. **Email Notifications**: `NOTIFICATION_QUEUE` → `notification-processor.ts`
-2. **Live Notifications**: `LIVE_NOTIFICATION_QUEUE` → `live-notification-processor.ts`  
-3. **Push Notifications**: `PUSH_NOTIFICATION_QUEUE` → `push-notification-processor.ts`
-
-**Benefits of Queue-based Processing**:
-- **Async Processing**: Non-blocking notification delivery
-- **Retry Logic**: Built-in retry with exponential backoff
-- **Batch Processing**: Efficient handling of multiple notifications
-- **Error Isolation**: Failed notifications don't affect other operations
-- **Scalability**: Auto-scaling with Cloudflare's infrastructure
+### Benefits of Queue-based Processing
+- Async processing: non-blocking delivery.
+- Retry logic: automatic backoff with DLQ safety net.
+- Batch processing: efficient fanout.
+- Scalability: auto-scaling with Cloudflare infrastructure.
 
 ## Implementation Priority
 
-1. **High Priority**: Enhanced email notifications with queue processing (extends existing)
-2. **High Priority**: Live in-app notifications with queue + SSE (extends existing)
-3. **Medium Priority**: Notification settings (extends existing settings)
-4. **Medium Priority**: Browser push notifications with queue processing (extends existing PWA)
-5. **Low Priority**: Advanced features (analytics, smart notifications)
+1. **High Priority**: OneSignal push integration (web + native) with queue delivery
+2. **High Priority**: Live in-app notifications with queue + SSE (foundation in place)
+3. **Medium Priority**: Notification settings UI + preferences
+4. **Low Priority**: Advanced features (analytics, smart notifications)
 
 ## Dependencies
 
@@ -526,90 +399,51 @@ migrations/
 - `@heroicons/react` - Notification icons
 
 ### New Dependencies to Add
-- `web-push` - Push notification library
+- OneSignal Web SDK (script/SDK integration in frontend)
+- Optional: OneSignal SDKs for native apps (iOS/Android)
 - `zod` - Notification schema validation (already exists)
 
 ### Queue Configuration Updates
 
 **`wrangler.toml` additions:**
 ```toml
-# New queue bindings for notifications
+# Queue binding for notifications
 [[queues.producers]]
 queue = "notification-events"
-binding = "NOTIFICATION_QUEUE"
-
-[[queues.producers]]
-queue = "live-notification-events"
-binding = "LIVE_NOTIFICATION_QUEUE"
-
-[[queues.producers]]
-queue = "push-notification-events"
-binding = "PUSH_NOTIFICATION_QUEUE"
+binding = "NOTIFICATION_EVENTS"
 
 # Queue consumers
 [[queues.consumers]]
 queue = "notification-events"
-
-[[queues.consumers]]
-queue = "live-notification-events"
-
-[[queues.consumers]]
-queue = "push-notification-events"
+max_batch_size = 10
+max_batch_timeout = 30
 ```
 
 **`worker/types.ts` additions:**
 ```typescript
 export interface Env {
   // ... existing properties
-  NOTIFICATION_QUEUE: Queue;
-  LIVE_NOTIFICATION_QUEUE: Queue;
-  PUSH_NOTIFICATION_QUEUE: Queue;
+  NOTIFICATION_EVENTS: Queue<NotificationQueueMessage>;
+  NOTIFICATION_HUB: DurableObjectNamespace;
 }
 ```
 
 **`worker/index.ts` queue consumer registration:**
 
-The worker's main entry point must be updated to implement centralized queue routing for all notification queues. This approach replaces separate named queue exports with a single centralized default export that routes based on `batch.queue`.
-
-**Required changes to `worker/index.ts`:**
-
-1. **Import all consumer handlers** (around line 23):
+Use the single notification queue handler directly:
 ```typescript
-import docProcessor from './consumers/doc-processor';
-import notificationProcessor from './consumers/notification-processor';
-import liveNotificationProcessor from './consumers/live-notification-processor';
-import pushNotificationProcessor from './consumers/push-notification-processor';
-```
+import { handleNotificationQueue } from './queues/notificationProcessor.js';
 
-2. **Replace the default export** (around lines 117-120) with centralized queue routing:
-```typescript
-export default { 
+export default {
   fetch: handleRequest,
-  queue: async (batch: MessageBatch, env: Env, ctx: ExecutionContext) => {
-    // Route to appropriate consumer based on queue name
-    switch (batch.queue) {
-      case 'notification-events':
-        return notificationProcessor.queue(batch, env, ctx);
-      case 'live-notification-events':
-        return liveNotificationProcessor.queue(batch, env, ctx);
-      case 'push-notification-events':
-        return pushNotificationProcessor.queue(batch, env, ctx);
-      case 'doc-events':
-        return docProcessor.queue(batch, env, ctx);
-      default:
-        console.error('Unknown queue:', batch.queue);
-        throw new Error(`No handler for queue: ${batch.queue}`);
-    }
-  }
+  queue: handleNotificationQueue
 };
 ```
 
 **Key Implementation Details:**
-
-- **Async queue handler**: The queue function is marked as `async` to properly handle asynchronous consumer operations
-- **ExecutionContext usage**: Each consumer receives the `ctx` parameter for background work management using `ctx.waitUntil()`
-- **Error handling**: Clear error logging and throwing for unknown queues
-- **Centralized routing**: Single point of control for all queue processing
+- **Async queue handler**: The queue function is async and handles batches.
+- **ExecutionContext usage**: Use `ctx.waitUntil()` for background work in the queue handler.
+- **Single queue**: `notification-events` is the only notification queue at this stage.
 
 **Queue Consumer Interface:**
 Each consumer handler must follow this interface:
@@ -630,7 +464,7 @@ export default {
 ```
 
 **Wrangler.toml Queue Bindings:**
-All four queues must be bound in the `[queues]` section:
+Bind the existing doc queue plus the notification queue:
 ```toml
 # Queue producers
 [[queues.producers]]
@@ -639,15 +473,7 @@ binding = "DOC_EVENTS"
 
 [[queues.producers]]
 queue = "notification-events"
-binding = "NOTIFICATION_QUEUE"
-
-[[queues.producers]]
-queue = "live-notification-events"
-binding = "LIVE_NOTIFICATION_QUEUE"
-
-[[queues.producers]]
-queue = "push-notification-events"
-binding = "PUSH_NOTIFICATION_QUEUE"
+binding = "NOTIFICATION_EVENTS"
 
 # Queue consumers - all routes to centralized handler
 [[queues.consumers]]
@@ -655,25 +481,18 @@ queue = "doc-events"
 
 [[queues.consumers]]
 queue = "notification-events"
-
-[[queues.consumers]]
-queue = "live-notification-events"
-
-[[queues.consumers]]
-queue = "push-notification-events"
+max_batch_size = 10
+max_batch_timeout = 30
 ```
 
-This centralized approach provides better error handling, centralized queue management, and ensures all queues are properly bound and routed through the single queue handler.
+This centralized approach provides better error handling and centralized queue management for notification delivery.
 
 ## Environment Variables
 
-### Existing (wrangler.toml)
-- `RESEND_API_KEY` - Email service
-
-### New to Add
-- `VAPID_PUBLIC_KEY` - Push notification public key (sensitive - use dev vars)
-- `VAPID_PRIVATE_KEY` - Push notification private key (sensitive - use dev vars)
-- `NOTIFICATION_WEBHOOK_SECRET` - Webhook validation (sensitive - use dev vars)
+### Required (Workers secrets)
+- `ONESIGNAL_APP_ID` - OneSignal application id (non-sensitive)
+- `ONESIGNAL_REST_API_KEY` - OneSignal REST API key (sensitive - use dev vars)
+- `ONESIGNAL_API_BASE` - Optional override (default `https://onesignal.com/api/v1`)
 
 ### Configuration in wrangler.toml (non-sensitive)
 - `ENABLE_EMAIL_NOTIFICATIONS` - Toggle email sending (default: false for dev, true for prod)
@@ -701,50 +520,24 @@ ENABLE_EMAIL_NOTIFICATIONS=true
 ENABLE_PUSH_NOTIFICATIONS=true
 ```
 
-**Implementation in Notification Services:**
+**Implementation in notification delivery (example):**
 
 ```typescript
-// worker/services/notificationService.ts
-export class NotificationService {
-  constructor(private env: Env) {}
+// worker/queues/notificationProcessor.ts
+function parseEnvBoolean(value: string | undefined, defaultValue = false): boolean {
+  if (value === undefined) return defaultValue;
+  return value.toLowerCase() === 'true';
+}
 
-  // Robust boolean parsing helper
-  private parseEnvBoolean(value: string | undefined, defaultValue: boolean = false): boolean {
-    if (value === undefined) return defaultValue;
-    return value.toLowerCase() === 'true';
-  }
+const emailEnabled = parseEnvBoolean(env.ENABLE_EMAIL_NOTIFICATIONS, false);
+const pushEnabled = parseEnvBoolean(env.ENABLE_PUSH_NOTIFICATIONS, false);
 
-  async sendEmail(notification: EmailNotification): Promise<void> {
-    // Check if email notifications are enabled with robust parsing
-    const isEmailEnabled = this.parseEnvBoolean(this.env.ENABLE_EMAIL_NOTIFICATIONS, false);
-    if (!isEmailEnabled) {
-      console.log('📧 Email notifications disabled - would send email:', {
-        to: notification.to,
-        subject: notification.subject,
-        template: notification.template
-      });
-      return;
-    }
+if (!emailEnabled) {
+  Logger.info('Email notifications disabled');
+}
 
-    // Actual email sending logic
-    await this.resendClient.emails.send(notification);
-  }
-
-  async sendPushNotification(notification: PushNotification): Promise<void> {
-    // Check if push notifications are enabled with robust parsing
-    const isPushEnabled = this.parseEnvBoolean(this.env.ENABLE_PUSH_NOTIFICATIONS, false);
-    if (!isPushEnabled) {
-      console.log('🔔 Push notifications disabled - would send push notification:', {
-        userId: notification.userId,
-        title: notification.title,
-        body: notification.body
-      });
-      return;
-    }
-
-    // Actual push notification logic
-    await this.webPushClient.sendNotification(notification);
-  }
+if (!pushEnabled) {
+  Logger.info('Push notifications disabled');
 }
 ```
 
@@ -764,9 +557,9 @@ ENABLE_PUSH_NOTIFICATIONS = true
 **Sensitive variables in dev.vars (local development):**
 ```bash
 # dev.vars file (not committed to git)
-VAPID_PUBLIC_KEY=your_vapid_public_key_here
-VAPID_PRIVATE_KEY=your_vapid_private_key_here
-NOTIFICATION_WEBHOOK_SECRET=your_webhook_secret_here
+ONESIGNAL_APP_ID=your_onesignal_app_id
+ONESIGNAL_REST_API_KEY=your_onesignal_rest_api_key
+ONESIGNAL_API_BASE=https://onesignal.com/api/v1
 ```
 
 **Alternative: organization-Level Testing Mode**
@@ -794,26 +587,24 @@ if (practiceConfig.testMode) {
 
 ### Queue Strategy: Single vs Multiple Queues
 
-**Decision: Use separate queues for isolation and reliability**
+**Decision: Use a single queue (`NOTIFICATION_EVENTS`) with fanout in the consumer**
 
 **Rationale:**
-- **Isolation**: Email failures won't block push notifications
-- **Different retry strategies**: Email can retry longer, push notifications need faster failure
-- **Monitoring**: Easier to track delivery rates per channel
-- **Scaling**: Can scale consumers independently
+- **Simpler ops**: One binding, one consumer, one DLQ.
+- **Consistent delivery path**: Email/SSE/push share the same event envelope.
+- **Easier debugging**: One place to inspect and replay failures.
+- **Future-proof**: We can split queues later if volume or retry policies diverge.
 
 **Implementation:**
 ```typescript
-// Three dedicated queues with different retry policies
-NOTIFICATION_QUEUE: {
-  retry: { maxRetries: 3, backoffMs: [1000, 5000, 15000] }
-}
-LIVE_NOTIFICATION_QUEUE: {
-  retry: { maxRetries: 1, backoffMs: [500] } // Fast failure for real-time
-}
-PUSH_NOTIFICATION_QUEUE: {
-  retry: { maxRetries: 2, backoffMs: [2000, 10000] }
-}
+// Single queue and per-channel handling in the consumer
+await env.NOTIFICATION_EVENTS.send(notificationMessage);
+
+// notificationProcessor.ts fanout:
+// - write to D1
+// - publish SSE
+// - send email
+// - send push (web, then mobile adapters later)
 ```
 
 ### Offline User Strategy
@@ -853,24 +644,24 @@ async sendLiveNotification(notification: LiveNotification) {
 }
 ```
 
-### Push Subscription Management
+### OneSignal Subscription Management
 
 **Decision: Proactive cleanup with delivery-time validation**
 
 **Strategy:**
-- **Delivery-time validation**: Check subscription validity on each send
-- **Cleanup on failure**: Remove invalid subscriptions when delivery fails
-- **Periodic cleanup**: Weekly job to remove expired subscriptions
-- **User-initiated cleanup**: Remove on logout/device change
+- **Delivery-time validation**: Check OneSignal response on each send.
+- **Cleanup on failure**: Disable invalid subscriptions when delivery fails.
+- **Periodic cleanup**: Weekly job to remove long-expired subscriptions.
+- **User-initiated cleanup**: Remove on logout/device change.
 
-**Implementation:**
+**Implementation (conceptual):**
 ```typescript
-async sendPushNotification(subscription: PushSubscription, payload: any) {
+async sendPushNotification(destination: OneSignalDestination, payload: OneSignalPayload) {
   try {
-    await this.webPushClient.sendNotification(subscription, payload);
+    await oneSignal.sendNotification(payload);
   } catch (error) {
-    if (error.statusCode === 410) { // Gone - subscription expired
-      await this.removePushSubscription(subscription.endpoint);
+    if (error instanceof OneSignalDeliveryError && error.isInvalidSubscription) {
+      await store.disableDestination(destination.id);
     }
     throw error;
   }
@@ -1277,21 +1068,23 @@ CREATE TABLE notification_preferences (
   UNIQUE(user_id, organization_id, notification_type, channel)
 );
 
--- Push subscriptions tied to Better Auth users
-CREATE TABLE push_subscriptions (
+-- OneSignal destinations tied to Better Auth users
+CREATE TABLE notification_destinations (
   id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,           -- Better Auth user.id
-  organization_id TEXT NOT NULL,           -- Better Auth organization.id
-  endpoint TEXT NOT NULL,
-  p256dh_key TEXT NOT NULL,
-  auth_key TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'onesignal',
+  onesignal_id TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  external_user_id TEXT,
   user_agent TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
-  UNIQUE(user_id, endpoint)
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  last_seen_at TEXT,
+  disabled_at TEXT
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_destinations_provider_id ON notification_destinations(provider, onesignal_id);
+CREATE INDEX IF NOT EXISTS idx_notification_destinations_user ON notification_destinations(user_id, updated_at DESC);
 
 -- Notification logs with Better Auth references
 CREATE TABLE notification_logs (
@@ -1481,7 +1274,7 @@ export async function handlePushSubscription(request: Request, env: Env) {
   }
   
   const userId = session.user.id;
-  const { subscription, organizationId } = await request.json();
+  const { destination, organizationId } = await request.json();
   
   // Use same organization strategy as SSE: session-scoped primary organization
   let targetOrganizationId: string;
@@ -1511,26 +1304,27 @@ export async function handlePushSubscription(request: Request, env: Env) {
     targetOrganizationId = sessionData.active_organization_id;
   }
   
-  // Check for existing subscription to preserve created_at
-  const existingSubscription = await env.DB.prepare(`
-    SELECT created_at FROM push_subscriptions 
-    WHERE user_id = ? AND endpoint = ?
-  `).bind(userId, subscription.endpoint).first<{ created_at: number }>();
+  // Check for existing destination to preserve created_at
+  const existingDestination = await env.DB.prepare(`
+    SELECT created_at FROM notification_destinations
+    WHERE user_id = ? AND onesignal_id = ?
+  `).bind(userId, destination.onesignalId).first<{ created_at: number }>();
   
-  const createdAt = existingSubscription?.created_at || Date.now();
+  const createdAt = existingDestination?.created_at || Date.now();
   const updatedAt = Date.now();
   
-  // Store push subscription with organization context, preserving original created_at
+  // Store OneSignal destination with organization context, preserving original created_at
   await env.DB.prepare(`
-    INSERT OR REPLACE INTO push_subscriptions (
-      user_id, organization_id, endpoint, p256dh_key, auth_key, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO notification_destinations (
+      user_id, organization_id, provider, onesignal_id, platform, external_user_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     userId,
     targetOrganizationId,
-    subscription.endpoint,
-    subscription.keys.p256dh,
-    subscription.keys.auth,
+    'onesignal',
+    destination.onesignalId,
+    destination.platform,
+    destination.externalUserId,
     createdAt,
     updatedAt
   ).run();
