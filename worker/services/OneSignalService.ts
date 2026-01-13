@@ -78,21 +78,29 @@ export class OneSignalService {
       throw new Error('OneSignal is not configured');
     }
 
-    const response = await fetch(`${this.apiBase}/players/${onesignalId}`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Basic ${this.restApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        app_id: this.appId,
-        external_user_id: externalUserId
-      })
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`OneSignal player update failed (${response.status}): ${errorText}`);
+    try {
+      const response = await fetch(`${this.apiBase}/users/${onesignalId}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Basic ${this.restApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          app_id: this.appId,
+          external_user_id: externalUserId
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(`OneSignal player update failed (${response.status}): ${errorText}`);
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
