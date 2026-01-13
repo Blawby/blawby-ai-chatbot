@@ -82,18 +82,21 @@ export class OneSignalService {
     const timeout = setTimeout(() => controller.abort(), 30000);
 
     try {
-      const response = await fetch(`${this.apiBase}/users/${onesignalId}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Basic ${this.restApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          app_id: this.appId,
-          external_user_id: externalUserId
-        }),
-        signal: controller.signal
-      });
+      const response = await fetch(
+        `${this.apiBase}/apps/${this.appId}/subscriptions/${onesignalId}/user/identity`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Basic ${this.restApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            app_id: this.appId,
+            external_user_id: externalUserId
+          }),
+          signal: controller.signal
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
