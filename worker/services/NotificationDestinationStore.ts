@@ -13,19 +13,21 @@ export class NotificationDestinationStore {
 
   async upsertDestination(input: UpsertDestinationInput): Promise<void> {
     const now = new Date().toISOString();
-    const existing = await this.env.DB.prepare(
-      `SELECT id, created_at FROM notification_destinations
-       WHERE provider = ? AND onesignal_id = ?`
-    ).bind('onesignal', input.onesignalId).first<{ id?: string; created_at?: string }>();
-
-    const id = existing?.id ?? crypto.randomUUID();
-    const createdAt = existing?.created_at ?? now;
+    const id = crypto.randomUUID();
 
     await this.env.DB.prepare(
-      `INSERT OR REPLACE INTO notification_destinations (
+      `INSERT INTO notification_destinations (
         id, user_id, provider, onesignal_id, platform, external_user_id, user_agent,
         created_at, updated_at, last_seen_at, disabled_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(provider, onesignal_id) DO UPDATE SET
+        user_id = excluded.user_id,
+        platform = excluded.platform,
+        external_user_id = excluded.external_user_id,
+        user_agent = excluded.user_agent,
+        updated_at = excluded.updated_at,
+        last_seen_at = excluded.last_seen_at,
+        disabled_at = NULL`
     ).bind(
       id,
       input.userId,
@@ -34,7 +36,7 @@ export class NotificationDestinationStore {
       input.platform,
       input.externalUserId,
       input.userAgent ?? null,
-      createdAt,
+      now,
       now,
       now,
       null

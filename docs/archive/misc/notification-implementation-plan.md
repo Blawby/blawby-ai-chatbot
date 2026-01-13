@@ -275,6 +275,7 @@ This section reflects the updated OneSignal direction.
 - [x] Record delivery results and disable invalid subscriptions.
 
 ### Phase 3: User-facing UI
+- UI is intentionally deferred to Phase 3; focus for Phase 1/2 is wiring + delivery.
 - [ ] Notification center with tabs (messages, system, payments, intakes, matters).
 - [ ] Settings panel for per-user preferences (email, push, desktop).
 - [ ] OS notification permission UX.
@@ -290,7 +291,7 @@ This section reflects the updated OneSignal direction.
 - [x] Remove `notification_push_subscriptions` table and related routes.
 - [x] Remove `/api/notifications/push/*` endpoints.
 - [x] Update queue consumer to call OneSignal REST API for push + email delivery.
-- [ ] Align `public/sw.js` with OneSignal Web SDK (or switch to their managed service worker).
+- [x] Implement OneSignal managed service worker (removed `public/sw.js` placeholder).
 
 ## File Structure Overview
 
@@ -313,7 +314,7 @@ worker/
 └── types.ts (notification types + Env)
 
 public/
-└── sw.js (minimal placeholder; OneSignal Web SDK to follow)
+└── (managed by OneSignal; no service worker file required)
 ```
 
 ### Files to Create (Next)

@@ -142,6 +142,7 @@ export async function handleNotificationQueue(
               status: 'success'
             });
           } catch (error) {
+            hadFailure = true;
             await deliveryStore.recordResult({
               notificationId: insertResult.id,
               userId: recipient.userId,
@@ -150,7 +151,11 @@ export async function handleNotificationQueue(
               status: 'failure',
               errorMessage: error instanceof Error ? error.message : String(error)
             });
-            throw error;
+            Logger.warn('Failed to send email notification', {
+              eventId: payload.eventId,
+              recipient: recipient.userId,
+              error: error instanceof Error ? error.message : String(error)
+            });
           }
         }
 
