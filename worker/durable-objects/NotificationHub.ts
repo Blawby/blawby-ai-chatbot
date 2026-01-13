@@ -55,7 +55,20 @@ export class NotificationHub {
   }
 
   private async handlePublish(request: Request): Promise<Response> {
-    const payload = await request.json();
+    let payload: unknown;
+
+    try {
+      payload = await request.json();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown JSON parse error';
+      console.error('Failed to parse publish payload:', message);
+
+      return new Response(JSON.stringify({ error: 'Invalid JSON payload', message }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const message = `event: notification\ndata: ${JSON.stringify(payload)}\n\n`;
     const encoded = this.encoder.encode(message);
 

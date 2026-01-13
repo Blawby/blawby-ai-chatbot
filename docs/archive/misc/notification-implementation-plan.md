@@ -1071,20 +1071,20 @@ CREATE TABLE notification_preferences (
 -- OneSignal destinations tied to Better Auth users
 CREATE TABLE notification_destinations (
   id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,           -- Better Auth user.id
-  organization_id TEXT NOT NULL,           -- Better Auth organization.id
+  user_id TEXT NOT NULL,
   provider TEXT NOT NULL DEFAULT 'onesignal',
   onesignal_id TEXT NOT NULL,
-  platform TEXT NOT NULL,           -- web/ios/android
-  user_agent TEXT,
+  platform TEXT NOT NULL,
   external_user_id TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  disabled_at DATETIME NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
-  UNIQUE(user_id, onesignal_id)
+  user_agent TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  last_seen_at TEXT,
+  disabled_at TEXT
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_destinations_provider_id ON notification_destinations(provider, onesignal_id);
+CREATE INDEX IF NOT EXISTS idx_notification_destinations_user ON notification_destinations(user_id, updated_at DESC);
 
 -- Notification logs with Better Auth references
 CREATE TABLE notification_logs (
@@ -1274,7 +1274,7 @@ export async function handlePushSubscription(request: Request, env: Env) {
   }
   
   const userId = session.user.id;
-  const { subscription, organizationId } = await request.json();
+  const { destination, organizationId } = await request.json();
   
   // Use same organization strategy as SSE: session-scoped primary organization
   let targetOrganizationId: string;
