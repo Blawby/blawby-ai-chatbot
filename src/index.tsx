@@ -527,7 +527,11 @@ async function mountClientApp() {
 }
 
 if (typeof window !== 'undefined') {
-  initOneSignal();
+  Promise.resolve()
+    .then(() => initOneSignal())
+    .catch((error) => {
+      console.error('[OneSignal] Failed to initialize:', error);
+    });
   const bootstrap = () => mountClientApp();
   const enableMocks = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW === 'true';
 

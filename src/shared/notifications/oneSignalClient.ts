@@ -164,6 +164,9 @@ async function registerDestination(onesignalId: string, token: string): Promise<
 
   if (inFlightRegistration) {
     await inFlightRegistration;
+    if (lastRegistrationKey === registrationKey) {
+      return;
+    }
   }
 
   const baseUrl = getWorkerApiUrl();

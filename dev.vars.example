@@ -10,7 +10,7 @@
 LAWYER_SEARCH_API_KEY=your_lawyer_search_api_key_here
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
 ONESIGNAL_APP_ID=8dc80f43-1ce9-4aa7-b91d-0629478ac54f
-ONESIGNAL_REST_API_KEY=os_v2_app_rxea6qy45ffkpoi5ayuupcwfj5l2nhcruyjussfsdl7l7dgrsm226svxk4rgmkc37zkvuwm2hpey2gqyrnwcieyzas6j5i7sr6q3wbi
+ONESIGNAL_REST_API_KEY=xxx
 
 # Account IDs (SENSITIVE)
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id_here
