@@ -8,7 +8,7 @@ import {
 } from '@/config/api';
 import { isPlatformPractice } from '@/shared/utils/practice';
 import type { Conversation } from '@/shared/types/conversation';
-import { getBackendApiUrl, getWorkerApiUrl } from '@/config/urls';
+import { getBackendApiUrl } from '@/config/urls';
 import { getTurnstileToken } from '@/shared/lib/turnstile';
 
 let cachedBaseUrl: string | null = null;
@@ -54,12 +54,12 @@ apiClient.interceptors.request.use(
       }
       const path = rawUrl.startsWith('http')
         ? (() => {
-            try {
-              return new URL(rawUrl).pathname;
-            } catch {
-              return rawUrl;
-            }
-          })()
+          try {
+            return new URL(rawUrl).pathname;
+          } catch {
+            return rawUrl;
+          }
+        })()
         : rawUrl;
       return captchaProtectedPath.test(path.split('?')[0] ?? '');
     })();
@@ -531,7 +531,7 @@ export async function updatePractice(
     `/api/practice/${encodeURIComponent(practiceId)}`,
     normalized,
     {
-    signal: config?.signal
+      signal: config?.signal
     }
   );
   return unwrapPracticeResponse(response.data);
@@ -718,13 +718,31 @@ export async function getPublicPracticeDetails(
 
   const requestPromise = (async () => {
     try {
-      const captchaToken = await getTurnstileToken();
-      if (!captchaToken) {
-        throw new Error('Captcha token is required to load practice details.');
+      let captchaToken: string;
+      try {
+        captchaToken = await getTurnstileToken();
+        if (!captchaToken) {
+          throw new Error('Captcha token is required to load practice details.');
+        }
+        if (import.meta.env.DEV) {
+          console.log('[getPublicPracticeDetails] Turnstile token generated:', {
+            tokenPrefix: `${captchaToken.substring(0, 20)}...`,
+            tokenLength: captchaToken.length,
+            currentDomain: window.location.hostname
+          });
+        }
+      } catch (tokenError) {
+        console.error('[getPublicPracticeDetails] Failed to generate Turnstile token:', tokenError);
+        throw new Error(`Failed to generate CAPTCHA token: ${tokenError instanceof Error ? tokenError.message : 'Unknown error'}`);
+      }
+
+      const apiUrl = `${getBackendApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
+      if (import.meta.env.DEV) {
+        console.log('[getPublicPracticeDetails] Making request to:', apiUrl);
       }
 
       const response = await axios.get(
-        `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
+        apiUrl,
         {
           signal: config?.signal,
           headers: {
@@ -744,8 +762,25 @@ export async function getPublicPracticeDetails(
         details
       };
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        return null;
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          return null;
+        }
+        if (error.response?.status === 403) {
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Forbidden';
+          const captchaToken = error.config?.headers?.['x-captcha-token'] as string | undefined;
+          console.error('[getPublicPracticeDetails] 403 Forbidden:', {
+            status: 403,
+            message: errorMessage,
+            url: error.config?.url,
+            hasCaptchaToken: !!captchaToken,
+            tokenPrefix: captchaToken ? `${captchaToken.substring(0, 20)}...` : 'none',
+            tokenLength: captchaToken?.length || 0,
+            responseData: error.response?.data,
+            currentDomain: typeof window !== 'undefined' ? window.location.hostname : 'unknown'
+          });
+          throw new Error(`CAPTCHA validation failed: ${errorMessage}`);
+        }
       }
       throw error;
     }

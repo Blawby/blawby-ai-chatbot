@@ -96,6 +96,9 @@ function ensureTurnstileScript(): Promise<void> {
         script.parentNode.removeChild(script);
       }
       state.scriptPromise = null;
+      if (import.meta.env.DEV) {
+        console.error('[turnstile] Script load failed:', error.message);
+      }
       reject(error);
     };
 
@@ -105,7 +108,7 @@ function ensureTurnstileScript(): Promise<void> {
       script.defer = true;
       script.dataset.turnstileScript = 'true';
       script.onerror = () => {
-        cleanup(new Error('Failed to load the Turnstile script.'));
+        cleanup(new Error('Failed to load the Turnstile script. This may be due to Cloudflare challenge blocking the script.'));
       };
       document.head.appendChild(script);
     }
@@ -113,11 +116,14 @@ function ensureTurnstileScript(): Promise<void> {
     const start = Date.now();
     const checkReady = () => {
       if (window.turnstile) {
+        if (import.meta.env.DEV) {
+          console.log('[turnstile] Script loaded successfully');
+        }
         resolve();
         return;
       }
       if (Date.now() - start > 10000) {
-        cleanup(new Error('Turnstile script did not become ready in time.'));
+        cleanup(new Error('Turnstile script did not become ready in time. This may be due to Cloudflare challenge blocking the script.'));
         return;
       }
       setTimeout(checkReady, 50);
@@ -153,7 +159,6 @@ async function ensureWidget(siteKey: string): Promise<string> {
   try {
     state.widgetId = window.turnstile.render(state.container, {
       sitekey: siteKey,
-      size: 'invisible',
       callback: (token: string) => {
         if (state.activeResolver) {
           state.activeResolver(token);
@@ -204,14 +209,31 @@ export async function getTurnstileToken(): Promise<string> {
     return state.activePromise;
   }
 
-  if (state.isExecuting && state.widgetId && window.turnstile?.reset) {
-    window.turnstile.reset(state.widgetId);
-    state.isExecuting = false;
+  // If already executing, wait for it to complete or reset
+  if (state.isExecuting) {
+    if (state.widgetId && window.turnstile?.reset) {
+      window.turnstile.reset(state.widgetId);
+      state.isExecuting = false;
+      finalizeActiveExecution();
+    } else {
+      // Wait a bit and retry
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          getTurnstileToken().then(resolve).catch(reject);
+        }, 100);
+      });
+    }
   }
 
   state.activePromise = (async () => {
     try {
       const id = await ensureWidget(TURNSTILE_SITE_KEY);
+
+      // Double-check we're not already executing
+      if (state.isExecuting) {
+        throw new Error('Turnstile widget is already executing');
+      }
+
       return new Promise<string>((resolve, reject) => {
         const timeoutId = window.setTimeout(() => {
           if (state.activeRejecter) {
@@ -231,16 +253,41 @@ export async function getTurnstileToken(): Promise<string> {
           window.clearTimeout(timeoutId);
           reject(error);
         };
+
+        // Set executing flag BEFORE calling execute
         state.isExecuting = true;
 
         try {
-          window.turnstile?.execute(id, { reset: true });
+          if (import.meta.env.DEV) {
+            console.log('[turnstile] Executing widget:', id);
+          }
+          // Don't use reset: true if already executing - just execute normally
+          window.turnstile?.execute(id);
         } catch (error) {
+          state.isExecuting = false;
           finalizeActiveExecution();
-          reject(error instanceof Error ? error : new Error('Failed to execute Turnstile.'));
+          const errorMessage = error instanceof Error ? error.message : 'Failed to execute Turnstile.';
+          if (import.meta.env.DEV) {
+            console.error('[turnstile] Execute failed:', errorMessage);
+          }
+          // If widget is already executing, wait a bit and retry
+          if (errorMessage.includes('already executing')) {
+            state.isExecuting = false;
+            finalizeActiveExecution();
+            // Reset and try again after a short delay
+            setTimeout(() => {
+              if (state.widgetId && window.turnstile) {
+                window.turnstile.reset(state.widgetId);
+              }
+              getTurnstileToken().then(resolve).catch(reject);
+            }, 200);
+            return;
+          }
+          reject(new Error(errorMessage));
         }
       });
     } catch (error) {
+      state.isExecuting = false;
       finalizeActiveExecution();
       throw error;
     }
