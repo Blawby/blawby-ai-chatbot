@@ -283,7 +283,7 @@ This section reflects the updated OneSignal direction.
 - Each item supports mark read/unread, copy link, and context actions; a top-level “mark all read” per tab is required.
 - OS notifications should fire for messages and system alerts; in-app list is the source of truth and should reconcile SSE + D1.
 - Deprecate toast-based alerts once the system tab is reliable; keep toasts only for transient UI feedback.
-- Settings panel should expose per-user toggles for email + push; practice-wide settings only visible to admin/owner roles.
+- Settings panel should expose per-user toggles for email + push; organization-wide settings only visible to admin/owner roles.
 
 #### Phase 3 UI file touch map (existing)
 - `src/app/AppLayout.tsx` - add notification center area and tab routing within the main layout.
@@ -318,13 +318,14 @@ This section reflects the updated OneSignal direction.
 - `src/features/notifications/hooks/useNotificationCounts.ts` - unread dot + per-thread counts.
 - `src/features/notifications/utils/groupNotifications.ts` - day grouping + timestamp normalization.
 - `src/features/notifications/types.ts` - UI-facing notification types + category enum.
+- `src/shared/notifications/oneSignalClient.ts` - OneSignal SDK initialization, permission prompts, and subscription management.
 
 ### Phase 4: Ops hardening
-- [ ] Edge rate limiting on registration and send endpoints (per IP, per user, per practice).
-- [ ] App-level quotas for sends (per user/day, per practice/min, per category).
+- [ ] Edge rate limiting on registration and send endpoints (per IP, per user, per organization).
+- [ ] App-level quotas for sends (per user/day, per organization/min, per category).
 - [ ] DLQ policy for queue failures plus a replay/runbook; avoid retry storms.
 - [ ] Idempotency + dedupe enforcement for external sends to prevent duplicates.
-- [ ] Structured logs with event id, user id, practice id, category, provider status/error.
+- [ ] Structured logs with event id, user id, organization id, category, provider status/error.
 - [ ] Monitoring and alerting for delivery failures, suppression spikes, and bounce rates.
 - [ ] Secrets rotation plan for OneSignal API keys; least-privilege and audit trail.
 - [ ] Data retention policy for notifications and destinations, with cleanup of disabled records.
@@ -623,8 +624,8 @@ For more granular control, implement organization-level testing flags:
 
 ```typescript
 // Check if organization is in test mode
-const practiceConfig = await this.getPracticeConfig(organizationId);
-if (practiceConfig.testMode) {
+const organizationConfig = await this.getOrganizationConfig(organizationId);
+if (organizationConfig.testMode) {
   console.log('🧪 organization in test mode - logging notification instead of sending');
   return;
 }

@@ -156,18 +156,23 @@ export async function getTurnstileToken(): Promise<string | null> {
   }
 
   activePromise = (async () => {
-    const id = await ensureWidget(TURNSTILE_SITE_KEY);
-    return new Promise<string>((resolve, reject) => {
-      activeResolver = resolve;
-      activeRejecter = reject;
+    try {
+      const id = await ensureWidget(TURNSTILE_SITE_KEY);
+      return new Promise<string>((resolve, reject) => {
+        activeResolver = resolve;
+        activeRejecter = reject;
 
-      try {
-        window.turnstile?.execute(id);
-      } catch (error) {
-        finalizeActiveExecution();
-        reject(error instanceof Error ? error : new Error('Failed to execute Turnstile.'));
-      }
-    });
+        try {
+          window.turnstile?.execute(id);
+        } catch (error) {
+          finalizeActiveExecution();
+          reject(error instanceof Error ? error : new Error('Failed to execute Turnstile.'));
+        }
+      });
+    } catch (error) {
+      finalizeActiveExecution();
+      throw error;
+    }
   })();
 
   return activePromise;

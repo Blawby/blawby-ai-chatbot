@@ -492,7 +492,8 @@ export class RemoteApiService {
     try {
       await this.fetchFromRemoteApi(
         env,
-        `/api/practice/details/${encodeURIComponent(practiceId)}`
+        `/api/practice/details/${encodeURIComponent(practiceId)}`,
+        request
       );
       return true;
     } catch (error) {

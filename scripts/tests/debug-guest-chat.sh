@@ -34,7 +34,12 @@ read_dotenv_value() {
     local line
     line=$(grep -E "^${key}=" .env | tail -n 1 || true)
     if [[ -n "$line" ]]; then
-      echo "${line#*=}"
+      local value="${line#*=}"
+      value="${value#\"}"
+      value="${value%\"}"
+      value="${value#\'}"
+      value="${value%\'}"
+      echo "$value"
     fi
   fi
 }
@@ -42,6 +47,19 @@ read_dotenv_value() {
 trim_trailing_slash() {
   local value="$1"
   echo "${value%/}"
+}
+
+url_encode() {
+  node -e 'console.log(encodeURIComponent(process.argv[1] ?? ""))' "$1"
+}
+
+require_option_value() {
+  local option="$1"
+  local value="${2-}"
+  if [[ -z "$value" ]]; then
+    echo "Option $option requires a value" >&2
+    exit 1
+  fi
 }
 
 get_header_value() {
@@ -307,18 +325,22 @@ EXPECTED_BACKEND_HOST="local.blawby.com"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --practice|--practice-id|--practice-slug|--practice-uuid)
+      require_option_value "$1" "${2-}"
       PRACTICE_INPUT="$2"
       shift 2
       ;;
     --worker-url)
+      require_option_value "$1" "${2-}"
       WORKER_URL="$2"
       shift 2
       ;;
     --backend-url)
+      require_option_value "$1" "${2-}"
       BACKEND_URL="$2"
       shift 2
       ;;
     --auth-token)
+      require_option_value "$1" "${2-}"
       AUTH_TOKEN="$2"
       shift 2
       ;;
@@ -327,6 +349,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --expect-backend)
+      require_option_value "$1" "${2-}"
       EXPECTED_BACKEND_HOST="$2"
       shift 2
       ;;
@@ -410,7 +433,7 @@ echo "Step 0: Practice details lookup (public endpoint)"
 if [[ "$PRACTICE_INPUT" =~ ^[0-9a-fA-F-]{36}$ ]]; then
   echo "Note: practice input looks like a UUID; details endpoint expects a slug."
 fi
-request "GET" "$BACKEND_URL/api/practice/details/$(printf '%s' "$PRACTICE_INPUT" | sed 's/ /%20/g')" "" "$AUTH_TOKEN"
+request "GET" "$BACKEND_URL/api/practice/details/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
 echo "GET /api/practice/details/{slug} status: $LAST_STATUS"
 
 if [[ "$LAST_STATUS" == "200" ]]; then
@@ -451,7 +474,7 @@ fi
 echo ""
 
 echo "Step 1: Practice lookup"
-request "GET" "$BACKEND_URL/api/practice/$(printf '%s' "$PRACTICE_INPUT" | sed 's/ /%20/g')" "" "$AUTH_TOKEN"
+request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
 echo "GET /api/practice/{id} status: $LAST_STATUS"
 
 if [[ "$LAST_STATUS" == "200" ]]; then
@@ -473,7 +496,7 @@ else
   fi
   if [[ "$LAST_STATUS" == "400" ]]; then
     echo "Retrying slug lookup: /api/practice?slug=$PRACTICE_INPUT"
-    request "GET" "$BACKEND_URL/api/practice?slug=$(printf '%s' "$PRACTICE_INPUT" | sed 's/ /%20/g')"
+    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")"
     echo "GET /api/practice?slug= status: $LAST_STATUS"
     if [[ "$LAST_STATUS" == "200" ]]; then
       practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)
@@ -558,7 +581,7 @@ fi
 
 if [[ -n "$AUTH_TOKEN" && -z "$resolved_practice_id" ]]; then
   echo "Step 3b: Retry practice lookup with auth token"
-  request "GET" "$BACKEND_URL/api/practice/$(printf '%s' "$PRACTICE_INPUT" | sed 's/ /%20/g')" "" "$AUTH_TOKEN"
+  request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
   echo "GET /api/practice/{id} (auth) status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then
     practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)
@@ -609,7 +632,7 @@ if [[ -n "$AUTH_TOKEN" && -n "$user_id" ]]; then
 {"participantUserIds":["$user_id"],"metadata":{"source":"debug-script"}}
 JSON
 )
-  request "POST" "$WORKER_URL/api/conversations?practiceId=$(printf '%s' "$practice_for_conversation" | sed 's/ /%20/g')" "$conversation_payload" "$AUTH_TOKEN"
+  request "POST" "$WORKER_URL/api/conversations?practiceId=$(url_encode "$practice_for_conversation")" "$conversation_payload" "$AUTH_TOKEN"
   echo "POST /api/conversations status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then
     conv_id=$(json_extract_conversation_id "$LAST_BODY" || true)

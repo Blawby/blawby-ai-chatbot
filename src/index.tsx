@@ -98,9 +98,11 @@ function AppShell() {
       return;
     }
 
+    const previousWorkspace = lastWorkspaceRef.current;
     lastWorkspaceRef.current = workspaceFromPath;
     updateUser({ primaryWorkspace: workspaceFromPath }).catch((error) => {
       console.warn('[Workspace] Failed to persist workspace preference', error);
+      lastWorkspaceRef.current = previousWorkspace;
     });
 
     if (workspaceFromPath === 'practice') {
@@ -111,18 +113,22 @@ function AppShell() {
         null;
 
       if (practiceIdCandidate && lastActivePracticeRef.current !== practiceIdCandidate) {
+        const previousActivePractice = lastActivePracticeRef.current;
         lastActivePracticeRef.current = practiceIdCandidate;
         const client = getClient();
         client.organization.setActive({ organizationId: practiceIdCandidate }).catch((error) => {
           console.warn('[Workspace] Failed to set active organization', error);
+          lastActivePracticeRef.current = previousActivePractice;
         });
       }
     } else if (workspaceFromPath === 'client') {
       if (activePracticeId || lastActivePracticeRef.current) {
+        const previousActivePractice = lastActivePracticeRef.current;
         lastActivePracticeRef.current = null;
         const client = getClient();
         client.organization.setActive({ organizationId: null }).catch((error) => {
           console.warn('[Workspace] Failed to clear active organization', error);
+          lastActivePracticeRef.current = previousActivePractice;
         });
       }
     }
