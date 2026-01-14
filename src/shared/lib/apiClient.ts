@@ -14,6 +14,7 @@ import { getTurnstileToken } from '@/shared/lib/turnstile';
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
 const captchaProtectedPath = /\/api\/practice\/details\/[^/]+\b/;
+const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
 
 /**
  * Get the base URL for backend API requests
@@ -709,37 +710,54 @@ export async function getPublicPracticeDetails(
   if (!slug) {
     throw new Error('practice slug is required');
   }
-  try {
-    const captchaToken = await getTurnstileToken();
-    if (!captchaToken) {
-      throw new Error('Captcha token is required to load practice details.');
-    }
+  const normalizedSlug = slug.trim();
+  const existing = publicPracticeDetailsInFlight.get(normalizedSlug);
+  if (existing) {
+    return existing;
+  }
 
-    const response = await axios.get(
-      `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(slug)}`,
-      {
-        signal: config?.signal,
-        headers: {
-          'x-captcha-token': captchaToken
-        },
-        withCredentials: true
+  const requestPromise = (async () => {
+    try {
+      const captchaToken = await getTurnstileToken();
+      if (!captchaToken) {
+        throw new Error('Captcha token is required to load practice details.');
       }
-    );
-    const details = normalizePracticeDetailsResponse(response.data);
-    const meta = extractPracticeDetailsMeta(response.data);
-    if (!details && !meta.practiceId && !meta.slug) {
-      return null;
+
+      const response = await axios.get(
+        `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
+        {
+          signal: config?.signal,
+          headers: {
+            'x-captcha-token': captchaToken
+          },
+          withCredentials: true
+        }
+      );
+      const details = normalizePracticeDetailsResponse(response.data);
+      const meta = extractPracticeDetailsMeta(response.data);
+      if (!details && !meta.practiceId && !meta.slug) {
+        return null;
+      }
+      return {
+        practiceId: meta.practiceId,
+        slug: meta.slug ?? normalizedSlug,
+        details
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null;
+      }
+      throw error;
     }
-    return {
-      practiceId: meta.practiceId,
-      slug: meta.slug ?? slug,
-      details
-    };
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
+  })();
+
+  publicPracticeDetailsInFlight.set(normalizedSlug, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    if (publicPracticeDetailsInFlight.get(normalizedSlug) === requestPromise) {
+      publicPracticeDetailsInFlight.delete(normalizedSlug);
     }
-    throw error;
   }
 }
 

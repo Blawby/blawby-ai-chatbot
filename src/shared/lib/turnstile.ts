@@ -141,16 +141,19 @@ async function ensureWidget(siteKey: string): Promise<string> {
 
   state.container = document.createElement('div');
   state.container.style.position = 'fixed';
-  state.container.style.bottom = '16px';
-  state.container.style.right = '16px';
+  state.container.style.bottom = '0';
+  state.container.style.right = '0';
+  state.container.style.width = '0';
+  state.container.style.height = '0';
+  state.container.style.opacity = '0';
+  state.container.style.pointerEvents = 'none';
   state.container.style.zIndex = '2147483647';
-  state.container.style.display = 'block';
   document.body.appendChild(state.container);
 
   try {
     state.widgetId = window.turnstile.render(state.container, {
       sitekey: siteKey,
-      size: 'compact',
+      size: 'invisible',
       callback: (token: string) => {
         if (state.activeResolver) {
           state.activeResolver(token);

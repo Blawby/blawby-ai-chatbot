@@ -359,7 +359,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   return (
     <div className="max-md:h-[100dvh] md:h-screen w-full flex bg-white dark:bg-dark-bg">
       {/* Left Sidebar - Desktop: always visible, Mobile: slide-out, Hidden when settings modal is open on mobile */}
-      {features.enableLeftSidebar && !(isMobile && isSettingsModalOpen) && (
+      {features.enableLeftSidebar && workspace !== 'public' && !(isMobile && isSettingsModalOpen) && (
         <>
           {/* Desktop Sidebar */}
           <div className="overflow-y-auto hidden lg:block">
@@ -529,13 +529,15 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       )}
 
 
-      <MobileTopNav
-        onOpenSidebar={() => onToggleMobileSidebar(true)}
-        onPlusClick={() => {
-          window.location.hash = '#pricing';
-        }}
-        isVisible={isNavbarVisible}
-      />
+      {workspace !== 'public' && (
+        <MobileTopNav
+          onOpenSidebar={() => onToggleMobileSidebar(true)}
+          onPlusClick={() => {
+            window.location.hash = '#pricing';
+          }}
+          isVisible={isNavbarVisible}
+        />
+      )}
 
       {/* Debug Overlay - Only when explicitly enabled */}
       {import.meta.env.VITE_DEBUG_OVERLAY === 'true' && (
