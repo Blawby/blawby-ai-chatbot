@@ -1,6 +1,6 @@
 # Legal Intake Chatbot - Cloudflare Workers AI
 
-A production-ready legal intake chatbot built with Cloudflare Workers AI, featuring intelligent conversation handling, step-by-step information collection, and automated matter creation with payment integration.
+A legal intake chatbot built with Cloudflare Workers AI, featuring intelligent conversation handling, step-by-step information collection, and automated matter creation with payment integration.
 
 ## 🚀 **Quick Start**
 
