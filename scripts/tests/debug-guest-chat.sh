@@ -28,6 +28,7 @@ require_cmd() {
 
 require_cmd curl
 require_cmd node
+require_cmd jq
 
 read_dotenv_value() {
   local key="$1"
@@ -644,10 +645,7 @@ if [[ -n "$AUTH_TOKEN" && -n "$user_id" ]]; then
     practice_for_conversation="$resolved_practice_id"
   fi
 
-  conversation_payload=$(cat <<JSON
-{"participantUserIds":["$user_id"],"metadata":{"source":"debug-script"}}
-JSON
-)
+  conversation_payload=$(echo '{}' | jq --arg id "$user_id" '.participantUserIds=[ $id ] | .metadata={source:"debug-script"}')
   request "POST" "$WORKER_URL/api/conversations?practiceId=$(url_encode "$practice_for_conversation")" "$conversation_payload" "$AUTH_TOKEN" "$CAPTCHA_TOKEN"
   echo "POST /api/conversations status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then

@@ -8,7 +8,7 @@ type TurnstileRenderOptions = {
   'error-callback'?: (error: string) => void;
   'expired-callback'?: () => void;
   theme?: 'light' | 'dark' | 'auto';
-  size?: 'normal' | 'compact' | 'flexible';
+  size?: 'normal' | 'compact' | 'flexible' | 'invisible';
   language?: string;
 };
 

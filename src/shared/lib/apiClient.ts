@@ -721,9 +721,6 @@ export async function getPublicPracticeDetails(
       let captchaToken: string;
       try {
         captchaToken = await getTurnstileToken();
-        if (!captchaToken) {
-          throw new Error('Captcha token is required to load practice details.');
-        }
         if (import.meta.env.DEV) {
           console.log('[getPublicPracticeDetails] Turnstile token generated:', {
             tokenPrefix: `${captchaToken.substring(0, 20)}...`,
