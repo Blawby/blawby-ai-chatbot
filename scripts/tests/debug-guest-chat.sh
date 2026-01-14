@@ -496,7 +496,7 @@ else
   fi
   if [[ "$LAST_STATUS" == "400" ]]; then
     echo "Retrying slug lookup: /api/practice?slug=$PRACTICE_INPUT"
-    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")"
+    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
     echo "GET /api/practice?slug= status: $LAST_STATUS"
     if [[ "$LAST_STATUS" == "200" ]]; then
       practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)

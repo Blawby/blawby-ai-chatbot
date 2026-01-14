@@ -61,14 +61,24 @@ function ensureTurnstileScript(): Promise<void> {
     );
     const script =
       existingScript ?? document.createElement('script');
+    const shouldRemoveScript = !existingScript;
+
+    const cleanup = (error: Error) => {
+      if (shouldRemoveScript && script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      scriptPromise = null;
+      reject(error);
+    };
 
     if (!existingScript) {
       script.src = TURNSTILE_SCRIPT_SRC;
       script.async = true;
       script.defer = true;
       script.dataset.turnstileScript = 'true';
-      script.onerror = () =>
-        reject(new Error('Failed to load the Turnstile script.'));
+      script.onerror = () => {
+        cleanup(new Error('Failed to load the Turnstile script.'));
+      };
       document.head.appendChild(script);
     }
 
@@ -79,7 +89,7 @@ function ensureTurnstileScript(): Promise<void> {
         return;
       }
       if (Date.now() - start > 10000) {
-        reject(new Error('Turnstile script did not become ready in time.'));
+        cleanup(new Error('Turnstile script did not become ready in time.'));
         return;
       }
       setTimeout(checkReady, 50);
