@@ -26,6 +26,8 @@ binding = "NOTIFICATION_EVENTS"
 queue = "notification-events"
 max_batch_size = 10
 max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "notification-events-dlq"
 
 [[durable_objects.bindings]]
 name = "NOTIFICATION_HUB"
@@ -55,6 +57,8 @@ binding = "NOTIFICATION_EVENTS"
 queue = "notification-events"
 max_batch_size = 10
 max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "notification-events-dlq"
 
 [[env.dev.durable_objects.bindings]]
 name = "NOTIFICATION_HUB"
@@ -99,6 +103,8 @@ binding = "NOTIFICATION_EVENTS"
 queue = "notification-events"
 max_batch_size = 10
 max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "notification-events-dlq"
 
 [[env.production.durable_objects.bindings]]
 name = "NOTIFICATION_HUB"

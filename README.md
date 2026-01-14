@@ -137,14 +137,16 @@ Create a `.env` file in the project root for frontend environment variables:
 - `VITE_REMOTE_API_URL` - URL of your remote API server (used for both auth and API calls)
   - Example: `http://localhost:3000` for local development
   - Optional in development - will fall back to staging API for testing if not set
+- `VITE_ONESIGNAL_APP_ID` - OneSignal app id for the web SDK (required if using push notifications)
 
 **For Production (Cloudflare Pages):**
-Set `VITE_REMOTE_API_URL` in Cloudflare Pages environment variables:
+Set frontend environment variables in Cloudflare Pages:
 
 1. Go to your Cloudflare Pages project dashboard
 2. Navigate to **Settings > Environment Variables**
-3. Add `VITE_REMOTE_API_URL` with your production remote API URL
-4. Example: `https://production-api.blawby.com`
+3. Add required variables:
+   - `VITE_REMOTE_API_URL` - Your production remote API URL (e.g., `https://production-api.blawby.com`)
+   - `VITE_ONESIGNAL_APP_ID` - Your OneSignal app ID (if using push notifications)
 
 **Important:** 
 - Frontend environment variables (prefixed with `VITE_`) are bundled into the frontend code at build time
