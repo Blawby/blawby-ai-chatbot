@@ -48,7 +48,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: '.'
-          command: deploy --env production --config worker/wrangler.toml --verbose
+          command: deploy --env production --config worker/wrangler.toml
 
   deploy-frontend:
     name: Deploy Cloudflare Pages
@@ -85,4 +85,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=blawby-ai-chatbot-frontend --verbose
+          command: pages deploy dist --project-name=blawby-ai-chatbot-frontend
