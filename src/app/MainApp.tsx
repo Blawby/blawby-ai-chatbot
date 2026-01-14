@@ -18,6 +18,7 @@ import { getConversationsEndpoint } from '@/config/api';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { useNavigation } from '@/shared/utils/navigation';
 import PricingModal from '@/features/modals/components/PricingModal';
+import { getTurnstileToken } from '@/shared/lib/turnstile';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
 import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -27,8 +28,6 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ConversationSidebar } from '@/features/chats/components/ConversationSidebar';
-// Turnstile temporarily disabled to unblock CORS/debugging.
-// import { getTurnstileToken } from '@/shared/lib/turnstile';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -233,15 +232,14 @@ export function MainApp({
         console.error('[createConversation] No token available - conversation creation will fail');
         throw new Error('Authentication token not available');
       }
-      // Turnstile temporarily disabled to unblock CORS/debugging.
-      // const isLikelyUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(practiceId);
-      // if (!isLikelyUuid) {
-      //   const captchaToken = await getTurnstileToken();
-      //   if (!captchaToken) {
-      //     throw new Error('Captcha token is required to start a conversation.');
-      //   }
-      //   headers['x-captcha-token'] = captchaToken;
-      // }
+      const isLikelyUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(practiceId);
+      if (!isLikelyUuid) {
+        const captchaToken = await getTurnstileToken();
+        if (!captchaToken) {
+          throw new Error('Captcha token is required to start a conversation.');
+        }
+        headers['x-captcha-token'] = captchaToken;
+      }
 
       const url = `${getConversationsEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`;
 

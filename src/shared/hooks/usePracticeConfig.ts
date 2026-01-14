@@ -156,6 +156,7 @@ export const usePracticeConfig = ({
         }
 
         // No public details available - mark as not found for unauthenticated access.
+        fetchedPracticeIds.current.delete(currentPracticeId);
         setPracticeNotFound(true);
         setIsLoading(false);
         return;

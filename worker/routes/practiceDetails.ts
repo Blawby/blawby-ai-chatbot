@@ -18,5 +18,12 @@ export async function handlePracticeDetails(request: Request, env: Env): Promise
     throw HttpErrors.badRequest('practice slug is required');
   }
 
-  return RemoteApiService.getPublicPracticeDetails(env, decodeURIComponent(slug), request);
+  let decodedSlug: string;
+  try {
+    decodedSlug = decodeURIComponent(slug);
+  } catch {
+    throw HttpErrors.badRequest('Invalid slug encoding');
+  }
+
+  return RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
 }

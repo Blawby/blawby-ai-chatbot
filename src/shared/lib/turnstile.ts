@@ -172,8 +172,8 @@ async function ensureWidget(siteKey: string): Promise<string> {
         }
         if (state.activeRejecter) {
           state.activeRejecter(new Error('CAPTCHA expired.'));
-          finalizeActiveExecution();
         }
+        finalizeActiveExecution();
       }
     });
   } catch (error) {
@@ -188,7 +188,7 @@ async function ensureWidget(siteKey: string): Promise<string> {
   return state.widgetId;
 }
 
-export async function getTurnstileToken(): Promise<string | null> {
+export async function getTurnstileToken(): Promise<string> {
   if (!TURNSTILE_SITE_KEY) {
     if (!state.warnedMissingKey) {
       console.error('[turnstile] VITE_TURNSTILE_SITE_KEY not set; cannot request CAPTCHA token.');

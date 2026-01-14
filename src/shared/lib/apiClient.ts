@@ -9,11 +9,11 @@ import {
 import { isPlatformPractice } from '@/shared/utils/practice';
 import type { Conversation } from '@/shared/types/conversation';
 import { getBackendApiUrl, getWorkerApiUrl } from '@/config/urls';
-// Turnstile temporarily disabled to unblock CORS/debugging.
-// import { getTurnstileToken } from '@/shared/lib/turnstile';
+import { getTurnstileToken } from '@/shared/lib/turnstile';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
+const captchaProtectedPath = /\/api\/practice\/details\/[^/]+\b/;
 
 /**
  * Get the base URL for backend API requests
@@ -46,23 +46,22 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   async (config) => {
-    // Turnstile temporarily disabled to unblock CORS/debugging.
-    // const requiresCaptcha = (() => {
-    //   const rawUrl = config.url ?? '';
-    //   if (!rawUrl) {
-    //     return false;
-    //   }
-    //   const path = rawUrl.startsWith('http')
-    //     ? (() => {
-    //         try {
-    //           return new URL(rawUrl).pathname;
-    //         } catch {
-    //           return rawUrl;
-    //         }
-    //       })()
-    //     : rawUrl;
-    //   return /\/api\/practice\/details\/[^/]+\b/.test(path.split('?')[0] ?? '');
-    // })();
+    const requiresCaptcha = (() => {
+      const rawUrl = config.url ?? '';
+      if (!rawUrl) {
+        return false;
+      }
+      const path = rawUrl.startsWith('http')
+        ? (() => {
+            try {
+              return new URL(rawUrl).pathname;
+            } catch {
+              return rawUrl;
+            }
+          })()
+        : rawUrl;
+      return captchaProtectedPath.test(path.split('?')[0] ?? '');
+    })();
 
     // Always get fresh baseURL in development to support MSW
     // Force override any cached baseURL - this is critical for MSW interception
@@ -93,17 +92,16 @@ apiClient.interceptors.request.use(
       console.warn('[apiClient] No token available for request:', config.url, 'baseURL:', baseUrl);
     }
 
-    // Turnstile temporarily disabled to unblock CORS/debugging.
-    // if (requiresCaptcha) {
-    //   const captchaToken = await getTurnstileToken();
-    //   if (captchaToken) {
-    //     if (!config.headers) {
-    //       config.headers = {} as AxiosRequestHeaders;
-    //     }
-    //     const headers = config.headers as AxiosRequestHeaders;
-    //     headers['x-captcha-token'] = captchaToken;
-    //   }
-    // }
+    if (requiresCaptcha) {
+      const captchaToken = await getTurnstileToken();
+      if (captchaToken) {
+        if (!config.headers) {
+          config.headers = {} as AxiosRequestHeaders;
+        }
+        const headers = config.headers as AxiosRequestHeaders;
+        headers['x-captcha-token'] = captchaToken;
+      }
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -712,19 +710,18 @@ export async function getPublicPracticeDetails(
     throw new Error('practice slug is required');
   }
   try {
-    // Turnstile temporarily disabled to unblock CORS/debugging.
-    // const captchaToken = await getTurnstileToken();
-    // if (!captchaToken) {
-    //   throw new Error('Captcha token is required to load practice details.');
-    // }
+    const captchaToken = await getTurnstileToken();
+    if (!captchaToken) {
+      throw new Error('Captcha token is required to load practice details.');
+    }
 
     const response = await axios.get(
       `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(slug)}`,
       {
         signal: config?.signal,
-        // headers: {
-        //   'x-captcha-token': captchaToken
-        // },
+        headers: {
+          'x-captcha-token': captchaToken
+        },
         withCredentials: true
       }
     );
