@@ -23,13 +23,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Debug - versions
+        run: |
+          node -v
+          npm -v
+          npx --version
+
+      - name: Debug - list worker files
+        run: |
+          pwd
+          ls -la
+          ls -la worker || true
+          ls -la worker/wrangler.toml || true
+
+      - name: Debug - show wrangler config
+        run: |
+          cat worker/wrangler.toml || true
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
+        env:
+          WRANGLER_LOG: debug
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: '.'
-          command: deploy --env production --config worker/wrangler.toml
+          command: deploy --env production --config worker/wrangler.toml --verbose
 
   deploy-frontend:
     name: Deploy Cloudflare Pages
@@ -53,9 +72,17 @@ jobs:
           VITE_AUTH_SERVER_URL: ${{ secrets.VITE_AUTH_SERVER_URL }}
           VITE_REMOTE_API_URL: ${{ secrets.VITE_REMOTE_API_URL }}
 
+      - name: Debug - list build output
+        run: |
+          pwd
+          ls -la
+          ls -la dist || true
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
+        env:
+          WRANGLER_LOG: debug
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=blawby-ai-chatbot-frontend
+          command: pages deploy dist --project-name=blawby-ai-chatbot-frontend --verbose
