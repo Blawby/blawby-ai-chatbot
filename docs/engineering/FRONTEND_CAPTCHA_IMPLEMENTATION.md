@@ -29,7 +29,7 @@ The backend expects:
 
 ```bash
 # .env
-REACT_APP_TURNSTILE_SITE_KEY=your_site_key_here
+VITE_TURNSTILE_SITE_KEY=your_site_key_here
 ```
 
 For production, ensure this environment variable is set in your deployment platform (Vercel, Netlify, etc.).
@@ -280,7 +280,7 @@ Create a custom hook that automatically generates CAPTCHA tokens and makes API c
 import { useState, useCallback } from 'react';
 import { useInvisibleCaptcha } from './useInvisibleCaptcha';
 
-const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || '';
+const TURNSTILE_SITE_KEY = process.env.VITE_TURNSTILE_SITE_KEY || '';
 
 interface UseApiWithCaptchaOptions {
   apiUrl: string;
@@ -459,7 +459,7 @@ If you need more control over when the CAPTCHA token is generated, you can use t
 import { useState } from 'react';
 import { useInvisibleCaptcha } from '../hooks/useInvisibleCaptcha';
 
-const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || '';
+const TURNSTILE_SITE_KEY = process.env.VITE_TURNSTILE_SITE_KEY || '';
 
 export const ManualCaptchaExample = () => {
   const [formData, setFormData] = useState({});
@@ -539,7 +539,7 @@ If you're using a centralized API client (like Axios), you can add automatic CAP
 import axios, { AxiosRequestConfig } from 'axios';
 import { useInvisibleCaptcha } from '../hooks/useInvisibleCaptcha';
 
-const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || '';
+const TURNSTILE_SITE_KEY = process.env.VITE_TURNSTILE_SITE_KEY || '';
 
 const apiClient = axios.create({
   baseURL: process.env.REACT_APP_API_URL || '/api',
@@ -597,7 +597,7 @@ import { useEffect } from 'react';
 import { useInvisibleCaptcha } from './hooks/useInvisibleCaptcha';
 import { setCaptchaExecutor } from './utils/apiClient';
 
-const TURNSTILE_SITE_KEY = process.env.REACT_APP_TURNSTILE_SITE_KEY || '';
+const TURNSTILE_SITE_KEY = process.env.VITE_TURNSTILE_SITE_KEY || '';
 
 export const App = () => {
   const { execute } = useInvisibleCaptcha({
@@ -681,7 +681,7 @@ These keys always pass validation in development mode.
 ### CAPTCHA Token Not Generated
 
 - **Check script loading**: Verify `window.turnstile` exists in browser console
-- **Verify Site Key**: Ensure `REACT_APP_TURNSTILE_SITE_KEY` is set in your `.env` file
+- **Verify Site Key**: Ensure `VITE_TURNSTILE_SITE_KEY` is set in your `.env` file
 - **Check console errors**: Look for any JavaScript errors that might prevent script loading
 - **Network issues**: Ensure the Turnstile script can be loaded from `challenges.cloudflare.com`
 

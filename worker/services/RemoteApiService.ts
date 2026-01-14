@@ -72,6 +72,13 @@ export class RemoteApiService {
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
+    const captchaHeader = request?.headers.get('x-captcha-token');
+    const turnstileHeader = request?.headers.get('x-turnstile-token');
+    if (captchaHeader) {
+      headers.set('x-captcha-token', captchaHeader);
+    } else if (turnstileHeader) {
+      headers.set('x-captcha-token', turnstileHeader);
+    }
 
     const method = options?.method || 'GET';
     const body = options?.body;
@@ -211,6 +218,21 @@ export class RemoteApiService {
     this.configCache.set(practiceId, { data: conversationConfig, timestamp: Date.now() });
     
     return conversationConfig;
+  }
+
+  /**
+   * Fetch public practice details by slug.
+   */
+  static async getPublicPracticeDetails(
+    env: Env,
+    slug: string,
+    request?: Request
+  ): Promise<Response> {
+    return this.fetchFromRemoteApi(
+      env,
+      `/api/practice/details/${encodeURIComponent(slug)}`,
+      request
+    );
   }
 
   /**

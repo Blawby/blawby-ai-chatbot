@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { PracticeConfig } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { DEFAULT_PRACTICE_ID } from '@/shared/utils/constants';
-import { listPractices, getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
+import { getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { PLATFORM_SETTINGS } from '@/config/platform';
 import { isPlatformPractice } from '@/shared/utils/practice';
 
@@ -133,7 +133,7 @@ export const usePracticeConfig = ({
     };
 
     try {
-      if (!isAuthenticated && allowUnauthenticated) {
+      if (allowUnauthenticated) {
         const publicDetails = await getPublicPracticeDetails(currentPracticeId, { signal: controller.signal });
         if (isStaleRequest()) {
           return;
@@ -150,23 +150,18 @@ export const usePracticeConfig = ({
           });
 
           setPracticeConfig(config);
-          if (publicDetails.practiceId && publicDetails.practiceId !== currentPracticeId) {
-            fetchedPracticeIds.current.add(publicDetails.practiceId);
-            setPracticeId(publicDetails.practiceId);
-          }
           setPracticeNotFound(false);
           setIsLoading(false);
           return;
         }
 
         // No public details available - mark as not found for unauthenticated access.
-        fetchedPracticeIds.current.delete(currentPracticeId);
         setPracticeNotFound(true);
         setIsLoading(false);
         return;
       }
 
-      // Try to get specific practice by ID or slug first, then fall back to listing all practices
+      // Try to get specific practice by ID or slug only
       let practice: z.infer<typeof PracticeSchema> | undefined;
       try {
         const practiceData = await getPractice(currentPracticeId, { signal: controller.signal });
@@ -179,19 +174,6 @@ export const usePracticeConfig = ({
       } catch (e) {
         // If direct fetch fails, fall through to list approach when authenticated
         console.debug('[usePracticeConfig] Direct practice fetch failed, falling back to list', e);
-      }
-
-      // If we don't have the practice yet, list all practices and find the matching one
-      if (!practice && isAuthenticated) {
-        const practices = await listPractices({ signal: controller.signal, scope: 'all' });
-
-        if (isStaleRequest()) {
-          return;
-        }
-
-        practice = practices.find(
-          (t) => t.id === currentPracticeId || t.slug === currentPracticeId
-        ) as unknown as z.infer<typeof PracticeSchema> | undefined;
       }
 
       // Check again before processing practice data
@@ -238,12 +220,10 @@ export const usePracticeConfig = ({
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        // Request was aborted; remove fetched marker so a new attempt can proceed
+        // Request was aborted; allow a new attempt to proceed
         fetchedPracticeIds.current.delete(currentPracticeId);
         return;
       }
-      // Remove from fetched set so it can be retried
-      fetchedPracticeIds.current.delete(currentPracticeId);
       console.warn('Failed to fetch practice config:', error);
       setPracticeNotFound(true);
       onError?.('Failed to load practice configuration');
@@ -255,7 +235,7 @@ export const usePracticeConfig = ({
         setIsLoading(false);
       }
     }
-  }, [allowUnauthenticated, onError, isAuthenticated]);
+  }, [allowUnauthenticated, onError]);
 
   // Retry function for practice config
   const handleRetryPracticeConfig = useCallback(() => {

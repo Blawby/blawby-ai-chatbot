@@ -207,8 +207,11 @@ export function useConversations({
 
   // Refresh conversations
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
     await fetchConversations();
-  }, [fetchConversations]);
+  }, [fetchConversations, enabled]);
 
   const addParticipants = useCallback(async (
     conversationId: string,
