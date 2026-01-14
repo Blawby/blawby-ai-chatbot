@@ -1,24 +1,32 @@
 import type { WorkspaceType } from '@/shared/types/workspace';
 
-export const WORKSPACE_STORAGE_KEY = 'workspace:last';
 export const SETTINGS_RETURN_KEY = 'settings:returnPath';
 
 export function resolveWorkspaceFromPath(path: string): WorkspaceType | null {
   if (path === '/practice' || path.startsWith('/practice/')) return 'practice';
-  if (path === '/dashboard' || path.startsWith('/dashboard/')) return 'client';
+  if (
+    path === '/client' ||
+    path.startsWith('/client/') ||
+    path === '/dashboard' ||
+    path.startsWith('/dashboard/')
+  ) {
+    return 'client';
+  }
   if (path === '/p' || path.startsWith('/p/')) return 'public';
   return null;
 }
 
-export function getStoredWorkspace(): WorkspaceType | null {
-  if (typeof window === 'undefined') return null;
-  const stored = window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY);
-  return stored === 'client' || stored === 'practice' || stored === 'public' ? stored : null;
+export function getWorkspaceBasePath(workspace: WorkspaceType): string | null {
+  if (workspace === 'practice') return '/practice';
+  if (workspace === 'client') return '/client';
+  if (workspace === 'public') return '/p';
+  return null;
 }
 
-export function setStoredWorkspace(workspace: WorkspaceType): void {
-  if (typeof window === 'undefined') return;
-  window.sessionStorage.setItem(WORKSPACE_STORAGE_KEY, workspace);
+export function getWorkspaceDashboardPath(workspace: WorkspaceType): string | null {
+  if (workspace === 'practice') return '/practice/dashboard';
+  if (workspace === 'client') return '/client/dashboard';
+  return null;
 }
 
 export function getSettingsReturnPath(): string | null {

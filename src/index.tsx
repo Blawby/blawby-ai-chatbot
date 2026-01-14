@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useCallback, useEffect, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
@@ -17,7 +17,7 @@ import { usePracticeConfig, type UIPracticeConfig } from '@/shared/hooks/usePrac
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { handleError } from '@/shared/utils/errorHandler';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
-import { getSettingsReturnPath, getStoredWorkspace } from '@/shared/utils/workspace';
+import { getSettingsReturnPath, getWorkspaceDashboardPath, resolveWorkspaceFromPath, setSettingsReturnPath } from '@/shared/utils/workspace';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import ClientHomePage from '@/pages/ClientHomePage';
 import { PracticeDashboardPage } from '@/features/dashboard/pages/PracticeDashboardPage';
@@ -48,6 +48,8 @@ const CLIENT_WORKSPACE_CONFIG: UIPracticeConfig = {
   }
 };
 
+type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
+
 // Main App component with routing
 export function App() {
   return (
@@ -64,31 +66,112 @@ function AppShell() {
   const { navigate } = useNavigation();
   const isSettingsOpen = location.path.startsWith('/settings');
   const isMobileHoisted = useMobileDetection();
-  const { defaultWorkspace } = useWorkspace();
+  const { session, isPending: sessionPending, activePracticeId } = useSessionContext();
+  const { defaultWorkspace, canAccessPractice, isPracticeLoading } = useWorkspace();
+  const lastWorkspaceRef = useRef<'client' | 'practice' | null>(null);
+  const lastActivePracticeRef = useRef<string | null>(null);
+  const lastNonSettingsUrlRef = useRef<string | null>(null);
+
+  if (session?.user?.primaryWorkspace && lastWorkspaceRef.current !== session.user.primaryWorkspace) {
+    lastWorkspaceRef.current = session.user.primaryWorkspace;
+  }
+
+  if (!isSettingsOpen && location.url !== lastNonSettingsUrlRef.current) {
+    lastNonSettingsUrlRef.current = location.url;
+  }
+
+  const handleRouteChange = useCallback((url: string) => {
+    if (typeof window === 'undefined') return;
+
+    if (!url.startsWith('/settings')) {
+      setSettingsReturnPath(url);
+    }
+
+    if (sessionPending || !session?.user) return;
+    const path = url.split('?')[0].split('#')[0];
+    const workspaceFromPath = resolveWorkspaceFromPath(path);
+    if (workspaceFromPath !== 'client' && workspaceFromPath !== 'practice') return;
+    if (workspaceFromPath === 'practice' && (isPracticeLoading || !canAccessPractice)) {
+      return;
+    }
+    if (session.user.primaryWorkspace === workspaceFromPath || lastWorkspaceRef.current === workspaceFromPath) {
+      return;
+    }
+
+    lastWorkspaceRef.current = workspaceFromPath;
+    updateUser({ primaryWorkspace: workspaceFromPath }).catch((error) => {
+      console.warn('[Workspace] Failed to persist workspace preference', error);
+    });
+
+    if (workspaceFromPath === 'practice') {
+      const practiceIdCandidate =
+        session.user.preferredPracticeId ??
+        session.user.activePracticeId ??
+        activePracticeId ??
+        null;
+
+      if (practiceIdCandidate && lastActivePracticeRef.current !== practiceIdCandidate) {
+        lastActivePracticeRef.current = practiceIdCandidate;
+        const client = getClient();
+        client.organization.setActive({ organizationId: practiceIdCandidate }).catch((error) => {
+          console.warn('[Workspace] Failed to set active organization', error);
+        });
+      }
+    } else if (workspaceFromPath === 'client') {
+      if (activePracticeId || lastActivePracticeRef.current) {
+        lastActivePracticeRef.current = null;
+        const client = getClient();
+        client.organization.setActive({ organizationId: null }).catch((error) => {
+          console.warn('[Workspace] Failed to clear active organization', error);
+        });
+      }
+    }
+  }, [activePracticeId, canAccessPractice, isPracticeLoading, session?.user, sessionPending]);
 
   const handleCloseSettings = useCallback(() => {
     const returnPath = getSettingsReturnPath();
-    const fallback = defaultWorkspace === 'practice' ? '/practice' : '/dashboard';
+    const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/dashboard';
     navigate(returnPath ?? fallback, true);
   }, [defaultWorkspace, navigate]);
 
+  const fallbackSettingsBackground = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/dashboard';
+  const backgroundUrl = isSettingsOpen
+    ? (lastNonSettingsUrlRef.current ?? fallbackSettingsBackground)
+    : location.url;
+  const wasPush = (location as LocationValue).wasPush;
+
+  const routerLocation = useMemo<LocationValue>(() => {
+    const parsed = new URL(backgroundUrl, 'http://localhost');
+    return {
+      url: backgroundUrl,
+      path: parsed.pathname.replace(/\/+$/g, '') || '/',
+      query: Object.fromEntries(parsed.searchParams),
+      route: location.route,
+      wasPush
+    };
+  }, [backgroundUrl, location.route, wasPush]);
+
   return (
     <ToastProvider>
-      <Router>
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/cart" component={CartPage} />
-        <Route path="/dev/mock-chat" component={MockChatPage} />
-        <Route path="/dev/mock-services" component={MockServicesPage} />
-        <Route path="/intake/pay" component={IntakePaymentPage} />
-        <Route path="/settings" component={SettingsRoute} />
-        <Route path="/settings/*" component={SettingsRoute} />
-        <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
-        <Route path="/practice" component={PracticeAppRoute} />
-        <Route path="/practice/*" component={PracticeAppRoute} />
-        <Route path="/dashboard" component={ClientAppRoute} />
-        <Route path="/dashboard/*" component={ClientAppRoute} />
-        <Route default component={RootRoute} />
-      </Router>
+      <LocationProvider.ctx.Provider value={routerLocation}>
+        <Router onRouteChange={handleRouteChange}>
+          <Route path="/auth" component={AuthPage} />
+          <Route path="/cart" component={CartPage} />
+          <Route path="/dev/mock-chat" component={MockChatPage} />
+          <Route path="/dev/mock-services" component={MockServicesPage} />
+          <Route path="/intake/pay" component={IntakePaymentPage} />
+          <Route path="/settings" component={SettingsRoute} />
+          <Route path="/settings/*" component={SettingsRoute} />
+          <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
+          <Route path="/practice" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} />
+          <Route path="/practice/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} />
+          <Route path="/client" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
+          <Route path="/client/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
+          <Route path="/dashboard" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
+          <Route path="/dashboard/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
+          <Route default component={RootRoute} />
+        </Router>
+      </LocationProvider.ctx.Provider>
 
       {isSettingsOpen && (
         <SettingsLayout
@@ -103,15 +186,14 @@ function AppShell() {
 }
 
 function SettingsRoute() {
-  const { defaultWorkspace, canAccessPractice } = useWorkspace();
-  const storedWorkspace = getStoredWorkspace();
-  const resolved = storedWorkspace ?? defaultWorkspace;
+  const { defaultWorkspace, canAccessPractice, preferredWorkspace } = useWorkspace();
+  const resolved = preferredWorkspace ?? defaultWorkspace;
 
   if (resolved === 'practice' && canAccessPractice) {
-    return <PracticeAppRoute settingsMode={true} />;
+    return <PracticeAppRoute settingsMode={true} settingsOverlayOpen={true} />;
   }
 
-  return <ClientAppRoute settingsMode={true} />;
+  return <ClientAppRoute settingsMode={true} settingsOverlayOpen={true} />;
 }
 
 function RootRoute() {
@@ -121,13 +203,11 @@ function RootRoute() {
     preferredPracticeId,
     activePracticeId,
     canAccessPractice,
-    isPracticeEnabled
+    isPracticeLoading
   } = useWorkspace();
   const { navigate } = useNavigation();
   const workspaceInitRef = useRef(false);
   const practiceResetRef = useRef(false);
-  const practiceWorkspaceRef = useRef(false);
-  const promotionInProgressRef = useRef(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -137,50 +217,21 @@ function RootRoute() {
   }, []);
 
   useEffect(() => {
-    if (isPending) return;
+    if (isPending || isPracticeLoading) return;
 
     if (!session?.user) {
       navigate('/auth', true);
       return;
     }
 
-    if (canAccessPractice && session.user.primaryWorkspace !== 'practice' && !practiceWorkspaceRef.current) {
-      practiceWorkspaceRef.current = true;
-      promotionInProgressRef.current = true;
-      const nextPreferredPracticeId = preferredPracticeId ?? activePracticeId ?? null;
-
-      const promoteWorkspace = async () => {
-        try {
-          await updateUser({
-            primaryWorkspace: 'practice',
-            preferredPracticeId: nextPreferredPracticeId
-          });
-          if (isMountedRef.current) {
-            navigate('/practice', true);
-          }
-        } catch (error) {
-          console.warn('[Workspace] Failed to promote workspace to practice', error);
-          practiceWorkspaceRef.current = false;
-        } finally {
-          promotionInProgressRef.current = false;
-        }
-      };
-
-      void promoteWorkspace();
-      return;
-    }
-
     if (
       !session.user.primaryWorkspace &&
-      !workspaceInitRef.current &&
-      !promotionInProgressRef.current &&
-      !practiceWorkspaceRef.current
+      !workspaceInitRef.current
     ) {
       workspaceInitRef.current = true;
-      const nextPreferredPracticeId =
-        defaultWorkspace === 'practice'
-          ? (preferredPracticeId ?? activePracticeId ?? null)
-          : null;
+      const nextPreferredPracticeId = defaultWorkspace === 'practice'
+        ? (preferredPracticeId ?? activePracticeId ?? null)
+        : null;
       updateUser({
         primaryWorkspace: defaultWorkspace,
         preferredPracticeId: nextPreferredPracticeId
@@ -190,40 +241,27 @@ function RootRoute() {
       });
     }
 
-    if (!isPracticeEnabled) {
-      const resetWorkspace = async () => {
-        if (
-          !practiceResetRef.current &&
-          session.user.primaryWorkspace &&
-          session.user.primaryWorkspace !== 'client'
-        ) {
-          practiceResetRef.current = true;
-          try {
-            await updateUser({ primaryWorkspace: 'client', preferredPracticeId: null });
-          } catch (error) {
-            console.warn('[Workspace] Failed to reset workspace to client', error);
-            practiceResetRef.current = false;
-          }
-        }
-        if (isMountedRef.current) {
-          navigate('/dashboard', true);
-        }
-      };
-      void resetWorkspace();
-      return;
+    if (
+      !canAccessPractice &&
+      session.user.primaryWorkspace === 'practice' &&
+      !practiceResetRef.current
+    ) {
+      practiceResetRef.current = true;
+      updateUser({ primaryWorkspace: 'client', preferredPracticeId: null }).catch((error) => {
+        console.warn('[Workspace] Failed to reset workspace to client', error);
+        practiceResetRef.current = false;
+      });
     }
 
-    if (defaultWorkspace === 'practice' && !canAccessPractice) {
-      navigate('/dashboard', true);
-      return;
+    if (isMountedRef.current) {
+      const destination = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/dashboard';
+      navigate(destination, true);
     }
-
-    navigate(defaultWorkspace === 'practice' ? '/practice' : '/dashboard', true);
   }, [
     activePracticeId,
     canAccessPractice,
     defaultWorkspace,
-    isPracticeEnabled,
+    isPracticeLoading,
     isPending,
     navigate,
     preferredPracticeId,
@@ -233,7 +271,13 @@ function RootRoute() {
   return <LoadingScreen />;
 }
 
-function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
+function ClientAppRoute({
+  settingsMode = false,
+  settingsOverlayOpen = false
+}: {
+  settingsMode?: boolean;
+  settingsOverlayOpen?: boolean;
+}) {
   const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
 
@@ -261,12 +305,19 @@ function ClientAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
       handleRetryPracticeConfig={() => {}}
       isPracticeView={false}
       workspace="client"
+      settingsOverlayOpen={settingsOverlayOpen}
       dashboardContent={<ClientHomePage />}
     />
   );
 }
 
-function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) {
+function PracticeAppRoute({
+  settingsMode = false,
+  settingsOverlayOpen = false
+}: {
+  settingsMode?: boolean;
+  settingsOverlayOpen?: boolean;
+}) {
   const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
   const { preferredPracticeId, activePracticeId, isPracticeEnabled, canAccessPractice } = useWorkspace();
@@ -301,7 +352,7 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
     if (settingsMode || isPending || practicesLoading) return;
     if (!session?.user) return;
     if (!isPracticeEnabled || (!canAccessPractice && !hasPracticeCandidate)) {
-      navigate('/dashboard', true);
+      navigate('/client/dashboard', true);
     }
   }, [canAccessPractice, hasPracticeCandidate, isPracticeEnabled, isPending, navigate, practicesLoading, session?.user, settingsMode]);
 
@@ -332,6 +383,7 @@ function PracticeAppRoute({ settingsMode = false }: { settingsMode?: boolean }) 
       handleRetryPracticeConfig={handleRetryPracticeConfig}
       isPracticeView={true}
       workspace="practice"
+      settingsOverlayOpen={settingsOverlayOpen}
       dashboardContent={<PracticeDashboardPage />}
     />
   );

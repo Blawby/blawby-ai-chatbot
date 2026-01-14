@@ -37,6 +37,7 @@ export function MainApp({
   handleRetryPracticeConfig,
   isPracticeView,
   workspace,
+  settingsOverlayOpen,
   dashboardContent,
   chatContent
 }: {
@@ -46,6 +47,7 @@ export function MainApp({
   handleRetryPracticeConfig: () => void;
   isPracticeView: boolean;
   workspace: WorkspaceType;
+  settingsOverlayOpen?: boolean;
   dashboardContent?: ComponentChildren;
   chatContent?: ComponentChildren;
 }) {
@@ -57,7 +59,7 @@ export function MainApp({
   const [isRecording, setIsRecording] = useState(false);
   const location = useLocation();
   const { navigate } = useNavigation();
-  const isSettingsRouteNow = location.path.startsWith('/settings');
+  const isSettingsRouteNow = settingsOverlayOpen ?? location.path.startsWith('/settings');
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
@@ -74,14 +76,14 @@ export function MainApp({
 
   const basePath = useMemo(() => {
     if (workspace === 'practice') return '/practice';
-    if (workspace === 'client') return '/dashboard';
+    if (workspace === 'client') return '/client';
     return null;
   }, [workspace]);
   const chatsBasePath = useMemo(() => (basePath ? `${basePath}/chats` : null), [basePath]);
 
   const dashboardPath = useMemo(() => {
     if (!basePath) return null;
-    return basePath === '/dashboard' ? basePath : `${basePath}/dashboard`;
+    return `${basePath}/dashboard`;
   }, [basePath]);
 
   const tabFromPath = useMemo(() => {
@@ -114,6 +116,15 @@ export function MainApp({
 
   useEffect(() => {
     if (!basePath || !dashboardPath) return;
+    if (basePath === '/client' && location.path.startsWith('/dashboard')) {
+      const suffix = location.path.slice('/dashboard'.length);
+      const normalizedSuffix = suffix === '' || suffix === '/' ? '/dashboard' : suffix;
+      const nextPath = `/client${normalizedSuffix}`;
+      if (location.path !== nextPath) {
+        navigate(nextPath, true);
+      }
+      return;
+    }
     if (location.path === basePath || location.path === `${basePath}/`) {
       navigate(dashboardPath, true);
     }

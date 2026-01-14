@@ -69,9 +69,9 @@ export class ConversationService {
    * 
    * Validates practice_id exists in remote API before insert to prevent orphaned records.
    */
-  async createConversation(options: CreateConversationOptions): Promise<Conversation> {
+  async createConversation(options: CreateConversationOptions, request?: Request): Promise<Conversation> {
     // Validate practice exists in remote API to prevent orphaned records
-    const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId);
+    const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId, request);
     if (!practiceExists) {
       Logger.error('Attempted to create conversation with invalid practice_id', {
         practiceId: options.practiceId,
@@ -252,7 +252,7 @@ export class ConversationService {
       matterId: null,
       participantUserIds: isAnonymous ? [userId] : [], // userId will be added automatically by createConversation for authenticated users
       metadata: null
-    });
+    }, request);
   }
 
   /**

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { PracticeConfig } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { DEFAULT_PRACTICE_ID } from '@/shared/utils/constants';
-import { listPractices, getPractice } from '@/shared/lib/apiClient';
+import { listPractices, getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { PLATFORM_SETTINGS } from '@/config/platform';
 import { isPlatformPractice } from '@/shared/utils/practice';
 
@@ -31,6 +31,22 @@ export interface UIPracticeConfig extends PracticeConfig {
   name?: string; // Optional - comes from Practice object
 }
 
+const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): UIPracticeConfig => ({
+  id: PLATFORM_SETTINGS.id,
+  slug: PLATFORM_SETTINGS.slug,
+  name: PLATFORM_SETTINGS.name,
+  profileImage: PLATFORM_SETTINGS.profileImage ?? null,
+  introMessage: PLATFORM_SETTINGS.introMessage ?? '',
+  description: PLATFORM_SETTINGS.description ?? '',
+  availableServices: PLATFORM_SETTINGS.availableServices,
+  serviceQuestions: PLATFORM_SETTINGS.serviceQuestions,
+  domain: '',
+  brandColor: '#000000',
+  accentColor: '#000000',
+  voice: PLATFORM_SETTINGS.voice,
+  ...overrides
+});
+
 interface UsePracticeConfigOptions {
   onError?: (error: string) => void;
   practiceId?: string; // Optional explicit override
@@ -47,20 +63,7 @@ export const usePracticeConfig = ({
   const [practiceId, setPracticeId] = useState<string>('');
   const [practiceNotFound, setPracticeNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [practiceConfig, setPracticeConfig] = useState<UIPracticeConfig>({
-    id: PLATFORM_SETTINGS.id,
-    slug: PLATFORM_SETTINGS.slug,
-    name: PLATFORM_SETTINGS.name,
-    profileImage: PLATFORM_SETTINGS.profileImage ?? null,
-    introMessage: PLATFORM_SETTINGS.introMessage ?? '',
-    description: PLATFORM_SETTINGS.description ?? '',
-    availableServices: PLATFORM_SETTINGS.availableServices,
-    serviceQuestions: PLATFORM_SETTINGS.serviceQuestions,
-    domain: '',
-    brandColor: '#000000',
-    accentColor: '#000000',
-    voice: PLATFORM_SETTINGS.voice
-  });
+  const [practiceConfig, setPracticeConfig] = useState<UIPracticeConfig>(() => buildDefaultPracticeConfig());
 
   // Use ref to track if we've already fetched for this practiceId
   const fetchedPracticeIds = useRef<Set<string>>(new Set());
@@ -91,20 +94,7 @@ export const usePracticeConfig = ({
     // No need for personal practice fallback since we default to blawby-ai
     if (isPlatformPractice(currentPracticeId)) {
       fetchedPracticeIds.current.add(currentPracticeId);
-      setPracticeConfig({
-        id: PLATFORM_SETTINGS.id,
-        slug: PLATFORM_SETTINGS.slug,
-        name: PLATFORM_SETTINGS.name,
-        profileImage: PLATFORM_SETTINGS.profileImage ?? null,
-        introMessage: PLATFORM_SETTINGS.introMessage ?? '',
-        description: PLATFORM_SETTINGS.description ?? '',
-        availableServices: PLATFORM_SETTINGS.availableServices,
-        serviceQuestions: PLATFORM_SETTINGS.serviceQuestions,
-        domain: '',
-        brandColor: '#000000',
-        accentColor: '#000000',
-        voice: PLATFORM_SETTINGS.voice
-      });
+      setPracticeConfig(buildDefaultPracticeConfig());
       setPracticeNotFound(false);
       setIsLoading(false);
       return;
@@ -143,6 +133,39 @@ export const usePracticeConfig = ({
     };
 
     try {
+      if (!isAuthenticated && allowUnauthenticated) {
+        const publicDetails = await getPublicPracticeDetails(currentPracticeId, { signal: controller.signal });
+        if (isStaleRequest()) {
+          return;
+        }
+
+        if (publicDetails) {
+          const details = publicDetails.details;
+          const config = buildDefaultPracticeConfig({
+            id: publicDetails.practiceId,
+            slug: publicDetails.slug ?? currentPracticeId,
+            introMessage: details?.introMessage ?? PLATFORM_SETTINGS.introMessage ?? '',
+            description: details?.description ?? PLATFORM_SETTINGS.description ?? '',
+            isPublic: details?.isPublic
+          });
+
+          setPracticeConfig(config);
+          if (publicDetails.practiceId && publicDetails.practiceId !== currentPracticeId) {
+            fetchedPracticeIds.current.add(publicDetails.practiceId);
+            setPracticeId(publicDetails.practiceId);
+          }
+          setPracticeNotFound(false);
+          setIsLoading(false);
+          return;
+        }
+
+        // No public details available - mark as not found for unauthenticated access.
+        fetchedPracticeIds.current.delete(currentPracticeId);
+        setPracticeNotFound(true);
+        setIsLoading(false);
+        return;
+      }
+
       // Try to get specific practice by ID or slug first, then fall back to listing all practices
       let practice: z.infer<typeof PracticeSchema> | undefined;
       try {
@@ -232,7 +255,7 @@ export const usePracticeConfig = ({
         setIsLoading(false);
       }
     }
-  }, [onError, isAuthenticated]);
+  }, [allowUnauthenticated, onError, isAuthenticated]);
 
   // Retry function for practice config
   const handleRetryPracticeConfig = useCallback(() => {

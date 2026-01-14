@@ -32,6 +32,10 @@ export class RemoteApiService {
     return env.REMOTE_API_URL || 'https://staging-api.blawby.com';
   }
 
+  private static isLikelyUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  }
+
   /**
    * Get authentication token from request headers
    */
@@ -480,8 +484,23 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<boolean> {
-    const practice = await this.getPractice(env, practiceId, request);
-    return practice !== null;
+    if (this.isLikelyUuid(practiceId)) {
+      const practice = await this.getPractice(env, practiceId, request);
+      return practice !== null;
+    }
+
+    try {
+      await this.fetchFromRemoteApi(
+        env,
+        `/api/practice/details/${encodeURIComponent(practiceId)}`
+      );
+      return true;
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 404) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   /**

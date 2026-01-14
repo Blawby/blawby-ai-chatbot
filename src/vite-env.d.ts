@@ -23,6 +23,8 @@ interface ImportMetaEnv {
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
   readonly VITE_DEFAULT_PRACTICE_PHONE?: string;
   readonly VITE_ONESIGNAL_APP_ID?: string;
+  readonly VITE_TURNSTILE_SITE_KEY?: string;
+  readonly REACT_APP_TURNSTILE_SITE_KEY?: string;
 
   // Frontend base URL (for SSR/fallback scenarios)
   readonly VITE_APP_BASE_URL?: string;
