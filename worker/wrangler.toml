@@ -74,7 +74,7 @@ CLOUDFLARE_PUBLIC_URL = "https://local.blawby.com"
 # Default to staging if not set in .dev.vars
 # REMOTE_API_URL = "https://staging-api.blawby.com"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"
-REQUIRE_EMAIL_VERIFICATION = "false"
+REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true
 ENABLE_PUSH_NOTIFICATIONS = true
 ENABLE_ADOBE_EXTRACT = true

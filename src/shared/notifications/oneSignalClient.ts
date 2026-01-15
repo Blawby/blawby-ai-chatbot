@@ -86,7 +86,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 
   initOneSignal();
 
-  const sdk = window.OneSignal as OneSignalSDK | undefined;
+  const sdk = await waitForOneSignalSdk();
   if (sdk?.Notifications?.requestPermission) {
     await sdk.Notifications.requestPermission();
   } else if (Notification.requestPermission) {
@@ -204,6 +204,32 @@ function normalizeId(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+async function waitForOneSignalSdk(timeoutMs = 3000): Promise<OneSignalSDK | undefined> {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  const maybeSdk = window.OneSignal as OneSignalSDK | undefined;
+  if (maybeSdk?.init) {
+    return maybeSdk;
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const resolveOnce = (sdk?: OneSignalSDK) => {
+      if (settled) return;
+      settled = true;
+      resolve(sdk);
+    };
+
+    const deferred = window.OneSignalDeferred ?? [];
+    deferred.push((sdk: OneSignalSDK) => resolveOnce(sdk));
+    window.OneSignalDeferred = deferred;
+
+    setTimeout(() => resolveOnce(window.OneSignal as OneSignalSDK | undefined), timeoutMs);
+  });
 }
 
 async function registerDestination(onesignalId: string, token: string): Promise<void> {

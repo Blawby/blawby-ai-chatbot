@@ -103,6 +103,10 @@ export const updateNotificationPolicy = (
   channel: NotificationChannelKey,
   value: boolean
 ): NotificationPolicy => {
+  if (category === 'system') {
+    return policy;
+  }
+
   const key = CATEGORY_KEYS[category];
   const nextScope = {
     ...policy[scope],

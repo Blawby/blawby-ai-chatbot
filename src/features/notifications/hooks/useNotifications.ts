@@ -254,7 +254,11 @@ const extractConversationId = (item: NotificationItem): string | null => {
   if (item.link) {
     const match = item.link.match(/\/chats\/([^/?#]+)/i);
     if (match && match[1]) {
-      return decodeURIComponent(match[1]);
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return match[1];
+      }
     }
   }
 
@@ -399,7 +403,7 @@ const parseSseBlock = (block: string): { event: string; data: string } | null =>
       return;
     }
     if (cleaned.startsWith('data:')) {
-      dataPayload += cleaned.slice(5).trim();
+      dataPayload += (dataPayload ? '\n' : '') + cleaned.slice(5).trim();
     }
   });
 
@@ -523,6 +527,7 @@ onMount(notificationStore, () => {
   return () => {
     stopStream();
     initialLoadRequested.clear();
+    countsRequested = false;
     if (typeof window !== 'undefined') {
       window.removeEventListener('auth:token-updated', handleTokenUpdated);
       window.removeEventListener('auth:token-cleared', handleTokenCleared);

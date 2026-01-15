@@ -5,7 +5,6 @@ import { useNotifications } from '@/features/notifications/hooks/useNotification
 import { useNotificationCounts } from '@/features/notifications/hooks/useNotificationCounts';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { NotificationCategory } from '@/features/notifications/types';
-import { useLayoutEffect } from 'preact/hooks';
 
 interface NotificationCenterPageProps {
   category: NotificationCategory;
@@ -32,9 +31,7 @@ export const NotificationCenterPage = ({
   const { unreadByCategory } = useNotificationCounts();
   const { showError, showSuccess } = useToastContext();
 
-  useLayoutEffect(() => {
-    ensureLoaded();
-  }, [category, ensureLoaded]);
+  ensureLoaded();
 
   const handleMarkAllRead = async () => {
     try {
@@ -85,9 +82,10 @@ export const NotificationCenterPage = ({
             <button
               type="button"
               onClick={loadMore}
-              className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
+              disabled={isLoading}
+              className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
             >
-              Load more
+              {isLoading ? 'Loading...' : 'Load more'}
             </button>
           </div>
         )}

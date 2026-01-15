@@ -117,7 +117,7 @@ export const SidebarContent = ({
               Notifications
             </div>
           )}
-          <NavigationList className={isCollapsed ? 'mt-2' : 'mt-2'}>
+          <NavigationList className="mt-2">
             {notificationTabs.map((tab) => (
               <NavigationItem
                 key={tab.key}

@@ -19,11 +19,23 @@ const startOfDay = (date: Date): Date => new Date(date.getFullYear(), date.getMo
 const formatDayLabel = (date: Date): string => {
   const today = startOfDay(new Date());
   const target = startOfDay(date);
-  const diffMs = today.getTime() - target.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const todayDate = { y: today.getFullYear(), m: today.getMonth(), d: today.getDate() };
+  const targetDate = { y: target.getFullYear(), m: target.getMonth(), d: target.getDate() };
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
+  if (todayDate.y === targetDate.y && todayDate.m === targetDate.m && todayDate.d === targetDate.d) {
+    return 'Today';
+  }
+
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (
+    yesterday.getFullYear() === targetDate.y
+    && yesterday.getMonth() === targetDate.m
+    && yesterday.getDate() === targetDate.d
+  ) {
+    return 'Yesterday';
+  }
+
   return formatFullDate(date);
 };
 

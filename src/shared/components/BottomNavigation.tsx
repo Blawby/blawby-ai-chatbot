@@ -32,7 +32,7 @@ const BottomNavigation = ({
           <ChatBubbleOvalLeftEllipsisIcon className="w-6 h-6 block" />
         </button>
         <button
-          aria-label="Notifications"
+          aria-label={hasUnreadNotifications ? 'Notifications (unread)' : 'Notifications'}
           aria-current={activeTab === 'notifications' ? 'page' : undefined}
           onClick={onGoToNotifications}
           className={`relative flex items-center justify-center rounded-lg transition-colors leading-none p-2 ${
@@ -43,7 +43,10 @@ const BottomNavigation = ({
         >
           <BellIcon className="w-6 h-6 block" />
           {hasUnreadNotifications && (
-            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-accent-500 ring-2 ring-white dark:ring-dark-bg" />
+            <span
+              className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-accent-500 ring-2 ring-white dark:ring-dark-bg"
+              aria-hidden="true"
+            />
           )}
         </button>
       </div>
