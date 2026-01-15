@@ -1,5 +1,6 @@
 import { atom, onMount } from 'nanostores';
 import { useStore } from '@nanostores/preact';
+import { useCallback } from 'preact/hooks';
 import { getWorkerApiUrl } from '@/config/urls';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import type {
@@ -86,6 +87,16 @@ const updateUnreadCounts = (counts: Partial<Record<NotificationCategory, number>
       ...current.unreadCounts,
       ...counts
     }
+  });
+};
+
+const updateUnreadCountsWith = (
+  updater: (counts: Record<NotificationCategory, number>) => Record<NotificationCategory, number>
+) => {
+  const current = notificationStore.get();
+  notificationStore.set({
+    ...current,
+    unreadCounts: updater(current.unreadCounts)
   });
 };
 
@@ -328,6 +339,14 @@ let streamController: AbortController | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let streamActive = false;
 const initialLoadRequested = new Set<NotificationCategory>();
+let countsRequested = false;
+
+export const initUnreadAndConversationCounts = () => {
+  if (countsRequested) return;
+  countsRequested = true;
+  void refreshUnreadCounts();
+  void refreshConversationCounts();
+};
 
 const stopStream = () => {
   if (streamController) {
@@ -456,8 +475,7 @@ const startStream = async () => {
 };
 
 onMount(notificationStore, () => {
-  void refreshUnreadCounts();
-  void refreshConversationCounts();
+  initUnreadAndConversationCounts();
   void startStream();
 
   const handleTokenUpdated = () => {
@@ -548,9 +566,10 @@ export const markNotificationRead = async (notificationId: string, category: Not
     items: state.items.map((item) => (item.id === notificationId ? { ...item, readAt: now } : item))
   }));
 
-  updateUnreadCounts({
-    [category]: Math.max(0, notificationStore.get().unreadCounts[category] - 1)
-  });
+  updateUnreadCountsWith((counts) => ({
+    ...counts,
+    [category]: Math.max(0, counts[category] - 1)
+  }));
 
   const updatedItem = notificationStore.get().categories[category].items.find((item) => item.id === notificationId);
   if (updatedItem?.category === 'message') {
@@ -582,9 +601,10 @@ export const markNotificationUnread = async (notificationId: string, category: N
     items: state.items.map((item) => (item.id === notificationId ? { ...item, readAt: null } : item))
   }));
 
-  updateUnreadCounts({
-    [category]: notificationStore.get().unreadCounts[category] + 1
-  });
+  updateUnreadCountsWith((counts) => ({
+    ...counts,
+    [category]: counts[category] + 1
+  }));
 
   const updatedItem = notificationStore.get().categories[category].items.find((item) => item.id === notificationId);
   if (updatedItem?.category === 'message') {
@@ -624,12 +644,14 @@ export const markAllNotificationsRead = async (category: NotificationCategory) =
 export const useNotifications = (category: NotificationCategory) => {
   const state = useStore(notificationStore);
   const categoryState = state.categories[category];
-
-  const shouldLoad = categoryState.items.length === 0 && !categoryState.isLoading && !categoryState.error;
-  if (shouldLoad && !initialLoadRequested.has(category)) {
-    initialLoadRequested.add(category);
-    void refreshNotifications(category);
-  }
+  const ensureLoaded = useCallback((targetCategory = category) => {
+    const targetState = notificationStore.get().categories[targetCategory];
+    const shouldLoad = targetState.items.length === 0 && !targetState.isLoading && !targetState.error;
+    if (shouldLoad && !initialLoadRequested.has(targetCategory)) {
+      initialLoadRequested.add(targetCategory);
+      void refreshNotifications(targetCategory);
+    }
+  }, [category]);
 
   return {
     notifications: categoryState.items,
@@ -637,6 +659,7 @@ export const useNotifications = (category: NotificationCategory) => {
     error: categoryState.error,
     hasMore: categoryState.hasMore,
     unreadCount: state.unreadCounts[category],
+    ensureLoaded,
     loadMore: () => loadMoreNotifications(category),
     refresh: () => refreshNotifications(category),
     markRead: (notificationId: string) => markNotificationRead(notificationId, category),

@@ -2,6 +2,86 @@ import type { KVNamespace, R2Bucket, D1Database, Queue, DurableObjectNamespace }
 
 export type NotificationCategory = 'message' | 'payment' | 'intake' | 'matter' | 'system';
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
+export type NotificationPolicyCategoryKey = 'messages' | 'system' | 'payments' | 'intakes' | 'matters';
+
+export interface NotificationPolicyChannel {
+  push: boolean;
+  email: boolean;
+}
+
+export interface NotificationPolicy {
+  defaults: Record<NotificationPolicyCategoryKey, NotificationPolicyChannel>;
+  allowed: Record<NotificationPolicyCategoryKey, NotificationPolicyChannel>;
+}
+
+export const DEFAULT_ALLOWED_POLICY: Record<NotificationPolicyCategoryKey, NotificationPolicyChannel> = {
+  messages: { push: true, email: true },
+  system: { push: true, email: true },
+  payments: { push: true, email: true },
+  intakes: { push: true, email: true },
+  matters: { push: true, email: true }
+};
+
+export const DEFAULT_NOTIFICATION_POLICY: NotificationPolicy = {
+  defaults: {
+    messages: { ...DEFAULT_ALLOWED_POLICY.messages },
+    system: { ...DEFAULT_ALLOWED_POLICY.system },
+    payments: { ...DEFAULT_ALLOWED_POLICY.payments },
+    intakes: { ...DEFAULT_ALLOWED_POLICY.intakes },
+    matters: { ...DEFAULT_ALLOWED_POLICY.matters }
+  },
+  allowed: {
+    messages: { ...DEFAULT_ALLOWED_POLICY.messages },
+    system: { ...DEFAULT_ALLOWED_POLICY.system },
+    payments: { ...DEFAULT_ALLOWED_POLICY.payments },
+    intakes: { ...DEFAULT_ALLOWED_POLICY.intakes },
+    matters: { ...DEFAULT_ALLOWED_POLICY.matters }
+  }
+};
+
+export const normalizePolicyChannel = (
+  raw: unknown,
+  fallback: NotificationPolicyChannel
+): NotificationPolicyChannel => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return fallback;
+  }
+  const record = raw as Record<string, unknown>;
+  return {
+    push: typeof record.push === 'boolean' ? record.push : fallback.push,
+    email: typeof record.email === 'boolean' ? record.email : fallback.email
+  };
+};
+
+export const normalizeNotificationPolicy = (raw: unknown): NotificationPolicy => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return DEFAULT_NOTIFICATION_POLICY;
+  }
+  const record = raw as Record<string, unknown>;
+  const defaultsRaw = record.defaults as Record<string, unknown> | undefined;
+  const allowedRaw = record.allowed as Record<string, unknown> | undefined;
+
+  const defaults: NotificationPolicy['defaults'] = {
+    messages: normalizePolicyChannel(defaultsRaw?.messages, DEFAULT_NOTIFICATION_POLICY.defaults.messages),
+    system: normalizePolicyChannel(defaultsRaw?.system, DEFAULT_NOTIFICATION_POLICY.defaults.system),
+    payments: normalizePolicyChannel(defaultsRaw?.payments, DEFAULT_NOTIFICATION_POLICY.defaults.payments),
+    intakes: normalizePolicyChannel(defaultsRaw?.intakes, DEFAULT_NOTIFICATION_POLICY.defaults.intakes),
+    matters: normalizePolicyChannel(defaultsRaw?.matters, DEFAULT_NOTIFICATION_POLICY.defaults.matters)
+  };
+
+  const allowed: NotificationPolicy['allowed'] = {
+    messages: normalizePolicyChannel(allowedRaw?.messages, DEFAULT_NOTIFICATION_POLICY.allowed.messages),
+    system: normalizePolicyChannel(allowedRaw?.system, DEFAULT_NOTIFICATION_POLICY.allowed.system),
+    payments: normalizePolicyChannel(allowedRaw?.payments, DEFAULT_NOTIFICATION_POLICY.allowed.payments),
+    intakes: normalizePolicyChannel(allowedRaw?.intakes, DEFAULT_NOTIFICATION_POLICY.allowed.intakes),
+    matters: normalizePolicyChannel(allowedRaw?.matters, DEFAULT_NOTIFICATION_POLICY.allowed.matters)
+  };
+
+  defaults.system = { push: true, email: true };
+  allowed.system = { push: true, email: true };
+
+  return { defaults, allowed };
+};
 
 export interface NotificationRecipientSnapshot {
   userId: string;

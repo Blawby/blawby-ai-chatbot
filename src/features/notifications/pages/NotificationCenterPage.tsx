@@ -5,6 +5,7 @@ import { useNotifications } from '@/features/notifications/hooks/useNotification
 import { useNotificationCounts } from '@/features/notifications/hooks/useNotificationCounts';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { NotificationCategory } from '@/features/notifications/types';
+import { useLayoutEffect } from 'preact/hooks';
 
 interface NotificationCenterPageProps {
   category: NotificationCategory;
@@ -22,6 +23,7 @@ export const NotificationCenterPage = ({
     isLoading,
     error,
     hasMore,
+    ensureLoaded,
     markRead,
     markUnread,
     markAllRead,
@@ -29,6 +31,10 @@ export const NotificationCenterPage = ({
   } = useNotifications(category);
   const { unreadByCategory } = useNotificationCounts();
   const { showError, showSuccess } = useToastContext();
+
+  useLayoutEffect(() => {
+    ensureLoaded();
+  }, [category, ensureLoaded]);
 
   const handleMarkAllRead = async () => {
     try {

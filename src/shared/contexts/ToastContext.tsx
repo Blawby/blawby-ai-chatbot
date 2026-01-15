@@ -20,7 +20,10 @@ export const ToastProvider = ({ children }: { children: ComponentChildren }) => 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('notifications:system', { detail: { title, message, duration } }));
     }
-    return crypto.randomUUID();
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   };
 
   return (
