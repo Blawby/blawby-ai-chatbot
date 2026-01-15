@@ -71,6 +71,7 @@ function AppShell() {
   const lastWorkspaceRef = useRef<'client' | 'practice' | null>(null);
   const lastActivePracticeRef = useRef<string | null>(null);
   const lastNonSettingsUrlRef = useRef<string | null>(null);
+  const routeTransitionRef = useRef(0);
 
   if (session?.user?.primaryWorkspace && lastWorkspaceRef.current !== session.user.primaryWorkspace) {
     lastWorkspaceRef.current = session.user.primaryWorkspace;
@@ -98,9 +99,14 @@ function AppShell() {
       return;
     }
 
+    const transitionId = routeTransitionRef.current + 1;
+    routeTransitionRef.current = transitionId;
     const previousWorkspace = lastWorkspaceRef.current;
     lastWorkspaceRef.current = workspaceFromPath;
     updateUser({ primaryWorkspace: workspaceFromPath }).catch((error) => {
+      if (routeTransitionRef.current !== transitionId) {
+        return;
+      }
       console.warn('[Workspace] Failed to persist workspace preference', error);
       lastWorkspaceRef.current = previousWorkspace;
     });
@@ -117,6 +123,9 @@ function AppShell() {
         lastActivePracticeRef.current = practiceIdCandidate;
         const client = getClient();
         client.organization.setActive({ organizationId: practiceIdCandidate }).catch((error) => {
+          if (routeTransitionRef.current !== transitionId) {
+            return;
+          }
           console.warn('[Workspace] Failed to set active organization', error);
           lastActivePracticeRef.current = previousActivePractice;
         });
@@ -127,6 +136,9 @@ function AppShell() {
         lastActivePracticeRef.current = null;
         const client = getClient();
         client.organization.setActive({ organizationId: null }).catch((error) => {
+          if (routeTransitionRef.current !== transitionId) {
+            return;
+          }
           console.warn('[Workspace] Failed to clear active organization', error);
           lastActivePracticeRef.current = previousActivePractice;
         });

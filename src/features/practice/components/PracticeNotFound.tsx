@@ -11,10 +11,7 @@ interface PracticeNotFoundProps {
 
 export function PracticeNotFound({ practiceId, onRetry }: PracticeNotFoundProps) {
   const { t } = useTranslation('practice');
-  const showDebug =
-    import.meta.env.DEV ||
-    (typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).has('debug'));
+  const showDebug = import.meta.env.DEV;
   const backendUrl = getBackendApiUrl();
   const workerUrl =
     import.meta.env.VITE_API_URL || 'http://localhost:8787';
