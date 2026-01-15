@@ -225,7 +225,10 @@ export const ConversationSidebar = ({
                             </span>
                           )}
                           {unreadCount > 0 && (
-                            <span className="rounded-full bg-accent-500 px-2 py-0.5 text-[11px] font-semibold text-gray-900">
+                            <span
+                              className="rounded-full bg-accent-500 px-2 py-0.5 text-[11px] font-semibold text-gray-900"
+                              aria-label={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
+                            >
                               {unreadCount}
                             </span>
                           )}

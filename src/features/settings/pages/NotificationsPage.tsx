@@ -136,10 +136,10 @@ export const NotificationsPage = ({
     try {
       if (value) {
         if (!isPermissionSupported) {
-        showError(
-          t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
-          t('settings:notifications.desktop.permissionErrorBody', { defaultValue: 'We could not enable desktop notifications.' })
-        );
+          showError(
+            t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
+            t('settings:notifications.desktop.permissionErrorBody', { defaultValue: 'We could not enable desktop notifications.' })
+          );
           return;
         }
         if (permissionState !== 'granted') {

@@ -22,7 +22,7 @@ export const NotificationCenterPage = ({
     isLoading,
     error,
     hasMore,
-    ensureLoaded: _ensureLoaded,
+    ensureLoaded,
     markRead,
     markUnread,
     markAllRead,
@@ -48,6 +48,11 @@ export const NotificationCenterPage = ({
     }
   };
 
+  const handleCategoryChange = (nextCategory: NotificationCategory) => {
+    ensureLoaded(nextCategory);
+    onCategoryChange(nextCategory);
+  };
+
   const isEmpty = !isLoading && notifications.length === 0 && !error;
 
   return (
@@ -55,15 +60,16 @@ export const NotificationCenterPage = ({
       <NotificationHeader
         activeCategory={category}
         unreadByCategory={unreadByCategory}
-        onCategoryChange={onCategoryChange}
+        onCategoryChange={handleCategoryChange}
         onMarkAllRead={handleMarkAllRead}
         className="sticky top-0 z-10 bg-white dark:bg-dark-bg"
       />
 
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {isLoading && notifications.length === 0 && (
-          <div className="flex h-full items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
+          <div className="flex h-full items-center justify-center" role="status" aria-label="Loading notifications">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" aria-hidden="true" />
+            <span className="sr-only">Loading notifications...</span>
           </div>
         )}
 

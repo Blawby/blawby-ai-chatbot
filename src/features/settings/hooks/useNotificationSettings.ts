@@ -85,6 +85,7 @@ const updateSettings = async (
   setState({ preferences: nextPreferences });
   try {
     await updatePreferencesCategory('notifications', updateData);
+    setState({ error: null });
   } catch (error) {
     const latestState = notificationSettingsStore.get();
     const rolledBackPreferences = latestState.preferences

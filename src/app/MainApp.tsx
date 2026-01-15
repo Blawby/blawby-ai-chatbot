@@ -29,6 +29,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ConversationSidebar } from '@/features/chats/components/ConversationSidebar';
 import { NotificationCenterPage } from '@/features/notifications/pages/NotificationCenterPage';
+import { ensureNotificationsLoaded } from '@/features/notifications/hooks/useNotifications';
 import type { NotificationCategory } from '@/features/notifications/types';
 
 // Main application component (non-auth pages)
@@ -170,6 +171,9 @@ export function MainApp({
 
   const handleTabChange = useCallback((tab: 'dashboard' | 'chats' | 'matter' | 'notifications') => {
     setCurrentTab(tab);
+    if (tab === 'notifications') {
+      ensureNotificationsLoaded(notificationCategory);
+    }
     if (!basePath || !dashboardPath) return;
     const nextPath = tab === 'dashboard'
       ? dashboardPath
@@ -184,6 +188,7 @@ export function MainApp({
   }, [basePath, conversationId, dashboardPath, location.path, navigate, notificationCategory, notificationsBasePath]);
 
   const handleNotificationCategoryChange = useCallback((nextCategory: NotificationCategory) => {
+    ensureNotificationsLoaded(nextCategory);
     setNotificationCategory(nextCategory);
     setCurrentTab('notifications');
     if (!notificationsBasePath) return;

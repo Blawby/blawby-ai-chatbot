@@ -1,6 +1,6 @@
 import { atom, onMount } from 'nanostores';
 import { useStore } from '@nanostores/preact';
-import { useCallback, useRef } from 'preact/hooks';
+import { useCallback } from 'preact/hooks';
 import { getWorkerApiUrl } from '@/config/urls';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import type {
@@ -357,6 +357,27 @@ let streamActive = false;
 const initialLoadRequested = new Set<NotificationCategory>();
 let countsRequested = false;
 
+const getNotificationCategoryFromPath = (path: string): NotificationCategory | null => {
+  const segments = path.split('/').filter(Boolean);
+  const index = segments.indexOf('notifications');
+  if (index === -1) return null;
+  const candidate = segments[index + 1];
+  if (!candidate) return 'message';
+  const normalized = candidate.toLowerCase();
+  return CATEGORIES.includes(normalized as NotificationCategory)
+    ? (normalized as NotificationCategory)
+    : 'message';
+};
+
+export const ensureNotificationsLoaded = (targetCategory: NotificationCategory) => {
+  const targetState = notificationStore.get().categories[targetCategory];
+  const shouldLoad = targetState.items.length === 0 && !targetState.isLoading && !targetState.error;
+  if (shouldLoad && !initialLoadRequested.has(targetCategory)) {
+    initialLoadRequested.add(targetCategory);
+    void fetchNotifications({ category: targetCategory });
+  }
+};
+
 export const initUnreadAndConversationCounts = () => {
   if (countsRequested) return;
   countsRequested = true;
@@ -497,6 +518,14 @@ onMount(notificationStore, () => {
   initUnreadAndConversationCounts();
   void startStream();
 
+  const loadFromPath = () => {
+    if (typeof window === 'undefined') return;
+    const category = getNotificationCategoryFromPath(window.location.pathname);
+    if (category) {
+      ensureNotificationsLoaded(category);
+    }
+  };
+
   const handleTokenUpdated = () => {
     stopStream();
     void startStream();
@@ -534,6 +563,8 @@ onMount(notificationStore, () => {
   };
 
   if (typeof window !== 'undefined') {
+    loadFromPath();
+    window.addEventListener('popstate', loadFromPath);
     window.addEventListener('auth:token-updated', handleTokenUpdated);
     window.addEventListener('auth:token-cleared', handleTokenCleared);
     window.addEventListener('notifications:system', handleSystemNotification);
@@ -544,6 +575,7 @@ onMount(notificationStore, () => {
     initialLoadRequested.clear();
     countsRequested = false;
     if (typeof window !== 'undefined') {
+      window.removeEventListener('popstate', loadFromPath);
       window.removeEventListener('auth:token-updated', handleTokenUpdated);
       window.removeEventListener('auth:token-cleared', handleTokenCleared);
       window.removeEventListener('notifications:system', handleSystemNotification);
@@ -663,20 +695,10 @@ export const markAllNotificationsRead = async (category: NotificationCategory) =
 
 export const useNotifications = (category: NotificationCategory) => {
   const state = useStore(notificationStore);
-  const lastCategoryRef = useRef<NotificationCategory | null>(null);
   const categoryState = state.categories[category];
   const ensureLoaded = useCallback((targetCategory = category) => {
-    const targetState = notificationStore.get().categories[targetCategory];
-    const shouldLoad = targetState.items.length === 0 && !targetState.isLoading && !targetState.error;
-    if (shouldLoad && !initialLoadRequested.has(targetCategory)) {
-      initialLoadRequested.add(targetCategory);
-      void refreshNotifications(targetCategory);
-    }
+    ensureNotificationsLoaded(targetCategory);
   }, [category]);
-  if (lastCategoryRef.current !== category) {
-    lastCategoryRef.current = category;
-    ensureLoaded(category);
-  }
 
   return {
     notifications: categoryState.items,

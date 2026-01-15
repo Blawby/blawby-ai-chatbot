@@ -200,7 +200,7 @@
     },
     "desktop": {
       "title": "デスクトップ通知",
-      "description": "Blawby が OS レベルのアラートを送信することを許可します。",
+      "description": "Blawby が OS レベルの通知を送信することを許可します。",
       "toastBody": "デスクトップ通知の設定を更新しました。",
       "permissionButton": "有効にする",
       "permissionDeniedButton": "ブロック済み",

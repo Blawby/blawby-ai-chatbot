@@ -207,7 +207,7 @@
       "permissionGrantedTitle": "Desktop-Benachrichtigungen aktiviert",
       "permissionGrantedBody": "Sie erhalten Desktop-Benachrichtigungen, wenn Blawby Updates sendet.",
       "permissionDeniedTitle": "Berechtigung blockiert",
-      "permissionDeniedBody": "Aktivieren Sie Benachrichtigungen in Ihren Browsereinstellungen, um Alerts zu erhalten.",
+      "permissionDeniedBody": "Aktivieren Sie Benachrichtigungen in Ihren Browsereinstellungen, um Benachrichtigungen zu erhalten.",
       "permissionErrorTitle": "Berechtigung fehlgeschlagen",
       "permissionErrorBody": "Desktop-Benachrichtigungen konnten nicht aktiviert werden."
     },
