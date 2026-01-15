@@ -12,10 +12,6 @@ import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import LawyerSearchInline from '@/features/lawyer-search/components/LawyerSearchInline';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { useNavigation } from '@/shared/utils/navigation';
-import { Button } from '@/shared/ui/Button';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -81,10 +77,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isAnonymousUser,
   canChat = true
 }) => {
-  const { session } = useSessionContext();
-  const { currentPractice, loading: practiceLoading } = usePracticeManagement();
-  const { navigate } = useNavigation();
-  const isAuthenticated = Boolean(session?.user);
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobileDetection();
@@ -92,11 +84,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const handleOpenPracticeSettings = () => {
-    navigate('/settings/practice');
-  };
-
-
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -253,22 +240,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               intakeStatus={intakeStatus}
             />
           </>
-        ) : practiceLoading && isAuthenticated ? (
-          <div className="flex flex-1 items-center justify-center text-gray-500 dark:text-gray-300">
-            Loading…
-          </div>
-        ) : isAuthenticated && !currentPractice ? (
-          <div className="flex flex-1 items-center justify-center">
-            <div className="max-w-md rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-900 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
-              <p className="text-sm font-semibold">Practice profile not ready</p>
-              <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">
-                Finish your practice details to unlock chat and intake tools.
-              </p>
-              <Button onClick={handleOpenPracticeSettings} variant="secondary" size="sm" className="mt-4">
-                Open practice settings
-              </Button>
-            </div>
-          </div>
         ) : (
           <LawyerSearchInline />
         )}

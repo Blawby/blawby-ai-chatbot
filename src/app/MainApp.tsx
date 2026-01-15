@@ -12,7 +12,6 @@ import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
-import { useConversations } from '@/shared/hooks/useConversations';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { ChatMessageUI, FileAttachment } from '../../worker/types';
 import { getConversationsEndpoint } from '@/config/api';
@@ -40,6 +39,7 @@ export function MainApp({
   handleRetryPracticeConfig,
   isPracticeView,
   workspace,
+  settingsOverlayOpen,
   dashboardContent,
   chatContent
 }: {
@@ -49,6 +49,7 @@ export function MainApp({
   handleRetryPracticeConfig: () => void;
   isPracticeView: boolean;
   workspace: WorkspaceType;
+  settingsOverlayOpen?: boolean;
   dashboardContent?: ComponentChildren;
   chatContent?: ComponentChildren;
 }) {
@@ -61,7 +62,7 @@ export function MainApp({
   const [isRecording, setIsRecording] = useState(false);
   const location = useLocation();
   const { navigate } = useNavigation();
-  const isSettingsRouteNow = location.path.startsWith('/settings');
+  const isSettingsRouteNow = settingsOverlayOpen ?? location.path.startsWith('/settings');
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
@@ -71,14 +72,14 @@ export function MainApp({
   }, [practiceId]);
 
   useEffect(() => {
-    if (workspace === 'public' && currentTab === 'dashboard') {
+    if (workspace === 'public' && currentTab !== 'chats') {
       setCurrentTab('chats');
     }
   }, [currentTab, workspace]);
 
   const basePath = useMemo(() => {
     if (workspace === 'practice') return '/practice';
-    if (workspace === 'client') return '/dashboard';
+    if (workspace === 'client') return '/client';
     return null;
   }, [workspace]);
   const chatsBasePath = useMemo(() => (basePath ? `${basePath}/chats` : null), [basePath]);
@@ -86,7 +87,7 @@ export function MainApp({
 
   const dashboardPath = useMemo(() => {
     if (!basePath) return null;
-    return basePath === '/dashboard' ? basePath : `${basePath}/dashboard`;
+    return `${basePath}/dashboard`;
   }, [basePath]);
 
   const tabFromPath = useMemo(() => {
@@ -131,6 +132,15 @@ export function MainApp({
 
   useEffect(() => {
     if (!basePath || !dashboardPath) return;
+    if (basePath === '/client' && location.path.startsWith('/dashboard')) {
+      const suffix = location.path.slice('/dashboard'.length);
+      const normalizedSuffix = suffix === '' || suffix === '/' ? '/dashboard' : suffix;
+      const nextPath = `/client${normalizedSuffix}`;
+      if (location.path !== nextPath) {
+        navigate(nextPath, true);
+      }
+      return;
+    }
     if (location.path === basePath || location.path === `${basePath}/`) {
       navigate(dashboardPath, true);
       return;
@@ -221,19 +231,12 @@ export function MainApp({
     updateMatterStatus,
     getMembers,
     fetchMembers
-  } = usePracticeManagement();
+  } = usePracticeManagement({
+    autoFetchPractices: workspace !== 'public',
+    fetchInvitations: workspace !== 'public'
+  });
   const { details: practiceDetails } = usePracticeDetails(isPracticeWorkspace ? practiceId : null);
 
-  const {
-    conversations,
-    isLoading: conversationsLoading,
-    refresh: refreshConversations
-  } = useConversations({
-    practiceId: isPracticeWorkspace ? '' : practiceId,
-    onError: (error) => showErrorRef.current?.(error)
-  });
-
-  // useChatSession removed - using conversations directly
   const handleMessageError = useCallback((error: string | Error) => {
     console.error('Message handling error:', error);
     showErrorRef.current?.(typeof error === 'string' ? error : 'We hit a snag sending that message.');
@@ -262,14 +265,7 @@ export function MainApp({
     try {
       setIsCreatingConversation(true);
 
-      // Wait for token to be available - retry a few times if needed
-      let token: string | null = null;
-      for (let i = 0; i < 5; i++) {
-        token = await getTokenAsync();
-        if (token) break;
-        // Wait a bit before retrying (token might still be saving to IndexedDB)
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      const token = await getTokenAsync();
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -277,10 +273,9 @@ export function MainApp({
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       } else {
-        console.error('[createConversation] No token available after retries - conversation creation will fail');
+        console.error('[createConversation] No token available - conversation creation will fail');
         throw new Error('Authentication token not available');
       }
-
       const url = `${getConversationsEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`;
 
       const response = await fetch(url, {
@@ -305,7 +300,6 @@ export function MainApp({
       }
 
       setConversationId(data.data.id);
-      await refreshConversations();
       return data.data.id;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
@@ -314,85 +308,7 @@ export function MainApp({
     } finally {
       setIsCreatingConversation(false);
     }
-  }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation, refreshConversations]);
-
-  const [conversationCreationFailed, setConversationCreationFailed] = useState(false);
-  const conversationCreationAttempted = useRef<string | null>(null);
-  const conversationCreationInProgress = useRef(false);
-
-  useEffect(() => {
-    let isMounted = true;
-    const cleanup = () => {
-      isMounted = false;
-    };
-
-    if (isPracticeWorkspace || conversationsLoading || isCreatingConversation) return cleanup;
-
-    // Prevent infinite loops and race conditions
-    if (
-      (conversationCreationFailed && conversationCreationAttempted.current === practiceId) ||
-      conversationCreationInProgress.current
-    ) {
-      return cleanup;
-    }
-
-    const practiceConversation = conversations.find((c) => c.practice_id === practiceId);
-
-    if (import.meta.env.DEV) {
-      console.log('[Conversation] Looking for conversation', {
-        practiceId,
-        conversationsCount: conversations.length,
-        conversationIds: conversations.map(c => c.id),
-        practiceIds: conversations.map(c => c.practice_id),
-        found: !!practiceConversation,
-        conversationId: practiceConversation?.id
-      });
-    }
-
-    if (practiceConversation) {
-      const newConversationId = practiceConversation.id;
-      setConversationId((prev) => {
-        if (prev !== newConversationId) {
-          if (import.meta.env.DEV) {
-            console.log('[Conversation] Setting conversationId:', newConversationId);
-          }
-          return newConversationId;
-        }
-        return prev;
-      });
-      setConversationCreationFailed(false); // Reset on success
-      conversationCreationAttempted.current = null;
-      conversationCreationInProgress.current = false;
-    } else if (practiceId && session?.user && !conversationCreationFailed) {
-      conversationCreationAttempted.current = practiceId;
-      conversationCreationInProgress.current = true;
-      createConversation().then((id) => {
-        if (!isMounted) return;
-        if (!id) {
-          setConversationCreationFailed(true);
-        } else {
-          setConversationCreationFailed(false);
-          conversationCreationAttempted.current = null;
-        }
-        conversationCreationInProgress.current = false;
-      }).catch(() => {
-        if (!isMounted) return;
-        setConversationCreationFailed(true);
-        conversationCreationInProgress.current = false;
-      });
-    }
-
-    return cleanup;
-  }, [
-    isPracticeWorkspace,
-    conversationsLoading,
-    isCreatingConversation,
-    conversations,
-    practiceId,
-    session?.user,
-    createConversation,
-    conversationCreationFailed
-  ]);
+  }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation]);
 
   const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
     if (!conversationId) {
@@ -540,16 +456,9 @@ export function MainApp({
 
   // User tier is now derived directly from practice - no need for custom event listeners
 
-  const isSessionReady = Boolean(conversationId && !conversationsLoading && !isCreatingConversation);
+  const isSessionReady = Boolean(conversationId && !isCreatingConversation);
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(conversationId));
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
-
-  const activeConversation = useMemo(() => {
-    if (conversationId) {
-      return conversations.find(c => c.id === conversationId) ?? null;
-    }
-    return conversations.length === 1 ? conversations[0] : null;
-  }, [conversationId, conversations]);
 
   const currentUserEmail = session?.user?.email || null;
   const members = useMemo(
@@ -711,7 +620,7 @@ export function MainApp({
           {showMatterControls && (
             <ConversationHeader
               practiceId={practiceId}
-              matterId={activeConversation?.matter_id ?? null}
+              matterId={null}
               canReviewLeads={canReviewLeads}
               acceptMatter={acceptMatter}
               rejectMatter={rejectMatter}
@@ -773,19 +682,14 @@ export function MainApp({
     }
   }, [chatsBasePath, navigate]);
 
-  const chatSidebarContent = useMemo(() => {
-    if (workspace === 'practice' || workspace === 'client') {
-      return (
-        <ConversationSidebar
-          workspace={workspace}
-          practiceId={practiceId}
-          selectedConversationId={conversationId}
-          onSelectConversation={handleSelectConversation}
-        />
-      );
-    }
-    return null;
-  }, [conversationId, handleSelectConversation, practiceId, workspace]);
+  const chatSidebarContent = useMemo(() => (
+    <ConversationSidebar
+      workspace={workspace}
+      practiceId={practiceId}
+      selectedConversationId={conversationId}
+      onSelectConversation={handleSelectConversation}
+    />
+  ), [conversationId, handleSelectConversation, practiceId, workspace]);
 
   // Render the main app
   return (
@@ -826,62 +730,64 @@ export function MainApp({
       {/* Settings Modal is hoisted in AppShell to persist across settings sub-routes */}
 
       {/* Pricing Modal */}
-      <PricingModal
-        isOpen={showPricingModal}
-        onClose={() => {
-          setShowPricingModal(false);
-          window.location.hash = '';
-        }}
-        currentTier={currentUserTier}
-        onUpgrade={async (tier) => {
-          let shouldNavigateToCart = true;
-          try {
-            if (!session?.user) {
-              showError('Sign-in required', 'Please sign in before upgrading your plan.');
-              return false;
-            }
-
-            if (tier === 'business') {
-              // Navigate to cart page for business upgrades instead of direct checkout
-              try {
-                const existing = localStorage.getItem('cartPreferences');
-                const parsed = existing ? JSON.parse(existing) : {};
-                localStorage.setItem('cartPreferences', JSON.stringify({
-                  ...parsed,
-                  tier,
-                }));
-              } catch (_error) {
-                console.warn('Unable to store cart preferences for upgrade:', _error);
-              }
-              // Keep shouldNavigateToCart = true to go to cart page
-            } else if (tier === 'enterprise') {
-              navigate('/enterprise');
-              shouldNavigateToCart = false;
-            } else {
-              try {
-                const existing = localStorage.getItem('cartPreferences');
-                const parsed = existing ? JSON.parse(existing) : {};
-                localStorage.setItem('cartPreferences', JSON.stringify({
-                  ...parsed,
-                  tier,
-                }));
-              } catch (_error) {
-                console.warn('Unable to store cart preferences for upgrade:', _error);
-              }
-            }
-          } catch (_error) {
-            console.error('Error initiating subscription upgrade:', _error);
-            const message = _error instanceof Error ? _error.message : 'Unable to start upgrade.';
-            showError('Upgrade failed', message);
-            shouldNavigateToCart = false;
-          } finally {
+      {workspace !== 'public' && (
+        <PricingModal
+          isOpen={showPricingModal}
+          onClose={() => {
             setShowPricingModal(false);
             window.location.hash = '';
-          }
+          }}
+          currentTier={currentUserTier}
+          onUpgrade={async (tier) => {
+            let shouldNavigateToCart = true;
+            try {
+              if (!session?.user) {
+                showError('Sign-in required', 'Please sign in before upgrading your plan.');
+                return false;
+              }
 
-          return shouldNavigateToCart;
-        }}
-      />
+              if (tier === 'business') {
+                // Navigate to cart page for business upgrades instead of direct checkout
+                try {
+                  const existing = localStorage.getItem('cartPreferences');
+                  const parsed = existing ? JSON.parse(existing) : {};
+                  localStorage.setItem('cartPreferences', JSON.stringify({
+                    ...parsed,
+                    tier,
+                  }));
+                } catch (_error) {
+                  console.warn('Unable to store cart preferences for upgrade:', _error);
+                }
+                // Keep shouldNavigateToCart = true to go to cart page
+              } else if (tier === 'enterprise') {
+                navigate('/enterprise');
+                shouldNavigateToCart = false;
+              } else {
+                try {
+                  const existing = localStorage.getItem('cartPreferences');
+                  const parsed = existing ? JSON.parse(existing) : {};
+                  localStorage.setItem('cartPreferences', JSON.stringify({
+                    ...parsed,
+                    tier,
+                  }));
+                } catch (_error) {
+                  console.warn('Unable to store cart preferences for upgrade:', _error);
+                }
+              }
+            } catch (_error) {
+              console.error('Error initiating subscription upgrade:', _error);
+              const message = _error instanceof Error ? _error.message : 'Unable to start upgrade.';
+              showError('Upgrade failed', message);
+              shouldNavigateToCart = false;
+            } finally {
+              setShowPricingModal(false);
+              window.location.hash = '';
+            }
+
+            return shouldNavigateToCart;
+          }}
+        />
+      )}
 
       {/* Welcome Modal */}
       <WelcomeModal

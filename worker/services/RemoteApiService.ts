@@ -32,6 +32,10 @@ export class RemoteApiService {
     return env.REMOTE_API_URL || 'https://staging-api.blawby.com';
   }
 
+  private static isLikelyUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  }
+
   /**
    * Get authentication token from request headers
    */
@@ -68,7 +72,6 @@ export class RemoteApiService {
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
-
     const method = options?.method || 'GET';
     const body = options?.body;
 
@@ -207,6 +210,21 @@ export class RemoteApiService {
     this.configCache.set(practiceId, { data: conversationConfig, timestamp: Date.now() });
     
     return conversationConfig;
+  }
+
+  /**
+   * Fetch public practice details by slug.
+   */
+  static async getPublicPracticeDetails(
+    env: Env,
+    slug: string,
+    request?: Request
+  ): Promise<Response> {
+    return this.fetchFromRemoteApi(
+      env,
+      `/api/practice/details/${encodeURIComponent(slug)}`,
+      request
+    );
   }
 
   /**
@@ -480,8 +498,24 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<boolean> {
-    const practice = await this.getPractice(env, practiceId, request);
-    return practice !== null;
+    if (this.isLikelyUuid(practiceId)) {
+      const practice = await this.getPractice(env, practiceId, request);
+      return practice !== null;
+    }
+
+    try {
+      await this.fetchFromRemoteApi(
+        env,
+        `/api/practice/details/${encodeURIComponent(practiceId)}`,
+        request
+      );
+      return true;
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 404) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   /**

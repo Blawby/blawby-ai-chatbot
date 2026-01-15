@@ -1,11 +1,9 @@
-import { useEffect, useMemo } from 'preact/hooks';
+import { useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { WorkspacePreference, WorkspaceType } from '@/shared/types/workspace';
 import {
-  resolveWorkspaceFromPath,
-  setStoredWorkspace,
-  setSettingsReturnPath
+  resolveWorkspaceFromPath
 } from '@/shared/utils/workspace';
 import { useSubscription } from '@/shared/hooks/useSubscription';
 
@@ -17,32 +15,29 @@ interface UseWorkspaceResult {
   activePracticeId: string | null;
   defaultWorkspace: WorkspacePreference;
   isPracticeEnabled: boolean;
+  isPracticeLoading: boolean;
   canAccessPractice: boolean;
 }
 
 export function useWorkspace(): UseWorkspaceResult {
   const location = useLocation();
   const { primaryWorkspace, preferredPracticeId, hasPractice, activePracticeId } = useSessionContext();
-  const { isPracticeEnabled } = useSubscription();
+  const { isPracticeEnabled, isLoading: isPracticeLoading } = useSubscription();
 
   const workspaceFromPath = useMemo(
     () => resolveWorkspaceFromPath(location.path),
     [location.path]
   );
 
-  useEffect(() => {
-    if (!workspaceFromPath) return;
-    setSettingsReturnPath(location.url ?? location.path);
-    if (workspaceFromPath !== 'public') {
-      setStoredWorkspace(workspaceFromPath);
-    }
-  }, [workspaceFromPath, location.path, location.url]);
-
   const preferredWorkspace = primaryWorkspace ?? null;
   const canAccessPractice = isPracticeEnabled && hasPractice;
-  const defaultWorkspace: WorkspacePreference = isPracticeEnabled
-    ? (canAccessPractice && preferredWorkspace === 'practice' ? 'practice' : (canAccessPractice ? 'practice' : 'client'))
-    : 'client';
+  const defaultWorkspace: WorkspacePreference = useMemo(() => {
+    if (!canAccessPractice) return 'client';
+    if (preferredWorkspace === 'client') return 'client';
+    if (preferredWorkspace === 'practice') return 'practice';
+    if (activePracticeId) return 'practice';
+    return 'client';
+  }, [activePracticeId, canAccessPractice, preferredWorkspace]);
 
   return {
     workspaceFromPath,
@@ -52,6 +47,7 @@ export function useWorkspace(): UseWorkspaceResult {
     activePracticeId,
     defaultWorkspace,
     isPracticeEnabled,
+    isPracticeLoading,
     canAccessPractice
   };
 }

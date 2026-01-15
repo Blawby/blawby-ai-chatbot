@@ -12,6 +12,7 @@ import { getBackendApiUrl } from '@/config/urls';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
+const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
 
 /**
  * Get the base URL for backend API requests
@@ -72,6 +73,7 @@ apiClient.interceptors.request.use(
     } else if (import.meta.env.DEV) {
       console.warn('[apiClient] No token available for request:', config.url, 'baseURL:', baseUrl);
     }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -500,7 +502,7 @@ export async function updatePractice(
     `/api/practice/${encodeURIComponent(practiceId)}`,
     normalized,
     {
-    signal: config?.signal
+      signal: config?.signal
     }
   );
   return unwrapPracticeResponse(response.data);
@@ -666,6 +668,69 @@ export async function getPracticeDetails(
   }
 }
 
+export interface PublicPracticeDetails {
+  practiceId?: string;
+  slug?: string;
+  details: PracticeDetails | null;
+}
+
+export async function getPublicPracticeDetails(
+  slug: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<PublicPracticeDetails | null> {
+  if (!slug) {
+    throw new Error('practice slug is required');
+  }
+  const normalizedSlug = slug.trim();
+  const existing = publicPracticeDetailsInFlight.get(normalizedSlug);
+  if (existing) {
+    return existing;
+  }
+
+  const requestPromise = (async () => {
+    try {
+      const apiUrl = `${getBackendApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
+      if (import.meta.env.DEV) {
+        console.log('[getPublicPracticeDetails] Making request to:', apiUrl);
+      }
+
+      const response = await axios.get(
+        apiUrl,
+        {
+          signal: config?.signal,
+          withCredentials: true
+        }
+      );
+      const details = normalizePracticeDetailsResponse(response.data);
+      const meta = extractPracticeDetailsMeta(response.data);
+      if (!details && !meta.practiceId && !meta.slug) {
+        return null;
+      }
+      return {
+        practiceId: meta.practiceId,
+        slug: meta.slug ?? normalizedSlug,
+        details
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          return null;
+        }
+      }
+      throw error;
+    }
+  })();
+
+  publicPracticeDetailsInFlight.set(normalizedSlug, requestPromise);
+  try {
+    return await requestPromise;
+  } finally {
+    if (publicPracticeDetailsInFlight.get(normalizedSlug) === requestPromise) {
+      publicPracticeDetailsInFlight.delete(normalizedSlug);
+    }
+  }
+}
+
 function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
 
@@ -691,6 +756,67 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
   }
 
   return normalized;
+}
+
+function extractPracticeDetailsMeta(payload: unknown): { practiceId?: string; slug?: string } {
+  const normalized = unwrapApiData(payload);
+  if (!isRecord(normalized)) {
+    return {};
+  }
+
+  const candidates: Array<Record<string, unknown>> = [];
+  const pushCandidate = (value: unknown) => {
+    if (isRecord(value)) {
+      candidates.push(value);
+    }
+  };
+
+  pushCandidate(normalized);
+  if ('data' in normalized) {
+    pushCandidate(normalized.data);
+  }
+  if ('details' in normalized) {
+    pushCandidate(normalized.details);
+  }
+  if ('data' in normalized && isRecord(normalized.data) && 'details' in normalized.data) {
+    pushCandidate(normalized.data.details);
+  }
+
+  const getStringValue = (record: Record<string, unknown>, keys: string[]): string | undefined => {
+    for (const key of keys) {
+      if (key in record) {
+        const value = toNullableString(record[key]);
+        if (value) {
+          return value;
+        }
+      }
+    }
+    return undefined;
+  };
+
+  let practiceId: string | undefined;
+  let slug: string | undefined;
+
+  for (const record of candidates) {
+    if (!practiceId) {
+      practiceId = getStringValue(record, [
+        'practiceId',
+        'practice_id',
+        'practiceUuid',
+        'practice_uuid',
+        'uuid',
+        'id'
+      ]);
+    }
+    if (!slug) {
+      slug = getStringValue(record, ['slug']);
+    }
+    if (practiceId && slug) {
+      break;
+    }
+  }
+
+  return { practiceId, slug };
 }
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {
