@@ -4,6 +4,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useInbox } from '@/shared/hooks/useInbox';
 import { useConversationsWithContext } from '@/shared/hooks/useConversations';
 import { useChatCapabilities } from '@/shared/hooks/useChatCapabilities';
+import { useNotificationCounts } from '@/features/notifications/hooks/useNotificationCounts';
 import { cn } from '@/shared/utils/cn';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import type { Conversation } from '@/shared/types/conversation';
@@ -55,6 +56,7 @@ export const ConversationSidebar = ({
   const { showError } = useToastContext();
   const capabilities = useChatCapabilities({ workspace });
   const isPracticeInbox = capabilities.canManageInbox && Boolean(practiceId);
+  const { conversationUnreadCounts } = useNotificationCounts();
 
   const inboxData = useInbox({
     practiceId: isPracticeInbox ? practiceId : undefined,
@@ -196,6 +198,8 @@ export const ConversationSidebar = ({
                     || cachedLabel
                     || practiceIdLabel;
 
+                  const unreadCount = conversationUnreadCounts[conversation.id] ?? 0;
+
                   return (
                     <button
                       key={conversation.id}
@@ -211,14 +215,21 @@ export const ConversationSidebar = ({
                       aria-current={selectedConversationId === conversation.id ? 'true' : undefined}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                        <span className={cn('truncate text-sm text-gray-900 dark:text-white', unreadCount > 0 ? 'font-semibold' : 'font-medium')}>
                           {`Conversation ${conversation.id.slice(0, 6)}`}
                         </span>
-                        {timestamp && (
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                            {formatRelativeTime(timestamp)}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {timestamp && (
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                              {formatRelativeTime(timestamp)}
+                            </span>
+                          )}
+                          {unreadCount > 0 && (
+                            <span className="rounded-full bg-accent-500 px-2 py-0.5 text-[11px] font-semibold text-gray-900">
+                              {unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="mt-1 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
                         {isPracticeInbox ? (

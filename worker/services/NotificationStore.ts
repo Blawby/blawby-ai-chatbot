@@ -196,6 +196,16 @@ export class NotificationStore {
     return result.success && result.meta.changes > 0;
   }
 
+  async markUnread(userId: string, notificationId: string): Promise<boolean> {
+    const result = await this.env.DB.prepare(
+      `UPDATE notifications
+          SET read_at = NULL
+        WHERE id = ? AND user_id = ? AND read_at IS NOT NULL`
+    ).bind(notificationId, userId).run();
+
+    return result.success && result.meta.changes > 0;
+  }
+
   async markAllRead(userId: string, category?: string | null): Promise<number> {
     const readAt = new Date().toISOString();
     const normalizedCategory = normalizeCategory(category);

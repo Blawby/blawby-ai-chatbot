@@ -10,6 +10,7 @@ export interface NotificationRecipientSnapshot {
     pushEnabled?: boolean;
     emailEnabled?: boolean;
     desktopPushEnabled?: boolean;
+    mentionsOnly?: boolean;
   };
 }
 

@@ -276,9 +276,16 @@ This section reflects the updated OneSignal direction.
 
 ### Phase 3: User-facing UI
 - UI is intentionally deferred to Phase 3; focus for Phase 1/2 is wiring + delivery.
-- [ ] Notification center with tabs (messages, system, payments, intakes, matters).
-- [ ] Settings panel for per-user preferences (email, push, desktop).
-- [ ] OS notification permission UX.
+- [x] Notification center with tabs (messages, system, payments, intakes, matters).
+- [x] Settings panel for per-user preferences (email, push, desktop).
+- [x] OS notification permission UX.
+- [x] Org-wide defaults (admin-only) + per-user overrides; system notifications are mandatory.
+- [x] Slack/Discord-style UX: no numeric badges on tabs, per-thread counts only, activity cards grouped by day.
+- [x] Mentions-only option for message notifications (user preference).
+
+**Phase 3 notes**
+- Org defaults live in `practice.metadata.notificationPolicy` with `defaults` + `allowed` per category; system is enforced on.
+- Message mentions-only uses `messages_mentions_only` in preferences; delivery skips non-mentions.
 
 ### Phase 4: Ops hardening
 - [ ] Edge rate limiting for register/send endpoints.
@@ -317,28 +324,30 @@ public/
 └── (managed by OneSignal; no service worker file required)
 ```
 
-### Files to Create (Next)
+### Files Added (Phase 3)
 ```
 worker/
 ├── services/
 │   └── NotificationDestinationStore.ts
-├── routes/
-│   └── push.ts (or extend notifications.ts with /api/push/register/*)
 ├── migrations/
 │   └── (none - destinations added to `20260201_add_notifications.sql`)
 
 src/
-├── hooks/
-│   ├── useNotifications.ts
-│   ├── useNotificationSettings.ts
-│   └── usePushRegistration.ts (OneSignal SDK bootstrap)
-├── components/
-│   ├── NotificationCenter.tsx
-│   ├── NotificationItem.tsx
-│   └── settings/
-│       └── NotificationPage.tsx
-└── utils/
-    └── oneSignalRegistration.ts
+├── features/
+│   └── notifications/
+│       ├── pages/NotificationCenterPage.tsx
+│       ├── components/NotificationList.tsx
+│       ├── components/NotificationItem.tsx
+│       ├── components/NotificationHeader.tsx
+│       ├── components/NotificationEmptyState.tsx
+│       ├── hooks/useNotifications.ts
+│       ├── hooks/useNotificationStream.ts
+│       ├── hooks/useNotificationCounts.ts
+│       ├── utils/groupNotifications.ts
+│       └── types.ts
+├── features/settings/hooks/useNotificationSettings.ts
+├── features/settings/utils/notificationPolicy.ts
+└── shared/notifications/oneSignalClient.ts
 ```
 
 ## Cloudflare Best Practices Integration

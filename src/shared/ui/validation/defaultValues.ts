@@ -8,31 +8,54 @@ export interface DefaultValueConfig {
 }
 
 export interface NotificationDefaults {
-  responses: {
-    push: boolean;
-  };
-  tasks: {
+  messages: {
     push: boolean;
     email: boolean;
   };
-  messaging: {
+  system: {
     push: boolean;
+    email: boolean;
+  };
+  payments: {
+    push: boolean;
+    email: boolean;
+  };
+  intakes: {
+    push: boolean;
+    email: boolean;
+  };
+  matters: {
+    push: boolean;
+    email: boolean;
   };
 }
 
 // Default notification settings - features ON by default
 export const NOTIFICATION_DEFAULTS: NotificationDefaults = {
-  responses: {
-    push: true, // Default: Push notifications enabled
+  messages: {
+    push: true,
+    email: true
   },
-  tasks: {
-    push: true, // Default: Push notifications enabled
-    email: true, // Default: Email notifications enabled
+  system: {
+    push: true,
+    email: true
   },
-  messaging: {
-    push: true, // Default: Push notifications enabled
+  payments: {
+    push: true,
+    email: true
   },
+  intakes: {
+    push: true,
+    email: true
+  },
+  matters: {
+    push: true,
+    email: true
+  }
 };
+
+export const DEFAULT_DESKTOP_PUSH_ENABLED = true;
+export const DEFAULT_MESSAGES_MENTIONS_ONLY = false;
 
 // Helper function to get display text for notification channels
 export function getNotificationDisplayText(

@@ -6,6 +6,7 @@ export interface NotificationChannel {
   key: string;
   label: string;
   checked: boolean;
+  disabled?: boolean;
 }
 
 export interface NotificationChannelSelectorProps {
@@ -34,6 +35,7 @@ export const NotificationChannelSelector = ({
               key={channel.key}
               checked={channel.checked}
               onCheckedChange={(checked) => onChannelChange(channel.key, checked)}
+              disabled={channel.disabled}
             >
               {channel.label}
             </DropdownMenuCheckboxItem>
@@ -43,4 +45,3 @@ export const NotificationChannelSelector = ({
     </div>
   );
 };
-

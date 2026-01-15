@@ -7,6 +7,7 @@
 
 import { NavigationIcon } from '../atoms/NavigationIcon';
 import { StatusDot } from '../atoms/StatusDot';
+import { NotificationDot } from '../atoms/NotificationDot';
 import { MatterStatus } from '@/shared/types/matter';
 import type { ComponentChildren } from 'preact';
 
@@ -35,6 +36,8 @@ interface NavigationItemProps {
   onClick: () => void;
   isCollapsed: boolean;
   matterStatus?: MatterStatus;
+  hasUnread?: boolean;
+  showUnreadDot?: boolean;
   className?: string;
 }
 
@@ -45,6 +48,8 @@ export const NavigationItem = ({
   onClick, 
   isCollapsed,
   matterStatus,
+  hasUnread = false,
+  showUnreadDot = false,
   className = ''
 }: NavigationItemProps) => {
   const baseClasses = 'flex items-center w-full rounded-lg text-left transition-colors';
@@ -52,6 +57,7 @@ export const NavigationItem = ({
   const activeClasses = isActive 
     ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' 
     : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-dark-hover';
+  const labelClasses = hasUnread ? 'font-semibold' : 'font-medium';
 
   return (
     <div className="relative">
@@ -64,10 +70,11 @@ export const NavigationItem = ({
         title={isCollapsed ? label : undefined}
       >
         <NavigationIcon icon={icon} size="md" />
-        {!isCollapsed && <span className="text-sm font-medium">{label}</span>}
+        {!isCollapsed && <span className={`text-sm ${labelClasses}`}>{label}</span>}
       </button>
       {/* Status dot for matter status */}
       <StatusDot status={matterStatus} />
+      <NotificationDot show={showUnreadDot} className={hasUnread ? 'bg-accent-500' : 'bg-accent-400/70'} />
     </div>
   );
 };

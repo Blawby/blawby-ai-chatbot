@@ -3,14 +3,17 @@ import { SidebarContent } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { ComponentChildren } from 'preact';
 import type { SubscriptionTier } from '@/shared/types/user';
+import type { NotificationCategory } from '@/features/notifications/types';
 
 interface LeftSidebarProps {
   currentRoute: string;
   onGoToDashboard?: () => void;
   onGoToChats?: () => void;
+  onSelectNotificationCategory?: (category: NotificationCategory) => void;
   onClose?: () => void;
   showDashboardTab?: boolean;
   showChatsTab?: boolean;
+  notificationCategory?: NotificationCategory;
   chatSidebarContent?: ComponentChildren;
   practiceConfig?: {
     name: string;
@@ -27,9 +30,11 @@ const LeftSidebar = ({
   currentRoute,
   onGoToDashboard,
   onGoToChats,
+  onSelectNotificationCategory,
   onClose,
   showDashboardTab = true,
   showChatsTab = true,
+  notificationCategory = 'message',
   chatSidebarContent,
   practiceConfig,
   currentPractice
@@ -47,9 +52,11 @@ const LeftSidebar = ({
         currentRoute={currentRoute}
         onGoToDashboard={onGoToDashboard}
         onGoToChats={onGoToChats}
+        onSelectNotificationCategory={onSelectNotificationCategory}
         onClose={onClose}
         showDashboardTab={showDashboardTab}
         showChatsTab={showChatsTab}
+        notificationCategory={notificationCategory}
         chatSidebarContent={chatSidebarContent}
         currentPractice={currentPractice}
         isCollapsed={shouldShowCollapsed}

@@ -23,6 +23,31 @@ function shouldSendPush(recipient: NotificationRecipientSnapshot): boolean {
   return true;
 }
 
+function extractMentionedUserIds(metadata: Record<string, unknown> | null | undefined): string[] {
+  if (!metadata) return [];
+  const candidates = [
+    metadata.mentionedUserIds,
+    metadata.mentionUserIds,
+    metadata.mentions
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter((value) => typeof value === 'string') as string[];
+    }
+  }
+  return [];
+}
+
+function shouldProcessRecipient(
+  recipient: NotificationRecipientSnapshot,
+  message: NotificationQueueMessage
+): boolean {
+  if (message.category !== 'message') return true;
+  if (!recipient.preferences?.mentionsOnly) return true;
+  const mentionIds = extractMentionedUserIds(message.metadata ?? null);
+  return mentionIds.includes(recipient.userId);
+}
+
 async function sendEmailNotification(
   oneSignal: OneSignalService,
   recipient: NotificationRecipientSnapshot,
@@ -102,6 +127,9 @@ export async function handleNotificationQueue(
 
     for (const recipient of payload.recipients) {
       try {
+        if (!shouldProcessRecipient(recipient, payload)) {
+          continue;
+        }
         const insertResult = await store.createNotification({
           userId: recipient.userId,
           practiceId: payload.practiceId ?? null,

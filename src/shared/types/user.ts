@@ -114,16 +114,28 @@ export interface UserProfile {
 }
 
 export interface NotificationSettings {
-  responses: {
-    push: boolean;
-  };
-  tasks: {
+  messages: {
     push: boolean;
     email: boolean;
   };
-  messaging: {
+  messagesMentionsOnly: boolean;
+  system: {
     push: boolean;
+    email: boolean;
   };
+  payments: {
+    push: boolean;
+    email: boolean;
+  };
+  intakes: {
+    push: boolean;
+    email: boolean;
+  };
+  matters: {
+    push: boolean;
+    email: boolean;
+  };
+  desktopPushEnabled: boolean;
 }
 
 export interface SecuritySettings {
