@@ -54,7 +54,7 @@ export const NOTIFICATION_DEFAULTS: NotificationDefaults = {
   }
 };
 
-export const DEFAULT_DESKTOP_PUSH_ENABLED = true;
+export const DEFAULT_DESKTOP_PUSH_ENABLED = false;
 export const DEFAULT_MESSAGES_MENTIONS_ONLY = false;
 
 // Helper function to get display text for notification channels

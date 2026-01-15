@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Đã lưu cài đặt",
-    "settingsSavedBody": "Tùy chọn của bạn đã được cập nhật."
+    "settingsSavedBody": "Tùy chọn của bạn đã được cập nhật.",
+    "settingsSaveErrorTitle": "Settings save failed",
+    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
   },
   "language": {
     "auto": "Tự động phát hiện",

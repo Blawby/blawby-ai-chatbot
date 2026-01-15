@@ -16,9 +16,9 @@ const ToastContext = createContext<ToastContextType | null>(null);
 
 export const ToastProvider = ({ children }: { children: ComponentChildren }) => {
   const { toasts, removeToast, showSuccess, showError, showInfo, showWarning } = useToast();
-  const showSystem = (title: string, message?: string) => {
+  const showSystem = (title: string, message?: string, duration?: number) => {
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('notifications:system', { detail: { title, message } }));
+      window.dispatchEvent(new CustomEvent('notifications:system', { detail: { title, message, duration } }));
     }
     return crypto.randomUUID();
   };

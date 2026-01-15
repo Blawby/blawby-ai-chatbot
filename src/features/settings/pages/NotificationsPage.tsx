@@ -8,7 +8,6 @@ import { SettingRow } from '@/features/settings/components/SettingRow';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
 import { useNotificationSettings, updateNotificationChannel, updateDesktopPushEnabled, updateMessagesMentionsOnly } from '@/features/settings/hooks/useNotificationSettings';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { Button } from '@/shared/ui/Button';
 import { Switch } from '@/shared/ui/input';
 import {
   getNotificationPermissionState,
@@ -115,7 +114,6 @@ export const NotificationsPage = ({
   );
 
   const isAdmin = ['owner', 'admin'].includes(String(session?.user?.role ?? '').toLowerCase());
-  const isPermissionGranted = permissionState === 'granted';
   const isPermissionSupported = permissionState !== 'unsupported';
 
   const handleChannelChange = async (category: NotificationCategory, channelKey: string, value: boolean) => {
@@ -128,14 +126,34 @@ export const NotificationsPage = ({
     } catch (error) {
       console.error('Failed to update notification settings:', error);
       showError(
-        t('common:notifications.errorTitle', { defaultValue: 'Update failed' }),
-        t('common:notifications.settingsSaveError', { defaultValue: 'Unable to save notification settings.' })
+        t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
+        t('common:notifications.settingsSaveErrorBody', { defaultValue: 'Unable to save your settings. Please try again.' })
       );
     }
   };
 
   const handleDesktopToggle = async (value: boolean) => {
     try {
+      if (value) {
+        if (!isPermissionSupported) {
+        showError(
+          t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
+          t('settings:notifications.desktop.permissionErrorBody', { defaultValue: 'We could not enable desktop notifications.' })
+        );
+          return;
+        }
+        if (permissionState !== 'granted') {
+          const next = await requestNotificationPermission();
+          setPermissionState(next);
+          if (next !== 'granted') {
+            showError(
+              t('settings:notifications.desktop.permissionDeniedTitle', { defaultValue: 'Permission blocked' }),
+              t('settings:notifications.desktop.permissionDeniedBody', { defaultValue: 'Enable notifications in your browser settings to receive alerts.' })
+            );
+            return;
+          }
+        }
+      }
       await updateDesktopPushEnabled(value);
       showSuccess(
         t('common:notifications.settingsSavedTitle', { defaultValue: 'Settings saved' }),
@@ -144,32 +162,8 @@ export const NotificationsPage = ({
     } catch (error) {
       console.error('Failed to update desktop push preference:', error);
       showError(
-        t('common:notifications.errorTitle', { defaultValue: 'Update failed' }),
-        t('common:notifications.settingsSaveError', { defaultValue: 'Unable to save notification settings.' })
-      );
-    }
-  };
-
-  const handleRequestPermission = async () => {
-    try {
-      const next = await requestNotificationPermission();
-      setPermissionState(next);
-      if (next === 'granted') {
-        showSuccess(
-          t('settings:notifications.desktop.permissionGrantedTitle', { defaultValue: 'Desktop notifications enabled' }),
-          t('settings:notifications.desktop.permissionGrantedBody', { defaultValue: 'You will receive desktop alerts when Blawby sends updates.' })
-        );
-      } else if (next === 'denied') {
-        showError(
-          t('settings:notifications.desktop.permissionDeniedTitle', { defaultValue: 'Permission blocked' }),
-          t('settings:notifications.desktop.permissionDeniedBody', { defaultValue: 'Enable notifications in your browser settings to receive alerts.' })
-        );
-      }
-    } catch (error) {
-      console.error('Failed to request notification permission:', error);
-      showError(
-        t('settings:notifications.desktop.permissionErrorTitle', { defaultValue: 'Permission failed' }),
-        t('settings:notifications.desktop.permissionErrorBody', { defaultValue: 'We could not enable desktop notifications.' })
+        t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
+        t('common:notifications.settingsSaveErrorBody', { defaultValue: 'Unable to save your settings. Please try again.' })
       );
     }
   };
@@ -191,8 +185,8 @@ export const NotificationsPage = ({
     } catch (error) {
       console.error('Failed to update mention preferences:', error);
       showError(
-        t('common:notifications.errorTitle', { defaultValue: 'Update failed' }),
-        t('common:notifications.settingsSaveError', { defaultValue: 'Unable to save notification settings.' })
+        t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
+        t('common:notifications.settingsSaveErrorBody', { defaultValue: 'Unable to save your settings. Please try again.' })
       );
     }
   };
@@ -224,7 +218,7 @@ export const NotificationsPage = ({
     } catch (error) {
       console.error('Failed to update organization notification policy:', error);
       showError(
-        t('common:notifications.errorTitle', { defaultValue: 'Update failed' }),
+        t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
         t('settings:notifications.organization.toastErrorBody', { defaultValue: 'Unable to update organization notification settings.' })
       );
       setPolicyOverride(null);
@@ -339,22 +333,10 @@ export const NotificationsPage = ({
             description={t('settings:notifications.desktop.description', { defaultValue: 'Allow Blawby to send OS-level alerts.' })}
           >
             <div className="flex items-center gap-2">
-              {permissionState !== 'granted' && isPermissionSupported && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleRequestPermission}
-                  disabled={permissionState === 'denied'}
-                >
-                  {permissionState === 'denied'
-                    ? t('settings:notifications.desktop.permissionDeniedButton', { defaultValue: 'Blocked' })
-                    : t('settings:notifications.desktop.permissionButton', { defaultValue: 'Enable' })}
-                </Button>
-              )}
               <Switch
                 value={settings.desktopPushEnabled}
                 onChange={handleDesktopToggle}
-                disabled={!isPermissionGranted}
+                disabled={!isPermissionSupported}
                 className="py-0"
               />
             </div>

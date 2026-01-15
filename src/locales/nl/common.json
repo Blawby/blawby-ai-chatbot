@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Instellingen opgeslagen",
-    "settingsSavedBody": "Uw voorkeuren zijn bijgewerkt."
+    "settingsSavedBody": "Uw voorkeuren zijn bijgewerkt.",
+    "settingsSaveErrorTitle": "Settings save failed",
+    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
   },
   "language": {
     "auto": "Automatisch detecteren",

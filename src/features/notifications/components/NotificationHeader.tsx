@@ -43,11 +43,14 @@ export const NotificationHeader = ({
                   ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
               )}
-              aria-current={isActive ? 'page' : undefined}
+              aria-pressed={isActive}
             >
               <span className={cn(hasUnread ? 'font-semibold' : 'font-medium')}>{label}</span>
               {hasUnread && (
-                <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
+                  <span className="sr-only">({unreadByCategory[category]} unread)</span>
+                </>
               )}
             </button>
           );

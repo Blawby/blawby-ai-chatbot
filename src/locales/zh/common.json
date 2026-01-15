@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "设置已保存",
-    "settingsSavedBody": "您的偏好设置已更新。"
+    "settingsSavedBody": "您的偏好设置已更新。",
+    "settingsSaveErrorTitle": "Settings save failed",
+    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
   },
   "language": {
     "auto": "自动检测",

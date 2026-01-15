@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "บันทึกการตั้งค่าแล้ว",
-    "settingsSavedBody": "การตั้งค่าของคุณได้รับการอัปเดตแล้ว"
+    "settingsSavedBody": "การตั้งค่าของคุณได้รับการอัปเดตแล้ว",
+    "settingsSaveErrorTitle": "Settings save failed",
+    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
   },
   "language": {
     "auto": "ตรวจจับอัตโนมัติ",

@@ -14,8 +14,8 @@ import type { NotificationItem as NotificationItemType } from '@/features/notifi
 
 interface NotificationItemProps {
   notification: NotificationItemType;
-  onMarkRead: (id: string) => void;
-  onMarkUnread: (id: string) => void;
+  onMarkRead: (id: string) => void | Promise<void>;
+  onMarkUnread: (id: string) => void | Promise<void>;
 }
 
 const formatTime = (timestamp: string) => {
@@ -132,7 +132,11 @@ export const NotificationItem = ({ notification, onMarkRead, onMarkUnread }: Not
                 </span>
               </DropdownMenuItem>
               {notification.link && (
-                <DropdownMenuItem onSelect={handleCopyLink}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    void handleCopyLink();
+                  }}
+                >
                   <span className="flex items-center gap-2">
                     <LinkIcon className="h-4 w-4" />
                     Copy link

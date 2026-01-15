@@ -377,7 +377,7 @@ const defaultPreferences: PreferencesResponse['data'] = {
     intakes_email: true,
     matters_push: true,
     matters_email: true,
-    desktop_push_enabled: true
+    desktop_push_enabled: false
   },
   security: {
     two_factor_enabled: false,

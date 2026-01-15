@@ -286,6 +286,7 @@ This section reflects the updated OneSignal direction.
 **Phase 3 notes**
 - Org defaults live in `practice.metadata.notificationPolicy` with `defaults` + `allowed` per category; system is enforced on.
 - Message mentions-only uses `messages_mentions_only` in preferences; delivery skips non-mentions.
+- Mentions metadata is standardized as `metadata.mentionedUserIds: string[]`.
 
 ### Phase 4: Ops hardening
 - [ ] Edge rate limiting for register/send endpoints.

@@ -242,6 +242,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   };
 
   const handleGoToNotifications = (category: NotificationCategory) => {
+    onTabChange('notifications');
     onSelectNotificationCategory(category);
   };
 

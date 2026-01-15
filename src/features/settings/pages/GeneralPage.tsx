@@ -156,8 +156,8 @@ export const GeneralPage = ({
     } catch (error) {
       console.error('Failed to update user settings:', error);
       showError(
-        t('common:notifications.errorTitle'),
-        t('common:notifications.settingsSaveError')
+        t('common:notifications.settingsSaveErrorTitle'),
+        t('common:notifications.settingsSaveErrorBody')
       );
       
       // Revert the local state on error

@@ -5,8 +5,8 @@
   "notifications": {
     "settingsSavedTitle": "Settings saved",
     "settingsSavedBody": "Your preferences have been updated.",
-    "errorTitle": "Update failed",
-    "settingsSaveError": "Unable to save your notification settings."
+    "settingsSaveErrorTitle": "Settings save failed",
+    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
   },
   "language": {
     "auto": "Auto-detect",

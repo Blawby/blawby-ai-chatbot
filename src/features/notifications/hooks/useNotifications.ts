@@ -36,6 +36,7 @@ type SystemNotificationPayload = {
   title: string;
   message?: string;
   link?: string;
+  duration?: number;
 };
 
 const createCategoryState = (): CategoryState => ({
@@ -503,6 +504,7 @@ onMount(notificationStore, () => {
 
   return () => {
     stopStream();
+    initialLoadRequested.clear();
     if (typeof window !== 'undefined') {
       window.removeEventListener('auth:token-updated', handleTokenUpdated);
       window.removeEventListener('auth:token-cleared', handleTokenCleared);

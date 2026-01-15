@@ -34,8 +34,8 @@ export const NotificationCenterPage = ({
     try {
       await markAllRead();
       showSuccess('All caught up', 'Marked all notifications as read.');
-    } catch (error) {
-      showError('Update failed', error instanceof Error ? error.message : 'Unable to mark all as read.');
+    } catch (err) {
+      showError('Update failed', err instanceof Error ? err.message : 'Unable to mark all as read.');
     }
   };
 
@@ -66,7 +66,7 @@ export const NotificationCenterPage = ({
 
         {isEmpty && <NotificationEmptyState category={category} />}
 
-        {!isLoading && notifications.length > 0 && (
+        {notifications.length > 0 && (
           <NotificationList
             notifications={notifications}
             onMarkRead={markRead}

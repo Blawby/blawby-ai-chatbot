@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "تم حفظ الإعدادات",
-    "settingsSavedBody": "تم تحديث تفضيلاتك."
+    "settingsSavedBody": "تم تحديث تفضيلاتك.",
+    "settingsSaveErrorTitle": "Settings save failed",
+    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
   },
   "language": {
     "auto": "الكشف التلقائي",

@@ -4,8 +4,8 @@ import { NotificationItem } from './NotificationItem';
 
 interface NotificationListProps {
   notifications: NotificationItemType[];
-  onMarkRead: (id: string) => void;
-  onMarkUnread: (id: string) => void;
+  onMarkRead: (id: string) => void | Promise<void>;
+  onMarkUnread: (id: string) => void | Promise<void>;
 }
 
 export const NotificationList = ({ notifications, onMarkRead, onMarkUnread }: NotificationListProps) => {

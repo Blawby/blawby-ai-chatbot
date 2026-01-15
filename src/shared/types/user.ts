@@ -113,6 +113,8 @@ export interface UserProfile {
   updatedAt: Date | null;
 }
 
+// NotificationSettings mirrors the notifications preferences category shape.
+// UserProfile/BetterAuthSessionUser still expose legacy flat notification flags.
 export interface NotificationSettings {
   messages: {
     push: boolean;

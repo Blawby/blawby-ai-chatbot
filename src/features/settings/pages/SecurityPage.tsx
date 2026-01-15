@@ -164,8 +164,8 @@ export const SecurityPage = ({
       } catch (error) {
         console.error('Failed to update security settings:', error);
         showError(
-          t('common:notifications.errorTitle'),
-          t('common:notifications.settingsSaveError')
+          t('common:notifications.settingsSaveErrorTitle'),
+          t('common:notifications.settingsSaveErrorBody')
         );
         
         // Revert the local state on error
@@ -180,7 +180,7 @@ export const SecurityPage = ({
     // Check if user session is authenticated
     if (!session?.user) {
       showError(
-        t('common:notifications.errorTitle'),
+        t('common:notifications.settingsSaveErrorTitle'),
         t('common:notifications.sessionExpired')
       );
       setShowDisableMFAConfirm(false);
@@ -208,8 +208,8 @@ export const SecurityPage = ({
     } catch (error) {
       console.error('Failed to disable MFA:', error);
       showError(
-        t('common:notifications.errorTitle'),
-        t('common:notifications.settingsSaveError')
+        t('common:notifications.settingsSaveErrorTitle'),
+        t('common:notifications.settingsSaveErrorBody')
       );
       
       // Revert the local state on error

@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "설정 저장됨",
-    "settingsSavedBody": "환경설정이 업데이트되었습니다."
+    "settingsSavedBody": "환경설정이 업데이트되었습니다.",
+    "settingsSaveErrorTitle": "Settings save failed",
+    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
   },
   "language": {
     "auto": "자동 감지",
