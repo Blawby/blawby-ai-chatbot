@@ -44,7 +44,11 @@ const BottomNavigation = ({
           <BellIcon className="w-6 h-6 block" />
           {hasUnreadNotifications && (
             <span
-              className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-accent-500 ring-2 ring-white dark:ring-dark-bg"
+              className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ${
+                activeTab === 'notifications'
+                  ? 'bg-white ring-2 ring-accent-500 dark:bg-gray-900 dark:ring-accent-500'
+                  : 'bg-accent-500 ring-2 ring-white dark:ring-dark-bg'
+              }`}
               aria-hidden="true"
             />
           )}
