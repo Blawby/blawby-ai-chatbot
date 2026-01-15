@@ -111,7 +111,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const [shareCopied, setShareCopied] = useState(false);
 
   const showDashboardTab = workspace !== 'public';
-  const showChatsTab = workspace !== 'public';
+  const showChatsTab = true;
   const showRightSidebar = workspace !== 'client';
 
   // Activity is feature-flagged off by default while we decide the final architecture.
@@ -529,13 +529,15 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       )}
 
 
-      <MobileTopNav
-        onOpenSidebar={() => onToggleMobileSidebar(true)}
-        onPlusClick={() => {
-          window.location.hash = '#pricing';
-        }}
-        isVisible={isNavbarVisible}
-      />
+      {features.enableLeftSidebar && (
+        <MobileTopNav
+          onOpenSidebar={() => onToggleMobileSidebar(true)}
+          onPlusClick={workspace !== 'public' ? () => {
+            window.location.hash = '#pricing';
+          } : undefined}
+          isVisible={isNavbarVisible}
+        />
+      )}
 
       {/* Debug Overlay - Only when explicitly enabled */}
       {import.meta.env.VITE_DEBUG_OVERLAY === 'true' && (

@@ -63,7 +63,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata
-    });
+    }, request);
 
     return createJsonResponse(conversation);
   }

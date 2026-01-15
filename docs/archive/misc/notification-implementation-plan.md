@@ -276,14 +276,59 @@ This section reflects the updated OneSignal direction.
 
 ### Phase 3: User-facing UI
 - UI is intentionally deferred to Phase 3; focus for Phase 1/2 is wiring + delivery.
-- [ ] Notification center with tabs (messages, system, payments, intakes, matters).
-- [ ] Settings panel for per-user preferences (email, push, desktop).
-- [ ] OS notification permission UX.
+- Build a left-rail tab set with explicit slices: Messages, System, Payments, Intakes, Matters.
+- Tabs show a subtle dot + bold state (no numeric badge); numeric counts appear next to the specific conversation thread only.
+- System tab contains only Blawby-originated items and uses the Blawby avatar to make source clear.
+- Notification list layout matches Discord-style activity cards: avatar, sender, timestamp, title, body, and optional deep link; group by day.
+- Each item supports mark read/unread, copy link, and context actions; a top-level “mark all read” per tab is required.
+- OS notifications should fire for messages and system alerts; in-app list is the source of truth and should reconcile SSE + D1.
+- Deprecate toast-based alerts once the system tab is reliable; keep toasts only for transient UI feedback.
+- Settings panel should expose per-user toggles for email + push; organization-wide settings only visible to admin/owner roles.
+
+#### Phase 3 UI file touch map (existing)
+- `src/app/AppLayout.tsx` - add notification center area and tab routing within the main layout.
+- `src/app/MainApp.tsx` - wire new notification views + active tab state into the app shell.
+- `src/shared/components/LeftSidebar.tsx` - extend left rail to support notification tab selection state.
+- `src/shared/ui/sidebar/organisms/SidebarContent.tsx` - add Messages/System/Payments/Intakes/Matters tab group.
+- `src/shared/ui/sidebar/molecules/NavigationList.tsx` - tab list structure + section ordering.
+- `src/shared/ui/sidebar/molecules/NavigationItem.tsx` - bold + dot state for unread tabs.
+- `src/shared/ui/sidebar/atoms/StatusDot.tsx` - extend for unread dot styling (or add a new notification dot atom).
+- `src/features/chats/components/ConversationSidebar.tsx` - show per-thread unread count + bold state.
+- `src/shared/components/BottomNavigation.tsx` - mobile tab parity for notification slices.
+- `src/shared/components/MobileTopNav.tsx` - mobile top-right notification entry point.
+- `src/shared/components/Toast.tsx` - trim toasts to transient UI only.
+- `src/shared/components/ToastContainer.tsx` - align toast placement with new system tab.
+- `src/shared/contexts/ToastContext.tsx` - ensure system alerts route to the system tab instead of toasts.
+- `src/features/settings/pages/NotificationsPage.tsx` - align UI toggles with new categories + OneSignal channels.
+- `src/features/settings/components/NotificationChannelSelector.tsx` - reflect channel-level controls (email/push).
+- `src/shared/lib/preferencesApi.ts` - read/write notification preferences for the settings UI.
+- `src/shared/types/preferences.ts` - update notification preference types for new categories.
+- `src/shared/types/user.ts` - align user settings model with notification preferences.
+- `src/shared/ui/validation/defaultValues.ts` - default display text for new notification settings.
+- `src/shared/notifications/oneSignalClient.ts` - OS permission prompts + subscription wiring for UI flow.
+
+#### Phase 3 UI files to add (new)
+- `src/features/notifications/pages/NotificationCenterPage.tsx` - primary list view for System/Payments/Intakes/Matters.
+- `src/features/notifications/components/NotificationList.tsx` - grouped list layout with day separators.
+- `src/features/notifications/components/NotificationItem.tsx` - Discord-style activity card presentation.
+- `src/features/notifications/components/NotificationHeader.tsx` - tab header + "mark all read".
+- `src/features/notifications/components/NotificationEmptyState.tsx` - empty-state messaging per tab.
+- `src/features/notifications/hooks/useNotifications.ts` - list + pagination + read/unread mutations.
+- `src/features/notifications/hooks/useNotificationStream.ts` - SSE subscription + reconcile with D1 list.
+- `src/features/notifications/hooks/useNotificationCounts.ts` - unread dot + per-thread counts.
+- `src/features/notifications/utils/groupNotifications.ts` - day grouping + timestamp normalization.
+- `src/features/notifications/types.ts` - UI-facing notification types + category enum.
+- `src/shared/notifications/oneSignalClient.ts` - OneSignal SDK initialization, permission prompts, and subscription management.
 
 ### Phase 4: Ops hardening
-- [ ] Edge rate limiting for register/send endpoints.
-- [ ] App-level quotas (per user/day, per practice/min).
-- [ ] Structured logs + dashboards for delivery outcomes.
+- [ ] Edge rate limiting on registration and send endpoints (per IP, per user, per organization).
+- [ ] App-level quotas for sends (per user/day, per organization/min, per category).
+- [ ] DLQ policy for queue failures plus a replay/runbook; avoid retry storms.
+- [ ] Idempotency + dedupe enforcement for external sends to prevent duplicates.
+- [ ] Structured logs with event id, user id, organization id, category, provider status/error.
+- [ ] Monitoring and alerting for delivery failures, suppression spikes, and bounce rates.
+- [ ] Secrets rotation plan for OneSignal API keys; least-privilege and audit trail.
+- [ ] Data retention policy for notifications and destinations, with cleanup of disabled records.
 
 ## OneSignal Alignment (Status)
 
@@ -291,7 +336,7 @@ This section reflects the updated OneSignal direction.
 - [x] Remove `notification_push_subscriptions` table and related routes.
 - [x] Remove `/api/notifications/push/*` endpoints.
 - [x] Update queue consumer to call OneSignal REST API for push + email delivery.
-- [x] Implement OneSignal managed service worker (removed `public/sw.js` placeholder).
+- [ ] Implement OneSignal managed service worker (replace `public/sw.js` placeholder).
 
 ## File Structure Overview
 
@@ -314,7 +359,7 @@ worker/
 └── types.ts (notification types + Env)
 
 public/
-└── (managed by OneSignal; no service worker file required)
+└── sw.js (placeholder; replaced once OneSignal Web SDK is integrated)
 ```
 
 ### Files to Create (Next)
@@ -579,8 +624,8 @@ For more granular control, implement organization-level testing flags:
 
 ```typescript
 // Check if organization is in test mode
-const practiceConfig = await this.getPracticeConfig(organizationId);
-if (practiceConfig.testMode) {
+const organizationConfig = await this.getOrganizationConfig(organizationId);
+if (organizationConfig.testMode) {
   console.log('🧪 organization in test mode - logging notification instead of sending');
   return;
 }

@@ -83,7 +83,7 @@ const AuthForm = ({
 
   const defaultPostAuthPath = useCallback(() => {
     if (conversationContext?.conversationId && conversationContext?.practiceId) {
-      return `/dashboard?conversationId=${encodeURIComponent(conversationContext.conversationId)}&practiceId=${encodeURIComponent(conversationContext.practiceId)}`;
+      return `/client/dashboard?conversationId=${encodeURIComponent(conversationContext.conversationId)}&practiceId=${encodeURIComponent(conversationContext.practiceId)}`;
     }
     return '/';
   }, [conversationContext?.conversationId, conversationContext?.practiceId]);
@@ -94,8 +94,9 @@ const AuthForm = ({
       const storedRedirect = sessionStorage.getItem(postAuthRedirectKey);
       const target = storedRedirect || defaultPostAuthPath();
       sessionStorage.removeItem(postAuthRedirectKey);
+      const isClientDashboardTarget = target.startsWith('/client') || target.startsWith('/dashboard');
       const shouldRouteToRoot =
-        target.startsWith('/dashboard') &&
+        isClientDashboardTarget &&
         !(conversationContext?.conversationId && conversationContext?.practiceId);
       navigate(shouldRouteToRoot ? '/' : target);
     } catch {

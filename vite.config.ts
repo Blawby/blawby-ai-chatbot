@@ -150,6 +150,7 @@ const buildProxyEntries = (): Record<string, any> => {
 export default defineConfig(({ mode }: ConfigEnv) => {
 	const env = loadEnv(mode, process.cwd(), '');
 	return {
+		envPrefix: ['VITE_'],
 		plugins: [
 			preact({
 				prerender: {

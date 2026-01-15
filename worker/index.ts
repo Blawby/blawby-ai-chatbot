@@ -10,6 +10,7 @@ import {
   handleDebug,
   handleConfig,
   handleNotifications,
+  handlePracticeDetails,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleChat } from './routes/chat.js';
@@ -91,6 +92,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleStatus(request, env);
     } else if (path.startsWith('/api/notifications')) {
       response = await handleNotifications(request, env);
+    } else if (path.startsWith('/api/practice/details/')) {
+      response = await handlePracticeDetails(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
     } else if (path.startsWith('/api/lawyers')) {
