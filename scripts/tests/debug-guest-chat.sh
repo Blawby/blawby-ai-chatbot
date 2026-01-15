@@ -288,6 +288,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
+COOKIE_JAR=$(mktemp)
+TMP_FILES+=("$COOKIE_JAR")
+
 request() {
   local method="$1"
   local url="$2"
@@ -299,7 +302,7 @@ request() {
   body_file=$(mktemp)
   TMP_FILES+=("$header_file" "$body_file")
 
-  local curl_args=(-sS -D "$header_file" -o "$body_file" -w "%{http_code}" -X "$method" "$url" --max-time 20)
+  local curl_args=(-sS -D "$header_file" -o "$body_file" -w "%{http_code}" -X "$method" "$url" --max-time 20 -b "$COOKIE_JAR" -c "$COOKIE_JAR")
   if [[ -n "$data" ]]; then
     curl_args+=(-H "Content-Type: application/json" -d "$data")
   fi
