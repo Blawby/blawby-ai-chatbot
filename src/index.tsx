@@ -523,7 +523,7 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
     }
   }, [session?.user, practiceId, sessionIsPending]);
 
-  if (isLoading || sessionIsPending) {
+  if (isLoading) {
     return <LoadingScreen />;
   }
 
