@@ -42,6 +42,14 @@ export const NotificationCenterPage = ({
     }
   };
 
+  const handleLoadMore = async () => {
+    try {
+      await loadMore();
+    } catch (err) {
+      showError('Load failed', err instanceof Error ? err.message : 'Unable to load more notifications.');
+    }
+  };
+
   const isEmpty = !isLoading && notifications.length === 0 && !error;
 
   return (
@@ -81,7 +89,7 @@ export const NotificationCenterPage = ({
           <div className="mt-6 flex justify-center">
             <button
               type="button"
-              onClick={loadMore}
+              onClick={handleLoadMore}
               disabled={isLoading}
               className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
             >

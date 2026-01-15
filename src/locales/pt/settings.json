@@ -162,27 +162,64 @@
   },
   "notifications": {
     "title": "Notificações",
-    "loadError": "Falha ao carregar configurações de notificação",
-    "toastBody": "Suas preferências de notificação foram atualizadas",
-    "sections": {
-      "responses": {
-        "title": "Respostas",
-        "description": "Seja notificado quando o ChatGPT responder a solicitações que levam tempo, como pesquisa ou geração de imagens."
-      },
-      "tasks": {
-        "title": "Tarefas",
-        "description": "Seja notificado quando as tarefas que você criou tiverem atualizações.",
-        "manage": "Gerenciar tarefas"
-      },
-      "messaging": {
+    "loadError": "Falha ao carregar as configurações de notificações.",
+    "toastBody": "Suas preferências de notificação foram atualizadas.",
+    "categories": {
+      "messages": {
         "title": "Mensagens",
-        "description": "Seja notificado quando você receber novas mensagens."
+        "description": "Notificações de mensagens para nova atividade de conversa."
+      },
+      "system": {
+        "title": "Sistema",
+        "description": "Atualizações e alertas da Blawby."
+      },
+      "payments": {
+        "title": "Pagamentos",
+        "description": "Atualizações de pagamento e faturamento."
+      },
+      "intakes": {
+        "title": "Admissões",
+        "description": "Atualizações e envios de admissão de clientes."
+      },
+      "matters": {
+        "title": "Casos",
+        "description": "Alterações e atualizações do status dos casos."
       }
+    },
+    "desktop": {
+      "title": "Notificações da área de trabalho",
+      "description": "Permitir que a Blawby envie alertas do sistema.",
+      "toastBody": "Preferência de notificações da área de trabalho atualizada.",
+      "permissionButton": "Ativar",
+      "permissionDeniedButton": "Bloqueado",
+      "permissionGrantedTitle": "Notificações da área de trabalho ativadas",
+      "permissionGrantedBody": "Você receberá alertas da área de trabalho quando a Blawby enviar atualizações.",
+      "permissionDeniedTitle": "Permissão bloqueada",
+      "permissionDeniedBody": "Ative as notificações nas configurações do navegador para receber alertas.",
+      "permissionErrorTitle": "Falha na permissão",
+      "permissionErrorBody": "Não foi possível ativar as notificações da área de trabalho."
+    },
+    "systemRequiredLabel": "Obrigatório",
+    "systemRequiredHint": "As notificações do sistema são obrigatórias para todos os membros.",
+    "managedHint": "Gerenciado pela sua organização.",
+    "organization": {
+      "title": "Padrões da organização",
+      "description": "Defina padrões para sua equipe. Os membros podem personalizar, a menos que um canal esteja bloqueado.",
+      "defaultsLabel": "Padrões",
+      "allowedLabel": "Permitidos",
+      "systemRequired": "As notificações do sistema são obrigatórias e não podem ser desativadas.",
+      "toastBody": "Padrões de notificação da organização atualizados.",
+      "toastErrorBody": "Não foi possível atualizar as notificações da organização."
     },
     "channels": {
       "push": "Push",
-      "email": "E-mail",
+      "email": "Email",
       "none": "Nenhum"
+    },
+    "mentions": {
+      "title": "Apenas menções",
+      "description": "Notifique-me apenas quando eu for @mencionado em uma conversa.",
+      "toastBody": "Preferências de menções atualizadas."
     }
   },
   "security": {

@@ -174,27 +174,64 @@
   },
   "notifications": {
     "title": "Benachrichtigungen",
-    "loadError": "Fehler beim Laden der Benachrichtigungseinstellungen",
-    "toastBody": "Ihre Benachrichtigungseinstellungen wurden aktualisiert",
-    "sections": {
-      "responses": {
-        "title": "Antworten",
-        "description": "Erhalten Sie Benachrichtigungen, wenn Blawby AI auf Anfragen antwortet, die Zeit benötigen, wie Recherchen oder Bildgenerierung."
-      },
-      "tasks": {
-        "title": "Aufgaben",
-        "description": "Erhalten Sie Benachrichtigungen, wenn von Ihnen erstellte Aufgaben aktualisiert werden.",
-        "manage": "Aufgaben verwalten"
-      },
-      "messaging": {
+    "loadError": "Benachrichtigungseinstellungen konnten nicht geladen werden.",
+    "toastBody": "Deine Benachrichtigungseinstellungen wurden aktualisiert.",
+    "categories": {
+      "messages": {
         "title": "Nachrichten",
-        "description": "Erhalten Sie Benachrichtigungen für neue Nachrichten und Updates"
+        "description": "Nachrichtenbenachrichtigungen bei neuer Konversationsaktivität."
+      },
+      "system": {
+        "title": "System",
+        "description": "Updates und Warnungen von Blawby."
+      },
+      "payments": {
+        "title": "Zahlungen",
+        "description": "Zahlungs- und Abrechnungsupdates."
+      },
+      "intakes": {
+        "title": "Mandatsaufnahmen",
+        "description": "Updates und Einreichungen zur Mandatsaufnahme von Mandanten."
+      },
+      "matters": {
+        "title": "Angelegenheiten",
+        "description": "Statusänderungen und Updates zu Angelegenheiten."
       }
+    },
+    "desktop": {
+      "title": "Desktop-Benachrichtigungen",
+      "description": "Blawby darf Benachrichtigungen auf Betriebssystemebene senden.",
+      "toastBody": "Desktop-Benachrichtigungseinstellung aktualisiert.",
+      "permissionButton": "Aktivieren",
+      "permissionDeniedButton": "Blockiert",
+      "permissionGrantedTitle": "Desktop-Benachrichtigungen aktiviert",
+      "permissionGrantedBody": "Du erhältst Desktop-Benachrichtigungen, wenn Blawby Updates sendet.",
+      "permissionDeniedTitle": "Berechtigung blockiert",
+      "permissionDeniedBody": "Aktiviere Benachrichtigungen in deinen Browsereinstellungen, um Alerts zu erhalten.",
+      "permissionErrorTitle": "Berechtigung fehlgeschlagen",
+      "permissionErrorBody": "Desktop-Benachrichtigungen konnten nicht aktiviert werden."
+    },
+    "systemRequiredLabel": "Erforderlich",
+    "systemRequiredHint": "Systembenachrichtigungen sind für alle Mitglieder erforderlich.",
+    "managedHint": "Von deiner Organisation verwaltet.",
+    "organization": {
+      "title": "Organisationsstandards",
+      "description": "Lege Standards für dein Team fest. Mitglieder können anpassen, sofern ein Kanal nicht gesperrt ist.",
+      "defaultsLabel": "Standards",
+      "allowedLabel": "Erlaubt",
+      "systemRequired": "Systembenachrichtigungen sind erforderlich und können nicht deaktiviert werden.",
+      "toastBody": "Organisations-Standardbenachrichtigungen aktualisiert.",
+      "toastErrorBody": "Organisationsbenachrichtigungen konnten nicht aktualisiert werden."
     },
     "channels": {
       "push": "Push",
       "email": "E-Mail",
       "none": "Keine"
+    },
+    "mentions": {
+      "title": "Nur Erwähnungen",
+      "description": "Nur benachrichtigen, wenn ich in einer Unterhaltung @erwähnt werde.",
+      "toastBody": "Erwähnungseinstellungen aktualisiert."
     }
   },
   "security": {

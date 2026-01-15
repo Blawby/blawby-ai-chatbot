@@ -161,28 +161,65 @@
     }
   },
   "notifications": {
-    "title": "[NEEDS TRANSLATION] Notifications",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "title": "Уведомления",
+    "loadError": "Не удалось загрузить настройки уведомлений.",
+    "toastBody": "Ваши настройки уведомлений обновлены.",
+    "categories": {
+      "messages": {
+        "title": "Сообщения",
+        "description": "Уведомления о новых сообщениях в разговоре."
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "Система",
+        "description": "Обновления и оповещения от Blawby."
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "Получайте уведомления о новых сообщениях."
+      "payments": {
+        "title": "Платежи",
+        "description": "Обновления платежей и биллинга."
+      },
+      "intakes": {
+        "title": "Заявки",
+        "description": "Обновления и отправка заявок клиентов."
+      },
+      "matters": {
+        "title": "Дела",
+        "description": "Изменения статуса дел и обновления."
       }
     },
+    "desktop": {
+      "title": "Уведомления рабочего стола",
+      "description": "Разрешить Blawby отправлять системные уведомления.",
+      "toastBody": "Предпочтение уведомлений рабочего стола обновлено.",
+      "permissionButton": "Включить",
+      "permissionDeniedButton": "Заблокировано",
+      "permissionGrantedTitle": "Уведомления рабочего стола включены",
+      "permissionGrantedBody": "Вы будете получать уведомления рабочего стола, когда Blawby отправляет обновления.",
+      "permissionDeniedTitle": "Разрешение заблокировано",
+      "permissionDeniedBody": "Включите уведомления в настройках браузера, чтобы получать оповещения.",
+      "permissionErrorTitle": "Не удалось получить разрешение",
+      "permissionErrorBody": "Не удалось включить уведомления рабочего стола."
+    },
+    "systemRequiredLabel": "Обязательно",
+    "systemRequiredHint": "Системные уведомления обязательны для всех участников.",
+    "managedHint": "Управляется вашей организацией.",
+    "organization": {
+      "title": "Стандарты организации",
+      "description": "Задайте значения по умолчанию для вашей команды. Участники могут настраивать, если канал не заблокирован.",
+      "defaultsLabel": "По умолчанию",
+      "allowedLabel": "Разрешено",
+      "systemRequired": "Системные уведомления обязательны и не могут быть отключены.",
+      "toastBody": "Стандарты уведомлений организации обновлены.",
+      "toastErrorBody": "Не удалось обновить настройки уведомлений организации."
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "Push",
+      "email": "Эл. почта",
+      "none": "Нет"
+    },
+    "mentions": {
+      "title": "Только упоминания",
+      "description": "Уведомлять меня только когда я @упомянут в разговоре.",
+      "toastBody": "Настройки упоминаний обновлены."
     }
   },
   "security": {

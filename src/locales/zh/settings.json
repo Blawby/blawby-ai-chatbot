@@ -174,27 +174,64 @@
   },
   "notifications": {
     "title": "通知",
-    "loadError": "加载通知设置失败",
-    "toastBody": "您的通知偏好已更新",
-    "sections": {
-      "responses": {
-        "title": "响应",
-        "description": "当 Blawby AI 响应需要时间的请求（如研究或图像生成）时接收通知。"
-      },
-      "tasks": {
-        "title": "任务",
-        "description": "当您创建的任务有更新时接收通知。",
-        "manage": "管理任务"
-      },
-      "messaging": {
+    "loadError": "无法加载通知设置。",
+    "toastBody": "通知偏好已更新。",
+    "categories": {
+      "messages": {
         "title": "消息",
-        "description": "接收新消息和更新的通知"
+        "description": "新对话活动的消息通知。"
+      },
+      "system": {
+        "title": "系统",
+        "description": "来自 Blawby 的更新和提醒。"
+      },
+      "payments": {
+        "title": "付款",
+        "description": "付款和账单更新。"
+      },
+      "intakes": {
+        "title": "客户接洽",
+        "description": "客户接洽更新与提交。"
+      },
+      "matters": {
+        "title": "案件",
+        "description": "案件状态变更和更新。"
       }
+    },
+    "desktop": {
+      "title": "桌面通知",
+      "description": "允许 Blawby 发送系统级提醒。",
+      "toastBody": "桌面通知偏好已更新。",
+      "permissionButton": "启用",
+      "permissionDeniedButton": "已阻止",
+      "permissionGrantedTitle": "桌面通知已启用",
+      "permissionGrantedBody": "当 Blawby 发送更新时，你将收到桌面提醒。",
+      "permissionDeniedTitle": "权限已阻止",
+      "permissionDeniedBody": "请在浏览器设置中启用通知以接收提醒。",
+      "permissionErrorTitle": "权限失败",
+      "permissionErrorBody": "无法启用桌面通知。"
+    },
+    "systemRequiredLabel": "必需",
+    "systemRequiredHint": "系统通知对所有成员都是必需的。",
+    "managedHint": "由你的组织管理。",
+    "organization": {
+      "title": "组织默认值",
+      "description": "为团队设置默认值。除非渠道被锁定，成员可以自定义。",
+      "defaultsLabel": "默认",
+      "allowedLabel": "允许",
+      "systemRequired": "系统通知是必需的，无法禁用。",
+      "toastBody": "组织通知默认值已更新。",
+      "toastErrorBody": "无法更新组织通知设置。"
     },
     "channels": {
       "push": "推送",
-      "email": "电子邮件",
+      "email": "邮件",
       "none": "无"
+    },
+    "mentions": {
+      "title": "仅提及",
+      "description": "仅在对话中被 @ 提及时通知我。",
+      "toastBody": "提及偏好已更新。"
     }
   },
   "security": {

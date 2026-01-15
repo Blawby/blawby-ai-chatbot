@@ -91,6 +91,9 @@ export async function handleNotifications(request: Request, env: Env): Promise<R
     const auth = await requireAuth(request, env);
     const store = new NotificationStore(env);
     const parts = path.split('/');
+    if (parts.length !== 5) {
+      throw HttpErrors.notFound('Notification endpoint not found');
+    }
     const notificationId = parts[3];
     if (!notificationId) {
       throw HttpErrors.badRequest('Notification ID is required');
@@ -107,6 +110,9 @@ export async function handleNotifications(request: Request, env: Env): Promise<R
     const auth = await requireAuth(request, env);
     const store = new NotificationStore(env);
     const parts = path.split('/');
+    if (parts.length !== 5) {
+      throw HttpErrors.notFound('Notification endpoint not found');
+    }
     const notificationId = parts[3];
     if (!notificationId) {
       throw HttpErrors.badRequest('Notification ID is required');

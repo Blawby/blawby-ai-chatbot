@@ -174,27 +174,64 @@
   },
   "notifications": {
     "title": "Thông báo",
-    "loadError": "Không thể tải cài đặt thông báo",
-    "toastBody": "Tùy chọn thông báo của bạn đã được cập nhật",
-    "sections": {
-      "responses": {
-        "title": "Phản hồi",
-        "description": "Nhận thông báo khi Blawby AI phản hồi các yêu cầu mất thời gian, như nghiên cứu hoặc tạo hình ảnh."
+    "loadError": "Không thể tải cài đặt thông báo.",
+    "toastBody": "Tùy chọn thông báo của bạn đã được cập nhật.",
+    "categories": {
+      "messages": {
+        "title": "Tin nhắn",
+        "description": "Thông báo tin nhắn cho hoạt động cuộc trò chuyện mới."
       },
-      "tasks": {
-        "title": "Nhiệm vụ",
-        "description": "Nhận thông báo khi các nhiệm vụ bạn đã tạo có cập nhật.",
-        "manage": "Quản lý nhiệm vụ"
+      "system": {
+        "title": "Hệ thống",
+        "description": "Cập nhật và cảnh báo từ Blawby."
       },
-      "messaging": {
-        "title": "Nhắn tin",
-        "description": "Nhận thông báo cho tin nhắn mới và cập nhật"
+      "payments": {
+        "title": "Thanh toán",
+        "description": "Cập nhật thanh toán và hóa đơn."
+      },
+      "intakes": {
+        "title": "Tiếp nhận",
+        "description": "Cập nhật và gửi tiếp nhận khách hàng."
+      },
+      "matters": {
+        "title": "Vụ việc",
+        "description": "Thay đổi trạng thái vụ việc và cập nhật."
       }
     },
+    "desktop": {
+      "title": "Thông báo trên máy tính",
+      "description": "Cho phép Blawby gửi cảnh báo cấp hệ điều hành.",
+      "toastBody": "Đã cập nhật tùy chọn thông báo trên máy tính.",
+      "permissionButton": "Bật",
+      "permissionDeniedButton": "Đã chặn",
+      "permissionGrantedTitle": "Đã bật thông báo trên máy tính",
+      "permissionGrantedBody": "Bạn sẽ nhận thông báo trên máy tính khi Blawby gửi cập nhật.",
+      "permissionDeniedTitle": "Quyền bị chặn",
+      "permissionDeniedBody": "Bật thông báo trong cài đặt trình duyệt để nhận cảnh báo.",
+      "permissionErrorTitle": "Yêu cầu quyền thất bại",
+      "permissionErrorBody": "Không thể bật thông báo trên máy tính."
+    },
+    "systemRequiredLabel": "Bắt buộc",
+    "systemRequiredHint": "Thông báo hệ thống là bắt buộc cho tất cả thành viên.",
+    "managedHint": "Được quản lý bởi tổ chức của bạn.",
+    "organization": {
+      "title": "Mặc định của tổ chức",
+      "description": "Đặt mặc định cho nhóm của bạn. Thành viên có thể tùy chỉnh trừ khi kênh bị khóa.",
+      "defaultsLabel": "Mặc định",
+      "allowedLabel": "Được phép",
+      "systemRequired": "Thông báo hệ thống là bắt buộc và không thể tắt.",
+      "toastBody": "Đã cập nhật mặc định thông báo của tổ chức.",
+      "toastErrorBody": "Không thể cập nhật cài đặt thông báo của tổ chức."
+    },
     "channels": {
-      "push": "Push",
+      "push": "Đẩy",
       "email": "Email",
-      "none": "Không có"
+      "none": "Không"
+    },
+    "mentions": {
+      "title": "Chỉ đề cập",
+      "description": "Chỉ thông báo cho tôi khi tôi được @đề cập trong cuộc trò chuyện.",
+      "toastBody": "Đã cập nhật tùy chọn đề cập."
     }
   },
   "security": {

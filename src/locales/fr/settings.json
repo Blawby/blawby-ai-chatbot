@@ -174,27 +174,64 @@
   },
   "notifications": {
     "title": "Notifications",
-    "loadError": "Échec du chargement des paramètres de notification",
-    "toastBody": "Vos préférences de notification ont été mises à jour",
-    "sections": {
-      "responses": {
-        "title": "Réponses",
-        "description": "Recevez une notification lorsque Blawby AI répond à des demandes qui prennent du temps, comme la recherche ou la génération d'images."
+    "loadError": "Impossible de charger les paramètres de notification",
+    "toastBody": "Vos préférences de notification ont été mises à jour.",
+    "categories": {
+      "messages": {
+        "title": "Messages",
+        "description": "Notifications de messages pour une nouvelle activité de conversation."
       },
-      "tasks": {
-        "title": "Tâches",
-        "description": "Recevez une notification lorsque les tâches que vous avez créées ont des mises à jour.",
-        "manage": "Gérer les tâches"
+      "system": {
+        "title": "Système",
+        "description": "Mises à jour et alertes de Blawby."
       },
-      "messaging": {
-        "title": "Messagerie",
-        "description": "Recevez des notifications pour les nouveaux messages et mises à jour"
+      "payments": {
+        "title": "Paiements",
+        "description": "Mises à jour des paiements et de la facturation."
+      },
+      "intakes": {
+        "title": "Admissions",
+        "description": "Mises à jour et soumissions d'admission client."
+      },
+      "matters": {
+        "title": "Affaires",
+        "description": "Changements et mises à jour du statut des affaires."
       }
+    },
+    "desktop": {
+      "title": "Notifications de bureau",
+      "description": "Autoriser Blawby à envoyer des alertes au niveau du système.",
+      "toastBody": "Préférence des notifications de bureau mise à jour.",
+      "permissionButton": "Activer",
+      "permissionDeniedButton": "Bloqué",
+      "permissionGrantedTitle": "Notifications de bureau activées",
+      "permissionGrantedBody": "Vous recevrez des alertes de bureau lorsque Blawby envoie des mises à jour.",
+      "permissionDeniedTitle": "Autorisation bloquée",
+      "permissionDeniedBody": "Activez les notifications dans les paramètres de votre navigateur pour recevoir des alertes.",
+      "permissionErrorTitle": "Autorisation échouée",
+      "permissionErrorBody": "Impossible d'activer les notifications de bureau."
+    },
+    "systemRequiredLabel": "Obligatoire",
+    "systemRequiredHint": "Les notifications système sont obligatoires pour tous les membres.",
+    "managedHint": "Géré par votre organisation.",
+    "organization": {
+      "title": "Paramètres par défaut de l'organisation",
+      "description": "Définissez des valeurs par défaut pour votre équipe. Les membres peuvent personnaliser sauf si un canal est verrouillé.",
+      "defaultsLabel": "Par défaut",
+      "allowedLabel": "Autorisés",
+      "systemRequired": "Les notifications système sont obligatoires et ne peuvent pas être désactivées.",
+      "toastBody": "Paramètres de notification de l'organisation mis à jour.",
+      "toastErrorBody": "Impossible de mettre à jour les notifications de l'organisation."
     },
     "channels": {
       "push": "Push",
       "email": "E-mail",
       "none": "Aucun"
+    },
+    "mentions": {
+      "title": "Mentions uniquement",
+      "description": "Me notifier uniquement lorsque je suis @mentionné dans une conversation.",
+      "toastBody": "Préférences de mention mises à jour."
     }
   },
   "security": {

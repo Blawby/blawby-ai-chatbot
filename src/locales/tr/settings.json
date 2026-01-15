@@ -162,27 +162,64 @@
   },
   "notifications": {
     "title": "Bildirimler",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "loadError": "Bildirim ayarları yüklenemedi.",
+    "toastBody": "Bildirim tercihleriniz güncellendi.",
+    "categories": {
+      "messages": {
+        "title": "Mesajlar",
+        "description": "Yeni sohbet etkinliği için mesaj bildirimleri."
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "Sistem",
+        "description": "Blawby'den güncellemeler ve uyarılar."
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+      "payments": {
+        "title": "Ödemeler",
+        "description": "Ödeme ve faturalandırma güncellemeleri."
+      },
+      "intakes": {
+        "title": "Başvurular",
+        "description": "Müşteri başvuru güncellemeleri ve gönderimleri."
+      },
+      "matters": {
+        "title": "Dosyalar",
+        "description": "Dosya durumu değişiklikleri ve güncellemeler."
       }
     },
+    "desktop": {
+      "title": "Masaüstü bildirimleri",
+      "description": "Blawby'nin işletim sistemi düzeyinde uyarılar göndermesine izin verin.",
+      "toastBody": "Masaüstü bildirim tercihi güncellendi.",
+      "permissionButton": "Etkinleştir",
+      "permissionDeniedButton": "Engellendi",
+      "permissionGrantedTitle": "Masaüstü bildirimleri etkinleştirildi",
+      "permissionGrantedBody": "Blawby güncelleme gönderdiğinde masaüstü bildirimleri alacaksınız.",
+      "permissionDeniedTitle": "İzin engellendi",
+      "permissionDeniedBody": "Bildirim almak için tarayıcı ayarlarınızdan bildirimleri etkinleştirin.",
+      "permissionErrorTitle": "İzin başarısız",
+      "permissionErrorBody": "Masaüstü bildirimleri etkinleştirilemedi."
+    },
+    "systemRequiredLabel": "Zorunlu",
+    "systemRequiredHint": "Sistem bildirimleri tüm üyeler için zorunludur.",
+    "managedHint": "Kuruluşunuz tarafından yönetiliyor.",
+    "organization": {
+      "title": "Kuruluş varsayılanları",
+      "description": "Ekibiniz için varsayılanları ayarlayın. Bir kanal kilitli değilse üyeler özelleştirebilir.",
+      "defaultsLabel": "Varsayılanlar",
+      "allowedLabel": "İzin verilen",
+      "systemRequired": "Sistem bildirimleri zorunludur ve devre dışı bırakılamaz.",
+      "toastBody": "Kuruluş bildirim varsayılanları güncellendi.",
+      "toastErrorBody": "Kuruluş bildirim ayarları güncellenemedi."
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "Push",
+      "email": "E-posta",
+      "none": "Yok"
+    },
+    "mentions": {
+      "title": "Yalnızca bahsetmeler",
+      "description": "Yalnızca bir konuşmada @etiketlendiğimde beni bilgilendir.",
+      "toastBody": "Bahsetme tercihleri güncellendi."
     }
   },
   "security": {

@@ -27,6 +27,16 @@ const formatTime = (timestamp: string) => {
   });
 };
 
+const isSafeUrl = (url: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 export const NotificationItem = ({ notification, onMarkRead, onMarkUnread }: NotificationItemProps) => {
   const { showSuccess, showError } = useToastContext();
   const isRead = Boolean(notification.readAt);
@@ -41,6 +51,10 @@ export const NotificationItem = ({ notification, onMarkRead, onMarkUnread }: Not
 
   const handleCopyLink = async () => {
     if (!notification.link) return;
+    if (!isSafeUrl(notification.link)) {
+      showError('Invalid link', 'This notification link is not safe to copy.');
+      return;
+    }
     try {
       await navigator.clipboard.writeText(notification.link);
       showSuccess('Link copied', 'Notification link copied to clipboard.');
@@ -50,7 +64,7 @@ export const NotificationItem = ({ notification, onMarkRead, onMarkUnread }: Not
   };
 
   const handleOpenLink = () => {
-    if (!notification.link) return;
+    if (!notification.link || !isSafeUrl(notification.link)) return;
     window.location.assign(notification.link);
   };
 

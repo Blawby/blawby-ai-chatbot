@@ -83,12 +83,6 @@ export interface UserProfile {
   autoSaveConversations?: boolean;
   typingIndicators?: boolean;
   
-  // Notification Settings
-  notificationResponsesPush?: boolean;
-  notificationTasksPush?: boolean;
-  notificationTasksEmail?: boolean;
-  notificationMessagingPush?: boolean;
-  
   // Email Settings
   receiveFeedbackEmails?: boolean;
   marketingEmails?: boolean;
@@ -114,7 +108,6 @@ export interface UserProfile {
 }
 
 // NotificationSettings mirrors the notifications preferences category shape.
-// UserProfile/BetterAuthSessionUser still expose legacy flat notification flags.
 export interface NotificationSettings {
   messages: {
     push: boolean;
@@ -250,10 +243,6 @@ export interface BetterAuthSessionUser {
   timeFormat?: string;
   autoSaveConversations?: boolean;
   typingIndicators?: boolean;
-  notificationResponsesPush?: boolean;
-  notificationTasksPush?: boolean;
-  notificationTasksEmail?: boolean;
-  notificationMessagingPush?: boolean;
   receiveFeedbackEmails?: boolean;
   marketingEmails?: boolean;
   securityAlerts?: boolean;
@@ -405,12 +394,6 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     // Chat preferences
     autoSaveConversations: rawUser.autoSaveConversations as boolean | undefined,
     typingIndicators: rawUser.typingIndicators as boolean | undefined,
-    
-    // Notification settings
-    notificationResponsesPush: rawUser.notificationResponsesPush as boolean | undefined,
-    notificationTasksPush: rawUser.notificationTasksPush as boolean | undefined,
-    notificationTasksEmail: rawUser.notificationTasksEmail as boolean | undefined,
-    notificationMessagingPush: rawUser.notificationMessagingPush as boolean | undefined,
     
     // Email settings
     receiveFeedbackEmails: rawUser.receiveFeedbackEmails as boolean | undefined,

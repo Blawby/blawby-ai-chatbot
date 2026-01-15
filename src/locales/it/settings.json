@@ -161,28 +161,65 @@
     }
   },
   "notifications": {
-    "title": "[NEEDS TRANSLATION] Notifications",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "title": "Notifiche",
+    "loadError": "Impossibile caricare le impostazioni delle notifiche.",
+    "toastBody": "Le preferenze di notifica sono state aggiornate.",
+    "categories": {
+      "messages": {
+        "title": "Messaggi",
+        "description": "Notifiche dei messaggi per nuova attività di conversazione."
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "Sistema",
+        "description": "Aggiornamenti e avvisi da Blawby."
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "Ricevi notifiche quando arrivano nuovi messaggi"
+      "payments": {
+        "title": "Pagamenti",
+        "description": "Aggiornamenti su pagamenti e fatturazione."
+      },
+      "intakes": {
+        "title": "Accettazioni",
+        "description": "Aggiornamenti e invii di accettazione dei clienti."
+      },
+      "matters": {
+        "title": "Pratiche",
+        "description": "Modifiche e aggiornamenti dello stato delle pratiche."
       }
     },
+    "desktop": {
+      "title": "Notifiche desktop",
+      "description": "Consenti a Blawby di inviare avvisi a livello di sistema.",
+      "toastBody": "Preferenza notifiche desktop aggiornata.",
+      "permissionButton": "Abilita",
+      "permissionDeniedButton": "Bloccato",
+      "permissionGrantedTitle": "Notifiche desktop abilitate",
+      "permissionGrantedBody": "Riceverai avvisi desktop quando Blawby invia aggiornamenti.",
+      "permissionDeniedTitle": "Autorizzazione bloccata",
+      "permissionDeniedBody": "Abilita le notifiche nelle impostazioni del browser per ricevere avvisi.",
+      "permissionErrorTitle": "Autorizzazione non riuscita",
+      "permissionErrorBody": "Non è stato possibile abilitare le notifiche desktop."
+    },
+    "systemRequiredLabel": "Obbligatorio",
+    "systemRequiredHint": "Le notifiche di sistema sono obbligatorie per tutti i membri.",
+    "managedHint": "Gestito dalla tua organizzazione.",
+    "organization": {
+      "title": "Predefiniti dell'organizzazione",
+      "description": "Imposta i predefiniti per il tuo team. I membri possono personalizzare a meno che un canale sia bloccato.",
+      "defaultsLabel": "Predefiniti",
+      "allowedLabel": "Consentiti",
+      "systemRequired": "Le notifiche di sistema sono obbligatorie e non possono essere disabilitate.",
+      "toastBody": "Predefiniti di notifica dell'organizzazione aggiornati.",
+      "toastErrorBody": "Impossibile aggiornare le notifiche dell'organizzazione."
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "Push",
+      "email": "Email",
+      "none": "Nessuno"
+    },
+    "mentions": {
+      "title": "Solo menzioni",
+      "description": "Notificami solo quando vengo @menzionato in una conversazione.",
+      "toastBody": "Preferenze di menzione aggiornate."
     }
   },
   "security": {

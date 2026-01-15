@@ -167,28 +167,65 @@
     }
   },
   "notifications": {
-    "title": "[NEEDS TRANSLATION] Notifications",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "title": "सूचनाएँ",
+    "loadError": "सूचना सेटिंग्स लोड नहीं हो सकीं।",
+    "toastBody": "आपकी सूचना प्राथमिकताएँ अपडेट हो गई हैं।",
+    "categories": {
+      "messages": {
+        "title": "संदेश",
+        "description": "नई बातचीत गतिविधि के लिए संदेश सूचनाएँ।"
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "सिस्टम",
+        "description": "Blawby से अपडेट और अलर्ट।"
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+      "payments": {
+        "title": "भुगतान",
+        "description": "भुगतान और बिलिंग अपडेट।"
+      },
+      "intakes": {
+        "title": "इंटेक",
+        "description": "ग्राहक इंटेक अपडेट और सबमिशन।"
+      },
+      "matters": {
+        "title": "मामले",
+        "description": "मामले की स्थिति में बदलाव और अपडेट।"
       }
     },
+    "desktop": {
+      "title": "डेस्कटॉप सूचनाएँ",
+      "description": "Blawby को OS-स्तरीय अलर्ट भेजने की अनुमति दें।",
+      "toastBody": "डेस्कटॉप सूचना प्राथमिकता अपडेट हुई।",
+      "permissionButton": "सक्षम करें",
+      "permissionDeniedButton": "अवरुद्ध",
+      "permissionGrantedTitle": "डेस्कटॉप सूचनाएँ सक्षम हो गई हैं",
+      "permissionGrantedBody": "जब Blawby अपडेट भेजेगा, आपको डेस्कटॉप सूचनाएँ मिलेंगी।",
+      "permissionDeniedTitle": "अनुमति अवरुद्ध",
+      "permissionDeniedBody": "सूचनाएँ पाने के लिए ब्राउज़र सेटिंग्स में अनुमति दें।",
+      "permissionErrorTitle": "अनुमति असफल",
+      "permissionErrorBody": "डेस्कटॉप सूचनाएँ सक्षम नहीं की जा सकीं।"
+    },
+    "systemRequiredLabel": "आवश्यक",
+    "systemRequiredHint": "सिस्टम सूचनाएँ सभी सदस्यों के लिए आवश्यक हैं।",
+    "managedHint": "आपके संगठन द्वारा प्रबंधित।",
+    "organization": {
+      "title": "संगठन डिफ़ॉल्ट",
+      "description": "अपनी टीम के लिए डिफ़ॉल्ट सेट करें। यदि कोई चैनल लॉक नहीं है तो सदस्य अनुकूलित कर सकते हैं।",
+      "defaultsLabel": "डिफ़ॉल्ट",
+      "allowedLabel": "अनुमत",
+      "systemRequired": "सिस्टम सूचनाएँ आवश्यक हैं और बंद नहीं की जा सकतीं।",
+      "toastBody": "संगठन की सूचना डिफ़ॉल्ट अपडेट हुई।",
+      "toastErrorBody": "संगठन की सूचना सेटिंग्स अपडेट नहीं हो सकीं।"
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "पुश",
+      "email": "ईमेल",
+      "none": "कोई नहीं"
+    },
+    "mentions": {
+      "title": "केवल मेंशन",
+      "description": "केवल तब सूचित करें जब मुझे बातचीत में @मेंशन किया जाए।",
+      "toastBody": "मेंशन प्राथमिकताएँ अपडेट हुईं।"
     }
   },
   "security": {

@@ -174,27 +174,64 @@
   },
   "notifications": {
     "title": "通知",
-    "loadError": "通知設定の読み込みに失敗しました",
-    "toastBody": "通知設定が更新されました",
-    "sections": {
-      "responses": {
-        "title": "応答",
-        "description": "調査や画像生成など、時間がかかるリクエストに Blawby AI が応答したときに通知を受け取ります。"
+    "loadError": "通知設定を読み込めませんでした。",
+    "toastBody": "通知設定が更新されました。",
+    "categories": {
+      "messages": {
+        "title": "メッセージ",
+        "description": "新しい会話アクティビティのメッセージ通知。"
       },
-      "tasks": {
-        "title": "タスク",
-        "description": "作成したタスクに更新があったときに通知を受け取ります。",
-        "manage": "タスクを管理"
+      "system": {
+        "title": "システム",
+        "description": "Blawby からの更新とアラート。"
       },
-      "messaging": {
-        "title": "メッセージング",
-        "description": "新しいメッセージと更新の通知を受け取ります"
+      "payments": {
+        "title": "支払い",
+        "description": "支払いと請求の更新。"
+      },
+      "intakes": {
+        "title": "受付",
+        "description": "クライアント受付の更新と送信。"
+      },
+      "matters": {
+        "title": "案件",
+        "description": "案件のステータス変更と更新。"
       }
+    },
+    "desktop": {
+      "title": "デスクトップ通知",
+      "description": "Blawby が OS レベルのアラートを送信することを許可します。",
+      "toastBody": "デスクトップ通知の設定を更新しました。",
+      "permissionButton": "有効にする",
+      "permissionDeniedButton": "ブロック済み",
+      "permissionGrantedTitle": "デスクトップ通知が有効になりました",
+      "permissionGrantedBody": "Blawby が更新を送信するとデスクトップ通知を受け取ります。",
+      "permissionDeniedTitle": "権限がブロックされました",
+      "permissionDeniedBody": "ブラウザの設定で通知を有効にして受け取ってください。",
+      "permissionErrorTitle": "権限エラー",
+      "permissionErrorBody": "デスクトップ通知を有効にできませんでした。"
+    },
+    "systemRequiredLabel": "必須",
+    "systemRequiredHint": "システム通知は全メンバーに必須です。",
+    "managedHint": "組織によって管理されています。",
+    "organization": {
+      "title": "組織の既定値",
+      "description": "チームの既定値を設定します。チャネルがロックされていない限りメンバーはカスタマイズできます。",
+      "defaultsLabel": "既定",
+      "allowedLabel": "許可",
+      "systemRequired": "システム通知は必須で無効にできません。",
+      "toastBody": "組織の通知既定値を更新しました。",
+      "toastErrorBody": "組織の通知設定を更新できませんでした。"
     },
     "channels": {
       "push": "プッシュ",
       "email": "メール",
       "none": "なし"
+    },
+    "mentions": {
+      "title": "メンションのみ",
+      "description": "会話で @メンションされたときのみ通知します。",
+      "toastBody": "メンション設定を更新しました。"
     }
   },
   "security": {

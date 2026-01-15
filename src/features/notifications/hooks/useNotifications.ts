@@ -34,6 +34,7 @@ type NotificationState = {
 };
 
 type SystemNotificationPayload = {
+  id?: string;
   title: string;
   message?: string;
   link?: string;
@@ -495,7 +496,7 @@ onMount(notificationStore, () => {
     const detail = (event as CustomEvent<SystemNotificationPayload>).detail;
     if (!detail?.title) return;
     const systemNotification: NotificationItem = {
-      id: `local-${crypto.randomUUID()}`,
+      id: detail.id ?? `local-${crypto.randomUUID()}`,
       userId: 'local',
       category: 'system',
       title: detail.title,

@@ -114,18 +114,28 @@ export const settingsSchemas = {
   }),
   
   notifications: z.object({
-    responses: z.object({
+    messages: z.object({
       push: z.boolean(),
       email: z.boolean(),
     }),
-    tasks: z.object({
+    system: z.object({
       push: z.boolean(),
       email: z.boolean(),
     }),
-    messaging: z.object({
+    payments: z.object({
       push: z.boolean(),
       email: z.boolean(),
     }),
+    intakes: z.object({
+      push: z.boolean(),
+      email: z.boolean(),
+    }),
+    matters: z.object({
+      push: z.boolean(),
+      email: z.boolean(),
+    }),
+    messagesMentionsOnly: z.boolean(),
+    desktopPushEnabled: z.boolean(),
   }),
 };
 

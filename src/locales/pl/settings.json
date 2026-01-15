@@ -161,28 +161,65 @@
     }
   },
   "notifications": {
-    "title": "[NEEDS TRANSLATION] Notifications",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "title": "Powiadomienia",
+    "loadError": "Nie udało się wczytać ustawień powiadomień.",
+    "toastBody": "Twoje preferencje powiadomień zostały zaktualizowane.",
+    "categories": {
+      "messages": {
+        "title": "Wiadomości",
+        "description": "Powiadomienia o nowych aktywnościach w rozmowie."
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "System",
+        "description": "Aktualizacje i alerty od Blawby."
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+      "payments": {
+        "title": "Płatności",
+        "description": "Aktualizacje płatności i rozliczeń."
+      },
+      "intakes": {
+        "title": "Zgłoszenia",
+        "description": "Aktualizacje i przesłania zgłoszeń klientów."
+      },
+      "matters": {
+        "title": "Sprawy",
+        "description": "Zmiany statusu spraw i aktualizacje."
       }
     },
+    "desktop": {
+      "title": "Powiadomienia na pulpicie",
+      "description": "Pozwól Blawby wysyłać alerty systemowe.",
+      "toastBody": "Preferencja powiadomień na pulpicie zaktualizowana.",
+      "permissionButton": "Włącz",
+      "permissionDeniedButton": "Zablokowane",
+      "permissionGrantedTitle": "Powiadomienia na pulpicie włączone",
+      "permissionGrantedBody": "Będziesz otrzymywać powiadomienia na pulpicie, gdy Blawby wyśle aktualizacje.",
+      "permissionDeniedTitle": "Uprawnienie zablokowane",
+      "permissionDeniedBody": "Włącz powiadomienia w ustawieniach przeglądarki, aby otrzymywać alerty.",
+      "permissionErrorTitle": "Nie udało się uzyskać uprawnienia",
+      "permissionErrorBody": "Nie mogliśmy włączyć powiadomień na pulpicie."
+    },
+    "systemRequiredLabel": "Wymagane",
+    "systemRequiredHint": "Powiadomienia systemowe są wymagane dla wszystkich członków.",
+    "managedHint": "Zarządzane przez Twoją organizację.",
+    "organization": {
+      "title": "Domyślne ustawienia organizacji",
+      "description": "Ustaw domyślne wartości dla zespołu. Członkowie mogą dostosować, o ile kanał nie jest zablokowany.",
+      "defaultsLabel": "Domyślne",
+      "allowedLabel": "Dozwolone",
+      "systemRequired": "Powiadomienia systemowe są wymagane i nie można ich wyłączyć.",
+      "toastBody": "Zaktualizowano domyślne powiadomienia organizacji.",
+      "toastErrorBody": "Nie udało się zaktualizować ustawień powiadomień organizacji."
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "Push",
+      "email": "E-mail",
+      "none": "Brak"
+    },
+    "mentions": {
+      "title": "Tylko wzmianki",
+      "description": "Powiadamiaj mnie tylko, gdy jestem @wspomniany w rozmowie.",
+      "toastBody": "Zaktualizowano preferencje wzmianek."
     }
   },
   "security": {

@@ -176,25 +176,62 @@
     "title": "Notificaciones",
     "loadError": "No se pudieron cargar las notificaciones",
     "toastBody": "Se actualizaron tus preferencias de notificación",
-    "sections": {
-      "responses": {
-        "title": "Respuestas",
-        "description": "Recibe avisos cuando Blawby AI responda a solicitudes que requieren tiempo, como investigaciones o generación de imágenes."
+    "categories": {
+      "messages": {
+        "title": "Mensajes",
+        "description": "Notificaciones de mensajes para nueva actividad de conversación."
       },
-      "tasks": {
-        "title": "Tareas",
-        "description": "Recibe avisos cuando las tareas que creaste tengan novedades.",
-        "manage": "Administrar tareas"
+      "system": {
+        "title": "Sistema",
+        "description": "Actualizaciones y alertas de Blawby."
       },
-      "messaging": {
-        "title": "Mensajería",
-        "description": "Recibe notificaciones de nuevos mensajes y actualizaciones"
+      "payments": {
+        "title": "Pagos",
+        "description": "Actualizaciones de pagos y facturación."
+      },
+      "intakes": {
+        "title": "Admisiones",
+        "description": "Actualizaciones y envíos de admisión de clientes."
+      },
+      "matters": {
+        "title": "Asuntos",
+        "description": "Cambios y actualizaciones del estado de asuntos."
       }
+    },
+    "desktop": {
+      "title": "Notificaciones de escritorio",
+      "description": "Permite que Blawby envíe alertas a nivel del sistema.",
+      "toastBody": "Preferencia de notificaciones de escritorio actualizada.",
+      "permissionButton": "Habilitar",
+      "permissionDeniedButton": "Bloqueado",
+      "permissionGrantedTitle": "Notificaciones de escritorio habilitadas",
+      "permissionGrantedBody": "Recibirás alertas de escritorio cuando Blawby envíe actualizaciones.",
+      "permissionDeniedTitle": "Permiso bloqueado",
+      "permissionDeniedBody": "Habilita las notificaciones en la configuración del navegador para recibir alertas.",
+      "permissionErrorTitle": "Permiso fallido",
+      "permissionErrorBody": "No pudimos habilitar las notificaciones de escritorio."
+    },
+    "systemRequiredLabel": "Obligatorio",
+    "systemRequiredHint": "Las notificaciones del sistema son obligatorias para todos los miembros.",
+    "managedHint": "Administrado por tu organización.",
+    "organization": {
+      "title": "Valores predeterminados de la organización",
+      "description": "Configura valores predeterminados para tu equipo. Los miembros pueden personalizar a menos que un canal esté bloqueado.",
+      "defaultsLabel": "Predeterminados",
+      "allowedLabel": "Permitidos",
+      "systemRequired": "Las notificaciones del sistema son obligatorias y no se pueden desactivar.",
+      "toastBody": "Se actualizaron los valores predeterminados de notificaciones de la organización.",
+      "toastErrorBody": "No se pudieron actualizar las notificaciones de la organización."
     },
     "channels": {
       "push": "Push",
       "email": "Correo",
       "none": "Ninguno"
+    },
+    "mentions": {
+      "title": "Solo menciones",
+      "description": "Solo notificarme cuando me mencionen con @ en una conversación.",
+      "toastBody": "Preferencias de menciones actualizadas."
     }
   },
   "security": {

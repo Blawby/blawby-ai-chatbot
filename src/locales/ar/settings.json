@@ -162,27 +162,64 @@
   },
   "notifications": {
     "title": "الإشعارات",
-    "loadError": "فشل تحميل إعدادات الإشعارات",
-    "toastBody": "تم تحديث تفضيلات الإشعارات الخاصة بك",
-    "sections": {
-      "responses": {
-        "title": "الردود",
-        "description": "احصل على إشعار عندما يستجيب ChatGPT للطلبات التي تستغرق وقتاً، مثل البحث أو توليد الصور."
+    "loadError": "تعذر تحميل إعدادات الإشعارات.",
+    "toastBody": "تم تحديث تفضيلات الإشعارات.",
+    "categories": {
+      "messages": {
+        "title": "الرسائل",
+        "description": "إشعارات الرسائل عند حدوث نشاط جديد في المحادثة."
       },
-      "tasks": {
-        "title": "المهام",
-        "description": "احصل على إشعار عندما تحصل المهام التي أنشأتها على تحديثات.",
-        "manage": "إدارة المهام"
+      "system": {
+        "title": "النظام",
+        "description": "تحديثات وتنبيهات من Blawby."
       },
-      "messaging": {
-        "title": "المراسلة",
-        "description": "احصل على إشعار عند وصول رسائل جديدة."
+      "payments": {
+        "title": "المدفوعات",
+        "description": "تحديثات الدفع والفوترة."
+      },
+      "intakes": {
+        "title": "طلبات الاستقبال",
+        "description": "تحديثات وطلبات استقبال العملاء."
+      },
+      "matters": {
+        "title": "القضايا",
+        "description": "تغييرات حالة القضايا وتحديثاتها."
       }
     },
+    "desktop": {
+      "title": "إشعارات سطح المكتب",
+      "description": "السماح لـ Blawby بإرسال تنبيهات على مستوى النظام.",
+      "toastBody": "تم تحديث تفضيل إشعارات سطح المكتب.",
+      "permissionButton": "تفعيل",
+      "permissionDeniedButton": "محظور",
+      "permissionGrantedTitle": "تم تفعيل إشعارات سطح المكتب",
+      "permissionGrantedBody": "ستتلقى إشعارات سطح المكتب عندما يرسل Blawby تحديثات.",
+      "permissionDeniedTitle": "الإذن محظور",
+      "permissionDeniedBody": "فعّل الإشعارات في إعدادات المتصفح لتلقي التنبيهات.",
+      "permissionErrorTitle": "فشل الإذن",
+      "permissionErrorBody": "تعذر تفعيل إشعارات سطح المكتب."
+    },
+    "systemRequiredLabel": "مطلوب",
+    "systemRequiredHint": "إشعارات النظام مطلوبة لجميع الأعضاء.",
+    "managedHint": "تدار بواسطة مؤسستك.",
+    "organization": {
+      "title": "إعدادات المؤسسة الافتراضية",
+      "description": "حدد الإعدادات الافتراضية لفريقك. يمكن للأعضاء التخصيص ما لم تكن القناة مقفلة.",
+      "defaultsLabel": "الافتراضيات",
+      "allowedLabel": "مسموح",
+      "systemRequired": "إشعارات النظام مطلوبة ولا يمكن تعطيلها.",
+      "toastBody": "تم تحديث الإعدادات الافتراضية لإشعارات المؤسسة.",
+      "toastErrorBody": "تعذر تحديث إعدادات إشعارات المؤسسة."
+    },
     "channels": {
-      "push": "إشعارات فورية",
-      "email": "بريد إلكتروني",
+      "push": "Push",
+      "email": "البريد الإلكتروني",
       "none": "لا شيء"
+    },
+    "mentions": {
+      "title": "الإشارات فقط",
+      "description": "قم بإشعاري فقط عندما يتم ذكري بـ @ في محادثة.",
+      "toastBody": "تم تحديث تفضيلات الإشارات."
     }
   },
   "security": {

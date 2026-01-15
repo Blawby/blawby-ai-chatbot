@@ -1,5 +1,5 @@
 import { createContext, ComponentChildren } from 'preact';
-import { useContext } from 'preact/hooks';
+import { useCallback, useContext } from 'preact/hooks';
 
 import { useToast } from '@/shared/hooks/useToast';
 import ToastContainer from '@/shared/components/ToastContainer';
@@ -16,15 +16,15 @@ const ToastContext = createContext<ToastContextType | null>(null);
 
 export const ToastProvider = ({ children }: { children: ComponentChildren }) => {
   const { toasts, removeToast, showSuccess, showError, showInfo, showWarning } = useToast();
-  const showSystem = (title: string, message?: string, duration?: number) => {
+  const showSystem = useCallback((title: string, message?: string, duration?: number) => {
+    const id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('notifications:system', { detail: { title, message, duration } }));
+      window.dispatchEvent(new CustomEvent('notifications:system', { detail: { id, title, message, duration } }));
     }
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  };
+    return id;
+  }, []);
 
   return (
     <ToastContext.Provider value={{ showSuccess, showError, showInfo, showWarning, showSystem }}>

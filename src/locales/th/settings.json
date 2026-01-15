@@ -161,27 +161,64 @@
   },
   "notifications": {
     "title": "การแจ้งเตือน",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "loadError": "ไม่สามารถโหลดการตั้งค่าการแจ้งเตือนได้",
+    "toastBody": "อัปเดตการตั้งค่าการแจ้งเตือนของคุณแล้ว",
+    "categories": {
+      "messages": {
+        "title": "ข้อความ",
+        "description": "การแจ้งเตือนข้อความสำหรับกิจกรรมการสนทนาใหม่"
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "ระบบ",
+        "description": "อัปเดตและการแจ้งเตือนจาก Blawby"
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+      "payments": {
+        "title": "การชำระเงิน",
+        "description": "อัปเดตการชำระเงินและการเรียกเก็บเงิน"
+      },
+      "intakes": {
+        "title": "การรับเรื่อง",
+        "description": "อัปเดตและการส่งการรับเรื่องลูกค้า"
+      },
+      "matters": {
+        "title": "คดี",
+        "description": "การเปลี่ยนแปลงสถานะคดีและการอัปเดต"
       }
     },
+    "desktop": {
+      "title": "การแจ้งเตือนบนเดสก์ท็อป",
+      "description": "อนุญาตให้ Blawby ส่งการแจ้งเตือนระดับระบบ",
+      "toastBody": "อัปเดตการตั้งค่าการแจ้งเตือนบนเดสก์ท็อปแล้ว",
+      "permissionButton": "เปิดใช้งาน",
+      "permissionDeniedButton": "ถูกบล็อก",
+      "permissionGrantedTitle": "เปิดใช้งานการแจ้งเตือนบนเดสก์ท็อปแล้ว",
+      "permissionGrantedBody": "คุณจะได้รับการแจ้งเตือนบนเดสก์ท็อปเมื่อ Blawby ส่งอัปเดต",
+      "permissionDeniedTitle": "การอนุญาตถูกบล็อก",
+      "permissionDeniedBody": "โปรดเปิดการแจ้งเตือนในตั้งค่าเบราว์เซอร์เพื่อรับการแจ้งเตือน",
+      "permissionErrorTitle": "การอนุญาตล้มเหลว",
+      "permissionErrorBody": "ไม่สามารถเปิดใช้งานการแจ้งเตือนบนเดสก์ท็อปได้"
+    },
+    "systemRequiredLabel": "จำเป็น",
+    "systemRequiredHint": "การแจ้งเตือนระบบจำเป็นสำหรับสมาชิกทุกคน",
+    "managedHint": "จัดการโดยองค์กรของคุณ",
+    "organization": {
+      "title": "ค่าเริ่มต้นขององค์กร",
+      "description": "ตั้งค่าเริ่มต้นสำหรับทีมของคุณ สมาชิกสามารถปรับแต่งได้หากช่องไม่ได้ถูกล็อก",
+      "defaultsLabel": "ค่าเริ่มต้น",
+      "allowedLabel": "อนุญาต",
+      "systemRequired": "การแจ้งเตือนระบบเป็นสิ่งจำเป็นและไม่สามารถปิดได้",
+      "toastBody": "อัปเดตค่าเริ่มต้นการแจ้งเตือนขององค์กรแล้ว",
+      "toastErrorBody": "ไม่สามารถอัปเดตการตั้งค่าการแจ้งเตือนขององค์กรได้"
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "พุช",
+      "email": "อีเมล",
+      "none": "ไม่มี"
+    },
+    "mentions": {
+      "title": "เฉพาะการกล่าวถึง",
+      "description": "แจ้งเตือนฉันเฉพาะเมื่อถูก @ กล่าวถึงในบทสนทนา",
+      "toastBody": "อัปเดตการตั้งค่าการกล่าวถึงแล้ว"
     }
   },
   "security": {

@@ -167,28 +167,65 @@
     }
   },
   "notifications": {
-    "title": "[NEEDS TRANSLATION] Notifications",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "title": "Meldingen",
+    "loadError": "Kan meldingsinstellingen niet laden.",
+    "toastBody": "Je meldingsvoorkeuren zijn bijgewerkt.",
+    "categories": {
+      "messages": {
+        "title": "Berichten",
+        "description": "Berichtmeldingen voor nieuwe gespreksactiviteit."
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "Systeem",
+        "description": "Updates en waarschuwingen van Blawby."
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+      "payments": {
+        "title": "Betalingen",
+        "description": "Betalings- en factureringsupdates."
+      },
+      "intakes": {
+        "title": "Aanmeldingen",
+        "description": "Updates en inzendingen van klantaanmeldingen."
+      },
+      "matters": {
+        "title": "Zaken",
+        "description": "Statuswijzigingen en updates van zaken."
       }
     },
+    "desktop": {
+      "title": "Desktopmeldingen",
+      "description": "Sta Blawby toe om OS-meldingen te sturen.",
+      "toastBody": "Voorkeur voor desktopmeldingen bijgewerkt.",
+      "permissionButton": "Inschakelen",
+      "permissionDeniedButton": "Geblokkeerd",
+      "permissionGrantedTitle": "Desktopmeldingen ingeschakeld",
+      "permissionGrantedBody": "Je ontvangt desktopmeldingen wanneer Blawby updates verzendt.",
+      "permissionDeniedTitle": "Toestemming geblokkeerd",
+      "permissionDeniedBody": "Schakel meldingen in je browserinstellingen in om meldingen te ontvangen.",
+      "permissionErrorTitle": "Toestemming mislukt",
+      "permissionErrorBody": "We konden desktopmeldingen niet inschakelen."
+    },
+    "systemRequiredLabel": "Vereist",
+    "systemRequiredHint": "Systeemmeldingen zijn vereist voor alle leden.",
+    "managedHint": "Beheerd door je organisatie.",
+    "organization": {
+      "title": "Standaardinstellingen van de organisatie",
+      "description": "Stel standaarden in voor je team. Leden kunnen aanpassen tenzij een kanaal is vergrendeld.",
+      "defaultsLabel": "Standaarden",
+      "allowedLabel": "Toegestaan",
+      "systemRequired": "Systeemmeldingen zijn vereist en kunnen niet worden uitgeschakeld.",
+      "toastBody": "Standaardmeldingen van de organisatie bijgewerkt.",
+      "toastErrorBody": "Kan meldingsinstellingen van de organisatie niet bijwerken."
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "Push",
+      "email": "E-mail",
+      "none": "Geen"
+    },
+    "mentions": {
+      "title": "Alleen vermeldingen",
+      "description": "Meld me alleen wanneer ik in een gesprek word @vermeld.",
+      "toastBody": "Vermeldingsvoorkeuren bijgewerkt."
     }
   },
   "security": {
