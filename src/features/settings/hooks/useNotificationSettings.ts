@@ -96,7 +96,10 @@ export const updateNotificationChannel = async (
   value: boolean
 ) => {
   const current = notificationSettingsStore.get();
-  const currentPrefs = current.preferences ?? {};
+  if (!current.preferences) {
+    throw new Error('Notification settings not loaded');
+  }
+  const currentPrefs = current.preferences;
   const nextPreferences: NotificationPreferences = {
     ...currentPrefs,
     [categoryPreferenceKey[category][channel]]: value
@@ -111,7 +114,10 @@ export const updateNotificationChannel = async (
 
 export const updateDesktopPushEnabled = async (value: boolean) => {
   const current = notificationSettingsStore.get();
-  const currentPrefs = current.preferences ?? {};
+  if (!current.preferences) {
+    throw new Error('Notification settings not loaded');
+  }
+  const currentPrefs = current.preferences;
   const nextPreferences: NotificationPreferences = {
     ...currentPrefs,
     desktop_push_enabled: value
@@ -122,7 +128,10 @@ export const updateDesktopPushEnabled = async (value: boolean) => {
 
 export const updateMessagesMentionsOnly = async (value: boolean) => {
   const current = notificationSettingsStore.get();
-  const currentPrefs = current.preferences ?? {};
+  if (!current.preferences) {
+    throw new Error('Notification settings not loaded');
+  }
+  const currentPrefs = current.preferences;
   const nextPreferences: NotificationPreferences = {
     ...currentPrefs,
     messages_mentions_only: value

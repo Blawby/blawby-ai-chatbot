@@ -4,7 +4,7 @@
   },
   "notifications": {
     "settingsSavedTitle": "Instellingen opgeslagen",
-    "settingsSavedBody": "Uw voorkeuren zijn bijgewerkt.",
+    "settingsSavedBody": "Uw instellingen zijn bijgewerkt.",
     "settingsSaveErrorTitle": "Opslaan van instellingen mislukt",
     "settingsSaveErrorBody": "Uw instellingen konden niet worden opgeslagen. Probeer het opnieuw."
   },

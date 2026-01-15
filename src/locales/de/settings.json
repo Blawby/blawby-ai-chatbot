@@ -175,7 +175,7 @@
   "notifications": {
     "title": "Benachrichtigungen",
     "loadError": "Benachrichtigungseinstellungen konnten nicht geladen werden.",
-    "toastBody": "Deine Benachrichtigungseinstellungen wurden aktualisiert.",
+    "toastBody": "Ihre Benachrichtigungseinstellungen wurden aktualisiert.",
     "categories": {
       "messages": {
         "title": "Nachrichten",
@@ -205,18 +205,18 @@
       "permissionButton": "Aktivieren",
       "permissionDeniedButton": "Blockiert",
       "permissionGrantedTitle": "Desktop-Benachrichtigungen aktiviert",
-      "permissionGrantedBody": "Du erhältst Desktop-Benachrichtigungen, wenn Blawby Updates sendet.",
+      "permissionGrantedBody": "Sie erhalten Desktop-Benachrichtigungen, wenn Blawby Updates sendet.",
       "permissionDeniedTitle": "Berechtigung blockiert",
-      "permissionDeniedBody": "Aktiviere Benachrichtigungen in deinen Browsereinstellungen, um Alerts zu erhalten.",
+      "permissionDeniedBody": "Aktivieren Sie Benachrichtigungen in Ihren Browsereinstellungen, um Alerts zu erhalten.",
       "permissionErrorTitle": "Berechtigung fehlgeschlagen",
       "permissionErrorBody": "Desktop-Benachrichtigungen konnten nicht aktiviert werden."
     },
     "systemRequiredLabel": "Erforderlich",
     "systemRequiredHint": "Systembenachrichtigungen sind für alle Mitglieder erforderlich.",
-    "managedHint": "Von deiner Organisation verwaltet.",
+    "managedHint": "Von Ihrer Organisation verwaltet.",
     "organization": {
       "title": "Organisationsstandards",
-      "description": "Lege Standards für dein Team fest. Mitglieder können anpassen, sofern ein Kanal nicht gesperrt ist.",
+      "description": "Legen Sie Standards für Ihr Team fest. Mitglieder können anpassen, sofern ein Kanal nicht gesperrt ist.",
       "defaultsLabel": "Standards",
       "allowedLabel": "Erlaubt",
       "systemRequired": "Systembenachrichtigungen sind erforderlich und können nicht deaktiviert werden.",
@@ -230,7 +230,7 @@
     },
     "mentions": {
       "title": "Nur Erwähnungen",
-      "description": "Nur benachrichtigen, wenn ich in einer Unterhaltung @erwähnt werde.",
+      "description": "Nur benachrichtigen, wenn Sie in einer Unterhaltung @erwähnt werden.",
       "toastBody": "Erwähnungseinstellungen aktualisiert."
     }
   },

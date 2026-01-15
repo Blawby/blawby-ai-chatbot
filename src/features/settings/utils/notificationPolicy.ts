@@ -108,6 +108,9 @@ export const updateNotificationPolicy = (
   }
 
   const key = CATEGORY_KEYS[category];
+  if (scope === 'defaults' && value === true && !policy.allowed[key][channel]) {
+    return policy;
+  }
   const nextScope = {
     ...policy[scope],
     [key]: {

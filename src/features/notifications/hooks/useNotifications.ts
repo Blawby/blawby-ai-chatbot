@@ -57,6 +57,17 @@ const createCategoryMap = <T>(factory: () => T): Record<NotificationCategory, T>
   matter: factory()
 });
 
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const rand = Math.floor(Math.random() * 16);
+    const value = char === 'x' ? rand : (rand & 0x3) | 0x8;
+    return value.toString(16);
+  });
+};
+
 const notificationStore = atom<NotificationState>({
   categories: createCategoryMap(createCategoryState),
   unreadCounts: createCategoryMap(() => 0),
@@ -496,7 +507,7 @@ onMount(notificationStore, () => {
     const detail = (event as CustomEvent<SystemNotificationPayload>).detail;
     if (!detail?.title) return;
     const systemNotification: NotificationItem = {
-      id: detail.id ?? `local-${crypto.randomUUID()}`,
+      id: detail.id ?? `local-${generateUUID()}`,
       userId: 'local',
       category: 'system',
       title: detail.title,

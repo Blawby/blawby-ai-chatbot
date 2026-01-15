@@ -213,7 +213,7 @@
     },
     "channels": {
       "push": "Push",
-      "email": "Email",
+      "email": "E-mail",
       "none": "Nenhum"
     },
     "mentions": {

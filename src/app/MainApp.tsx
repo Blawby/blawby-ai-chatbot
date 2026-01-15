@@ -316,14 +316,19 @@ export function MainApp({
   const conversationCreationInProgress = useRef(false);
 
   useEffect(() => {
-    if (isPracticeWorkspace || conversationsLoading || isCreatingConversation) return;
+    let isMounted = true;
+    const cleanup = () => {
+      isMounted = false;
+    };
+
+    if (isPracticeWorkspace || conversationsLoading || isCreatingConversation) return cleanup;
 
     // Prevent infinite loops and race conditions
     if (
       (conversationCreationFailed && conversationCreationAttempted.current === practiceId) ||
       conversationCreationInProgress.current
     ) {
-      return;
+      return cleanup;
     }
 
     const practiceConversation = conversations.find((c) => c.practice_id === practiceId);
@@ -357,6 +362,7 @@ export function MainApp({
       conversationCreationAttempted.current = practiceId;
       conversationCreationInProgress.current = true;
       createConversation().then((id) => {
+        if (!isMounted) return;
         if (!id) {
           setConversationCreationFailed(true);
         } else {
@@ -365,10 +371,13 @@ export function MainApp({
         }
         conversationCreationInProgress.current = false;
       }).catch(() => {
+        if (!isMounted) return;
         setConversationCreationFailed(true);
         conversationCreationInProgress.current = false;
       });
     }
+
+    return cleanup;
   }, [
     isPracticeWorkspace,
     conversationsLoading,

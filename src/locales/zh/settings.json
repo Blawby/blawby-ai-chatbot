@@ -205,7 +205,7 @@
       "permissionButton": "启用",
       "permissionDeniedButton": "已阻止",
       "permissionGrantedTitle": "桌面通知已启用",
-      "permissionGrantedBody": "当 Blawby 发送更新时，你将收到桌面提醒。",
+      "permissionGrantedBody": "当 Blawby 发送更新时，您将收到桌面提醒。",
       "permissionDeniedTitle": "权限已阻止",
       "permissionDeniedBody": "请在浏览器设置中启用通知以接收提醒。",
       "permissionErrorTitle": "权限失败",
@@ -213,7 +213,7 @@
     },
     "systemRequiredLabel": "必需",
     "systemRequiredHint": "系统通知对所有成员都是必需的。",
-    "managedHint": "由你的组织管理。",
+    "managedHint": "由您的组织管理。",
     "organization": {
       "title": "组织默认值",
       "description": "为团队设置默认值。除非渠道被锁定，成员可以自定义。",

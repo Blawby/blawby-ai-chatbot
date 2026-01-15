@@ -64,7 +64,11 @@ export const NotificationItem = ({ notification, onMarkRead, onMarkUnread }: Not
   };
 
   const handleOpenLink = () => {
-    if (!notification.link || !isSafeUrl(notification.link)) return;
+    if (!notification.link) return;
+    if (!isSafeUrl(notification.link)) {
+      showError('Invalid link', 'This notification link is not safe to open.');
+      return;
+    }
     window.location.assign(notification.link);
   };
 
