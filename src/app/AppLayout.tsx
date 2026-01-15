@@ -559,15 +559,17 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       )}
 
 
-      <MobileTopNav
-        onOpenSidebar={() => onToggleMobileSidebar(true)}
-        onOpenNotifications={() => handleGoToNotifications(notificationCategory)}
-        hasUnreadNotifications={hasUnreadNotifications}
-        onPlusClick={() => {
-          window.location.hash = '#pricing';
-        }}
-        isVisible={isNavbarVisible}
-      />
+      {features.enableLeftSidebar && (
+        <MobileTopNav
+          onOpenSidebar={() => onToggleMobileSidebar(true)}
+          onOpenNotifications={() => handleGoToNotifications(notificationCategory)}
+          hasUnreadNotifications={hasUnreadNotifications}
+          onPlusClick={workspace === 'public' ? () => {
+            window.location.hash = '#pricing';
+          } : undefined}
+          isVisible={isNavbarVisible}
+        />
+      )}
 
       {/* Debug Overlay - Only when explicitly enabled */}
       {import.meta.env.VITE_DEBUG_OVERLAY === 'true' && (

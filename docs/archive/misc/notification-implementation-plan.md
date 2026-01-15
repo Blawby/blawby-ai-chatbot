@@ -2,6 +2,7 @@
 
 ## Implemented ✅
 - ✅ OneSignal delivery (email + push)
+- ✅ Email/push delivery toggles (ENABLE_EMAIL_NOTIFICATIONS/ENABLE_PUSH_NOTIFICATIONS)
 - ✅ Notification backend (D1 + queue + SSE + API)
 - ✅ OneSignal web SDK + managed service workers + destination linking
 - ✅ In-app notifications via SSE + OS notification support
@@ -29,7 +30,6 @@
 
 ## Backlog / Deferred
 - [ ] Mobile OneSignal SDK integration (iOS/Android)
-- [ ] Email/push enable toggles for testing environments
 - [ ] Notification analytics (delivery + click-through)
 - [ ] Expanded test coverage (unit/integration/E2E)
 - [ ] Deduplication/batching/offline replay strategy (if needed)
@@ -38,5 +38,5 @@
 - `ONESIGNAL_APP_ID`
 - `ONESIGNAL_REST_API_KEY`
 - `ONESIGNAL_API_BASE` (optional)
-- `ENABLE_EMAIL_NOTIFICATIONS` (planned)
-- `ENABLE_PUSH_NOTIFICATIONS` (planned)
+- `ENABLE_EMAIL_NOTIFICATIONS`
+- `ENABLE_PUSH_NOTIFICATIONS`

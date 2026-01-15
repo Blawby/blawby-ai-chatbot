@@ -137,6 +137,8 @@ export interface Env {
   REMOTE_API_URL?: string;
 
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
+  ENABLE_EMAIL_NOTIFICATIONS?: string | boolean;
+  ENABLE_PUSH_NOTIFICATIONS?: string | boolean;
 
   IDEMPOTENCY_SALT?: string;
   LAWYER_SEARCH_API_KEY?: string;
