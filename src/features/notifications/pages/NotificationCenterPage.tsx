@@ -22,7 +22,7 @@ export const NotificationCenterPage = ({
     isLoading,
     error,
     hasMore,
-    ensureLoaded,
+    ensureLoaded: _ensureLoaded,
     markRead,
     markUnread,
     markAllRead,
@@ -30,8 +30,6 @@ export const NotificationCenterPage = ({
   } = useNotifications(category);
   const { unreadByCategory } = useNotificationCounts();
   const { showError, showSuccess } = useToastContext();
-
-  ensureLoaded();
 
   const handleMarkAllRead = async () => {
     try {

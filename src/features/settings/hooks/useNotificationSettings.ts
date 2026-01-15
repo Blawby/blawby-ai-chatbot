@@ -81,11 +81,24 @@ const updateSettings = async (
   updateData: Partial<NotificationPreferences>
 ) => {
   const current = notificationSettingsStore.get();
+  const previousPreferences = current.preferences;
   setState({ preferences: nextPreferences });
   try {
     await updatePreferencesCategory('notifications', updateData);
   } catch (error) {
-    notificationSettingsStore.set(current);
+    const latestState = notificationSettingsStore.get();
+    const rolledBackPreferences = latestState.preferences
+      ? { ...latestState.preferences }
+      : previousPreferences;
+
+    if (rolledBackPreferences && previousPreferences) {
+      for (const key of Object.keys(updateData) as (keyof NotificationPreferences)[]) {
+        rolledBackPreferences[key] = previousPreferences[key];
+      }
+    }
+
+    const message = error instanceof Error ? error.message : 'Failed to update settings';
+    setState({ preferences: rolledBackPreferences ?? null, error: message });
     throw error;
   }
 };

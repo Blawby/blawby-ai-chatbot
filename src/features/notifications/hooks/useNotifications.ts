@@ -1,6 +1,6 @@
 import { atom, onMount } from 'nanostores';
 import { useStore } from '@nanostores/preact';
-import { useCallback } from 'preact/hooks';
+import { useCallback, useRef } from 'preact/hooks';
 import { getWorkerApiUrl } from '@/config/urls';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import type {
@@ -456,7 +456,10 @@ const startStream = async () => {
 
     while (true) {
       const { value, done } = await reader.read();
-      if (done) break;
+      if (done) {
+        scheduleReconnect();
+        break;
+      }
 
       buffer += decoder.decode(value, { stream: true });
       let separatorIndex = buffer.indexOf('\n\n');
@@ -660,6 +663,7 @@ export const markAllNotificationsRead = async (category: NotificationCategory) =
 
 export const useNotifications = (category: NotificationCategory) => {
   const state = useStore(notificationStore);
+  const lastCategoryRef = useRef<NotificationCategory | null>(null);
   const categoryState = state.categories[category];
   const ensureLoaded = useCallback((targetCategory = category) => {
     const targetState = notificationStore.get().categories[targetCategory];
@@ -669,6 +673,10 @@ export const useNotifications = (category: NotificationCategory) => {
       void refreshNotifications(targetCategory);
     }
   }, [category]);
+  if (lastCategoryRef.current !== category) {
+    lastCategoryRef.current = category;
+    ensureLoaded(category);
+  }
 
   return {
     notifications: categoryState.items,
