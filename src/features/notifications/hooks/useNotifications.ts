@@ -528,6 +528,16 @@ onMount(notificationStore, () => {
 
   const handleTokenUpdated = () => {
     stopStream();
+    countsRequested = false;
+    initialLoadRequested.clear();
+    notificationStore.set({
+      categories: createCategoryMap(createCategoryState),
+      unreadCounts: createCategoryMap(() => 0),
+      conversationUnreadCounts: {},
+      streamStatus: 'idle',
+      lastEventAt: null
+    });
+    initUnreadAndConversationCounts();
     void startStream();
   };
 

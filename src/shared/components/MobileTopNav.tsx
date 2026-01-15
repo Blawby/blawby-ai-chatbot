@@ -61,7 +61,11 @@ const MobileTopNav = ({
                 type="button"
                 onClick={onOpenNotifications}
                 className="relative rounded-full p-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/10"
-                aria-label="Open notifications"
+                aria-label={
+                  hasUnreadNotifications
+                    ? 'Open notifications, you have unread notifications'
+                    : 'Open notifications'
+                }
               >
                 <BellIcon className="h-5 w-5" />
                 {hasUnreadNotifications && (
