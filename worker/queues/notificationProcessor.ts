@@ -5,6 +5,17 @@ import { NotificationStore } from '../services/NotificationStore.js';
 import { NotificationDeliveryStore } from '../services/NotificationDeliveryStore.js';
 import { NotificationDestinationStore } from '../services/NotificationDestinationStore.js';
 import { OneSignalService, type OneSignalSendResult } from '../services/OneSignalService.js';
+import { parseEnvBool } from '../utils/safeStringUtils.js';
+
+const readEnvToggle = (value: string | boolean | undefined, defaultValue: boolean) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return parseEnvBool(value, defaultValue);
+  }
+  return defaultValue;
+};
 
 function shouldSendEmail(recipient: NotificationRecipientSnapshot): boolean {
   if (recipient.preferences?.emailEnabled === false) {
@@ -21,6 +32,31 @@ function shouldSendPush(recipient: NotificationRecipientSnapshot): boolean {
     return false;
   }
   return true;
+}
+
+function extractMentionedUserIds(metadata: Record<string, unknown> | null | undefined): string[] {
+  if (!metadata) return [];
+  const candidates = [
+    metadata.mentionedUserIds,
+    metadata.mentionUserIds,
+    metadata.mentions
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter((value) => typeof value === 'string') as string[];
+    }
+  }
+  return [];
+}
+
+function shouldProcessRecipient(
+  recipient: NotificationRecipientSnapshot,
+  message: NotificationQueueMessage
+): boolean {
+  if (message.category !== 'message') return true;
+  if (!recipient.preferences?.mentionsOnly) return true;
+  const mentionIds = extractMentionedUserIds(message.metadata ?? null);
+  return mentionIds.includes(recipient.userId);
 }
 
 async function sendEmailNotification(
@@ -88,6 +124,17 @@ export async function handleNotificationQueue(
     NODE_ENV: env.NODE_ENV
   });
 
+  const emailEnabled = readEnvToggle(env.ENABLE_EMAIL_NOTIFICATIONS, true);
+  const pushEnabled = readEnvToggle(env.ENABLE_PUSH_NOTIFICATIONS, true);
+
+  if (!emailEnabled) {
+    Logger.info('Email notifications disabled via ENABLE_EMAIL_NOTIFICATIONS');
+  }
+
+  if (!pushEnabled) {
+    Logger.info('Push notifications disabled via ENABLE_PUSH_NOTIFICATIONS');
+  }
+
   const store = new NotificationStore(env);
   const deliveryStore = new NotificationDeliveryStore(env);
   const destinationStore = new NotificationDestinationStore(env);
@@ -102,6 +149,9 @@ export async function handleNotificationQueue(
 
     for (const recipient of payload.recipients) {
       try {
+        if (!shouldProcessRecipient(recipient, payload)) {
+          continue;
+        }
         const insertResult = await store.createNotification({
           userId: recipient.userId,
           practiceId: payload.practiceId ?? null,
@@ -131,7 +181,7 @@ export async function handleNotificationQueue(
           title: payload.title
         });
 
-        if (shouldSendEmail(recipient) && oneSignal) {
+        if (emailEnabled && shouldSendEmail(recipient) && oneSignal) {
           try {
             await sendEmailNotification(oneSignal, recipient, payload);
             await deliveryStore.recordResult({
@@ -159,7 +209,7 @@ export async function handleNotificationQueue(
           }
         }
 
-        if (shouldSendPush(recipient) && oneSignal) {
+        if (pushEnabled && shouldSendPush(recipient) && oneSignal) {
           try {
             await sendPushNotification(oneSignal, recipient, payload);
             await deliveryStore.recordResult({

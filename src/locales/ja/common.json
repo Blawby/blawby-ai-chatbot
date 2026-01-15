@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "設定を保存しました",
-    "settingsSavedBody": "設定が更新されました。"
+    "settingsSavedBody": "設定が更新されました。",
+    "settingsSaveErrorTitle": "設定の保存に失敗しました",
+    "settingsSaveErrorBody": "設定を保存できませんでした。もう一度お試しください。"
   },
   "language": {
     "auto": "自動検出",

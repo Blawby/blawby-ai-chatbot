@@ -161,28 +161,65 @@
     }
   },
   "notifications": {
-    "title": "[NEEDS TRANSLATION] Notifications",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "title": "Сповіщення",
+    "loadError": "Не вдалося завантажити налаштування сповіщень.",
+    "toastBody": "Ваші налаштування сповіщень оновлено.",
+    "categories": {
+      "messages": {
+        "title": "Повідомлення",
+        "description": "Сповіщення про нову активність у розмові."
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "Система",
+        "description": "Оновлення та сповіщення від Blawby."
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+      "payments": {
+        "title": "Платежі",
+        "description": "Оновлення платежів та білінгу."
+      },
+      "intakes": {
+        "title": "Заявки",
+        "description": "Оновлення та надсилання клієнтських заявок."
+      },
+      "matters": {
+        "title": "Справи",
+        "description": "Зміни статусу справ і оновлення."
       }
     },
+    "desktop": {
+      "title": "Сповіщення на робочому столі",
+      "description": "Дозвольте Blawby надсилати системні сповіщення.",
+      "toastBody": "Налаштування сповіщень на робочому столі оновлено.",
+      "permissionButton": "Увімкнути",
+      "permissionDeniedButton": "Заблоковано",
+      "permissionGrantedTitle": "Сповіщення на робочому столі увімкнено",
+      "permissionGrantedBody": "Ви отримуватимете сповіщення на робочому столі, коли Blawby надсилатиме оновлення.",
+      "permissionDeniedTitle": "Дозвіл заблоковано",
+      "permissionDeniedBody": "Увімкніть сповіщення в налаштуваннях браузера, щоб отримувати сповіщення.",
+      "permissionErrorTitle": "Помилка дозволу",
+      "permissionErrorBody": "Не вдалося увімкнути сповіщення на робочому столі."
+    },
+    "systemRequiredLabel": "Обов'язково",
+    "systemRequiredHint": "Системні сповіщення обов'язкові для всіх учасників.",
+    "managedHint": "Керується вашою організацією.",
+    "organization": {
+      "title": "Стандарти організації",
+      "description": "Встановіть стандарти для вашої команди. Учасники можуть налаштовувати, якщо канал не заблоковано.",
+      "defaultsLabel": "Стандарти",
+      "allowedLabel": "Дозволено",
+      "systemRequired": "Системні сповіщення обов'язкові та не можуть бути вимкнені.",
+      "toastBody": "Стандарти сповіщень організації оновлено.",
+      "toastErrorBody": "Не вдалося оновити налаштування сповіщень організації."
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "Push",
+      "email": "Ел. пошта",
+      "none": "Немає"
+    },
+    "mentions": {
+      "title": "Лише згадки",
+      "description": "Сповіщати мене лише коли мене @згадують у розмові.",
+      "toastBody": "Налаштування згадок оновлено."
     }
   },
   "security": {

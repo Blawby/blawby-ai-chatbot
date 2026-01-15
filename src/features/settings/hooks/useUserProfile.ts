@@ -65,12 +65,6 @@ function _mapBetterAuthUserToProfile(authUser: ExtendedUser): UserProfile {
     dateFormat: 'MM/DD/YYYY',
     timeFormat: '12h',
     
-    // Notification Preferences - sensible defaults
-    emailNotifications: true,
-    pushNotifications: true,
-    smsNotifications: false,
-    notificationFrequency: 'immediate',
-    
     // Chat Preferences - sensible defaults
     autoSaveConversations: true,
     typingIndicators: true,
@@ -102,11 +96,6 @@ export interface UserProfile {
   timezone?: string;
   dateFormat?: string;
   timeFormat?: string;
-  // Notification Preferences
-  emailNotifications?: boolean;
-  pushNotifications?: boolean;
-  smsNotifications?: boolean;
-  notificationFrequency?: string;
   // Chat Preferences
   autoSaveConversations?: boolean;
   typingIndicators?: boolean;
@@ -133,11 +122,6 @@ export interface UserProfileInput {
   timezone?: string;
   dateFormat?: string;
   timeFormat?: string;
-  // Notification Preferences
-  emailNotifications?: boolean;
-  pushNotifications?: boolean;
-  smsNotifications?: boolean;
-  notificationFrequency?: string;
   // Chat Preferences
   autoSaveConversations?: boolean;
   typingIndicators?: boolean;

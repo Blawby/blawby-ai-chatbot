@@ -267,26 +267,63 @@
   "notifications": {
     "title": "Notifications",
     "loadError": "Failed to load notification settings",
-    "toastBody": "Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "Responses",
-        "description": "Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "toastBody": "Your notification preferences have been updated.",
+    "categories": {
+      "messages": {
+        "title": "Messages",
+        "description": "Message notifications for new conversation activity."
       },
-      "tasks": {
-        "title": "Tasks",
-        "description": "Get notified when tasks you've created have updates.",
-        "manage": "Manage tasks"
+      "system": {
+        "title": "System",
+        "description": "Updates and alerts from Blawby."
       },
-      "messaging": {
-        "title": "Messaging",
-        "description": "Calpico"
+      "payments": {
+        "title": "Payments",
+        "description": "Payment and billing updates."
+      },
+      "intakes": {
+        "title": "Intakes",
+        "description": "Client intake updates and submissions."
+      },
+      "matters": {
+        "title": "Matters",
+        "description": "Matter status changes and updates."
       }
+    },
+    "desktop": {
+      "title": "Desktop notifications",
+      "description": "Allow Blawby to send OS-level alerts.",
+      "toastBody": "Desktop notification preference updated.",
+      "permissionButton": "Enable",
+      "permissionDeniedButton": "Blocked",
+      "permissionGrantedTitle": "Desktop notifications enabled",
+      "permissionGrantedBody": "You will receive desktop alerts when Blawby sends updates.",
+      "permissionDeniedTitle": "Permission blocked",
+      "permissionDeniedBody": "Enable notifications in your browser settings to receive alerts.",
+      "permissionErrorTitle": "Permission failed",
+      "permissionErrorBody": "We could not enable desktop notifications."
+    },
+    "systemRequiredLabel": "Required",
+    "systemRequiredHint": "System notifications are required for all members.",
+    "managedHint": "Managed by your organization.",
+    "organization": {
+      "title": "Organization defaults",
+      "description": "Set defaults for your team. Members can customize unless a channel is locked.",
+      "defaultsLabel": "Defaults",
+      "allowedLabel": "Allowed",
+      "systemRequired": "System notifications are required and cannot be disabled.",
+      "toastBody": "Organization notification defaults updated.",
+      "toastErrorBody": "Unable to update organization notification settings."
     },
     "channels": {
       "push": "Push",
       "email": "Email",
       "none": "None"
+    },
+    "mentions": {
+      "title": "Mentions only",
+      "description": "Only notify me when I am @mentioned in a conversation.",
+      "toastBody": "Mention preferences updated."
     }
   },
   "security": {

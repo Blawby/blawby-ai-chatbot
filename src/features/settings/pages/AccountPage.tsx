@@ -437,8 +437,8 @@ export const AccountPage = ({
     } catch (error) {
       console.error('Failed to update domain:', error);
       showError(
-        t('common:notifications.errorTitle'),
-        t('common:notifications.settingsSaveError')
+        t('common:notifications.settingsSaveErrorTitle'),
+        t('common:notifications.settingsSaveErrorBody')
       );
     }
     
@@ -509,8 +509,8 @@ export const AccountPage = ({
       } catch (error) {
         console.error('Failed to update domain:', error);
         showError(
-          t('common:notifications.errorTitle'),
-          t('common:notifications.settingsSaveError')
+          t('common:notifications.settingsSaveErrorTitle'),
+          t('common:notifications.settingsSaveErrorBody')
         );
       }
     } else {
@@ -534,8 +534,8 @@ export const AccountPage = ({
     } catch (error) {
       console.error('Failed to update email settings:', error);
       showError(
-        t('common:notifications.errorTitle'),
-        t('common:notifications.settingsSaveError')
+        t('common:notifications.settingsSaveErrorTitle'),
+        t('common:notifications.settingsSaveErrorBody')
       );
     }
   };

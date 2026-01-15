@@ -16,10 +16,18 @@ export interface GeneralPreferences {
 }
 
 export interface NotificationPreferences {
-  responses_push?: boolean;
-  tasks_push?: boolean;
-  tasks_email?: boolean;
-  messaging_push?: boolean;
+  messages_push?: boolean;
+  messages_email?: boolean;
+  messages_mentions_only?: boolean;
+  system_push?: boolean;
+  system_email?: boolean;
+  payments_push?: boolean;
+  payments_email?: boolean;
+  intakes_push?: boolean;
+  intakes_email?: boolean;
+  matters_push?: boolean;
+  matters_email?: boolean;
+  desktop_push_enabled?: boolean;
 }
 
 export interface SecurityPreferences {

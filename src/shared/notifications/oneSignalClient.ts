@@ -14,6 +14,10 @@ type OneSignalPushSubscription = {
   optedIn?: boolean | null;
 };
 
+type OneSignalNotifications = {
+  requestPermission?: () => Promise<void> | void;
+};
+
 type OneSignalUser = {
   id?: string | null;
   PushSubscription?: OneSignalPushSubscription | null;
@@ -22,6 +26,7 @@ type OneSignalUser = {
 export type OneSignalSDK = {
   init: (options: OneSignalInitOptions) => Promise<void> | void;
   User?: OneSignalUser | null;
+  Notifications?: OneSignalNotifications | null;
   getUserId?: () => Promise<string | null> | string | null;
 };
 
@@ -33,6 +38,8 @@ let initStarted = false;
 let pendingOneSignalId: string | null = null;
 let inFlightRegistration: Promise<void> | null = null;
 let lastRegistrationKey: string | null = null;
+
+export type NotificationPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
 
 export function initOneSignal(): void {
   if (initStarted || typeof window === 'undefined') {
@@ -63,6 +70,42 @@ export function initOneSignal(): void {
   }
 
   window.addEventListener('auth:token-updated', handleTokenUpdated);
+}
+
+export function getNotificationPermissionState(): NotificationPermissionState {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'unsupported';
+  }
+  return Notification.permission as NotificationPermissionState;
+}
+
+export async function requestNotificationPermission(): Promise<NotificationPermissionState> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'unsupported';
+  }
+
+  initOneSignal();
+
+  const sdk = await waitForOneSignalSdk();
+  if (sdk?.Notifications?.requestPermission) {
+    await sdk.Notifications.requestPermission();
+  } else if (Notification.requestPermission) {
+    await Notification.requestPermission();
+  }
+
+  const permission = Notification.permission as NotificationPermissionState;
+  if (permission === 'granted' && sdk) {
+    const onesignalId = await waitForOneSignalId(sdk);
+    if (onesignalId) {
+      pendingOneSignalId = onesignalId;
+      const token = await getTokenAsync();
+      if (token) {
+        await registerDestination(onesignalId, token);
+      }
+    }
+  }
+
+  return permission;
 }
 
 function handleTokenUpdated(): void {
@@ -161,6 +204,32 @@ function normalizeId(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+async function waitForOneSignalSdk(timeoutMs = 3000): Promise<OneSignalSDK | undefined> {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  const maybeSdk = window.OneSignal as OneSignalSDK | undefined;
+  if (maybeSdk?.init) {
+    return maybeSdk;
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const resolveOnce = (sdk?: OneSignalSDK) => {
+      if (settled) return;
+      settled = true;
+      resolve(sdk);
+    };
+
+    const deferred = window.OneSignalDeferred ?? [];
+    deferred.push((sdk: OneSignalSDK) => resolveOnce(sdk));
+    window.OneSignalDeferred = deferred;
+
+    setTimeout(() => resolveOnce(window.OneSignal as OneSignalSDK | undefined), timeoutMs);
+  });
 }
 
 async function registerDestination(onesignalId: string, token: string): Promise<void> {

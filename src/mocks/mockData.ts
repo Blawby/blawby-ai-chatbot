@@ -366,10 +366,18 @@ const defaultPreferences: PreferencesResponse['data'] = {
     time_format: '12h'
   },
   notifications: {
-    responses_push: true,
-    tasks_push: true,
-    tasks_email: true,
-    messaging_push: true
+    messages_push: true,
+    messages_email: true,
+    messages_mentions_only: false,
+    system_push: true,
+    system_email: true,
+    payments_push: true,
+    payments_email: true,
+    intakes_push: true,
+    intakes_email: true,
+    matters_push: true,
+    matters_email: true,
+    desktop_push_enabled: false
   },
   security: {
     two_factor_enabled: false,

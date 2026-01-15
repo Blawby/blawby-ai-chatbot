@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Ustawienia zapisane",
-    "settingsSavedBody": "Twoje preferencje zostały zaktualizowane."
+    "settingsSavedBody": "Twoje preferencje zostały zaktualizowane.",
+    "settingsSaveErrorTitle": "Nie udało się zapisać ustawień",
+    "settingsSaveErrorBody": "Nie można zapisać Twoich ustawień. Spróbuj ponownie."
   },
   "language": {
     "auto": "Wykryj automatycznie",

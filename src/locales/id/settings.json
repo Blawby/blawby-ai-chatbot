@@ -161,28 +161,65 @@
     }
   },
   "notifications": {
-    "title": "[NEEDS TRANSLATION] Notifications",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "title": "Notifikasi",
+    "loadError": "Gagal memuat pengaturan notifikasi.",
+    "toastBody": "Preferensi notifikasi Anda telah diperbarui.",
+    "categories": {
+      "messages": {
+        "title": "Pesan",
+        "description": "Notifikasi pesan untuk aktivitas percakapan baru."
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "Sistem",
+        "description": "Pembaruan dan peringatan dari Blawby."
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+      "payments": {
+        "title": "Pembayaran",
+        "description": "Pembaruan pembayaran dan penagihan."
+      },
+      "intakes": {
+        "title": "Penerimaan",
+        "description": "Pembaruan dan pengiriman penerimaan klien."
+      },
+      "matters": {
+        "title": "Perkara",
+        "description": "Perubahan status perkara dan pembaruan."
       }
     },
+    "desktop": {
+      "title": "Notifikasi desktop",
+      "description": "Izinkan Blawby mengirim peringatan tingkat OS.",
+      "toastBody": "Preferensi notifikasi desktop diperbarui.",
+      "permissionButton": "Aktifkan",
+      "permissionDeniedButton": "Diblokir",
+      "permissionGrantedTitle": "Notifikasi desktop diaktifkan",
+      "permissionGrantedBody": "Anda akan menerima notifikasi desktop saat Blawby mengirim pembaruan.",
+      "permissionDeniedTitle": "Izin diblokir",
+      "permissionDeniedBody": "Aktifkan notifikasi di pengaturan browser untuk menerima pemberitahuan.",
+      "permissionErrorTitle": "Izin gagal",
+      "permissionErrorBody": "Kami tidak dapat mengaktifkan notifikasi desktop."
+    },
+    "systemRequiredLabel": "Wajib",
+    "systemRequiredHint": "Notifikasi sistem wajib untuk semua anggota.",
+    "managedHint": "Dikelola oleh organisasi Anda.",
+    "organization": {
+      "title": "Default organisasi",
+      "description": "Tetapkan default untuk tim Anda. Anggota dapat menyesuaikan kecuali kanal dikunci.",
+      "defaultsLabel": "Default",
+      "allowedLabel": "Diizinkan",
+      "systemRequired": "Notifikasi sistem wajib dan tidak dapat dinonaktifkan.",
+      "toastBody": "Default notifikasi organisasi diperbarui.",
+      "toastErrorBody": "Tidak dapat memperbarui pengaturan notifikasi organisasi."
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "Push",
+      "email": "Email",
+      "none": "Tidak ada"
+    },
+    "mentions": {
+      "title": "Hanya sebutan",
+      "description": "Hanya beri tahu saya saat saya @disebut dalam percakapan.",
+      "toastBody": "Preferensi sebutan diperbarui."
     }
   },
   "security": {

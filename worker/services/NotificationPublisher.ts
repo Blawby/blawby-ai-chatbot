@@ -1,4 +1,12 @@
-import type { Env, NotificationQueueMessage, NotificationRecipientSnapshot, NotificationCategory } from '../types.js';
+import type {
+  Env,
+  NotificationQueueMessage,
+  NotificationRecipientSnapshot,
+  NotificationCategory,
+  NotificationPolicy,
+  NotificationPolicyCategoryKey
+} from '../types.js';
+import { normalizeNotificationPolicy } from '../types.js';
 import { RemoteApiService } from './RemoteApiService.js';
 import { Logger } from '../utils/logger.js';
 
@@ -20,6 +28,14 @@ const categoryPreferenceKey: Record<NotificationCategory, { push: string; email:
   system: { push: 'system_push', email: 'system_email' }
 };
 
+const categoryPolicyKey: Record<NotificationCategory, NotificationPolicyCategoryKey> = {
+  message: 'messages',
+  payment: 'payments',
+  intake: 'intakes',
+  matter: 'matters',
+  system: 'system'
+};
+
 function resolveChannelPreference(
   prefs: RemoteNotificationPreferences | null | undefined,
   key: string,
@@ -31,17 +47,24 @@ function resolveChannelPreference(
 
 function resolveRecipientPreferences(
   prefs: RemoteNotificationPreferences | null | undefined,
-  category: NotificationCategory
+  category: NotificationCategory,
+  policy: NotificationPolicy
 ): NotificationRecipientSnapshot['preferences'] {
-  const defaults = { pushEnabled: true, emailEnabled: true, desktopPushEnabled: true };
-  if (!prefs) return defaults;
-
+  const defaults = policy.defaults[categoryPolicyKey[category]];
+  const allowed = policy.allowed[categoryPolicyKey[category]];
   const desktopPushEnabled = resolveChannelPreference(prefs, 'desktop_push_enabled', true);
+  const mentionsOnly = category === 'message'
+    ? resolveChannelPreference(prefs, 'messages_mentions_only', false)
+    : false;
   const channelKeys = categoryPreferenceKey[category];
-  const pushEnabled = resolveChannelPreference(prefs, channelKeys.push, true);
-  const emailEnabled = resolveChannelPreference(prefs, channelKeys.email, true);
+  const pushEnabled = allowed.push && resolveChannelPreference(prefs, channelKeys.push, defaults.push);
+  const emailEnabled = allowed.email && resolveChannelPreference(prefs, channelKeys.email, defaults.email);
 
-  return { pushEnabled, emailEnabled, desktopPushEnabled };
+  if (category === 'system') {
+    return { pushEnabled: true, emailEnabled: true, desktopPushEnabled, mentionsOnly };
+  }
+
+  return { pushEnabled, emailEnabled, desktopPushEnabled, mentionsOnly };
 }
 
 export async function getAdminRecipients(
@@ -50,13 +73,15 @@ export async function getAdminRecipients(
   request: Request,
   options?: { actorUserId?: string; category?: NotificationCategory }
 ): Promise<NotificationRecipientSnapshot[]> {
-  const [members, actorPreferences, memberPreferences] = await Promise.all([
+  const [members, actorPreferences, memberPreferences, practice] = await Promise.all([
     RemoteApiService.getPracticeMembers(env, practiceId, request),
     RemoteApiService.getNotificationPreferences(env, request),
-    RemoteApiService.getPracticeMemberNotificationPreferences(env, practiceId, request)
+    RemoteApiService.getPracticeMemberNotificationPreferences(env, practiceId, request),
+    RemoteApiService.getPractice(env, practiceId, request)
   ]);
 
   const category = options?.category ?? 'system';
+  const policy = normalizeNotificationPolicy(practice?.metadata?.notificationPolicy);
 
   return members
     .filter((member): member is PracticeMember => Boolean(member?.user_id))
@@ -67,7 +92,7 @@ export async function getAdminRecipients(
       return {
         userId: member.user_id,
         email: member.email ?? null,
-        preferences: resolveRecipientPreferences(prefs, category)
+        preferences: resolveRecipientPreferences(prefs, category, policy)
       };
     });
 }

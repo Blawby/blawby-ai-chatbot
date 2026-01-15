@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "تم حفظ الإعدادات",
-    "settingsSavedBody": "تم تحديث تفضيلاتك."
+    "settingsSavedBody": "تم تحديث تفضيلاتك.",
+    "settingsSaveErrorTitle": "فشل حفظ الإعدادات",
+    "settingsSaveErrorBody": "تعذر حفظ إعداداتك. يرجى المحاولة مرة أخرى."
   },
   "language": {
     "auto": "الكشف التلقائي",

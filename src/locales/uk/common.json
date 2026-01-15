@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Налаштування збережено",
-    "settingsSavedBody": "Ваші вподобання оновлено."
+    "settingsSavedBody": "Ваші вподобання оновлено.",
+    "settingsSaveErrorTitle": "Не вдалося зберегти налаштування",
+    "settingsSaveErrorBody": "Не вдалося зберегти ваші налаштування. Спробуйте ще раз."
   },
   "language": {
     "auto": "Автоматично",

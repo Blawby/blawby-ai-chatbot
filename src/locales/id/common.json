@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Pengaturan disimpan",
-    "settingsSavedBody": "Preferensi Anda telah diperbarui."
+    "settingsSavedBody": "Preferensi Anda telah diperbarui.",
+    "settingsSaveErrorTitle": "Gagal menyimpan pengaturan",
+    "settingsSaveErrorBody": "Pengaturan Anda tidak dapat disimpan. Silakan coba lagi."
   },
   "language": {
     "auto": "Deteksi Otomatis",

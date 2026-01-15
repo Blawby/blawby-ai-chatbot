@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Settings saved",
-    "settingsSavedBody": "Your preferences have been updated."
+    "settingsSavedBody": "Your preferences have been updated.",
+    "settingsSaveErrorTitle": "Settings save failed",
+    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
   },
   "language": {
     "auto": "Auto-detect",

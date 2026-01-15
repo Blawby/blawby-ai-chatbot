@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "सेटिंग्स सहेजी गईं",
-    "settingsSavedBody": "आपकी प्राथमिकताएं अपडेट कर दी गई हैं।"
+    "settingsSavedBody": "आपकी प्राथमिकताएं अपडेट कर दी गई हैं।",
+    "settingsSaveErrorTitle": "सेटिंग्स सहेजने में विफल",
+    "settingsSaveErrorBody": "आपकी सेटिंग्स सहेजी नहीं जा सकीं। कृपया फिर से प्रयास करें।"
   },
   "language": {
     "auto": "स्वतः पहचानें",

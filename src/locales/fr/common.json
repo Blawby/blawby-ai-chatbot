@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Paramètres enregistrés",
-    "settingsSavedBody": "Vos préférences ont été mises à jour."
+    "settingsSavedBody": "Vos préférences ont été mises à jour.",
+    "settingsSaveErrorTitle": "Échec de l’enregistrement des paramètres",
+    "settingsSaveErrorBody": "Impossible d’enregistrer vos paramètres. Veuillez réessayer."
   },
   "language": {
     "auto": "Détection automatique",

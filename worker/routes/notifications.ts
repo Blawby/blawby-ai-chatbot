@@ -87,10 +87,32 @@ export async function handleNotifications(request: Request, env: Env): Promise<R
     });
   }
 
+  if (path.startsWith('/api/notifications/') && request.method === 'POST' && path.endsWith('/unread')) {
+    const auth = await requireAuth(request, env);
+    const store = new NotificationStore(env);
+    const parts = path.split('/');
+    if (parts.length !== 5) {
+      throw HttpErrors.notFound('Notification endpoint not found');
+    }
+    const notificationId = parts[3];
+    if (!notificationId) {
+      throw HttpErrors.badRequest('Notification ID is required');
+    }
+
+    const updated = await store.markUnread(auth.user.id, notificationId);
+
+    return new Response(JSON.stringify({ success: true, data: { updated } }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   if (path.startsWith('/api/notifications/') && request.method === 'POST' && path.endsWith('/read')) {
     const auth = await requireAuth(request, env);
     const store = new NotificationStore(env);
     const parts = path.split('/');
+    if (parts.length !== 5) {
+      throw HttpErrors.notFound('Notification endpoint not found');
+    }
     const notificationId = parts[3];
     if (!notificationId) {
       throw HttpErrors.badRequest('Notification ID is required');

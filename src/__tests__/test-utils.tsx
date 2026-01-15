@@ -97,6 +97,7 @@ vi.mock('@/shared/contexts/ToastContext', () => ({
     showError: vi.fn(),
     showInfo: vi.fn(),
     showWarning: vi.fn(),
+    showSystem: vi.fn(),
     toasts: [],
     removeToast: vi.fn(),
   }),
@@ -105,6 +106,7 @@ vi.mock('@/shared/contexts/ToastContext', () => ({
     showError: vi.fn(),
     showInfo: vi.fn(),
     showWarning: vi.fn(),
+    showSystem: vi.fn(),
   }),
 }));
 

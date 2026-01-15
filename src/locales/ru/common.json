@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Настройки сохранены",
-    "settingsSavedBody": "Ваши предпочтения обновлены."
+    "settingsSavedBody": "Ваши предпочтения обновлены.",
+    "settingsSaveErrorTitle": "Не удалось сохранить настройки",
+    "settingsSaveErrorBody": "Не удалось сохранить ваши настройки. Пожалуйста, попробуйте снова."
   },
   "language": {
     "auto": "Автоопределение",

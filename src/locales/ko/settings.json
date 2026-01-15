@@ -161,28 +161,65 @@
     }
   },
   "notifications": {
-    "title": "[NEEDS TRANSLATION] Notifications",
-    "loadError": "[NEEDS TRANSLATION] Failed to load notification settings",
-    "toastBody": "[NEEDS TRANSLATION] Your notification preferences have been updated",
-    "sections": {
-      "responses": {
-        "title": "[NEEDS TRANSLATION] Responses",
-        "description": "[NEEDS TRANSLATION] Get notified when ChatGPT responds to requests that take time, like research or image generation."
+    "title": "알림",
+    "loadError": "알림 설정을 불러오지 못했습니다.",
+    "toastBody": "알림 환경설정이 업데이트되었습니다.",
+    "categories": {
+      "messages": {
+        "title": "메시지",
+        "description": "새 대화 활동에 대한 메시지 알림."
       },
-      "tasks": {
-        "title": "[NEEDS TRANSLATION] Tasks",
-        "description": "[NEEDS TRANSLATION] Get notified when tasks you've created have updates.",
-        "manage": "[NEEDS TRANSLATION] Manage tasks"
+      "system": {
+        "title": "시스템",
+        "description": "Blawby의 업데이트 및 알림."
       },
-      "messaging": {
-        "title": "[NEEDS TRANSLATION] Messaging",
-        "description": "[NEEDS TRANSLATION] Calpico"
+      "payments": {
+        "title": "결제",
+        "description": "결제 및 청구 업데이트."
+      },
+      "intakes": {
+        "title": "접수",
+        "description": "고객 접수 업데이트 및 제출."
+      },
+      "matters": {
+        "title": "사건",
+        "description": "사건 상태 변경 및 업데이트."
       }
     },
+    "desktop": {
+      "title": "데스크톱 알림",
+      "description": "Blawby가 OS 수준의 알림을 보내도록 허용합니다.",
+      "toastBody": "데스크톱 알림 설정이 업데이트되었습니다.",
+      "permissionButton": "활성화",
+      "permissionDeniedButton": "차단됨",
+      "permissionGrantedTitle": "데스크톱 알림이 활성화되었습니다",
+      "permissionGrantedBody": "Blawby가 업데이트를 보내면 데스크톱 알림을 받습니다.",
+      "permissionDeniedTitle": "권한이 차단되었습니다",
+      "permissionDeniedBody": "알림을 받으려면 브라우저 설정에서 알림을 허용하세요.",
+      "permissionErrorTitle": "권한 실패",
+      "permissionErrorBody": "데스크톱 알림을 활성화할 수 없습니다."
+    },
+    "systemRequiredLabel": "필수",
+    "systemRequiredHint": "시스템 알림은 모든 멤버에게 필수입니다.",
+    "managedHint": "조직에서 관리합니다.",
+    "organization": {
+      "title": "조직 기본값",
+      "description": "팀의 기본값을 설정합니다. 채널이 잠겨 있지 않으면 멤버가 사용자 지정할 수 있습니다.",
+      "defaultsLabel": "기본값",
+      "allowedLabel": "허용됨",
+      "systemRequired": "시스템 알림은 필수이며 비활성화할 수 없습니다.",
+      "toastBody": "조직 알림 기본값이 업데이트되었습니다.",
+      "toastErrorBody": "조직 알림 설정을 업데이트할 수 없습니다."
+    },
     "channels": {
-      "push": "[NEEDS TRANSLATION] Push",
-      "email": "[NEEDS TRANSLATION] Email",
-      "none": "[NEEDS TRANSLATION] None"
+      "push": "푸시",
+      "email": "이메일",
+      "none": "없음"
+    },
+    "mentions": {
+      "title": "멘션만",
+      "description": "대화에서 @멘션될 때만 알림을 받습니다.",
+      "toastBody": "멘션 환경설정이 업데이트되었습니다."
     }
   },
   "security": {

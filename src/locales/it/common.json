@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Impostazioni salvate",
-    "settingsSavedBody": "Le tue preferenze sono state aggiornate."
+    "settingsSavedBody": "Le tue preferenze sono state aggiornate.",
+    "settingsSaveErrorTitle": "Salvataggio delle impostazioni non riuscito",
+    "settingsSaveErrorBody": "Impossibile salvare le impostazioni. Riprova."
   },
   "language": {
     "auto": "Rilevamento automatico",

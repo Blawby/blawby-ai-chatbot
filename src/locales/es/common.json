@@ -4,7 +4,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Configuración guardada",
-    "settingsSavedBody": "Tus preferencias se actualizaron."
+    "settingsSavedBody": "Tus preferencias se actualizaron.",
+    "settingsSaveErrorTitle": "Error al guardar la configuración",
+    "settingsSaveErrorBody": "No se pudieron guardar tus ajustes. Inténtalo de nuevo."
   },
   "language": {
     "auto": "Detección automática",
