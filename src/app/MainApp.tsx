@@ -18,7 +18,6 @@ import { getConversationsEndpoint } from '@/config/api';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { useNavigation } from '@/shared/utils/navigation';
 import PricingModal from '@/features/modals/components/PricingModal';
-import { getTurnstileToken } from '@/shared/lib/turnstile';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
 import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -69,7 +68,7 @@ export function MainApp({
   }, [practiceId]);
 
   useEffect(() => {
-    if (workspace === 'public' && currentTab === 'dashboard') {
+    if (workspace === 'public' && currentTab !== 'chats') {
       setCurrentTab('chats');
     }
   }, [currentTab, workspace]);
@@ -232,15 +231,6 @@ export function MainApp({
         console.error('[createConversation] No token available - conversation creation will fail');
         throw new Error('Authentication token not available');
       }
-      const isLikelyUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(practiceId);
-      if (!isLikelyUuid) {
-        const captchaToken = await getTurnstileToken();
-        if (!captchaToken) {
-          throw new Error('Captcha token is required to start a conversation.');
-        }
-        headers['x-captcha-token'] = captchaToken;
-      }
-
       const url = `${getConversationsEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`;
 
       const response = await fetch(url, {
@@ -639,19 +629,14 @@ export function MainApp({
     }
   }, [chatsBasePath, navigate]);
 
-  const chatSidebarContent = useMemo(() => {
-    if (workspace === 'practice' || workspace === 'client') {
-      return (
-        <ConversationSidebar
-          workspace={workspace}
-          practiceId={practiceId}
-          selectedConversationId={conversationId}
-          onSelectConversation={handleSelectConversation}
-        />
-      );
-    }
-    return null;
-  }, [conversationId, handleSelectConversation, practiceId, workspace]);
+  const chatSidebarContent = useMemo(() => (
+    <ConversationSidebar
+      workspace={workspace}
+      practiceId={practiceId}
+      selectedConversationId={conversationId}
+      onSelectConversation={handleSelectConversation}
+    />
+  ), [conversationId, handleSelectConversation, practiceId, workspace]);
 
   // Render the main app
   return (

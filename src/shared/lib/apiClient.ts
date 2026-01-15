@@ -9,11 +9,9 @@ import {
 import { isPlatformPractice } from '@/shared/utils/practice';
 import type { Conversation } from '@/shared/types/conversation';
 import { getBackendApiUrl } from '@/config/urls';
-import { getTurnstileToken } from '@/shared/lib/turnstile';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
-const captchaProtectedPath = /\/api\/practice\/details\/[^/]+\b/;
 const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
 
 /**
@@ -47,23 +45,6 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   async (config) => {
-    const requiresCaptcha = (() => {
-      const rawUrl = config.url ?? '';
-      if (!rawUrl) {
-        return false;
-      }
-      const path = rawUrl.startsWith('http')
-        ? (() => {
-          try {
-            return new URL(rawUrl).pathname;
-          } catch {
-            return rawUrl;
-          }
-        })()
-        : rawUrl;
-      return captchaProtectedPath.test(path.split('?')[0] ?? '');
-    })();
-
     // Always get fresh baseURL in development to support MSW
     // Force override any cached baseURL - this is critical for MSW interception
     const baseUrl = ensureApiBaseUrl();
@@ -93,16 +74,6 @@ apiClient.interceptors.request.use(
       console.warn('[apiClient] No token available for request:', config.url, 'baseURL:', baseUrl);
     }
 
-    if (requiresCaptcha) {
-      const captchaToken = await getTurnstileToken();
-      if (captchaToken) {
-        if (!config.headers) {
-          config.headers = {} as AxiosRequestHeaders;
-        }
-        const headers = config.headers as AxiosRequestHeaders;
-        headers['x-captcha-token'] = captchaToken;
-      }
-    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -718,21 +689,6 @@ export async function getPublicPracticeDetails(
 
   const requestPromise = (async () => {
     try {
-      let captchaToken: string;
-      try {
-        captchaToken = await getTurnstileToken();
-        if (import.meta.env.DEV) {
-          console.log('[getPublicPracticeDetails] Turnstile token generated:', {
-            tokenPrefix: `${captchaToken.substring(0, 20)}...`,
-            tokenLength: captchaToken.length,
-            currentDomain: window.location.hostname
-          });
-        }
-      } catch (tokenError) {
-        console.error('[getPublicPracticeDetails] Failed to generate Turnstile token:', tokenError);
-        throw new Error(`Failed to generate CAPTCHA token: ${tokenError instanceof Error ? tokenError.message : 'Unknown error'}`);
-      }
-
       const apiUrl = `${getBackendApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
       if (import.meta.env.DEV) {
         console.log('[getPublicPracticeDetails] Making request to:', apiUrl);
@@ -742,9 +698,6 @@ export async function getPublicPracticeDetails(
         apiUrl,
         {
           signal: config?.signal,
-          headers: {
-            'x-captcha-token': captchaToken
-          },
           withCredentials: true
         }
       );
@@ -762,21 +715,6 @@ export async function getPublicPracticeDetails(
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
           return null;
-        }
-        if (error.response?.status === 403) {
-          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Forbidden';
-          const captchaToken = error.config?.headers?.['x-captcha-token'] as string | undefined;
-          console.error('[getPublicPracticeDetails] 403 Forbidden:', {
-            status: 403,
-            message: errorMessage,
-            url: error.config?.url,
-            hasCaptchaToken: !!captchaToken,
-            tokenPrefix: captchaToken ? `${captchaToken.substring(0, 20)}...` : 'none',
-            tokenLength: captchaToken?.length || 0,
-            responseData: error.response?.data,
-            currentDomain: typeof window !== 'undefined' ? window.location.hostname : 'unknown'
-          });
-          throw new Error(`CAPTCHA validation failed: ${errorMessage}`);
         }
       }
       throw error;

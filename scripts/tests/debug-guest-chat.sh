@@ -10,7 +10,6 @@ Options:
   --worker-url URL         Worker base URL (default: VITE_API_URL or http://localhost:8787)
   --backend-url URL        Backend base URL (default: VITE_BACKEND_API_URL or https://staging-api.blawby.com)
   --auth-token TOKEN       Use an existing bearer token (skips anonymous sign-in)
-  --captcha-token TOKEN    Provide a Turnstile token for captcha-protected endpoints
   --skip-anon              Do not attempt anonymous sign-in
   --expect-backend HOST    Expected backend host (default: local.blawby.com)
   --verbose                Print extra response details
@@ -296,7 +295,6 @@ request() {
   local url="$2"
   local data="${3:-}"
   local token="${4:-}"
-  local captcha_token="${5:-}"
   local header_file body_file
   header_file=$(mktemp)
   body_file=$(mktemp)
@@ -308,9 +306,6 @@ request() {
   fi
   if [[ -n "$token" ]]; then
     curl_args+=(-H "Authorization: Bearer $token")
-  fi
-  if [[ -n "$captcha_token" ]]; then
-    curl_args+=(-H "x-captcha-token: $captcha_token")
   fi
 
   local status
@@ -327,7 +322,6 @@ WORKER_URL=""
 BACKEND_URL=""
 PRACTICE_INPUT=""
 AUTH_TOKEN=""
-CAPTCHA_TOKEN=""
 SKIP_ANON="false"
 VERBOSE="false"
 EXPECTED_BACKEND_HOST="local.blawby.com"
@@ -352,11 +346,6 @@ while [[ $# -gt 0 ]]; do
     --auth-token)
       require_option_value "$1" "${2-}"
       AUTH_TOKEN="$2"
-      shift 2
-      ;;
-    --captcha-token)
-      require_option_value "$1" "${2-}"
-      CAPTCHA_TOKEN="$2"
       shift 2
       ;;
     --skip-anon)
@@ -426,11 +415,6 @@ if [[ -n "$AUTH_TOKEN" ]]; then
 else
   echo "Auth token: not provided"
 fi
-if [[ -n "$CAPTCHA_TOKEN" ]]; then
-  echo "Captcha token: provided"
-else
-  echo "Captcha token: not provided"
-fi
 backend_host=$(node -e 'try { console.log(new URL(process.argv[1]).host); } catch { process.exit(1); }' "$BACKEND_URL" || true)
 if [[ -n "$backend_host" && "$backend_host" != "$EXPECTED_BACKEND_HOST" ]]; then
   echo "Warning: Backend host ($backend_host) does not match expected ($EXPECTED_BACKEND_HOST)."
@@ -453,7 +437,7 @@ echo "Step 0: Practice details lookup (public endpoint)"
 if [[ "$PRACTICE_INPUT" =~ ^[0-9a-fA-F-]{36}$ ]]; then
   echo "Note: practice input looks like a UUID; details endpoint expects a slug."
 fi
-request "GET" "$BACKEND_URL/api/practice/details/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN" "$CAPTCHA_TOKEN"
+request "GET" "$BACKEND_URL/api/practice/details/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
 echo "GET /api/practice/details/{slug} status: $LAST_STATUS"
 
 if [[ "$LAST_STATUS" == "200" ]]; then
@@ -494,7 +478,7 @@ fi
 echo ""
 
 echo "Step 1: Practice lookup"
-request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN" "$CAPTCHA_TOKEN"
+request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
 echo "GET /api/practice/{id} status: $LAST_STATUS"
 
 if [[ "$LAST_STATUS" == "200" ]]; then
@@ -516,7 +500,7 @@ else
   fi
   if [[ "$LAST_STATUS" == "400" ]]; then
     echo "Retrying slug lookup: /api/practice?slug=$PRACTICE_INPUT"
-    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN" "$CAPTCHA_TOKEN"
+    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
     echo "GET /api/practice?slug= status: $LAST_STATUS"
     if [[ "$LAST_STATUS" == "200" ]]; then
       practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)
@@ -580,7 +564,7 @@ fi
 user_id=""
 if [[ -n "$AUTH_TOKEN" ]]; then
   echo "Step 3: Validate auth session"
-  request "GET" "$BACKEND_URL/api/auth/get-session" "" "$AUTH_TOKEN" "$CAPTCHA_TOKEN"
+  request "GET" "$BACKEND_URL/api/auth/get-session" "" "$AUTH_TOKEN"
   echo "GET /api/auth/get-session status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then
     user_id=$(json_extract_user_id "$LAST_BODY" || true)
@@ -601,7 +585,7 @@ fi
 
 if [[ -n "$AUTH_TOKEN" && -z "$resolved_practice_id" ]]; then
   echo "Step 3b: Retry practice lookup with auth token"
-  request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN" "$CAPTCHA_TOKEN"
+  request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
   echo "GET /api/practice/{id} (auth) status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then
     practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)
@@ -636,7 +620,28 @@ if [[ -n "$AUTH_TOKEN" && -z "$resolved_practice_id" ]]; then
     if [[ -n "$error_message" ]]; then
       echo "Response message: $error_message"
     fi
-    echo "Practice lookup still failed with auth."
+    echo "Practice lookup failed with auth, trying slug lookup."
+    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
+    echo "GET /api/practice?slug= (auth) status: $LAST_STATUS"
+    if [[ "$LAST_STATUS" == "200" ]]; then
+      practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)
+      if [[ -n "$practice_fields" ]]; then
+        IFS='|' read -r resolved_practice_id resolved_practice_slug resolved_practice_public <<<"$practice_fields"
+        echo "Resolved practice id: $resolved_practice_id"
+        if [[ -n "$resolved_practice_slug" ]]; then
+          echo "Resolved practice slug: $resolved_practice_slug"
+        fi
+        if [[ -n "$resolved_practice_public" ]]; then
+          echo "Resolved practice is_public: $resolved_practice_public"
+        fi
+      fi
+    else
+      error_message=$(json_extract_message "$LAST_BODY" || true)
+      if [[ -n "$error_message" ]]; then
+        echo "Response message: $error_message"
+      fi
+      echo "Practice slug lookup still failed with auth."
+    fi
   fi
   echo ""
 fi
@@ -649,7 +654,7 @@ if [[ -n "$AUTH_TOKEN" && -n "$user_id" ]]; then
   fi
 
   conversation_payload=$(echo '{}' | jq --arg id "$user_id" '.participantUserIds=[ $id ] | .metadata={source:"debug-script"}')
-  request "POST" "$WORKER_URL/api/conversations?practiceId=$(url_encode "$practice_for_conversation")" "$conversation_payload" "$AUTH_TOKEN" "$CAPTCHA_TOKEN"
+  request "POST" "$WORKER_URL/api/conversations?practiceId=$(url_encode "$practice_for_conversation")" "$conversation_payload" "$AUTH_TOKEN"
   echo "POST /api/conversations status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then
     conv_id=$(json_extract_conversation_id "$LAST_BODY" || true)
@@ -676,7 +681,7 @@ fi
 
 echo "Next steps"
 if [[ -z "$resolved_practice_id" ]]; then
-  echo "- Resolve slug to UUID for practice lookups (try /api/practice?slug=...)"
+  echo "- Practice ID still unresolved; check that /api/practice?slug=... returns an id."
 fi
 if [[ -z "$AUTH_TOKEN" ]]; then
   echo "- Anonymous sign-in failed or was skipped. Ensure /api/auth/sign-in/anonymous is enabled."

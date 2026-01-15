@@ -111,7 +111,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const [shareCopied, setShareCopied] = useState(false);
 
   const showDashboardTab = workspace !== 'public';
-  const showChatsTab = workspace !== 'public';
+  const showChatsTab = true;
   const showRightSidebar = workspace !== 'client';
 
   // Activity is feature-flagged off by default while we decide the final architecture.
@@ -359,7 +359,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   return (
     <div className="max-md:h-[100dvh] md:h-screen w-full flex bg-white dark:bg-dark-bg">
       {/* Left Sidebar - Desktop: always visible, Mobile: slide-out, Hidden when settings modal is open on mobile */}
-      {features.enableLeftSidebar && workspace !== 'public' && !(isMobile && isSettingsModalOpen) && (
+      {features.enableLeftSidebar && !(isMobile && isSettingsModalOpen) && (
         <>
           {/* Desktop Sidebar */}
           <div className="overflow-y-auto hidden lg:block">
@@ -529,12 +529,12 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       )}
 
 
-      {workspace !== 'public' && (
+      {features.enableLeftSidebar && (
         <MobileTopNav
           onOpenSidebar={() => onToggleMobileSidebar(true)}
-          onPlusClick={() => {
+          onPlusClick={workspace !== 'public' ? () => {
             window.location.hash = '#pricing';
-          }}
+          } : undefined}
           isVisible={isNavbarVisible}
         />
       )}
