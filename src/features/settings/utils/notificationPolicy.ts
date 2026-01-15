@@ -51,7 +51,7 @@ export const normalizeNotificationPolicy = (raw: unknown): NotificationPolicy =>
 
   const defaults: NotificationDefaults = {
     messages: normalizeCategory(defaultsRaw?.messages, NOTIFICATION_DEFAULTS.messages),
-    system: normalizeCategory(defaultsRaw?.system, NOTIFICATION_DEFAULTS.system),
+    system: NOTIFICATION_DEFAULTS.system,
     payments: normalizeCategory(defaultsRaw?.payments, NOTIFICATION_DEFAULTS.payments),
     intakes: normalizeCategory(defaultsRaw?.intakes, NOTIFICATION_DEFAULTS.intakes),
     matters: normalizeCategory(defaultsRaw?.matters, NOTIFICATION_DEFAULTS.matters)
@@ -59,12 +59,14 @@ export const normalizeNotificationPolicy = (raw: unknown): NotificationPolicy =>
 
   const allowed: NotificationDefaults = {
     messages: normalizeCategory(allowedRaw?.messages, ALL_ALLOWED.messages),
-    system: normalizeCategory(allowedRaw?.system, ALL_ALLOWED.system),
+    system: ALL_ALLOWED.system,
     payments: normalizeCategory(allowedRaw?.payments, ALL_ALLOWED.payments),
     intakes: normalizeCategory(allowedRaw?.intakes, ALL_ALLOWED.intakes),
     matters: normalizeCategory(allowedRaw?.matters, ALL_ALLOWED.matters)
   };
 
+  // System notifications are always enabled and cannot be disabled by users.
+  // This ensures critical system messages are always delivered.
   defaults.system = { push: true, email: true };
   allowed.system = { push: true, email: true };
 
