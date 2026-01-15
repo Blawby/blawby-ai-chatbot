@@ -3,8 +3,8 @@
     "loading": "[NEEDS TRANSLATION] Loading…"
   },
   "notifications": {
-    "settingsSavedTitle": "[NEEDS TRANSLATION] Settings saved",
-    "settingsSavedBody": "[NEEDS TRANSLATION] Your preferences have been updated.",
+    "settingsSavedTitle": "Ayarlar kaydedildi",
+    "settingsSavedBody": "Tercihleriniz güncellendi.",
     "settingsSaveErrorTitle": "Ayarları kaydetme başarısız",
     "settingsSaveErrorBody": "Ayarlarınız kaydedilemedi. Lütfen tekrar deneyin."
   },
