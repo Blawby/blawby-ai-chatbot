@@ -5,8 +5,8 @@
   "notifications": {
     "settingsSavedTitle": "[NEEDS TRANSLATION] Settings saved",
     "settingsSavedBody": "[NEEDS TRANSLATION] Your preferences have been updated.",
-    "settingsSaveErrorTitle": "Settings save failed",
-    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
+    "settingsSaveErrorTitle": "Ayarları kaydetme başarısız",
+    "settingsSaveErrorBody": "Ayarlarınız kaydedilemedi. Lütfen tekrar deneyin."
   },
   "language": {
     "auto": "[NEEDS TRANSLATION] Auto-detect",

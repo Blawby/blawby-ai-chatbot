@@ -5,8 +5,8 @@
   "notifications": {
     "settingsSavedTitle": "Pengaturan disimpan",
     "settingsSavedBody": "Preferensi Anda telah diperbarui.",
-    "settingsSaveErrorTitle": "Settings save failed",
-    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
+    "settingsSaveErrorTitle": "Gagal menyimpan pengaturan",
+    "settingsSaveErrorBody": "Pengaturan Anda tidak dapat disimpan. Silakan coba lagi."
   },
   "language": {
     "auto": "Deteksi Otomatis",

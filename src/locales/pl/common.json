@@ -5,8 +5,8 @@
   "notifications": {
     "settingsSavedTitle": "Ustawienia zapisane",
     "settingsSavedBody": "Twoje preferencje zostały zaktualizowane.",
-    "settingsSaveErrorTitle": "Settings save failed",
-    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
+    "settingsSaveErrorTitle": "Nie udało się zapisać ustawień",
+    "settingsSaveErrorBody": "Nie można zapisać Twoich ustawień. Spróbuj ponownie."
   },
   "language": {
     "auto": "Wykryj automatycznie",

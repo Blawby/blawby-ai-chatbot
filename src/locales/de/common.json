@@ -5,8 +5,8 @@
   "notifications": {
     "settingsSavedTitle": "Einstellungen gespeichert",
     "settingsSavedBody": "Ihre Präferenzen wurden aktualisiert.",
-    "settingsSaveErrorTitle": "Settings save failed",
-    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
+    "settingsSaveErrorTitle": "Speichern der Einstellungen fehlgeschlagen",
+    "settingsSaveErrorBody": "Ihre Einstellungen konnten nicht gespeichert werden. Bitte versuchen Sie es erneut."
   },
   "language": {
     "auto": "Automatische Erkennung",

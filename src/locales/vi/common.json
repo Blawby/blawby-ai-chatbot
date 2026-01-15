@@ -5,8 +5,8 @@
   "notifications": {
     "settingsSavedTitle": "Đã lưu cài đặt",
     "settingsSavedBody": "Tùy chọn của bạn đã được cập nhật.",
-    "settingsSaveErrorTitle": "Settings save failed",
-    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
+    "settingsSaveErrorTitle": "Lưu cài đặt thất bại",
+    "settingsSaveErrorBody": "Không thể lưu cài đặt của bạn. Vui lòng thử lại."
   },
   "language": {
     "auto": "Tự động phát hiện",

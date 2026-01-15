@@ -5,8 +5,8 @@
   "notifications": {
     "settingsSavedTitle": "设置已保存",
     "settingsSavedBody": "您的偏好设置已更新。",
-    "settingsSaveErrorTitle": "Settings save failed",
-    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
+    "settingsSaveErrorTitle": "设置保存失败",
+    "settingsSaveErrorBody": "无法保存您的设置。请重试。"
   },
   "language": {
     "auto": "自动检测",

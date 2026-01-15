@@ -5,8 +5,8 @@
   "notifications": {
     "settingsSavedTitle": "Налаштування збережено",
     "settingsSavedBody": "Ваші вподобання оновлено.",
-    "settingsSaveErrorTitle": "Settings save failed",
-    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
+    "settingsSaveErrorTitle": "Не вдалося зберегти налаштування",
+    "settingsSaveErrorBody": "Не вдалося зберегти ваші налаштування. Спробуйте ще раз."
   },
   "language": {
     "auto": "Автоматично",
