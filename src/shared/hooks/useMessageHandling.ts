@@ -54,6 +54,7 @@ export const useMessageHandling = ({
 }: UseMessageHandlingOptions) => {
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
+  const consultFlowAbortRef = useRef<globalThis.AbortController | null>(null);
   const isDisposedRef = useRef(false);
   const lastConversationIdRef = useRef<string | undefined>();
   const conversationIdRef = useRef<string | undefined>();
@@ -121,6 +122,8 @@ export const useMessageHandling = ({
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
     const data = await response.json() as { success: boolean; data?: { user_info?: ConversationMetadata | null } };
+    if (signal?.aborted || isDisposedRef.current) return;
+    if (activeConversationId !== conversationIdRef.current) return;
     applyConversationMetadata(data.data?.user_info ?? null);
   }, [applyConversationMetadata, conversationId, practiceId]);
 
@@ -312,9 +315,41 @@ export const useMessageHandling = ({
       tempAssistantId = tempAssistant.id;
       setMessages(prev => [...prev, tempAssistant]);
 
-      const storedAssistant = await persistChatMessage(reply, [], 'assistant');
-      const assistantUi = toUIMessage(storedAssistant);
-      setMessages(prev => prev.map(m => m.id === tempAssistant.id ? assistantUi : m));
+      const persistAssistant = async () => {
+        const storedAssistant = await persistChatMessage(reply, [], 'assistant');
+        const assistantUi = toUIMessage(storedAssistant);
+        setMessages(prev => prev.map(m => m.id === tempAssistant.id ? assistantUi : m));
+      };
+
+      const updateAssistantRetryState = (status: 'error' | 'retrying') => {
+        setMessages(prev => prev.map(m => m.id === tempAssistant.id ? {
+          ...m,
+          content: 'Failed to save AI response.',
+          assistantRetry: {
+            label: 'Retry',
+            status,
+            onRetry: async () => {
+              updateAssistantRetryState('retrying');
+              try {
+                await persistAssistant();
+              } catch (retryError) {
+                console.error('[useMessageHandling] Retry failed to persist assistant message', retryError);
+                updateAssistantRetryState('error');
+                onError?.('Failed to save AI response. Please try again.');
+              }
+            }
+          }
+        } as ChatMessageUI : m));
+      };
+
+      try {
+        await persistAssistant();
+      } catch (persistError) {
+        console.error('[useMessageHandling] Failed to persist assistant message', persistError);
+        updateAssistantRetryState('error');
+        onError?.('Failed to save AI response. Please try again.');
+        return;
+      }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('Request was cancelled by user');
@@ -634,10 +669,16 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     if (!targetConversationId || !practiceId) {
       return;
     }
-    setIsConsultFlowActive(true);
+    consultFlowAbortRef.current?.abort();
+    const controller = new AbortController();
+    consultFlowAbortRef.current = controller;
     conversationIdRef.current = targetConversationId;
-    fetchMessages(undefined, targetConversationId);
-    fetchConversationMetadata(undefined, targetConversationId).catch((error) => {
+    if (conversationIdRef.current !== targetConversationId) {
+      return;
+    }
+    setIsConsultFlowActive(true);
+    fetchMessages(controller.signal, targetConversationId);
+    fetchConversationMetadata(controller.signal, targetConversationId).catch((error) => {
       console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
     });
   }, [fetchConversationMetadata, fetchMessages, practiceId]);
@@ -677,6 +718,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       isDisposedRef.current = true;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+      }
+      if (consultFlowAbortRef.current) {
+        consultFlowAbortRef.current.abort();
       }
     };
   }, []);

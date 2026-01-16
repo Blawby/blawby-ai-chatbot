@@ -11,6 +11,19 @@ import { Logger } from '../utils/logger.js';
 const DEFAULT_AI_MODEL = 'gpt-4o-mini';
 const LEGAL_DISCLAIMER = 'I’m not a lawyer and can’t provide legal advice, but I can help you request a consultation with this practice.';
 const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
+const MAX_MESSAGES = 40;
+const MAX_MESSAGE_LENGTH = 2000;
+const MAX_TOTAL_LENGTH = 12000;
+
+const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; content: string }>): boolean => {
+  const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+  if (!lastUserMessage) return false;
+  return /\b(legal advice|should I|can I sue|lawsuit|sue|liable|liability|contract dispute|criminal|charged|settlement|custody|divorce|immigration)\b/i.test(
+    lastUserMessage.content
+  );
+};
+
+const countQuestions = (text: string): number => (text.match(/\?/g) || []).length;
 
 export async function handleAiChat(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
@@ -50,6 +63,17 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
   ));
   if (invalidMessage) {
     throw HttpErrors.badRequest('messages must include role and content');
+  }
+  if (body.messages.length > MAX_MESSAGES) {
+    throw HttpErrors.badRequest(`messages exceeds limit of ${MAX_MESSAGES}`);
+  }
+  const totalLength = body.messages.reduce((sum, message) => sum + message.content.length, 0);
+  if (totalLength > MAX_TOTAL_LENGTH) {
+    throw HttpErrors.badRequest(`messages total length exceeds ${MAX_TOTAL_LENGTH} characters`);
+  }
+  const oversizeMessage = body.messages.find((message) => message.content.length > MAX_MESSAGE_LENGTH);
+  if (oversizeMessage) {
+    throw HttpErrors.badRequest(`message content exceeds ${MAX_MESSAGE_LENGTH} characters`);
   }
 
   const conversationService = new ConversationService(env);
@@ -120,7 +144,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
   } | null;
 
   const rawReply = payload?.choices?.[0]?.message?.content;
-  const reply = typeof rawReply === 'string' && rawReply.trim() !== ''
+  let reply = typeof rawReply === 'string' && rawReply.trim() !== ''
     ? rawReply
     : EMPTY_REPLY_FALLBACK;
   if (reply === EMPTY_REPLY_FALLBACK) {
@@ -128,6 +152,22 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
       conversationId: body.conversationId,
       rawReplyType: typeof rawReply
     });
+  } else {
+    const violations: string[] = [];
+    if (shouldRequireDisclaimer(body.messages) && !reply.includes(LEGAL_DISCLAIMER)) {
+      violations.push('missing_disclaimer');
+    }
+    if (countQuestions(reply) > 1) {
+      violations.push('too_many_questions');
+    }
+    if (violations.length > 0) {
+      Logger.warn('AI response violated prompt contract', {
+        conversationId: body.conversationId,
+        rawReplyType: typeof rawReply,
+        violations
+      });
+      reply = EMPTY_REPLY_FALLBACK;
+    }
   }
 
   await auditService.createEvent({

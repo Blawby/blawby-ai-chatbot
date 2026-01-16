@@ -78,6 +78,11 @@ interface MessageActionsProps {
 		onAskQuestion: () => void;
 		onRequestConsultation: () => void;
 	};
+	assistantRetry?: {
+		label?: string;
+		status?: 'error' | 'retrying';
+		onRetry?: () => void;
+	};
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	className?: string;
 }
@@ -92,6 +97,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	onOpenPayment,
 	onContactFormSubmit,
 	modeSelector,
+	assistantRetry,
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
@@ -99,6 +105,18 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 
 	return (
 		<div className={className}>
+			{assistantRetry?.onRetry && (
+				<div className="mt-3">
+					<Button
+						variant="secondary"
+						size="sm"
+						onClick={assistantRetry.onRetry}
+						disabled={assistantRetry.status === 'retrying'}
+					>
+						{assistantRetry.status === 'retrying' ? 'Retrying...' : (assistantRetry.label ?? 'Retry')}
+					</Button>
+				</div>
+			)}
 			{modeSelector && (
 				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
 					<Button variant="secondary" size="sm" onClick={modeSelector.onAskQuestion}>

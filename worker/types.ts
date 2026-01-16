@@ -514,6 +514,11 @@ export interface UIMessageExtras {
   isLoading?: boolean;
   /** Custom message to show during tool calls */
   toolMessage?: string;
+  assistantRetry?: {
+    label?: string;
+    status?: 'error' | 'retrying';
+    onRetry?: () => void;
+  };
 }
 
 // UI-specific ChatMessage interface that extends the base ChatMessage

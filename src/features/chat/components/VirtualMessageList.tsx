@@ -194,6 +194,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             toolMessage={message.toolMessage}
                             id={message.id}
                             practiceId={practiceId}
+                            assistantRetry={message.assistantRetry}
                             modeSelector={message.metadata?.modeSelector && modeSelectorActions
                                 ? {
                                     onAskQuestion: modeSelectorActions.onAskQuestion,

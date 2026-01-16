@@ -232,6 +232,7 @@ export function MainApp({
   const { showError } = useToastContext();
   const showErrorRef = useRef(showError);
   const onboardingCheckRef = useRef(false);
+  const isSelectingRef = useRef(false);
   useEffect(() => {
     showErrorRef.current = showError;
   }, [showError]);
@@ -334,15 +335,20 @@ export function MainApp({
     nextMode: ConversationMode,
     source: 'intro_gate' | 'composer_footer'
   ) => {
-    let activeConversationId = conversationId;
-    if (!activeConversationId && !isCreatingConversation) {
-      activeConversationId = await createConversation();
-    }
-    if (!activeConversationId || !practiceId) {
-      return;
-    }
-
     try {
+      if (isSelectingRef.current) {
+        return;
+      }
+      isSelectingRef.current = true;
+
+      let activeConversationId = conversationId;
+      if (!activeConversationId && !isCreatingConversation) {
+        activeConversationId = await createConversation();
+      }
+      if (!activeConversationId || !practiceId) {
+        return;
+      }
+
       setConversationMode(nextMode);
       await updateConversationMetadata({
         mode: nextMode
@@ -355,6 +361,8 @@ export function MainApp({
     } catch (error) {
       setConversationMode(null);
       console.warn('[MainApp] Failed to persist conversation mode selection', error);
+    } finally {
+      isSelectingRef.current = false;
     }
   }, [
     conversationId,
