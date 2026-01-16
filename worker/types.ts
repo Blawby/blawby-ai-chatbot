@@ -150,6 +150,7 @@ export interface Env {
   CF_AIG_TOKEN?: string;
   OPENAI_TOKEN?: string;
   AI_PROVIDER?: string;
+  AI_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
 
@@ -513,6 +514,11 @@ export interface UIMessageExtras {
   isLoading?: boolean;
   /** Custom message to show during tool calls */
   toolMessage?: string;
+  assistantRetry?: {
+    label?: string;
+    status?: 'error' | 'retrying';
+    onRetry?: () => void;
+  };
 }
 
 // UI-specific ChatMessage interface that extends the base ChatMessage

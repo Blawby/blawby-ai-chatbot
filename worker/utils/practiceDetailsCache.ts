@@ -1,0 +1,63 @@
+import type { Env } from '../types.js';
+
+const CACHE_TTL_SECONDS = 600;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const extractDetailsContainer = (payload: unknown): Record<string, unknown> | null => {
+  if (!isRecord(payload)) return null;
+  if ('details' in payload && isRecord(payload.details)) {
+    return payload.details as Record<string, unknown>;
+  }
+  if ('data' in payload && isRecord(payload.data) && isRecord(payload.data.details)) {
+    return payload.data.details as Record<string, unknown>;
+  }
+  return payload;
+};
+
+export const fetchPracticeDetailsWithCache = async (
+  env: Env,
+  request: Request,
+  slug: string
+): Promise<{
+  details: Record<string, unknown> | null;
+  isPublic: boolean;
+}> => {
+  const cacheKey = `practice_details:${slug}`;
+  if (env.CHAT_SESSIONS) {
+    const cached = await env.CHAT_SESSIONS.get(cacheKey, 'json') as { payload?: unknown } | null;
+    if (cached?.payload) {
+      const details = extractDetailsContainer(cached.payload);
+      const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+      return { details, isPublic };
+    }
+  }
+
+  const baseUrl = new URL(request.url);
+  baseUrl.pathname = `/api/practice/details/${encodeURIComponent(slug)}`;
+  baseUrl.search = '';
+
+  const response = await fetch(baseUrl.toString(), {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    return { details: null, isPublic: false };
+  }
+
+  const payload = await response.json().catch(() => null);
+  const details = extractDetailsContainer(payload);
+  const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+
+  if (env.CHAT_SESSIONS && payload) {
+    await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
+      expirationTtl: CACHE_TTL_SECONDS
+    });
+  }
+
+  return { details, isPublic };
+};

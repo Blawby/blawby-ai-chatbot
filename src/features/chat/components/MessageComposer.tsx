@@ -10,6 +10,7 @@ import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useTranslation } from '@/shared/i18n/hooks';
+import type { ConversationMode } from '@/shared/types/conversation';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -31,6 +32,9 @@ interface MessageComposerProps {
   intakeStatus?: {
     step: string;
   };
+  disabled?: boolean;
+  conversationMode?: ConversationMode | null;
+  onRequestConsultation?: () => void;
 }
 
 const MessageComposer = ({
@@ -51,6 +55,9 @@ const MessageComposer = ({
   isReadyToUpload,
   isSessionReady,
   intakeStatus,
+  disabled,
+  conversationMode,
+  onRequestConsultation
 }: MessageComposerProps) => {
   const { t } = useTranslation('auth');
   const intakeStep = intakeStatus?.step;
@@ -58,6 +65,7 @@ const MessageComposer = ({
     intakeStep === 'pending_review' ||
     intakeStep === 'accepted' ||
     intakeStep === 'rejected';
+  const isComposerDisabled = Boolean(disabled) || isSessionReady === false || isIntakeLocked;
 
   const handleInput = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
     const t = e.currentTarget;
@@ -68,7 +76,7 @@ const MessageComposer = ({
 
   const handleSubmit = () => {
     if (!inputValue.trim() && previewFiles.length === 0) return;
-    if (isSessionReady === false) return;
+    if (isComposerDisabled) return;
     onSubmit();
     const el = textareaRef.current;
     if (el) { el.style.height = ''; }
@@ -100,8 +108,7 @@ const MessageComposer = ({
   // Block when session is not ready or intake is awaiting review/decision
   const sendDisabled = (
     (!inputValue.trim() && previewFiles.length === 0) ||
-    isSessionReady === false ||
-    isIntakeLocked
+    isComposerDisabled
   );
 
   return (
@@ -144,8 +151,21 @@ const MessageComposer = ({
               <FileMenu
                 onFileSelect={handleFileSelect}
                 onCameraCapture={handleCameraCapture}
-                isReadyToUpload={isSessionReady === false || isIntakeLocked ? false : isReadyToUpload}
+                isReadyToUpload={isComposerDisabled ? false : isReadyToUpload}
               />
+            </div>
+          )}
+          {conversationMode === 'ASK_QUESTION' && onRequestConsultation && (
+            <div className="flex-shrink-0">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={onRequestConsultation}
+                disabled={isComposerDisabled}
+              >
+                {t('chat.requestConsultation')}
+              </Button>
             </div>
           )}
           
@@ -160,7 +180,7 @@ const MessageComposer = ({
               onInput={handleInput}
               onKeyDown={onKeyDown}
               aria-label="Message input"
-              disabled={isSessionReady === false || isIntakeLocked}
+              disabled={isComposerDisabled}
             />
           </div>
 

@@ -10,6 +10,14 @@ export type ConversationStatus = 'active' | 'archived' | 'completed' | 'closed';
  */
 export type MessageRole = 'user' | 'assistant' | 'system';
 
+export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION';
+
+export interface FirstMessageIntent {
+  intent: ConversationMode | 'UNCLEAR';
+  confidence: number;
+  reason: string;
+}
+
 /**
  * Conversation participant info
  */
@@ -25,6 +33,8 @@ export interface ConversationParticipant {
  */
 export interface ConversationMetadata {
   title?: string;
+  mode?: ConversationMode;
+  first_message_intent?: FirstMessageIntent;
   [key: string]: unknown;
 }
 

@@ -24,6 +24,10 @@ interface VirtualMessageListProps {
     intakeStatus?: {
         step: string;
     };
+    modeSelectorActions?: {
+        onAskQuestion: () => void;
+        onRequestConsultation: () => void;
+    };
 }
 
 const BATCH_SIZE = 20;
@@ -37,7 +41,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onContactFormSubmit,
     onOpenPayment,
     practiceId,
-    intakeStatus: _intakeStatus
+    intakeStatus: _intakeStatus,
+    modeSelectorActions
 }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
@@ -189,6 +194,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             toolMessage={message.toolMessage}
                             id={message.id}
                             practiceId={practiceId}
+                            assistantRetry={message.assistantRetry}
+                            modeSelector={message.metadata?.modeSelector && modeSelectorActions
+                                ? {
+                                    onAskQuestion: modeSelectorActions.onAskQuestion,
+                                    onRequestConsultation: modeSelectorActions.onRequestConsultation
+                                }
+                                : undefined}
                         />
                     );
                 })}

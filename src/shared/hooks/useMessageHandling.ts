@@ -6,7 +6,8 @@ import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getChatMessagesEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl } from '@/shared/utils/intakePayments';
-import type { ConversationMessage } from '@/shared/types/conversation';
+import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
+import { updateConversationMetadata as patchConversationMetadata } from '@/shared/lib/conversationApi';
 
 // Global interface for window API base override and debug properties
 declare global {
@@ -22,6 +23,8 @@ interface UseMessageHandlingOptions {
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string; // Required for user-to-user chat
+  mode?: ConversationMode | null;
+  onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   onError?: (error: string) => void;
 }
 
@@ -41,12 +44,25 @@ export const useMessageHandlingWithContext = ({ conversationId, onError }: Omit<
  * Note: For user-to-user chat, conversationId is required.
  * This hook will fetch messages on mount if conversationId is provided.
  */
-export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, onError }: UseMessageHandlingOptions) => {
+export const useMessageHandling = ({
+  practiceId,
+  practiceSlug,
+  conversationId,
+  mode,
+  onConversationMetadataUpdated,
+  onError
+}: UseMessageHandlingOptions) => {
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
+  const consultFlowAbortRef = useRef<globalThis.AbortController | null>(null);
+  const intentAbortRef = useRef<globalThis.AbortController | null>(null);
+  const metadataUpdateQueueRef = useRef<Promise<Conversation | null>>(Promise.resolve(null));
   const isDisposedRef = useRef(false);
   const lastConversationIdRef = useRef<string | undefined>();
   const conversationIdRef = useRef<string | undefined>();
+  const conversationMetadataRef = useRef<ConversationMetadata | null>(null);
+  const hasLoggedIntentRef = useRef(false);
+  const [isConsultFlowActive, setIsConsultFlowActive] = useState(false);
   
   // Debug hooks for test environment (development only)
   useEffect(() => {
@@ -63,6 +79,62 @@ export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, o
       console.log(message, data);
     }
   }, []);
+
+  const applyConversationMetadata = useCallback((metadata: ConversationMetadata | null) => {
+    conversationMetadataRef.current = metadata;
+    hasLoggedIntentRef.current = Boolean(metadata?.first_message_intent);
+    onConversationMetadataUpdated?.(metadata);
+  }, [onConversationMetadataUpdated]);
+
+  const updateConversationMetadata = useCallback(async (
+    patch: ConversationMetadata,
+    targetConversationId?: string
+  ) => {
+    const activeConversationId = targetConversationId ?? conversationId;
+    if (!activeConversationId || !practiceId) {
+      return null;
+    }
+    const runUpdate = async () => {
+      const current = conversationMetadataRef.current ?? {};
+      const nextMetadata = { ...current, ...patch };
+      applyConversationMetadata(nextMetadata);
+      const updated = await patchConversationMetadata(activeConversationId, practiceId, nextMetadata);
+      applyConversationMetadata(updated?.user_info ?? nextMetadata);
+      return updated;
+    };
+
+    const queued = metadataUpdateQueueRef.current.then(runUpdate, runUpdate);
+    metadataUpdateQueueRef.current = queued.catch(() => null);
+    return queued;
+  }, [applyConversationMetadata, conversationId, practiceId]);
+
+  const fetchConversationMetadata = useCallback(async (
+    signal?: AbortSignal,
+    targetConversationId?: string
+  ) => {
+    const activeConversationId = targetConversationId ?? conversationId;
+    if (!activeConversationId || !practiceId) return;
+    const token = await getTokenAsync();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(
+      `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
+      {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+        signal
+      }
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+    const data = await response.json() as { success: boolean; data?: { user_info?: ConversationMetadata | null } };
+    if (signal?.aborted || isDisposedRef.current) return;
+    if (activeConversationId !== conversationIdRef.current) return;
+    applyConversationMetadata(data.data?.user_info ?? null);
+  }, [applyConversationMetadata, conversationId, practiceId]);
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
@@ -91,28 +163,62 @@ export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, o
     }
   }, []);
 
+  const persistChatMessage = useCallback(async (
+    content: string,
+    attachments: FileAttachment[],
+    role: 'user' | 'assistant' | 'system'
+  ): Promise<ConversationMessage> => {
+    const effectivePracticeId = (practiceId ?? '').trim();
+
+    if (!effectivePracticeId) {
+      throw new Error('Practice ID is required. Please wait a moment and try again.');
+    }
+
+    if (!conversationId) {
+      throw new Error('Conversation ID is required for sending messages.');
+    }
+
+    const token = await getTokenAsync();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
+
+    const response = await fetch(`${getChatMessagesEndpoint()}?practiceId=${encodeURIComponent(effectivePracticeId)}`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({
+        conversationId,
+        content,
+        role,
+        attachments: attachmentIds.length > 0 ? attachmentIds : undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json() as { success: boolean; error?: string; data?: ConversationMessage };
+    if (!data.success || !data.data) {
+      throw new Error(data.error || 'Failed to send message');
+    }
+
+    return data.data;
+  }, [practiceId, conversationId]);
+
   // Main message sending function
   const sendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
     // Debug hook for test environment (development only)
     if (import.meta.env.MODE !== 'production' && typeof window !== 'undefined' && window.__DEBUG_SEND_MESSAGE__) {
       window.__DEBUG_SEND_MESSAGE__(message, attachments);
     }
-    
-    const effectivePracticeId = (practiceId ?? '').trim();
 
-    if (!effectivePracticeId) {
-      const errorMessage = 'Practice ID is required. Please wait a moment and try again.';
-      console.warn(errorMessage);
-      onError?.(errorMessage);
-      return;
-    }
-
-    if (!conversationId) {
-      const errorMessage = 'Conversation ID is required for sending messages.';
-      console.warn(errorMessage);
-      onError?.(errorMessage);
-      return;
-    }
+    const shouldUseAi = mode === 'ASK_QUESTION';
+    const hasUserMessages = messages.some((msg) => msg.isUser);
+    const trimmedMessage = message.trim();
 
     // Optimistic update: create user message immediately
     const tempMessage: ChatMessageUI = {
@@ -123,77 +229,197 @@ export const useMessageHandling = ({ practiceId, practiceSlug, conversationId, o
       timestamp: Date.now(),
       files: attachments
     };
-    
+
     setMessages(prev => [...prev, tempMessage]);
-    
+
+    let tempAssistantId: string | null = null;
     try {
-      const token = await getTokenAsync();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      const serverMessage = await persistChatMessage(message, attachments, 'user');
+      const uiMessage = toUIMessage(serverMessage);
+      logDev('[sendMessage] Converting server message to UI message', {
+        serverRole: serverMessage.role,
+        uiMessageRole: uiMessage.role,
+        uiMessageIsUser: uiMessage.isUser,
+        messageId: uiMessage.id
+      });
+      setMessages(prev => prev.map(m => m.id === tempMessage.id ? uiMessage : m));
 
-      // Convert file attachments to file IDs (assuming attachments have id or need to be uploaded first)
-      const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
+      if (!shouldUseAi || trimmedMessage.length === 0) {
+        return;
+      }
 
-      const response = await fetch(`${getChatMessagesEndpoint()}?practiceId=${encodeURIComponent(effectivePracticeId)}`, {
+      const resolvedPracticeSlug = (practiceSlug ?? practiceId ?? '').trim();
+      if (!resolvedPracticeSlug) {
+        throw new Error('Practice slug is required for AI responses');
+      }
+
+      if (!hasLoggedIntentRef.current && !hasUserMessages) {
+        intentAbortRef.current?.abort();
+        const intentController = new AbortController();
+        intentAbortRef.current = intentController;
+        const intentConversationId = conversationId;
+        const intentPracticeSlug = resolvedPracticeSlug;
+        let intentResponse: Response | null = null;
+        try {
+          intentResponse = await fetch('/api/ai/intent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            signal: intentController.signal,
+            body: JSON.stringify({
+              conversationId,
+              practiceSlug: resolvedPracticeSlug,
+              message: trimmedMessage
+            })
+          });
+        } catch (intentError) {
+          if (intentError instanceof Error && intentError.name === 'AbortError') {
+            intentResponse = null;
+          } else {
+            throw intentError;
+          }
+        }
+
+        if (intentResponse?.ok) {
+          const intentData = await intentResponse.json() as FirstMessageIntent;
+          if (intentController.signal.aborted) {
+            return;
+          }
+          if (conversationIdRef.current !== intentConversationId || resolvedPracticeSlug !== intentPracticeSlug) {
+            return;
+          }
+          if (hasLoggedIntentRef.current) {
+            return;
+          }
+          hasLoggedIntentRef.current = true;
+          try {
+            await updateConversationMetadata({
+              first_message_intent: intentData
+            }, intentConversationId);
+          } catch (intentError) {
+            console.warn('[useMessageHandling] Failed to persist intent classification', intentError);
+          }
+        } else if (intentResponse) {
+          console.warn('[useMessageHandling] Intent classification request failed', {
+            status: intentResponse.status
+          });
+        }
+      }
+
+      const aiMessages = [
+        ...messages
+          .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
+          .map((msg) => ({
+            role: msg.role,
+            content: msg.content
+          })),
+        { role: 'user' as const, content: trimmedMessage }
+      ];
+
+      const aiResponse = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json'
+        },
         credentials: 'include',
         body: JSON.stringify({
           conversationId,
-          content: message,
-          attachments: attachmentIds.length > 0 ? attachmentIds : undefined,
-        }),
+          practiceSlug: resolvedPracticeSlug,
+          messages: aiMessages
+        })
       });
 
-      if (!response.ok) {
-        // Remove optimistic message on error
-        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+      if (!aiResponse.ok) {
+        const errorData = await aiResponse.json().catch(() => ({})) as { error?: string };
+        throw new Error(errorData.error || `HTTP ${aiResponse.status}`);
       }
 
-      const data = await response.json() as { success: boolean; error?: string; data?: ConversationMessage };
-      if (!data.success || !data.data) {
-        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-        throw new Error(data.error || 'Failed to send message');
+      const aiData = await aiResponse.json() as { reply?: string };
+      const reply = (aiData.reply ?? '').trim();
+      if (!reply) {
+        return;
       }
 
-      // Replace temp message with real message from server
-      if (!isDisposedRef.current) {
-        const serverMessage = data.data;
-        const uiMessage = toUIMessage(serverMessage);
-        logDev('[sendMessage] Converting server message to UI message', {
-          serverRole: serverMessage.role,
-          uiMessageRole: uiMessage.role,
-          uiMessageIsUser: uiMessage.isUser,
-          messageId: uiMessage.id
-        });
-        setMessages(prev => prev.map(m => m.id === tempMessage.id ? uiMessage : m));
+      const tempAssistant: ChatMessageUI = {
+        id: `temp-ai-${Date.now()}`,
+        content: reply,
+        isUser: false,
+        role: 'assistant',
+        timestamp: Date.now()
+      };
+      tempAssistantId = tempAssistant.id;
+      setMessages(prev => [...prev, tempAssistant]);
+
+      const persistAssistant = async () => {
+        const storedAssistant = await persistChatMessage(reply, [], 'assistant');
+        const assistantUi = toUIMessage(storedAssistant);
+        setMessages(prev => prev.map(m => m.id === tempAssistant.id ? assistantUi : m));
+      };
+
+      const updateAssistantRetryState = (status: 'error' | 'retrying') => {
+        setMessages(prev => prev.map(m => m.id === tempAssistant.id ? {
+          ...m,
+          content: 'Failed to save AI response.',
+          assistantRetry: {
+            label: 'Retry',
+            status,
+            onRetry: async () => {
+              updateAssistantRetryState('retrying');
+              try {
+                await persistAssistant();
+              } catch (retryError) {
+                console.error('[useMessageHandling] Retry failed to persist assistant message', retryError);
+                updateAssistantRetryState('error');
+                onError?.('Failed to save AI response. Please try again.');
+              }
+            }
+          }
+        } as ChatMessageUI : m));
+      };
+
+      try {
+        await persistAssistant();
+      } catch (persistError) {
+        console.error('[useMessageHandling] Failed to persist assistant message', persistError);
+        updateAssistantRetryState('error');
+        onError?.('Failed to save AI response. Please try again.');
+        return;
       }
     } catch (error) {
-      // Check if this is an AbortError (user cancelled request)
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('Request was cancelled by user');
         setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-        return; // Don't show error message for user-initiated cancellation
+        return;
       }
-      
-      // Remove optimistic message on error
-      setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-      
+
+      setMessages(prev => prev.filter(m => m.id !== tempMessage.id && (!tempAssistantId || m.id !== tempAssistantId)));
+
       console.error('Error sending message:', {
         error,
         errorType: typeof error,
         errorMessage: error instanceof Error ? error.message : String(error),
       });
-      
+
       const errorMessage = error instanceof Error && error.message
         ? error.message
         : "Failed to send message. Please try again.";
-      
+
       onError?.(errorMessage);
     }
-  }, [practiceId, conversationId, toUIMessage, onError, logDev]);
+  }, [
+    messages,
+    mode,
+    practiceId,
+    practiceSlug,
+    conversationId,
+    toUIMessage,
+    onError,
+    logDev,
+    persistChatMessage,
+    updateConversationMetadata
+  ]);
 
   const confirmIntakeLead = useCallback(async (intakeUuid: string) => {
     if (!intakeUuid || !conversationId) return;
@@ -427,19 +653,22 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   }, []);
 
   // Fetch messages from conversation
-  const fetchMessages = useCallback(async (signal?: AbortSignal) => {
-    if (!conversationId || !practiceId) {
+  const fetchMessages = useCallback(async (
+    signal?: AbortSignal,
+    targetConversationId?: string
+  ) => {
+    const activeConversationId = targetConversationId ?? conversationId;
+    if (!activeConversationId || !practiceId) {
       return;
     }
 
-    const activeConversationId = conversationId;
     try {
       const token = await getTokenAsync();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
 
       const params = new URLSearchParams({
-        conversationId,
+        conversationId: activeConversationId,
         practiceId,
         limit: '50',
       });
@@ -473,6 +702,21 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     }
   }, [conversationId, practiceId, toUIMessage, onError]);
 
+  const startConsultFlow = useCallback((targetConversationId?: string) => {
+    if (!targetConversationId || !practiceId) {
+      return;
+    }
+    consultFlowAbortRef.current?.abort();
+    const controller = new AbortController();
+    consultFlowAbortRef.current = controller;
+    conversationIdRef.current = targetConversationId;
+    setIsConsultFlowActive(true);
+    fetchMessages(controller.signal, targetConversationId);
+    fetchConversationMetadata(controller.signal, targetConversationId).catch((error) => {
+      console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
+    });
+  }, [fetchConversationMetadata, fetchMessages, practiceId]);
+
   // Fetch messages on mount if conversationId is provided
   useEffect(() => {
     conversationIdRef.current = conversationId;
@@ -481,8 +725,15 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const controller = new AbortController();
       abortControllerRef.current = controller;
       fetchMessages(controller.signal);
+      fetchConversationMetadata(controller.signal).catch((error) => {
+        console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
+      });
     }
-  }, [conversationId, practiceId, fetchMessages]);
+  }, [conversationId, practiceId, fetchMessages, fetchConversationMetadata]);
+
+  useEffect(() => {
+    intentAbortRef.current?.abort();
+  }, [conversationId, practiceId]);
 
   // Clear UI state when switching to a different conversation to avoid showing stale messages
   useEffect(() => {
@@ -492,10 +743,12 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       lastConversationIdRef.current !== conversationId
     ) {
       setMessages([]);
+      setIsConsultFlowActive(false);
+      applyConversationMetadata(null);
     }
 
     lastConversationIdRef.current = conversationId;
-  }, [conversationId]);
+  }, [conversationId, applyConversationMetadata]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -503,6 +756,12 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       isDisposedRef.current = true;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+      }
+      if (intentAbortRef.current) {
+        intentAbortRef.current.abort();
+      }
+      if (consultFlowAbortRef.current) {
+        consultFlowAbortRef.current.abort();
       }
     };
   }, []);
@@ -528,21 +787,15 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   })?.metadata?.intakeDecision as 'accepted' | 'rejected' | undefined;
 
   const intakeStep = useCallback(() => {
-    // Authenticated users skip intake flow
     if (!isAnonymous) return 'completed';
 
     if (intakeDecision === 'accepted') return 'accepted';
     if (intakeDecision === 'rejected') return 'rejected';
-    
-    // Allow first message to be sent without blocking
-    // After first message, show contact form (which includes case details field)
-    if (userMessages.length === 0) return 'ready'; // 'ready' means they can chat freely
-    // After first message, show contact form (we collect case details in the form itself)
-    if (userMessages.length >= 1 && !hasSubmittedContactForm) return 'contact_form';
-    // Once contact form is submitted, wait for practice review
+
+    if (!isConsultFlowActive) return 'ready';
     if (hasSubmittedContactForm) return 'pending_review';
-    return 'completed';
-  }, [isAnonymous, intakeDecision, userMessages.length, hasSubmittedContactForm]);
+    return 'contact_form';
+  }, [isAnonymous, intakeDecision, hasSubmittedContactForm, isConsultFlowActive]);
 
   const currentStep = intakeStep();
   
@@ -621,6 +874,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const hasWelcome = prev.some(m => m.id === 'system-welcome');
       const hasContactForm = prev.some(m => m.id === 'system-contact-form');
       const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
+      const hasModeSelector = prev.some(m => m.id === 'system-mode-selector');
 
       const newMessages = [...prev];
       let changed = false;
@@ -691,7 +945,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       };
 
       // Welcome message on new intake threads
-      if (!hasWelcome && newMessages.length === 0) {
+      if (!hasModeSelector && !hasWelcome && newMessages.length === 0) {
         addMsg(
           'system-welcome',
           "Hi! I'm Blawby AI. Share a quick summary of your case and I'll guide you to the right next step."
@@ -700,7 +954,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
       // Contact form (present the form conversationally after first message)
       // We collect case details in the form itself, so no need for separate "issue" step
-      if (currentStep === 'contact_form' || currentStep === 'pending_review') {
+      if (isConsultFlowActive && (currentStep === 'contact_form' || currentStep === 'pending_review')) {
         if (!hasContactForm) {
           // Present the contact form with a conversational message
           addMsg('system-contact-form', 'Could you share your contact details? It will help us find the best lawyer for your case.', {
@@ -714,7 +968,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       }
 
       // Submission confirmation (after contact form submitted - conversational)
-      if (currentStep === 'pending_review') {
+      if (isConsultFlowActive && currentStep === 'pending_review') {
         if (!hasSubmissionConfirm) {
           addMsg('system-submission-confirm', "Thanks! I've sent your intake to the practice. A legal professional will review it and reply here. You'll receive in-app updates as soon as there's a decision.");
         }
@@ -727,19 +981,22 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       
       return prev;
     });
-  }, [currentStep, isAnonymous, confirmIntakeLead]);
+  }, [currentStep, isAnonymous, isConsultFlowActive, confirmIntakeLead]);
 
   // The intake flow is now conversational and non-blocking
   return {
     messages,
     sendMessage,
     handleContactFormSubmit,
+    startConsultFlow,
     addMessage,
     updateMessage,
     clearMessages,
+    updateConversationMetadata,
+    isConsultFlowActive,
     intakeStatus: {
       step: currentStep,
       decision: intakeDecision
     }
   };
-}; 
+};

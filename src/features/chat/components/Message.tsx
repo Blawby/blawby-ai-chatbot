@@ -83,6 +83,15 @@ interface MessageProps {
 		matterType: string;
 		storageKey?: string;
 	};
+	modeSelector?: {
+		onAskQuestion: () => void;
+		onRequestConsultation: () => void;
+	};
+	assistantRetry?: {
+		label?: string;
+		status?: 'error' | 'retrying';
+		onRetry?: () => void;
+	};
 	practiceConfig?: {
 		name: string;
 		profileImage: string | null;
@@ -116,6 +125,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onOpenSidebar: _onOpenSidebar,
 	onContactFormSubmit,
 	onOpenPayment,
+	modeSelector,
+	assistantRetry,
 	isLoading,
 	toolMessage,
 	id: _id,
@@ -188,6 +199,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					paymentRequest={paymentRequest}
 					onOpenPayment={onOpenPayment}
 					onContactFormSubmit={onContactFormSubmit}
+					modeSelector={modeSelector}
+					assistantRetry={assistantRetry}
 				/>
 				
 				{/* Attachments */}

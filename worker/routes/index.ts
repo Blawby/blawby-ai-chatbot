@@ -7,6 +7,8 @@ export { handleActivity } from './activity';
 // Auth is now handled by remote server - removed handleAuth
 export { handleConfig } from './config';
 export { handlePracticeDetails } from './practiceDetails';
+export { handleAiChat } from './aiChat';
+export { handleAiIntent } from './aiIntent';
 
 export { handleFiles } from './files';
 export { handleAnalyze } from './analyze';

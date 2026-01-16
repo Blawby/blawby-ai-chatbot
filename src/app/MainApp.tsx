@@ -13,7 +13,7 @@ import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
-import type { ChatMessageUI, FileAttachment } from '../../worker/types';
+import type { FileAttachment } from '../../worker/types';
 import { getConversationsEndpoint } from '@/config/api';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -30,6 +30,8 @@ import { ConversationSidebar } from '@/features/chats/components/ConversationSid
 import { NotificationCenterPage } from '@/features/notifications/pages/NotificationCenterPage';
 import { ensureNotificationsLoaded } from '@/features/notifications/hooks/useNotifications';
 import type { NotificationCategory } from '@/features/notifications/types';
+import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
+import { logConversationEvent } from '@/shared/lib/conversationApi';
 import { LeadsPage } from '@/features/leads/pages/LeadsPage';
 import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 
@@ -68,9 +70,11 @@ export function MainApp({
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
 
   useEffect(() => {
     setConversationId(null);
+    setConversationMode(null);
   }, [practiceId]);
 
   useEffect(() => {
@@ -171,6 +175,7 @@ export function MainApp({
     if (!conversationIdFromPath) return;
     if (conversationIdFromPath === conversationId) return;
     setConversationId(conversationIdFromPath);
+    setConversationMode(null);
   }, [conversationId, conversationIdFromPath]);
 
   useEffect(() => {
@@ -227,6 +232,7 @@ export function MainApp({
   const { showError } = useToastContext();
   const showErrorRef = useRef(showError);
   const onboardingCheckRef = useRef(false);
+  const isSelectingRef = useRef(false);
   useEffect(() => {
     showErrorRef.current = showError;
   }, [showError]);
@@ -248,16 +254,25 @@ export function MainApp({
     showErrorRef.current?.(typeof error === 'string' ? error : 'We hit a snag sending that message.');
   }, []);
 
+  const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
+    setConversationMode(metadata?.mode ?? null);
+  }, []);
+
   const realMessageHandling = useMessageHandling({
     practiceId: effectivePracticeId,
     practiceSlug: practiceConfig.slug ?? undefined,
     conversationId: conversationId ?? undefined,
+    mode: conversationMode,
+    onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError
   });
 
   const messages = realMessageHandling.messages;
   const addMessage = realMessageHandling.addMessage;
   const intakeStatus = realMessageHandling.intakeStatus;
+  const startConsultFlow = realMessageHandling.startConsultFlow;
+  const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
+  const isConsultFlowActive = realMessageHandling.isConsultFlowActive;
 
   useEffect(() => {
     realMessageHandling.clearMessages();
@@ -315,6 +330,48 @@ export function MainApp({
       setIsCreatingConversation(false);
     }
   }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation]);
+
+  const handleModeSelection = useCallback(async (
+    nextMode: ConversationMode,
+    source: 'intro_gate' | 'composer_footer'
+  ) => {
+    try {
+      if (isSelectingRef.current) {
+        return;
+      }
+      isSelectingRef.current = true;
+
+      let activeConversationId = conversationId;
+      if (!activeConversationId && !isCreatingConversation) {
+        activeConversationId = await createConversation();
+      }
+      if (!activeConversationId || !practiceId) {
+        return;
+      }
+
+      setConversationMode(nextMode);
+      await updateConversationMetadata({
+        mode: nextMode
+      }, activeConversationId);
+      await logConversationEvent(activeConversationId, practiceId, 'mode_selected', { mode: nextMode });
+      if (nextMode === 'REQUEST_CONSULTATION') {
+        startConsultFlow(activeConversationId);
+        await logConversationEvent(activeConversationId, practiceId, 'consult_flow_started', { source });
+      }
+    } catch (error) {
+      setConversationMode(null);
+      console.warn('[MainApp] Failed to persist conversation mode selection', error);
+    } finally {
+      isSelectingRef.current = false;
+    }
+  }, [
+    conversationId,
+    createConversation,
+    isCreatingConversation,
+    practiceId,
+    startConsultFlow,
+    updateConversationMetadata
+  ]);
 
   const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
     if (!conversationId) {
@@ -462,7 +519,9 @@ export function MainApp({
 
   // User tier is now derived directly from practice - no need for custom event listeners
 
+  const shouldRequireModeSelection = workspace === 'public';
   const isSessionReady = Boolean(conversationId && !isCreatingConversation);
+  const isComposerDisabled = (shouldRequireModeSelection && !conversationMode) || isConsultFlowActive;
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(conversationId));
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
 
@@ -483,23 +542,48 @@ export function MainApp({
 
   // Add intro message when practice config is loaded and no messages exist
   useEffect(() => {
-    if (practiceConfig && practiceConfig.introMessage && addMessage) {
-      // Check if intro message already exists to prevent duplicates
-      const introMessageId = 'system-intro';
-      const hasIntroMessage = messages.some(m => m.id === introMessageId);
+    if (!practiceConfig || !practiceConfig.introMessage || !addMessage) {
+      return;
+    }
+    const introMessageId = 'system-intro';
+    const modeSelectorMessageId = 'system-mode-selector';
+    const hasIntroMessage = messages.some(m => m.id === introMessageId);
+    const hasModeSelectorMessage = messages.some(m => m.id === modeSelectorMessageId);
+    const shouldShowModeSelector = shouldRequireModeSelection;
 
-      if (!hasIntroMessage && messages.length === 0) {
-        const introMessage: ChatMessageUI = {
-          id: introMessageId, // Use stable ID to prevent duplicates
-          content: practiceConfig.introMessage,
+    if (!hasIntroMessage && messages.length === 0) {
+      const now = Date.now();
+      addMessage({
+        id: introMessageId,
+        content: practiceConfig.introMessage,
+        isUser: false,
+        role: 'assistant',
+        timestamp: now
+      });
+      if (shouldShowModeSelector && !hasModeSelectorMessage) {
+        addMessage({
+          id: modeSelectorMessageId,
+          content: 'How would you like to proceed?',
           isUser: false,
           role: 'assistant',
-          timestamp: Date.now()
-        };
-        addMessage(introMessage);
+          timestamp: now + 1,
+          metadata: { modeSelector: true }
+        });
       }
+      return;
     }
-  }, [practiceConfig, messages, addMessage]);
+
+    if (shouldShowModeSelector && hasIntroMessage && !hasModeSelectorMessage) {
+      addMessage({
+        id: modeSelectorMessageId,
+        content: 'How would you like to proceed?',
+        isUser: false,
+        role: 'assistant',
+        timestamp: Date.now(),
+        metadata: { modeSelector: true }
+      });
+    }
+  }, [practiceConfig, messages, addMessage, shouldRequireModeSelection]);
 
   useEffect(() => {
     if (!currentPractice?.id) return;
@@ -638,6 +722,9 @@ export function MainApp({
               onSendMessage={handleSendMessage}
               onContactFormSubmit={handleContactFormSubmit}
               onAddMessage={addMessage}
+              onSelectMode={handleModeSelection}
+              conversationMode={conversationMode}
+              composerDisabled={isComposerDisabled}
               practiceConfig={{
                 name: practiceConfig.name ?? '',
                 profileImage: practiceConfig?.profileImage ?? null,

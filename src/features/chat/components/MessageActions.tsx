@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { useTranslation } from '@/shared/i18n/hooks';
 import { ContactForm, ContactData } from '@/features/intake/components/ContactForm';
 import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
@@ -9,6 +10,7 @@ import MatterCanvas from '@/features/matters/components/MatterCanvas';
 import { DocumentIcon } from "@heroicons/react/24/outline";
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 import { handleContactLawyer } from '@/shared/utils/lawyerContact';
+import { Button } from '@/shared/ui/Button';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -72,6 +74,15 @@ interface MessageActionsProps {
 		matterType: string;
 		storageKey?: string;
 	};
+	modeSelector?: {
+		onAskQuestion: () => void;
+		onRequestConsultation: () => void;
+	};
+	assistantRetry?: {
+		label?: string;
+		status?: 'error' | 'retrying';
+		onRetry?: () => void;
+	};
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	className?: string;
 }
@@ -85,12 +96,37 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	paymentRequest,
 	onOpenPayment,
 	onContactFormSubmit,
+	modeSelector,
+	assistantRetry,
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
+	const { t } = useTranslation('auth');
 
 	return (
 		<div className={className}>
+			{assistantRetry?.onRetry && (
+				<div className="mt-3">
+					<Button
+						variant="secondary"
+						size="sm"
+						onClick={assistantRetry.onRetry}
+						disabled={assistantRetry.status === 'retrying'}
+					>
+						{assistantRetry.status === 'retrying' ? t('chat.retrying') : (assistantRetry.label ?? t('chat.retry'))}
+					</Button>
+				</div>
+			)}
+			{modeSelector && (
+				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
+					<Button variant="secondary" size="sm" onClick={modeSelector.onAskQuestion}>
+						{t('chat.askQuestion')}
+					</Button>
+					<Button variant="secondary" size="sm" onClick={modeSelector.onRequestConsultation}>
+						{t('chat.requestConsultation')}
+					</Button>
+				</div>
+			)}
 			{/* Display matter canvas */}
 			{matterCanvas && (
 				<MatterCanvas

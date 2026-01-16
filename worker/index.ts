@@ -16,6 +16,8 @@ import {
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleChat } from './routes/chat.js';
+import { handleAiChat } from './routes/aiChat.js';
+import { handleAiIntent } from './routes/aiIntent.js';
 import { handleInbox } from './routes/inbox.js';
 import { handleLawyers } from './routes/lawyers.js';
 import { handleStatus } from './routes/status.js';
@@ -103,6 +105,10 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleConversations(request, env);
     } else if (path.startsWith('/api/chat')) {
       response = await handleChat(request, env);
+    } else if (path.startsWith('/api/ai/intent')) {
+      response = await handleAiIntent(request, env);
+    } else if (path.startsWith('/api/ai/chat')) {
+      response = await handleAiChat(request, env);
     } else if (path.startsWith('/api/agent')) {
       // REMOVED: AI agent endpoints - AI functionality removed, will be replaced with user-to-user chat
       response = new Response(JSON.stringify({
