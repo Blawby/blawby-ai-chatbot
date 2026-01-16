@@ -6,9 +6,11 @@ import { optionalAuth } from '../middleware/auth.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
+import { Logger } from '../utils/logger.js';
 
 const DEFAULT_AI_MODEL = 'gpt-4o-mini';
 const LEGAL_DISCLAIMER = 'I’m not a lawyer and can’t provide legal advice, but I can help you request a consultation with this practice.';
+const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try again or click "Request consultation" to connect with the practice.';
 
 export async function handleAiChat(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
@@ -52,6 +54,9 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
 
   const conversationService = new ConversationService(env);
   const conversation = await conversationService.getConversationById(body.conversationId);
+  if (!conversation) {
+    throw HttpErrors.notFound('Conversation not found');
+  }
   if (!conversation.participants.includes(authContext.user.id)) {
     throw HttpErrors.forbidden('User is not a participant in this conversation');
   }
@@ -115,7 +120,15 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
   } | null;
 
   const rawReply = payload?.choices?.[0]?.message?.content;
-  const reply = typeof rawReply === 'string' ? rawReply : '';
+  const reply = typeof rawReply === 'string' && rawReply.trim() !== ''
+    ? rawReply
+    : EMPTY_REPLY_FALLBACK;
+  if (reply === EMPTY_REPLY_FALLBACK) {
+    Logger.warn('AI response missing or empty', {
+      conversationId: body.conversationId,
+      rawReplyType: typeof rawReply
+    });
+  }
 
   await auditService.createEvent({
     conversationId: body.conversationId,

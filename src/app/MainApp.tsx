@@ -334,12 +334,6 @@ export function MainApp({
     nextMode: ConversationMode,
     source: 'intro_gate' | 'composer_footer'
   ) => {
-    setConversationMode(nextMode);
-
-    if (nextMode === 'REQUEST_CONSULTATION') {
-      startConsultFlow();
-    }
-
     let activeConversationId = conversationId;
     if (!activeConversationId && !isCreatingConversation) {
       activeConversationId = await createConversation();
@@ -349,14 +343,17 @@ export function MainApp({
     }
 
     try {
+      setConversationMode(nextMode);
       await updateConversationMetadata({
         mode: nextMode
-      });
+      }, activeConversationId);
       await logConversationEvent(activeConversationId, practiceId, 'mode_selected', { mode: nextMode });
       if (nextMode === 'REQUEST_CONSULTATION') {
+        startConsultFlow(activeConversationId);
         await logConversationEvent(activeConversationId, practiceId, 'consult_flow_started', { source });
       }
     } catch (error) {
+      setConversationMode(null);
       console.warn('[MainApp] Failed to persist conversation mode selection', error);
     }
   }, [

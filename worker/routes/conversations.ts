@@ -292,7 +292,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       payload: body.payload ?? null
     });
 
-    return createJsonResponse({ success: true });
+    return createJsonResponse({ logged: true });
   }
 
   // POST /api/conversations/:id/participants - Add participants to a conversation

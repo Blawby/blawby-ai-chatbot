@@ -83,24 +83,32 @@ export const useMessageHandling = ({
     onConversationMetadataUpdated?.(metadata);
   }, [onConversationMetadataUpdated]);
 
-  const updateConversationMetadata = useCallback(async (patch: ConversationMetadata) => {
-    if (!conversationId || !practiceId) {
+  const updateConversationMetadata = useCallback(async (
+    patch: ConversationMetadata,
+    targetConversationId?: string
+  ) => {
+    const activeConversationId = targetConversationId ?? conversationId;
+    if (!activeConversationId || !practiceId) {
       return null;
     }
     const current = conversationMetadataRef.current ?? {};
     const nextMetadata = { ...current, ...patch };
-    const updated = await patchConversationMetadata(conversationId, practiceId, nextMetadata);
+    const updated = await patchConversationMetadata(activeConversationId, practiceId, nextMetadata);
     applyConversationMetadata(updated?.user_info ?? nextMetadata);
     return updated;
   }, [applyConversationMetadata, conversationId, practiceId]);
 
-  const fetchConversationMetadata = useCallback(async (signal?: AbortSignal) => {
-    if (!conversationId || !practiceId) return;
+  const fetchConversationMetadata = useCallback(async (
+    signal?: AbortSignal,
+    targetConversationId?: string
+  ) => {
+    const activeConversationId = targetConversationId ?? conversationId;
+    if (!activeConversationId || !practiceId) return;
     const token = await getTokenAsync();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers.Authorization = `Bearer ${token}`;
     const response = await fetch(
-      `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
+      `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
       {
         method: 'GET',
         headers,
@@ -212,6 +220,7 @@ export const useMessageHandling = ({
 
     setMessages(prev => [...prev, tempMessage]);
 
+    let tempAssistantId: string | null = null;
     try {
       const serverMessage = await persistChatMessage(message, attachments, 'user');
       const uiMessage = toUIMessage(serverMessage);
@@ -300,6 +309,7 @@ export const useMessageHandling = ({
         role: 'assistant',
         timestamp: Date.now()
       };
+      tempAssistantId = tempAssistant.id;
       setMessages(prev => [...prev, tempAssistant]);
 
       const storedAssistant = await persistChatMessage(reply, [], 'assistant');
@@ -312,7 +322,7 @@ export const useMessageHandling = ({
         return;
       }
 
-      setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+      setMessages(prev => prev.filter(m => m.id !== tempMessage.id && (!tempAssistantId || m.id !== tempAssistantId)));
 
       console.error('Error sending message:', {
         error,
@@ -553,10 +563,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     }
   }, [conversationId, practiceId, practiceSlug, toUIMessage, onError, logDev, messages, confirmIntakeLead]);
 
-  const startConsultFlow = useCallback(() => {
-    setIsConsultFlowActive(true);
-  }, []);
-
   // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {
     setMessages(prev => [...prev, message]);
@@ -575,19 +581,22 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   }, []);
 
   // Fetch messages from conversation
-  const fetchMessages = useCallback(async (signal?: AbortSignal) => {
-    if (!conversationId || !practiceId) {
+  const fetchMessages = useCallback(async (
+    signal?: AbortSignal,
+    targetConversationId?: string
+  ) => {
+    const activeConversationId = targetConversationId ?? conversationId;
+    if (!activeConversationId || !practiceId) {
       return;
     }
 
-    const activeConversationId = conversationId;
     try {
       const token = await getTokenAsync();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
 
       const params = new URLSearchParams({
-        conversationId,
+        conversationId: activeConversationId,
         practiceId,
         limit: '50',
       });
@@ -620,6 +629,18 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       onError?.(errorMessage);
     }
   }, [conversationId, practiceId, toUIMessage, onError]);
+
+  const startConsultFlow = useCallback((targetConversationId?: string) => {
+    setIsConsultFlowActive(true);
+    if (!targetConversationId || !practiceId) {
+      return;
+    }
+    conversationIdRef.current = targetConversationId;
+    fetchMessages(undefined, targetConversationId);
+    fetchConversationMetadata(undefined, targetConversationId).catch((error) => {
+      console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
+    });
+  }, [fetchConversationMetadata, fetchMessages, practiceId]);
 
   // Fetch messages on mount if conversationId is provided
   useEffect(() => {

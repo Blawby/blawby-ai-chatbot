@@ -164,7 +164,7 @@ const MessageComposer = ({
                 onClick={onRequestConsultation}
                 disabled={isComposerDisabled}
               >
-                Request consultation
+                {t('chat.requestConsultation')}
               </Button>
             </div>
           )}

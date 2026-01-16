@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { useTranslation } from '@/shared/i18n/hooks';
 import { ContactForm, ContactData } from '@/features/intake/components/ContactForm';
 import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
@@ -94,16 +95,17 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
+	const { t } = useTranslation('auth');
 
 	return (
 		<div className={className}>
 			{modeSelector && (
 				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
 					<Button variant="secondary" size="sm" onClick={modeSelector.onAskQuestion}>
-						Ask a question
+						{t('chat.askQuestion')}
 					</Button>
 					<Button variant="secondary" size="sm" onClick={modeSelector.onRequestConsultation}>
-						Request consultation
+						{t('chat.requestConsultation')}
 					</Button>
 				</div>
 			)}

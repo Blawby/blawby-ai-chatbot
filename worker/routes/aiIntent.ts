@@ -73,6 +73,9 @@ export async function handleAiIntent(request: Request, env: Env): Promise<Respon
 
   const conversationService = new ConversationService(env);
   const conversation = await conversationService.getConversationById(body.conversationId);
+  if (!conversation) {
+    throw HttpErrors.notFound('Conversation not found');
+  }
   if (!conversation.participants.includes(authContext.user.id)) {
     throw HttpErrors.forbidden('User is not a participant in this conversation');
   }
@@ -111,16 +114,20 @@ export async function handleAiIntent(request: Request, env: Env): Promise<Respon
   }
 
   const auditService = new SessionAuditService(env);
-  await auditService.createEvent({
-    conversationId: body.conversationId,
-    eventType: 'intent_classified',
-    actorType: 'system',
-    payload: {
-      intent: result.intent,
-      confidence: result.confidence,
-      reason: result.reason
-    }
-  });
+  try {
+    await auditService.createEvent({
+      conversationId: body.conversationId,
+      eventType: 'intent_classified',
+      actorType: 'system',
+      payload: {
+        intent: result.intent,
+        confidence: result.confidence,
+        reason: result.reason
+      }
+    });
+  } catch (error) {
+    console.error('Failed to create audit event for intent classification', error);
+  }
 
   return new Response(JSON.stringify(result), {
     status: 200,
