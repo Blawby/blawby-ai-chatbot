@@ -526,7 +526,7 @@ export function MainApp({
       members.find(m => m.userId === session?.user?.id) ||
       null;
   }, [currentPractice, currentUserEmail, members, session?.user?.id]);
-  const canReviewLeads = hasLeadReviewPermission(currentMember?.role);
+  const canReviewLeads = hasLeadReviewPermission(currentMember?.role, currentPractice?.metadata ?? null);
 
 
   // Add intro message when practice config is loaded and no messages exist
