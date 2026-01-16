@@ -11,6 +11,8 @@ import {
   handleConfig,
   handleNotifications,
   handlePracticeDetails,
+  handlePractices,
+  handleWebhooks,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleChat } from './routes/chat.js';
@@ -71,13 +73,10 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 
     console.log('🔍 Route matching for path:', path);
 
-    if (path.startsWith('/api/practices')) {
-      // Practice management is handled by remote API
-      // Only workspace endpoints (for chatbot data) remain local
-      response = new Response(JSON.stringify({ error: 'Practice management endpoints are handled by remote API. Use /api/practices/:id/workspace/* for chatbot data.' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    if (path.startsWith('/api/webhooks')) {
+      response = await handleWebhooks(request, env);
+    } else if (path.startsWith('/api/practices')) {
+      response = await handlePractices(request, env);
     } else if (path.startsWith('/api/activity')) {
       response = await handleActivity(request, env);
     } else if (path.startsWith('/api/files')) {

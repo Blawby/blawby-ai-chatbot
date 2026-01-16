@@ -6,10 +6,10 @@ import {
   PhoneIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { usePracticeManagement, type MatterWorkflowStatus, type Practice } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
-import { CurrencyInput, EmailInput, FileInput, Input, Switch, Textarea } from '@/shared/ui/input';
+import { CurrencyInput, EmailInput, FileInput, Input, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -18,7 +18,6 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { useLocation } from 'preact-iso';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { StackedAvatars } from '@/shared/ui/profile';
 import { PracticeContactFields } from '@/shared/ui/practice/PracticeContactFields';
 import { PracticeProfileTextFields } from '@/shared/ui/practice/PracticeProfileTextFields';
@@ -27,11 +26,12 @@ import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import {
-  useLeadQueueAutoLoad,
   usePracticeMembersSync,
   usePracticeSyncParamRefetch,
   type EditPracticeFormState
 } from '@/features/settings/hooks/usePracticePageEffects';
+import { LeadReviewQueue } from '@/features/leads/components/LeadReviewQueue';
+import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -120,18 +120,6 @@ interface PracticePageProps {
   onNavigate?: (path: string) => void;
 }
 
-interface LeadSummary {
-  id: string;
-  title: string;
-  matterType: string;
-  status: MatterWorkflowStatus;
-  priority: string;
-  clientName?: string | null;
-  leadSource?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
   const { session, isPending: sessionPending, hasPractice: sessionHasPractice } = useSessionContext();
   const { 
@@ -183,13 +171,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
-  const [leadQueue, setLeadQueue] = useState<LeadSummary[]>([]);
-  const [leadLoading, setLeadLoading] = useState(false);
-  const [leadError, setLeadError] = useState<string | null>(null);
-  const [decisionLead, setDecisionLead] = useState<LeadSummary | null>(null);
-  const [decisionAction, setDecisionAction] = useState<'accept' | 'reject' | null>(null);
-  const [decisionReason, setDecisionReason] = useState('');
-  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
   const practice = currentPractice ?? practices[0] ?? null;
   const hasPractice = !!practice;
@@ -204,8 +185,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const currentUserRole = currentMember?.role || 'paralegal';
   const isOwner = currentUserRole === 'owner';
-  const isAdmin = (currentUserRole === 'admin' || isOwner) ?? false;
-  const canReviewLeads = isAdmin || isOwner;
+  const canReviewLeads = hasLeadReviewPermission(currentUserRole, practice?.metadata ?? null);
   const servicesList = useMemo(() => {
     const source = practiceDetails?.services ?? practice?.services;
     if (!Array.isArray(source)) return [];
@@ -286,84 +266,9 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
 
-  const loadLeadQueue = useCallback(async () => {
-    if (!practice?.id || !canReviewLeads) {
-      setLeadQueue([]);
-      return;
-    }
-
-    setLeadLoading(true);
-    setLeadError(null);
-
-    try {
-      const endpoint = `${getPracticeWorkspaceEndpoint(practice.id, 'matters')}?status=lead`;
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load leads (${response.status})`);
-      }
-
-      const payload = await response.json() as {
-        success?: boolean;
-        error?: string;
-        data?: { items?: LeadSummary[]; matters?: LeadSummary[] };
-      };
-
-      if (payload.success === false) {
-        throw new Error(payload.error || 'Failed to load leads');
-      }
-
-      const items = payload.data?.items || payload.data?.matters || [];
-      setLeadQueue(items);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load leads';
-      setLeadError(message);
-    } finally {
-      setLeadLoading(false);
-    }
-  }, [practice?.id, canReviewLeads]);
-
-  useLeadQueueAutoLoad(loadLeadQueue);
-
-  const openDecisionModal = (lead: LeadSummary, action: 'accept' | 'reject') => {
-    setDecisionLead(lead);
-    setDecisionAction(action);
-    setDecisionReason('');
-  };
-
-  const closeDecisionModal = (force = false) => {
-    if (decisionSubmitting && !force) return;
-    setDecisionLead(null);
-    setDecisionAction(null);
-    setDecisionReason('');
-  };
-
-  const handleDecision = async () => {
-    if (!practice?.id || !decisionLead || !decisionAction) return;
-    setDecisionSubmitting(true);
-    try {
-      if (decisionAction === 'accept') {
-        await acceptMatter(practice.id, decisionLead.id);
-        showSuccess('Lead accepted', 'The client has been notified.');
-      } else {
-        await rejectMatter(practice.id, decisionLead.id, decisionReason);
-        showSuccess('Lead rejected', 'The client has been notified.');
-      }
-      setDecisionSubmitting(false);
-      closeDecisionModal(true);
-      await loadLeadQueue();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update lead';
-      showError('Action failed', message);
-      setDecisionSubmitting(false);
-    }
-  };
+  const handleOpenLeadConversation = useCallback((conversationId: string) => {
+    navigateTo(`/practice/chats/${encodeURIComponent(conversationId)}`);
+  }, [navigateTo]);
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -922,72 +827,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
               {/* Lead Review Queue */}
               <div className="py-3">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  Lead Review Queue
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  Review new intake requests and decide whether to accept or decline.
-                </p>
-
-                {!canReviewLeads && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Only admins and owners can review leads.
-                  </div>
-                )}
-
-                {canReviewLeads && leadLoading && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Loading leads…
-                  </div>
-                )}
-
-                {canReviewLeads && leadError && (
-                  <div className="text-xs text-red-600 dark:text-red-400">
-                    {leadError}
-                  </div>
-                )}
-
-                {canReviewLeads && !leadLoading && !leadError && leadQueue.length === 0 && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    No leads waiting for review.
-                  </div>
-                )}
-
-                {canReviewLeads && leadQueue.length > 0 && (
-                  <div className="space-y-3">
-                    {leadQueue.map((lead) => (
-                      <div
-                        key={lead.id}
-                        className="rounded-lg border border-gray-200 dark:border-dark-border p-4 bg-white dark:bg-dark-card-bg"
-                      >
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                {lead.clientName || lead.title}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {lead.matterType}
-                                {lead.leadSource ? ` · ${lead.leadSource}` : ''}
-                              </p>
-                            </div>
-                            <span className="text-xs text-gray-400">
-                              {formatDate(lead.createdAt)}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Button size="sm" onClick={() => openDecisionModal(lead, 'accept')}>
-                              Accept
-                            </Button>
-                            <Button variant="secondary" size="sm" onClick={() => openDecisionModal(lead, 'reject')}>
-                              Reject
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <LeadReviewQueue
+                  practiceId={practice?.id ?? null}
+                  canReviewLeads={canReviewLeads}
+                  acceptMatter={acceptMatter}
+                  rejectMatter={rejectMatter}
+                  onOpenConversation={handleOpenLeadConversation}
+                />
               </div>
 
               <div className="border-t border-gray-200 dark:border-dark-border" />
@@ -1047,47 +893,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           
         </div>
       </div>
-
-      {/* Lead Decision Modal */}
-      <Modal
-        isOpen={Boolean(decisionAction && decisionLead)}
-        onClose={closeDecisionModal}
-        title={decisionAction === 'accept' ? 'Accept Lead' : 'Reject Lead'}
-      >
-        <div className="space-y-4">
-          <div className="rounded-lg border border-gray-200 dark:border-dark-border p-3 text-sm text-gray-700 dark:text-gray-200">
-            <p className="font-medium text-gray-900 dark:text-gray-100">
-              {decisionLead?.clientName || decisionLead?.title}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {decisionLead?.matterType}
-              {decisionLead?.leadSource ? ` · ${decisionLead.leadSource}` : ''}
-            </p>
-          </div>
-
-          {decisionAction === 'reject' && (
-            <div>
-              <FormLabel htmlFor="lead-reject-reason">Reason (optional)</FormLabel>
-              <Textarea
-                id="lead-reject-reason"
-                value={decisionReason}
-                onChange={(value) => setDecisionReason(value)}
-                placeholder="Add a short note to the client"
-                rows={3}
-              />
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => closeDecisionModal()} disabled={decisionSubmitting}>
-              Cancel
-            </Button>
-            <Button onClick={() => void handleDecision()} disabled={decisionSubmitting}>
-              {decisionAction === 'accept' ? 'Accept Lead' : 'Reject Lead'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Edit Practice Modal */}
       <Modal

@@ -30,6 +30,8 @@ import { ConversationSidebar } from '@/features/chats/components/ConversationSid
 import { NotificationCenterPage } from '@/features/notifications/pages/NotificationCenterPage';
 import { ensureNotificationsLoaded } from '@/features/notifications/hooks/useNotifications';
 import type { NotificationCategory } from '@/features/notifications/types';
+import { LeadsPage } from '@/features/leads/pages/LeadsPage';
+import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -56,7 +58,7 @@ export function MainApp({
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
   const initialTab = workspace === 'public' ? 'chats' : 'dashboard';
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'chats' | 'matter' | 'notifications'>(initialTab);
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads'>(initialTab);
   const [notificationCategory, setNotificationCategory] = useState<NotificationCategory>('message');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -84,6 +86,7 @@ export function MainApp({
   }, [workspace]);
   const chatsBasePath = useMemo(() => (basePath ? `${basePath}/chats` : null), [basePath]);
   const notificationsBasePath = useMemo(() => (basePath ? `${basePath}/notifications` : null), [basePath]);
+  const leadsBasePath = useMemo(() => (basePath ? `${basePath}/leads` : null), [basePath]);
 
   const dashboardPath = useMemo(() => {
     if (!basePath) return null;
@@ -93,6 +96,7 @@ export function MainApp({
   const tabFromPath = useMemo(() => {
     if (!basePath) return null;
     if (location.path.startsWith(`${basePath}/chats`)) return 'chats';
+    if (leadsBasePath && location.path.startsWith(leadsBasePath)) return 'leads';
     if (location.path.startsWith(`${basePath}/matter`)) return 'matter';
     if (location.path.startsWith(`${basePath}/notifications`)) return 'notifications';
     if (location.path === basePath || location.path === `${basePath}/`) return 'dashboard';
@@ -100,7 +104,7 @@ export function MainApp({
       return 'dashboard';
     }
     return null;
-  }, [basePath, dashboardPath, location.path]);
+  }, [basePath, dashboardPath, leadsBasePath, location.path]);
 
   const notificationCategoryFromPath = useMemo(() => {
     if (!notificationsBasePath) return null;
@@ -179,7 +183,7 @@ export function MainApp({
     }
   }, [chatsBasePath, conversationId, currentTab, location.path, navigate]);
 
-  const handleTabChange = useCallback((tab: 'dashboard' | 'chats' | 'matter' | 'notifications') => {
+  const handleTabChange = useCallback((tab: 'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads') => {
     setCurrentTab(tab);
     if (tab === 'notifications') {
       ensureNotificationsLoaded(notificationCategory);
@@ -191,11 +195,13 @@ export function MainApp({
         ? `${basePath}/chats/${encodeURIComponent(conversationId)}`
         : tab === 'notifications' && notificationsBasePath
           ? `${notificationsBasePath}/${notificationCategory}`
+          : tab === 'leads' && leadsBasePath
+            ? leadsBasePath
           : `${basePath}/${tab}`;
     if (location.path !== nextPath) {
       navigate(nextPath);
     }
-  }, [basePath, conversationId, dashboardPath, location.path, navigate, notificationCategory, notificationsBasePath]);
+  }, [basePath, conversationId, dashboardPath, leadsBasePath, location.path, navigate, notificationCategory, notificationsBasePath]);
 
   const handleNotificationCategoryChange = useCallback((nextCategory: NotificationCategory) => {
     ensureNotificationsLoaded(nextCategory);
@@ -471,9 +477,8 @@ export function MainApp({
       members.find(m => m.userId === session?.user?.id) ||
       null;
   }, [currentPractice, currentUserEmail, members, session?.user?.id]);
-  const isOwner = currentMember?.role === 'owner';
-  const isAdmin = currentMember?.role === 'admin' || isOwner;
-  const canReviewLeads = Boolean(isAdmin);
+  const currentUserRole = currentMember?.role ?? 'paralegal';
+  const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
 
 
   // Add intro message when practice config is loaded and no messages exist
@@ -675,6 +680,15 @@ export function MainApp({
     />
   );
 
+  const leadsPanel = isPracticeWorkspace ? (
+    <LeadsPage
+      practiceId={currentPractice?.id ?? practiceId ?? null}
+      canReviewLeads={canReviewLeads}
+      acceptMatter={acceptMatter}
+      rejectMatter={rejectMatter}
+    />
+  ) : null;
+
   const handleSelectConversation = useCallback((id: string) => {
     setConversationId(id);
     if (chatsBasePath) {
@@ -723,6 +737,8 @@ export function MainApp({
         dashboardContent={dashboardContent}
         chatSidebarContent={chatSidebarContent}
         notificationsContent={notificationsPanel}
+        leadsContent={leadsPanel ?? undefined}
+        showLeadsTab={isPracticeWorkspace}
       >
         {chatPanel}
       </AppLayout>

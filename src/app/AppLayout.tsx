@@ -42,13 +42,14 @@ interface AppLayoutProps {
   practiceNotFound: boolean;
   practiceId: string;
   onRetryPracticeConfig: () => void;
-  currentTab: 'dashboard' | 'chats' | 'matter' | 'notifications';
-  onTabChange: (tab: 'dashboard' | 'chats' | 'matter' | 'notifications') => void;
+  currentTab: 'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads';
+  onTabChange: (tab: 'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads') => void;
   isMobileSidebarOpen: boolean;
   onToggleMobileSidebar: (open: boolean) => void;
   isSettingsModalOpen?: boolean;
   notificationCategory: NotificationCategory;
   onSelectNotificationCategory: (category: NotificationCategory) => void;
+  showLeadsTab?: boolean;
   practiceConfig: {
     name: string;
     profileImage: string | null;
@@ -83,6 +84,7 @@ interface AppLayoutProps {
   dashboardContent?: ComponentChildren;
   chatSidebarContent?: ComponentChildren;
   notificationsContent?: ComponentChildren;
+  leadsContent?: ComponentChildren;
   children: ComponentChildren; // ChatContainer component
 }
 
@@ -98,6 +100,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   isSettingsModalOpen = false,
   notificationCategory,
   onSelectNotificationCategory,
+  showLeadsTab = false,
   practiceConfig,
   currentPractice,
   messages: chatMessages,
@@ -107,6 +110,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   dashboardContent,
   chatSidebarContent,
   notificationsContent,
+  leadsContent,
   children,
   practiceDetails
 }) => {
@@ -120,6 +124,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
 
   const showDashboardTab = workspace !== 'public';
   const showChatsTab = true;
+  const showLeadsTabComputed = workspace === 'practice' && showLeadsTab;
   const showRightSidebar = workspace !== 'client';
 
   // Activity is feature-flagged off by default while we decide the final architecture.
@@ -241,6 +246,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     onTabChange('chats');
   };
 
+  const handleGoToLeads = () => {
+    onTabChange('leads');
+  };
+
   const handleGoToNotifications = (category: NotificationCategory) => {
     onTabChange('notifications');
     onSelectNotificationCategory(category);
@@ -270,9 +279,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   
 
   useEffect(() => {
-    const allowedTabs: Array<'dashboard' | 'chats' | 'matter' | 'notifications'> = ['matter', 'notifications'];
+    const allowedTabs: Array<'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads'> = ['matter', 'notifications'];
     if (showChatsTab) allowedTabs.push('chats');
     if (showDashboardTab) allowedTabs.push('dashboard');
+    if (showLeadsTabComputed) allowedTabs.push('leads');
     const fallbackTab = showDashboardTab
       ? 'dashboard'
       : showChatsTab
@@ -281,7 +291,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     if (!allowedTabs.includes(currentTab) && currentTab !== fallbackTab) {
       onTabChange(fallbackTab);
     }
-  }, [currentTab, onTabChange, showChatsTab, showDashboardTab]);
+  }, [currentTab, onTabChange, showChatsTab, showDashboardTab, showLeadsTabComputed]);
   const { isNavbarVisible } = useNavbarScroll({ 
     threshold: 50, 
     debounceMs: 0
@@ -382,8 +392,10 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               currentRoute={currentTab}
               showDashboardTab={showDashboardTab}
               showChatsTab={showChatsTab}
+              showLeadsTab={showLeadsTabComputed}
               onGoToDashboard={showDashboardTab ? handleGoToDashboard : undefined}
               onGoToChats={showChatsTab ? handleGoToChats : undefined}
+              onGoToLeads={showLeadsTabComputed ? handleGoToLeads : undefined}
               onSelectNotificationCategory={handleGoToNotifications}
               notificationCategory={notificationCategory}
               chatSidebarContent={chatSidebarContent}
@@ -437,12 +449,17 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                     currentRoute={currentTab}
                     showDashboardTab={showDashboardTab}
                     showChatsTab={showChatsTab}
+                    showLeadsTab={showLeadsTabComputed}
                     onGoToDashboard={showDashboardTab ? () => {
                       handleGoToDashboard();
                       onToggleMobileSidebar(false);
                     } : undefined}
                     onGoToChats={showChatsTab ? () => {
                       handleGoToChats();
+                      onToggleMobileSidebar(false);
+                    } : undefined}
+                    onGoToLeads={showLeadsTabComputed ? () => {
+                      handleGoToLeads();
                       onToggleMobileSidebar(false);
                     } : undefined}
                     onSelectNotificationCategory={(category) => {
@@ -495,6 +512,14 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                 {notificationsContent ?? (
                   <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
                     Notifications coming soon.
+                  </div>
+                )}
+              </div>
+            ) : currentTab === 'leads' ? (
+              <div className="h-full">
+                {leadsContent ?? (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                    Leads coming soon.
                   </div>
                 )}
               </div>

@@ -8,7 +8,7 @@
 import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
-import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, ChatBubbleLeftRightIcon, ShieldCheckIcon, CreditCardIcon, ClipboardDocumentCheckIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, ChatBubbleLeftRightIcon, ShieldCheckIcon, CreditCardIcon, ClipboardDocumentCheckIcon, DocumentTextIcon, InboxIcon } from '@heroicons/react/24/outline';
 import UserProfile from '@/shared/components/UserProfile';
 import type { ComponentChildren } from 'preact';
 import type { SubscriptionTier } from '@/shared/types/user';
@@ -24,10 +24,12 @@ interface SidebarContentProps {
   currentRoute: string;
   onGoToDashboard?: () => void;
   onGoToChats?: () => void;
+  onGoToLeads?: () => void;
   onSelectNotificationCategory?: (category: NotificationCategory) => void;
   onClose?: () => void;
   showDashboardTab?: boolean;
   showChatsTab?: boolean;
+  showLeadsTab?: boolean;
   notificationCategory?: NotificationCategory;
   chatSidebarContent?: ComponentChildren;
   currentPractice?: {
@@ -43,10 +45,12 @@ export const SidebarContent = ({
   currentRoute,
   onGoToDashboard,
   onGoToChats,
+  onGoToLeads,
   onSelectNotificationCategory,
   onClose,
   showDashboardTab = true,
   showChatsTab = true,
+  showLeadsTab = false,
   notificationCategory = 'message',
   chatSidebarContent,
   currentPractice,
@@ -94,6 +98,16 @@ export const SidebarContent = ({
                 label="Chats"
                 isActive={currentRoute === 'chats'}
                 onClick={onGoToChats}
+                isCollapsed={isCollapsed}
+              />
+            )}
+
+            {showLeadsTab && onGoToLeads && (
+              <NavigationItem
+                icon={<InboxIcon />}
+                label="Leads"
+                isActive={currentRoute === 'leads'}
+                onClick={onGoToLeads}
                 isCollapsed={isCollapsed}
               />
             )}

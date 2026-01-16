@@ -9,10 +9,12 @@ interface LeftSidebarProps {
   currentRoute: string;
   onGoToDashboard?: () => void;
   onGoToChats?: () => void;
+  onGoToLeads?: () => void;
   onSelectNotificationCategory?: (category: NotificationCategory) => void;
   onClose?: () => void;
   showDashboardTab?: boolean;
   showChatsTab?: boolean;
+  showLeadsTab?: boolean;
   notificationCategory?: NotificationCategory;
   chatSidebarContent?: ComponentChildren;
   practiceConfig?: {
@@ -30,10 +32,12 @@ const LeftSidebar = ({
   currentRoute,
   onGoToDashboard,
   onGoToChats,
+  onGoToLeads,
   onSelectNotificationCategory,
   onClose,
   showDashboardTab = true,
   showChatsTab = true,
+  showLeadsTab = false,
   notificationCategory = 'message',
   chatSidebarContent,
   practiceConfig,
@@ -52,10 +56,12 @@ const LeftSidebar = ({
         currentRoute={currentRoute}
         onGoToDashboard={onGoToDashboard}
         onGoToChats={onGoToChats}
+        onGoToLeads={onGoToLeads}
         onSelectNotificationCategory={onSelectNotificationCategory}
         onClose={onClose}
         showDashboardTab={showDashboardTab}
         showChatsTab={showChatsTab}
+        showLeadsTab={showLeadsTab}
         notificationCategory={notificationCategory}
         chatSidebarContent={chatSidebarContent}
         currentPractice={currentPractice}
