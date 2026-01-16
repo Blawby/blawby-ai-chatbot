@@ -12,12 +12,16 @@ import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import LawyerSearchInline from '@/features/lawyer-search/components/LawyerSearchInline';
+import type { ConversationMode } from '@/shared/types/conversation';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
   onSendMessage: (message: string, attachments: FileAttachment[]) => void;
   onContactFormSubmit?: (data: ContactData) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
+  onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
+  conversationMode?: ConversationMode | null;
+  composerDisabled?: boolean;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
@@ -75,7 +79,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   clearInput,
   conversationId,
   isAnonymousUser,
-  canChat = true
+  canChat = true,
+  onSelectMode,
+  conversationMode,
+  composerDisabled
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -140,6 +147,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   }, [clearInput]);
 
   const handleSubmit = () => {
+    if (composerDisabled) return;
     if (!inputValue.trim() && previewFiles.length === 0) return;
 
     const message = inputValue.trim();
@@ -165,6 +173,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const handleKeyDown = (e: KeyboardEvent) => {
     // isComposing is not in TypeScript's KeyboardEvent but exists at runtime
     if ((e as KeyboardEvent & { isComposing?: boolean }).isComposing || e.repeat) {
+      return;
+    }
+    if (composerDisabled) {
       return;
     }
     baseKeyHandler(e);
@@ -218,6 +229,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               onOpenPayment={handleOpenPayment}
               practiceId={practiceId}
               intakeStatus={intakeStatus}
+              modeSelectorActions={onSelectMode ? {
+                onAskQuestion: () => onSelectMode('ASK_QUESTION', 'intro_gate'),
+                onRequestConsultation: () => onSelectMode('REQUEST_CONSULTATION', 'intro_gate')
+              } : undefined}
             />
             
             <MessageComposer
@@ -238,6 +253,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               isReadyToUpload={isReadyToUpload}
               isSessionReady={isSessionReady}
               intakeStatus={intakeStatus}
+              disabled={composerDisabled}
+              conversationMode={conversationMode}
+              onRequestConsultation={() => onSelectMode?.('REQUEST_CONSULTATION', 'composer_footer')}
             />
           </>
         ) : (

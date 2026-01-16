@@ -171,6 +171,62 @@ export class ConversationService {
   }
 
   /**
+   * Get a single conversation by ID without scoping to a practice.
+   * Use with participant checks before returning sensitive data.
+   */
+  async getConversationById(conversationId: string): Promise<Conversation> {
+    const record = await this.env.DB.prepare(`
+      SELECT 
+        id, practice_id, user_id, matter_id, participants, user_info, status,
+        assigned_to, priority, tags, internal_notes, last_message_at, first_response_at,
+        closed_at, created_at, updated_at
+      FROM conversations
+      WHERE id = ?
+    `).bind(conversationId).first<{
+      id: string;
+      practice_id: string;
+      user_id: string | null;
+      matter_id: string | null;
+      participants: string;
+      user_info: string | null;
+      status: string;
+      assigned_to: string | null;
+      priority: string | null;
+      tags: string | null;
+      internal_notes: string | null;
+      last_message_at: string | null;
+      first_response_at: string | null;
+      closed_at: string | null;
+      created_at: string;
+      updated_at: string;
+    } | null>();
+
+    if (!record) {
+      throw HttpErrors.notFound('Conversation not found');
+    }
+
+    return {
+      id: record.id,
+      practice_id: record.practice_id,
+      practice: null,
+      user_id: record.user_id,
+      matter_id: record.matter_id,
+      participants: JSON.parse(record.participants || '[]') as string[],
+      user_info: record.user_info ? JSON.parse(record.user_info) : null,
+      status: record.status as Conversation['status'],
+      assigned_to: record.assigned_to || null,
+      priority: (record.priority || 'normal') as Conversation['priority'],
+      tags: record.tags ? JSON.parse(record.tags) as string[] : undefined,
+      internal_notes: record.internal_notes || null,
+      last_message_at: record.last_message_at || null,
+      first_response_at: record.first_response_at || null,
+      closed_at: record.closed_at || null,
+      created_at: record.created_at,
+      updated_at: record.updated_at
+    };
+  }
+
+  /**
    * Get or create current conversation for a user with a practice
    * For anonymous users: Gets most recent active conversation or creates new
    * For signed-in clients: Gets most recent active conversation or creates new

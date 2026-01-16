@@ -6,6 +6,7 @@ import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
+import { SessionAuditService } from '../services/SessionAuditService.js';
 
 function createJsonResponse(data: unknown): Response {
   return new Response(JSON.stringify({ success: true, data }), {
@@ -261,6 +262,37 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     );
 
     return createJsonResponse(conversation);
+  }
+
+  // POST /api/conversations/:id/audit - Log conversation audit events
+  if (segments.length === 4 && segments[3] === 'audit' && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const practiceId = getPracticeId(requestWithContext);
+    const conversationId = segments[2];
+    const body = await parseJsonBody(request) as {
+      eventType?: string;
+      payload?: Record<string, unknown>;
+    };
+
+    if (!body.eventType || typeof body.eventType !== 'string') {
+      throw HttpErrors.badRequest('eventType is required');
+    }
+
+    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+
+    const auditService = new SessionAuditService(env);
+    await auditService.createEvent({
+      conversationId,
+      eventType: body.eventType,
+      actorType: 'user',
+      actorId: userId,
+      payload: body.payload ?? null
+    });
+
+    return createJsonResponse({ success: true });
   }
 
   // POST /api/conversations/:id/participants - Add participants to a conversation

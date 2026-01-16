@@ -9,6 +9,7 @@ import MatterCanvas from '@/features/matters/components/MatterCanvas';
 import { DocumentIcon } from "@heroicons/react/24/outline";
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 import { handleContactLawyer } from '@/shared/utils/lawyerContact';
+import { Button } from '@/shared/ui/Button';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -72,6 +73,10 @@ interface MessageActionsProps {
 		matterType: string;
 		storageKey?: string;
 	};
+	modeSelector?: {
+		onAskQuestion: () => void;
+		onRequestConsultation: () => void;
+	};
 	onContactFormSubmit?: (data: ContactData) => void | Promise<void>;
 	className?: string;
 }
@@ -85,12 +90,23 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	paymentRequest,
 	onOpenPayment,
 	onContactFormSubmit,
+	modeSelector,
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
 
 	return (
 		<div className={className}>
+			{modeSelector && (
+				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
+					<Button variant="secondary" size="sm" onClick={modeSelector.onAskQuestion}>
+						Ask a question
+					</Button>
+					<Button variant="secondary" size="sm" onClick={modeSelector.onRequestConsultation}>
+						Request consultation
+					</Button>
+				</div>
+			)}
 			{/* Display matter canvas */}
 			{matterCanvas && (
 				<MatterCanvas

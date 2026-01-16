@@ -83,6 +83,10 @@ interface MessageProps {
 		matterType: string;
 		storageKey?: string;
 	};
+	modeSelector?: {
+		onAskQuestion: () => void;
+		onRequestConsultation: () => void;
+	};
 	practiceConfig?: {
 		name: string;
 		profileImage: string | null;
@@ -116,6 +120,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onOpenSidebar: _onOpenSidebar,
 	onContactFormSubmit,
 	onOpenPayment,
+	modeSelector,
 	isLoading,
 	toolMessage,
 	id: _id,
@@ -188,6 +193,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					paymentRequest={paymentRequest}
 					onOpenPayment={onOpenPayment}
 					onContactFormSubmit={onContactFormSubmit}
+					modeSelector={modeSelector}
 				/>
 				
 				{/* Attachments */}

@@ -150,6 +150,7 @@ export interface Env {
   CF_AIG_TOKEN?: string;
   OPENAI_TOKEN?: string;
   AI_PROVIDER?: string;
+  AI_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
 
