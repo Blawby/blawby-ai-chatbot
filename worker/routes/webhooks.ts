@@ -75,8 +75,12 @@ const parseSignatureHeader = (value: string | null): { signature: string | null;
 const toEpochMs = (value: number): number => (value < 1e12 ? value * 1000 : value);
 
 const safeEqual = (a: string, b: string): boolean => {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    return timingSafeEqual(bufA, bufA) && false;
+  }
+  return timingSafeEqual(bufA, bufB);
 };
 
 const normalizeRecipients = (value: unknown): NotificationRecipientSnapshot[] => {
@@ -135,7 +139,7 @@ const verifySignature = (request: Request, rawBody: string, env: Env): { timesta
 
   const timestampMs = toEpochMs(timestamp);
   if (Math.abs(Date.now() - timestampMs) > MAX_SKEW_MS) {
-    throw HttpErrors.unauthorized('Webhook timestamp is too old');
+    throw HttpErrors.unauthorized('Webhook timestamp outside allowed window');
   }
 
   const payloadToSign = `${timestampRaw}.${rawBody}`;

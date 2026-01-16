@@ -386,7 +386,6 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
             const action = pathParts[4] ?? null;
 
             if (!action && request.method === 'GET') {
-              requireMinimumRole(authContext.memberRole, 'admin');
               const record = await env.DB.prepare(
                 `SELECT id,
                         title,
@@ -424,6 +423,12 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
 
               if (!record) {
                 throw HttpErrors.notFound('Matter not found');
+              }
+
+              if (record.status === 'lead') {
+                requireLeadReviewRole(authContext.memberRole, leadReviewRoles);
+              } else {
+                requireMinimumRole(authContext.memberRole, 'admin');
               }
 
               const payload = {
