@@ -32,6 +32,7 @@ import { ensureNotificationsLoaded } from '@/features/notifications/hooks/useNot
 import type { NotificationCategory } from '@/features/notifications/types';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent } from '@/shared/lib/conversationApi';
+import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -525,9 +526,7 @@ export function MainApp({
       members.find(m => m.userId === session?.user?.id) ||
       null;
   }, [currentPractice, currentUserEmail, members, session?.user?.id]);
-  const isOwner = currentMember?.role === 'owner';
-  const isAdmin = currentMember?.role === 'admin' || isOwner;
-  const canReviewLeads = Boolean(isAdmin);
+  const canReviewLeads = hasLeadReviewPermission(currentMember?.role);
 
 
   // Add intro message when practice config is loaded and no messages exist
