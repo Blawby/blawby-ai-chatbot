@@ -6,16 +6,24 @@ const readTokenFromIndexedDb = async (page: Page): Promise<string | null> => {
       try {
         const request = indexedDB.open('blawby_auth', 2);
         request.onerror = () => resolve(null);
+        request.onupgradeneeded = () => {
+          request.result?.close();
+          resolve(null);
+        };
         request.onsuccess = () => {
-          const db = request.result;
-          const transaction = db.transaction('tokens', 'readonly');
-          const store = transaction.objectStore('tokens');
-          const getRequest = store.get('bearer_token');
-          getRequest.onsuccess = () => {
-            const record = getRequest.result as { value?: string } | null;
-            resolve(record?.value ?? null);
-          };
-          getRequest.onerror = () => resolve(null);
+          try {
+            const db = request.result;
+            const transaction = db.transaction('tokens', 'readonly');
+            const store = transaction.objectStore('tokens');
+            const getRequest = store.get('bearer_token');
+            getRequest.onsuccess = () => {
+              const record = getRequest.result as { value?: string } | null;
+              resolve(record?.value ?? null);
+            };
+            getRequest.onerror = () => resolve(null);
+          } catch {
+            resolve(null);
+          }
         };
       } catch {
         resolve(null);
