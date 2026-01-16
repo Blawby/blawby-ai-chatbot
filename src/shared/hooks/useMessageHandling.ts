@@ -673,9 +673,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     const controller = new AbortController();
     consultFlowAbortRef.current = controller;
     conversationIdRef.current = targetConversationId;
-    if (conversationIdRef.current !== targetConversationId) {
-      return;
-    }
     setIsConsultFlowActive(true);
     fetchMessages(controller.signal, targetConversationId);
     fetchConversationMetadata(controller.signal, targetConversationId).catch((error) => {
