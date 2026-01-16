@@ -631,10 +631,10 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   }, [conversationId, practiceId, toUIMessage, onError]);
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {
-    setIsConsultFlowActive(true);
     if (!targetConversationId || !practiceId) {
       return;
     }
+    setIsConsultFlowActive(true);
     conversationIdRef.current = targetConversationId;
     fetchMessages(undefined, targetConversationId);
     fetchConversationMetadata(undefined, targetConversationId).catch((error) => {
