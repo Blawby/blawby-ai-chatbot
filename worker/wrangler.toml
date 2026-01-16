@@ -1,5 +1,5 @@
 name = "blawby-ai-chatbot"
-account_id = "your-cloudflare-account-id"
+account_id = "fa3dc6c06433f6b0ea78d95bce23ad"
 main = "index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
