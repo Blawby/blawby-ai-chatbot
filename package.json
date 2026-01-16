@@ -37,6 +37,7 @@
     "test:e2e:all": "npm run test:e2e && npm run test:e2e:api",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "smoke:ai-gateway": "tsx scripts/ai-gateway-smoke-test.ts",
     "deploy": "wrangler deploy",
     "deploy:preview": "wrangler deploy --env preview"
   },
