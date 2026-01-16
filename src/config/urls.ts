@@ -135,7 +135,6 @@ export function getBackendApiUrl(): string {
 		'Example: https://production-api.blawby.com'
 	);
 }
-
 /**
  * Extract host from backend API URL
  * 

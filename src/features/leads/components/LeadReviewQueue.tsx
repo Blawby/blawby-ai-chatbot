@@ -195,6 +195,7 @@ export const LeadReviewQueue = ({
             <div
               key={lead.id}
               className="rounded-lg border border-gray-200 dark:border-dark-border p-4 bg-white dark:bg-dark-card-bg"
+              data-testid={`lead-card-${lead.id}`}
             >
               <div className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-3">
@@ -218,10 +219,19 @@ export const LeadReviewQueue = ({
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => openDecisionModal(lead, 'accept')}>
+                  <Button
+                    size="sm"
+                    onClick={() => openDecisionModal(lead, 'accept')}
+                    data-testid={`lead-accept-${lead.id}`}
+                  >
                     Accept
                   </Button>
-                  <Button variant="secondary" size="sm" onClick={() => openDecisionModal(lead, 'reject')}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => openDecisionModal(lead, 'reject')}
+                    data-testid={`lead-reject-${lead.id}`}
+                  >
                     Reject
                   </Button>
                   {lead.conversationId && (

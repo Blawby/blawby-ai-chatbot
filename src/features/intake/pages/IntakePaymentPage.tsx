@@ -19,6 +19,8 @@ export const IntakePaymentPage: FunctionComponent = () => {
   const amountRaw = resolveQueryValue(location.query?.amount);
   const currency = resolveQueryValue(location.query?.currency);
   const practiceName = resolveQueryValue(location.query?.practice) || 'the practice';
+  const practiceId = resolveQueryValue(location.query?.practiceId);
+  const conversationId = resolveQueryValue(location.query?.conversationId);
   const intakeUuid = resolveQueryValue(location.query?.uuid);
   const rawReturnTo = resolveQueryValue(location.query?.return_to) || '/';
   const returnTo = rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
@@ -80,6 +82,8 @@ export const IntakePaymentPage: FunctionComponent = () => {
             amount={Number.isFinite(amount) ? amount : undefined}
             currency={currency}
             intakeUuid={intakeUuid}
+            practiceId={practiceId}
+            conversationId={conversationId}
             returnTo={returnTo}
           />
         </Elements>
