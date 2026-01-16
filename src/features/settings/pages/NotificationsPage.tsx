@@ -7,7 +7,6 @@ import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
 import { useNotificationSettings, updateNotificationChannel, updateDesktopPushEnabled, updateMessagesMentionsOnly } from '@/features/settings/hooks/useNotificationSettings';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { Switch } from '@/shared/ui/input';
 import {
   getNotificationPermissionState,
@@ -16,15 +15,6 @@ import {
 } from '@/shared/notifications/oneSignalClient';
 import type { NotificationSettings } from '@/shared/types/user';
 import type { NotificationCategory } from '@/features/notifications/types';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import {
-  applyNotificationPolicy,
-  getNotificationPolicyCategoryKey,
-  isNotificationChannelLocked,
-  normalizeNotificationPolicy,
-  updateNotificationPolicy,
-  type NotificationPolicy
-} from '@/features/settings/utils/notificationPolicy';
 
 export interface NotificationsPageProps {
   className?: string;
@@ -96,24 +86,9 @@ export const NotificationsPage = ({
 }: NotificationsPageProps) => {
   const { showSuccess, showError } = useToastContext();
   const { t } = useTranslation(['settings', 'common']);
-  const { session } = useSessionContext();
-  const { currentPractice, updatePractice } = usePracticeManagement({
-    fetchInvitations: false
-  });
-  const [policyOverride, setPolicyOverride] = useState<NotificationPolicy | null>(null);
-  const [isSavingPolicy, setIsSavingPolicy] = useState(false);
-  const policy = useMemo(
-    () => policyOverride ?? normalizeNotificationPolicy(currentPractice?.metadata?.notificationPolicy),
-    [policyOverride, currentPractice?.metadata]
-  );
-  const { settings, isLoading, error } = useNotificationSettings(policy.defaults);
+  const { settings, isLoading, error } = useNotificationSettings();
   const [permissionState, setPermissionState] = useState<NotificationPermissionState>(getNotificationPermissionState());
-  const effectiveSettings = useMemo(
-    () => applyNotificationPolicy(settings, policy),
-    [settings, policy]
-  );
 
-  const isAdmin = ['owner', 'admin'].includes(String(session?.user?.role ?? '').toLowerCase());
   const isPermissionSupported = permissionState !== 'unsupported';
 
   const handleChannelChange = async (category: NotificationCategory, channelKey: string, value: boolean) => {
@@ -191,42 +166,6 @@ export const NotificationsPage = ({
     }
   };
 
-  const handlePolicyChange = async (
-    category: NotificationCategory,
-    scope: 'defaults' | 'allowed',
-    channel: 'push' | 'email',
-    value: boolean
-  ) => {
-    if (!currentPractice) return;
-    if (category === 'system') return;
-
-    const nextPolicy = updateNotificationPolicy(policy, category, scope, channel, value);
-    setPolicyOverride(nextPolicy);
-    setIsSavingPolicy(true);
-
-    try {
-      await updatePractice(currentPractice.id, {
-        metadata: {
-          notificationPolicy: nextPolicy
-        }
-      });
-      showSuccess(
-        t('common:notifications.settingsSavedTitle', { defaultValue: 'Settings saved' }),
-        t('settings:notifications.organization.toastBody', { defaultValue: 'Organization notification defaults updated.' })
-      );
-      setPolicyOverride(null);
-    } catch (error) {
-      console.error('Failed to update organization notification policy:', error);
-      showError(
-        t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
-        t('settings:notifications.organization.toastErrorBody', { defaultValue: 'Unable to update organization notification settings.' })
-      );
-      setPolicyOverride(null);
-    } finally {
-      setIsSavingPolicy(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
@@ -252,7 +191,8 @@ export const NotificationsPage = ({
       <div className="flex-1 overflow-y-auto px-6">
         <div className="space-y-0">
           {CATEGORY_CONFIG.map((category, index) => {
-            const categorySettings = getCategorySettings(effectiveSettings, category.key);
+            const categorySettings = getCategorySettings(settings, category.key);
+            const isSystem = category.key === 'system';
             const displayText = category.key === 'system'
               ? translations.required
               : getNotificationDisplayText(categorySettings, translations);
@@ -261,30 +201,23 @@ export const NotificationsPage = ({
                 key: 'push',
                 label: translations.push,
                 checked: categorySettings.push,
-                disabled: isNotificationChannelLocked(policy, category.key, 'push')
+                disabled: isSystem
               },
               {
                 key: 'email',
                 label: translations.email,
                 checked: categorySettings.email,
-                disabled: isNotificationChannelLocked(policy, category.key, 'email')
+                disabled: isSystem
               }
             ];
             const baseDescription = t(category.descriptionKey, { defaultValue: category.fallbackDescription });
-            const isSystem = category.key === 'system';
-            const hasLockedChannel = ['push', 'email'].some((channel) =>
-              isNotificationChannelLocked(policy, category.key, channel as 'push' | 'email')
-            );
-            const policyNote = isSystem
-              ? t('settings:notifications.systemRequiredHint', { defaultValue: 'System notifications are required for all members.' })
-              : (hasLockedChannel
-                ? t('settings:notifications.managedHint', { defaultValue: 'Managed by your organization.' })
-                : null);
-            const description = policyNote
+            const description = isSystem
               ? (
                 <>
                   <span>{baseDescription}</span>
-                  <span className="mt-1 block text-[11px] text-gray-400 dark:text-gray-500">{policyNote}</span>
+                  <span className="mt-1 block text-[11px] text-gray-400 dark:text-gray-500">
+                    {t('settings:notifications.systemRequiredHint', { defaultValue: 'System notifications are required for all members.' })}
+                  </span>
                 </>
               )
               : baseDescription;
@@ -299,7 +232,7 @@ export const NotificationsPage = ({
                     displayText={displayText}
                     channels={channels}
                     onChannelChange={(channelKey, checked) => {
-                      if (isNotificationChannelLocked(policy, category.key, channelKey as 'push' | 'email')) {
+                      if (isSystem) {
                         return;
                       }
                       handleChannelChange(category.key, channelKey, checked);
@@ -341,97 +274,6 @@ export const NotificationsPage = ({
               />
             </div>
           </SettingRow>
-
-          {isAdmin && (
-            <>
-              <SectionDivider />
-              <div className="rounded-lg border border-gray-200 bg-gray-50/70 p-4 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800/40 dark:text-gray-300">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  {t('settings:notifications.organization.title', { defaultValue: 'Organization defaults' })}
-                </p>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                  {t('settings:notifications.organization.description', { defaultValue: 'Set defaults for your team. Members can customize unless a channel is locked.' })}
-                </p>
-                <div className="mt-4">
-                  {CATEGORY_CONFIG.map((category, index) => {
-                    const policyKey = getNotificationPolicyCategoryKey(category.key);
-                    const defaults = policy.defaults[policyKey];
-                    const allowed = policy.allowed[policyKey];
-                    const isSystem = category.key === 'system';
-                    const defaultsDisplay = isSystem
-                      ? translations.required
-                      : getNotificationDisplayText(defaults, translations);
-                    const allowedDisplay = isSystem
-                      ? translations.required
-                      : getNotificationDisplayText(allowed, translations);
-
-                    return (
-                      <div key={`org-${category.key}`}>
-                        <SettingRow
-                          label={t(category.labelKey, { defaultValue: category.fallbackLabel })}
-                          description={isSystem
-                            ? t('settings:notifications.organization.systemRequired', { defaultValue: 'System notifications are required and cannot be disabled.' })
-                            : t(category.descriptionKey, { defaultValue: category.fallbackDescription })}
-                        >
-                          <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                                {t('settings:notifications.organization.defaultsLabel', { defaultValue: 'Defaults' })}
-                              </span>
-                              <NotificationChannelSelector
-                                displayText={defaultsDisplay}
-                                channels={[
-                                  {
-                                    key: 'push',
-                                    label: translations.push,
-                                    checked: defaults.push,
-                                    disabled: isSystem || isSavingPolicy
-                                  },
-                                  {
-                                    key: 'email',
-                                    label: translations.email,
-                                    checked: defaults.email,
-                                    disabled: isSystem || isSavingPolicy
-                                  }
-                                ]}
-                                onChannelChange={(channelKey, checked) =>
-                                  handlePolicyChange(category.key, 'defaults', channelKey as 'push' | 'email', checked)}
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                                {t('settings:notifications.organization.allowedLabel', { defaultValue: 'Allowed' })}
-                              </span>
-                              <NotificationChannelSelector
-                                displayText={allowedDisplay}
-                                channels={[
-                                  {
-                                    key: 'push',
-                                    label: translations.push,
-                                    checked: allowed.push,
-                                    disabled: isSystem || isSavingPolicy
-                                  },
-                                  {
-                                    key: 'email',
-                                    label: translations.email,
-                                    checked: allowed.email,
-                                    disabled: isSystem || isSavingPolicy
-                                  }
-                                ]}
-                                onChannelChange={(channelKey, checked) =>
-                                  handlePolicyChange(category.key, 'allowed', channelKey as 'push' | 'email', checked)}
-                              />
-                            </div>
-                          </div>
-                        </SettingRow>
-                        {index < CATEGORY_CONFIG.length - 1 && <SectionDivider />}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 try {
-  importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
+  importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 } catch (error) {
-  console.error('[OneSignal] Failed to load service worker SDK', error);
+  console.error('[OneSignal] Failed to load SDK worker script', error);
 }
