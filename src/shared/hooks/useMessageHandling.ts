@@ -6,7 +6,7 @@ import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getChatMessagesEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl } from '@/shared/utils/intakePayments';
-import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
+import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
 import { updateConversationMetadata as patchConversationMetadata } from '@/shared/lib/conversationApi';
 
 // Global interface for window API base override and debug properties
@@ -55,6 +55,8 @@ export const useMessageHandling = ({
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const consultFlowAbortRef = useRef<globalThis.AbortController | null>(null);
+  const intentAbortRef = useRef<globalThis.AbortController | null>(null);
+  const metadataUpdateQueueRef = useRef<Promise<Conversation | null>>(Promise.resolve(null));
   const isDisposedRef = useRef(false);
   const lastConversationIdRef = useRef<string | undefined>();
   const conversationIdRef = useRef<string | undefined>();
@@ -92,11 +94,18 @@ export const useMessageHandling = ({
     if (!activeConversationId || !practiceId) {
       return null;
     }
-    const current = conversationMetadataRef.current ?? {};
-    const nextMetadata = { ...current, ...patch };
-    const updated = await patchConversationMetadata(activeConversationId, practiceId, nextMetadata);
-    applyConversationMetadata(updated?.user_info ?? nextMetadata);
-    return updated;
+    const runUpdate = async () => {
+      const current = conversationMetadataRef.current ?? {};
+      const nextMetadata = { ...current, ...patch };
+      applyConversationMetadata(nextMetadata);
+      const updated = await patchConversationMetadata(activeConversationId, practiceId, nextMetadata);
+      applyConversationMetadata(updated?.user_info ?? nextMetadata);
+      return updated;
+    };
+
+    const queued = metadataUpdateQueueRef.current.then(runUpdate, runUpdate);
+    metadataUpdateQueueRef.current = queued.catch(() => null);
+    return queued;
   }, [applyConversationMetadata, conversationId, practiceId]);
 
   const fetchConversationMetadata = useCallback(async (
@@ -245,29 +254,57 @@ export const useMessageHandling = ({
       }
 
       if (!hasLoggedIntentRef.current && !hasUserMessages) {
-        const intentResponse = await fetch('/api/ai/intent', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            conversationId,
-            practiceSlug: resolvedPracticeSlug,
-            message: trimmedMessage
-          })
-        });
+        intentAbortRef.current?.abort();
+        const intentController = new AbortController();
+        intentAbortRef.current = intentController;
+        const intentConversationId = conversationId;
+        const intentPracticeSlug = resolvedPracticeSlug;
+        let intentResponse: Response | null = null;
+        try {
+          intentResponse = await fetch('/api/ai/intent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            signal: intentController.signal,
+            body: JSON.stringify({
+              conversationId,
+              practiceSlug: resolvedPracticeSlug,
+              message: trimmedMessage
+            })
+          });
+        } catch (intentError) {
+          if (intentError instanceof Error && intentError.name === 'AbortError') {
+            intentResponse = null;
+          } else {
+            throw intentError;
+          }
+        }
 
-        if (intentResponse.ok) {
+        if (intentResponse?.ok) {
           const intentData = await intentResponse.json() as FirstMessageIntent;
+          if (intentController.signal.aborted) {
+            return;
+          }
+          if (conversationIdRef.current !== intentConversationId || resolvedPracticeSlug !== intentPracticeSlug) {
+            return;
+          }
+          if (hasLoggedIntentRef.current) {
+            return;
+          }
           hasLoggedIntentRef.current = true;
           try {
             await updateConversationMetadata({
               first_message_intent: intentData
-            });
+            }, intentConversationId);
           } catch (intentError) {
             console.warn('[useMessageHandling] Failed to persist intent classification', intentError);
           }
+        } else if (intentResponse) {
+          console.warn('[useMessageHandling] Intent classification request failed', {
+            status: intentResponse.status
+          });
         }
       }
 
@@ -694,6 +731,10 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     }
   }, [conversationId, practiceId, fetchMessages, fetchConversationMetadata]);
 
+  useEffect(() => {
+    intentAbortRef.current?.abort();
+  }, [conversationId, practiceId]);
+
   // Clear UI state when switching to a different conversation to avoid showing stale messages
   useEffect(() => {
     if (
@@ -715,6 +756,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       isDisposedRef.current = true;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+      }
+      if (intentAbortRef.current) {
+        intentAbortRef.current.abort();
       }
       if (consultFlowAbortRef.current) {
         consultFlowAbortRef.current.abort();

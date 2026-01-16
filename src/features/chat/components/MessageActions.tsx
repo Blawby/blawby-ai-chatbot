@@ -113,7 +113,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 						onClick={assistantRetry.onRetry}
 						disabled={assistantRetry.status === 'retrying'}
 					>
-						{assistantRetry.status === 'retrying' ? 'Retrying...' : (assistantRetry.label ?? 'Retry')}
+						{assistantRetry.status === 'retrying' ? t('chat.retrying') : (assistantRetry.label ?? t('chat.retry'))}
 					</Button>
 				</div>
 			)}

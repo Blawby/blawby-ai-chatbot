@@ -73,19 +73,27 @@ export class SessionAuditService {
     const sanitizedPayload = sanitizePayload(event.payload);
     const payload = sanitizedPayload ? JSON.stringify(sanitizedPayload) : null;
 
-    await this.env.DB.prepare(`
-      INSERT INTO session_audit_events (
-        id, conversation_id, event_type, actor_type, actor_id, payload, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      eventId,
-      event.conversationId,
-      event.eventType,
-      event.actorType ?? 'system',
-      event.actorId ?? null,
-      payload,
-      now
-    ).run();
+    try {
+      await this.env.DB.prepare(`
+        INSERT INTO session_audit_events (
+          id, conversation_id, event_type, actor_type, actor_id, payload, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        eventId,
+        event.conversationId,
+        event.eventType,
+        event.actorType ?? 'system',
+        event.actorId ?? null,
+        payload,
+        now
+      ).run();
+    } catch (error) {
+      console.warn('[SessionAuditService] Failed to persist audit event', {
+        eventId,
+        conversationId: event.conversationId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
 
     return eventId;
   }
