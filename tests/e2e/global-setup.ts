@@ -38,10 +38,11 @@ const getBaseUrlFromConfig = (config: FullConfig): string => {
 const verifyWorkerHealth = async (): Promise<void> => {
   const maxRetries = 10;
   const retryDelay = 2000;
+  const baseUrl = process.env.VITE_API_URL || 'http://localhost:8787';
 
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const response = await fetch('http://localhost:8787/api/health');
+      const response = await fetch(`${baseUrl}/api/health`);
       if (response.ok) {
         console.log('✅ Worker is running and healthy');
         return;

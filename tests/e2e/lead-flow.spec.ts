@@ -200,8 +200,8 @@ test.describe('Lead intake workflow', () => {
 
     const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
-    if (!paymentRequired || !shouldRunPaymentMode(true)) {
-      test.skip(true, `Skipping payment-gated test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
+    if (paymentRequired || !shouldRunPaymentMode(true)) {
+      test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
     const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);
@@ -271,9 +271,11 @@ test.describe('Lead intake workflow', () => {
 
     const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
-    if (!shouldRunPaymentMode(paymentRequired)) {
-      const label = paymentRequired ? 'paid' : 'free';
-      test.skip(true, `Skipping ${label} flow for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
+    if (!paymentRequired) {
+      test.skip(true, 'Skipping payment-gated test: practice does not require payment.');
+    }
+    if (!shouldRunPaymentMode(true)) {
+      test.skip(true, `Skipping payment-gated test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
     const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);

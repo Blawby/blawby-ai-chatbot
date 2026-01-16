@@ -53,6 +53,7 @@ const AuthForm = ({
   const [linkingError, setLinkingError] = useState('');
   const linkingInProgress = useRef(false);
   const linkedConversationKeyRef = useRef<string | null>(null);
+  const linkingPromiseRef = useRef<Promise<boolean> | null>(null);
   const postAuthRedirectKey = 'post-auth-redirect';
 
   const storePostAuthRedirect = useCallback(() => {
@@ -113,26 +114,36 @@ const AuthForm = ({
       return true;
     }
     const linkKey = `${conversationId}:${practiceId}`;
-    if (linkedConversationKeyRef.current === linkKey || linkingInProgress.current) return true;
+    if (linkedConversationKeyRef.current === linkKey) {
+      return true;
+    }
+    if (linkingInProgress.current && linkingPromiseRef.current) {
+      return linkingPromiseRef.current;
+    }
 
     linkingInProgress.current = true;
-    try {
-      await linkConversationToUser(conversationId, practiceId);
-      linkedConversationKeyRef.current = linkKey;
-      setLinkingError('');
-      return true;
-    } catch (err) {
-      console.error('Failed to link conversation to user:', err);
-      const fallbackMessage = 'We could not automatically save your conversation. You can continue after signing in.';
-      const messageText = err instanceof Error ? err.message || fallbackMessage : fallbackMessage;
-      setLinkingError(messageText);
-      if (onError) {
-        onError(messageText);
+    const promise = (async () => {
+      try {
+        await linkConversationToUser(conversationId, practiceId);
+        linkedConversationKeyRef.current = linkKey;
+        setLinkingError('');
+        return true;
+      } catch (err) {
+        console.error('Failed to link conversation to user:', err);
+        const fallbackMessage = 'We could not automatically save your conversation. You can continue after signing in.';
+        const messageText = err instanceof Error ? err.message || fallbackMessage : fallbackMessage;
+        setLinkingError(messageText);
+        if (onError) {
+          onError(messageText);
+        }
+        return false;
+      } finally {
+        linkingInProgress.current = false;
+        linkingPromiseRef.current = null;
       }
-      return false;
-    } finally {
-      linkingInProgress.current = false;
-    }
+    })();
+    linkingPromiseRef.current = promise;
+    return promise;
   }, [conversationContext?.conversationId, conversationContext?.practiceId, onError]);
 
   const notifySuccess = useCallback(async (user: unknown) => {

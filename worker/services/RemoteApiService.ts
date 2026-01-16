@@ -555,30 +555,37 @@ export class RemoteApiService {
     created_at?: string | null;
   } | null> {
     if (!intakeUuid) return null;
-    const response = await this.fetchFromRemoteApi(
-      env,
-      `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/status`,
-      request
-    );
+    try {
+      const response = await this.fetchFromRemoteApi(
+        env,
+        `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/status`,
+        request
+      );
 
-    const payload = await response.json() as { success?: boolean; data?: Record<string, unknown> };
-    if (payload?.success === false) {
-      return null;
-    }
-    const data = payload?.data;
-    if (!data || typeof data !== 'object') {
-      return null;
-    }
+      const payload = await response.json() as { success?: boolean; data?: Record<string, unknown> };
+      if (payload?.success === false) {
+        return null;
+      }
+      const data = payload?.data;
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
 
-    return {
-      uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
-      amount: typeof data.amount === 'number' ? data.amount : undefined,
-      currency: typeof data.currency === 'string' ? data.currency : undefined,
-      status: typeof data.status === 'string' ? data.status : undefined,
-      metadata: typeof data.metadata === 'object' && data.metadata !== null ? data.metadata as Record<string, unknown> : null,
-      succeeded_at: typeof data.succeeded_at === 'string' ? data.succeeded_at : null,
-      created_at: typeof data.created_at === 'string' ? data.created_at : null
-    };
+      return {
+        uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
+        amount: typeof data.amount === 'number' ? data.amount : undefined,
+        currency: typeof data.currency === 'string' ? data.currency : undefined,
+        status: typeof data.status === 'string' ? data.status : undefined,
+        metadata: typeof data.metadata === 'object' && data.metadata !== null ? data.metadata as Record<string, unknown> : null,
+        succeeded_at: typeof data.succeeded_at === 'string' ? data.succeeded_at : null,
+        created_at: typeof data.created_at === 'string' ? data.created_at : null
+      };
+    } catch (error) {
+      if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   static async getPracticeClientIntakeSettings(
@@ -587,27 +594,34 @@ export class RemoteApiService {
     request?: Request
   ): Promise<{ paymentLinkEnabled?: boolean; prefillAmount?: number } | null> {
     if (!practiceSlug) return null;
-    const response = await this.fetchFromRemoteApi(
-      env,
-      `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
-      request
-    );
-    const payload = await response.json() as { success?: boolean; data?: { settings?: Record<string, unknown> } };
-    if (payload?.success === false) {
-      return null;
+    try {
+      const response = await this.fetchFromRemoteApi(
+        env,
+        `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
+        request
+      );
+      const payload = await response.json() as { success?: boolean; data?: { settings?: Record<string, unknown> } };
+      if (payload?.success === false) {
+        return null;
+      }
+      const settings = payload?.data?.settings;
+      if (!settings || typeof settings !== 'object') {
+        return null;
+      }
+      return {
+        paymentLinkEnabled: typeof settings.paymentLinkEnabled === 'boolean'
+          ? settings.paymentLinkEnabled
+          : undefined,
+        prefillAmount: typeof settings.prefillAmount === 'number'
+          ? settings.prefillAmount
+          : undefined
+      };
+    } catch (error) {
+      if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
+        return null;
+      }
+      throw error;
     }
-    const settings = payload?.data?.settings;
-    if (!settings || typeof settings !== 'object') {
-      return null;
-    }
-    return {
-      paymentLinkEnabled: typeof settings.paymentLinkEnabled === 'boolean'
-        ? settings.paymentLinkEnabled
-        : undefined,
-      prefillAmount: typeof settings.prefillAmount === 'number'
-        ? settings.prefillAmount
-        : undefined
-    };
   }
 
   /**
