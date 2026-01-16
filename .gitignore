@@ -90,5 +90,8 @@ cookies.txt
 # Playwright auth state (contains session tokens and PII)
 playwright/.auth/
 
+# E2E credentials (local only)
+tests/e2e/fixtures/e2e-credentials.json
+
 # Playwright reports
 playwright/reports/

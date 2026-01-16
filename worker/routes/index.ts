@@ -17,5 +17,5 @@ export { handleNotifications } from './notifications';
 // Payment, subscription, onboarding, and user management are handled by remote API
 export { handlePDF } from './pdf';
 export { handleDebug } from './debug';
-export { handleWebhooks } from './webhooks';
+export { handleIntakes } from './intakes';
 // Stripe webhooks are handled by remote API

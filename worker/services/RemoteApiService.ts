@@ -499,8 +499,31 @@ export class RemoteApiService {
     request?: Request
   ): Promise<boolean> {
     if (this.isLikelyUuid(practiceId)) {
-      const practice = await this.getPractice(env, practiceId, request);
-      return practice !== null;
+      try {
+        const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
+        const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
+
+        if (payload && (payload.practice || payload.data)) {
+          return true;
+        }
+
+        const errorMessage =
+          typeof payload?.error === 'string'
+            ? payload.error
+            : typeof payload?.message === 'string'
+              ? payload.message
+              : '';
+        if (errorMessage.toLowerCase().includes('not a member')) {
+          return true;
+        }
+
+        return false;
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 404) {
+          return false;
+        }
+        throw error;
+      }
     }
 
     try {
@@ -513,6 +536,89 @@ export class RemoteApiService {
     } catch (error) {
       if (error instanceof HttpError && error.status === 404) {
         return false;
+      }
+      throw error;
+    }
+  }
+
+  static async getPracticeClientIntakeStatus(
+    env: Env,
+    intakeUuid: string,
+    request?: Request
+  ): Promise<{
+    uuid?: string;
+    amount?: number;
+    currency?: string;
+    status?: string;
+    metadata?: Record<string, unknown> | null;
+    succeeded_at?: string | null;
+    created_at?: string | null;
+  } | null> {
+    if (!intakeUuid) return null;
+    try {
+      const response = await this.fetchFromRemoteApi(
+        env,
+        `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/status`,
+        request
+      );
+
+      const payload = await response.json() as { success?: boolean; data?: Record<string, unknown> };
+      if (payload?.success === false) {
+        return null;
+      }
+      const data = payload?.data;
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+
+      return {
+        uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
+        amount: typeof data.amount === 'number' ? data.amount : undefined,
+        currency: typeof data.currency === 'string' ? data.currency : undefined,
+        status: typeof data.status === 'string' ? data.status : undefined,
+        metadata: typeof data.metadata === 'object' && data.metadata !== null ? data.metadata as Record<string, unknown> : null,
+        succeeded_at: typeof data.succeeded_at === 'string' ? data.succeeded_at : null,
+        created_at: typeof data.created_at === 'string' ? data.created_at : null
+      };
+    } catch (error) {
+      if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  static async getPracticeClientIntakeSettings(
+    env: Env,
+    practiceSlug: string,
+    request?: Request
+  ): Promise<{ paymentLinkEnabled?: boolean; prefillAmount?: number } | null> {
+    if (!practiceSlug) return null;
+    try {
+      const response = await this.fetchFromRemoteApi(
+        env,
+        `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
+        request
+      );
+      const payload = await response.json() as { success?: boolean; data?: { settings?: Record<string, unknown> } };
+      if (payload?.success === false) {
+        return null;
+      }
+      const settings = payload?.data?.settings;
+      if (!settings || typeof settings !== 'object') {
+        return null;
+      }
+      return {
+        paymentLinkEnabled: typeof settings.paymentLinkEnabled === 'boolean'
+          ? settings.paymentLinkEnabled
+          : undefined,
+        prefillAmount: typeof settings.prefillAmount === 'number'
+          ? settings.prefillAmount
+          : undefined
+      };
+    } catch (error) {
+      if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
+        return null;
       }
       throw error;
     }

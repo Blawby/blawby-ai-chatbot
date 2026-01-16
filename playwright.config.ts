@@ -6,9 +6,9 @@ export default defineConfig({
   retries: 2,
   outputDir: './playwright/results',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.E2E_BASE_URL || 'https://local.blawby.com',
     trace: 'on-first-retry',
-    storageState: 'playwright/.auth/user.json',
+    storageState: 'playwright/.auth/owner.json',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   globalSetup: './tests/e2e/global-setup.ts',
@@ -16,13 +16,5 @@ export default defineConfig({
     ['html', { outputFolder: './playwright/reports' }],
     ['list']
   ],
-  webServer: [
-    { 
-      command: 'npm run dev:worker:clean', 
-      url: 'http://localhost:8787', 
-      reuseExistingServer: true, 
-      timeout: 120000
-    },
-    { command: 'npm run dev', url: 'http://localhost:5173', reuseExistingServer: true },
-  ],
+  // dev:full is started manually for E2E runs
 });

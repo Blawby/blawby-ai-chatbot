@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useCallback, useRef } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
@@ -38,7 +38,9 @@ const AuthForm = ({
 }: AuthFormProps) => {
   const { t } = useTranslation('auth');
   const { navigate } = useNavigation();
-  const [currentMode, setCurrentMode] = useState<AuthMode>(mode ?? defaultMode);
+  const [internalMode, setInternalMode] = useState<AuthMode>(mode ?? defaultMode);
+  const resolvedMode = mode ?? internalMode;
+  const isControlled = typeof mode !== 'undefined';
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -49,8 +51,9 @@ const AuthForm = ({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [linkingError, setLinkingError] = useState('');
-  const [conversationLinked, setConversationLinked] = useState(false);
   const linkingInProgress = useRef(false);
+  const linkedConversationKeyRef = useRef<string | null>(null);
+  const linkingPromiseRef = useRef<{ key: string; promise: Promise<boolean> } | null>(null);
   const postAuthRedirectKey = 'post-auth-redirect';
 
   const storePostAuthRedirect = useCallback(() => {
@@ -104,52 +107,46 @@ const AuthForm = ({
     }
   }, [conversationContext?.conversationId, conversationContext?.practiceId, defaultPostAuthPath, navigate]);
 
-  useEffect(() => {
-    const nextMode = mode ?? defaultMode;
-    if (nextMode && nextMode !== currentMode) {
-      setCurrentMode(nextMode);
-      setError('');
-      setMessage('');
-      setLinkingError('');
-      setFormData({ name: '', email: '', password: '', confirmPassword: '' });
-    }
-  }, [mode, defaultMode, currentMode]);
-
-  useEffect(() => {
-    setConversationLinked(false);
-  }, [conversationContext?.conversationId, conversationContext?.practiceId]);
-
-  useEffect(() => {
-    if (onModeChange) {
-      onModeChange(currentMode);
-    }
-  }, [currentMode, onModeChange]);
-
   const linkConversationIfNeeded = useCallback(async () => {
-    if (!conversationContext?.conversationId || !conversationContext?.practiceId) {
+    const conversationId = conversationContext?.conversationId;
+    const practiceId = conversationContext?.practiceId;
+    if (!conversationId || !practiceId) {
       return true;
     }
-    if (conversationLinked || linkingInProgress.current) return true;
+    const linkKey = `${conversationId}:${practiceId}`;
+    if (linkedConversationKeyRef.current === linkKey) {
+      return true;
+    }
+    if (linkingInProgress.current && linkingPromiseRef.current?.key === linkKey) {
+      return linkingPromiseRef.current.promise;
+    }
 
     linkingInProgress.current = true;
-    try {
-      await linkConversationToUser(conversationContext.conversationId, conversationContext.practiceId);
-      setConversationLinked(true);
-      setLinkingError('');
-      return true;
-    } catch (err) {
-      console.error('Failed to link conversation to user:', err);
-      const fallbackMessage = 'We could not automatically save your conversation. You can continue after signing in.';
-      const messageText = err instanceof Error ? err.message || fallbackMessage : fallbackMessage;
-      setLinkingError(messageText);
-      if (onError) {
-        onError(messageText);
+    const promise = (async () => {
+      try {
+        await linkConversationToUser(conversationId, practiceId);
+        linkedConversationKeyRef.current = linkKey;
+        setLinkingError('');
+        return true;
+      } catch (err) {
+        console.error('Failed to link conversation to user:', err);
+        const fallbackMessage = 'We could not automatically save your conversation. You can continue after signing in.';
+        const messageText = err instanceof Error ? err.message || fallbackMessage : fallbackMessage;
+        setLinkingError(messageText);
+        if (onError) {
+          onError(messageText);
+        }
+        return false;
+      } finally {
+        linkingInProgress.current = false;
+        if (linkingPromiseRef.current?.key === linkKey) {
+          linkingPromiseRef.current = null;
+        }
       }
-      return false;
-    } finally {
-      linkingInProgress.current = false;
-    }
-  }, [conversationContext, conversationLinked, onError]);
+    })();
+    linkingPromiseRef.current = { key: linkKey, promise };
+    return promise;
+  }, [conversationContext?.conversationId, conversationContext?.practiceId, onError]);
 
   const notifySuccess = useCallback(async (user: unknown) => {
     if (!onSuccess) return;
@@ -160,10 +157,10 @@ const AuthForm = ({
       handleError(callbackError, {
         component: 'AuthForm',
         action: 'onSuccess-callback',
-        mode: currentMode
+        mode: resolvedMode
       });
     }
-  }, [onSuccess, currentMode]);
+  }, [onSuccess, resolvedMode]);
 
   const handleSubmit = async (_data?: Record<string, unknown>) => {
     setLoading(true);
@@ -173,7 +170,7 @@ const AuthForm = ({
     storePostAuthRedirect();
 
     try {
-      if (currentMode === 'signup') {
+      if (resolvedMode === 'signup') {
         if (formData.password !== formData.confirmPassword) {
           setError(t('errors.passwordsDoNotMatch'));
           setLoading(false);
@@ -303,8 +300,13 @@ const AuthForm = ({
   };
 
   const handleToggleMode = () => {
-    const nextMode: AuthMode = currentMode === 'signup' ? 'signin' : 'signup';
-    setCurrentMode(nextMode);
+    const nextMode: AuthMode = resolvedMode === 'signup' ? 'signin' : 'signup';
+    if (!isControlled) {
+      setInternalMode(nextMode);
+    }
+    if (onModeChange) {
+      onModeChange(nextMode);
+    }
     setError('');
     setMessage('');
     setLinkingError('');
@@ -316,10 +318,10 @@ const AuthForm = ({
       {showHeader && (
         <div className="mb-6 text-center">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {currentMode === 'signup' ? t('signup.title') : t('signin.title')}
+            {resolvedMode === 'signup' ? t('signup.title') : t('signin.title')}
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {currentMode === 'signup' ? t('signup.subtitle') : t('signin.subtitle')}
+            {resolvedMode === 'signup' ? t('signup.subtitle') : t('signin.subtitle')}
           </p>
         </div>
       )}
@@ -339,7 +341,7 @@ const AuthForm = ({
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-{t(currentMode === 'signup' ? 'signup.googleSignIn' : 'signin.googleSignIn')}
+{t(resolvedMode === 'signup' ? 'signup.googleSignIn' : 'signin.googleSignIn')}
             </button>
           </div>
         )}
@@ -357,7 +359,7 @@ const AuthForm = ({
 
         <Form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {currentMode === 'signup' && (
+            {resolvedMode === 'signup' && (
               <FormField name="name">
                 {({ error: fieldError, onChange }) => (
                   <FormItem>
@@ -366,7 +368,7 @@ const AuthForm = ({
                       <Input
                         id="signup-fullname"
                         type="text"
-                        required={currentMode === 'signup'}
+                        required={resolvedMode === 'signup'}
                         value={formData.name}
                         onChange={(value) => {
                           onChange(value);
@@ -389,16 +391,16 @@ const AuthForm = ({
                 <FormItem>
                   <FormControl>
                     <EmailInput
-                      label={t(currentMode === 'signup' ? 'signup.email' : 'signin.email')}
+                      label={t(resolvedMode === 'signup' ? 'signup.email' : 'signin.email')}
                       required
                       value={formData.email}
                       onChange={(value) => {
                         onChange(value);
                         setFormData(prev => ({ ...prev, email: String(value) }));
                       }}
-                      placeholder={t(currentMode === 'signup' ? 'signup.emailPlaceholder' : 'signin.emailPlaceholder')}
+                      placeholder={t(resolvedMode === 'signup' ? 'signup.emailPlaceholder' : 'signin.emailPlaceholder')}
                       error={fieldError?.message}
-                      data-testid={currentMode === 'signup' ? 'signup-email-input' : 'signin-email-input'}
+                      data-testid={resolvedMode === 'signup' ? 'signup-email-input' : 'signin-email-input'}
                     />
                   </FormControl>
                   {fieldError && <FormMessage>{fieldError.message}</FormMessage>}
@@ -412,16 +414,16 @@ const AuthForm = ({
                   <FormControl>
                     <PasswordInput
                       id="password-field"
-                      label={t(currentMode === 'signup' ? 'signup.password' : 'signin.password')}
+                      label={t(resolvedMode === 'signup' ? 'signup.password' : 'signin.password')}
                       required
                       value={formData.password}
                       onChange={(value) => {
                         onChange(value);
                         setFormData(prev => ({ ...prev, password: String(value) }));
                       }}
-                      placeholder={t(currentMode === 'signup' ? 'signup.passwordPlaceholder' : 'signin.passwordPlaceholder')}
+                      placeholder={t(resolvedMode === 'signup' ? 'signup.passwordPlaceholder' : 'signin.passwordPlaceholder')}
                       error={fieldError?.message}
-                      data-testid={currentMode === 'signup' ? 'signup-password-input' : 'signin-password-input'}
+                      data-testid={resolvedMode === 'signup' ? 'signup-password-input' : 'signin-password-input'}
                     />
                   </FormControl>
                   {fieldError && <FormMessage>{fieldError.message}</FormMessage>}
@@ -429,7 +431,7 @@ const AuthForm = ({
               )}
             </FormField>
 
-            {currentMode === 'signup' && (
+            {resolvedMode === 'signup' && (
               <FormField name="confirmPassword">
                 {({ error: fieldError, onChange }) => (
                   <FormItem>
@@ -437,7 +439,7 @@ const AuthForm = ({
                       <PasswordInput
                         id="confirm-password-field"
                         label={t('signup.confirmPassword')}
-                        required={currentMode === 'signup'}
+                        required={resolvedMode === 'signup'}
                         value={formData.confirmPassword}
                         onChange={(value) => {
                           onChange(value);
@@ -477,13 +479,13 @@ const AuthForm = ({
             <button
               type="submit"
               disabled={loading}
-              data-testid={currentMode === 'signup' ? 'signup-submit-button' : 'signin-submit-button'}
+              data-testid={resolvedMode === 'signup' ? 'signup-submit-button' : 'signin-submit-button'}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-accent-500 hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                currentMode === 'signup' ? t('signup.submit') : t('signin.submit')
+                resolvedMode === 'signup' ? t('signup.submit') : t('signin.submit')
               )}
             </button>
           </div>
@@ -493,10 +495,10 @@ const AuthForm = ({
               type="button"
               onClick={handleToggleMode}
               disabled={loading}
-              data-testid={currentMode === 'signup' ? 'auth-toggle-signin' : 'auth-toggle-signup'}
+              data-testid={resolvedMode === 'signup' ? 'auth-toggle-signin' : 'auth-toggle-signup'}
               className="text-sm text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 transition-colors"
             >
-              {currentMode === 'signup'
+              {resolvedMode === 'signup'
                 ? `${t('signup.hasAccount')} ${t('signup.signInLink')}`
                 : `${t('signin.noAccount')} ${t('signin.signUpLink')}`}
             </button>

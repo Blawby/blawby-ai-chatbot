@@ -145,3 +145,9 @@ export const getChatMessagesEndpoint = () => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/chat/messages`;
 };
+
+// Intake confirmation endpoint - handled by local worker
+export const getIntakeConfirmEndpoint = () => {
+  const config = getApiConfig();
+  return `${config.baseUrl}/api/intakes/confirm`;
+};

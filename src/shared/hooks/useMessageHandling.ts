@@ -3,7 +3,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment } from '../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
-import { getChatMessagesEndpoint } from '@/config/api';
+import { getChatMessagesEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl } from '@/shared/utils/intakePayments';
 import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
@@ -339,6 +339,39 @@ export const useMessageHandling = ({
     updateConversationMetadata
   ]);
 
+  const confirmIntakeLead = useCallback(async (intakeUuid: string) => {
+    if (!intakeUuid || !conversationId) return;
+    const practiceContextId = (practiceId ?? practiceSlug ?? '').trim();
+    if (!practiceContextId) return;
+
+    try {
+      const token = await getTokenAsync();
+      if (!token) {
+        console.warn('[Intake] Missing auth token for intake confirmation');
+        return;
+      }
+      const response = await fetch(`${getIntakeConfirmEndpoint()}?practiceId=${encodeURIComponent(practiceContextId)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          intakeUuid,
+          conversationId
+        })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        const detail = payload?.error ? ` (${payload.error})` : '';
+        console.warn(`[Intake] Lead confirmation failed: ${response.status}${detail}`);
+      }
+    } catch (error) {
+      console.warn('[Intake] Lead confirmation failed', error);
+    }
+  }, [conversationId, practiceId, practiceSlug]);
+
   // Handle contact form submission
   const handleContactFormSubmit = useCallback(async (contactData: ContactData) => {
     logDev('[useMessageHandling] handleContactFormSubmit called with:', {
@@ -458,13 +491,15 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       }
 
       const paymentDetails = intakeResult.intake;
-      if (paymentDetails?.paymentLinkEnabled && paymentDetails.clientSecret) {
+      const paymentRequired = paymentDetails?.paymentLinkEnabled === true;
+      if (paymentRequired && paymentDetails.clientSecret) {
         const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
         const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
         if (!paymentMessageExists) {
           const returnTo = typeof window !== 'undefined'
             ? `${window.location.pathname}${window.location.search}`
             : undefined;
+          const practiceContextId = practiceId || resolvedPracticeSlug;
           const paymentUrl = buildIntakePaymentUrl({
             intakeUuid: paymentDetails.uuid,
             clientSecret: paymentDetails.clientSecret,
@@ -473,6 +508,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             practiceName: paymentDetails.organizationName,
             practiceLogo: paymentDetails.organizationLogo,
             practiceSlug: resolvedPracticeSlug,
+            practiceId: practiceContextId,
+            conversationId,
             returnTo
           });
           setMessages(prev => {
@@ -495,6 +532,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
                   practiceName: paymentDetails.organizationName,
                   practiceLogo: paymentDetails.organizationLogo,
                   practiceSlug: resolvedPracticeSlug,
+                  practiceId: practiceContextId,
+                  conversationId,
                   returnTo
                 },
                 metadata: {
@@ -504,13 +543,15 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             ];
           });
         }
+      } else if (!paymentRequired && paymentDetails?.uuid) {
+        void confirmIntakeLead(paymentDetails.uuid);
       }
     } catch (error) {
       console.error('Error submitting contact form:', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
       throw error; // Re-throw so form can handle the error state
     }
-  }, [conversationId, practiceId, practiceSlug, toUIMessage, onError, logDev, messages]);
+  }, [conversationId, practiceId, practiceSlug, toUIMessage, onError, logDev, messages, confirmIntakeLead]);
 
   const startConsultFlow = useCallback(() => {
     setIsConsultFlowActive(true);
@@ -689,6 +730,39 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   useEffect(() => {
     if (!isAnonymous) return;
 
+    const paymentFlags: Array<{ uuid: string; practiceName: string }> = [];
+    if (typeof window !== 'undefined') {
+      const paymentKeys: string[] = [];
+      for (let i = 0; i < window.sessionStorage.length; i += 1) {
+        const key = window.sessionStorage.key(i);
+        if (key && key.startsWith('intakePaymentSuccess:')) {
+          paymentKeys.push(key);
+        }
+      }
+
+      paymentKeys.forEach((key) => {
+        const uuid = key.split(':')[1] || 'unknown';
+        let practiceName = 'the practice';
+        try {
+          const raw = window.sessionStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw) as { practiceName?: string };
+            if (parsed.practiceName && parsed.practiceName.trim().length > 0) {
+              practiceName = parsed.practiceName.trim();
+            }
+          }
+        } catch (error) {
+          console.warn('[Intake] Failed to parse payment success flag', error);
+        }
+        paymentFlags.push({ uuid, practiceName });
+        window.sessionStorage.removeItem(key);
+      });
+    }
+
+    paymentFlags.forEach((flag) => {
+      void confirmIntakeLead(flag.uuid);
+    });
+
     setMessages(prev => {
       // Check for existence of local system messages
       const hasWelcome = prev.some(m => m.id === 'system-welcome');
@@ -704,54 +778,28 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         : Date.now();
       let tempTimestamp = baseMaxTimestamp;
 
-      if (typeof window !== 'undefined' && isConsultFlowActive) {
-        const paymentKeys: string[] = [];
-        for (let i = 0; i < window.sessionStorage.length; i += 1) {
-          const key = window.sessionStorage.key(i);
-          if (key && key.startsWith('intakePaymentSuccess:')) {
-            paymentKeys.push(key);
-          }
+      paymentFlags.forEach((flag) => {
+        const messageId = `system-payment-confirm-${flag.uuid}`;
+        const alreadyExists = newMessages.some((m) =>
+          m.id === messageId || m.metadata?.intakePaymentUuid === flag.uuid
+        );
+        if (alreadyExists) {
+          return;
         }
 
-        paymentKeys.forEach((key) => {
-          const uuid = key.split(':')[1] || 'unknown';
-          const messageId = `system-payment-confirm-${uuid}`;
-          const alreadyExists = newMessages.some((m) =>
-            m.id === messageId || m.metadata?.intakePaymentUuid === uuid
-          );
-          if (alreadyExists) {
-            window.sessionStorage.removeItem(key);
-            return;
+        newMessages.push({
+          id: messageId,
+          role: 'assistant',
+          content: `Payment received. ${flag.practiceName} will review your intake and follow up here shortly.`,
+          timestamp: ++tempTimestamp,
+          isUser: false,
+          metadata: {
+            intakePaymentUuid: flag.uuid,
+            paymentStatus: 'succeeded'
           }
-
-          let practiceName = 'the practice';
-          try {
-            const raw = window.sessionStorage.getItem(key);
-            if (raw) {
-              const parsed = JSON.parse(raw) as { practiceName?: string };
-              if (parsed.practiceName && parsed.practiceName.trim().length > 0) {
-                practiceName = parsed.practiceName.trim();
-              }
-            }
-          } catch (error) {
-            console.warn('[Intake] Failed to parse payment success flag', error);
-          }
-
-          newMessages.push({
-            id: messageId,
-            role: 'assistant',
-            content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
-            timestamp: ++tempTimestamp,
-            isUser: false,
-            metadata: {
-              intakePaymentUuid: uuid,
-              paymentStatus: 'succeeded'
-            }
-          });
-          changed = true;
-          window.sessionStorage.removeItem(key);
         });
-      }
+        changed = true;
+      });
 
       // Use monotonically increasing timestamps to ensure stable ordering
       const maxTimestamp = newMessages.length > 0
@@ -827,7 +875,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       
       return prev;
     });
-  }, [currentStep, isAnonymous, isConsultFlowActive]);
+  }, [currentStep, isAnonymous, isConsultFlowActive, confirmIntakeLead]);
 
   // The intake flow is now conversational and non-blocking
   return {

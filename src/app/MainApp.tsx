@@ -531,7 +531,6 @@ export function MainApp({
       members.find(m => m.userId === session?.user?.id) ||
       null;
   }, [currentPractice, currentUserEmail, members, session?.user?.id]);
-  const canReviewLeads = hasLeadReviewPermission(currentMember?.role, currentPractice?.metadata ?? null);
   const currentUserRole = currentMember?.role ?? 'paralegal';
   const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
 

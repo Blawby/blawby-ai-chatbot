@@ -3,13 +3,16 @@ import { useCallback, useMemo, useState } from 'preact/compat';
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
-import { getPracticeClientIntakeStatusEndpoint } from '@/config/api';
+import { getIntakeConfirmEndpoint, getPracticeClientIntakeStatusEndpoint } from '@/config/api';
+import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 interface IntakePaymentFormProps {
   practiceName: string;
   amount?: number;
   currency?: string;
   intakeUuid?: string;
+  practiceId?: string;
+  conversationId?: string;
   returnTo: string;
   onSuccess?: () => void;
   onReturn?: () => void;
@@ -37,6 +40,8 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   amount,
   currency,
   intakeUuid,
+  practiceId,
+  conversationId,
   returnTo,
   onSuccess,
   onReturn
@@ -88,6 +93,38 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
 
   const wait = useCallback((ms: number) => new Promise(resolve => setTimeout(resolve, ms)), []);
 
+  const confirmIntakeLead = useCallback(async () => {
+    if (!intakeUuid || !practiceId || !conversationId) {
+      return;
+    }
+    try {
+      const token = await getTokenAsync();
+      if (!token) {
+        console.warn('[IntakePayment] Missing auth token for intake confirmation');
+        return;
+      }
+      const response = await fetch(`${getIntakeConfirmEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          intakeUuid,
+          conversationId
+        })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        const detail = payload?.error ? ` (${payload.error})` : '';
+        console.warn(`[IntakePayment] Intake confirmation failed: ${response.status}${detail}`);
+      }
+    } catch (error) {
+      console.warn('[IntakePayment] Intake confirmation failed', error);
+    }
+  }, [conversationId, intakeUuid, practiceId]);
+
   const handleSubmit = useCallback(async (event: SubmitEvent) => {
     event.preventDefault();
     setErrorMessage(null);
@@ -130,12 +167,15 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           setStatusDetail(latestStatus);
           if (latestStatus === 'succeeded') {
             setStatus('succeeded');
+            await confirmIntakeLead();
             if (typeof window !== 'undefined' && intakeUuid) {
               try {
                 const payload = {
                   practiceName,
                   amount,
-                  currency
+                  currency,
+                  practiceId,
+                  conversationId
                 };
                 window.sessionStorage.setItem(
                   `intakePaymentSuccess:${intakeUuid}`,
@@ -163,7 +203,20 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [stripe, elements, pollIntakeStatus, wait, intakeUuid, practiceName, amount, currency, onSuccess]);
+  }, [
+    stripe,
+    elements,
+    pollIntakeStatus,
+    wait,
+    intakeUuid,
+    practiceName,
+    amount,
+    currency,
+    practiceId,
+    conversationId,
+    confirmIntakeLead,
+    onSuccess
+  ]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
