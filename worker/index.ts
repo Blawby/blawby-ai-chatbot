@@ -12,7 +12,7 @@ import {
   handleNotifications,
   handlePracticeDetails,
   handlePractices,
-  handleWebhooks,
+  handleIntakes,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleChat } from './routes/chat.js';
@@ -73,8 +73,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 
     console.log('🔍 Route matching for path:', path);
 
-    if (path.startsWith('/api/webhooks')) {
-      response = await handleWebhooks(request, env);
+    if (path.startsWith('/api/intakes')) {
+      response = await handleIntakes(request, env);
     } else if (path.startsWith('/api/practices')) {
       response = await handlePractices(request, env);
     } else if (path.startsWith('/api/activity')) {

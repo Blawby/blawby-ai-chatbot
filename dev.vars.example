@@ -13,7 +13,6 @@ CF_AIG_TOKEN=your_cloudflare_ai_gateway_token_here
 OPENAI_TOKEN=your_openai_api_token_here
 ONESIGNAL_APP_ID=your_onesignal_app_id_here
 ONESIGNAL_REST_API_KEY=your_onesignal_rest_api_key_here
-INTAKE_WEBHOOK_SECRET=your_intake_webhook_secret_here
 
 # Account IDs (SENSITIVE)
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id_here

@@ -1,50 +1,73 @@
 import { FullConfig } from '@playwright/test';
 import { chromium } from 'playwright';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { loadE2EConfig } from './helpers/e2eConfig';
+import { persistTokenToLocalStorage, waitForSession, waitForToken } from './helpers/auth';
 
-async function globalSetup(config: FullConfig) {
-  console.log('🔧 Running Playwright global setup...');
-  
-  // 1. Verify worker is running (http://localhost:8787/api/health)
+const EMPTY_STORAGE_STATE = {
+  cookies: [],
+  origins: []
+};
+
+const ensureAuthDir = (): string => {
+  const authDir = join(process.cwd(), 'playwright', '.auth');
+  mkdirSync(authDir, { recursive: true });
+  return authDir;
+};
+
+const ensureResultsDir = (): string => {
+  const resultsDir = join(process.cwd(), 'playwright', 'results');
+  mkdirSync(resultsDir, { recursive: true });
+  return resultsDir;
+};
+
+const writeEmptyStorageState = (path: string): void => {
+  writeFileSync(path, JSON.stringify(EMPTY_STORAGE_STATE, null, 2));
+};
+
+const getBaseUrlFromConfig = (config: FullConfig): string => {
+  const project = config.projects[0];
+  const baseURL = project?.use?.baseURL;
+  if (typeof baseURL === 'string' && baseURL.length > 0) {
+    return baseURL;
+  }
+  return process.env.E2E_BASE_URL || 'https://local.blawby.com';
+};
+
+const verifyWorkerHealth = async (): Promise<void> => {
   const maxRetries = 10;
   const retryDelay = 2000;
-  
+  const baseUrl = process.env.VITE_API_URL || 'http://localhost:8787';
+
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const response = await fetch('http://localhost:8787/api/health');
+      const response = await fetch(`${baseUrl}/api/health`);
       if (response.ok) {
         console.log('✅ Worker is running and healthy');
-        break;
-      } else {
-        if (i === maxRetries - 1) {
-          throw new Error(
-            `Worker health check failed after ${maxRetries} attempts. ` +
-            `Make sure wrangler is running: npm run dev:worker:clean`
-          );
-        }
-        console.log(`⏳ Waiting for worker... (attempt ${i + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return;
       }
-    } catch (error) {
-      if (i === maxRetries - 1) {
-        throw new Error(
-          `Worker health check failed after ${maxRetries} attempts. ` +
-          `Make sure wrangler is running: npm run dev:worker:clean`
-        );
-      }
-      console.log(`⏳ Waiting for worker... (attempt ${i + 1}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    } catch {
+      // retry below
     }
+
+    if (i === maxRetries - 1) {
+      throw new Error(
+        `Worker health check failed after ${maxRetries} attempts. ` +
+        `Make sure wrangler is running: npm run dev:worker:clean`
+      );
+    }
+    console.log(`⏳ Waiting for worker... (attempt ${i + 1}/${maxRetries})`);
+    await new Promise(resolve => setTimeout(resolve, retryDelay));
   }
-  
-  // 2. Verify Better Auth secret is configured
-  // This is checked in tests/setup-worker.ts, but we'll verify here too
+};
+
+const verifyBetterAuthSecret = async (): Promise<void> => {
   try {
-    const { readFileSync } = await import('fs');
-    const { join } = await import('path');
     const devVarsPath = join(process.cwd(), '.dev.vars');
     const devVarsContent = readFileSync(devVarsPath, 'utf-8');
     const hasSecret = devVarsContent.includes('BETTER_AUTH_SECRET=');
-    
+
     if (!hasSecret) {
       console.warn('⚠️  BETTER_AUTH_SECRET not found in .dev.vars');
       console.warn('⚠️  Tests may use memory adapter instead of D1');
@@ -55,124 +78,182 @@ async function globalSetup(config: FullConfig) {
   } catch (error) {
     console.warn('⚠️  Could not read .dev.vars:', error);
   }
-  
-  // 3. Seed default organization if needed
-  // This would typically be done via a database migration or seed script
-  // For now, we'll just log that it should be done
-  console.log('🔐 Creating persisted authenticated session (storageState)...');
+};
 
+const waitForBaseUrl = async (baseURL: string): Promise<void> => {
+  const maxRetries = 15;
+  const retryDelay = 2000;
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(baseURL, { method: 'GET' });
+      if (response.ok || (response.status >= 300 && response.status < 500)) {
+        console.log(`✅ Base URL reachable: ${baseURL}`);
+        return;
+      }
+    } catch {
+      // retry below
+    }
+
+    if (i === maxRetries - 1) {
+      throw new Error(`Base URL not reachable after ${maxRetries} attempts: ${baseURL}`);
+    }
+    console.log(`⏳ Waiting for base URL... (attempt ${i + 1}/${maxRetries})`);
+    await new Promise(resolve => setTimeout(resolve, retryDelay));
+  }
+};
+
+const createSignedInState = async (options: {
+  baseURL: string;
+  storagePath: string;
+  email: string;
+  password: string;
+  label: string;
+}): Promise<void> => {
+  const { baseURL, storagePath, email, password, label } = options;
+  console.log(`🔐 Signing in ${label}...`);
   const browser = await chromium.launch();
-  let context: any = null;
-  let page: any = null;
-  try {
-    context = await browser.newContext({ baseURL: 'http://localhost:5173' });
-    page = await context.newPage();
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+  const authTimeoutMs = 60000;
+  page.setDefaultTimeout(authTimeoutMs);
+  page.setDefaultNavigationTimeout(authTimeoutMs);
 
-    // Ensure we have a valid origin before using relative fetch URLs in page.evaluate
-    await page.goto('/');
+  try {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('onboardingCompleted', 'true');
+        localStorage.setItem('onboardingCheckDone', 'true');
+      } catch {}
+    });
+
+    await page.goto('/auth?mode=signin', { waitUntil: 'domcontentloaded', timeout: authTimeoutMs });
+    await page.waitForLoadState('networkidle', { timeout: authTimeoutMs }).catch(() => undefined);
+
+    try {
+      await page.locator('[data-testid="signin-email-input"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
+      await page.locator('[data-testid="signin-password-input"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
+      await page.locator('[data-testid="signin-submit-button"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
+    } catch (error) {
+      const resultsDir = ensureResultsDir();
+      const htmlPath = join(resultsDir, `signin-timeout-${label}.html`);
+      const screenshotPath = join(resultsDir, `signin-timeout-${label}.png`);
+      writeFileSync(htmlPath, await page.content());
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      throw error;
+    }
+
+    await page.fill('[data-testid="signin-email-input"]', email);
+    await page.fill('[data-testid="signin-password-input"]', password);
+    await page.click('[data-testid="signin-submit-button"]');
+    await Promise.race([
+      page.waitForURL(url => !url.pathname.startsWith('/auth'), { timeout: authTimeoutMs }),
+      page.waitForLoadState('networkidle', { timeout: authTimeoutMs })
+    ]).catch(() => undefined);
+
+    try {
+      await waitForSession(page, { timeoutMs: authTimeoutMs });
+    } catch (error) {
+      console.warn(`⚠️  Session check timed out for ${label}; continuing with token check.`);
+    }
+    let token: string;
+    try {
+      token = await waitForToken(page, { timeoutMs: authTimeoutMs });
+    } catch (error) {
+      const resultsDir = ensureResultsDir();
+      const htmlPath = join(resultsDir, `signin-token-timeout-${label}.html`);
+      const screenshotPath = join(resultsDir, `signin-token-timeout-${label}.png`);
+      writeFileSync(htmlPath, await page.content());
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      throw error;
+    }
+    await persistTokenToLocalStorage(page, token);
+
+    await context.storageState({ path: storagePath });
+    console.log(`✅ ${label} storageState saved to ${storagePath}`);
+  } finally {
+    await context.close();
+    await browser.close();
+  }
+};
+
+const createAnonymousState = async (options: {
+  baseURL: string;
+  storagePath: string;
+  practiceSlug: string;
+}): Promise<void> => {
+  const { baseURL, storagePath, practiceSlug } = options;
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+
+  try {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('onboardingCompleted', 'true');
+        localStorage.setItem('onboardingCheckDone', 'true');
+      } catch {}
+    });
+
+    await page.goto(`/p/${encodeURIComponent(practiceSlug)}`);
     await page.waitForLoadState('domcontentloaded');
 
-    // Attempt to check an existing session to avoid duplicate signups (idempotent)
-    let hasSession = false;
-    try {
-      const sessionRes = await page.evaluate(async () => {
-        const r = await fetch('/api/auth/get-session', { credentials: 'include' });
-        if (!r.ok) return null;
-        const data: any = await r.json().catch(() => null);
-        return data?.session ?? null;
-      });
-      hasSession = Boolean(sessionRes);
-    } catch {}
+    const token = await waitForToken(page, { timeoutMs: 20000 });
+    await persistTokenToLocalStorage(page, token);
 
-    if (!hasSession) {
-      const timestamp = Date.now();
-      const email = `e2e-setup-${timestamp}@example.com`;
-      const password = 'TestPassword123!';
-
-      // Avoid onboarding redirects
-      await page.addInitScript(() => {
-        try {
-          localStorage.setItem('onboardingCompleted', 'true');
-          localStorage.setItem('onboardingCheckDone', 'true');
-        } catch {}
-      });
-
-      await page.goto('/auth');
-      await page.waitForLoadState('domcontentloaded');
-
-      // Switch to Sign up with explicit presence check and error handling
-      await page
-        .waitForSelector('[data-testid="auth-toggle-signup"]', { timeout: 5000 })
-        .then(() => page.click('[data-testid="auth-toggle-signup"]'))
-        .catch((err: any) => {
-          console.error('Signup toggle missing or click failed:', err);
-          throw err;
-        });
-
-      // Ensure form fields exist before interacting
-      await page.locator('[data-testid="signup-name-input"]').waitFor({ state: 'visible', timeout: 5000 });
-      await page.locator('[data-testid="signup-email-input"]').waitFor({ state: 'visible', timeout: 5000 });
-      await page.locator('[data-testid="signup-password-input"]').waitFor({ state: 'visible', timeout: 5000 });
-      await page.locator('[data-testid="signup-confirm-password-input"]').waitFor({ state: 'visible', timeout: 5000 });
-      await page.locator('[data-testid="signup-submit-button"]').waitFor({ state: 'visible', timeout: 5000 });
-
-      // Fill and submit with explicit error propagation
-      try {
-        await page.fill('[data-testid="signup-name-input"]', 'E2E Setup User');
-        await page.fill('[data-testid="signup-email-input"]', email);
-        await page.fill('[data-testid="signup-password-input"]', password);
-        await page.fill('[data-testid="signup-confirm-password-input"]', password);
-        await page.click('[data-testid="signup-submit-button"]');
-      } catch (err: any) {
-        console.error('Signup form interaction failed:', err);
-        throw err;
-      }
-
-      // Wait for submission to complete (navigation or network idle)
-      try {
-        await page.waitForLoadState('networkidle', { timeout: 10000 });
-      } catch {}
-
-      // Wait for session establishment
-      let authenticated = false;
-      for (let i = 0; i < 20; i++) {
-        const s = await page.evaluate(async () => {
-          try {
-            const r = await fetch('/api/auth/get-session', { credentials: 'include' });
-            if (!r.ok) return null;
-            const data: any = await r.json().catch(() => null);
-            return data?.session ?? null;
-          } catch { return null; }
-        });
-        if (s) { authenticated = true; break; }
-        await page.waitForTimeout(300);
-      }
-
-      if (!authenticated) {
-        console.warn('⚠️  Global setup could not establish a session via UI signup in time; tests may re-auth.');
-      }
-    }
-
-    // Persist storage state
-    const { mkdirSync } = await import('fs');
-    const { join } = await import('path');
-    const authDir = join(process.cwd(), 'playwright', '.auth');
-    try { mkdirSync(authDir, { recursive: true }); } catch {}
-    const storagePath = join(authDir, 'user.json');
-    try {
-      await context.storageState({ path: storagePath });
-      console.log('✅ storageState saved to playwright/.auth/user.json');
-    } catch (err: any) {
-      console.error('Failed to write storageState to', storagePath, err);
-      throw err;
-    }
-
-    console.log('✅ Global setup complete');
+    await context.storageState({ path: storagePath });
+    console.log(`✅ anonymous storageState saved to ${storagePath}`);
   } finally {
-    try { if (context) await context.close(); } catch {}
-    try { await browser.close(); } catch {}
+    await context.close();
+    await browser.close();
   }
+};
+
+async function globalSetup(config: FullConfig) {
+  console.log('🔧 Running Playwright global setup...');
+
+  await verifyWorkerHealth();
+  await verifyBetterAuthSecret();
+
+  const e2eConfig = loadE2EConfig();
+  const baseURL = getBaseUrlFromConfig(config);
+  await waitForBaseUrl(baseURL);
+  const authDir = ensureAuthDir();
+  const ownerPath = join(authDir, 'owner.json');
+  const clientPath = join(authDir, 'client.json');
+  const anonymousPath = join(authDir, 'anonymous.json');
+
+  if (!e2eConfig) {
+    console.warn('⚠️  E2E credentials are not configured. Writing empty auth states.');
+    writeEmptyStorageState(ownerPath);
+    writeEmptyStorageState(clientPath);
+    writeEmptyStorageState(anonymousPath);
+    return;
+  }
+
+  await createSignedInState({
+    baseURL,
+    storagePath: ownerPath,
+    email: e2eConfig.owner.email,
+    password: e2eConfig.owner.password,
+    label: 'owner'
+  });
+
+  await createSignedInState({
+    baseURL,
+    storagePath: clientPath,
+    email: e2eConfig.client.email,
+    password: e2eConfig.client.password,
+    label: 'client'
+  });
+
+  await createAnonymousState({
+    baseURL,
+    storagePath: anonymousPath,
+    practiceSlug: e2eConfig.practice.slug
+  });
+
+  console.log('✅ Global setup complete');
 }
 
 export default globalSetup;
-

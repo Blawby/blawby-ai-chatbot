@@ -6,6 +6,8 @@ export type IntakePaymentRequest = {
   practiceName?: string;
   practiceLogo?: string;
   practiceSlug?: string;
+  practiceId?: string;
+  conversationId?: string;
   returnTo?: string;
 };
 
@@ -42,6 +44,12 @@ export const buildIntakePaymentUrl = (
 
   const practiceSlug = getQueryValue(request.practiceSlug);
   if (practiceSlug) params.set('slug', practiceSlug);
+
+  const practiceId = getQueryValue(request.practiceId);
+  if (practiceId) params.set('practiceId', practiceId);
+
+  const conversationId = getQueryValue(request.conversationId);
+  if (conversationId) params.set('conversationId', conversationId);
 
   const intakeUuid = getQueryValue(request.intakeUuid);
   if (intakeUuid) params.set('uuid', intakeUuid);
