@@ -53,7 +53,7 @@ const AuthForm = ({
   const [linkingError, setLinkingError] = useState('');
   const linkingInProgress = useRef(false);
   const linkedConversationKeyRef = useRef<string | null>(null);
-  const linkingPromiseRef = useRef<Promise<boolean> | null>(null);
+  const linkingPromiseRef = useRef<{ key: string; promise: Promise<boolean> } | null>(null);
   const postAuthRedirectKey = 'post-auth-redirect';
 
   const storePostAuthRedirect = useCallback(() => {
@@ -117,8 +117,8 @@ const AuthForm = ({
     if (linkedConversationKeyRef.current === linkKey) {
       return true;
     }
-    if (linkingInProgress.current && linkingPromiseRef.current) {
-      return linkingPromiseRef.current;
+    if (linkingInProgress.current && linkingPromiseRef.current?.key === linkKey) {
+      return linkingPromiseRef.current.promise;
     }
 
     linkingInProgress.current = true;
@@ -139,10 +139,12 @@ const AuthForm = ({
         return false;
       } finally {
         linkingInProgress.current = false;
-        linkingPromiseRef.current = null;
+        if (linkingPromiseRef.current?.key === linkKey) {
+          linkingPromiseRef.current = null;
+        }
       }
     })();
-    linkingPromiseRef.current = promise;
+    linkingPromiseRef.current = { key: linkKey, promise };
     return promise;
   }, [conversationContext?.conversationId, conversationContext?.practiceId, onError]);
 
