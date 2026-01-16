@@ -1,5 +1,4 @@
 name = "blawby-ai-chatbot-frontend"
-account_id = "your-cloudflare-account-id"
 pages_build_output_dir = "dist"
 [env.preview]
 

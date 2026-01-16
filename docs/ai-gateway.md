@@ -22,19 +22,19 @@ wrangler secret put CF_AIG_TOKEN --config worker/wrangler.toml
 wrangler secret put OPENAI_TOKEN --config worker/wrangler.toml
 ```
 
-For local development, copy `dev.vars.example` to `.dev.vars` and fill in your values.
+For local development, copy `dev.vars.example` to `worker/.dev.vars` (same directory as `worker/wrangler.toml`) and fill in your values.
 
 ## Gateway URL format
 
 The AI Gateway base URL is constructed as:
 
-```
+```text
 https://gateway.ai.cloudflare.com/v1/${CLOUDFLARE_ACCOUNT_ID}/${CF_AIG_GATEWAY_NAME}/openai
 ```
 
 Chat completions are sent to:
 
-```
+```text
 ${baseUrl}/chat/completions
 ```
 
