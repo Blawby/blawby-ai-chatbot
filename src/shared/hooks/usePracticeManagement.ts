@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint, getRemoteApiUrl } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import {
   listPractices,
   createPractice as apiCreatePractice,
@@ -587,13 +588,17 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+      const token = await getTokenAsync();
+      const headers = new Headers(options.headers || {});
+      headers.set('Content-Type', 'application/json');
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+
       const response = await fetch(url, {
         ...options,
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options.headers || {}),
-        },
+        headers,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -1035,31 +1040,46 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             return null;
           }
           const member = m as Record<string, unknown>;
-          if (
-            typeof member.userId === 'string' &&
-            typeof member.role === 'string' &&
-            typeof member.createdAt === 'number'
-          ) {
-            // Validate role is one of the allowed values
-            if (!validRoles.includes(member.role as Role)) {
-              console.error('Invalid member role:', member.role, 'Expected one of:', validRoles, 'Member:', member);
-              return null;
-            }
-            // Validate email is present and is a string (required field)
-            if (typeof member.email !== 'string' || !member.email.trim()) {
-              console.error('Invalid or missing member email:', member.email, 'Member:', member);
-              return null;
-            }
-            return {
-              userId: member.userId,
-              role: member.role as Role,
-              email: member.email,
-              name: typeof member.name === 'string' ? member.name : undefined,
-              image: typeof member.image === 'string' ? member.image : undefined,
-              createdAt: member.createdAt,
-            } as Member;
+          const userId = typeof member.userId === 'string'
+            ? member.userId
+            : (typeof member.user_id === 'string' ? member.user_id : null);
+          const rawRole = typeof member.role === 'string' ? member.role.trim().toLowerCase() : '';
+          const normalizedRole = rawRole === 'member' ? 'paralegal' : rawRole;
+          const createdAtValue = member.createdAt ?? member.created_at ?? member.joined_at;
+          const createdAt = typeof createdAtValue === 'number'
+            ? createdAtValue
+            : (typeof createdAtValue === 'string' && createdAtValue.trim()
+              ? Number(createdAtValue)
+              : null);
+          const email = typeof member.email === 'string'
+            ? member.email
+            : (typeof (member.user as Record<string, unknown> | undefined)?.email === 'string'
+              ? (member.user as Record<string, unknown>).email as string
+              : '');
+
+          if (!userId) {
+            console.error('Invalid or missing member userId:', member);
+            return null;
           }
-          return null;
+
+          if (!validRoles.includes(normalizedRole as Role)) {
+            console.error('Invalid member role:', member.role, 'Expected one of:', validRoles, 'Member:', member);
+            return null;
+          }
+
+          if (typeof email !== 'string' || !email.trim()) {
+            console.error('Invalid or missing member email:', member.email, 'Member:', member);
+            return null;
+          }
+
+          return {
+            userId,
+            role: normalizedRole as Role,
+            email,
+            name: typeof member.name === 'string' ? member.name : undefined,
+            image: typeof member.image === 'string' ? member.image : undefined,
+            createdAt: Number.isFinite(createdAt ?? NaN) ? (createdAt as number) : Date.now(),
+          } as Member;
         })
         .filter((m): m is Member => m !== null);
       setMembers(prev => ({ ...prev, [practiceId]: normalizedMembers }));

@@ -1,2 +1,2 @@
 Check for lint/ts errors and resolve before commit request (only when writing code, not documentation)
-DO NOT use useEffect https://react.dev/learn/you-might-not-need-an-effect
+Don’t use useEffect for React-internal logic (derived state, data transforms, “when X changes set Y”, or user events). Use it only for external synchronization (DOM/Browser APIs, subscriptions, timers, fetch with cleanup).

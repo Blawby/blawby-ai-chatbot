@@ -695,6 +695,54 @@ export class ConversationService {
   }
 
   /**
+   * Send a system message to a conversation without requiring participant access.
+   */
+  async sendSystemMessage(options: {
+    conversationId: string;
+    practiceId: string;
+    content: string;
+    role?: 'system' | 'assistant';
+    metadata?: Record<string, unknown>;
+  }): Promise<ConversationMessage> {
+    const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId);
+    if (!practiceExists) {
+      Logger.error('Attempted to send system message with invalid practice_id', {
+        practiceId: options.practiceId,
+        conversationId: options.conversationId,
+        anomaly: 'invalid_practice_id_on_system_message',
+        severity: 'high'
+      });
+      throw HttpErrors.notFound(`Practice not found: ${options.practiceId}`);
+    }
+
+    await this.getConversation(options.conversationId, options.practiceId);
+
+    const messageId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const role = options.role || 'system';
+    const metadataJson = options.metadata ? JSON.stringify(options.metadata) : null;
+
+    await this.env.DB.prepare(`
+      INSERT INTO chat_messages (
+        id, conversation_id, practice_id, user_id, role, content, metadata, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      messageId,
+      options.conversationId,
+      options.practiceId,
+      null,
+      role,
+      options.content,
+      metadataJson,
+      now
+    ).run();
+
+    await this.updateLastMessageAt(options.conversationId, options.practiceId);
+
+    return this.getMessage(messageId);
+  }
+
+  /**
    * Get a single message by ID
    */
   async getMessage(messageId: string): Promise<ConversationMessage> {

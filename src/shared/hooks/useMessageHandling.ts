@@ -716,7 +716,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         paymentKeys.forEach((key) => {
           const uuid = key.split(':')[1] || 'unknown';
           const messageId = `system-payment-confirm-${uuid}`;
-          const alreadyExists = newMessages.some((m) => m.id === messageId);
+          const alreadyExists = newMessages.some((m) =>
+            m.id === messageId || m.metadata?.intakePaymentUuid === uuid
+          );
           if (alreadyExists) {
             window.sessionStorage.removeItem(key);
             return;
@@ -740,7 +742,11 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             role: 'assistant',
             content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
             timestamp: ++tempTimestamp,
-            isUser: false
+            isUser: false,
+            metadata: {
+              intakePaymentUuid: uuid,
+              paymentStatus: 'succeeded'
+            }
           });
           changed = true;
           window.sessionStorage.removeItem(key);

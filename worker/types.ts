@@ -169,6 +169,8 @@ export interface Env {
   ONESIGNAL_REST_API_KEY?: string;
   ONESIGNAL_API_BASE?: string;
 
+  INTAKE_WEBHOOK_SECRET?: string;
+
 }
 
 // HTTP Error class for centralized error handling

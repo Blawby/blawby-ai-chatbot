@@ -1,7 +1,7 @@
 import { MatterService } from '../services/MatterService.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { Env } from '../types.js';
-import { requireAuth, requirePracticeMemberRole } from '../middleware/auth.js';
+import { requirePracticeMemberRole } from '../middleware/auth.js';
 import { handleError, HttpErrors } from '../errorHandler.js';
 import { parseJsonBody } from '../utils.js';
 import { NotificationService } from '../services/NotificationService.js';
@@ -28,6 +28,61 @@ function createSuccessResponse(data: unknown): Response {
 type MatterStatusValue = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
 const MATTER_STATUS_VALUES: Set<MatterStatusValue> = new Set(['lead', 'open', 'in_progress', 'completed', 'archived']);
 
+type PracticeRole = 'owner' | 'admin' | 'attorney' | 'paralegal';
+const ROLE_HIERARCHY: Record<PracticeRole, number> = {
+  paralegal: 1,
+  attorney: 2,
+  admin: 3,
+  owner: 4
+};
+
+function normalizeRole(value: unknown): PracticeRole | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'owner' || normalized === 'admin' || normalized === 'attorney' || normalized === 'paralegal') {
+    return normalized;
+  }
+  return null;
+}
+
+function requireMinimumRole(memberRole: string, minimumRole: PracticeRole): void {
+  const normalizedRole = normalizeRole(memberRole);
+  if (!normalizedRole) {
+    throw HttpErrors.forbidden(`Invalid practice role: ${memberRole}`);
+  }
+  if (ROLE_HIERARCHY[normalizedRole] < ROLE_HIERARCHY[minimumRole]) {
+    throw HttpErrors.forbidden(`Insufficient permissions. Required role: ${minimumRole}`);
+  }
+}
+
+function resolveLeadReviewRoles(metadata: Record<string, unknown> | null | undefined): Set<PracticeRole> {
+  const roles = new Set<PracticeRole>(['owner', 'admin']);
+  const metadataRecord = metadata ?? {};
+  const leadsConfigRaw = (metadataRecord as Record<string, unknown>).leads
+    ?? (metadataRecord as Record<string, unknown>).leadPermissions;
+  if (!leadsConfigRaw || typeof leadsConfigRaw !== 'object') {
+    return roles;
+  }
+  const leadsConfig = leadsConfigRaw as Record<string, unknown>;
+  const allowedRoles = Array.isArray(leadsConfig.allowedRoles)
+    ? leadsConfig.allowedRoles
+    : [];
+  allowedRoles.forEach((role) => {
+    const normalized = normalizeRole(role);
+    if (normalized) {
+      roles.add(normalized);
+    }
+  });
+  return roles;
+}
+
+function requireLeadReviewRole(memberRole: string, allowedRoles: Set<PracticeRole>): void {
+  const normalizedRole = normalizeRole(memberRole);
+  if (!normalizedRole || !allowedRoles.has(normalizedRole)) {
+    throw HttpErrors.forbidden('You do not have permission to review leads.');
+  }
+}
+
 type WorkspaceMatterRow = {
   id: string;
   title: string;
@@ -35,7 +90,11 @@ type WorkspaceMatterRow = {
   status: MatterStatusValue;
   priority: string;
   clientName?: string | null;
+  clientEmail?: string | null;
+  clientPhone?: string | null;
   leadSource?: string | null;
+  conversationId?: string | null;
+  intakeUuid?: string | null;
   createdAt: string;
   updatedAt: string;
   acceptedByUserId?: string | null;
@@ -87,10 +146,12 @@ async function notifyIntakeDecision(options: {
   } catch {
     // ignore attach failures; still try to post the system message
   }
-  try {
-    await conversationService.addParticipants(sessionId, practiceId, [actorUserId]);
-  } catch {
-    // ignore participant add failures; still try to post the system message
+  if (decision === 'accepted') {
+    try {
+      await conversationService.addParticipants(sessionId, practiceId, [actorUserId]);
+    } catch {
+      // ignore participant add failures; still try to post the system message
+    }
   }
 
   let isConversationLinked = false;
@@ -113,14 +174,15 @@ async function notifyIntakeDecision(options: {
       : `Your intake was reviewed and declined.${reason ? ` Reason: ${reason}` : ''} If you'd like to follow up, you can [sign in](${signInPath}) or submit another request at any time.`);
 
   try {
-    await conversationService.sendMessage({
+    await conversationService.sendSystemMessage({
       conversationId: sessionId,
       practiceId,
-      senderUserId: actorUserId,
       content,
       role: 'system',
       metadata: {
-        intakeDecision: decision
+        intakeDecision: decision,
+        actorUserId,
+        reason: reason ?? null
       }
     });
   } catch (error) {
@@ -257,12 +319,13 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
           throw HttpErrors.notFound('Practice not found');
         }
 
-        // Require at least admin access for dashboard data
-        await requirePracticeMemberRole(request, env, practice.id, 'admin');
+        const authContext = await requirePracticeMemberRole(request, env, practice.id);
+        const leadReviewRoles = resolveLeadReviewRoles(practice.metadata);
 
         const limit = parseLimit(url.searchParams.get('limit'));
 
         if (resource === 'sessions') {
+          requireMinimumRole(authContext.memberRole, 'admin');
           // Sessions removed - returning conversations instead
           // Note: This endpoint may need to be renamed to 'conversations' in the future
           const statusFilter = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
@@ -330,7 +393,11 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                         status,
                         priority,
                         client_name as clientName,
+                        client_email as clientEmail,
+                        client_phone as clientPhone,
                         lead_source as leadSource,
+                        json_extract(custom_fields, '$.sessionId') as conversationId,
+                        json_extract(custom_fields, '$.intakeUuid') as intakeUuid,
                         created_at as createdAt,
                         updated_at as updatedAt,
                         (
@@ -358,6 +425,12 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                 throw HttpErrors.notFound('Matter not found');
               }
 
+              if (record.status === 'lead') {
+                requireLeadReviewRole(authContext.memberRole, leadReviewRoles);
+              } else {
+                requireMinimumRole(authContext.memberRole, 'admin');
+              }
+
               const payload = {
                 id: record.id,
                 title: record.title,
@@ -365,7 +438,11 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                 status: record.status,
                 priority: record.priority,
                 clientName: record.clientName ?? null,
+                clientEmail: record.clientEmail ?? null,
+                clientPhone: record.clientPhone ?? null,
                 leadSource: record.leadSource ?? null,
+                conversationId: record.conversationId ?? null,
+                intakeUuid: record.intakeUuid ?? null,
                 createdAt: record.createdAt,
                 updatedAt: record.updatedAt,
                 acceptedBy: record.acceptedByUserId
@@ -380,8 +457,7 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
             }
 
             if (action === 'accept' && request.method === 'POST') {
-              const authContext = await requireAuth(request, env);
-              await requirePracticeMemberRole(request, env, practice.id, 'admin');
+              requireLeadReviewRole(authContext.memberRole, leadReviewRoles);
 
               let idempotencyKey = request.headers.get('Idempotency-Key');
               if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -451,8 +527,7 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
             }
 
             if (action === 'reject' && request.method === 'POST') {
-              const authContext = await requireAuth(request, env);
-              await requirePracticeMemberRole(request, env, practice.id, 'admin');
+              requireLeadReviewRole(authContext.memberRole, leadReviewRoles);
 
               let idempotencyKey = request.headers.get('Idempotency-Key');
               if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -528,8 +603,7 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
             }
 
             if (action === 'status' && request.method === 'PATCH') {
-              const authContext = await requireAuth(request, env);
-              await requirePracticeMemberRole(request, env, practice.id, 'attorney');
+              requireMinimumRole(authContext.memberRole, 'attorney');
 
               let idempotencyKey = request.headers.get('Idempotency-Key');
               if (idempotencyKey) await validateIdempotencyKeyLength(idempotencyKey);
@@ -612,6 +686,11 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
 
           const statusFilterRaw = url.searchParams.get('status');
           const statusFilter = statusFilterRaw ? normalizeMatterStatus(statusFilterRaw) : null;
+          if (statusFilter === 'lead') {
+            requireLeadReviewRole(authContext.memberRole, leadReviewRoles);
+          } else {
+            requireMinimumRole(authContext.memberRole, 'admin');
+          }
           const searchTerm = url.searchParams.get('q');
           const limitWithBuffer = limit;
           const cursorParam = url.searchParams.get('cursor');
@@ -638,13 +717,17 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
           }
 
           const query = `
-            SELECT id,
+           SELECT id,
                    title,
                    matter_type as matterType,
                    status,
                    priority,
                    client_name as clientName,
+                   client_email as clientEmail,
+                   client_phone as clientPhone,
                    lead_source as leadSource,
+                   json_extract(custom_fields, '$.sessionId') as conversationId,
+                   json_extract(custom_fields, '$.intakeUuid') as intakeUuid,
                    created_at as createdAt,
                    updated_at as updatedAt,
                    (
@@ -681,7 +764,11 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
             status: row.status,
             priority: row.priority,
             clientName: row.clientName ?? null,
+            clientEmail: row.clientEmail ?? null,
+            clientPhone: row.clientPhone ?? null,
             leadSource: row.leadSource ?? null,
+            conversationId: row.conversationId ?? null,
+            intakeUuid: row.intakeUuid ?? null,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
             acceptedBy: row.acceptedByUserId
