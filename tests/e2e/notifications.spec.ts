@@ -62,7 +62,7 @@ const ensureNotificationsAllowed = (userDataDir: string, baseURL: string): void 
   const exceptionKey = `${url.protocol}//${url.hostname}:${port},*`;
   exceptions[exceptionKey] = {
     setting: 1,
-    last_modified: new Date().toISOString()
+    last_modified: String((Date.now() + 11644473600000) * 1000)
   };
 
   writeFileSync(preferencesPath, JSON.stringify(preferences));
