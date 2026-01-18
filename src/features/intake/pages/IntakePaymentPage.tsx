@@ -5,7 +5,11 @@ import { loadStripe, type StripeElementsOptionsClientSecret } from '@stripe/stri
 import { Elements } from '@stripe/react-stripe-js';
 import { IntakePaymentForm } from '@/features/intake/components/IntakePaymentForm';
 import { Button } from '@/shared/ui/Button';
-import { fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
+import {
+  fetchIntakePaymentStatus,
+  isPaidIntakeStatus,
+  isValidStripePaymentLink
+} from '@/shared/utils/intakePayments';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_KEY ?? '';
 const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : null;
@@ -37,9 +41,15 @@ export const IntakePaymentPage: FunctionComponent = () => {
   const handleCheckStatus = useCallback(async () => {
     if (!intakeUuid) return;
     setIsChecking(true);
-    const latestStatus = await fetchIntakePaymentStatus(intakeUuid);
-    setStatus(latestStatus);
-    setIsChecking(false);
+    try {
+      const latestStatus = await fetchIntakePaymentStatus(intakeUuid);
+      setStatus(latestStatus);
+    } catch (error) {
+      console.warn('[IntakePayment] Failed to check payment status', error);
+      setStatus('unable_to_fetch');
+    } finally {
+      setIsChecking(false);
+    }
   }, [intakeUuid]);
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
@@ -60,7 +70,7 @@ export const IntakePaymentPage: FunctionComponent = () => {
     };
   }, [clientSecret]);
 
-  if (paymentLinkUrl && !clientSecret) {
+  if (paymentLinkUrl && isValidStripePaymentLink(paymentLinkUrl) && !clientSecret) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-dark-bg px-6 py-12">
         <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg p-6 text-sm text-gray-700 dark:text-gray-200">

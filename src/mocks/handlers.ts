@@ -903,11 +903,12 @@ export const handlers = [
     }, { status: 201 });
   }),
 
-  http.get('/api/practice/client-intakes/:uuid/status', async () => {
+  http.get('/api/practice/client-intakes/:uuid/status', async ({ params }) => {
+    const uuid = params.uuid as string;
     return HttpResponse.json({
       success: true,
       data: {
-        uuid: randomId('intake'),
+        uuid,
         amount: 200,
         currency: 'usd',
         status: 'completed',

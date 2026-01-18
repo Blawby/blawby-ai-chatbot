@@ -2,7 +2,11 @@ import { FunctionComponent } from 'preact';
 import { useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import {
+  buildIntakePaymentUrl,
+  isValidStripePaymentLink,
+  type IntakePaymentRequest
+} from '@/shared/utils/intakePayments';
 import { useNavigation } from '@/shared/utils/navigation';
 
 interface IntakePaymentCardProps {
@@ -32,6 +36,9 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
 
   const openPaymentLink = () => {
     if (!paymentRequest.paymentLinkUrl) return false;
+    if (!isValidStripePaymentLink(paymentRequest.paymentLinkUrl)) {
+      return false;
+    }
     if (typeof window !== 'undefined') {
       window.open(paymentRequest.paymentLinkUrl, '_blank', 'noopener');
       return true;

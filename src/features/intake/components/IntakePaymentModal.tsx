@@ -4,6 +4,7 @@ import Modal from '@/shared/components/Modal';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, type StripeElementsOptionsClientSecret } from '@stripe/stripe-js';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import { isValidStripePaymentLink } from '@/shared/utils/intakePayments';
 import { IntakePaymentForm } from '@/features/intake/components/IntakePaymentForm';
 import { Button } from '@/shared/ui/Button';
 
@@ -25,6 +26,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
 }) => {
   const clientSecret = paymentRequest?.clientSecret;
   const paymentLinkUrl = paymentRequest?.paymentLinkUrl;
+  const isValidPaymentLink = paymentLinkUrl ? isValidStripePaymentLink(paymentLinkUrl) : false;
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
     if (!clientSecret) return null;
@@ -77,7 +79,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
             onReturn={onClose}
           />
         </Elements>
-      ) : paymentLinkUrl ? (
+      ) : isValidPaymentLink ? (
         <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
           <p className="mb-3">Continue to Stripe to complete your consultation fee.</p>
           <Button

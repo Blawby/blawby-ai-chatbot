@@ -966,8 +966,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
           continue;
         }
 
-        const status = await fetchIntakePaymentStatus(pending.uuid);
-        if (!isPaidIntakeStatus(status)) {
+        try {
+          const status = await fetchIntakePaymentStatus(pending.uuid);
+          if (!isPaidIntakeStatus(status)) {
+            continue;
+          }
+        } catch (error) {
+          console.warn('[Intake] Failed to check payment status for', pending.uuid, error);
           continue;
         }
         if (typeof window !== 'undefined') {

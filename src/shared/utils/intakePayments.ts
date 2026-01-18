@@ -29,6 +29,7 @@ const sanitizeReturnTo = (value?: string) => {
 };
 
 const PAID_STATUSES = new Set(['succeeded', 'completed', 'paid', 'complete']);
+const STRIPE_PAYMENT_HOSTS = ['checkout.stripe.com', '.stripe.com'];
 
 const normalizeStatus = (value?: string | null) => {
   if (!value) return null;
@@ -39,6 +40,20 @@ const normalizeStatus = (value?: string | null) => {
 export const isPaidIntakeStatus = (status?: string | null): boolean => {
   const normalized = normalizeStatus(status);
   return normalized ? PAID_STATUSES.has(normalized) : false;
+};
+
+export const isValidStripePaymentLink = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    return STRIPE_PAYMENT_HOSTS.some((host) =>
+      host.startsWith('.')
+        ? parsed.hostname.endsWith(host)
+        : parsed.hostname === host
+    );
+  } catch {
+    return false;
+  }
 };
 
 export const buildIntakePaymentUrl = (
