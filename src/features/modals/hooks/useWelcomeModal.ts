@@ -87,14 +87,7 @@ export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcom
       console.warn('[WELCOME_MODAL] BroadcastChannel postMessage failed', err);
     }
     try {
-      const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding').catch(() => null);
       await updatePreferencesCategory('onboarding', {
-        birthday: prefs?.birthday,
-        primary_use_case: prefs?.primary_use_case,
-        use_case_additional_info: prefs?.use_case_additional_info,
-        completed: prefs?.completed,
-        product_usage: prefs?.product_usage,
-        practice_welcome_shown: prefs?.practice_welcome_shown,
         welcome_modal_shown: true
       });
     } catch (err) {
