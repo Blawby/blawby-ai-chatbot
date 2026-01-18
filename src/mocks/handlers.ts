@@ -878,7 +878,7 @@ export const handlers = [
     });
   }),
 
-  http.post('/api/practice-client-intakes/create', async ({ request }) => {
+  http.post('/api/practice/client-intakes/create', async ({ request }) => {
     const body = await request.json().catch(() => ({})) as { slug?: string; amount?: number };
     let practiceName = 'Practice';
     if (body.slug) {
@@ -891,7 +891,7 @@ export const handlers = [
       success: true,
       data: {
         uuid: randomId('intake'),
-        client_secret: randomId('secret'),
+        payment_link_url: 'https://checkout.stripe.com/pay/mock-payment-link',
         amount: body.amount ?? 200,
         currency: 'usd',
         status: 'requires_payment_method',

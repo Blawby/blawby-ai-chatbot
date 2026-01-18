@@ -26,8 +26,14 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
   );
 
   const practiceName = paymentRequest.practiceName || 'the practice';
-  const paymentUrl = buildIntakePaymentUrl(paymentRequest);
+  const paymentUrl = paymentRequest.paymentLinkUrl || buildIntakePaymentUrl(paymentRequest);
   const handlePay = () => {
+    if (paymentRequest.paymentLinkUrl) {
+      if (typeof window !== 'undefined') {
+        window.location.assign(paymentUrl);
+      }
+      return;
+    }
     if (onOpenPayment) {
       onOpenPayment(paymentRequest);
       return;

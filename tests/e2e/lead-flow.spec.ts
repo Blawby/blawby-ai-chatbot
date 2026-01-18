@@ -27,6 +27,7 @@ interface IntakeSettings {
 interface IntakeCreateResult {
   uuid?: string;
   clientSecret?: string;
+  paymentLinkUrl?: string;
   amount?: number;
   currency?: string;
   status?: string;
@@ -56,7 +57,7 @@ const createIntake = async (options: {
   description?: string;
   amount?: number;
 }): Promise<IntakeCreateResult> => {
-  const response = await fetch(`${REMOTE_API_URL}/api/practice-client-intakes/create`, {
+  const response = await fetch(`${REMOTE_API_URL}/api/practice/client-intakes/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -79,6 +80,7 @@ const createIntake = async (options: {
   return {
     uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
     clientSecret: typeof data.client_secret === 'string' ? data.client_secret : undefined,
+    paymentLinkUrl: typeof data.payment_link_url === 'string' ? data.payment_link_url : undefined,
     amount: typeof data.amount === 'number' ? data.amount : undefined,
     currency: typeof data.currency === 'string' ? data.currency : undefined,
     status: typeof data.status === 'string' ? data.status : undefined

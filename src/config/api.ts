@@ -43,7 +43,7 @@ export const getFormsApiUrl = () => {
 };
 
 export const getFormsEndpoint = () => {
-  return `${getFormsApiUrl()}/api/practice-client-intakes/create`;
+  return `${getFormsApiUrl()}/api/practice/client-intakes/create`;
 };
 
 export const getPracticeClientIntakeSettingsEndpoint = (slug: string) => {
@@ -51,7 +51,7 @@ export const getPracticeClientIntakeSettingsEndpoint = (slug: string) => {
 };
 
 export const getPracticeClientIntakeCreateEndpoint = () => {
-  return `${getFormsApiUrl()}/api/practice-client-intakes/create`;
+  return `${getFormsApiUrl()}/api/practice/client-intakes/create`;
 };
 
 export const getPracticeClientIntakeUpdateEndpoint = (uuid: string) => {

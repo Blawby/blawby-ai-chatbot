@@ -1,6 +1,7 @@
 export type IntakePaymentRequest = {
   intakeUuid?: string;
   clientSecret?: string;
+  paymentLinkUrl?: string;
   amount?: number;
   currency?: string;
   practiceName?: string;
