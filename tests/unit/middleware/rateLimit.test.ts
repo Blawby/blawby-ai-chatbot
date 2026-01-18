@@ -3,18 +3,31 @@ import { rateLimit, getClientId } from '../../../worker/middleware/rateLimit.js'
 import type { Env } from '../../../worker/types.js';
 
 // Mock environment
-const createMockEnv = (): Env => {
+const createMockEnv = (): {
+  env: Env;
+  mockGet: ReturnType<typeof vi.fn>;
+  mockPut: ReturnType<typeof vi.fn>;
+} => {
   const mockGet = vi.fn();
   const mockPut = vi.fn();
-  return {
-    DB: {} as any,
+  const mockList = vi.fn();
+  const mockDelete = vi.fn();
+  const mockGetWithMetadata = vi.fn();
+  const env: Env = {
+    DB: {} as Env['DB'],
     CHAT_SESSIONS: {
       get: mockGet,
-      put: mockPut
-    } as any, // Use any to avoid KVNamespace type conflicts
+      put: mockPut,
+      list: mockList,
+      delete: mockDelete,
+      getWithMetadata: mockGetWithMetadata
+    } as Env['CHAT_SESSIONS'],
+    NOTIFICATION_EVENTS: {} as Env['NOTIFICATION_EVENTS'],
+    NOTIFICATION_HUB: {} as Env['NOTIFICATION_HUB'],
     ONESIGNAL_APP_ID: 'test-app',
     ONESIGNAL_REST_API_KEY: 'test-key',
-  } as Env;
+  };
+  return { env, mockGet, mockPut };
 };
 
 describe('Rate Limiting Tests', () => {
@@ -23,9 +36,10 @@ describe('Rate Limiting Tests', () => {
   let mockPut: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockEnv = createMockEnv();
-    mockGet = mockEnv.CHAT_SESSIONS.get as ReturnType<typeof vi.fn>;
-    mockPut = mockEnv.CHAT_SESSIONS.put as ReturnType<typeof vi.fn>;
+    const { env, mockGet: getMock, mockPut: putMock } = createMockEnv();
+    mockEnv = env;
+    mockGet = getMock;
+    mockPut = putMock;
     vi.clearAllMocks();
   });
 

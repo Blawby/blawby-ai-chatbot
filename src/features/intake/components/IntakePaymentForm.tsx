@@ -65,8 +65,13 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
+      const token = await getTokenAsync();
+      const headers: HeadersInit | undefined = token
+        ? { Authorization: `Bearer ${token}` }
+        : undefined;
       const response = await fetch(getPracticeClientIntakeStatusEndpoint(intakeUuid), {
         method: 'GET',
+        headers,
         signal: controller.signal
       });
       clearTimeout(timeoutId);

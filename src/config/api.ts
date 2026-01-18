@@ -47,7 +47,7 @@ export const getFormsEndpoint = () => {
 };
 
 export const getPracticeClientIntakeSettingsEndpoint = (slug: string) => {
-  return `${getFormsApiUrl()}/api/practice-client-intakes/${encodeURIComponent(slug)}/intake`;
+  return `${getFormsApiUrl()}/api/practice/client-intakes/${encodeURIComponent(slug)}/intake`;
 };
 
 export const getPracticeClientIntakeCreateEndpoint = () => {
@@ -55,11 +55,11 @@ export const getPracticeClientIntakeCreateEndpoint = () => {
 };
 
 export const getPracticeClientIntakeUpdateEndpoint = (uuid: string) => {
-  return `${getFormsApiUrl()}/api/practice-client-intakes/${encodeURIComponent(uuid)}`;
+  return `${getFormsApiUrl()}/api/practice/client-intakes/${encodeURIComponent(uuid)}`;
 };
 
 export const getPracticeClientIntakeStatusEndpoint = (uuid: string) => {
-  return `${getFormsApiUrl()}/api/practice-client-intakes/${encodeURIComponent(uuid)}/status`;
+  return `${getFormsApiUrl()}/api/practice/client-intakes/${encodeURIComponent(uuid)}/status`;
 };
 
 // Practice workspace endpoints (chatbot data) - still local

@@ -13,7 +13,6 @@
  */
 
 import { config } from 'dotenv';
-import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 // Load environment variables
@@ -162,4 +161,3 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith
 }
 
 export { validateLawyerApi, type ValidationResult };
-

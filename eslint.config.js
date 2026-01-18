@@ -27,6 +27,8 @@ export default [
       'workbox-*.js.map',
       '.wrangler/tmp/**',
       '.wrangler/**',
+      'worker/.wrangler/**',
+      'public/OneSignalSDK*.js',
       'public/sw.js', // Service worker file
       'sync-organizations.js', // Node.js script with different globals
       'tailwind.config.js' // Config file with require()
@@ -201,7 +203,9 @@ export default [
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
-        URL: 'readonly'
+        URL: 'readonly',
+        fetch: 'readonly',
+        AbortSignal: 'readonly'
       }
     },
     plugins: { '@typescript-eslint': typescript },

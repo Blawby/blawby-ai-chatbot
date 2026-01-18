@@ -35,8 +35,7 @@
  *   /api/practices/*               - Practice CRUD operations
  *   /api/subscription/*            - Subscription management
  *   /api/members/*                 - Member management
- *   /api/practice-client-intakes/* - Intake settings & status
- *   /api/practice/client-intakes/* - Intake creation
+ *   /api/practice/client-intakes/* - Intake settings, status, creation
  *   /api/conversations/:id/link    - Conversation link generation
  */
 

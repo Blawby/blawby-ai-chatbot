@@ -857,7 +857,7 @@ export const handlers = [
     });
   }),
 
-  http.get('/api/practice-client-intakes/:slug/intake', async ({ params }) => {
+  http.get('/api/practice/client-intakes/:slug/intake', async ({ params }) => {
     const slug = params.slug as string;
     const practice = findPractice(slug);
     if (!practice) {

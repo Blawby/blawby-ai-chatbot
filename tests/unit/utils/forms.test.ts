@@ -18,6 +18,7 @@ describe('submitContactForm', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -31,7 +32,7 @@ describe('submitContactForm', () => {
         : input instanceof URL
           ? input.toString()
           : String(input);
-      if (url.includes('/api/practice-client-intakes/') && url.includes('/intake')) {
+      if (url.includes('/api/practice/client-intakes/') && url.includes('/intake')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({

@@ -1,4 +1,4 @@
-import { type ConfigEnv, defineConfig, loadEnv } from 'vite';
+import { type ConfigEnv, type ProxyOptions, defineConfig, loadEnv } from 'vite';
 import preact from '@preact/preset-vite';
 import { resolve } from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -116,27 +116,25 @@ const workerEndpoints = [
 ];
 
 // Proxy configuration types from http-proxy-middleware
-const createWorkerProxyConfig = () => ({
+const createWorkerProxyConfig = (): ProxyOptions => ({
 	target: 'http://localhost:8787',
 	changeOrigin: true,
 	secure: false,
-	configure: (proxy: any, _options: any) => {
+	configure: (proxy) => {
 		proxy.on('error', (err: Error) => {
 			console.log('[Vite Proxy] Worker proxy error:', err);
 		});
-		proxy.on('proxyReq', (_proxyReq: any, req: any) => {
+		proxy.on('proxyReq', (_proxyReq, req) => {
 			console.log('[Vite Proxy] Worker →', req.method, req.url);
 		});
-		proxy.on('proxyRes', (proxyRes: any, req: any) => {
+		proxy.on('proxyRes', (proxyRes, req) => {
 			console.log('[Vite Proxy] Worker ←', proxyRes.statusCode, req.url);
 		});
 	},
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const buildProxyEntries = (): Record<string, any> => {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const entries: Record<string, any> = {} as Record<string, any>;
+const buildProxyEntries = (): Record<string, ProxyOptions> => {
+	const entries: Record<string, ProxyOptions> = {};
 
 	// Worker API endpoints (always proxied to localhost:8787)
 	workerEndpoints.forEach((endpoint) => {
