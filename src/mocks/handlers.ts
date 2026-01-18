@@ -891,7 +891,7 @@ export const handlers = [
       success: true,
       data: {
         uuid: randomId('intake'),
-        payment_link_url: 'https://checkout.stripe.com/pay/mock-payment-link',
+        client_secret: randomId('secret'),
         amount: body.amount ?? 200,
         currency: 'usd',
         status: 'requires_payment_method',

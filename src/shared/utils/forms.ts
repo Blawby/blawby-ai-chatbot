@@ -57,7 +57,6 @@ type IntakeCreateResponse = {
   data?: {
     uuid?: string;
     client_secret?: string;
-    payment_link_url?: string;
     amount?: number;
     currency?: string;
     status?: string;
@@ -73,7 +72,6 @@ export type IntakeSubmissionResult = IntakeCreateResponse & {
   intake?: {
     uuid?: string;
     clientSecret?: string;
-    paymentLinkUrl?: string;
     amount?: number;
     currency?: string;
     paymentLinkEnabled: boolean;
@@ -195,7 +193,6 @@ export async function submitContactForm(
         intake: {
           uuid: result.data?.uuid,
           clientSecret: result.data?.client_secret,
-          paymentLinkUrl: result.data?.payment_link_url,
           amount: typeof result.data?.amount === 'number' ? result.data?.amount : amount,
           currency: result.data?.currency ?? 'usd',
           paymentLinkEnabled,

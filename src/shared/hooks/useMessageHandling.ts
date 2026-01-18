@@ -574,7 +574,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
       const paymentDetails = intakeResult.intake;
       const paymentRequired = paymentDetails?.paymentLinkEnabled === true;
-      if (paymentRequired && (paymentDetails.paymentLinkUrl || paymentDetails.clientSecret)) {
+      if (paymentRequired && paymentDetails.clientSecret) {
         const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
         const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
         if (!paymentMessageExists) {
@@ -582,10 +582,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             ? `${window.location.pathname}${window.location.search}`
             : undefined;
           const practiceContextId = practiceId || resolvedPracticeSlug;
-          const paymentUrl = paymentDetails.paymentLinkUrl ?? buildIntakePaymentUrl({
+          const paymentUrl = buildIntakePaymentUrl({
             intakeUuid: paymentDetails.uuid,
             clientSecret: paymentDetails.clientSecret,
-            paymentLinkUrl: paymentDetails.paymentLinkUrl,
             amount: paymentDetails.amount,
             currency: paymentDetails.currency,
             practiceName: paymentDetails.organizationName,
@@ -610,7 +609,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
                 paymentRequest: {
                   intakeUuid: paymentDetails.uuid,
                   clientSecret: paymentDetails.clientSecret,
-                  paymentLinkUrl: paymentDetails.paymentLinkUrl,
                   amount: paymentDetails.amount,
                   currency: paymentDetails.currency,
                   practiceName: paymentDetails.organizationName,

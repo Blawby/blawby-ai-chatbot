@@ -297,7 +297,6 @@ Location: ${contactData.location}${contactData.opposingParty ? `\nOpposing Party
               paymentRequest: {
                 intakeUuid: randomId(),
                 clientSecret: `cs_test_${randomId()}`,
-                paymentLinkUrl: 'https://checkout.stripe.com/pay/mock-link',
                 amount: 20000,
                 currency: 'usd',
                 practiceName: 'Mock Practice',

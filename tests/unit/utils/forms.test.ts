@@ -21,7 +21,7 @@ describe('submitContactForm', () => {
     vi.restoreAllMocks();
   });
 
-  it('uses the new intake create endpoint and returns payment_link_url', async () => {
+  it('uses the new intake create endpoint and returns intake details', async () => {
     const fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -51,7 +51,7 @@ describe('submitContactForm', () => {
             success: true,
             data: {
               uuid: 'uuid-123',
-              payment_link_url: 'https://pay.test/checkout',
+              client_secret: 'cs_test_123',
               amount: 76,
               currency: 'usd',
               status: 'pending',
@@ -83,7 +83,6 @@ describe('submitContactForm', () => {
     const body = JSON.parse(String(createCall?.[1]?.body ?? '{}')) as { amount?: number };
     expect(body.amount).toBe(76);
 
-    expect(result.intake?.paymentLinkUrl).toBe('https://pay.test/checkout');
     expect(result.intake?.uuid).toBe('uuid-123');
   });
 });
