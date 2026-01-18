@@ -191,12 +191,15 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       }
 
       setPaymentSubmitted(false);
-      setStatus('failed');
-      setErrorMessage(
-        latestStatus
-          ? `Payment status: ${latestStatus}. Please try again or contact support.`
-          : 'Payment is still processing. Return to the chat and check status again in a moment.'
-      );
+      if (latestStatus && TERMINAL_FAILURE_STATUSES.has(latestStatus)) {
+        setStatus('failed');
+        setErrorMessage(`Payment ${latestStatus}. Please try again or contact support.`);
+      } else {
+        setStatus('idle');
+        setErrorMessage(
+          'Payment is still processing. Return to the chat and check status again in a moment.'
+        );
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Payment failed. Please try again.');
       setStatus('idle');
