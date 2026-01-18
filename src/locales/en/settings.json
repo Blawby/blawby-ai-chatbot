@@ -123,6 +123,7 @@
     "title": "Account",
     "loadingError": "Failed to load account data",
     "retry": "Retry",
+    "nameLabel": "Name",
     "plan": {
       "sectionTitle": "Subscription Plan",
       "currentPlanLabel": "Current Plan: {{tier}}",
@@ -133,7 +134,8 @@
       "upgradeBusiness": "Upgrade",
       "getBusiness": "Get Business",
       "autoRenews": "Your plan auto-renews on {{date}}",
-      "cancelSubscription": "Cancel subscription",
+      "thanksForSubscribing": "Thanks for subscribing to Blawby Business! Your Business plan includes:",
+      "cancelSubscription": "Cancel Subscription",
       "tiers": {
         "free": "Free",
         "plus": "Plus",
@@ -185,6 +187,11 @@
           "body": "The selected plan is missing required payment information. Please contact support."
         }
       }
+    },
+    "payments": {
+      "sectionTitle": "Payments",
+      "description": "Manage billing details and invoices in Stripe.",
+      "manage": "Manage"
     },
     "payouts": {
       "title": "Payouts",

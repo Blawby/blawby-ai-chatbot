@@ -55,10 +55,13 @@
     "title": "Konto",
     "loadingError": "Fehler beim Laden der Kontodaten",
     "retry": "Wiederholen",
+    "nameLabel": "Name",
     "plan": {
       "currentPlanLabel": "Aktueller Plan: {{tier}}",
       "manageBilling": "Verwalten",
       "manage": "Verwalten",
+      "thanksForSubscribing": "Danke, dass Sie Blawby Business abonniert haben! Ihr Business-Plan beinhaltet:",
+      "cancelSubscription": "Abonnement kündigen",
       "tiers": {
         "free": "Kostenlos",
         "plus": "Plus",
@@ -104,6 +107,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "Zahlungen",
+      "description": "Verwalten Sie Abrechnungsdetails und Rechnungen in Stripe.",
+      "manage": "Verwalten"
+    },
+
     "links": {
       "title": "Links",
       "domainLabel": "Wählen Sie eine Domain aus",

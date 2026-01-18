@@ -55,10 +55,13 @@
     "title": "アカウント",
     "loadingError": "アカウントデータの読み込みに失敗しました",
     "retry": "再試行",
+    "nameLabel": "名前",
     "plan": {
       "currentPlanLabel": "現在のプラン: {{tier}}",
       "manageBilling": "管理",
       "manage": "管理",
+      "thanksForSubscribing": "Blawby Businessをご利用いただきありがとうございます！Businessプランには以下が含まれます:",
+      "cancelSubscription": "サブスクリプションをキャンセル",
       "tiers": {
         "free": "無料",
         "plus": "プラス",
@@ -104,6 +107,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "支払い",
+      "description": "Stripeで請求情報と請求書を管理します。",
+      "manage": "管理"
+    },
+
     "links": {
       "title": "リンク",
       "domainLabel": "ドメインを選択",

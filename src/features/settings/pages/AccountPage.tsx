@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
+import { Select } from '@/shared/ui/input';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { SectionDivider } from '@/shared/ui';
 import Modal from '@/shared/components/Modal';
 import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
@@ -11,15 +13,14 @@ import { TIER_FEATURES } from '@/shared/utils/stripe-products';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { useSubscription } from '@/shared/hooks/useSubscription';
-import { displayPlan } from '@/shared/utils/subscription';
+import { displayPlan, hasManagedSubscription } from '@/shared/utils/subscription';
 import { formatDate } from '@/shared/utils/dateTime';
+import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { UserLinks, EmailSettings, SubscriptionTier } from '@/shared/types/user';
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList } from '@/features/settings/components/PlanFeaturesList';
-import { DomainSelector } from '@/features/settings/components/DomainSelector';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { AccountPreferences } from '@/shared/types/preferences';
@@ -43,7 +44,6 @@ export const AccountPage = ({
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch, getMembers, fetchMembers } = usePracticeManagement();
-  const { isPracticeEnabled, isLoading: isSubscriptionLoading } = useSubscription();
   const { session, isPending } = useSessionContext();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
@@ -58,7 +58,11 @@ export const AccountPage = ({
   
 
   const canManageBilling = Boolean(currentPractice?.stripeCustomerId);
-  const hasSubscription = isPracticeEnabled;
+  const hasSubscription = hasManagedSubscription(
+    currentPractice?.kind,
+    currentPractice?.subscriptionStatus,
+    currentPractice?.isPersonal ?? null
+  );
   
   // Get renewal date from subscription period_end (stored in seconds, from Stripe webhooks)
   const renewalDate = useMemo(() => {
@@ -123,7 +127,7 @@ export const AccountPage = ({
       };
       
       const practiceTier = currentPractice?.subscriptionTier;
-      const displayTier = practiceTier ?? (isPracticeEnabled ? 'business' : 'free');
+      const displayTier = practiceTier ?? (hasSubscription ? 'business' : 'free');
       
       setLinks(linksData);
       setEmailSettings(emailData);
@@ -132,15 +136,15 @@ export const AccountPage = ({
       console.error('Failed to load account data:', error);
       setError(error instanceof Error ? error.message : String(error));
     }
-  }, [session?.user, currentPractice?.subscriptionTier, isPracticeEnabled]);
+  }, [session?.user, currentPractice?.subscriptionTier, hasSubscription]);
 
   // Load account data when component mounts or practice changes
   // Only load when practice data is available (not loading) and session is available
   useEffect(() => {
-    if (!practiceLoading && !isSubscriptionLoading && currentPractice !== undefined && session?.user) {
+    if (!practiceLoading && currentPractice !== undefined && session?.user) {
       loadAccountData();
     }
-  }, [loadAccountData, practiceLoading, isSubscriptionLoading, currentPractice, session?.user]);
+  }, [loadAccountData, practiceLoading, currentPractice, session?.user]);
 
   // Detect OAuth vs password users based on lastLoginMethod
   const userWithExtendedProps = session?.user as typeof session.user & {
@@ -173,9 +177,8 @@ export const AccountPage = ({
   const isOwner = currentMember?.role === 'owner';
 
   // Subscription deletion guard for personal account deletion (compute after isOwner)
-  const hasManagedSub = Boolean(currentPractice?.stripeCustomerId);
   const subStatus = (currentPractice?.subscriptionStatus ?? 'none').toLowerCase();
-  const deletionBlockedBySubscription = isOwner && hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
+  const deletionBlockedBySubscription = !(subStatus === 'canceled' || subStatus === 'none');
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -249,6 +252,7 @@ export const AccountPage = ({
     ? TIER_FEATURES[currentTier]
     : TIER_FEATURES['business'];
   const emailAddress = emailSettings?.email || session?.user?.email || '';
+  const displayName = session?.user?.name || emailAddress || '—';
   const customDomainOptions = (links?.customDomains || []).map(domain => ({
     value: domain.domain,
     label: domain.domain
@@ -606,36 +610,56 @@ export const AccountPage = ({
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6">
         <div className="space-y-0">
+          <SettingRow label={t('settings:account.nameLabel')}>
+            <span className="text-sm text-gray-900 dark:text-gray-100">
+              {displayName}
+            </span>
+          </SettingRow>
+
+          <SectionDivider />
+
           {/* Subscription Plan Section */}
           <SettingRow
-            label={t('settings:account.plan.sectionTitle')}
+            label={displayPlan((currentTier || 'free'))}
+            labelClassName="text-white font-semibold"
             description={
-              hasSubscription ? (
-                <>
-                  {displayPlan((currentTier || 'free'))}
-                  {renewalDate && (
-                    <> • {t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })}</>
-                  )}
-                </>
-              ) : (
-                t('settings:account.plan.getBusiness')
-              )
+              hasSubscription && renewalDate
+                ? t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })
+                : undefined
             }
           >
             <div className="flex gap-2">
               {hasSubscription ? (
                 currentPractice && isOwner && canManageBilling ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => openBillingPortal({
-                      practiceId: currentPractice.id,
-                      returnUrl: `${window.location.origin}/settings/account?sync=1`
-                    })}
-                    disabled={submitting}
-                  >
-                    {t('settings:account.plan.manage')}
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={submitting}
+                        icon={<ChevronDownIcon className="w-4 h-4" />}
+                        iconPosition="right"
+                      >
+                        {t('settings:account.plan.manage')}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (!currentPractice) return;
+                          void openBillingPortal({
+                            practiceId: currentPractice.id,
+                            returnUrl: `${window.location.origin}/settings/account?sync=1`
+                          });
+                        }}
+                      >
+                        <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                          <XMarkIcon className="h-4 w-4" />
+                          {t('settings:account.plan.cancelSubscription')}
+                        </span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 ) : null
               ) : (
                 <Button
@@ -652,9 +676,31 @@ export const AccountPage = ({
           <SectionDivider />
 
           {/* Plan Features Section */}
-          <div className="py-3">
+          <div className="py-3 space-y-3">
+            {hasSubscription && (
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {t('settings:account.plan.thanksForSubscribing')}
+              </p>
+            )}
             <PlanFeaturesList features={currentPlanFeatures} />
           </div>
+
+          <SettingRow
+            label={t('settings:account.payments.sectionTitle')}
+            description={t('settings:account.payments.description')}
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => currentPractice && openBillingPortal({
+                practiceId: currentPractice.id,
+                returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
+              })}
+              disabled={!currentPractice || !isOwner || !canManageBilling || submitting}
+            >
+              {t('settings:account.payments.manage')}
+            </Button>
+          </SettingRow>
 
           <SectionDivider />
 
@@ -670,70 +716,6 @@ export const AccountPage = ({
               {t('settings:account.payouts.manage')}
             </Button>
           </SettingRow>
-
-          <SectionDivider />
-
-          {/* Links Section */}
-          <SettingSection title={t('settings:account.links.title')}>
-            {/* Domain Selector */}
-            <DomainSelector
-              label={t('settings:account.links.domainLabel')}
-              value={selectedDomain}
-              options={[
-                { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
-                ...customDomainOptions,
-                { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
-              ]}
-              onChange={handleDomainChange}
-            />
-
-            {/* LinkedIn */}
-            <div className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">in</span>
-                </div>
-                <span className="text-sm text-gray-900 dark:text-gray-100">LinkedIn</span>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleAddLinkedIn}
-              >
-                {t('settings:account.links.addButton')}
-              </Button>
-            </div>
-
-            {/* GitHub */}
-            <div className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4">
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-500 dark:text-gray-400 fill-current">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                  </svg>
-                </div>
-                <span className="text-sm text-gray-900 dark:text-gray-100">GitHub</span>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleAddGitHub}
-              >
-                {t('settings:account.links.addButton')}
-              </Button>
-            </div>
-          </SettingSection>
-
-          <SectionDivider />
-
-          {/* Email Section */}
-          <EmailSettingsSection
-            email={emailAddress}
-            receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails || false}
-            onFeedbackChange={handleFeedbackEmailsChange}
-            title={t('settings:account.email.title')}
-            feedbackLabel={t('settings:account.email.receiveFeedback')}
-          />
 
           <SectionDivider />
 
@@ -765,6 +747,84 @@ export const AccountPage = ({
               </Button>
             )}
           </SettingRow>
+
+          <SectionDivider />
+
+          {/* Links Section */}
+          <SettingSection title={t('settings:account.links.title')}>
+            {/* Domain Selector */}
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3">
+                <GlobeAltIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <span className="sr-only">{t('settings:account.links.domainLabel')}</span>
+              </div>
+              <div className="min-w-[220px]">
+                <Select
+                  value={selectedDomain}
+                  options={[
+                    { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
+                    ...customDomainOptions,
+                    { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
+                  ]}
+                  onChange={handleDomainChange}
+                  placeholder={t('settings:account.links.selectOption')}
+                />
+              </div>
+            </div>
+
+            {/* LinkedIn */}
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">in</span>
+                </div>
+                <span className="text-sm text-gray-900 dark:text-gray-100">LinkedIn</span>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddLinkedIn}
+                icon={<PlusIcon className="w-4 h-4" />}
+                iconPosition="right"
+              >
+                {t('settings:account.links.addButton')}
+              </Button>
+            </div>
+
+            {/* GitHub */}
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 text-gray-500 dark:text-gray-400 fill-current">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                </div>
+                <span className="text-sm text-gray-900 dark:text-gray-100">GitHub</span>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddGitHub}
+                icon={<PlusIcon className="w-4 h-4" />}
+                iconPosition="right"
+              >
+                {t('settings:account.links.addButton')}
+              </Button>
+            </div>
+          </SettingSection>
+
+          <SectionDivider />
+
+          {/* Email Section */}
+          <EmailSettingsSection
+            email={emailAddress}
+            receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails || false}
+            onFeedbackChange={handleFeedbackEmailsChange}
+            title={t('settings:account.email.title')}
+            feedbackLabel={t('settings:account.email.receiveFeedback')}
+          />
+
+          <SectionDivider />
         </div>
       </div>
 

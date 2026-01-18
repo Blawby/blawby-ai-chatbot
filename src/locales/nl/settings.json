@@ -55,10 +55,13 @@
     "title": "[NEEDS TRANSLATION] Account",
     "loadingError": "[NEEDS TRANSLATION] Failed to load account data",
     "retry": "[NEEDS TRANSLATION] Retry",
+    "nameLabel": "Naam",
     "plan": {
       "currentPlanLabel": "[NEEDS TRANSLATION] Current Plan: {{tier}}",
       "manageBilling": "Beheren",
       "manage": "Beheren",
+      "thanksForSubscribing": "Bedankt voor je Blawby Business-abonnement! Je Business-plan bevat:",
+      "cancelSubscription": "Abonnement opzeggen",
       "tiers": {
         "free": "[NEEDS TRANSLATION] Free",
         "plus": "[NEEDS TRANSLATION] Plus",
@@ -91,6 +94,11 @@
           "body": "[NEEDS TRANSLATION] You are already on the highest tier!"
         }
       }
+    },
+    "payments": {
+      "sectionTitle": "Betalingen",
+      "description": "Beheer factureringsgegevens en facturen in Stripe.",
+      "manage": "Beheren"
     },
     "payouts": {
       "title": "[NEEDS TRANSLATION] Payouts",

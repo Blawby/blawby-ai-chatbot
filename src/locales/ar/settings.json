@@ -55,10 +55,13 @@
     "title": "الحساب",
     "loadingError": "فشل تحميل بيانات الحساب",
     "retry": "إعادة المحاولة",
+    "nameLabel": "الاسم",
     "plan": {
       "currentPlanLabel": "الخطة الحالية: {{tier}}",
       "manageBilling": "إدارة",
       "manage": "إدارة",
+      "thanksForSubscribing": "شكرًا لاشتراكك في Blawby Business! تتضمن خطة الأعمال الخاصة بك:",
+      "cancelSubscription": "إلغاء الاشتراك",
       "tiers": {
         "free": "مجاني",
         "plus": "Plus",
@@ -92,6 +95,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "المدفوعات",
+      "description": "إدارة تفاصيل الفوترة والفواتير في Stripe.",
+      "manage": "إدارة"
+    },
+
     "links": {
       "title": "الروابط",
       "domainLabel": "اختر نطاقاً",
