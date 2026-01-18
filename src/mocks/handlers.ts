@@ -513,6 +513,7 @@ export const handlers = [
           id: user.id,
           email: user.email,
           name: user.name,
+          isAnonymous: true,
           emailVerified: false,
           email_verified: false,
           image: null
@@ -552,6 +553,7 @@ export const handlers = [
         id: user.id,
         email: user.email,
         name: user.name,
+        isAnonymous: true,
         primaryWorkspace: user.primaryWorkspace ?? null,
         preferredPracticeId: user.preferredPracticeId ?? null,
         practiceCount: user.practiceCount ?? 0,

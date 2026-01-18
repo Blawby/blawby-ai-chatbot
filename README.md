@@ -134,9 +134,12 @@ Copy `dev.vars.example` to `worker/.dev.vars` and add your API keys:
 **For Local Development:**
 Create a `.env` file in the project root for frontend environment variables:
 
-- `VITE_REMOTE_API_URL` - URL of your remote API server (used for both auth and API calls)
+- `VITE_BACKEND_API_URL` - URL of your remote backend API server (auth/practice/etc.)
   - Example: `http://localhost:3000` for local development
   - Optional in development - will fall back to staging API for testing if not set
+- `VITE_WORKER_API_URL` - Base URL for the Cloudflare Worker API (no `/api` suffix)
+  - Example: `http://localhost:8787` for local development
+  - Optional: defaults to localhost in dev and same-origin in prod
 - `VITE_ONESIGNAL_APP_ID` - OneSignal app id for the web SDK (required if using push notifications)
 
 **For Production (Cloudflare Pages):**
@@ -145,14 +148,15 @@ Set frontend environment variables in Cloudflare Pages:
 1. Go to your Cloudflare Pages project dashboard
 2. Navigate to **Settings > Environment Variables**
 3. Add required variables:
-   - `VITE_REMOTE_API_URL` - Your production remote API URL (e.g., `https://production-api.blawby.com`)
+   - `VITE_BACKEND_API_URL` - Your production remote API URL (e.g., `https://production-api.blawby.com`)
+   - `VITE_WORKER_API_URL` - Your worker base URL (e.g., `https://ai.blawby.com`, no `/api` suffix)
    - `VITE_ONESIGNAL_APP_ID` - Your OneSignal app ID (if using push notifications)
 
 **Important:** 
 - Frontend environment variables (prefixed with `VITE_`) are bundled into the frontend code at build time
 - Cloudflare Pages automatically injects environment variables during the build process
-- The application will fail at runtime (when auth is used) if `VITE_REMOTE_API_URL` is not set in production
-- This variable should NOT be set in `.dev.vars` (that's for Worker secrets only)
+- The application will fail at runtime (when auth is used) if `VITE_BACKEND_API_URL` is not set in production
+- These variables should NOT be set in `worker/.dev.vars` (that's for Worker secrets only)
 
 ### Internationalization
 

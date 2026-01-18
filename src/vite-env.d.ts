@@ -19,10 +19,8 @@ interface ImportMetaEnv {
   readonly VITE_WORKER_API_URL?: string;
   /** Backend API URL (REQUIRED in production) */
   readonly VITE_BACKEND_API_URL?: string;
-  readonly VITE_API_URL?: string;
   // Other configuration
-  readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
-  readonly VITE_DEFAULT_PRACTICE_PHONE?: string;
+  readonly VITE_STRIPE_KEY?: string;
   readonly VITE_ONESIGNAL_APP_ID?: string;
   readonly VITE_TURNSTILE_SITE_KEY?: string;
 

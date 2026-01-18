@@ -38,7 +38,7 @@ const getBaseUrlFromConfig = (config: FullConfig): string => {
 const verifyWorkerHealth = async (): Promise<void> => {
   const maxRetries = 10;
   const retryDelay = 2000;
-  const baseUrl = process.env.VITE_API_URL || 'http://localhost:8787';
+  const baseUrl = process.env.VITE_WORKER_API_URL || process.env.E2E_WORKER_URL || 'http://localhost:8787';
 
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -120,13 +120,6 @@ const createSignedInState = async (options: {
   page.setDefaultNavigationTimeout(authTimeoutMs);
 
   try {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem('onboardingCompleted', 'true');
-        localStorage.setItem('onboardingCheckDone', 'true');
-      } catch {}
-    });
-
     await page.goto('/auth?mode=signin', { waitUntil: 'domcontentloaded', timeout: authTimeoutMs });
     await page.waitForLoadState('networkidle', { timeout: authTimeoutMs }).catch(() => undefined);
 
@@ -169,6 +162,23 @@ const createSignedInState = async (options: {
     }
     await persistTokenToLocalStorage(page, token);
 
+    await page.evaluate(async () => {
+      try {
+        await fetch('/api/preferences/onboarding', {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            completed: true,
+            welcome_modal_shown_at: new Date().toISOString(),
+            practice_welcome_shown_at: new Date().toISOString()
+          })
+        });
+      } catch {
+        // Ignore preference update failures in e2e bootstrap
+      }
+    });
+
     await context.storageState({ path: storagePath });
     console.log(`✅ ${label} storageState saved to ${storagePath}`);
   } finally {
@@ -188,13 +198,6 @@ const createAnonymousState = async (options: {
   const page = await context.newPage();
 
   try {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem('onboardingCompleted', 'true');
-        localStorage.setItem('onboardingCheckDone', 'true');
-      } catch {}
-    });
-
     await page.goto(`/p/${encodeURIComponent(practiceSlug)}`);
     await page.waitForLoadState('domcontentloaded');
 

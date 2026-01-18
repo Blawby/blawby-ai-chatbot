@@ -59,6 +59,8 @@ export interface OnboardingPreferences {
   use_case_additional_info?: string;
   completed?: boolean;
   product_usage?: ProductUsage[];
+  welcome_modal_shown_at?: string | null;
+  practice_welcome_shown_at?: string | null;
 }
 
 export interface PreferencesResponse {

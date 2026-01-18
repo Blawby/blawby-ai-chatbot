@@ -16,12 +16,11 @@
 
 2. **Updated `src/vite-env.d.ts`**
    - Added new variables: `VITE_WORKER_API_URL`, `VITE_BACKEND_API_URL`
-   - Retained `VITE_API_URL` for compatibility while removing `VITE_REMOTE_API_URL`
-   - Removed unused `VITE_BETTER_AUTH_URL`
+   - Removed legacy URL variables so only current names remain
    - Added documentation comments
 
 3. **Removed Hidden Override**
-   - Removed `define` block from `vite.config.ts` that was secretly overriding `VITE_API_URL`
+   - Removed `define` block from `vite.config.ts` that was overriding the worker API env var
    - Now respects `.env` file configuration
 
 ### Phase 2: Migrated All Files ✅
@@ -52,12 +51,7 @@
 
 ## Environment Variable Changes
 
-### Legacy Variables
-- `VITE_API_URL` → Still typed for compatibility; prefer `VITE_WORKER_API_URL`/`getWorkerApiUrl()` in new code
-- `VITE_REMOTE_API_URL` → Removed in favor of `VITE_BACKEND_API_URL`
-- `VITE_BETTER_AUTH_URL` → Removed (unused)
-
-### New Variables
+### Current Variables
 - `VITE_WORKER_API_URL` - Cloudflare Worker API (optional, auto-detected)
 - `VITE_BACKEND_API_URL` - Backend API (REQUIRED in production)
 
@@ -83,12 +77,7 @@ Set environment variables in Cloudflare Pages dashboard:
 
 ### Code Changes
 
-**Before:**
-```typescript
-const url = import.meta.env.VITE_REMOTE_API_URL || 'https://staging-api.blawby.com';
-```
-
-**After:**
+**Example:**
 ```typescript
 import { getBackendApiUrl } from '@/config/urls';
 const url = getBackendApiUrl();
@@ -114,10 +103,8 @@ const url = getBackendApiUrl();
 
 ## Next Steps
 
-1. Create `.env.example` file (manually, as it's gitignored)
-2. Update README.md with new env var names
-3. Test in staging environment
-4. Update any remaining documentation
+1. Test in staging environment
+2. Confirm Cloudflare Pages env vars are set correctly
 
 ## Files Changed
 
@@ -133,6 +120,5 @@ const url = getBackendApiUrl();
 
 ## Notes
 
-- Legacy names no longer drive runtime behavior; `VITE_API_URL` stays typed for compatibility while `VITE_REMOTE_API_URL`/`VITE_BETTER_AUTH_URL` were removed
-- This allows gradual migration without breaking existing deployments
-- All new code should use the centralized `urls.ts` functions
+- Legacy URL env names were removed; use `VITE_WORKER_API_URL` and `VITE_BACKEND_API_URL`.
+- All new code should use the centralized `urls.ts` functions.

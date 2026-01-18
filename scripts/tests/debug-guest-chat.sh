@@ -7,7 +7,7 @@ Usage: ./scripts/tests/debug-guest-chat.sh [options]
 
 Options:
   --practice VALUE         Practice slug or UUID (required)
-  --worker-url URL         Worker base URL (default: VITE_API_URL or http://localhost:8787)
+  --worker-url URL         Worker base URL (default: VITE_WORKER_API_URL or http://localhost:8787)
   --backend-url URL        Backend base URL (default: VITE_BACKEND_API_URL or https://staging-api.blawby.com)
   --auth-token TOKEN       Use an existing bearer token (skips anonymous sign-in)
   --skip-anon              Do not attempt anonymous sign-in
@@ -380,7 +380,7 @@ if [[ -z "$PRACTICE_INPUT" ]]; then
 fi
 
 if [[ -z "$WORKER_URL" ]]; then
-  WORKER_URL="${VITE_API_URL:-$(read_dotenv_value VITE_API_URL)}"
+  WORKER_URL="${VITE_WORKER_API_URL:-$(read_dotenv_value VITE_WORKER_API_URL)}"
 fi
 if [[ -z "$WORKER_URL" ]]; then
   WORKER_URL="http://localhost:8787"

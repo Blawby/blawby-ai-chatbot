@@ -19,7 +19,7 @@ export const SessionContext = createContext<SessionContextValue | undefined>(und
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData, isPending, error } = useTypedSession();
 
-  const isAnonymous = !sessionData?.user;
+  const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
 
   const sessionRecord = sessionData?.session as Record<string, unknown> | undefined;
   const activeOrgId =

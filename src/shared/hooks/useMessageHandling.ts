@@ -770,10 +770,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   // 0 messages -> Welcome prompt
   // 1 message -> Show Contact Form
   // After contact form -> Pending review until practice decision
-  const { session } = useSessionContext();
-  // Anonymous users have a session and user object, but no email (empty string or null)
-  // Check email to determine if user is anonymous vs authenticated
-  const isAnonymous = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
+  const { isAnonymous } = useSessionContext();
   const userMessages = messages.filter(m => m.isUser);
   
   // Check if contact form has been submitted by looking for the submission flag

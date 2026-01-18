@@ -20,7 +20,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import PricingModal from '@/features/modals/components/PricingModal';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
 import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
-import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
+import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -220,8 +220,8 @@ export function MainApp({
   }, [location.path, navigate, notificationsBasePath]);
 
   // Use session from Better Auth
-  const { session, isPending: sessionIsPending } = useSessionContext();
-  const isAnonymousUser = !session?.user?.email || session?.user?.email.trim() === '' || session?.user?.email.startsWith('anonymous-');
+  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
+  const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
   const effectivePracticeId = practiceId || undefined;
 
@@ -232,6 +232,7 @@ export function MainApp({
   const { showError } = useToastContext();
   const showErrorRef = useRef(showError);
   const onboardingCheckRef = useRef(false);
+  const practiceWelcomeCheckRef = useRef(false);
   const isSelectingRef = useRef(false);
   useEffect(() => {
     showErrorRef.current = showError;
@@ -420,59 +421,73 @@ export function MainApp({
   // Clients chat with practices via widget (practiceId from URL), not their own practice.
 
   useEffect(() => {
-    const user = session?.user;
-    if (user && !sessionIsPending) {
-      if (onboardingCheckRef.current) return;
-      onboardingCheckRef.current = true;
+    if (sessionIsPending || isAnonymous || !session?.user?.id) {
+      return;
+    }
+    if (onboardingCheckRef.current) return;
+    onboardingCheckRef.current = true;
 
-      const hasOnboardingFlag = localStorage.getItem('onboardingCompleted');
-      const hasOnboardingCheckFlag = localStorage.getItem('onboardingCheckDone');
-      if (hasOnboardingFlag || hasOnboardingCheckFlag) {
-        return;
-      }
+    const checkOnboarding = async () => {
+      try {
+        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
+        const needsOnboarding = prefs?.completed !== true;
 
-      const checkOnboarding = async () => {
-        try {
-          const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-          const needsOnboarding = prefs?.completed !== true;
-
-          if (import.meta.env.DEV) {
-            console.debug('[ONBOARDING][CHECK] preferences', {
-              completed: prefs?.completed,
-              local_onboardingCompleted: localStorage.getItem('onboardingCompleted'),
-              local_onboardingCheckDone: localStorage.getItem('onboardingCheckDone')
-            });
-          }
-
-          if (needsOnboarding) {
-            if (import.meta.env.DEV) {
-              console.debug('[ONBOARDING][REDIRECT] redirecting to /auth?mode=signin&onboarding=true');
-            }
-            try {
-              localStorage.setItem('onboardingCheckDone', 'true');
-            } catch (_error) {
-              console.warn('[ONBOARDING][FLAGS] localStorage set failed:', _error);
-            }
-            window.location.href = '/auth?mode=signin&onboarding=true';
-          }
-        } catch (error) {
-          console.warn('[ONBOARDING][CHECK] preferences fetch failed:', error);
-          onboardingCheckRef.current = false;
+        if (import.meta.env.DEV) {
+          console.debug('[ONBOARDING][CHECK] preferences', {
+            completed: prefs?.completed
+          });
         }
-      };
 
-      void checkOnboarding();
-    }
-  }, [session?.user, sessionIsPending]);
+        if (needsOnboarding) {
+          if (import.meta.env.DEV) {
+            console.debug('[ONBOARDING][REDIRECT] redirecting to /auth?mode=signin&onboarding=true');
+          }
+          window.location.href = '/auth?mode=signin&onboarding=true';
+        }
+      } catch (error) {
+        console.warn('[ONBOARDING][CHECK] preferences fetch failed:', error);
+        onboardingCheckRef.current = false;
+      }
+    };
 
-  // Check if we should show business welcome modal (after upgrade)
+    void checkOnboarding();
+  }, [isAnonymous, session?.user?.id, sessionIsPending]);
+
+  // Check if we should show practice welcome modal
   useEffect(() => {
-    const queryString = location.query || window.location.search;
-    const params = new URLSearchParams(queryString);
-    if (params.get('upgraded') === 'business') {
-      setShowBusinessWelcome(true);
+    if (workspace !== 'practice') {
+      practiceWelcomeCheckRef.current = false;
+      setShowBusinessWelcome(false);
+      return;
     }
-  }, [location.query]);
+    if (sessionIsPending || isAnonymous || !session?.user?.id) {
+      setShowBusinessWelcome(false);
+      return;
+    }
+    if (practiceWelcomeCheckRef.current) return;
+    practiceWelcomeCheckRef.current = true;
+
+    const checkPracticeWelcome = async () => {
+      try {
+        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
+        const shouldShow = !prefs?.practice_welcome_shown_at;
+
+        if (import.meta.env.DEV) {
+          console.debug('[PRACTICE_WELCOME][CHECK] preferences', {
+            practice_welcome_shown_at: prefs?.practice_welcome_shown_at ?? null
+          });
+        }
+
+        setShowBusinessWelcome(shouldShow);
+      } catch (error) {
+        console.warn('[PRACTICE_WELCOME][CHECK] preferences fetch failed:', error);
+        practiceWelcomeCheckRef.current = false;
+        setShowBusinessWelcome(false);
+      }
+    };
+
+    void checkPracticeWelcome();
+  }, [isAnonymous, session?.user?.id, sessionIsPending, workspace]);
 
   // Handle hash-based routing for pricing modal
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -668,8 +683,16 @@ export function MainApp({
     await markWelcomeAsShown();
   };
 
-  const handleBusinessWelcomeClose = () => {
+  const handleBusinessWelcomeClose = async () => {
     setShowBusinessWelcome(false);
+    try {
+      await updatePreferencesCategory('onboarding', {
+        practice_welcome_shown_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.warn('[PRACTICE_WELCOME] Failed to update preferences', error);
+      showError('Update failed', 'We could not save your preference. You may see this prompt again.');
+    }
     navigate('/settings/practice');
   };
 
