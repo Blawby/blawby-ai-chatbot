@@ -621,7 +621,7 @@ export const AccountPage = ({
           {/* Subscription Plan Section */}
           <SettingRow
             label={displayPlan((currentTier || 'free'))}
-            labelClassName="text-white font-semibold"
+            labelClassName="text-gray-900 dark:text-white font-semibold"
             description={
               hasSubscription && renewalDate
                 ? t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })
