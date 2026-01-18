@@ -57,9 +57,10 @@ export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcom
     const checkPreferences = async () => {
       try {
         const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        const hasSeenWelcome = Boolean(prefs?.welcome_modal_shown_at);
+        const hasCompletedOnboarding = prefs?.completed === true;
+        const hasSeenWelcome = Boolean(prefs?.welcome_modal_shown);
         if (isMounted) {
-          setShouldShow(!hasSeenWelcome);
+          setShouldShow(hasCompletedOnboarding && !hasSeenWelcome);
         }
       } catch (error) {
         console.warn('[WELCOME_MODAL] Failed to load onboarding preferences', error);
@@ -86,8 +87,15 @@ export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcom
       console.warn('[WELCOME_MODAL] BroadcastChannel postMessage failed', err);
     }
     try {
+      const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding').catch(() => null);
       await updatePreferencesCategory('onboarding', {
-        welcome_modal_shown_at: new Date().toISOString()
+        birthday: prefs?.birthday,
+        primary_use_case: prefs?.primary_use_case,
+        use_case_additional_info: prefs?.use_case_additional_info,
+        completed: prefs?.completed,
+        product_usage: prefs?.product_usage,
+        practice_welcome_shown: prefs?.practice_welcome_shown,
+        welcome_modal_shown: true
       });
     } catch (err) {
       console.error('[WELCOME_MODAL] Failed to update preferences', err);

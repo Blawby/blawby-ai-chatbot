@@ -62,23 +62,6 @@ const verifyWorkerHealth = async (): Promise<void> => {
   }
 };
 
-const verifyBetterAuthSecret = async (): Promise<void> => {
-  try {
-    const devVarsPath = join(process.cwd(), '.dev.vars');
-    const devVarsContent = readFileSync(devVarsPath, 'utf-8');
-    const hasSecret = devVarsContent.includes('BETTER_AUTH_SECRET=');
-
-    if (!hasSecret) {
-      console.warn('⚠️  BETTER_AUTH_SECRET not found in .dev.vars');
-      console.warn('⚠️  Tests may use memory adapter instead of D1');
-      console.warn('⚠️  See docs/testing.md for setup instructions');
-    } else {
-      console.log('✅ BETTER_AUTH_SECRET found in .dev.vars');
-    }
-  } catch (error) {
-    console.warn('⚠️  Could not read .dev.vars:', error);
-  }
-};
 
 const waitForBaseUrl = async (baseURL: string): Promise<void> => {
   const maxRetries = 15;
@@ -170,8 +153,8 @@ const createSignedInState = async (options: {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             completed: true,
-            welcome_modal_shown_at: new Date().toISOString(),
-            practice_welcome_shown_at: new Date().toISOString()
+            welcome_modal_shown: true,
+            practice_welcome_shown: true
           })
         });
       } catch {
@@ -216,8 +199,6 @@ async function globalSetup(config: FullConfig) {
   console.log('🔧 Running Playwright global setup...');
 
   await verifyWorkerHealth();
-  await verifyBetterAuthSecret();
-
   const e2eConfig = loadE2EConfig();
   const baseURL = getBaseUrlFromConfig(config);
   await waitForBaseUrl(baseURL);

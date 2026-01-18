@@ -87,8 +87,8 @@ export async function createTestUser(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           completed: true,
-          welcome_modal_shown_at: new Date().toISOString(),
-          practice_welcome_shown_at: new Date().toISOString()
+          welcome_modal_shown: true,
+          practice_welcome_shown: true
         })
       });
     } catch {

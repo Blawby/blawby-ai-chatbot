@@ -394,8 +394,8 @@ const defaultPreferences: PreferencesResponse['data'] = {
   onboarding: {
     completed: false,
     primary_use_case: 'personal',
-    welcome_modal_shown_at: null,
-    practice_welcome_shown_at: null
+    welcome_modal_shown: false,
+    practice_welcome_shown: false
   },
   created_at: new Date(now - 1000 * 60 * 60 * 24).toISOString(),
   updated_at: new Date(now).toISOString()
