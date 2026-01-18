@@ -649,7 +649,7 @@ export const AccountPage = ({
                           if (!currentPractice) return;
                           void openBillingPortal({
                             practiceId: currentPractice.id,
-                            returnUrl: `${window.location.origin}/settings/account?sync=1`
+                            returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
                           });
                         }}
                       >
@@ -733,7 +733,7 @@ export const AccountPage = ({
                 })}
                 data-testid="account-delete-action"
               >
-                Manage
+                {t('settings:account.plan.manage')}
               </Button>
             ) : (
               <Button

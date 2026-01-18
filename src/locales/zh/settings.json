@@ -60,7 +60,7 @@
       "currentPlanLabel": "当前套餐：{{tier}}",
       "manageBilling": "管理",
       "manage": "管理",
-      "thanksForSubscribing": "感谢订阅 Blawby Business！你的 Business 方案包含：",
+      "thanksForSubscribing": "感谢订阅 Blawby Business！您的企业版方案包含：",
       "cancelSubscription": "取消订阅",
       "tiers": {
         "free": "免费",
