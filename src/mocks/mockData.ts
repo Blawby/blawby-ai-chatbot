@@ -393,7 +393,9 @@ const defaultPreferences: PreferencesResponse['data'] = {
   },
   onboarding: {
     completed: false,
-    primary_use_case: 'personal'
+    primary_use_case: 'personal',
+    welcome_modal_shown_at: null,
+    practice_welcome_shown_at: null
   },
   created_at: new Date(now - 1000 * 60 * 60 * 24).toISOString(),
   updated_at: new Date(now).toISOString()
@@ -403,6 +405,7 @@ export interface MockUser {
   id: string;
   email: string;
   name: string;
+  isAnonymous?: boolean;
   primaryWorkspace?: 'client' | 'practice' | null;
   preferredPracticeId?: string | null;
   practiceCount?: number | null;
@@ -466,6 +469,7 @@ export function getOrCreateAnonymousUser(token: string): MockUser {
     id: userId,
     email: '',
     name: 'Anonymous User',
+    isAnonymous: true,
     primaryWorkspace: null,
     preferredPracticeId: null,
     practiceCount: 0,

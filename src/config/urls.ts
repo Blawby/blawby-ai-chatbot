@@ -49,34 +49,34 @@ import { isDevelopment } from '@/shared/utils/environment';
  * 
  * Priority:
  * 1. VITE_WORKER_API_URL (if explicitly set)
- * 2. VITE_API_URL (current alias in frontend envs)
- * 3. Development: http://localhost:8787
- * 4. Production: window.location.origin (same as frontend)
- * 5. SSR/Build fallback: https://ai.blawby.com
+ * 2. Development: http://localhost:8787
+ * 3. Production: window.location.origin (same as frontend)
+ * 4. SSR/Build fallback: https://ai.blawby.com
+ *
+ * NOTE: Base URL should NOT include `/api`. If it does, we normalize it away.
  * 
  * @returns The base URL for the Worker API
  */
 export function getWorkerApiUrl(): string {
+	const normalizeWorkerBaseUrl = (value: string): string => value.replace(/\/api\/?$/, '');
+
+	let baseUrl: string;
+
 	// ENV VAR: VITE_WORKER_API_URL (optional - auto-detected if not set)
 	if (import.meta.env.VITE_WORKER_API_URL) {
-		return import.meta.env.VITE_WORKER_API_URL;
-	}
-	if (import.meta.env.VITE_API_URL) {
-		return import.meta.env.VITE_API_URL;
-	}
-
-	// 3. Development: use localhost
-	if (isDevelopment()) {
-		return 'http://localhost:8787';
-	}
-
-	// 4. Production: same origin as frontend (Worker is deployed with frontend)
-	if (typeof window !== 'undefined' && window.location?.origin) {
-		return window.location.origin;
+		baseUrl = import.meta.env.VITE_WORKER_API_URL;
+	} else if (isDevelopment()) {
+		// 2. Development: use localhost
+		baseUrl = 'http://localhost:8787';
+	} else if (typeof window !== 'undefined' && window.location?.origin) {
+		// 3. Production: same origin as frontend (Worker is deployed with frontend)
+		baseUrl = window.location.origin;
+	} else {
+		// 4. SSR/Build fallback (shouldn't be used at runtime)
+		baseUrl = 'https://ai.blawby.com';
 	}
 
-	// 5. SSR/Build fallback (shouldn't be used at runtime)
-	return 'https://ai.blawby.com';
+	return normalizeWorkerBaseUrl(baseUrl);
 }
 
 /**

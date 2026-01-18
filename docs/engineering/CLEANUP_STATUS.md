@@ -13,10 +13,10 @@
 - ✅ Removed 100+ lines of duplicate code
 
 ### 2. Environment Variable Consolidation
-- ✅ Renamed `VITE_REMOTE_API_URL` → `VITE_BACKEND_API_URL`
-- ✅ Renamed `VITE_API_URL` → `VITE_WORKER_API_URL` (optional)
-- ✅ Removed unused `VITE_BETTER_AUTH_URL`
-- ✅ Updated `src/vite-env.d.ts` with new names and deprecation markers
+- ✅ Standardized on `VITE_BACKEND_API_URL` for backend API calls
+- ✅ Standardized on `VITE_WORKER_API_URL` for worker API calls
+- ✅ Removed unused environment variables
+- ✅ Updated `src/vite-env.d.ts` with current names
 
 ### 3. Removed Hidden Overrides
 - ✅ Removed `define` block from `vite.config.ts` that was secretly overriding env vars
@@ -88,21 +88,6 @@ Found in:
 - These are just comments/documentation
 - Don't affect runtime behavior
 - Help explain the architecture
-
-### 5. Deprecated Type in `vite-env.d.ts`
-**Status**: ✅ **BACKWARD COMPATIBILITY**
-
-```typescript
-/** @deprecated Use VITE_WORKER_API_URL instead */
-readonly VITE_API_URL?: string;
-```
-
-**Why it's OK:**
-- Marked as deprecated
-- Kept for backward compatibility
-- TypeScript will warn if used
-
----
 
 ## 📊 Code Quality Metrics
 

@@ -41,10 +41,10 @@ The application uses Better Auth with a remote authentication server. Authentica
 Set the following environment variable in your `.env` or `dev.vars`:
 
 ```bash
-VITE_AUTH_SERVER_URL=https://your-auth-server.com
+VITE_BACKEND_API_URL=https://your-auth-server.com
 ```
 
-**Note**: `VITE_AUTH_SERVER_URL` is required in production. In development, the client falls back to `https://staging-api.blawby.com` if not set.
+**Note**: `VITE_BACKEND_API_URL` is required in production. In development, the client falls back to `https://staging-api.blawby.com` if not set.
 
 ### Auth Client Configuration
 
@@ -57,7 +57,7 @@ import { setToken, getTokenAsync } from './tokenStorage';
 import { isDevelopment } from '../utils/environment';
 
 // Remote better-auth server URL
-const AUTH_BASE_URL = import.meta.env.VITE_AUTH_SERVER_URL;
+const AUTH_BASE_URL = import.meta.env.VITE_BACKEND_API_URL;
 const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
 
 // Get auth URL - validate in browser context only
@@ -73,7 +73,7 @@ function getAuthBaseUrl(): string {
   
   if (!finalAuthUrl) {
     throw new Error(
-      'VITE_AUTH_SERVER_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
+      'VITE_BACKEND_API_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
     );
   }
   
@@ -146,7 +146,7 @@ export const authClient = new Proxy({} as AuthClientType, {
 4. **Bearer Token Type**: ✅ **IMPLEMENTED** - Uses Bearer token authentication instead of cookies
 5. **Token Storage**: ✅ **IMPLEMENTED** - Tokens are automatically captured from `set-auth-token` response header (lowercase)
 6. **Async Token Function**: ✅ **IMPLEMENTED** - The token function is async to wait for IndexedDB initialization
-7. **Development Fallback**: ✅ **IMPLEMENTED** - In development, falls back to `https://staging-api.blawby.com` if `VITE_AUTH_SERVER_URL` is not set
+7. **Development Fallback**: ✅ **IMPLEMENTED** - In development, falls back to `https://staging-api.blawby.com` if `VITE_BACKEND_API_URL` is not set
 8. **Nested Method Support**: ✅ **IMPLEMENTED** - The Proxy handles nested methods like `authClient.signUp.email()` correctly by recursively proxying objects
 9. **SSR Safety**: ✅ **IMPLEMENTED** - The implementation handles SSR gracefully by creating placeholder clients during build/SSR, so no manual guards are needed in most cases
 
@@ -326,7 +326,7 @@ if (result.error) {
 
 ## Important Notes
 
-1. **Set `VITE_AUTH_SERVER_URL` for production**: Required in production; in development, the client falls back to `https://staging-api.blawby.com` if not set
+1. **Set `VITE_BACKEND_API_URL` for production**: Required in production; in development, the client falls back to `https://staging-api.blawby.com` if not set
 2. **IndexedDB is async**: The token function waits for IndexedDB, so the first call may take a moment
 3. **Use Better Auth methods only**: Don't make manual API calls for auth operations - use the provided methods
 4. **Organization plugin required**: Organization features require the `organizationClient()` plugin
@@ -386,37 +386,37 @@ Check that:
 
 The API client uses the Node backend base URL (auth, practices, memberships, forms):
 
-- **`VITE_REMOTE_API_URL`**: Base URL for the Node backend API
+- **`VITE_BACKEND_API_URL`**: Base URL for the Node backend API
 
-**Note:** `VITE_API_URL` is reserved for the Worker (conversations/chat) and is not used by axios.
+**Note:** `VITE_WORKER_API_URL` is reserved for the Worker (conversations/chat) and is not used by axios.
 
 ### Variable Priority and Purpose
 
 The client checks for environment variables in this order:
-1. `VITE_REMOTE_API_URL` (checked first)
+1. `VITE_BACKEND_API_URL` (checked first)
 2. Default `getRemoteApiUrl()` fallback (staging in dev, production in prod)
 
 ### Development Setup
 
-In development, set `VITE_REMOTE_API_URL` to the staging backend:
+In development, set `VITE_BACKEND_API_URL` to the staging backend:
 
 ```bash
-VITE_REMOTE_API_URL=https://staging-api.blawby.com
+VITE_BACKEND_API_URL=https://staging-api.blawby.com
 ```
 
 ### Production Setup
 
-For production, set `VITE_REMOTE_API_URL`:
+For production, set `VITE_BACKEND_API_URL`:
 
 ```bash
-VITE_REMOTE_API_URL=https://production-api.blawby.com
+VITE_BACKEND_API_URL=https://production-api.blawby.com
 ```
 
 If neither variable is set, the client falls back to the default remote backend based on environment (staging for dev, production for prod). Explicit configuration is still recommended for production deployments.
 
 ### Migration Note
 
-`VITE_API_BASE_URL` is deprecated. Replace it with `VITE_REMOTE_API_URL`.
+`VITE_API_BASE_URL` is deprecated. Use `VITE_BACKEND_API_URL` for backend calls and `VITE_WORKER_API_URL` for worker calls.
 
 ## Axios Configuration File
 
@@ -435,7 +435,7 @@ function ensureApiBaseUrl(): string {
     return cachedBaseUrl;
   }
   // Prefer the Node backend API env, then fall back to remote defaults
-  const explicit = import.meta.env.VITE_REMOTE_API_URL;
+  const explicit = import.meta.env.VITE_BACKEND_API_URL;
   cachedBaseUrl = explicit || getRemoteApiUrl(); // Defaults to staging/prod remote backend
   return cachedBaseUrl;
 }
@@ -483,7 +483,7 @@ apiClient.interceptors.response.use(
 2. **Caching**: The resolved base URL is cached to avoid repeated environment variable lookups
 3. **Automatic Token Injection**: Bearer token is automatically added to all requests from IndexedDB
 4. **401 Handling**: Unauthorized responses automatically clear the token and redirect to login
-5. **Backend URL Fallbacks**: Prefers `VITE_REMOTE_API_URL`, then defaults based on environment
+5. **Backend URL Fallbacks**: Prefers `VITE_BACKEND_API_URL`, then defaults based on environment
 
 ## Usage
 

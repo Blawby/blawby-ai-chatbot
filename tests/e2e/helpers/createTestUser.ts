@@ -28,14 +28,6 @@ export async function createTestUser(
     name: options.name || 'E2E Test User',
   };
 
-  // Set localStorage flags to avoid onboarding redirects
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem('onboardingCompleted', 'true');
-      localStorage.setItem('onboardingCheckDone', 'true');
-    } catch {}
-  });
-
   // Navigate to auth page
   await page.goto('/auth');
 
@@ -86,6 +78,23 @@ export async function createTestUser(
       throw new Error(`Authentication not established after ${attempts} attempts`);
     }
   }
+
+  await page.evaluate(async () => {
+    try {
+      await fetch('/api/preferences/onboarding', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          completed: true,
+          welcome_modal_shown_at: new Date().toISOString(),
+          practice_welcome_shown_at: new Date().toISOString()
+        })
+      });
+    } catch {
+      // Ignore preference update failures in e2e bootstrap
+    }
+  });
   
   // Navigate to home page manually if still on auth page (like auth.spec.ts does)
   if (page.url().includes('/auth')) {

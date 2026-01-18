@@ -1,9 +1,5 @@
-# Local development environment variables (Worker Secrets Only)
-# Copy this file to .dev.vars and fill in your actual values
-#
-# IMPORTANT: This file is ONLY for sensitive secrets (API keys, tokens, etc.)
-# All non-sensitive configuration variables are managed in wrangler.toml
-#
+# Local development environment variables (Worker secrets only)
+# Keep secrets here; non-sensitive configuration lives in wrangler.toml.
 # For production secrets, use: wrangler secret put <KEY_NAME>
 
 # API Keys and Tokens (SENSITIVE)

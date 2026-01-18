@@ -211,6 +211,7 @@ export interface BetterAuthSessionUser {
   email: string;
   emailVerified?: boolean;
   image?: string | null;
+  isAnonymous?: boolean;
   lastLoginMethod?: string; // "google", "email", etc.
   practiceId?: string | null;
   activePracticeId?: string | null;
@@ -360,6 +361,12 @@ export function transformSessionUser(rawUser: Record<string, unknown>): BetterAu
     // Optional primitive fields
     emailVerified: rawUser.emailVerified as boolean | undefined,
     image: rawUser.image as string | null | undefined,
+    isAnonymous:
+      typeof rawUser.isAnonymous === 'boolean'
+        ? rawUser.isAnonymous
+        : typeof rawUser.is_anonymous === 'boolean'
+          ? rawUser.is_anonymous
+          : undefined,
     lastLoginMethod: rawUser.lastLoginMethod as string | undefined,
     practiceId: rawUser.practiceId as string | null | undefined,
     activePracticeId: rawUser.activePracticeId as string | null | undefined,

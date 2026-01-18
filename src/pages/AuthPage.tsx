@@ -134,14 +134,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     }
     
     // Legacy onboardingCompleted localStorage write removed - server truth is used instead
-    
-    // Clear the onboarding check flag since user completed onboarding
-    try {
-      localStorage.removeItem('onboardingCheckDone');
-    } catch (_error) {
-      // Handle localStorage failures gracefully
-    }
-    
+
     // Close onboarding modal and redirect to main app
     setShowOnboarding(false);
     await handleRedirect();
@@ -149,13 +142,6 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
   const handleOnboardingClose = async () => {
     setShowOnboarding(false);
-    
-    // Clear the onboarding check flag since user skipped onboarding
-    try {
-      localStorage.removeItem('onboardingCheckDone');
-    } catch (_error) {
-      // Handle localStorage failures gracefully
-    }
     
     // Redirect to home page if onboarding is closed, waiting for onSuccess if provided
     await handleRedirect();
