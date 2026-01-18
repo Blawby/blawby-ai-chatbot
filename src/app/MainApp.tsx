@@ -691,6 +691,7 @@ export function MainApp({
       });
     } catch (error) {
       console.warn('[PRACTICE_WELCOME] Failed to update preferences', error);
+      showError('Update failed', 'We could not save your preference. You may see this prompt again.');
     }
     navigate('/settings/practice');
   };
