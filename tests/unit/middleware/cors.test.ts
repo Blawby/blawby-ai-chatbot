@@ -4,12 +4,14 @@ import type { Env } from '../../../worker/types';
 
 // Mock environment
 const mockEnv: Env = {
-  DB: {} as any,
-  CHAT_SESSIONS: {} as any,
+  DB: {} as Env['DB'],
+  CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
+  NOTIFICATION_EVENTS: {} as Env['NOTIFICATION_EVENTS'],
+  NOTIFICATION_HUB: {} as Env['NOTIFICATION_HUB'],
   ONESIGNAL_APP_ID: 'test-app',
   ONESIGNAL_REST_API_KEY: 'test-key',
   NODE_ENV: 'production'
-} as Env;
+};
 
 const mockCtx = {} as ExecutionContext;
 

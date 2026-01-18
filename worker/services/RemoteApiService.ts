@@ -561,7 +561,7 @@ export class RemoteApiService {
     try {
       const response = await this.fetchFromRemoteApi(
         env,
-        `/api/practice-client-intakes/${encodeURIComponent(intakeUuid)}/status`,
+        `/api/practice/client-intakes/${encodeURIComponent(intakeUuid)}/status`,
         request
       );
 
@@ -600,7 +600,7 @@ export class RemoteApiService {
     try {
       const response = await this.fetchFromRemoteApi(
         env,
-        `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
+        `/api/practice/client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
         request
       );
       const payload = await response.json() as { success?: boolean; data?: { settings?: Record<string, unknown> } };

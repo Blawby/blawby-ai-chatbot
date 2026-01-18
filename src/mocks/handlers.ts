@@ -857,7 +857,7 @@ export const handlers = [
     });
   }),
 
-  http.get('/api/practice-client-intakes/:slug/intake', async ({ params }) => {
+  http.get('/api/practice/client-intakes/:slug/intake', async ({ params }) => {
     const slug = params.slug as string;
     const practice = findPractice(slug);
     if (!practice) {
@@ -878,7 +878,7 @@ export const handlers = [
     });
   }),
 
-  http.post('/api/practice-client-intakes/create', async ({ request }) => {
+  http.post('/api/practice/client-intakes/create', async ({ request }) => {
     const body = await request.json().catch(() => ({})) as { slug?: string; amount?: number };
     let practiceName = 'Practice';
     if (body.slug) {

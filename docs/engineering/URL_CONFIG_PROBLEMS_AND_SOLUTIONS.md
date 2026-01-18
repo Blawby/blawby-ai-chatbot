@@ -36,7 +36,7 @@ This application uses **TWO separate backends**:
 │  • /api/inbox                   │   │  • /api/practices (CRUD)        │
 │  • /api/files                   │   │  • /api/subscription/*          │
 │  • /api/lawyers                 │   │  • /api/members/*               │
-│  • /api/status                  │   │  • /api/practice-client-intakes │
+│  • /api/status                  │   │  • /api/practice/client-intakes │
 │  • /api/health                  │   │                                 │
 │                                 │   │  Source: blawby-ts repository   │
 │  Storage: D1, KV, R2            │   │  (Separate Node.js server)      │

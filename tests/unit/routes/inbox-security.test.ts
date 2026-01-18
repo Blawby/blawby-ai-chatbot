@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleInbox } from '../../../worker/routes/inbox';
 import { requirePracticeMember } from '../../../worker/middleware/auth';
 import { withPracticeContext, getPracticeId } from '../../../worker/middleware/practiceContext';
+import type { RequestWithPracticeContext } from '../../../worker/middleware/practiceContext';
 import { HttpErrors } from '../../../worker/errorHandler';
 import type { Env } from '../../../worker/types';
 
@@ -11,13 +12,15 @@ vi.mock('../../../worker/middleware/practiceContext');
 vi.mock('../../../worker/services/ConversationService');
 
 const mockEnv: Env = {
-  DB: {} as any,
-  CHAT_SESSIONS: {} as any,
+  DB: {} as Env['DB'],
+  CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
+  NOTIFICATION_EVENTS: {} as Env['NOTIFICATION_EVENTS'],
+  NOTIFICATION_HUB: {} as Env['NOTIFICATION_HUB'],
   ONESIGNAL_APP_ID: 'test-app',
   ONESIGNAL_REST_API_KEY: 'test-key',
   NODE_ENV: 'production',
   REMOTE_API_URL: 'https://staging-api.blawby.com'
-} as Env;
+};
 
 describe('Inbox Route Security Tests', () => {
   beforeEach(() => {
@@ -42,17 +45,22 @@ describe('Inbox Route Security Tests', () => {
       );
 
       // Mock withPracticeContext to return a request with practice context
-      const mockRequestWithContext = {
-        ...originalRequest,
-        practiceContext: {
-          practiceId,
-          source: 'url' as const,
-          isAuthenticated: true,
-          userId: originalUserId
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(originalRequest),
+          Object.getOwnPropertyDescriptors(originalRequest)
+        ),
+        {
+          practiceContext: {
+            practiceId,
+            source: 'url' as const,
+            isAuthenticated: true,
+            userId: originalUserId
+          }
         }
-      };
+      ) as RequestWithPracticeContext;
 
-      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext as any);
+      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
       // Mock requirePracticeMember to verify it's called with original request
@@ -113,16 +121,21 @@ describe('Inbox Route Security Tests', () => {
         }
       );
 
-      const mockRequestWithContext = {
-        ...request,
-        practiceContext: {
-          practiceId,
-          source: 'url' as const,
-          isAuthenticated: true
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(request),
+          Object.getOwnPropertyDescriptors(request)
+        ),
+        {
+          practiceContext: {
+            practiceId,
+            source: 'url' as const,
+            isAuthenticated: true
+          }
         }
-      };
+      ) as RequestWithPracticeContext;
 
-      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext as any);
+      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
       const mockMemberContext = {
@@ -198,16 +211,21 @@ describe('Inbox Route Security Tests', () => {
         }
       );
 
-      const mockRequestWithContext = {
-        ...request,
-        practiceContext: {
-          practiceId,
-          source: 'url' as const,
-          isAuthenticated: false
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(request),
+          Object.getOwnPropertyDescriptors(request)
+        ),
+        {
+          practiceContext: {
+            practiceId,
+            source: 'url' as const,
+            isAuthenticated: false
+          }
         }
-      };
+      ) as RequestWithPracticeContext;
 
-      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext as any);
+      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
       // requirePracticeMember should fail for invalid token
@@ -238,16 +256,21 @@ describe('Inbox Route Security Tests', () => {
         }
       );
 
-      const mockRequestWithContext = {
-        ...request,
-        practiceContext: {
-          practiceId,
-          source: 'url' as const,
-          isAuthenticated: true
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(request),
+          Object.getOwnPropertyDescriptors(request)
+        ),
+        {
+          practiceContext: {
+            practiceId,
+            source: 'url' as const,
+            isAuthenticated: true
+          }
         }
-      };
+      ) as RequestWithPracticeContext;
 
-      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext as any);
+      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
       // User has insufficient role
@@ -280,16 +303,21 @@ describe('Inbox Route Security Tests', () => {
         }
       );
 
-      const mockRequestWithContext = {
-        ...request,
-        practiceContext: {
-          practiceId: practiceIdFromUrl,
-          source: 'url' as const,
-          isAuthenticated: true
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(request),
+          Object.getOwnPropertyDescriptors(request)
+        ),
+        {
+          practiceContext: {
+            practiceId: practiceIdFromUrl,
+            source: 'url' as const,
+            isAuthenticated: true
+          }
         }
-      };
+      ) as RequestWithPracticeContext;
 
-      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext as any);
+      vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceIdFromUrl);
 
       const mockMemberContext = {
