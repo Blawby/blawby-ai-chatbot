@@ -5,6 +5,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, type StripeElementsOptionsClientSecret } from '@stripe/stripe-js';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { IntakePaymentForm } from '@/features/intake/components/IntakePaymentForm';
+import { Button } from '@/shared/ui/Button';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_KEY ?? '';
 const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : null;
@@ -23,6 +24,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
   onSuccess
 }) => {
   const clientSecret = paymentRequest?.clientSecret;
+  const paymentLinkUrl = paymentRequest?.paymentLinkUrl;
 
   const elementsOptions = useMemo<StripeElementsOptionsClientSecret | null>(() => {
     if (!clientSecret) return null;
@@ -48,6 +50,8 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
 
   const returnTo = paymentRequest?.returnTo || '/';
 
+  const canUseElements = Boolean(clientSecret && elementsOptions && STRIPE_PUBLIC_KEY && stripePromise);
+
   return (
     <Modal
       isOpen={isOpen}
@@ -59,11 +63,7 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
         <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
           Loading payment details…
         </div>
-      ) : !STRIPE_PUBLIC_KEY || !stripePromise ? (
-        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-          Payments are unavailable right now. Please try again later.
-        </div>
-      ) : elementsOptions ? (
+      ) : canUseElements ? (
         <Elements key={clientSecret} stripe={stripePromise} options={elementsOptions}>
           <IntakePaymentForm
             practiceName={paymentRequest.practiceName || 'The practice'}
@@ -77,6 +77,24 @@ export const IntakePaymentModal: FunctionComponent<IntakePaymentModalProps> = ({
             onReturn={onClose}
           />
         </Elements>
+      ) : paymentLinkUrl ? (
+        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg px-4 py-4 text-sm text-gray-700 dark:text-gray-200">
+          <p className="mb-3">Continue to Stripe to complete your consultation fee.</p>
+          <Button
+            variant="primary"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.open(paymentLinkUrl, '_blank', 'noopener');
+              }
+            }}
+          >
+            Open secure payment
+          </Button>
+        </div>
+      ) : !STRIPE_PUBLIC_KEY || !stripePromise ? (
+        <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+          Payments are unavailable right now. Please try again later.
+        </div>
       ) : (
         <div className="rounded-lg border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-card-bg px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
           Missing payment details. Please return to the intake chat and try again.

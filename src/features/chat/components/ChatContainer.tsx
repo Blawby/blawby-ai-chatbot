@@ -192,6 +192,12 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   };
 
   const handleOpenPayment = (request: IntakePaymentRequest) => {
+    const hasClientSecret = typeof request.clientSecret === 'string' &&
+      request.clientSecret.trim().length > 0;
+    if (!hasClientSecret && request.paymentLinkUrl && typeof window !== 'undefined') {
+      window.open(request.paymentLinkUrl, '_blank', 'noopener');
+      return;
+    }
     setPaymentRequest(request);
     setIsPaymentModalOpen(true);
   };

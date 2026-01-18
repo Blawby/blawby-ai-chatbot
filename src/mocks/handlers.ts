@@ -857,7 +857,7 @@ export const handlers = [
     });
   }),
 
-  http.get('/api/practice-client-intakes/:slug/intake', async ({ params }) => {
+  http.get('/api/practice/client-intakes/:slug/intake', async ({ params }) => {
     const slug = params.slug as string;
     const practice = findPractice(slug);
     if (!practice) {
@@ -878,7 +878,7 @@ export const handlers = [
     });
   }),
 
-  http.post('/api/practice-client-intakes/create', async ({ request }) => {
+  http.post('/api/practice/client-intakes/create', async ({ request }) => {
     const body = await request.json().catch(() => ({})) as { slug?: string; amount?: number };
     let practiceName = 'Practice';
     if (body.slug) {
@@ -891,16 +891,35 @@ export const handlers = [
       success: true,
       data: {
         uuid: randomId('intake'),
-        client_secret: randomId('secret'),
+        payment_link_url: 'https://buy.stripe.com/test_12345',
         amount: body.amount ?? 200,
         currency: 'usd',
-        status: 'requires_payment_method',
+        status: 'open',
         organization: {
           name: practiceName,
           logo: ''
         }
       }
     }, { status: 201 });
+  }),
+
+  http.get('/api/practice/client-intakes/:uuid/status', async () => {
+    return HttpResponse.json({
+      success: true,
+      data: {
+        uuid: randomId('intake'),
+        amount: 200,
+        currency: 'usd',
+        status: 'completed',
+        stripe_charge_id: 'ch_test',
+        metadata: {
+          email: 'test@example.com',
+          name: 'Test Client'
+        },
+        succeeded_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      }
+    });
   }),
 
   http.post('/api/users/welcome', async () => {

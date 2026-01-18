@@ -3,7 +3,8 @@ import { useCallback, useMemo, useState } from 'preact/compat';
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
-import { getIntakeConfirmEndpoint, getPracticeClientIntakeStatusEndpoint } from '@/config/api';
+import { getIntakeConfirmEndpoint } from '@/config/api';
+import { fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 interface IntakePaymentFormProps {
@@ -60,36 +61,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     [amount, currency, locale]
   );
 
-  const pollIntakeStatus = useCallback(async () => {
-    if (!intakeUuid) return null;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    try {
-      const response = await fetch(getPracticeClientIntakeStatusEndpoint(intakeUuid), {
-        method: 'GET',
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const payload = await response.json() as {
-        success?: boolean;
-        data?: { status?: string };
-      };
-
-      return payload.data?.status ?? null;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        return null;
-      }
-      console.warn('[IntakePayment] Failed to fetch intake status', error);
-      return null;
-    }
-  }, [intakeUuid]);
+  const pollIntakeStatus = useCallback(() => fetchIntakePaymentStatus(intakeUuid), [intakeUuid]);
 
   const wait = useCallback((ms: number) => new Promise(resolve => setTimeout(resolve, ms)), []);
 
@@ -165,7 +137,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         const latestStatus = await pollIntakeStatus();
         if (latestStatus) {
           setStatusDetail(latestStatus);
-          if (latestStatus === 'succeeded') {
+          if (isPaidIntakeStatus(latestStatus)) {
             setStatus('succeeded');
             await confirmIntakeLead();
             if (typeof window !== 'undefined' && intakeUuid) {

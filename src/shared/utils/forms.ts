@@ -21,7 +21,6 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     getTrimmedString(formData.matterDetails) ??
     getTrimmedString(formData.matterDescription) ??
     getTrimmedString(formData.description);
-  const sessionId = getTrimmedString(formData.sessionId);
   const opposingParty = getTrimmedString(formData.opposingParty);
   const location = getTrimmedString(formData.location);
 
@@ -32,8 +31,7 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     ...(phone ? { phone } : {}),
     ...(description ? { description } : {}),
     ...(opposingParty ? { opposing_party: opposingParty } : {}),
-    ...(location ? { location } : {}),
-    ...(sessionId ? { session_id: sessionId } : {})
+    ...(location ? { location } : {})
   };
 }
 
@@ -57,6 +55,8 @@ type IntakeCreateResponse = {
   data?: {
     uuid?: string;
     client_secret?: string;
+    payment_link_url?: string;
+    paymentLinkUrl?: string;
     amount?: number;
     currency?: string;
     status?: string;
@@ -72,6 +72,7 @@ export type IntakeSubmissionResult = IntakeCreateResponse & {
   intake?: {
     uuid?: string;
     clientSecret?: string;
+    paymentLinkUrl?: string;
     amount?: number;
     currency?: string;
     paymentLinkEnabled: boolean;
@@ -143,7 +144,6 @@ export async function submitContactForm(
       formPayload.location as string | undefined
     );
 
-    const sessionId = formPayload.session_id as string | undefined;
     const createPayload = {
       slug: formPayload.slug,
       amount,
@@ -151,8 +151,7 @@ export async function submitContactForm(
       name: formPayload.name,
       ...(formPayload.phone ? { phone: formPayload.phone } : {}),
       ...(descriptionWithLocation ? { description: descriptionWithLocation } : {}),
-      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {}),
-      ...(sessionId ? { session_id: sessionId } : {})
+      ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {})
     };
 
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
@@ -188,11 +187,14 @@ export async function submitContactForm(
         }, 300);
       }
       
+      const paymentLinkUrl = result.data?.payment_link_url ?? result.data?.paymentLinkUrl;
+
       return {
         ...result,
         intake: {
           uuid: result.data?.uuid,
           clientSecret: result.data?.client_secret,
+          paymentLinkUrl,
           amount: typeof result.data?.amount === 'number' ? result.data?.amount : amount,
           currency: result.data?.currency ?? 'usd',
           paymentLinkEnabled,
