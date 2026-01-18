@@ -731,6 +731,7 @@ export const AccountPage = ({
                   practiceId: currentPractice.id,
                   returnUrl: origin ? `${origin}/settings/account?sync=1` : '/settings/account?sync=1'
                 })}
+                disabled={!currentPractice}
                 data-testid="account-delete-action"
               >
                 {t('settings:account.plan.manage')}
