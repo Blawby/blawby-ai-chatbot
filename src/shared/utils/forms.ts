@@ -2,6 +2,7 @@ import {
   getPracticeClientIntakeCreateEndpoint,
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
+import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -96,13 +97,30 @@ const formatDescriptionWithLocation = (description?: string, location?: string) 
   return parts.length > 0 ? parts.join('\n') : undefined;
 };
 
-async function fetchIntakeSettings(practiceSlug: string): Promise<IntakeSettingsResponse | null> {
+const getAuthToken = async (): Promise<string | null> => {
+  if (typeof window === 'undefined') return null;
   try {
+    return await getTokenAsync();
+  } catch (error) {
+    console.warn('[Intake] Failed to read auth token', error);
+    return null;
+  }
+};
+
+async function fetchIntakeSettings(
+  practiceSlug: string,
+  token?: string | null
+): Promise<IntakeSettingsResponse | null> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const response = await fetch(getPracticeClientIntakeSettingsEndpoint(practiceSlug), {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers
     });
 
     if (!response.ok) {
@@ -130,7 +148,8 @@ export async function submitContactForm(
     onLoadingMessage?.(loadingMessageId);
     
     const formPayload = formatFormData(formData, practiceSlug);
-    const settings = await fetchIntakeSettings(practiceSlug);
+    const token = await getAuthToken();
+    const settings = await fetchIntakeSettings(practiceSlug, token);
     const prefillAmount = settings?.data?.settings?.prefillAmount;
     const paymentLinkEnabled = settings?.data?.settings?.paymentLinkEnabled === true;
     const amount = clampAmount(typeof prefillAmount === 'number' ? prefillAmount : 50);
@@ -154,11 +173,15 @@ export async function submitContactForm(
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : {})
     };
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify(createPayload)
     });
 

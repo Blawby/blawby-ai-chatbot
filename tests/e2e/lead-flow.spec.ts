@@ -26,6 +26,7 @@ interface IntakeSettings {
 
 interface IntakeCreateResult {
   uuid?: string;
+  clientSecret?: string;
   paymentLinkUrl?: string;
   amount?: number;
   currency?: string;
@@ -34,8 +35,28 @@ interface IntakeCreateResult {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const normalizePracticeSlug = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  if (trimmed.includes('://')) {
+    try {
+      const parsed = new URL(trimmed);
+      const segments = parsed.pathname.split('/').filter(Boolean);
+      return segments[segments.length - 1] || trimmed;
+    } catch {
+      return trimmed;
+    }
+  }
+  if (trimmed.includes('/')) {
+    const segments = trimmed.split('/').filter(Boolean);
+    return segments[segments.length - 1] || trimmed;
+  }
+  return trimmed;
+};
+
 const getIntakeSettings = async (slug: string): Promise<IntakeSettings | null> => {
-  const response = await fetch(`${REMOTE_API_URL}/api/practice/client-intakes/${encodeURIComponent(slug)}/intake`, {
+  const normalizedSlug = normalizePracticeSlug(slug);
+  const response = await fetch(`${REMOTE_API_URL}/api/practice/client-intakes/${encodeURIComponent(normalizedSlug)}/intake`, {
     method: 'GET',
     headers: { 'Accept': 'application/json' }
   });
@@ -54,12 +75,18 @@ const createIntake = async (options: {
   email: string;
   description?: string;
   amount?: number;
+  token?: string;
 }): Promise<IntakeCreateResult> => {
+  const normalizedSlug = normalizePracticeSlug(options.slug);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (options.token) {
+    headers.Authorization = `Bearer ${options.token}`;
+  }
   const response = await fetch(`${REMOTE_API_URL}/api/practice/client-intakes/create`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
-      slug: options.slug,
+      slug: normalizedSlug,
       amount: options.amount ?? 50,
       name: options.name,
       email: options.email,
@@ -76,6 +103,7 @@ const createIntake = async (options: {
   const data = payload?.data ?? {};
   return {
     uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
+    clientSecret: typeof data.client_secret === 'string' ? data.client_secret : undefined,
     paymentLinkUrl: typeof data.payment_link_url === 'string'
       ? data.payment_link_url
       : typeof data.paymentLinkUrl === 'string'
@@ -224,7 +252,8 @@ test.describe('Lead intake workflow', () => {
         name: clientName,
         email: e2eConfig.client.email,
         description: 'E2E accept flow',
-        amount: intakeSettings?.prefillAmount
+        amount: intakeSettings?.prefillAmount,
+        token: clientToken
       });
 
       if (!intake.uuid) {
@@ -299,7 +328,8 @@ test.describe('Lead intake workflow', () => {
         name: clientName,
         email: `guest+${intakeUuid.slice(0, 6)}@example.com`,
         description: 'E2E reject flow',
-        amount: intakeSettings?.prefillAmount
+        amount: intakeSettings?.prefillAmount,
+        token: anonymousToken
       });
 
       if (!intake.uuid) {
@@ -368,7 +398,8 @@ test.describe('Lead intake workflow', () => {
         name: 'E2E Paid Intake',
         email: e2eConfig.client.email,
         description: 'E2E payment gated',
-        amount: intakeSettings?.prefillAmount
+        amount: intakeSettings?.prefillAmount,
+        token: clientToken
       });
 
       if (!intake.uuid) {

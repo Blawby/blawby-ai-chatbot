@@ -6,7 +6,6 @@ import {
 } from '../../../worker/middleware/practiceContext';
 import { optionalAuth } from '../../../worker/middleware/auth';
 // SessionService removed - using optionalAuth directly
-import { HttpErrors } from '../../../worker/errorHandler';
 import type { Env } from '../../../worker/types';
 
 // Mock dependencies
@@ -14,12 +13,14 @@ vi.mock('../../../worker/middleware/auth');
 // SessionService mock removed
 
 const mockEnv: Env = {
-  DB: {} as any,
-  CHAT_SESSIONS: {} as any,
+  DB: {} as Env['DB'],
+  CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
+  NOTIFICATION_EVENTS: {} as Env['NOTIFICATION_EVENTS'],
+  NOTIFICATION_HUB: {} as Env['NOTIFICATION_HUB'],
   ONESIGNAL_APP_ID: 'test-app',
   ONESIGNAL_REST_API_KEY: 'test-key',
   NODE_ENV: 'production'
-} as Env;
+};
 
 describe('PracticeContext Middleware Security Tests', () => {
   beforeEach(() => {
