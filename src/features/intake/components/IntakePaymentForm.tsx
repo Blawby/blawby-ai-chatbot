@@ -63,8 +63,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
 
   const pollIntakeStatus = useCallback(() => fetchIntakePaymentStatus(intakeUuid), [intakeUuid]);
 
-  const wait = useCallback((ms: number) => new Promise(resolve => setTimeout(resolve, ms)), []);
-
   const confirmIntakeLead = useCallback(async () => {
     if (!intakeUuid || !practiceId || !conversationId) {
       return;
@@ -132,41 +130,38 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         setStatus('processing');
       }
 
-      const maxAttempts = 8;
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const latestStatus = await pollIntakeStatus();
-        if (latestStatus) {
-          setStatusDetail(latestStatus);
-          if (isPaidIntakeStatus(latestStatus)) {
-            setStatus('succeeded');
-            await confirmIntakeLead();
-            if (typeof window !== 'undefined' && intakeUuid) {
-              try {
-                const payload = {
-                  practiceName,
-                  amount,
-                  currency,
-                  practiceId,
-                  conversationId
-                };
-                window.sessionStorage.setItem(
-                  `intakePaymentSuccess:${intakeUuid}`,
-                  JSON.stringify(payload)
-                );
-              } catch {
-                // sessionStorage may be unavailable in private browsing.
-              }
-            }
-            onSuccess?.();
-            return;
+      const latestStatus = await pollIntakeStatus();
+      if (latestStatus) {
+        setStatusDetail(latestStatus);
+      }
+
+      if (isPaidIntakeStatus(latestStatus)) {
+        setStatus('succeeded');
+        await confirmIntakeLead();
+        if (typeof window !== 'undefined' && intakeUuid) {
+          try {
+            const payload = {
+              practiceName,
+              amount,
+              currency,
+              practiceId,
+              conversationId
+            };
+            window.sessionStorage.setItem(
+              `intakePaymentSuccess:${intakeUuid}`,
+              JSON.stringify(payload)
+            );
+          } catch {
+            // sessionStorage may be unavailable in private browsing.
           }
         }
-        await wait(1500);
+        onSuccess?.();
+        return;
       }
 
       setPaymentSubmitted(false);
       setErrorMessage(
-        'Payment is being verified. Please wait a moment and refresh, or contact support if the issue persists.'
+        'Payment is still processing. Return to the chat and check status again in a moment.'
       );
       setStatus('idle');
     } catch (error) {
@@ -179,7 +174,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     stripe,
     elements,
     pollIntakeStatus,
-    wait,
     intakeUuid,
     practiceName,
     amount,
