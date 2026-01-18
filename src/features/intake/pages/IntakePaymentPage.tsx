@@ -43,7 +43,11 @@ export const IntakePaymentPage: FunctionComponent = () => {
     setIsChecking(true);
     try {
       const latestStatus = await fetchIntakePaymentStatus(intakeUuid);
-      setStatus(latestStatus);
+      if (latestStatus) {
+        setStatus(latestStatus);
+      } else {
+        setStatus('unable_to_fetch');
+      }
     } catch (error) {
       console.warn('[IntakePayment] Failed to check payment status', error);
       setStatus('unable_to_fetch');

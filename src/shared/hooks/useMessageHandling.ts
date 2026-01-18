@@ -879,9 +879,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     };
 
     const applyPaymentConfirmation = (flag: PaymentFlag) => {
-      if (cancelled) return;
-      void confirmIntakeLead(flag.uuid);
       setMessages(prev => {
+        if (cancelled) return prev;
         const newMessages = [...prev];
         const baseMaxTimestamp = newMessages.length > 0
           ? Math.max(...newMessages.map(m => m.timestamp))
@@ -896,6 +895,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
           return prev;
         }
 
+        void confirmIntakeLead(flag.uuid);
         newMessages.push({
           id: messageId,
           role: 'assistant',

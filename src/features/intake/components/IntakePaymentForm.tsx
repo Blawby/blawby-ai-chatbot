@@ -1,5 +1,5 @@
 import type { FunctionComponent } from 'preact/compat';
-import { useCallback, useMemo, useState } from 'preact/compat';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/compat';
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
@@ -51,9 +51,21 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   const elements = useElements();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded'>('idle');
+  const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded' | 'failed'>('idle');
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const isMountedRef = useRef(true);
+
+  const TERMINAL_FAILURE_STATUSES = useMemo(
+    () => new Set(['failed', 'canceled', 'cancelled', 'expired']),
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
   const formattedAmount = useMemo(
@@ -62,6 +74,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   );
 
   const pollIntakeStatus = useCallback(() => fetchIntakePaymentStatus(intakeUuid), [intakeUuid]);
+  const wait = useCallback((ms: number) => new Promise(resolve => setTimeout(resolve, ms)), []);
 
   const confirmIntakeLead = useCallback(async () => {
     if (!intakeUuid || !practiceId || !conversationId) {
@@ -130,40 +143,60 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         setStatus('processing');
       }
 
-      const latestStatus = await pollIntakeStatus();
-      if (latestStatus) {
-        setStatusDetail(latestStatus);
-      }
+      const maxAttempts = 4;
+      const retryDelayMs = 1500;
+      let latestStatus: string | null = null;
 
-      if (isPaidIntakeStatus(latestStatus)) {
-        setStatus('succeeded');
-        await confirmIntakeLead();
-        if (typeof window !== 'undefined' && intakeUuid) {
-          try {
-            const payload = {
-              practiceName,
-              amount,
-              currency,
-              practiceId,
-              conversationId
-            };
-            window.sessionStorage.setItem(
-              `intakePaymentSuccess:${intakeUuid}`,
-              JSON.stringify(payload)
-            );
-          } catch {
-            // sessionStorage may be unavailable in private browsing.
-          }
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        latestStatus = await pollIntakeStatus();
+        if (!isMountedRef.current) return;
+
+        if (latestStatus) {
+          setStatusDetail(latestStatus);
         }
-        onSuccess?.();
-        return;
+
+        if (isPaidIntakeStatus(latestStatus)) {
+          setStatus('succeeded');
+          await confirmIntakeLead();
+          if (!isMountedRef.current) return;
+          if (typeof window !== 'undefined' && intakeUuid) {
+            try {
+              const payload = {
+                practiceName,
+                amount,
+                currency,
+                practiceId,
+                conversationId
+              };
+              window.sessionStorage.setItem(
+                `intakePaymentSuccess:${intakeUuid}`,
+                JSON.stringify(payload)
+              );
+            } catch {
+              // sessionStorage may be unavailable in private browsing.
+            }
+          }
+          onSuccess?.();
+          return;
+        }
+
+        if (latestStatus && TERMINAL_FAILURE_STATUSES.has(latestStatus)) {
+          break;
+        }
+
+        if (attempt < maxAttempts - 1) {
+          await wait(retryDelayMs);
+          if (!isMountedRef.current) return;
+        }
       }
 
       setPaymentSubmitted(false);
+      setStatus('failed');
       setErrorMessage(
-        'Payment is still processing. Return to the chat and check status again in a moment.'
+        latestStatus
+          ? `Payment status: ${latestStatus}. Please try again or contact support.`
+          : 'Payment is still processing. Return to the chat and check status again in a moment.'
       );
-      setStatus('idle');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Payment failed. Please try again.');
       setStatus('idle');
@@ -174,6 +207,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     stripe,
     elements,
     pollIntakeStatus,
+    wait,
     intakeUuid,
     practiceName,
     amount,
@@ -181,7 +215,8 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     practiceId,
     conversationId,
     confirmIntakeLead,
-    onSuccess
+    onSuccess,
+    TERMINAL_FAILURE_STATUSES
   ]);
 
   return (
