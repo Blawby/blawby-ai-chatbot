@@ -45,14 +45,20 @@ describe('Inbox Route Security Tests', () => {
       );
 
       // Mock withPracticeContext to return a request with practice context
-      const mockRequestWithContext = Object.assign(originalRequest, {
-        practiceContext: {
-          practiceId,
-          source: 'url' as const,
-          isAuthenticated: true,
-          userId: originalUserId
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(originalRequest),
+          Object.getOwnPropertyDescriptors(originalRequest)
+        ),
+        {
+          practiceContext: {
+            practiceId,
+            source: 'url' as const,
+            isAuthenticated: true,
+            userId: originalUserId
+          }
         }
-      }) as RequestWithPracticeContext;
+      ) as RequestWithPracticeContext;
 
       vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
@@ -115,13 +121,19 @@ describe('Inbox Route Security Tests', () => {
         }
       );
 
-      const mockRequestWithContext = Object.assign(request, {
-        practiceContext: {
-          practiceId,
-          source: 'url' as const,
-          isAuthenticated: true
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(request),
+          Object.getOwnPropertyDescriptors(request)
+        ),
+        {
+          practiceContext: {
+            practiceId,
+            source: 'url' as const,
+            isAuthenticated: true
+          }
         }
-      }) as RequestWithPracticeContext;
+      ) as RequestWithPracticeContext;
 
       vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
@@ -199,13 +211,19 @@ describe('Inbox Route Security Tests', () => {
         }
       );
 
-      const mockRequestWithContext = Object.assign(request, {
-        practiceContext: {
-          practiceId,
-          source: 'url' as const,
-          isAuthenticated: false
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(request),
+          Object.getOwnPropertyDescriptors(request)
+        ),
+        {
+          practiceContext: {
+            practiceId,
+            source: 'url' as const,
+            isAuthenticated: false
+          }
         }
-      }) as RequestWithPracticeContext;
+      ) as RequestWithPracticeContext;
 
       vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
@@ -238,13 +256,19 @@ describe('Inbox Route Security Tests', () => {
         }
       );
 
-      const mockRequestWithContext = Object.assign(request, {
-        practiceContext: {
-          practiceId,
-          source: 'url' as const,
-          isAuthenticated: true
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(request),
+          Object.getOwnPropertyDescriptors(request)
+        ),
+        {
+          practiceContext: {
+            practiceId,
+            source: 'url' as const,
+            isAuthenticated: true
+          }
         }
-      }) as RequestWithPracticeContext;
+      ) as RequestWithPracticeContext;
 
       vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
@@ -279,13 +303,19 @@ describe('Inbox Route Security Tests', () => {
         }
       );
 
-      const mockRequestWithContext = Object.assign(request, {
-        practiceContext: {
-          practiceId: practiceIdFromUrl,
-          source: 'url' as const,
-          isAuthenticated: true
+      const mockRequestWithContext = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(request),
+          Object.getOwnPropertyDescriptors(request)
+        ),
+        {
+          practiceContext: {
+            practiceId: practiceIdFromUrl,
+            source: 'url' as const,
+            isAuthenticated: true
+          }
         }
-      }) as RequestWithPracticeContext;
+      ) as RequestWithPracticeContext;
 
       vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceIdFromUrl);
