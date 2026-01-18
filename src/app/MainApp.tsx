@@ -470,11 +470,13 @@ export function MainApp({
     const checkPracticeWelcome = async () => {
       try {
         const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        const shouldShow = !prefs?.practice_welcome_shown_at;
+        const hasCompletedOnboarding = prefs?.completed === true;
+        const shouldShow = hasCompletedOnboarding && !prefs?.practice_welcome_shown;
 
         if (import.meta.env.DEV) {
           console.debug('[PRACTICE_WELCOME][CHECK] preferences', {
-            practice_welcome_shown_at: prefs?.practice_welcome_shown_at ?? null
+            completed: prefs?.completed ?? null,
+            practice_welcome_shown: prefs?.practice_welcome_shown ?? null
           });
         }
 
@@ -687,7 +689,7 @@ export function MainApp({
     setShowBusinessWelcome(false);
     try {
       await updatePreferencesCategory('onboarding', {
-        practice_welcome_shown_at: new Date().toISOString()
+        practice_welcome_shown: true
       });
     } catch (error) {
       console.warn('[PRACTICE_WELCOME] Failed to update preferences', error);

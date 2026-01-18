@@ -5,7 +5,7 @@ import { ContactData } from '@/features/intake/components/ContactForm';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getChatMessagesEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
-import { buildIntakePaymentUrl } from '@/shared/utils/intakePayments';
+import { buildIntakePaymentUrl, fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
 import { updateConversationMetadata as patchConversationMetadata } from '@/shared/lib/conversationApi';
 
@@ -574,7 +574,12 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
       const paymentDetails = intakeResult.intake;
       const paymentRequired = paymentDetails?.paymentLinkEnabled === true;
-      if (paymentRequired && paymentDetails.clientSecret) {
+      const clientSecret = paymentDetails?.clientSecret;
+      const paymentLinkUrl = paymentDetails?.paymentLinkUrl;
+      const hasClientSecret = typeof clientSecret === 'string' && clientSecret.trim().length > 0;
+      const hasPaymentLink = typeof paymentLinkUrl === 'string' && paymentLinkUrl.trim().length > 0;
+
+      if (paymentRequired && (hasClientSecret || hasPaymentLink)) {
         const paymentMessageId = `system-payment-${paymentDetails.uuid ?? Date.now()}`;
         const paymentMessageExists = messages.some((msg) => msg.id === paymentMessageId);
         if (!paymentMessageExists) {
@@ -582,9 +587,25 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             ? `${window.location.pathname}${window.location.search}`
             : undefined;
           const practiceContextId = practiceId || resolvedPracticeSlug;
+          if (typeof window !== 'undefined' && paymentDetails?.uuid && hasPaymentLink) {
+            try {
+              const stored = {
+                practiceName: paymentDetails.organizationName ?? 'the practice',
+                practiceId: practiceContextId,
+                conversationId
+              };
+              window.sessionStorage.setItem(
+                `intakePaymentPending:${paymentDetails.uuid}`,
+                JSON.stringify(stored)
+              );
+            } catch {
+              // sessionStorage may be unavailable in private browsing.
+            }
+          }
           const paymentUrl = buildIntakePaymentUrl({
             intakeUuid: paymentDetails.uuid,
-            clientSecret: paymentDetails.clientSecret,
+            clientSecret: hasClientSecret ? clientSecret : undefined,
+            paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
             amount: paymentDetails.amount,
             currency: paymentDetails.currency,
             practiceName: paymentDetails.organizationName,
@@ -608,7 +629,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
                 isUser: false,
                 paymentRequest: {
                   intakeUuid: paymentDetails.uuid,
-                  clientSecret: paymentDetails.clientSecret,
+                  clientSecret: hasClientSecret ? clientSecret : undefined,
+                  paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
                   amount: paymentDetails.amount,
                   currency: paymentDetails.currency,
                   practiceName: paymentDetails.organizationName,
@@ -833,63 +855,47 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   useEffect(() => {
     if (!isAnonymous) return;
 
-    const paymentFlags: Array<{ uuid: string; practiceName: string }> = [];
-    if (typeof window !== 'undefined') {
-      const paymentKeys: string[] = [];
-      for (let i = 0; i < window.sessionStorage.length; i += 1) {
-        const key = window.sessionStorage.key(i);
-        if (key && key.startsWith('intakePaymentSuccess:')) {
-          paymentKeys.push(key);
-        }
+    type PaymentFlag = { uuid: string; practiceName: string };
+    type PendingPaymentFlag = PaymentFlag & { practiceId?: string; conversationId?: string };
+
+    let cancelled = false;
+
+    const paymentFlags: PaymentFlag[] = [];
+    const pendingFlags: PendingPaymentFlag[] = [];
+
+    const parseStoredFlag = (raw: string | null) => {
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw) as {
+          practiceName?: string;
+          practiceId?: string;
+          conversationId?: string;
+        };
+        return parsed;
+      } catch (error) {
+        console.warn('[Intake] Failed to parse payment flag', error);
+        return null;
       }
+    };
 
-      paymentKeys.forEach((key) => {
-        const uuid = key.split(':')[1] || 'unknown';
-        let practiceName = 'the practice';
-        try {
-          const raw = window.sessionStorage.getItem(key);
-          if (raw) {
-            const parsed = JSON.parse(raw) as { practiceName?: string };
-            if (parsed.practiceName && parsed.practiceName.trim().length > 0) {
-              practiceName = parsed.practiceName.trim();
-            }
-          }
-        } catch (error) {
-          console.warn('[Intake] Failed to parse payment success flag', error);
-        }
-        paymentFlags.push({ uuid, practiceName });
-        window.sessionStorage.removeItem(key);
-      });
-    }
+    const applyPaymentConfirmation = (flag: PaymentFlag) => {
+      setMessages(prev => {
+        if (cancelled) return prev;
+        const newMessages = [...prev];
+        const baseMaxTimestamp = newMessages.length > 0
+          ? Math.max(...newMessages.map(m => m.timestamp))
+          : Date.now();
+        let tempTimestamp = baseMaxTimestamp;
 
-    paymentFlags.forEach((flag) => {
-      void confirmIntakeLead(flag.uuid);
-    });
-
-    setMessages(prev => {
-      // Check for existence of local system messages
-      const hasWelcome = prev.some(m => m.id === 'system-welcome');
-      const hasContactForm = prev.some(m => m.id === 'system-contact-form');
-      const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
-      const hasModeSelector = prev.some(m => m.id === 'system-mode-selector');
-
-      const newMessages = [...prev];
-      let changed = false;
-
-      const baseMaxTimestamp = newMessages.length > 0
-        ? Math.max(...newMessages.map(m => m.timestamp))
-        : Date.now();
-      let tempTimestamp = baseMaxTimestamp;
-
-      paymentFlags.forEach((flag) => {
         const messageId = `system-payment-confirm-${flag.uuid}`;
         const alreadyExists = newMessages.some((m) =>
           m.id === messageId || m.metadata?.intakePaymentUuid === flag.uuid
         );
         if (alreadyExists) {
-          return;
+          return prev;
         }
 
+        void confirmIntakeLead(flag.uuid);
         newMessages.push({
           id: messageId,
           role: 'assistant',
@@ -901,8 +907,92 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             paymentStatus: 'succeeded'
           }
         });
-        changed = true;
+
+        return newMessages.sort((a, b) => a.timestamp - b.timestamp);
       });
+    };
+
+    if (typeof window !== 'undefined') {
+      const paymentKeys: string[] = [];
+      const pendingKeys: string[] = [];
+      for (let i = 0; i < window.sessionStorage.length; i += 1) {
+        const key = window.sessionStorage.key(i);
+        if (key && key.startsWith('intakePaymentSuccess:')) {
+          paymentKeys.push(key);
+        }
+        if (key && key.startsWith('intakePaymentPending:')) {
+          pendingKeys.push(key);
+        }
+      }
+
+      paymentKeys.forEach((key) => {
+        const uuid = key.split(':')[1] || 'unknown';
+        let practiceName = 'the practice';
+        const parsed = parseStoredFlag(window.sessionStorage.getItem(key));
+        if (parsed?.practiceName && parsed.practiceName.trim().length > 0) {
+          practiceName = parsed.practiceName.trim();
+        }
+        paymentFlags.push({ uuid, practiceName });
+        window.sessionStorage.removeItem(key);
+      });
+
+      pendingKeys.forEach((key) => {
+        const uuid = key.split(':')[1] || 'unknown';
+        let practiceName = 'the practice';
+        const parsed = parseStoredFlag(window.sessionStorage.getItem(key));
+        if (parsed?.practiceName && parsed.practiceName.trim().length > 0) {
+          practiceName = parsed.practiceName.trim();
+        }
+        pendingFlags.push({
+          uuid,
+          practiceName,
+          practiceId: parsed?.practiceId,
+          conversationId: parsed?.conversationId
+        });
+      });
+    }
+
+    paymentFlags.forEach(applyPaymentConfirmation);
+
+    const checkPendingPayments = async () => {
+      if (pendingFlags.length === 0) return;
+      const practiceContextId = (practiceId ?? practiceSlug ?? '').trim();
+      for (const pending of pendingFlags) {
+        if (cancelled) return;
+        if (pending.conversationId && conversationId && pending.conversationId !== conversationId) {
+          continue;
+        }
+        if (pending.practiceId && practiceContextId && pending.practiceId !== practiceContextId) {
+          continue;
+        }
+
+        try {
+          const status = await fetchIntakePaymentStatus(pending.uuid);
+          if (!isPaidIntakeStatus(status)) {
+            continue;
+          }
+        } catch (error) {
+          console.warn('[Intake] Failed to check payment status for', pending.uuid, error);
+          continue;
+        }
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem(`intakePaymentPending:${pending.uuid}`);
+        }
+        applyPaymentConfirmation(pending);
+      }
+    };
+
+    void checkPendingPayments();
+
+    setMessages(prev => {
+      // Check for existence of local system messages
+      const hasWelcome = prev.some(m => m.id === 'system-welcome');
+      const hasContactForm = prev.some(m => m.id === 'system-contact-form');
+      const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
+      const hasModeSelector = prev.some(m => m.id === 'system-mode-selector');
+
+      const newMessages = [...prev];
+      let changed = false;
 
       // Use monotonically increasing timestamps to ensure stable ordering
       const maxTimestamp = newMessages.length > 0
@@ -978,7 +1068,18 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       
       return prev;
     });
-  }, [currentStep, isAnonymous, isConsultFlowActive, confirmIntakeLead]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentStep,
+    isAnonymous,
+    isConsultFlowActive,
+    confirmIntakeLead,
+    conversationId,
+    practiceId,
+    practiceSlug
+  ]);
 
   // The intake flow is now conversational and non-blocking
   return {

@@ -2,7 +2,11 @@ import { FunctionComponent } from 'preact';
 import { useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { buildIntakePaymentUrl, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import {
+  buildIntakePaymentUrl,
+  isValidStripePaymentLink,
+  type IntakePaymentRequest
+} from '@/shared/utils/intakePayments';
 import { useNavigation } from '@/shared/utils/navigation';
 
 interface IntakePaymentCardProps {
@@ -24,10 +28,32 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
     () => resolveDisplayAmount(paymentRequest.amount, paymentRequest.currency, locale),
     [paymentRequest.amount, paymentRequest.currency, locale]
   );
+  const hasClientSecret = typeof paymentRequest.clientSecret === 'string' &&
+    paymentRequest.clientSecret.trim().length > 0;
 
   const practiceName = paymentRequest.practiceName || 'the practice';
   const paymentUrl = buildIntakePaymentUrl(paymentRequest);
+
+  const openPaymentLink = () => {
+    if (!paymentRequest.paymentLinkUrl) return false;
+    if (!isValidStripePaymentLink(paymentRequest.paymentLinkUrl)) {
+      return false;
+    }
+    if (typeof window !== 'undefined') {
+      window.open(paymentRequest.paymentLinkUrl, '_blank', 'noopener');
+      return true;
+    }
+    return false;
+  };
+
   const handlePay = () => {
+    if (hasClientSecret && onOpenPayment) {
+      onOpenPayment(paymentRequest);
+      return;
+    }
+    if (!hasClientSecret && paymentRequest.paymentLinkUrl && openPaymentLink()) {
+      return;
+    }
     if (onOpenPayment) {
       onOpenPayment(paymentRequest);
       return;
@@ -50,7 +76,9 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         >
           Pay consultation fee
         </Button>
-        <span className="text-xs text-gray-500 dark:text-gray-400">Secure payment powered by Stripe.</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Secure payment powered by Stripe.
+        </span>
       </div>
     </div>
   );

@@ -1,41 +1,49 @@
 import type { Page } from 'playwright';
 
 const readTokenFromIndexedDb = async (page: Page): Promise<string | null> => {
-  return page.evaluate(() => {
-    return new Promise<string | null>((resolve) => {
-      try {
-        const request = indexedDB.open('blawby_auth', 2);
-        request.onerror = () => resolve(null);
-        request.onupgradeneeded = () => {
-          request.result?.close();
-          resolve(null);
-        };
-        request.onsuccess = () => {
-          try {
-            const db = request.result;
-            const transaction = db.transaction('tokens', 'readonly');
-            const store = transaction.objectStore('tokens');
-            const getRequest = store.get('bearer_token');
-            getRequest.onsuccess = () => {
-              const record = getRequest.result as { value?: string } | null;
-              resolve(record?.value ?? null);
-            };
-            getRequest.onerror = () => resolve(null);
-          } catch {
+  try {
+    return await page.evaluate(() => {
+      return new Promise<string | null>((resolve) => {
+        try {
+          const request = indexedDB.open('blawby_auth', 2);
+          request.onerror = () => resolve(null);
+          request.onupgradeneeded = () => {
+            request.result?.close();
             resolve(null);
-          }
-        };
-      } catch {
-        resolve(null);
-      }
+          };
+          request.onsuccess = () => {
+            try {
+              const db = request.result;
+              const transaction = db.transaction('tokens', 'readonly');
+              const store = transaction.objectStore('tokens');
+              const getRequest = store.get('bearer_token');
+              getRequest.onsuccess = () => {
+                const record = getRequest.result as { value?: string } | null;
+                resolve(record?.value ?? null);
+              };
+              getRequest.onerror = () => resolve(null);
+            } catch {
+              resolve(null);
+            }
+          };
+        } catch {
+          resolve(null);
+        }
+      });
     });
-  });
+  } catch {
+    return null;
+  }
 };
 
 const readTokenFromLocalStorage = async (page: Page): Promise<string | null> => {
-  return page.evaluate(() => {
-    return localStorage.getItem('__e2e_bearer_token') || localStorage.getItem('bearer_token');
-  });
+  try {
+    return await page.evaluate(() => {
+      return localStorage.getItem('__e2e_bearer_token') || localStorage.getItem('bearer_token');
+    });
+  } catch {
+    return null;
+  }
 };
 
 export const getTokenFromPage = async (page: Page): Promise<string | null> => {

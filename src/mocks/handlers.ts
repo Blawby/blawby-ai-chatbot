@@ -891,16 +891,36 @@ export const handlers = [
       success: true,
       data: {
         uuid: randomId('intake'),
-        client_secret: randomId('secret'),
+        payment_link_url: 'https://buy.stripe.com/test_12345',
         amount: body.amount ?? 200,
         currency: 'usd',
-        status: 'requires_payment_method',
+        status: 'open',
         organization: {
           name: practiceName,
           logo: ''
         }
       }
     }, { status: 201 });
+  }),
+
+  http.get('/api/practice/client-intakes/:uuid/status', async ({ params }) => {
+    const uuid = params.uuid as string;
+    return HttpResponse.json({
+      success: true,
+      data: {
+        uuid,
+        amount: 200,
+        currency: 'usd',
+        status: 'completed',
+        stripe_charge_id: 'ch_test',
+        metadata: {
+          email: 'test@example.com',
+          name: 'Test Client'
+        },
+        succeeded_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      }
+    });
   }),
 
   http.post('/api/users/welcome', async () => {

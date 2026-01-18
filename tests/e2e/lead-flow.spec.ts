@@ -71,7 +71,6 @@ const getIntakeSettings = async (slug: string): Promise<IntakeSettings | null> =
 
 const createIntake = async (options: {
   slug: string;
-  conversationId: string;
   name: string;
   email: string;
   description?: string;
@@ -92,7 +91,6 @@ const createIntake = async (options: {
       name: options.name,
       email: options.email,
       description: options.description,
-      session_id: options.conversationId
     })
   });
 
@@ -106,7 +104,11 @@ const createIntake = async (options: {
   return {
     uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
     clientSecret: typeof data.client_secret === 'string' ? data.client_secret : undefined,
-    paymentLinkUrl: typeof data.payment_link_url === 'string' ? data.payment_link_url : undefined,
+    paymentLinkUrl: typeof data.payment_link_url === 'string'
+      ? data.payment_link_url
+      : typeof data.paymentLinkUrl === 'string'
+        ? data.paymentLinkUrl
+        : undefined,
     amount: typeof data.amount === 'number' ? data.amount : undefined,
     currency: typeof data.currency === 'string' ? data.currency : undefined,
     status: typeof data.status === 'string' ? data.status : undefined
@@ -247,7 +249,6 @@ test.describe('Lead intake workflow', () => {
 
       const intake = await createIntake({
         slug: e2eConfig.practice.slug,
-        conversationId,
         name: clientName,
         email: e2eConfig.client.email,
         description: 'E2E accept flow',
@@ -324,7 +325,6 @@ test.describe('Lead intake workflow', () => {
 
       const intake = await createIntake({
         slug: e2eConfig.practice.slug,
-        conversationId,
         name: clientName,
         email: `guest+${intakeUuid.slice(0, 6)}@example.com`,
         description: 'E2E reject flow',
@@ -395,7 +395,6 @@ test.describe('Lead intake workflow', () => {
       const conversationId = await getOrCreateConversation(clientToken, e2eConfig.practice.id);
       const intake = await createIntake({
         slug: e2eConfig.practice.slug,
-        conversationId,
         name: 'E2E Paid Intake',
         email: e2eConfig.client.email,
         description: 'E2E payment gated',

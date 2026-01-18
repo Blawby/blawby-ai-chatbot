@@ -6,7 +6,7 @@ import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
 import { IntakePaymentModal } from '@/features/intake/components/IntakePaymentModal';
-import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
@@ -192,6 +192,15 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   };
 
   const handleOpenPayment = (request: IntakePaymentRequest) => {
+    const hasClientSecret = typeof request.clientSecret === 'string' &&
+      request.clientSecret.trim().length > 0;
+    if (!hasClientSecret &&
+      request.paymentLinkUrl &&
+      isValidStripePaymentLink(request.paymentLinkUrl) &&
+      typeof window !== 'undefined') {
+      window.open(request.paymentLinkUrl, '_blank', 'noopener');
+      return;
+    }
     setPaymentRequest(request);
     setIsPaymentModalOpen(true);
   };

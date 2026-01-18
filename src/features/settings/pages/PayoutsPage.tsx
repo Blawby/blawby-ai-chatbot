@@ -13,15 +13,14 @@ import {
 import { StripeOnboardingStep } from '@/features/onboarding/steps/StripeOnboardingStep';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
-import { getActiveOrganizationId } from '@/shared/utils/session';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { CheckCircleIcon, LockClosedIcon, ShieldCheckIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 
 export const PayoutsPage = ({ className = '' }: { className?: string }) => {
-  const { session } = useSessionContext();
+  const { session, activeOrganizationId } = useSessionContext();
   const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
-  const organizationId = useMemo(() => getActiveOrganizationId(session), [session]);
+  const organizationId = useMemo(() => activeOrganizationId, [activeOrganizationId]);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

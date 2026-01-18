@@ -1,9 +1,10 @@
 import type { FunctionComponent } from 'preact/compat';
-import { useCallback, useMemo, useState } from 'preact/compat';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/compat';
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
-import { getIntakeConfirmEndpoint, getPracticeClientIntakeStatusEndpoint } from '@/config/api';
+import { getIntakeConfirmEndpoint } from '@/config/api';
+import { fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 interface IntakePaymentFormProps {
@@ -50,9 +51,21 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   const elements = useElements();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded'>('idle');
+  const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded' | 'failed'>('idle');
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const isMountedRef = useRef(true);
+
+  const TERMINAL_FAILURE_STATUSES = useMemo(
+    () => new Set(['failed', 'canceled', 'cancelled', 'expired']),
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
   const formattedAmount = useMemo(
@@ -60,42 +73,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     [amount, currency, locale]
   );
 
-  const pollIntakeStatus = useCallback(async () => {
-    if (!intakeUuid) return null;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    try {
-      const token = await getTokenAsync();
-      const headers: HeadersInit | undefined = token
-        ? { Authorization: `Bearer ${token}` }
-        : undefined;
-      const response = await fetch(getPracticeClientIntakeStatusEndpoint(intakeUuid), {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const payload = await response.json() as {
-        success?: boolean;
-        data?: { status?: string };
-      };
-
-      return payload.data?.status ?? null;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        return null;
-      }
-      console.warn('[IntakePayment] Failed to fetch intake status', error);
-      return null;
-    }
-  }, [intakeUuid]);
-
+  const pollIntakeStatus = useCallback(() => fetchIntakePaymentStatus(intakeUuid), [intakeUuid]);
   const wait = useCallback((ms: number) => new Promise(resolve => setTimeout(resolve, ms)), []);
 
   const confirmIntakeLead = useCallback(async () => {
@@ -165,43 +143,63 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         setStatus('processing');
       }
 
-      const maxAttempts = 8;
+      const maxAttempts = 4;
+      const retryDelayMs = 1500;
+      let latestStatus: string | null = null;
+
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const latestStatus = await pollIntakeStatus();
+        latestStatus = await pollIntakeStatus();
+        if (!isMountedRef.current) return;
+
         if (latestStatus) {
           setStatusDetail(latestStatus);
-          if (latestStatus === 'succeeded') {
-            setStatus('succeeded');
-            await confirmIntakeLead();
-            if (typeof window !== 'undefined' && intakeUuid) {
-              try {
-                const payload = {
-                  practiceName,
-                  amount,
-                  currency,
-                  practiceId,
-                  conversationId
-                };
-                window.sessionStorage.setItem(
-                  `intakePaymentSuccess:${intakeUuid}`,
-                  JSON.stringify(payload)
-                );
-              } catch {
-                // sessionStorage may be unavailable in private browsing.
-              }
-            }
-            onSuccess?.();
-            return;
-          }
         }
-        await wait(1500);
+
+        if (isPaidIntakeStatus(latestStatus)) {
+          setStatus('succeeded');
+          await confirmIntakeLead();
+          if (!isMountedRef.current) return;
+          if (typeof window !== 'undefined' && intakeUuid) {
+            try {
+              const payload = {
+                practiceName,
+                amount,
+                currency,
+                practiceId,
+                conversationId
+              };
+              window.sessionStorage.setItem(
+                `intakePaymentSuccess:${intakeUuid}`,
+                JSON.stringify(payload)
+              );
+            } catch {
+              // sessionStorage may be unavailable in private browsing.
+            }
+          }
+          onSuccess?.();
+          return;
+        }
+
+        if (latestStatus && TERMINAL_FAILURE_STATUSES.has(latestStatus)) {
+          break;
+        }
+
+        if (attempt < maxAttempts - 1) {
+          await wait(retryDelayMs);
+          if (!isMountedRef.current) return;
+        }
       }
 
       setPaymentSubmitted(false);
-      setErrorMessage(
-        'Payment is being verified. Please wait a moment and refresh, or contact support if the issue persists.'
-      );
-      setStatus('idle');
+      if (latestStatus && TERMINAL_FAILURE_STATUSES.has(latestStatus)) {
+        setStatus('failed');
+        setErrorMessage(`Payment ${latestStatus}. Please try again or contact support.`);
+      } else {
+        setStatus('idle');
+        setErrorMessage(
+          'Payment is still processing. Return to the chat and check status again in a moment.'
+        );
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Payment failed. Please try again.');
       setStatus('idle');
@@ -220,7 +218,8 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     practiceId,
     conversationId,
     confirmIntakeLead,
-    onSuccess
+    onSuccess,
+    TERMINAL_FAILURE_STATUSES
   ]);
 
   return (

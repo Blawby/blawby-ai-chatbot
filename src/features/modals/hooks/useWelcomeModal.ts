@@ -57,9 +57,10 @@ export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcom
     const checkPreferences = async () => {
       try {
         const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        const hasSeenWelcome = Boolean(prefs?.welcome_modal_shown_at);
+        const hasCompletedOnboarding = prefs?.completed === true;
+        const hasSeenWelcome = Boolean(prefs?.welcome_modal_shown);
         if (isMounted) {
-          setShouldShow(!hasSeenWelcome);
+          setShouldShow(hasCompletedOnboarding && !hasSeenWelcome);
         }
       } catch (error) {
         console.warn('[WELCOME_MODAL] Failed to load onboarding preferences', error);
@@ -87,7 +88,7 @@ export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcom
     }
     try {
       await updatePreferencesCategory('onboarding', {
-        welcome_modal_shown_at: new Date().toISOString()
+        welcome_modal_shown: true
       });
     } catch (err) {
       console.error('[WELCOME_MODAL] Failed to update preferences', err);
