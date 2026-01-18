@@ -55,10 +55,13 @@
     "title": "[NEEDS TRANSLATION] Account",
     "loadingError": "[NEEDS TRANSLATION] Failed to load account data",
     "retry": "[NEEDS TRANSLATION] Retry",
+    "nameLabel": "Ім’я",
     "plan": {
       "currentPlanLabel": "[NEEDS TRANSLATION] Current Plan: {{tier}}",
       "manageBilling": "Керувати",
       "manage": "Керувати",
+      "thanksForSubscribing": "Дякуємо за підписку на Blawby Business! Ваш план Business включає:",
+      "cancelSubscription": "Скасувати підписку",
       "tiers": {
         "free": "[NEEDS TRANSLATION] Free",
         "plus": "[NEEDS TRANSLATION] Plus",
@@ -92,6 +95,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "Платежі",
+      "description": "Керуйте платіжними даними та рахунками у Stripe.",
+      "manage": "Керувати"
+    },
+
     "links": {
       "title": "[NEEDS TRANSLATION] Links",
       "domainLabel": "[NEEDS TRANSLATION] Select a domain",

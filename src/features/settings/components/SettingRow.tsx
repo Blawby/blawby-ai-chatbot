@@ -5,6 +5,7 @@ import { cn } from '@/shared/utils/cn';
 
 export interface SettingRowProps {
   label: string;
+  labelClassName?: string;
   description?: string | ComponentChildren;
   children: ComponentChildren;
   className?: string;
@@ -12,6 +13,7 @@ export interface SettingRowProps {
 
 export const SettingRow = ({
   label,
+  labelClassName = '',
   description,
   children,
   className = ''
@@ -19,7 +21,7 @@ export const SettingRow = ({
   return (
     <div className={cn('flex items-center justify-between py-3', className)}>
       <div className="flex-1 min-w-0">
-        <FormLabel>{label}</FormLabel>
+        <FormLabel className={labelClassName}>{label}</FormLabel>
         {description && (
           typeof description === 'string' ? (
             <SettingDescription text={description} />

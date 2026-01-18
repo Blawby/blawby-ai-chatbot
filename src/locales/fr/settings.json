@@ -55,10 +55,13 @@
     "title": "Compte",
     "loadingError": "Échec du chargement des données du compte",
     "retry": "Réessayer",
+    "nameLabel": "Nom",
     "plan": {
       "currentPlanLabel": "Forfait actuel : {{tier}}",
       "manageBilling": "Gérer",
       "manage": "Gérer",
+      "thanksForSubscribing": "Merci de vous être abonné à Blawby Business ! Votre plan Business comprend :",
+      "cancelSubscription": "Annuler l'abonnement",
       "tiers": {
         "free": "Gratuit",
         "plus": "Plus",
@@ -104,6 +107,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "Paiements",
+      "description": "Gérez les détails de facturation et les factures dans Stripe.",
+      "manage": "Gérer"
+    },
+
     "links": {
       "title": "Liens",
       "domainLabel": "Sélectionner un domaine",

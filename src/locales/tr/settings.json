@@ -55,10 +55,13 @@
     "title": "[NEEDS TRANSLATION] Account",
     "loadingError": "[NEEDS TRANSLATION] Failed to load account data",
     "retry": "[NEEDS TRANSLATION] Retry",
+    "nameLabel": "Ad",
     "plan": {
       "currentPlanLabel": "[NEEDS TRANSLATION] Current Plan: {{tier}}",
       "manageBilling": "Yönet",
       "manage": "Yönet",
+      "thanksForSubscribing": "Blawby Business'a abone olduğunuz için teşekkürler! Business planınız şunları içerir:",
+      "cancelSubscription": "Aboneliği iptal et",
       "tiers": {
         "free": "[NEEDS TRANSLATION] Free",
         "plus": "[NEEDS TRANSLATION] Plus",
@@ -92,6 +95,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "Ödemeler",
+      "description": "Stripe'ta faturalandırma ayrıntılarını ve faturaları yönetin.",
+      "manage": "Yönet"
+    },
+
     "links": {
       "title": "[NEEDS TRANSLATION] Links",
       "domainLabel": "[NEEDS TRANSLATION] Select a domain",

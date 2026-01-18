@@ -55,10 +55,13 @@
     "title": "Conta",
     "loadingError": "Falha ao carregar dados da conta",
     "retry": "Tentar novamente",
+    "nameLabel": "Nome",
     "plan": {
       "currentPlanLabel": "Plano Atual: {{tier}}",
       "manageBilling": "Gerenciar",
       "manage": "Gerenciar",
+      "thanksForSubscribing": "Obrigado por assinar o Blawby Business! Seu plano Business inclui:",
+      "cancelSubscription": "Cancelar assinatura",
       "tiers": {
         "free": "Gratuito",
         "plus": "Plus",
@@ -92,6 +95,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "Pagamentos",
+      "description": "Gerencie detalhes de faturamento e faturas no Stripe.",
+      "manage": "Gerenciar"
+    },
+
     "links": {
       "title": "Links",
       "domainLabel": "Selecione um domínio",

@@ -55,10 +55,13 @@
     "title": "[NEEDS TRANSLATION] Account",
     "loadingError": "[NEEDS TRANSLATION] Failed to load account data",
     "retry": "[NEEDS TRANSLATION] Retry",
+    "nameLabel": "नाम",
     "plan": {
       "currentPlanLabel": "[NEEDS TRANSLATION] Current Plan: {{tier}}",
       "manageBilling": "प्रबंधित करें",
       "manage": "प्रबंधित करें",
+      "thanksForSubscribing": "Blawby Business को सब्सक्राइब करने के लिए धन्यवाद! आपकी Business योजना में शामिल है:",
+      "cancelSubscription": "सदस्यता रद्द करें",
       "tiers": {
         "free": "[NEEDS TRANSLATION] Free",
         "plus": "[NEEDS TRANSLATION] Plus",
@@ -91,6 +94,11 @@
           "body": "[NEEDS TRANSLATION] You are already on the highest tier!"
         }
       }
+    },
+    "payments": {
+      "sectionTitle": "भुगतान",
+      "description": "Stripe में बिलिंग विवरण और इनवॉइस प्रबंधित करें।",
+      "manage": "प्रबंधित करें"
     },
     "payouts": {
       "title": "[NEEDS TRANSLATION] Payouts",

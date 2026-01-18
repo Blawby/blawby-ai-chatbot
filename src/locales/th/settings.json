@@ -55,9 +55,12 @@
     "title": "[NEEDS TRANSLATION] Account",
     "loadingError": "[NEEDS TRANSLATION] Failed to load account data",
     "retry": "[NEEDS TRANSLATION] Retry",
+    "nameLabel": "ชื่อ",
     "plan": {
       "currentPlanLabel": "[NEEDS TRANSLATION] Current Plan: {{tier}}",
       "manage": "จัดการ",
+      "thanksForSubscribing": "ขอบคุณที่สมัคร Blawby Business! แผน Business ของคุณรวมถึง:",
+      "cancelSubscription": "ยกเลิกการสมัครสมาชิก",
       "tiers": {
         "free": "[NEEDS TRANSLATION] Free",
         "plus": "[NEEDS TRANSLATION] Plus",
@@ -91,6 +94,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "การชำระเงิน",
+      "description": "จัดการรายละเอียดการเรียกเก็บเงินและใบแจ้งหนี้ใน Stripe",
+      "manage": "จัดการ"
+    },
+
     "links": {
       "title": "[NEEDS TRANSLATION] Links",
       "domainLabel": "[NEEDS TRANSLATION] Select a domain",

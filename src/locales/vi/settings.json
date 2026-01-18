@@ -55,10 +55,13 @@
     "title": "Tài khoản",
     "loadingError": "Không thể tải dữ liệu tài khoản",
     "retry": "Thử lại",
+    "nameLabel": "Tên",
     "plan": {
       "currentPlanLabel": "Gói hiện tại: {{tier}}",
       "manageBilling": "Quản lý",
       "manage": "Quản lý",
+      "thanksForSubscribing": "Cảm ơn bạn đã đăng ký Blawby Business! Gói Business của bạn bao gồm:",
+      "cancelSubscription": "Hủy đăng ký",
       "tiers": {
         "free": "Miễn phí",
         "plus": "Plus",
@@ -104,6 +107,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "Thanh toán",
+      "description": "Quản lý thông tin thanh toán và hóa đơn trong Stripe.",
+      "manage": "Quản lý"
+    },
+
     "links": {
       "title": "Liên kết",
       "domainLabel": "Chọn một tên miền",

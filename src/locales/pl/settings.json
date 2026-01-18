@@ -55,10 +55,13 @@
     "title": "[NEEDS TRANSLATION] Account",
     "loadingError": "[NEEDS TRANSLATION] Failed to load account data",
     "retry": "[NEEDS TRANSLATION] Retry",
+    "nameLabel": "Imię i nazwisko",
     "plan": {
       "currentPlanLabel": "[NEEDS TRANSLATION] Current Plan: {{tier}}",
       "manageBilling": "Zarządzaj",
       "manage": "Zarządzaj",
+      "thanksForSubscribing": "Dziękujemy za subskrypcję Blawby Business! Twój plan Business obejmuje:",
+      "cancelSubscription": "Anuluj subskrypcję",
       "tiers": {
         "free": "[NEEDS TRANSLATION] Free",
         "plus": "[NEEDS TRANSLATION] Plus",
@@ -92,6 +95,12 @@
         }
       }
     },
+    "payments": {
+      "sectionTitle": "Płatności",
+      "description": "Zarządzaj danymi rozliczeniowymi i fakturami w Stripe.",
+      "manage": "Zarządzaj"
+    },
+
     "links": {
       "title": "[NEEDS TRANSLATION] Links",
       "domainLabel": "[NEEDS TRANSLATION] Select a domain",
