@@ -109,7 +109,10 @@ All WS frames are JSON objects with `{ type, data }`.
   - Disconnect emits `status=offline` with `last_seen = server_ts` only on offline events.
 - `membership.changed`
   - Required: `conversation_id`, `membership_version`
-  - Clients should re-fetch membership or reconnect; server may close sockets for removed users.
+  - Indicates membership roster changed; clients must re-validate their membership.
+  - Clients should re-fetch membership and continue if still a member.
+  - Removed users will receive a 4403 close (targeted or after broadcast fallback).
+  - Clients may optionally reconnect to force a fresh membership check at upgrade.
 - `read`
   - Required: `conversation_id`, `user_id`, `last_read_seq`
 - `error`
@@ -166,6 +169,12 @@ All WS frames are JSON objects with `{ type, data }`.
 - Server should not initiate periodic pings (hibernation-safe).
 - Typing events are ephemeral, rate-limited, and coalesced; server can auto-stop after a short TTL.
 
+### Idle Timeout Policy
+- Close connections idle for >30 minutes with close code `4410`.
+- "Idle" means no client->server frames received (any type resets the timer).
+- Use platform idle timeout if available; otherwise implement manual tracking in the DO.
+- Clients should reconnect on `4410` without treating it as an error.
+
 ### Read Receipt Semantics
 - Only the authenticated user may advance their own `last_read_seq`.
 - Server clamps `last_read_seq` to `<= latest_seq`.
@@ -218,8 +227,8 @@ All WS frames are JSON objects with `{ type, data }`.
     - If a pending record exists with mismatched hashes, close with `4400`.
     - Allocate `seq` in DO (durable storage counter) only for new inserts.
     - Persist pending record + allocated seq in a single DO storage transaction before D1 writes.
-      - Use `state.storage.transaction()` (or coalesced writes with no `await`) so counter + pending record updates are atomic across keys.
-      - If needed, store the pending record (including `allocated_seq`) as a single compound value under a single key.
+      - Use `state.storage.transaction()` so counter + pending record updates are atomic across multiple keys.
+      - Alternatively, store the pending record (including `allocated_seq`) as a single compound value under a single key for single-write atomicity.
     - Attempt insert with `(conversation_id, client_id)` unique constraint (authoritative):
       - On conflict, fetch existing row and return idempotent `message.ack`.
     - Pre-checks are optional optimizations only; do not rely on them for correctness.
