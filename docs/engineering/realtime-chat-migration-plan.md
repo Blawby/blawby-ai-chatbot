@@ -227,9 +227,24 @@ All WS frames are JSON objects with `{ type, data }`.
     - If a pending record exists with mismatched hashes, close with `4400`.
     - Allocate `seq` in DO (durable storage counter) only for new inserts.
     - Persist pending record + allocated seq atomically before D1 writes.
-      - For SQLite-backed DOs (recommended): use write coalescing by calling `ctx.storage.put()` for counter and pending record without awaiting between them.
-      - For legacy KV-backed DOs: use `ctx.storage.transaction()` for atomicity across multiple keys.
+      - Use `state.storage` (Durable Objects Storage API); do not use `ctx.storage`.
+      - For read-modify-write on the counter, use `state.storage.transaction()` to avoid races across keys.
+      - For SQLite-backed DOs, write coalescing allows multiple `put()` calls with no intervening `await` to commit atomically, but use a transaction when a `get()` is needed.
       - Alternatively, store the pending record (including `allocated_seq`) as a single compound value under a single key.
+      - Example (recommended):
+        ```ts
+        await state.storage.transaction(async (txn) => {
+          const current = (await txn.get<number>("seq")) ?? 0;
+          const next = current + 1;
+          await txn.put("seq", next);
+          await txn.put(`pending:${conversationId}:${clientId}`, {
+            content_hash,
+            attachments_hash,
+            allocated_seq: next,
+            allocated_at: new Date().toISOString(),
+          });
+        });
+        ```
     - Attempt insert with `(conversation_id, client_id)` unique constraint (authoritative):
       - On conflict, fetch existing row and return idempotent `message.ack`.
     - Pre-checks are optional optimizations only; do not rely on them for correctness.
