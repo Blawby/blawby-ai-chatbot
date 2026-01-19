@@ -71,7 +71,7 @@ VITE_BACKEND_API_URL=https://staging-api.blawby.com
 ### For Production (Cloudflare Pages)
 
 Set environment variables in Cloudflare Pages dashboard:
-- `VITE_BACKEND_API_URL` = `https://api.blawby.com`
+- `VITE_BACKEND_API_URL` = `https://production-api.blawby.com`
 - `VITE_WORKER_API_URL` = (optional, defaults to same origin)
 
 ### Code Changes

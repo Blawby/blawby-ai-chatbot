@@ -12,6 +12,7 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 interface ConnectionAttachment {
   userId: string;
   negotiated: boolean;
+  negotiationDeadline: number | null;
   lastActivityAt: number;
 }
 
@@ -24,7 +25,6 @@ interface ClientFrame {
 export class NotificationHub {
   private readonly state: DurableObjectState;
   private readonly env: Env;
-  private readonly negotiationTimers = new Map<WorkerWebSocket, ReturnType<typeof setTimeout>>();
   private readonly decoder = new TextDecoder();
   private readonly encoder = new TextEncoder();
   private userId: string | null = null;
@@ -81,6 +81,7 @@ export class NotificationHub {
     const attachment: ConnectionAttachment = {
       userId: auth.user.id,
       negotiated: false,
+      negotiationDeadline: null,
       lastActivityAt: Date.now()
     };
 
@@ -168,6 +169,10 @@ export class NotificationHub {
       if (!attachment) {
         continue;
       }
+      if (!attachment.negotiated && attachment.negotiationDeadline && now > attachment.negotiationDeadline) {
+        this.closeSocket(socket, 4408, 'negotiation_timeout');
+        continue;
+      }
       if (now - attachment.lastActivityAt > IDLE_TIMEOUT_MS) {
         this.closeSocket(socket, 4410, 'idle_timeout');
       }
@@ -198,6 +203,24 @@ export class NotificationHub {
   }
 
   private async handlePublish(request: Request): Promise<Response> {
+    let auth;
+    try {
+      auth = await requireAuth(request, this.env);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        return new Response(error.message, { status: error.status });
+      }
+      throw error;
+    }
+
+    if (!this.userId) {
+      this.userId = auth.user.id;
+    }
+
+    if (this.userId !== auth.user.id) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
     let payload: Record<string, unknown>;
     try {
       payload = await request.json() as Record<string, unknown>;
@@ -240,28 +263,8 @@ export class NotificationHub {
     return allowlist.includes(origin);
   }
 
-  private scheduleNegotiationTimeout(ws: WorkerWebSocket): void {
-    const timeoutId = setTimeout(() => {
-      const attachment = this.getAttachment(ws);
-      if (!attachment || attachment.negotiated) {
-        return;
-      }
-      this.closeSocket(ws, 4408, 'negotiation_timeout');
-    }, NEGOTIATION_TIMEOUT_MS);
-
-    this.negotiationTimers.set(ws, timeoutId);
-  }
-
-  private clearNegotiationTimeout(ws: WorkerWebSocket): void {
-    const timeoutId = this.negotiationTimers.get(ws);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      this.negotiationTimers.delete(ws);
-    }
-  }
-
   private async scheduleIdleAlarm(): Promise<void> {
-    const nextDeadline = this.nextIdleDeadline();
+    const nextDeadline = this.nextAlarmDeadline();
     if (nextDeadline === null) {
       await this.state.storage.deleteAlarm();
       return;
@@ -270,16 +273,21 @@ export class NotificationHub {
     await this.state.storage.setAlarm(new Date(scheduleAt));
   }
 
-  private nextIdleDeadline(): number | null {
+  private nextAlarmDeadline(): number | null {
     let next: number | null = null;
     for (const socket of this.state.getWebSockets()) {
       const attachment = this.getAttachment(socket);
       if (!attachment) {
         continue;
       }
-      const deadline = attachment.lastActivityAt + IDLE_TIMEOUT_MS;
-      if (next === null || deadline < next) {
-        next = deadline;
+      const idleDeadline = attachment.lastActivityAt + IDLE_TIMEOUT_MS;
+      if (next === null || idleDeadline < next) {
+        next = idleDeadline;
+      }
+      if (!attachment.negotiated && attachment.negotiationDeadline) {
+        if (next === null || attachment.negotiationDeadline < next) {
+          next = attachment.negotiationDeadline;
+        }
       }
     }
     return next;
@@ -290,7 +298,11 @@ export class NotificationHub {
     if (requestId) {
       payload.request_id = requestId;
     }
-    ws.send(JSON.stringify(payload));
+    try {
+      ws.send(JSON.stringify(payload));
+    } catch {
+      // Socket already closed, ignore.
+    }
   }
 
   private closeSocket(ws: WorkerWebSocket, code: number, reason?: string): void {
@@ -307,5 +319,25 @@ export class NotificationHub {
       return null;
     }
     return attachment;
+  }
+
+  private scheduleNegotiationTimeout(ws: WorkerWebSocket): void {
+    const attachment = this.getAttachment(ws);
+    if (!attachment || attachment.negotiated) {
+      return;
+    }
+    attachment.negotiationDeadline = Date.now() + NEGOTIATION_TIMEOUT_MS;
+    ws.serializeAttachment(attachment);
+    void this.scheduleIdleAlarm();
+  }
+
+  private clearNegotiationTimeout(ws: WorkerWebSocket): void {
+    const attachment = this.getAttachment(ws);
+    if (!attachment) {
+      return;
+    }
+    attachment.negotiationDeadline = null;
+    ws.serializeAttachment(attachment);
+    void this.scheduleIdleAlarm();
   }
 }

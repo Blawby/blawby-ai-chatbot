@@ -297,7 +297,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 				...buildProxyEntries(),
 
 				'/api': {
-					target: env.VITE_BACKEND_API_URL, // e.g. https://api.blawby.com
+					target: env.VITE_BACKEND_API_URL, // e.g. https://production-api.blawby.com
 					changeOrigin: true,
 					secure: true,
 				}

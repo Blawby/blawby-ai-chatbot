@@ -29,7 +29,7 @@ This application uses **TWO separate backends**:
 ┌─────────────────────────────────┐   ┌─────────────────────────────────┐
 │     CLOUDFLARE WORKER           │   │      REMOTE BACKEND             │
 │  (localhost:8787 / ai.blawby.com│   │  (staging-api.blawby.com or     │
-│                                 │   │   api.blawby.com)               │
+│                                 │   │   production-api.blawby.com)    │
 │  Endpoints:                     │   │                                 │
 │  • /api/chat                    │   │  Endpoints:                     │
 │  • /api/conversations           │   │  • /api/auth/* (Better Auth)    │

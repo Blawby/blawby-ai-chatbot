@@ -15,6 +15,8 @@ const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
 
+const normalizeApostrophes = (text: string): string => text.replace(/[’']/g, '\'');
+
 const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; content: string }>): boolean => {
   const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
   if (!lastUserMessage) return false;
@@ -145,7 +147,10 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
       });
     } else {
       const violations: string[] = [];
-      if (shouldRequireDisclaimer(body.messages) && !reply.includes(LEGAL_DISCLAIMER)) {
+      if (
+        shouldRequireDisclaimer(body.messages) &&
+        !normalizeApostrophes(reply).includes(normalizeApostrophes(LEGAL_DISCLAIMER))
+      ) {
         violations.push('missing_disclaimer');
       }
       if (countQuestions(reply) > 1) {

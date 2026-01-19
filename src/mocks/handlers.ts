@@ -813,7 +813,7 @@ export const handlers = [
       data: {
         messages: limitedMessages,
         hasMore: conversationMessages.length > limit,
-        cursor: limitedMessages.length > 0 ? limitedMessages[limitedMessages.length - 1].created_at : null
+        cursor: limitedMessages.length > 0 ? limitedMessages[0].created_at : null
       }
     });
   }),

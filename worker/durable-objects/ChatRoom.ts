@@ -19,6 +19,7 @@ interface ConnectionAttachment {
   conversationId: string;
   userId: string;
   negotiated: boolean;
+  negotiationDeadline: number | null;
   lastActivityAt: number;
 }
 
@@ -81,7 +82,6 @@ type PersistResult =
 export class ChatRoom {
   private readonly state: DurableObjectState;
   private readonly env: Env;
-  private readonly negotiationTimers = new Map<WorkerWebSocket, ReturnType<typeof setTimeout>>();
   private readonly decoder = new TextDecoder();
   private readonly encoder = new TextEncoder();
   private conversationId: string | null = null;
@@ -157,13 +157,13 @@ export class ChatRoom {
       conversationId,
       userId: auth.user.id,
       negotiated: false,
+      negotiationDeadline: null,
       lastActivityAt: Date.now()
     };
 
     server.serializeAttachment(attachment);
     this.state.acceptWebSocket(server as unknown as WebSocket, [`user:${auth.user.id}`]);
     this.scheduleNegotiationTimeout(server);
-    this.handleSocketOpened(attachment);
     await this.scheduleIdleAlarm();
 
     return new Response(null, { status: 101, webSocket: client as unknown as WebSocket });
@@ -278,6 +278,8 @@ export class ChatRoom {
     this.sendFrame(ws, 'auth.ok', {
       user_id: attachment.userId
     }, frame.request_id);
+
+    this.handleSocketOpened(attachment);
 
     return true;
   }
@@ -860,6 +862,9 @@ export class ChatRoom {
     if (!attachment) {
       return;
     }
+    if (!attachment.negotiated) {
+      return;
+    }
 
     this.ensurePresenceCache();
     const current = this.presenceCounts.get(attachment.userId) ?? 0;
@@ -884,7 +889,7 @@ export class ChatRoom {
     this.presenceCounts.clear();
     for (const socket of this.state.getWebSockets()) {
       const attachment = this.getAttachment(socket);
-      if (!attachment) {
+      if (!attachment || !attachment.negotiated) {
         continue;
       }
       const count = this.presenceCounts.get(attachment.userId) ?? 0;
@@ -915,6 +920,10 @@ export class ChatRoom {
     for (const socket of this.state.getWebSockets()) {
       const attachment = this.getAttachment(socket);
       if (!attachment) {
+        continue;
+      }
+      if (!attachment.negotiated && attachment.negotiationDeadline && now > attachment.negotiationDeadline) {
+        this.closeSocket(socket, 4408, 'negotiation_timeout');
         continue;
       }
       if (now - attachment.lastActivityAt > IDLE_TIMEOUT_MS) {
@@ -1060,7 +1069,7 @@ export class ChatRoom {
   }
 
   private async scheduleIdleAlarm(): Promise<void> {
-    const nextDeadline = this.nextIdleDeadline();
+    const nextDeadline = this.nextAlarmDeadline();
     if (nextDeadline === null) {
       await this.state.storage.deleteAlarm();
       return;
@@ -1069,16 +1078,21 @@ export class ChatRoom {
     await this.state.storage.setAlarm(new Date(scheduleAt));
   }
 
-  private nextIdleDeadline(): number | null {
+  private nextAlarmDeadline(): number | null {
     let next: number | null = null;
     for (const socket of this.state.getWebSockets()) {
       const attachment = this.getAttachment(socket);
       if (!attachment) {
         continue;
       }
-      const deadline = attachment.lastActivityAt + IDLE_TIMEOUT_MS;
-      if (next === null || deadline < next) {
-        next = deadline;
+      const idleDeadline = attachment.lastActivityAt + IDLE_TIMEOUT_MS;
+      if (next === null || idleDeadline < next) {
+        next = idleDeadline;
+      }
+      if (!attachment.negotiated && attachment.negotiationDeadline) {
+        if (next === null || attachment.negotiationDeadline < next) {
+          next = attachment.negotiationDeadline;
+        }
       }
     }
     return next;
@@ -1143,27 +1157,31 @@ export class ChatRoom {
     if (requestId) {
       payload.request_id = requestId;
     }
-    ws.send(JSON.stringify(payload));
+    try {
+      ws.send(JSON.stringify(payload));
+    } catch {
+      // Socket already closed, ignore.
+    }
   }
 
   private scheduleNegotiationTimeout(ws: WorkerWebSocket): void {
-    const timeoutId = setTimeout(() => {
-      const attachment = this.getAttachment(ws);
-      if (!attachment || attachment.negotiated) {
-        return;
-      }
-      this.closeSocket(ws, 4408, 'negotiation_timeout');
-    }, NEGOTIATION_TIMEOUT_MS);
-
-    this.negotiationTimers.set(ws, timeoutId);
+    const attachment = this.getAttachment(ws);
+    if (!attachment || attachment.negotiated) {
+      return;
+    }
+    attachment.negotiationDeadline = Date.now() + NEGOTIATION_TIMEOUT_MS;
+    ws.serializeAttachment(attachment);
+    void this.scheduleIdleAlarm();
   }
 
   private clearNegotiationTimeout(ws: WorkerWebSocket): void {
-    const timeoutId = this.negotiationTimers.get(ws);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      this.negotiationTimers.delete(ws);
+    const attachment = this.getAttachment(ws);
+    if (!attachment) {
+      return;
     }
+    attachment.negotiationDeadline = null;
+    ws.serializeAttachment(attachment);
+    void this.scheduleIdleAlarm();
   }
 
   private closeSocket(ws: WorkerWebSocket, code: number, reason?: string): void {

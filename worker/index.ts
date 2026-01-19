@@ -163,6 +163,6 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
   ctx.waitUntil(cleanupPromise);
 }
 
-// Export Durable Object classes (none currently)
+// Export Durable Object classes
 export { NotificationHub } from './durable-objects/NotificationHub';
 export { ChatRoom } from './durable-objects/ChatRoom';

@@ -148,7 +148,7 @@ Set frontend environment variables in Cloudflare Pages:
 1. Go to your Cloudflare Pages project dashboard
 2. Navigate to **Settings > Environment Variables**
 3. Add required variables:
-   - `VITE_BACKEND_API_URL` - Your production remote API URL (e.g., `https://api.blawby.com`)
+   - `VITE_BACKEND_API_URL` - Your production remote API URL (e.g., `https://production-api.blawby.com`)
    - `VITE_WORKER_API_URL` - Your worker base URL (e.g., `https://ai.blawby.com`, no `/api` suffix)
    - `VITE_ONESIGNAL_APP_ID` - Your OneSignal app ID (if using push notifications)
 

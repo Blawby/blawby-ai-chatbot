@@ -5,7 +5,7 @@ ALTER TABLE conversations ADD COLUMN membership_version INTEGER NOT NULL DEFAULT
 
 ALTER TABLE chat_messages ADD COLUMN seq INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE chat_messages ADD COLUMN client_id TEXT NOT NULL DEFAULT '';
-ALTER TABLE chat_messages ADD COLUMN server_ts TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+ALTER TABLE chat_messages ADD COLUMN server_ts TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS conversation_read_state (
   conversation_id TEXT NOT NULL,
@@ -58,4 +58,4 @@ SET latest_seq = COALESCE(
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_client ON chat_messages(conversation_id, client_id);
-CREATE INDEX IF NOT EXISTS ix_chat_messages_conv_seq ON chat_messages(conversation_id, seq);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_seq ON chat_messages(conversation_id, seq);

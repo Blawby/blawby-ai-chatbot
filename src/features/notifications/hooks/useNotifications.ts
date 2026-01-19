@@ -346,6 +346,7 @@ const setStreamStatus = (status: StreamStatus, lastEventAt?: string | null) => {
 let streamSocket: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let streamActive = false;
+let authFailed = false;
 const initialLoadRequested = new Set<NotificationCategory>();
 let countsRequested = false;
 
@@ -391,7 +392,7 @@ const stopStream = () => {
 };
 
 const scheduleReconnect = () => {
-  if (reconnectTimeout) return;
+  if (reconnectTimeout || authFailed) return;
   reconnectTimeout = setTimeout(() => {
     reconnectTimeout = null;
     void startStream();
@@ -417,6 +418,7 @@ const buildNotificationsWsUrl = () => {
 
 const startStream = () => {
   if (streamActive) return;
+  authFailed = false;
   streamActive = true;
   setStreamStatus('connecting');
 
@@ -445,6 +447,7 @@ const startStream = () => {
         return;
       }
       if (frame.type === 'auth.error') {
+        authFailed = true;
         setStreamStatus('error');
         ws.close();
         return;
@@ -490,6 +493,7 @@ onMount(notificationStore, () => {
   };
 
   const handleSessionUpdated = () => {
+    authFailed = false;
     stopStream();
     countsRequested = false;
     initialLoadRequested.clear();

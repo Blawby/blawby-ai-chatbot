@@ -420,7 +420,7 @@ export const useMessageHandling = ({
       conversation_id: conversationIdValue,
       practice_id: practiceIdValue,
       user_id: typeof data.user_id === 'string' ? data.user_id : '',
-      role: role === 'system' ? 'system' : 'user',
+      role: role === 'assistant' ? 'assistant' : role === 'system' ? 'system' : 'user',
       content,
       metadata: metadata ?? (attachments.length > 0 ? { attachments } : null),
       client_id: clientId,

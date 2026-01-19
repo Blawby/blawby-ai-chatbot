@@ -26,8 +26,19 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     throw HttpErrors.notFound('Conversation route not found');
   }
 
+  // Support optional auth for anonymous users (Better Auth anonymous plugin)
+  const authContext = await optionalAuth(request, env);
+  if (!authContext) {
+    throw HttpErrors.unauthorized('Authentication required - anonymous or authenticated session needed');
+  }
+  const userId = authContext.user.id;
+
+  const conversationService = new ConversationService(env);
+
   if (segments.length === 4 && segments[3] === 'ws' && request.method === 'GET') {
     const conversationId = segments[2];
+    const conversation = await conversationService.getConversationById(conversationId);
+    await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
     const id = env.CHAT_ROOM.idFromName(conversationId);
     const stub = env.CHAT_ROOM.get(id);
     const wsUrl = new URL(request.url);
@@ -39,15 +50,6 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 4 && segments[3] === 'ws') {
     throw HttpErrors.methodNotAllowed('Unsupported method for conversation WS endpoint');
   }
-
-  // Support optional auth for anonymous users (Better Auth anonymous plugin)
-  const authContext = await optionalAuth(request, env);
-  if (!authContext) {
-    throw HttpErrors.unauthorized("Authentication required - anonymous or authenticated session needed");
-  }
-  const userId = authContext.user.id;
-
-  const conversationService = new ConversationService(env);
 
   // POST /api/conversations - Create new conversation
   if (segments.length === 2 && request.method === 'POST') {
