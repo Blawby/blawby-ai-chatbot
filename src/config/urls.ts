@@ -47,9 +47,9 @@ import { isDevelopment } from '@/shared/utils/environment';
  * In production, it's deployed on the same domain as the frontend.
  * 
  * Priority:
- * 1. VITE_WORKER_API_URL (if explicitly set)
- * 2. Development: http://localhost:8787
- * 3. Production: window.location.origin (same as frontend)
+ * 1. VITE_WORKER_API_URL (primary override)
+ * 2. Browser: window.location.origin (same as frontend)
+ * 3. Development: http://localhost:8787
  * 4. SSR/Build: VITE_APP_BASE_URL / VITE_PUBLIC_APP_URL / VITE_APP_URL (required)
  *
  * NOTE: Base URL should NOT include `/api`. If it does, we normalize it away.
@@ -61,12 +61,13 @@ export function getWorkerApiUrl(): string {
 
 	let baseUrl: string;
 
-	// Prefer same-origin in browser to support session cookies.
-	if (typeof window !== 'undefined' && window.location?.origin) {
-		baseUrl = window.location.origin;
-	} else if (import.meta.env.VITE_WORKER_API_URL) {
-		// ENV VAR: VITE_WORKER_API_URL (optional - auto-detected if not set)
+	// Prefer explicit override when provided.
+	if (import.meta.env.VITE_WORKER_API_URL) {
+		// ENV VAR: VITE_WORKER_API_URL (primary override)
 		baseUrl = import.meta.env.VITE_WORKER_API_URL;
+	} else if (typeof window !== 'undefined' && window.location?.origin) {
+		// Browser: same-origin to support session cookies.
+		baseUrl = window.location.origin;
 	} else if (isDevelopment()) {
 		// Development: use localhost
 		baseUrl = 'http://localhost:8787';
@@ -97,24 +98,31 @@ export function getWorkerApiUrl(): string {
  * authentication, practice management, subscriptions, etc.
  * 
  * Priority:
- * 1. VITE_BACKEND_API_URL (required)
- * 2. Throws error if not set
+ * 1. VITE_BACKEND_API_URL (preferred)
+ * 2. Development fallback to staging when MSW is disabled
+ * 3. Throws error if not set when MSW is enabled
  * 
  * @returns The base URL for the backend API
- * @throws {Error} If VITE_BACKEND_API_URL is not set
+ * @throws {Error} If VITE_BACKEND_API_URL is not set and MSW is enabled
  */
 export function getBackendApiUrl(): string {
-	// ENV VAR: VITE_BACKEND_API_URL (required in all environments)
+	// ENV VAR: VITE_BACKEND_API_URL (preferred in all environments)
 	// Points to Better Auth backend (e.g., http://localhost:3000 or https://production-api.blawby.com)
 	const explicit = import.meta.env.VITE_BACKEND_API_URL;
-	if (!explicit) {
-		throw new Error(
-			'VITE_BACKEND_API_URL is required. ' +
-			'Set it for local development and in Cloudflare Pages. ' +
-			'Example: http://localhost:3000 or https://production-api.blawby.com'
-		);
+	if (explicit) {
+		return explicit;
 	}
-	return explicit;
+
+	const enableMsw = Boolean(import.meta.env.VITE_ENABLE_MSW);
+	if (!enableMsw) {
+		return 'https://staging-api.blawby.com';
+	}
+
+	throw new Error(
+		'VITE_BACKEND_API_URL is required when VITE_ENABLE_MSW is enabled. ' +
+		'Set it for local development and in Cloudflare Pages. ' +
+		'Example: http://localhost:3000 or https://production-api.blawby.com'
+	);
 }
 /**
  * Extract host from backend API URL

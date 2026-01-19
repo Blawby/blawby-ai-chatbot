@@ -55,7 +55,7 @@ function getAuthClient(): AuthClientType {
   // During SSR/build (prerender), return minimal placeholder (not cached)
   // This is ONLY to prevent build errors - it's never used at runtime
   if (typeof window === 'undefined') {
-    const placeholderBaseURL = getAuthBaseUrl(); // Returns configured backend URL during SSR
+    const placeholderBaseURL = getAuthBaseUrl(); // Returns a placeholder during SSR/build, not the real backend URL.
     return createAuthClient({
       plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
       baseURL: placeholderBaseURL,

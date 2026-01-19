@@ -363,14 +363,14 @@ All WS frames are JSON objects with `{ type, data }`.
   - Negotiation timeout: close `4408`.
 
 ## Cloudflare References
-- DO WebSockets + Hibernation guidance: https://developers.cloudflare.com/durable-objects/best-practices/websockets/
-- Hibernation API (acceptWebSocket, auto-response): https://developers.cloudflare.com/durable-objects/api/state/
+- [DO WebSockets + Hibernation guidance](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)
+- [Hibernation API (acceptWebSocket, auto-response)](https://developers.cloudflare.com/durable-objects/api/state/)
 - DO WebSocket examples:
-  - https://developers.cloudflare.com/durable-objects/examples/websocket-server/
-  - https://developers.cloudflare.com/durable-objects/examples/websocket-hibernation-server/
-- DO examples index: https://developers.cloudflare.com/durable-objects/examples/
-- Chat tutorial (DO per room, WS fanout, durable history): https://developers.cloudflare.com/workers/tutorials/deploy-a-realtime-chat-app/
-- Workers WebSockets guidance (DOs as single coordination point): https://developers.cloudflare.com/workers/examples/websockets/
+  - [Build a WebSocket server](https://developers.cloudflare.com/durable-objects/examples/websocket-server/)
+  - [Build a WebSocket server with WebSocket Hibernation](https://developers.cloudflare.com/durable-objects/examples/websocket-hibernation-server/)
+- [DO examples index](https://developers.cloudflare.com/durable-objects/examples/)
+- [Chat tutorial (DO per room, WS fanout, durable history)](https://developers.cloudflare.com/workers/tutorials/deploy-a-realtime-chat-app/)
+- [Workers WebSockets guidance (DOs as single coordination point)](https://developers.cloudflare.com/workers/examples/websockets/)
 
 ## Definition of Done
 - No polling intervals for chat or notifications in the app.

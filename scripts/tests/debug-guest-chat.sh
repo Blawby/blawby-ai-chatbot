@@ -425,6 +425,12 @@ fi
 if [[ -z "$WORKER_BACKEND_API_URL" ]]; then
   WORKER_BACKEND_API_URL=$(read_worker_var_from_toml "BACKEND_API_URL" || true)
 fi
+if [[ -n "$WORKER_BACKEND_API_URL" ]]; then
+  WORKER_BACKEND_API_URL="${WORKER_BACKEND_API_URL%\"}"
+  WORKER_BACKEND_API_URL="${WORKER_BACKEND_API_URL#\"}"
+  WORKER_BACKEND_API_URL="${WORKER_BACKEND_API_URL%\'}"
+  WORKER_BACKEND_API_URL="${WORKER_BACKEND_API_URL#\'}"
+fi
 
 echo "Guest chat debug"
 echo "Worker URL: $WORKER_URL"

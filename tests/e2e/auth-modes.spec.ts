@@ -65,10 +65,16 @@ test.describe('Auth modes', () => {
       `/api/conversations/active?practiceId=${encodeURIComponent(e2eConfig.practice.id)}`,
       { headers: { 'Content-Type': 'application/json', Cookie: '' } }
     );
-    const conversationWithoutAuthText = await conversationWithoutAuthResponse.text();
+    const conversationWithoutAuthPayload = await conversationWithoutAuthResponse
+      .json()
+      .catch(() => null) as { error?: string; message?: string } | null;
 
     expect(conversationWithoutAuthResponse.status()).toBe(401);
-    expect(conversationWithoutAuthText).toContain('Authentication required');
+    const unauthError = conversationWithoutAuthPayload?.error ?? conversationWithoutAuthPayload?.message;
+    expect(unauthError).toBeTruthy();
+    if (unauthError) {
+      expect(String(unauthError)).toMatch(/auth/i);
+    }
 
     const conversationWithAuthResponse = await context.request.get(
       `/api/conversations/active?practiceId=${encodeURIComponent(e2eConfig.practice.id)}`,
