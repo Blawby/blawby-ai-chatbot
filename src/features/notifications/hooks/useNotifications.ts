@@ -422,7 +422,18 @@ const startStream = () => {
   streamActive = true;
   setStreamStatus('connecting');
 
-  const ws = new WebSocket(buildNotificationsWsUrl());
+  let ws: WebSocket;
+  try {
+    ws = new WebSocket(buildNotificationsWsUrl());
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('[Notifications] Failed to create WebSocket', error);
+    }
+    streamActive = false;
+    setStreamStatus('error');
+    scheduleReconnect();
+    return;
+  }
   streamSocket = ws;
 
   ws.addEventListener('open', () => {

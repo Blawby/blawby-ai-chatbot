@@ -153,7 +153,7 @@ export async function handleNotificationQueue(
           continue;
         }
         const payloadSnapshot = {
-          eventId: payload.eventId,
+          eventId: payload.eventId ?? null,
           practiceId: payload.practiceId ?? null,
           category: payload.category,
           entityType: payload.entityType ?? null,

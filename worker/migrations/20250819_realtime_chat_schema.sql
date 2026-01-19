@@ -24,11 +24,12 @@ CREATE TABLE IF NOT EXISTS conversation_participants (
   PRIMARY KEY (conversation_id, user_id)
 );
 
-INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id)
-SELECT conversations.id, json_each.value
+INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id, role)
+SELECT conversations.id, json_each.value, 'member'
 FROM conversations, json_each(conversations.participants)
 WHERE conversations.participants IS NOT NULL;
 
+-- server_ts is stored as TEXT; empty string is a sentinel for backfill.
 UPDATE chat_messages
 SET server_ts = created_at
 WHERE server_ts IS NULL OR server_ts = '';
@@ -61,5 +62,13 @@ SET latest_seq = COALESCE(
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_client ON chat_messages(conversation_id, client_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_seq ON chat_messages(conversation_id, seq);
+
+CREATE TRIGGER IF NOT EXISTS trg_chat_messages_require_seq_client
+BEFORE INSERT ON chat_messages
+FOR EACH ROW
+WHEN NEW.seq = 0 OR NEW.client_id = ''
+BEGIN
+  SELECT RAISE(ABORT, 'seq and client_id must be provided by application');
+END;
 
 COMMIT;
