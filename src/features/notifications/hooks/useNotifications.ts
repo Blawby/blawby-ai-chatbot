@@ -451,7 +451,7 @@ const startStream = () => {
     try {
       const frame = JSON.parse(event.data) as {
         type?: string;
-        data?: NotificationStreamEvent | { code?: string; message?: string };
+        data?: unknown;
       };
       if (frame.type === 'auth.ok') {
         setStreamStatus('connected');
@@ -464,7 +464,13 @@ const startStream = () => {
         return;
       }
       if (frame.type === 'notification.new' && frame.data) {
-        handleStreamEvent(frame.data as NotificationStreamEvent);
+        const data = frame.data;
+        if (typeof data === 'object' && data) {
+          const category = (data as { category?: unknown }).category;
+          if (typeof category === 'string') {
+            handleStreamEvent(data as NotificationStreamEvent);
+          }
+        }
       }
     } catch (error) {
       if (import.meta.env.DEV) {

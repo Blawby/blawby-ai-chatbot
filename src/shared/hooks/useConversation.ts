@@ -498,6 +498,7 @@ export function useConversation({
           const message = error instanceof Error ? error.message : 'Failed to recover message gap';
           setError(message);
           onError?.(message);
+          shouldReconnectRef.current = false;
           wsRef.current?.close();
           return;
         }
@@ -600,7 +601,11 @@ export function useConversation({
           const fromSeq = Number(frame.data.from_seq);
           const latestSeq = Number(frame.data.latest_seq);
           if (Number.isFinite(fromSeq) && Number.isFinite(latestSeq)) {
-            void fetchGapMessages(fromSeq, latestSeq);
+            fetchGapMessages(fromSeq, latestSeq).catch((error) => {
+              if (import.meta.env.DEV) {
+                console.warn('[ChatRoom] Gap fetch failed', error);
+              }
+            });
           }
           return;
         }

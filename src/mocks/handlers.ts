@@ -764,7 +764,7 @@ export const handlers = [
     }
     
     let conversationMessages = mockDb.messages.get(conversationId) || [];
-    const latestSeq = conversationMessages.reduce((max, msg) => Math.max(max, msg.seq), 0);
+    const latestSeq = conversationMessages.reduce((max, msg) => Math.max(max, msg.seq ?? 0), 0);
 
     if (fromSeqParam) {
       if (!limitParam) {
@@ -776,12 +776,12 @@ export const handlers = [
       }
 
       const filtered = conversationMessages
-        .filter(msg => msg.seq >= fromSeq)
+        .filter(msg => typeof msg.seq === 'number' && msg.seq >= fromSeq)
         .sort((a, b) => a.seq - b.seq);
       const limitedMessages = filtered.slice(0, limit);
       const nextFromSeq = limitedMessages.length > 0
         ? limitedMessages[limitedMessages.length - 1].seq + 1
-        : (fromSeq <= latestSeq ? fromSeq : null);
+        : (latestSeq > 0 ? latestSeq + 1 : null);
 
       return HttpResponse.json({
         success: true,
@@ -1053,7 +1053,7 @@ export const handlers = [
     const now = new Date().toISOString();
     const conversationMessages = mockDb.messages.get(conversationId) || [];
     const nextSeq = conversationMessages.length > 0
-      ? Math.max(...conversationMessages.map(msg => msg.seq)) + 1
+      ? Math.max(...conversationMessages.map(msg => msg.seq ?? 0)) + 1
       : 1;
     const message: MockMessage = {
       id: messageId,

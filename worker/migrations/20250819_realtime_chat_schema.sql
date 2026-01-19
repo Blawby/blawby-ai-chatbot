@@ -66,7 +66,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_seq ON chat_messages(con
 CREATE TRIGGER IF NOT EXISTS trg_chat_messages_require_seq_client
 BEFORE INSERT ON chat_messages
 FOR EACH ROW
-WHEN NEW.seq = 0 OR NEW.client_id = ''
+WHEN NEW.seq IS NULL OR NEW.seq = 0 OR NEW.client_id IS NULL OR NEW.client_id = ''
 BEGIN
   SELECT RAISE(ABORT, 'seq and client_id must be provided by application');
 END;
