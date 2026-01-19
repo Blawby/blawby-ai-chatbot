@@ -149,7 +149,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
       const violations: string[] = [];
       if (
         shouldRequireDisclaimer(body.messages) &&
-        !normalizeApostrophes(reply).includes(normalizeApostrophes(LEGAL_DISCLAIMER))
+        !normalizeApostrophes(reply).toLowerCase().includes(normalizeApostrophes(LEGAL_DISCLAIMER).toLowerCase())
       ) {
         violations.push('missing_disclaimer');
       }

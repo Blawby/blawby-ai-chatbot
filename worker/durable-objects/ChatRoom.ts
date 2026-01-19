@@ -1166,11 +1166,7 @@ export class ChatRoom {
       if (!attachment?.negotiated) {
         continue;
       }
-      try {
-        this.sendFrame(socket, type, data);
-      } catch {
-        this.closeSocket(socket, 4500, 'internal_error');
-      }
+      this.sendFrame(socket, type, data);
     }
   }
 

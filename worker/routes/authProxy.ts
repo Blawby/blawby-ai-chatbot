@@ -28,7 +28,7 @@ const normalizeCookieDomain = (value: string, requestHost: string): string => {
     return value.replace(DOMAIN_PATTERN, `; Domain=${domainValue}`);
   }
 
-  return `${value}; Domain=${domainValue}`;
+  return value;
 };
 
 const getForwardedHost = (headerValue: string): string | null => {

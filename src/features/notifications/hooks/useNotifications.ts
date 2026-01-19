@@ -551,7 +551,7 @@ const startStream = async () => {
         const data = frame.data;
         if (typeof data === 'object' && data) {
           const category = (data as { category?: unknown }).category;
-          if (typeof category === 'string') {
+          if (typeof category === 'string' && CATEGORIES.includes(category as NotificationCategory)) {
             handleStreamEvent(data as NotificationStreamEvent);
           }
         }

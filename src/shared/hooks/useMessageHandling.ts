@@ -751,7 +751,7 @@ export const useMessageHandling = ({
     const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
     try {
-      if (!wsReadyRef.current) {
+      if (!isSocketReadyRef.current) {
         connectChatRoomRef.current(activeConversationId);
       }
       await waitForSocketReady();

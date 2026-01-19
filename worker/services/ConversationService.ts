@@ -740,7 +740,7 @@ export class ConversationService {
     conversationId: string;
     practiceId: string;
     content: string;
-    role?: 'system' | 'assistant';
+    role?: 'system';
     metadata?: Record<string, unknown>;
   }): Promise<ConversationMessage> {
     const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId);
