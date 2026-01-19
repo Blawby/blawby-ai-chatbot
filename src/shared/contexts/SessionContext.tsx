@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'preact/compat';
+import { createContext, useContext, useEffect, useMemo, useRef } from 'preact/compat';
 import { ComponentChildren } from 'preact';
 import { useTypedSession } from '@/shared/lib/authClient';
 
@@ -20,6 +20,32 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData, isPending, error } = useTypedSession();
 
   const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
+  const sessionKey =
+    sessionData?.user?.id ??
+    (sessionData?.session as { id?: string } | undefined)?.id ??
+    null;
+
+  const previousSessionKeyRef = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const previousSessionKey = previousSessionKeyRef.current;
+    if (previousSessionKey === undefined) {
+      previousSessionKeyRef.current = sessionKey;
+      if (sessionKey) {
+        window.dispatchEvent(new CustomEvent('auth:session-updated'));
+      }
+      return;
+    }
+
+    if (previousSessionKey !== sessionKey) {
+      window.dispatchEvent(new CustomEvent(sessionKey ? 'auth:session-updated' : 'auth:session-cleared'));
+      previousSessionKeyRef.current = sessionKey;
+    }
+  }, [sessionKey]);
 
   const sessionRecord = sessionData?.session as Record<string, unknown> | undefined;
   const activeOrgId =

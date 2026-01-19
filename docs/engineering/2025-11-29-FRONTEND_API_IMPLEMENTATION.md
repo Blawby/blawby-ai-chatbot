@@ -1,6 +1,8 @@
 # Better Auth Client Setup Guide
 
-✅ **IMPLEMENTED** - This guide explains how the Better Auth client library is configured in this application, including Bearer token authentication, IndexedDB token storage, and organization management.
+> LEGACY: This document captures the previous Bearer-token + IndexedDB implementation. The current app uses session cookies only. See `docs/engineering/AUTHENTICATION_ARCHITECTURE.md` for the current flow.
+
+✅ **IMPLEMENTED (legacy)** - This guide documents the former Better Auth client setup with Bearer token authentication and IndexedDB storage.
 
 ## Platform vs. Tenant Organizations
 
@@ -25,7 +27,7 @@ Ensure new features distinguish between platform-level configuration and tenant-
 
 ## Overview
 
-The application uses Better Auth with a remote authentication server. Authentication is handled via Bearer tokens stored in IndexedDB, providing secure token management without using cookies or localStorage.
+This document describes the legacy Bearer-token architecture. The current application uses Better Auth with session cookies.
 
 ## Architecture
 
@@ -38,13 +40,13 @@ The application uses Better Auth with a remote authentication server. Authentica
 
 ### Environment Variables
 
-Set the following environment variable in your `.env` or `dev.vars`:
+Set the following environment variable in your `.env`:
 
 ```bash
 VITE_BACKEND_API_URL=https://your-auth-server.com
 ```
 
-**Note**: `VITE_BACKEND_API_URL` is required in production. In development, the client falls back to `https://staging-api.blawby.com` if not set.
+**Note**: `VITE_BACKEND_API_URL` is required in all environments. There is no fallback.
 
 ### Auth Client Configuration
 
@@ -54,30 +56,22 @@ The auth client is configured in `src/lib/authClient.ts` with lazy initializatio
 import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { setToken, getTokenAsync } from './tokenStorage';
-import { isDevelopment } from '../utils/environment';
+import { getBackendApiUrl } from '@/config/urls';
 
-// Remote better-auth server URL
-const AUTH_BASE_URL = import.meta.env.VITE_BACKEND_API_URL;
-const FALLBACK_AUTH_URL = "https://staging-api.blawby.com";
+// Resolve auth URL from centralized config (VITE_BACKEND_API_URL is required)
+function getAuthBaseUrl(): string | undefined {
+  const backendUrl = getBackendApiUrl();
 
-// Get auth URL - validate in browser context only
-function getAuthBaseUrl(): string {
-  if (typeof window === 'undefined') {
-    // During SSR/build, return a placeholder that won't be used
-    // The actual client creation is guarded in getAuthClient()
-    return 'https://placeholder-auth-server.com';
+  // If backend is localhost, use Vite proxy (relative URLs)
+  // Vite proxy routes /api/auth to the local backend (e.g., http://localhost:3000/api/auth)
+  if (
+    import.meta.env.DEV &&
+    (backendUrl.startsWith('http://localhost:') || backendUrl.startsWith('http://127.0.0.1:'))
+  ) {
+    return undefined;
   }
-  
-  // Browser runtime - validate and throw if missing
-  const finalAuthUrl = AUTH_BASE_URL || (isDevelopment() ? FALLBACK_AUTH_URL : null);
-  
-  if (!finalAuthUrl) {
-    throw new Error(
-      'VITE_BACKEND_API_URL is required in production. Please set this environment variable in Cloudflare Pages (Settings > Environment Variables) to your Better Auth server URL.'
-    );
-  }
-  
-  return finalAuthUrl;
+
+  return backendUrl;
 }
 
 // Cached auth client instance (created lazily on first access)
@@ -140,13 +134,13 @@ export const authClient = new Proxy({} as AuthClientType, {
 
 ### Key Configuration Points
 
-1. **Lazy Initialization with Proxy**: ✅ **IMPLEMENTED** - The `authClient` is exported as a Proxy that creates the actual client on first access. During SSR/build, `getAuthBaseUrl()` returns a placeholder URL, and a placeholder client is created to prevent build errors. The real client is only created in browser context.
+1. **Lazy Initialization with Proxy**: ✅ **IMPLEMENTED** - The `authClient` is exported as a Proxy that creates the actual client on first access. During SSR/build, a minimal client is created but not cached; the real client is created in browser context.
 2. **Import from `better-auth/react`**: ✅ **IMPLEMENTED** - Required for React/Preact hooks like `useSession()`
 3. **Organization Plugin**: ✅ **IMPLEMENTED** - `organizationClient()` enables organization management features
 4. **Bearer Token Type**: ✅ **IMPLEMENTED** - Uses Bearer token authentication instead of cookies
 5. **Token Storage**: ✅ **IMPLEMENTED** - Tokens are automatically captured from `set-auth-token` response header (lowercase)
 6. **Async Token Function**: ✅ **IMPLEMENTED** - The token function is async to wait for IndexedDB initialization
-7. **Development Fallback**: ✅ **IMPLEMENTED** - In development, falls back to `https://staging-api.blawby.com` if `VITE_BACKEND_API_URL` is not set
+7. **Explicit Backend URL**: ✅ **IMPLEMENTED** - `VITE_BACKEND_API_URL` is required in all environments; no fallback
 8. **Nested Method Support**: ✅ **IMPLEMENTED** - The Proxy handles nested methods like `authClient.signUp.email()` correctly by recursively proxying objects
 9. **SSR Safety**: ✅ **IMPLEMENTED** - The implementation handles SSR gracefully by creating placeholder clients during build/SSR, so no manual guards are needed in most cases
 
@@ -326,7 +320,7 @@ if (result.error) {
 
 ## Important Notes
 
-1. **Set `VITE_BACKEND_API_URL` for production**: Required in production; in development, the client falls back to `https://staging-api.blawby.com` if not set
+1. **Set `VITE_BACKEND_API_URL`**: Required in all environments; no fallback
 2. **IndexedDB is async**: The token function waits for IndexedDB, so the first call may take a moment
 3. **Use Better Auth methods only**: Don't make manual API calls for auth operations - use the provided methods
 4. **Organization plugin required**: Organization features require the `organizationClient()` plugin
@@ -392,13 +386,12 @@ The API client uses the Node backend base URL (auth, practices, memberships, for
 
 ### Variable Priority and Purpose
 
-The client checks for environment variables in this order:
-1. `VITE_BACKEND_API_URL` (checked first)
-2. Default `getRemoteApiUrl()` fallback (staging in dev, production in prod)
+The client requires:
+1. `VITE_BACKEND_API_URL` (no fallback)
 
 ### Development Setup
 
-In development, set `VITE_BACKEND_API_URL` to the staging backend:
+In development, set `VITE_BACKEND_API_URL` to your target backend:
 
 ```bash
 VITE_BACKEND_API_URL=https://staging-api.blawby.com
@@ -412,7 +405,7 @@ For production, set `VITE_BACKEND_API_URL`:
 VITE_BACKEND_API_URL=https://production-api.blawby.com
 ```
 
-If neither variable is set, the client falls back to the default remote backend based on environment (staging for dev, production for prod). Explicit configuration is still recommended for production deployments.
+If the variable is missing, the build/runtime will fail fast to avoid silent misconfiguration.
 
 ### Migration Note
 
@@ -426,7 +419,7 @@ The actual implementation in `src/lib/apiClient.ts` uses dynamic base URL resolu
 // src/lib/apiClient.ts
 import axios from 'axios';
 import { getTokenAsync, clearToken } from './tokenStorage';
-import { getRemoteApiUrl } from '../config/api';
+import { getBackendApiUrl } from '../config/urls';
 
 let cachedBaseUrl: string | null = null;
 
@@ -434,9 +427,7 @@ function ensureApiBaseUrl(): string {
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
-  // Prefer the Node backend API env, then fall back to remote defaults
-  const explicit = import.meta.env.VITE_BACKEND_API_URL;
-  cachedBaseUrl = explicit || getRemoteApiUrl(); // Defaults to staging/prod remote backend
+  cachedBaseUrl = getBackendApiUrl();
   return cachedBaseUrl;
 }
 

@@ -38,32 +38,17 @@
 
 ## ⚠️ What Remains (Acceptable)
 
-### 1. Intentional Fallbacks in `urls.ts`
-**Status**: ✅ **INTENTIONAL** - These are documented fallbacks
+### 1. URL Fallbacks in `urls.ts`
+**Status**: ✅ **REMOVED** - No backend URL fallbacks remain
 
-```typescript
-// In getBackendApiUrl() - line 114, 121
-return 'https://staging-api.blawby.com'; // Development fallback
-```
-
-**Why it's OK:**
-- Only used when `VITE_BACKEND_API_URL` is not set
-- Only in development mode
-- Logs a warning to console
-- Documented in code comments
+- `VITE_BACKEND_API_URL` is required in all environments
+- SSR/build now requires explicit frontend base URL for worker routing
 
 ### 2. Deprecated Functions in `api.ts`
 **Status**: ✅ **BACKWARD COMPATIBILITY** - Delegates to new functions
 
 ```typescript
-// api.ts lines 11-21
-function getBaseUrl(): string {
-  return getWorkerApiUrl(); // Delegates to new function
-}
-
-export function getRemoteApiUrl(): string {
-  return getBackendApiUrl(); // Delegates to new function
-}
+// api.ts uses getWorkerApiUrl() directly for worker endpoints
 ```
 
 **Why it's OK:**
@@ -75,7 +60,7 @@ export function getRemoteApiUrl(): string {
 ### 3. Mock Data Hardcoded URL
 **Status**: ✅ **REMOVED**
 
-The `MOCK_REMOTE_BASE` export was deleted; mock handlers and tests should derive the backend base URL with `getBackendApiUrl()` (or the same fallback used by `apiClient.ts`/`authClient.ts`) instead of relying on the hardcoded staging URL.
+The `MOCK_REMOTE_BASE` export was deleted; mock handlers and tests should derive the backend base URL with `getBackendApiUrl()` instead of relying on hardcoded staging URLs.
 
 ### 4. Comments Mentioning Specific URLs
 **Status**: ✅ **DOCUMENTATION** - Just comments
@@ -100,7 +85,7 @@ Found in:
 
 ### After Cleanup
 - **Duplicate URL logic**: ✅ 0 (all in `urls.ts`)
-- **Hardcoded URLs**: ✅ 3 (all intentional fallbacks or mocks)
+- **Hardcoded URLs**: ✅ 3 (mocks only)
 - **Clear variable names**: ✅ `VITE_BACKEND_API_URL` and `VITE_WORKER_API_URL`
 - **No hidden overrides**: ✅ Removed from vite.config.ts
 - **Single source of truth**: ✅ `src/config/urls.ts`
@@ -112,9 +97,8 @@ Found in:
 These are **not critical** but could be cleaned up later:
 
 1. **Remove deprecated functions** (low priority)
-   - `getBaseUrl()` and `getRemoteApiUrl()` in `api.ts`
-   - Update all callers to use new functions directly
-   - **Impact**: Low - they work fine, just add indirection
+   - None remaining in URL config
+   - **Impact**: None
 
 2. **Update comments** (very low priority)
    - Remove historical comments mentioning specific domains
@@ -131,7 +115,7 @@ These are **not critical** but could be cleaned up later:
 **Major Issues**: ✅ **ALL FIXED**
 - URL configuration centralized
 - Environment variables consolidated
-- Hardcoded URLs removed (except intentional fallbacks)
+- Hardcoded URLs removed (except mocks)
 - Duplicate code eliminated
 - Hidden overrides removed
 
@@ -154,9 +138,7 @@ These are **not critical** but could be cleaned up later:
 If you want to do further cleanup:
 
 1. **Phase out deprecated functions** (when ready)
-   - Search for `getBaseUrl()` and `getRemoteApiUrl()` usage
-   - Replace with `getWorkerApiUrl()` and `getBackendApiUrl()`
-   - Remove deprecated functions
+   - No deprecated URL helpers remain
 
 2. **Update documentation**
    - Remove historical comments
@@ -170,6 +152,6 @@ If you want to do further cleanup:
 
 ## Conclusion
 
-**The codebase is now MUCH cleaner and more maintainable.** The major inconsistencies and bad code patterns have been fixed. The remaining items are either intentional (fallbacks) or backward compatibility (deprecated functions), which are acceptable.
+**The codebase is now MUCH cleaner and more maintainable.** The major inconsistencies and bad code patterns have been fixed. The remaining items are backward compatibility (deprecated functions), which are acceptable.
 
 **For AI assistants**: The code is now much easier to understand. All URL logic is in `src/config/urls.ts` with clear documentation.

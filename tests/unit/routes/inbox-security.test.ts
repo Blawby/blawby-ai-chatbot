@@ -19,7 +19,7 @@ const mockEnv: Env = {
   ONESIGNAL_APP_ID: 'test-app',
   ONESIGNAL_REST_API_KEY: 'test-key',
   NODE_ENV: 'production',
-  REMOTE_API_URL: 'https://staging-api.blawby.com'
+  BACKEND_API_URL: 'https://staging-api.blawby.com'
 };
 
 describe('Inbox Route Security Tests', () => {
@@ -39,7 +39,7 @@ describe('Inbox Route Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer valid-token-for-user-123'
+            'Cookie': 'session=valid-session-for-user-123'
           }
         }
       );
@@ -72,7 +72,7 @@ describe('Inbox Route Security Tests', () => {
           emailVerified: true
         },
         session: { id: 'session-123', expiresAt: new Date() },
-        token: 'valid-token-for-user-123',
+        cookie: 'session=valid-session-for-user-123',
         memberRole: 'paralegal'
       };
 
@@ -105,7 +105,7 @@ describe('Inbox Route Security Tests', () => {
       );
     });
 
-    it('should authenticate user based on Authorization header, not URL params', async () => {
+    it('should authenticate user based on session cookies, not URL params', async () => {
       const authenticatedUserId = 'authenticated-user-123';
       const practiceId = 'practice-789';
 
@@ -116,7 +116,7 @@ describe('Inbox Route Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer valid-token-for-authenticated-user'
+            'Cookie': 'session=valid-session-for-authenticated-user'
           }
         }
       );
@@ -146,7 +146,7 @@ describe('Inbox Route Security Tests', () => {
           emailVerified: true
         },
         session: { id: 'session-1', expiresAt: new Date() },
-        token: 'valid-token-for-authenticated-user',
+        cookie: 'session=valid-session-for-authenticated-user',
         memberRole: 'paralegal'
       };
 
@@ -170,8 +170,8 @@ describe('Inbox Route Security Tests', () => {
       const callArgs = vi.mocked(requirePracticeMember).mock.calls[0];
       const authRequest = callArgs[0];
 
-      // The request used for auth should have the original Authorization header
-      expect(authRequest.headers.get('Authorization')).toBe('Bearer valid-token-for-authenticated-user');
+      // The request used for auth should have the original Cookie header
+      expect(authRequest.headers.get('Cookie')).toBe('session=valid-session-for-authenticated-user');
 
       // Verify the mock was called with the correct user ID from the auth context
       // (The meaningful assertion is that requirePracticeMember was called with the original request,
@@ -184,7 +184,7 @@ describe('Inbox Route Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer valid-token'
+            'Cookie': 'session=valid-session'
           }
         }
       );
@@ -206,7 +206,7 @@ describe('Inbox Route Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer invalid-token'
+            'Cookie': 'session=invalid-session'
           }
         }
       );
@@ -228,12 +228,12 @@ describe('Inbox Route Security Tests', () => {
       vi.mocked(withPracticeContext).mockResolvedValue(mockRequestWithContext);
       vi.mocked(getPracticeId).mockReturnValue(practiceId);
 
-      // requirePracticeMember should fail for invalid token
+      // requirePracticeMember should fail for invalid session
       vi.mocked(requirePracticeMember).mockRejectedValue(
-        HttpErrors.unauthorized('Invalid or expired token')
+        HttpErrors.unauthorized('Invalid or expired session')
       );
 
-      await expect(handleInbox(request, mockEnv)).rejects.toThrow('Invalid or expired token');
+      await expect(handleInbox(request, mockEnv)).rejects.toThrow('Invalid or expired session');
 
       // Verify requirePracticeMember was called (attempted)
       expect(requirePracticeMember).toHaveBeenCalledWith(
@@ -251,7 +251,7 @@ describe('Inbox Route Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer valid-token'
+            'Cookie': 'session=valid-session'
           }
         }
       );
@@ -298,7 +298,7 @@ describe('Inbox Route Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer valid-token'
+            'Cookie': 'session=valid-session'
           }
         }
       );
@@ -328,7 +328,7 @@ describe('Inbox Route Security Tests', () => {
           emailVerified: true
         },
         session: { id: 'session-1', expiresAt: new Date() },
-        token: 'valid-token',
+        cookie: 'session=valid-session',
         memberRole: 'paralegal'
       };
 

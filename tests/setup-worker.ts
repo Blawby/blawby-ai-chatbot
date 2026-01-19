@@ -8,7 +8,7 @@ beforeAll(async () => {
   // Ensure Better Auth secret is configured for tests
   // This forces Better Auth to use D1 instead of the memory adapter
   
-  // Try to get the secret from environment (should be loaded from .dev.vars)
+  // Try to get the secret from environment (should be loaded from worker/.dev.vars)
   let secret = (env as any).BETTER_AUTH_SECRET;
   
   // If no secret is available, generate a test-only secret

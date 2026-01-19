@@ -54,7 +54,7 @@
 - Add `onWebhookReceived` / `onWebhookError` logs for future triage.
 - Document local dev steps for Stripe:
   - `stripe listen --forward-to http://localhost:8787/api/auth/stripe/webhook`
-  - Set `.dev.vars`: `STRIPE_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY`, `ENABLE_STRIPE_SUBSCRIPTIONS=true`, `BETTER_AUTH_URL=http://localhost:8787`.
+  - Set `worker/.dev.vars`: `STRIPE_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY`, `ENABLE_STRIPE_SUBSCRIPTIONS=true`, `BETTER_AUTH_URL=http://localhost:8787`.
 
 ## Validation Checklist
 
@@ -69,4 +69,3 @@
 - `🔔 onSubscriptionComplete { referenceId: <orgId>, stripeSubscriptionId: <sub_...>, status: active }`
 - `✅ Subscription persisted (complete): { success: true, changes: 1 }`
 - `✅ Organization tier updated (complete): { success: true, changes: 1, organizationId: <orgId> }`
-

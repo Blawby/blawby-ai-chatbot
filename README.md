@@ -192,8 +192,8 @@ Organization management (CRUD, invitations, subscriptions) is handled by the rem
 ### Authentication & User Management
 User authentication is handled by a remote Better Auth server at `staging-api.blawby.com`:
 - Frontend uses Better Auth React client (`better-auth/react`) to connect to remote auth server
-- Authentication tokens are stored in IndexedDB and sent as Bearer tokens
-- Worker validates tokens by calling the remote auth server API
+- Session cookies are stored by the browser and sent with authenticated requests
+- Worker validates sessions by calling the remote auth server API with the cookie
 - Organization membership and roles are managed through the remote Better Auth server
 - Access the application with `?organizationId=<org-slug>` parameter
 

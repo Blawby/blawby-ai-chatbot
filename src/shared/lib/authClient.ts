@@ -2,9 +2,8 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
-import { setToken, getTokenAsync } from './tokenStorage';
 import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
-import { getBackendApiUrl } from '@/config/urls';
+import { getWorkerApiUrl } from '@/config/urls';
 
 // Type for the auth client (inferred from createAuthClient return type)
 type AuthClientType = ReturnType<typeof createAuthClient>;
@@ -14,29 +13,13 @@ type TypedSessionData = AuthSessionData extends { user: unknown; session: infer 
   ? { user: BetterAuthSessionUser; session: S }
   : AuthSessionData;
 
-// ENV VAR: VITE_BACKEND_API_URL (via getBackendApiUrl() from src/config/urls.ts)
-// In development, use Vite proxy if backend is localhost, otherwise use direct URL.
-// In production, always use remote backend URL.
+// Auth requests are proxied through the Worker to keep session cookies same-origin.
 function getAuthBaseUrl(): string | undefined {
   if (typeof window === 'undefined') {
     return 'https://placeholder-auth-server.com';
   }
 
-  if (import.meta.env.DEV) {
-    const backendUrl = import.meta.env.VITE_APP_BASE_URL;
-
-    // If backend is localhost, use Vite proxy (relative URLs)
-    // Vite proxy routes /api/auth to the local backend (e.g., http://localhost:3000/api/auth)
-    if (backendUrl.startsWith('http://localhost:') || backendUrl.startsWith('http://127.0.0.1:')) {
-      return undefined; // Use relative URLs, let Vite proxy handle it
-    }
-
-    // Remote backend (staging-api.blawby.com) - use direct URL with credentials
-    return getBackendApiUrl();
-  }
-
-  // In production, always use remote backend URL
-  return getBackendApiUrl();
+  return getWorkerApiUrl();
 }
 
 // Cached auth client instance (only one is ever created and cached - the browser client)
@@ -46,11 +29,11 @@ let cachedAuthClient: AuthClientType | null = null;
 /**
  * Get or create the auth client instance.
  * The client is created lazily on first access and cached for subsequent calls.
- * Validation of VITE_BACKEND_API_URL happens in browser context before client creation.
+ * Validation of VITE_BACKEND_API_URL happens in getBackendApiUrl() before client creation.
  * 
  * During SSR/build, returns a placeholder client that will never be used at runtime.
  * 
- * @throws {Error} If VITE_BACKEND_API_URL is missing in production (browser context)
+ * @throws {Error} If VITE_BACKEND_API_URL is missing (browser context)
  */
 /**
  * Get or create the auth client instance.
@@ -61,7 +44,7 @@ let cachedAuthClient: AuthClientType | null = null;
  * 
  * The SSR placeholder is discarded after build - the browser client replaces it on first access.
  * 
- * @throws {Error} If VITE_BACKEND_API_URL is missing in production (browser context)
+ * @throws {Error} If VITE_BACKEND_API_URL is missing (browser context)
  */
 function getAuthClient(): AuthClientType {
   // If already created (browser context), return cached client
@@ -72,17 +55,12 @@ function getAuthClient(): AuthClientType {
   // During SSR/build (prerender), return minimal placeholder (not cached)
   // This is ONLY to prevent build errors - it's never used at runtime
   if (typeof window === 'undefined') {
-    const placeholderBaseURL = getAuthBaseUrl(); // Returns placeholder during SSR
+    const placeholderBaseURL = getAuthBaseUrl(); // Returns configured backend URL during SSR
     return createAuthClient({
       plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
       baseURL: placeholderBaseURL,
       fetchOptions: {
-        credentials: 'include',
-        auth: {
-          type: "Bearer",
-          token: async () => "",
-        },
-        onSuccess: async () => { },
+        credentials: 'include'
       }
     });
   }
@@ -90,36 +68,9 @@ function getAuthClient(): AuthClientType {
   // Browser context - create the REAL client (only one is ever created and cached)
   const client = createAuthClient({
     plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
-    baseURL: import.meta.env.VITE_BACKEND_API_URL,
+    baseURL: getAuthBaseUrl(),
     fetchOptions: {
-      credentials: 'include',
-      auth: {
-        type: "Bearer",
-        token: async () => {
-          // Wait for token to be available from IndexedDB on first call
-          const token = await getTokenAsync();
-          return token || "";
-        }
-      },
-      onSuccess: async (ctx) => {
-        // Better Auth Bearer plugin sends token in Set-Auth-Token header for write operations
-        // (sign-in, sign-up, bearer.generate). Read operations (getSession, etc.) don't return tokens.
-        // We use the token from IndexedDB for all requests, and only update it when we get a new one.
-        const authToken = ctx.response.headers.get("set-auth-token") ||
-          ctx.response.headers.get("Set-Auth-Token");
-
-        if (authToken) {
-          // New token received - save it to IndexedDB
-          // This happens on sign-in, sign-up, or token refresh
-          try {
-            await setToken(authToken);
-          } catch (error) {
-            console.error('[Auth] Failed to save token:', error);
-          }
-        }
-        // No token in response is expected for read operations (getSession, etc.)
-        // We already have the token in IndexedDB, so we don't need to do anything
-      }
+      credentials: 'include'
     }
   });
 

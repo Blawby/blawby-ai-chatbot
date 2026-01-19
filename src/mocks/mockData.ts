@@ -459,8 +459,8 @@ export function ensurePracticeCollections(practiceId: string): void {
 }
 
 // Helper to get or create anonymous user
-export function getOrCreateAnonymousUser(token: string): MockUser {
-  const existingUser = mockDb.anonymousUsers.get(token);
+export function getOrCreateAnonymousUser(sessionId: string): MockUser {
+  const existingUser = mockDb.anonymousUsers.get(sessionId);
   if (existingUser) {
     return existingUser;
   }
@@ -475,13 +475,13 @@ export function getOrCreateAnonymousUser(token: string): MockUser {
     practiceCount: 0,
     hasPractice: false
   };
-  mockDb.anonymousUsers.set(token, user);
+  mockDb.anonymousUsers.set(sessionId, user);
   return user;
 }
 
-// Helper to get anonymous user by token without creating
-export function getAnonymousUserByToken(token: string): MockUser | null {
-  return mockDb.anonymousUsers.get(token) ?? null;
+// Helper to get anonymous user by session without creating
+export function getAnonymousUserBySessionId(sessionId: string): MockUser | null {
+  return mockDb.anonymousUsers.get(sessionId) ?? null;
 }
 
 // Helper to find conversation by practice and user (for anonymous users)

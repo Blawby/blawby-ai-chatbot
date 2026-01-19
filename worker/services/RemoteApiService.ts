@@ -1,11 +1,10 @@
 import type { Env, Practice, PracticeOrWorkspace, ConversationConfig, SubscriptionLifecycleStatus } from '../types.js';
 import { HttpError } from '../types.js';
-import { Logger } from '../utils/logger.js';
 import { HttpErrors } from '../errorHandler.js';
+import { Logger } from '../utils/logger.js';
 
 /**
- * Service for fetching practice and subscription data from the remote API
- * (staging-api.blawby.com)
+ * Service for fetching practice and subscription data from the remote API.
  * 
  * @note Cache Limitation: The static caches (practiceCache, configCache, subscriptionCache)
  * are per-V8-isolate and do not persist across different Cloudflare Worker isolates.
@@ -26,13 +25,10 @@ export class RemoteApiService {
    * Get the base URL for the remote API
    */
   private static getRemoteApiUrl(env: Env): string {
-    if (!env.REMOTE_API_URL) {
-      if (env.NODE_ENV === 'production') {
-        throw new Error('REMOTE_API_URL is required in production');
-      }
-      Logger.warn('REMOTE_API_URL not configured, falling back to staging endpoint');
+    if (!env.BACKEND_API_URL) {
+      throw new Error('BACKEND_API_URL is required');
     }
-    return env.REMOTE_API_URL || 'https://staging-api.blawby.com';
+    return env.BACKEND_API_URL;
   }
 
   private static isLikelyUuid(value: string): boolean {
@@ -40,15 +36,12 @@ export class RemoteApiService {
   }
 
   /**
-   * Get authentication token from request headers
+   * Get authentication cookie from request headers
    */
-  private static getAuthToken(request?: Request): string | null {
+  private static getAuthCookie(request?: Request): string | null {
     if (!request) return null;
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      return authHeader.substring(7);
-    }
-    return null;
+    const cookieHeader = request.headers.get('Cookie');
+    return cookieHeader && cookieHeader.trim() ? cookieHeader : null;
   }
 
   /**
@@ -70,10 +63,10 @@ export class RemoteApiService {
       'Content-Type': 'application/json',
     });
 
-    // Add auth token if available
-    const token = this.getAuthToken(request);
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
+    // Forward session cookies when available
+    const cookie = this.getAuthCookie(request);
+    if (cookie) {
+      headers.set('Cookie', cookie);
     }
     const method = options?.method || 'GET';
     const body = options?.body;

@@ -12,11 +12,11 @@ This document explains the authentication architecture, recent changes, and how 
 ┌─────────────┐     1. Sign in      ┌─────────────────┐
 │   Frontend  │ ──────────────────> │   Better Auth   │
 │  (Preact)   │ <────────────────── │  (Node.js API)  │
-└─────────────┘     2. Get token    └─────────────────┘
+└─────────────┘     2. Set cookie  └─────────────────┘
        │                                    │
-       │ 3. Store token in IndexedDB       │
+       │ 3. Browser stores session cookie  │
        │                                    │
-       │ 4. Send token with API requests   │
+       │ 4. Send cookie with API requests  │
        ▼                                    │
 ┌──────────────────────────────────────────┴──────────┐
 │              Cloudflare Worker                       │
@@ -37,9 +37,9 @@ This document explains the authentication architecture, recent changes, and how 
 
 ### Key Principles
 
-1. **Better Auth handles authentication** - Sign-in, sign-up, OAuth, token generation
-2. **Frontend stores token** - Bearer token stored in IndexedDB after successful auth
-3. **Worker validates token** - Makes server-to-server call to Better Auth API to validate
+1. **Better Auth handles authentication** - Sign-in, sign-up, OAuth, session issuance
+2. **Frontend stores session** - Session cookie stored by the browser after successful auth
+3. **Worker validates session** - Makes server-to-server call to Better Auth API to validate
 4. **Business logic is auth-agnostic** - Worker only needs `user.id` (UUID) from middleware
 
 ### Why This Architecture?
@@ -61,14 +61,14 @@ The Worker was failing to authenticate requests because:
 ### Solution
 
 1. **Removed hardcoded URL from `wrangler.toml`**
-   - Previously: `REMOTE_API_URL = "https://staging-api.blawby.com"` forced every request to staging
-   - Now: Worker reads `REMOTE_API_URL` from `worker/.dev.vars` or Cloudflare environment variables so the remote API URL (auth plus organization APIs) can match whatever backend the frontend is configured to use
+   - Previously: `BACKEND_API_URL = "https://staging-api.blawby.com"` forced every request to staging
+   - Now: Worker reads `BACKEND_API_URL` from `worker/wrangler.toml` (env vars) or Cloudflare environment variables so the backend URL can match whatever the frontend is configured to use
 
-2. **Created `worker/.dev.vars` for local development**
-   - Contains `REMOTE_API_URL=http://localhost:3000`
-   - Overrides `wrangler.toml` values when running `wrangler dev`
+2. **Use `worker/.dev.vars` for local secrets**
+   - Keep secrets in `worker/.dev.vars` (git-ignored)
+   - Non-secret config like `BACKEND_API_URL` lives in `worker/wrangler.toml`
 
-3. **Improved token validation**
+3. **Improved session validation**
    - Better error handling for Better Auth API responses
    - Handles both wrapped (`{ data: { user, session } }`) and unwrapped (`{ user, session }`) formats
    - Removed verbose debug logs (production-ready)
@@ -104,21 +104,21 @@ VITE_ENABLE_MSW=true
 
 ### Worker (Cloudflare)
 
-**Location**: `worker/.dev.vars` (for local development)
+**Location**: `worker/wrangler.toml` ([env.dev.vars] for local development)
 
 **Required Variables**:
 ```bash
 # Backend API URL (Better Auth/remote API server)
 # Must match VITE_BACKEND_API_URL in frontend for the same environment
-REMOTE_API_URL=http://localhost:3000
+BACKEND_API_URL=http://localhost:3000
 ```
 
 **Production Configuration**:
 - Set via Cloudflare Dashboard: Workers & Pages → Settings → Variables
-- Or use `wrangler secret put REMOTE_API_URL` for sensitive values
+- Or use `wrangler secret put BACKEND_API_URL` for sensitive values
 - Or set in `wrangler.toml` under `[env.production.vars]` for non-sensitive values
 
-**Note**: `worker/.dev.vars` is git-ignored and only used for local development.
+**Note**: `worker/.dev.vars` is git-ignored and should contain secrets only. Non-sensitive config belongs in `worker/wrangler.toml`.
 
 ## Setup Instructions
 
@@ -141,8 +141,7 @@ REMOTE_API_URL=http://localhost:3000
 3. **Configure Worker Environment**
    ```bash
    # In blawby-ai-chatbot/worker directory
-   # Create or update .dev.vars
-   echo "REMOTE_API_URL=http://localhost:3000" > .dev.vars
+   # Set BACKEND_API_URL in worker/wrangler.toml under [env.dev.vars]
    ```
 
 4. **Start Development Servers**
@@ -162,23 +161,23 @@ REMOTE_API_URL=http://localhost:3000
    - Option 1: Set in `wrangler.toml` under `[env.production.vars]`:
      ```toml
      [env.production.vars]
-     REMOTE_API_URL = "https://production-api.blawby.com"
+     BACKEND_API_URL = "https://production-api.blawby.com"
      ```
    - Option 2: Use Cloudflare Dashboard → Workers & Pages → Settings → Variables
-   - Option 3: Use `wrangler secret put REMOTE_API_URL` (for sensitive values)
+   - Option 3: Use `wrangler secret put BACKEND_API_URL` (for sensitive values)
 
 ### Important Notes
 
-1. **URL Consistency**: `VITE_BACKEND_API_URL` (frontend) and `REMOTE_API_URL` (worker) must point to the **same backend** in the same environment so both sides hit the remote API that issued the tokens
+1. **URL Consistency**: `VITE_BACKEND_API_URL` (frontend) and `BACKEND_API_URL` (worker) must point to the **same backend** in the same environment so both sides hit the remote API that issued the session cookies
    - Local dev: Both should target `http://localhost:3000` (or another local backend you configure)
-   - Staging: Both should target `https://staging-api.blawby.com` (the default staging backend unless you override it)
+   - Staging: Both should target `https://staging-api.blawby.com`
    - Production: Both should target `https://production-api.blawby.com`
 
-2. **Token Validity**: Tokens are only valid for the backend that issued them. Keep the configured remote API URL (via `VITE_BACKEND_API_URL`/`REMOTE_API_URL`) consistent across frontend and worker, otherwise the Worker will reject tokens issued by a different backend.
+2. **Session Validity**: Sessions are only valid for the backend that issued them. Keep the configured remote API URL (via `VITE_BACKEND_API_URL`/`BACKEND_API_URL`) consistent across frontend and worker, otherwise the Worker will reject sessions issued by a different backend.
 
 3. **File Locations**:
    - Frontend: `.env` (root directory)
-   - Worker: `worker/.dev.vars` (worker directory, git-ignored)
+   - Worker: `worker/wrangler.toml` ([env.dev.vars] for local dev)
 
 ## Code Structure
 
@@ -186,42 +185,42 @@ REMOTE_API_URL=http://localhost:3000
 
 **File**: `src/shared/lib/authClient.ts`
 
-- Creates Better Auth client with Bearer token plugin
-- Stores token in IndexedDB after sign-in/sign-up
-- Retrieves token from IndexedDB for API requests
+- Creates Better Auth client configured for cookie-based sessions
+- Relies on browser-managed session cookies after sign-in/sign-up
+- Sends cookies with API requests via `credentials: 'include'`
 - Uses `getBackendApiUrl()` from `src/config/urls.ts` for base URL
 
 ### Worker Authentication
 
 **File**: `worker/middleware/auth.ts`
 
-- `requireAuth()`: Validates Bearer token, throws 401 if invalid
-- `optionalAuth()`: Validates Bearer token, returns null if missing/invalid
-- `validateTokenWithRemoteServer()`: Makes HTTP call to Better Auth API
-- Uses `env.REMOTE_API_URL` to determine which backend to call
+- `requireAuth()`: Validates session cookie, throws 401 if invalid
+- `optionalAuth()`: Validates session cookie, returns null if missing/invalid
+- `validateSessionWithRemoteServer()`: Makes HTTP call to Better Auth API
+- Uses `env.BACKEND_API_URL` to determine which backend to call
 
-### Token Validation Flow
+### Session Validation Flow
 
-1. Frontend sends request with `Authorization: Bearer <token>` header
-2. Worker extracts token from header
-3. Worker calls `${REMOTE_API_URL}/api/auth/get-session` with token
-4. Better Auth validates token and returns user data
+1. Frontend sends request with session cookie
+2. Worker forwards cookie to the auth server
+3. Worker calls `${BACKEND_API_URL}/api/auth/get-session` with the cookie
+4. Better Auth validates session and returns user data
 5. Worker extracts `user.id` and passes to business logic
 
 ## Troubleshooting
 
 ### "Authentication required" (401) Error
 
-**Symptoms**: API calls return 401 even with valid token
+**Symptoms**: API calls return 401 even with a valid session
 
 **Possible Causes**:
 1. **URL Mismatch**: Frontend and Worker pointing to different backends
-   - Check: `VITE_BACKEND_API_URL` vs `REMOTE_API_URL`
+   - Check: `VITE_BACKEND_API_URL` vs `BACKEND_API_URL`
    - Fix: Ensure both point to same backend
 
-2. **Token from Wrong Backend**: Token issued by different backend than Worker is calling
+2. **Session from Wrong Backend**: Session issued by different backend than Worker is calling
    - Check: Sign in to correct backend
-   - Fix: Clear IndexedDB and sign in again
+   - Fix: Clear browser cookies and sign in again
 
 3. **Backend Not Running**: Better Auth server not accessible
    - Check: Can you access `http://localhost:3000/api/auth/get-session`?
@@ -237,34 +236,34 @@ REMOTE_API_URL=http://localhost:3000
    - Fix: Optimize backend or increase timeout in `validateTokenWithRemoteServer()`
 
 2. **Network Issues**: Worker can't reach backend
-   - Check: `REMOTE_API_URL` is correct and accessible
+   - Check: `BACKEND_API_URL` is correct and accessible
    - Fix: Verify network connectivity
 
-### Token Not Saving in Frontend
+### Session Cookie Not Set in Frontend
 
-**Symptoms**: Token not stored in IndexedDB after sign-in
+**Symptoms**: Session cookie missing after sign-in
 
 **Possible Causes**:
-1. **Better Auth Not Sending Token**: `Set-Auth-Token` header missing
-   - Check: Backend Better Auth configuration (bearer plugin)
-   - Fix: Ensure bearer plugin is configured correctly
+1. **Cookie not set by auth server**: response missing `Set-Cookie`
+   - Check: Backend Better Auth configuration (session/cookie settings)
+   - Fix: Ensure cookie settings are configured correctly for the environment
 
-2. **IndexedDB Issues**: Browser blocking IndexedDB access
-   - Check: Browser console for errors
-   - Fix: Check browser permissions
+2. **Cookie blocked by browser**: third-party or same-site restrictions
+   - Check: Browser console + Application → Cookies
+   - Fix: Confirm domain, SameSite, and Secure flags for the target environment
 
 ## Migration Notes
 
 ### Before This Change
 
-- `REMOTE_API_URL` was hardcoded in `wrangler.toml`
+- `BACKEND_API_URL` was hardcoded in `wrangler.toml`
 - No way to override for local development
 - Frontend and Worker could point to different backends
 - Verbose debug logs in production
 
 ### After This Change
 
-- `REMOTE_API_URL` can be overridden via `worker/.dev.vars`
+- `BACKEND_API_URL` lives in `worker/wrangler.toml` (env vars) with optional overrides via `worker/.dev.vars`
 - Frontend and Worker use centralized URL configuration
 - Production-ready code with minimal logging
 - Clear separation between dev and production configs
@@ -275,7 +274,7 @@ REMOTE_API_URL=http://localhost:3000
 - `src/shared/lib/authClient.ts` - Frontend Better Auth client
 - `src/config/urls.ts` - Centralized URL configuration
 - `worker/wrangler.toml` - Worker configuration
-- `worker/.dev.vars` - Worker local development variables (git-ignored)
+- `worker/.dev.vars` - Worker local secrets (git-ignored)
 - `.env` - Frontend environment variables (git-ignored)
 
 ## References

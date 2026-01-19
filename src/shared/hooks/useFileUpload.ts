@@ -2,7 +2,6 @@ import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { FileAttachment } from '../../../worker/types';
 import { getWorkerRequestUrl, uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 export type FileStatus = 
   | 'uploading'      // Browser → Workers
@@ -52,21 +51,9 @@ async function _uploadFileToBackend(file: File, practiceId: string, conversation
     formData.append('practiceId', practiceId);
     formData.append('conversationId', conversationId);
 
-    let token: string | null | undefined;
-    try {
-      token = await getTokenAsync();
-    } catch {
-      // Allow cookie-based auth to proceed if token storage is unavailable.
-      token = null;
-    }
-
-    const headers: Record<string, string> | undefined =
-      token ? { Authorization: `Bearer ${token}` } : undefined;
-
     const response = await fetch(getWorkerRequestUrl('/api/files/upload'), {
       method: 'POST',
       body: formData,
-      ...(headers ? { headers } : {}),
       signal,
       credentials: 'include'
     });

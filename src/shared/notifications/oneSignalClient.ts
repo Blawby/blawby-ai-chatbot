@@ -1,5 +1,4 @@
 import { getWorkerApiUrl } from '@/config/urls';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 type OneSignalInitOptions = {
   appId: string;
@@ -69,7 +68,8 @@ export function initOneSignal(): void {
     window.OneSignalDeferred = deferred;
   }
 
-  window.addEventListener('auth:token-updated', handleTokenUpdated);
+  window.addEventListener('auth:session-updated', handleSessionUpdated);
+  window.addEventListener('auth:session-cleared', handleSessionCleared);
 }
 
 export function getNotificationPermissionState(): NotificationPermissionState {
@@ -95,24 +95,25 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 
   const permission = Notification.permission as NotificationPermissionState;
   if (permission === 'granted' && sdk) {
-    const onesignalId = await waitForOneSignalId(sdk);
-    if (onesignalId) {
-      pendingOneSignalId = onesignalId;
-      const token = await getTokenAsync();
-      if (token) {
-        await registerDestination(onesignalId, token);
+      const onesignalId = await waitForOneSignalId(sdk);
+      if (onesignalId) {
+        pendingOneSignalId = onesignalId;
+        await registerDestination(onesignalId);
       }
-    }
   }
 
   return permission;
 }
 
-function handleTokenUpdated(): void {
+function handleSessionUpdated(): void {
   if (!pendingOneSignalId) {
     return;
   }
-  void registerDestinationWhenTokenReady(pendingOneSignalId);
+  void registerDestination(pendingOneSignalId);
+}
+
+function handleSessionCleared(): void {
+  lastRegistrationKey = null;
 }
 
 async function initializeSdk(OneSignal: OneSignalSDK, appId: string): Promise<void> {
@@ -143,22 +144,7 @@ async function initializeSdk(OneSignal: OneSignalSDK, appId: string): Promise<vo
   }
 
   pendingOneSignalId = onesignalId;
-
-  const token = await getTokenAsync();
-  if (!token) {
-    return;
-  }
-
-  await registerDestination(onesignalId, token);
-}
-
-async function registerDestinationWhenTokenReady(onesignalId: string): Promise<void> {
-  const token = await getTokenAsync();
-  if (!token) {
-    return;
-  }
-
-  await registerDestination(onesignalId, token);
+  await registerDestination(onesignalId);
 }
 
 async function waitForOneSignalId(OneSignal: OneSignalSDK): Promise<string | null> {
@@ -232,8 +218,8 @@ async function waitForOneSignalSdk(timeoutMs = 3000): Promise<OneSignalSDK | und
   });
 }
 
-async function registerDestination(onesignalId: string, token: string): Promise<void> {
-  const registrationKey = `${token}:${onesignalId}`;
+async function registerDestination(onesignalId: string): Promise<void> {
+  const registrationKey = onesignalId;
   if (lastRegistrationKey === registrationKey) {
     return;
   }
@@ -251,8 +237,7 @@ async function registerDestination(onesignalId: string, token: string): Promise<
     const response = await fetch(`${baseUrl}${DESTINATIONS_ENDPOINT}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
+        'Content-Type': 'application/json'
       },
       credentials: 'include',
       body: JSON.stringify({

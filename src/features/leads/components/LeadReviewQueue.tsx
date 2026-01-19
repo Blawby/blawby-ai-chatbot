@@ -9,7 +9,6 @@ import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useLeadQueueAutoLoad } from '@/features/settings/hooks/usePracticePageEffects';
 import { useNavigation } from '@/shared/utils/navigation';
 import type { MatterWorkflowStatus, MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 export interface LeadSummary {
   id: string;
@@ -70,17 +69,12 @@ export const LeadReviewQueue = ({
     setLeadError(null);
 
     try {
-      const token = await getTokenAsync();
-      if (!token) {
-        throw new Error('Authentication token not available');
-      }
       const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}?status=lead`;
       const response = await fetch(endpoint, {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Accept': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Accept': 'application/json'
         }
       });
 

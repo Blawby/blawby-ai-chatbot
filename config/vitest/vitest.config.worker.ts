@@ -8,7 +8,7 @@ export default defineWorkersConfig({
         main: './worker/index.ts',
         isolatedStorage: true,
         miniflare: {
-          envPath: '.dev.vars',
+          envPath: 'worker/.dev.vars',
           d1Databases: ['DB'],
           kvNamespaces: {
             CHAT_SESSIONS: 'kv-chat-sessions'

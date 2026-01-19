@@ -71,12 +71,10 @@ LOG_LEVEL = "debug"
 DEBUG = false
 VITE_DEBUG_OVERLAY = false
 CLOUDFLARE_PUBLIC_URL = "https://local.blawby.com"
-CLOUDFLARE_ACCOUNT_ID = "your-cloudflare-account-id"
+CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
 CF_AIG_GATEWAY_NAME = "blawby-ai"
 AI_PROVIDER = "cloudflare_gateway"
-# REMOTE_API_URL is set in worker/.dev.vars for local development
-# Default to staging if not set in .dev.vars
-# REMOTE_API_URL = "https://staging-api.blawby.com"
+BACKEND_API_URL = "https://staging-api.blawby.com"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"
 REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true
@@ -122,8 +120,8 @@ LOG_LEVEL = "warn"
 DEBUG = false
 VITE_DEBUG_OVERLAY = false
 CLOUDFLARE_PUBLIC_URL = "https://ai.blawby.com"
-REMOTE_API_URL = "https://production-api.blawby.com"
-CLOUDFLARE_ACCOUNT_ID = "your-cloudflare-account-id"
+BACKEND_API_URL = "https://production-api.blawby.com"
+CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
 CF_AIG_GATEWAY_NAME = "blawby-ai"
 AI_PROVIDER = "cloudflare_gateway"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"

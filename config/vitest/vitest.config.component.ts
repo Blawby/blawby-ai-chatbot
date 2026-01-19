@@ -11,7 +11,6 @@ export default defineConfig({
     include: [
       'src/components/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
       'src/__tests__/components/**/*.{test,spec}.{js,ts,jsx,tsx}',
-      'src/__tests__/lib/tokenStorage.test.ts',
       'src/__tests__/RTLSupport.test.tsx',
       'src/components/settings/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
       'tests/component/**/*.{test,spec}.{js,ts,jsx,tsx}'

@@ -26,8 +26,7 @@
 ### Phase 2: Migrated All Files ✅
 
 1. **`src/config/api.ts`**
-   - Replaced `getBaseUrl()` and `getRemoteApiUrl()` with imports from `urls.ts`
-   - Marked old functions as deprecated (kept for backward compatibility)
+   - Removed `getRemoteApiUrl()` usage in favor of `urls.ts`
    - All endpoint builders now use centralized config
 
 2. **`src/shared/lib/authClient.ts`**
@@ -53,7 +52,7 @@
 
 ### Current Variables
 - `VITE_WORKER_API_URL` - Cloudflare Worker API (optional, auto-detected)
-- `VITE_BACKEND_API_URL` - Backend API (REQUIRED in production)
+- `VITE_BACKEND_API_URL` - Backend API (required in all environments)
 
 ## Migration Guide for Developers
 
@@ -95,7 +94,7 @@ const url = getBackendApiUrl();
 ## Testing Checklist
 
 - [ ] Local development with `.env` file works
-- [ ] MSW mocking still works when `VITE_ENABLE_MSW=true`
+- [ ] MSW mocking still works when `VITE_ENABLE_MSW=true` and `VITE_BACKEND_API_URL` is set to the dev server origin
 - [ ] Production build works with Cloudflare Pages env vars
 - [ ] Auth endpoints connect to backend API
 - [ ] Chat endpoints connect to Worker API

@@ -22,7 +22,7 @@ export interface CorsOptions {
 const DEFAULT_CORS_OPTIONS: Required<CorsOptions> = {
   allowedOrigins: '*',
   allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Captcha-Token', 'X-Turnstile-Token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
   allowCredentials: false,
   maxAge: 86400, // 24 hours
   exposeHeaders: ['Content-Disposition', 'Content-Length']
@@ -161,7 +161,7 @@ export function createProductionCorsOptions(allowedDomains: string[]): CorsOptio
   return {
     allowedOrigins: allowedDomains,
     allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
     allowCredentials: true,
     maxAge: 86400,
     exposeHeaders: ['Content-Disposition', 'Content-Length']
@@ -177,7 +177,7 @@ export function createDevelopmentCorsOptions(): CorsOptions {
   return {
     allowedOrigins: '*',
     allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
     allowCredentials: false, // Cannot be true with wildcard origin
     maxAge: 86400,
     exposeHeaders: ['Content-Disposition', 'Content-Length']

@@ -2,7 +2,6 @@ import {
   getPracticeClientIntakeCreateEndpoint,
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -97,30 +96,17 @@ const formatDescriptionWithLocation = (description?: string, location?: string) 
   return parts.length > 0 ? parts.join('\n') : undefined;
 };
 
-const getAuthToken = async (): Promise<string | null> => {
-  if (typeof window === 'undefined') return null;
-  try {
-    return await getTokenAsync();
-  } catch (error) {
-    console.warn('[Intake] Failed to read auth token', error);
-    return null;
-  }
-};
-
 async function fetchIntakeSettings(
-  practiceSlug: string,
-  token?: string | null
+  practiceSlug: string
 ): Promise<IntakeSettingsResponse | null> {
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
     const response = await fetch(getPracticeClientIntakeSettingsEndpoint(practiceSlug), {
       method: 'GET',
-      headers
+      headers,
+      credentials: 'include'
     });
 
     if (!response.ok) {
@@ -148,8 +134,7 @@ export async function submitContactForm(
     onLoadingMessage?.(loadingMessageId);
     
     const formPayload = formatFormData(formData, practiceSlug);
-    const token = await getAuthToken();
-    const settings = await fetchIntakeSettings(practiceSlug, token);
+    const settings = await fetchIntakeSettings(practiceSlug);
     const prefillAmount = settings?.data?.settings?.prefillAmount;
     const paymentLinkEnabled = settings?.data?.settings?.paymentLinkEnabled === true;
     const amount = clampAmount(typeof prefillAmount === 'number' ? prefillAmount : 50);
@@ -176,12 +161,10 @@ export async function submitContactForm(
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
     const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
       method: 'POST',
       headers,
+      credentials: 'include',
       body: JSON.stringify(createPayload)
     });
 

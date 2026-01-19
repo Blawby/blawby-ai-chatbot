@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment } from '../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getChatMessagesEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl, fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
@@ -114,9 +113,7 @@ export const useMessageHandling = ({
   ) => {
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) return;
-    const token = await getTokenAsync();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers.Authorization = `Bearer ${token}`;
     const response = await fetch(
       `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
       {
@@ -178,9 +175,7 @@ export const useMessageHandling = ({
       throw new Error('Conversation ID is required for sending messages.');
     }
 
-    const token = await getTokenAsync();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers.Authorization = `Bearer ${token}`;
 
     const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
@@ -427,16 +422,10 @@ export const useMessageHandling = ({
     if (!practiceContextId) return;
 
     try {
-      const token = await getTokenAsync();
-      if (!token) {
-        console.warn('[Intake] Missing auth token for intake confirmation');
-        return;
-      }
       const response = await fetch(`${getIntakeConfirmEndpoint()}?practiceId=${encodeURIComponent(practiceContextId)}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -500,9 +489,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         throw new Error('Conversation ID is required');
       }
 
-      const token = await getTokenAsync();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
 
       const resolvedPracticeSlug = (practiceSlug ?? practiceId ?? '').trim();
       if (!resolvedPracticeSlug) {
@@ -685,9 +672,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     }
 
     try {
-      const token = await getTokenAsync();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
 
       const params = new URLSearchParams({
         conversationId: activeConversationId,

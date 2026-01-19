@@ -469,7 +469,7 @@ curl -X POST http://localhost:8787/api/agent/stream \
 
 **Debugging Adobe Issues**:
 1. Check logs for `"Adobe extraction successful"` vs `"adobe_extraction_failed_or_ineligible"`
-2. Verify all Adobe environment variables are set in `.dev.vars`
+2. Verify all Adobe environment variables are set in `worker/.dev.vars`
 3. Ensure `ENABLE_ADOBE_EXTRACT=true` is set
 4. Test with real PDF files (not text files with PDF content-type)
 5. Check that `env.AI` binding is available (not running in `--local` mode)

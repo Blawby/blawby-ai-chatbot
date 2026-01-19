@@ -100,6 +100,7 @@ const criticalCssPlugin = (): Plugin => {
 // Worker API endpoints (proxied to localhost:8787)
 const workerEndpoints = [
 	'agent',
+	'auth',
 	'sessions',
 	'lawyers',
 	'files',

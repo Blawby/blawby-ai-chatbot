@@ -15,8 +15,7 @@
  * 
  * 2. BACKEND API (Remote Node.js server - blawby-ts repository)
  *    - Handles: /api/auth/*, /api/practices, /api/subscription/*, /api/members/*
- *    - Dev: https://staging-api.blawby.com (default)
- *    - Prod: https://production-api.blawby.com (must be set via env var)
+ *    - Dev/Prod: must be set via env var
  * 
  * ENDPOINT ROUTING GUIDE:
  * 
@@ -51,7 +50,7 @@ import { isDevelopment } from '@/shared/utils/environment';
  * 1. VITE_WORKER_API_URL (if explicitly set)
  * 2. Development: http://localhost:8787
  * 3. Production: window.location.origin (same as frontend)
- * 4. SSR/Build fallback: https://ai.blawby.com
+ * 4. SSR/Build: VITE_APP_BASE_URL / VITE_PUBLIC_APP_URL / VITE_APP_URL (required)
  *
  * NOTE: Base URL should NOT include `/api`. If it does, we normalize it away.
  * 
@@ -62,18 +61,30 @@ export function getWorkerApiUrl(): string {
 
 	let baseUrl: string;
 
-	// ENV VAR: VITE_WORKER_API_URL (optional - auto-detected if not set)
-	if (import.meta.env.VITE_WORKER_API_URL) {
+	// Prefer same-origin in browser to support session cookies.
+	if (typeof window !== 'undefined' && window.location?.origin) {
+		baseUrl = window.location.origin;
+	} else if (import.meta.env.VITE_WORKER_API_URL) {
+		// ENV VAR: VITE_WORKER_API_URL (optional - auto-detected if not set)
 		baseUrl = import.meta.env.VITE_WORKER_API_URL;
 	} else if (isDevelopment()) {
-		// 2. Development: use localhost
+		// Development: use localhost
 		baseUrl = 'http://localhost:8787';
-	} else if (typeof window !== 'undefined' && window.location?.origin) {
-		// 3. Production: same origin as frontend (Worker is deployed with frontend)
-		baseUrl = window.location.origin;
 	} else {
-		// 4. SSR/Build fallback (shouldn't be used at runtime)
-		baseUrl = 'https://ai.blawby.com';
+		// SSR/Build: require explicit frontend base URL
+		const explicit =
+			import.meta.env.VITE_APP_BASE_URL ||
+			import.meta.env.VITE_PUBLIC_APP_URL ||
+			import.meta.env.VITE_APP_URL;
+
+		if (!explicit) {
+			throw new Error(
+				'Worker base URL could not be determined. ' +
+				'Set VITE_WORKER_API_URL or VITE_APP_BASE_URL for SSR/build contexts.'
+			);
+		}
+
+		baseUrl = explicit;
 	}
 
 	return normalizeWorkerBaseUrl(baseUrl);
@@ -86,54 +97,24 @@ export function getWorkerApiUrl(): string {
  * authentication, practice management, subscriptions, etc.
  * 
  * Priority:
- * 1. VITE_BACKEND_API_URL (REQUIRED in production)
- * 2. Development: https://staging-api.blawby.com (fallback with warning)
- * 3. Production: throws error if not set
- * 
- * Special handling for MSW (Mock Service Worker):
- * - If VITE_ENABLE_MSW=true and in development, returns window.location.origin
- *   so MSW can intercept same-origin requests
+ * 1. VITE_BACKEND_API_URL (required)
+ * 2. Throws error if not set
  * 
  * @returns The base URL for the backend API
- * @throws {Error} In production if VITE_BACKEND_API_URL is not set
+ * @throws {Error} If VITE_BACKEND_API_URL is not set
  */
 export function getBackendApiUrl(): string {
-	// ENV VAR: VITE_BACKEND_API_URL (REQUIRED in production, .env file)
+	// ENV VAR: VITE_BACKEND_API_URL (required in all environments)
 	// Points to Better Auth backend (e.g., http://localhost:3000 or https://production-api.blawby.com)
-	if (import.meta.env.VITE_BACKEND_API_URL) {
-		return import.meta.env.VITE_BACKEND_API_URL;
+	const explicit = import.meta.env.VITE_BACKEND_API_URL;
+	if (!explicit) {
+		throw new Error(
+			'VITE_BACKEND_API_URL is required. ' +
+			'Set it for local development and in Cloudflare Pages. ' +
+			'Example: http://localhost:3000 or https://production-api.blawby.com'
+		);
 	}
-
-	// 2. Development fallback with MSW support
-	if (isDevelopment()) {
-		const enableMocks = import.meta.env.VITE_ENABLE_MSW === 'true';
-
-		if (enableMocks) {
-			// MSW enabled - use same origin for interception
-			if (typeof window !== 'undefined' && window.location?.origin) {
-				console.log('[getBackendApiUrl] DEV mode with MSW - using window.location.origin');
-				return window.location.origin;
-			}
-			// SSR context - MSW can't intercept anyway
-			console.warn('[getBackendApiUrl] MSW enabled but window unavailable (SSR context). Falling back to staging.');
-			return 'https://staging-api.blawby.com';
-		} else {
-			// MSW disabled - use staging fallback
-			console.warn(
-				'[getBackendApiUrl] VITE_BACKEND_API_URL not set. ' +
-				'Using staging fallback: https://staging-api.blawby.com'
-			);
-			return 'https://staging-api.blawby.com';
-		}
-	}
-
-	// 3. Production - require explicit configuration
-	throw new Error(
-		'VITE_BACKEND_API_URL is required in production. ' +
-		'Please set this environment variable in Cloudflare Pages ' +
-		'(Settings > Environment Variables) to your backend API URL. ' +
-		'Example: https://production-api.blawby.com'
-	);
+	return explicit;
 }
 /**
  * Extract host from backend API URL

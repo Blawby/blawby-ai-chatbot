@@ -49,10 +49,10 @@ function loadToken(): string | null {
         }
     }
 
-    // Fallback to .dev.vars file if .env doesn't have it
+    // Fallback to worker/.dev.vars file if .env doesn't have it
     if (!token) {
         try {
-            const devVarsFile = join(projectRoot, '.dev.vars');
+            const devVarsFile = join(projectRoot, 'worker', '.dev.vars');
             const envContent = readFileSync(devVarsFile, 'utf-8');
             const envLines = envContent.split('\n');
 
@@ -67,7 +67,7 @@ function loadToken(): string | null {
                 }
             }
         } catch {
-            // .dev.vars file doesn't exist or can't be read, that's okay
+            // worker/.dev.vars file doesn't exist or can't be read, that's okay
         }
     }
 

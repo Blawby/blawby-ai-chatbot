@@ -5,7 +5,6 @@
  * Integrates with existing Cloudflare Workers /api/files/upload endpoint.
  */
 
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getWorkerApiUrl } from '@/config/urls';
 
 export interface UploadProgress {
@@ -59,7 +58,6 @@ export async function uploadWithProgress(
   options: UploadOptions
 ): Promise<UploadResult> {
   const { practiceId, conversationId, onProgress, onSuccess, onError, signal } = options;
-  const token = await getTokenAsync();
 
   return new Promise((resolve, reject) => {
     // Preflight abort check - if already aborted, don't create XHR
@@ -211,9 +209,6 @@ export async function uploadWithProgress(
 
     // Send request to existing endpoint
     xhr.open('POST', getWorkerRequestUrl('/api/files/upload'));
-    if (token) {
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.send(formData);
   });

@@ -8,7 +8,7 @@ declare namespace Cloudflare {
 	interface Env {
 		CHAT_SESSIONS: KVNamespace;
 		BLAWBY_ORGANIZATION_ULID: "01jq70jnstyfzevc6423czh50e";
-		REMOTE_API_URL: "https://staging-api.blawby.com" | "https://production-api.blawby.com";
+		BACKEND_API_URL: "https://staging-api.blawby.com" | "https://production-api.blawby.com";
 		DOMAIN: "localhost" | "ai.blawby.com";
 		STRIPE_PRICE_ID: "price_1SHfgbDJLzJ14cfPBGuTvcG3" | "price_1SI0uoDJLzJ14cfP4kmC67jR";
 		STRIPE_ANNUAL_PRICE_ID: "price_1SHfhCDJLzJ14cfPGFGQ77vQ" | "price_1SI0uoDJLzJ14cfPoXID4aj4";
