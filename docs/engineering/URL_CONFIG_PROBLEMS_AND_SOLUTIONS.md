@@ -58,7 +58,6 @@ Use `src/config/urls.ts` as the single source of truth for URL routing and valid
 Frontend environment variables:
 - `VITE_WORKER_API_URL` (optional): Worker base URL (no `/api` suffix).
 - `VITE_BACKEND_API_URL` (required): Remote backend base URL.
-- `VITE_APP_BASE_URL` (required for SSR/builds): Frontend base URL when `window.location` is unavailable.
 
 Worker environment variables:
 - `BACKEND_API_URL`: Remote backend base URL used by the Worker (must match frontend backend base).
