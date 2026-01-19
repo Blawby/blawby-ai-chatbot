@@ -63,6 +63,9 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
 
     const limitParam = url.searchParams.get('limit');
     const limit = parseInt(limitParam || '50', 10);
+    if (Number.isNaN(limit) || limit < 1) {
+      throw HttpErrors.badRequest('limit must be a positive integer');
+    }
     const cursor = url.searchParams.get('cursor') || undefined;
     const fromSeqParam = url.searchParams.get('from_seq');
     const fromSeq = fromSeqParam !== null ? parseInt(fromSeqParam, 10) : undefined;

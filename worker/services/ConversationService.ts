@@ -954,7 +954,7 @@ export class ConversationService {
       const latestSeq = Number(latestRecord.latest_seq);
       const nextFromSeq = messages.length > 0
         ? messages[messages.length - 1].seq + 1
-        : (options.fromSeq <= latestSeq ? options.fromSeq : null);
+        : null;
 
       return {
         messages,
