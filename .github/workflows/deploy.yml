@@ -72,13 +72,25 @@ jobs:
             echo "VITE_BACKEND_API_URL is required for build." >&2
             exit 1
           fi
+          if [[ -z "${VITE_APP_BASE_URL:-}" ]]; then
+            echo "VITE_APP_BASE_URL is required for SSR/build contexts." >&2
+            exit 1
+          fi
+          if [[ -z "${VITE_WORKER_API_URL:-}" ]]; then
+            echo "VITE_WORKER_API_URL is required for SSR/build contexts." >&2
+            exit 1
+          fi
         env:
           VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL }}
+          VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL }}
+          VITE_WORKER_API_URL: ${{ secrets.VITE_WORKER_API_URL }}
 
       - name: Build
         run: npm run build
         env:
           VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL }}
+          VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL }}
+          VITE_WORKER_API_URL: ${{ secrets.VITE_WORKER_API_URL }}
 
       - name: Debug - list build output
         run: |
