@@ -13,12 +13,11 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
     throw HttpErrors.notFound('Auth proxy route not found');
   }
 
-  const backendUrl = env.BACKEND_API_URL ?? env.REMOTE_API_URL;
-  if (!backendUrl) {
-    throw HttpErrors.internalServerError('BACKEND_API_URL (or legacy REMOTE_API_URL) must be configured for auth proxy');
+  if (!env.BACKEND_API_URL) {
+    throw HttpErrors.internalServerError('BACKEND_API_URL must be configured for auth proxy');
   }
 
-  const targetUrl = new URL(url.pathname + url.search, backendUrl);
+  const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
   const headers = new Headers(request.headers);
 
   const method = request.method.toUpperCase();

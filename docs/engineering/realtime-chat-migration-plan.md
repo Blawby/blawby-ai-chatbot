@@ -142,8 +142,10 @@ All WS frames are JSON objects with `{ type, data }`.
 ### Resume/Gap State Machine
 - On connect: client sends `auth`, then `resume`.
 - Server checks continuity (in this order):
-  - Register the connection.
-  - Read `latest_seq` from D1 (or `conversations.latest_seq`).
+  - Atomically register the connection and read `latest_seq`:
+    - Subscribe the connection to new messages before reading `latest_seq`.
+    - Use a single DO storage transaction or ordered operation to avoid the registration/read gap.
+  - Read `latest_seq` from D1 (or `conversations.latest_seq`) with read-after-write consistency.
   - If `last_seq == latest_seq`: send `resume.ok` with `latest_seq`.
   - If `last_seq < latest_seq`: send `resume.gap` with `from_seq = last_seq + 1` and `latest_seq`.
   - If `last_seq == 0` and `latest_seq == 0`: send `resume.ok` with `latest_seq = 0`.
@@ -152,7 +154,9 @@ All WS frames are JSON objects with `{ type, data }`.
 - Client behavior:
   - On `resume.ok`: continue; apply live `message.new` events only.
   - On `resume.gap`: HTTP-fetch history from `from_seq`, de-dupe by `message_id`, then continue WS.
-  - Stop HTTP gap fetch once `seq >= latest_seq` from `resume.gap`.
+  - Fetch until `seq >= latest_seq` from `resume.gap` or the HTTP response returns empty.
+  - For large gaps, paginate using `next_from_seq` until the target `latest_seq` is reached.
+  - If HTTP fetch fails (>=500/timeout), retry with backoff; if retries exhausted, close WS and reconnect.
 - No replay from WS; history recovery is HTTP-only to keep WS stream lightweight.
 
 ### Presence/Typing Semantics
@@ -180,7 +184,7 @@ All WS frames are JSON objects with `{ type, data }`.
 - Violations return `error` with `invalid_payload`, then close `4400`.
 
 ## API/Route Changes (Hard Cutover)
-- Add `GET /api/conversations/:id/ws` (or `/api/chat/ws?conversationId=...`) to upgrade to WebSocket.
+- Add `GET /api/conversations/:id/ws` to upgrade to WebSocket.
 - Add `GET /api/notifications/ws` (user-level notifications WS) to replace `/api/notifications/stream`.
 - Do not expose a generic WS upgrade route without a `conversation_id` in the path or query.
 - Keep `GET /api/chat/messages` for history and pagination only.
@@ -215,11 +219,11 @@ All WS frames are JSON objects with `{ type, data }`.
     - Hashes are computed from normalized content and stable-ordered attachments.
     - If a pending record exists with mismatched hashes, close with `4400`.
     - Allocate `seq` in DO (durable storage counter) only for new inserts.
-    - Increment the counter once per new `(conversation_id, client_id)` and persist before D1 writes.
+    - Persist pending record + allocated seq in the same DO storage transaction before D1 writes.
     - Attempt insert with `(conversation_id, client_id)` unique constraint (authoritative):
       - On conflict, fetch existing row and return idempotent `message.ack`.
     - Pre-checks are optional optimizations only; do not rely on them for correctness.
-    - Persist in a single transaction: insert message + update `latest_seq` (if present).
+    - Persist in a single D1 transaction: insert message + update `conversations.latest_seq`.
     - Assign `message_id`, `seq`, `server_ts`.
     - Broadcast after commit to avoid ghost messages.
     - Enforce uniqueness in D1 on `(conversation_id, client_id)`.
@@ -268,6 +272,11 @@ All WS frames are JSON objects with `{ type, data }`.
 - Session revalidation: validate on upgrade; close connections on auth expiry/revocation (client reconnects).
 - Kick members removed mid-session.
 - On membership changes, notify the `ChatRoom` DO (internal route/queue) to close sockets for the removed user.
+- Membership change notification mechanism:
+  - Triggered by the membership update handler.
+  - Send a direct DO stub `fetch` to `ChatRoom` with `{ conversation_id, removed_user_id, membership_version }`.
+  - DO closes sockets for removed_user_id and updates cached membership_version.
+  - On failure, retry via queue or log and rely on version revalidation.
 - Track `membership_version` per conversation; cache in DO and revalidate on mismatch.
   - On any incoming frame: if cached version != current (from D1 or internal event), re-check membership.
   - If removed, close with `4403`; if still member, update cached version.

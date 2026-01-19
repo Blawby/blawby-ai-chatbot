@@ -25,11 +25,10 @@ export class RemoteApiService {
    * Get the base URL for the remote API
    */
   private static getRemoteApiUrl(env: Env): string {
-    const backendUrl = env.BACKEND_API_URL ?? env.REMOTE_API_URL;
-    if (!backendUrl) {
-      throw new Error('BACKEND_API_URL (or legacy REMOTE_API_URL) is required');
+    if (!env.BACKEND_API_URL) {
+      throw new Error('BACKEND_API_URL is required');
     }
-    return backendUrl;
+    return env.BACKEND_API_URL;
   }
 
   private static isLikelyUuid(value: string): boolean {

@@ -20,11 +20,10 @@ export interface AuthContext {
 }
 
 function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
-  const backendUrl = env.BACKEND_API_URL ?? env.REMOTE_API_URL;
-  if (!backendUrl) {
-    throw HttpErrors.internalServerError(`BACKEND_API_URL (or legacy REMOTE_API_URL) must be configured (${context})`);
+  if (!env.BACKEND_API_URL) {
+    throw HttpErrors.internalServerError(`BACKEND_API_URL must be configured (${context})`);
   }
-  return backendUrl;
+  return env.BACKEND_API_URL;
 }
 
 function parseAuthSessionPayload(
