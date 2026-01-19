@@ -8,8 +8,7 @@ Usage: ./scripts/tests/debug-guest-chat.sh [options]
 Options:
   --practice VALUE         Practice slug or UUID (required)
   --worker-url URL         Worker base URL (default: VITE_WORKER_API_URL or http://localhost:8787)
-  --backend-url URL        Backend base URL (default: VITE_BACKEND_API_URL or https://staging-api.blawby.com)
-  --auth-token TOKEN       Use an existing bearer token (skips anonymous sign-in)
+  --backend-url URL        Backend base URL (default: VITE_BACKEND_API_URL)
   --skip-anon              Do not attempt anonymous sign-in
   --expect-backend HOST    Expected backend host (default: local.blawby.com)
   --verbose                Print extra response details
@@ -43,6 +42,24 @@ read_dotenv_value() {
       echo "$value"
     fi
   fi
+}
+
+read_worker_var_from_toml() {
+  local key="$1"
+  local file="worker/wrangler.toml"
+  if [[ ! -f "$file" ]]; then
+    return
+  fi
+  awk -v key="$key" '
+    $0 ~ /^\[env\.dev\.vars\]/ { in_dev=1; next }
+    $0 ~ /^\[env\./ { in_dev=0 }
+    in_dev && $1 ~ ("^" key) {
+      sub(/^[^=]*= */, "", $0);
+      gsub(/^"|"$/, "", $0);
+      print $0;
+      exit
+    }
+  ' "$file"
 }
 
 trim_trailing_slash() {
@@ -289,12 +306,25 @@ trap cleanup EXIT
 
 COOKIE_JAR=$(mktemp)
 TMP_FILES+=("$COOKIE_JAR")
+SESSION_COOKIE_NAME="better-auth.session_token"
+
+get_session_cookie_value() {
+  awk -v name="$SESSION_COOKIE_NAME" '
+    $0 ~ /^#/ {
+      if ($0 ~ /^#HttpOnly_/) {
+        sub(/^#HttpOnly_/, "", $0);
+      } else {
+        next;
+      }
+    }
+    $6 == name { print $7; exit }
+  ' "$COOKIE_JAR"
+}
 
 request() {
   local method="$1"
   local url="$2"
   local data="${3:-}"
-  local token="${4:-}"
   local header_file body_file
   header_file=$(mktemp)
   body_file=$(mktemp)
@@ -303,9 +333,6 @@ request() {
   local curl_args=(-sS -D "$header_file" -o "$body_file" -w "%{http_code}" -X "$method" "$url" --max-time 20 -b "$COOKIE_JAR" -c "$COOKIE_JAR")
   if [[ -n "$data" ]]; then
     curl_args+=(-H "Content-Type: application/json" -d "$data")
-  fi
-  if [[ -n "$token" ]]; then
-    curl_args+=(-H "Authorization: Bearer $token")
   fi
 
   local status
@@ -321,7 +348,6 @@ request() {
 WORKER_URL=""
 BACKEND_URL=""
 PRACTICE_INPUT=""
-AUTH_TOKEN=""
 SKIP_ANON="false"
 VERBOSE="false"
 EXPECTED_BACKEND_HOST="local.blawby.com"
@@ -341,11 +367,6 @@ while [[ $# -gt 0 ]]; do
     --backend-url)
       require_option_value "$1" "${2-}"
       BACKEND_URL="$2"
-      shift 2
-      ;;
-    --auth-token)
-      require_option_value "$1" "${2-}"
-      AUTH_TOKEN="$2"
       shift 2
       ;;
     --skip-anon)
@@ -390,41 +411,52 @@ if [[ -z "$BACKEND_URL" ]]; then
   BACKEND_URL="${VITE_BACKEND_API_URL:-$(read_dotenv_value VITE_BACKEND_API_URL)}"
 fi
 if [[ -z "$BACKEND_URL" ]]; then
-  BACKEND_URL="https://staging-api.blawby.com"
+  echo "Missing backend base URL. Set VITE_BACKEND_API_URL or pass --backend-url." >&2
+  exit 1
 fi
 
 WORKER_URL="$(trim_trailing_slash "$WORKER_URL")"
 BACKEND_URL="$(trim_trailing_slash "$BACKEND_URL")"
 
-REMOTE_API_URL=""
-if [[ -f ".dev.vars" ]]; then
-  REMOTE_API_URL=$(grep -E "^REMOTE_API_URL=" .dev.vars | tail -n 1 | cut -d= -f2- || true)
+WORKER_BACKEND_API_URL=""
+if [[ -f "worker/.dev.vars" ]]; then
+  WORKER_BACKEND_API_URL=$(grep -E "^BACKEND_API_URL=" worker/.dev.vars | tail -n 1 | cut -d= -f2- || true)
+fi
+if [[ -z "$WORKER_BACKEND_API_URL" ]]; then
+  WORKER_BACKEND_API_URL=$(read_worker_var_from_toml "BACKEND_API_URL" || true)
+fi
+if [[ -n "$WORKER_BACKEND_API_URL" ]]; then
+  WORKER_BACKEND_API_URL="${WORKER_BACKEND_API_URL%\"}"
+  WORKER_BACKEND_API_URL="${WORKER_BACKEND_API_URL#\"}"
+  WORKER_BACKEND_API_URL="${WORKER_BACKEND_API_URL%\'}"
+  WORKER_BACKEND_API_URL="${WORKER_BACKEND_API_URL#\'}"
 fi
 
 echo "Guest chat debug"
 echo "Worker URL: $WORKER_URL"
 echo "Backend URL: $BACKEND_URL"
 echo "Practice input: $PRACTICE_INPUT"
-if [[ -n "$REMOTE_API_URL" ]]; then
-  echo "Worker REMOTE_API_URL: $REMOTE_API_URL"
+if [[ -n "$WORKER_BACKEND_API_URL" ]]; then
+  echo "Worker BACKEND_API_URL: $WORKER_BACKEND_API_URL"
 else
-  echo "Worker REMOTE_API_URL: not set in .dev.vars (will default to staging)"
+  echo "Worker BACKEND_API_URL: not set in worker/.dev.vars or worker/wrangler.toml"
 fi
-if [[ -n "$AUTH_TOKEN" ]]; then
-  echo "Auth token: provided"
+session_cookie=$(get_session_cookie_value || true)
+if [[ -n "$session_cookie" ]]; then
+  echo "Session cookie: present"
 else
-  echo "Auth token: not provided"
+  echo "Session cookie: not set"
 fi
 backend_host=$(node -e 'try { console.log(new URL(process.argv[1]).host); } catch { process.exit(1); }' "$BACKEND_URL" || true)
 if [[ -n "$backend_host" && "$backend_host" != "$EXPECTED_BACKEND_HOST" ]]; then
   echo "Warning: Backend host ($backend_host) does not match expected ($EXPECTED_BACKEND_HOST)."
   echo "         If you intend to use local.blawby.com, update VITE_BACKEND_API_URL or pass --backend-url."
 fi
-if [[ -n "$REMOTE_API_URL" ]]; then
-  remote_host=$(node -e 'try { console.log(new URL(process.argv[1]).host); } catch { process.exit(1); }' "$REMOTE_API_URL" || true)
+if [[ -n "$WORKER_BACKEND_API_URL" ]]; then
+  remote_host=$(node -e 'try { console.log(new URL(process.argv[1]).host); } catch { process.exit(1); }' "$WORKER_BACKEND_API_URL" || true)
   if [[ -n "$backend_host" && -n "$remote_host" && "$remote_host" != "$backend_host" ]]; then
-    echo "Warning: REMOTE_API_URL host ($remote_host) does not match backend host ($backend_host)."
-    echo "         Worker token validation will fail if these point to different auth servers."
+    echo "Warning: BACKEND_API_URL host ($remote_host) does not match backend host ($backend_host)."
+    echo "         Worker session validation will fail if these point to different auth servers."
   fi
 fi
 echo ""
@@ -437,7 +469,7 @@ echo "Step 0: Practice details lookup (public endpoint)"
 if [[ "$PRACTICE_INPUT" =~ ^[0-9a-fA-F-]{36}$ ]]; then
   echo "Note: practice input looks like a UUID; details endpoint expects a slug."
 fi
-request "GET" "$BACKEND_URL/api/practice/details/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
+request "GET" "$BACKEND_URL/api/practice/details/$(url_encode "$PRACTICE_INPUT")" ""
 echo "GET /api/practice/details/{slug} status: $LAST_STATUS"
 
 if [[ "$LAST_STATUS" == "200" ]]; then
@@ -478,7 +510,7 @@ fi
 echo ""
 
 echo "Step 1: Practice lookup"
-request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
+request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" ""
 echo "GET /api/practice/{id} status: $LAST_STATUS"
 
 if [[ "$LAST_STATUS" == "200" ]]; then
@@ -500,7 +532,7 @@ else
   fi
   if [[ "$LAST_STATUS" == "400" ]]; then
     echo "Retrying slug lookup: /api/practice?slug=$PRACTICE_INPUT"
-    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
+    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")" ""
     echo "GET /api/practice?slug= status: $LAST_STATUS"
     if [[ "$LAST_STATUS" == "200" ]]; then
       practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)
@@ -526,7 +558,7 @@ if [[ -n "$resolved_practice_id" ]]; then
   fi
 else
   echo "Practice lookup did not resolve an id."
-  echo "If you only have a slug, you may need /api/practice?slug=... or a member token for /api/practice/list."
+  echo "If you only have a slug, you may need /api/practice?slug=... or a member session for /api/practice/list."
   if [[ "$VERBOSE" == "true" ]]; then
     echo "Practice response debug (step 1):"
     json_extract_practice_debug "$LAST_BODY" || true
@@ -534,22 +566,19 @@ else
 fi
 echo ""
 
-if [[ -z "$AUTH_TOKEN" && "$SKIP_ANON" == "false" ]]; then
+session_cookie=$(get_session_cookie_value || true)
+if [[ -z "$session_cookie" && "$SKIP_ANON" == "false" ]]; then
   echo "Step 2: Anonymous sign-in"
   request "POST" "$BACKEND_URL/api/auth/sign-in/anonymous" "{}"
   echo "POST /api/auth/sign-in/anonymous status: $LAST_STATUS"
 
   if [[ "$LAST_STATUS" == "200" ]]; then
-    token_header=$(get_header_value "$LAST_HEADERS" "Set-Auth-Token")
-    if [[ -z "$token_header" ]]; then
-      token_header=$(get_header_value "$LAST_HEADERS" "set-auth-token")
-    fi
-    if [[ -n "$token_header" ]]; then
-      AUTH_TOKEN="$token_header"
-      echo "Anonymous token received: yes"
+    session_cookie=$(get_session_cookie_value || true)
+    if [[ -n "$session_cookie" ]]; then
+      echo "Session cookie received: yes"
     else
-      echo "Anonymous token received: no"
-      echo "Ensure Better Auth returns Set-Auth-Token for anonymous sign-in."
+      echo "Session cookie received: no"
+      echo "Ensure Better Auth returns Set-Cookie for anonymous sign-in."
     fi
   else
     error_message=$(json_extract_message "$LAST_BODY" || true)
@@ -562,9 +591,10 @@ if [[ -z "$AUTH_TOKEN" && "$SKIP_ANON" == "false" ]]; then
 fi
 
 user_id=""
-if [[ -n "$AUTH_TOKEN" ]]; then
+session_cookie=$(get_session_cookie_value || true)
+if [[ -n "$session_cookie" ]]; then
   echo "Step 3: Validate auth session"
-  request "GET" "$BACKEND_URL/api/auth/get-session" "" "$AUTH_TOKEN"
+  request "GET" "$BACKEND_URL/api/auth/get-session" ""
   echo "GET /api/auth/get-session status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then
     user_id=$(json_extract_user_id "$LAST_BODY" || true)
@@ -578,15 +608,16 @@ if [[ -n "$AUTH_TOKEN" ]]; then
     if [[ -n "$error_message" ]]; then
       echo "Response message: $error_message"
     fi
-    echo "Token validation failed. Worker will reject this token."
+    echo "Session validation failed. Worker will reject this session."
   fi
   echo ""
 fi
 
-if [[ -n "$AUTH_TOKEN" && -z "$resolved_practice_id" ]]; then
-  echo "Step 3b: Retry practice lookup with auth token"
-  request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
-  echo "GET /api/practice/{id} (auth) status: $LAST_STATUS"
+session_cookie=$(get_session_cookie_value || true)
+if [[ -n "$session_cookie" && -z "$resolved_practice_id" ]]; then
+  echo "Step 3b: Retry practice lookup with session"
+  request "GET" "$BACKEND_URL/api/practice/$(url_encode "$PRACTICE_INPUT")" ""
+  echo "GET /api/practice/{id} (session) status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then
     practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)
     if json_has_error_flag "$LAST_BODY"; then
@@ -620,9 +651,9 @@ if [[ -n "$AUTH_TOKEN" && -z "$resolved_practice_id" ]]; then
     if [[ -n "$error_message" ]]; then
       echo "Response message: $error_message"
     fi
-    echo "Practice lookup failed with auth, trying slug lookup."
-    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")" "" "$AUTH_TOKEN"
-    echo "GET /api/practice?slug= (auth) status: $LAST_STATUS"
+    echo "Practice lookup failed with session, trying slug lookup."
+    request "GET" "$BACKEND_URL/api/practice?slug=$(url_encode "$PRACTICE_INPUT")" ""
+    echo "GET /api/practice?slug= (session) status: $LAST_STATUS"
     if [[ "$LAST_STATUS" == "200" ]]; then
       practice_fields=$(json_extract_practice_fields "$LAST_BODY" || true)
       if [[ -n "$practice_fields" ]]; then
@@ -640,13 +671,14 @@ if [[ -n "$AUTH_TOKEN" && -z "$resolved_practice_id" ]]; then
       if [[ -n "$error_message" ]]; then
         echo "Response message: $error_message"
       fi
-      echo "Practice slug lookup still failed with auth."
+      echo "Practice slug lookup still failed with session."
     fi
   fi
   echo ""
 fi
 
-if [[ -n "$AUTH_TOKEN" && -n "$user_id" ]]; then
+session_cookie=$(get_session_cookie_value || true)
+if [[ -n "$session_cookie" && -n "$user_id" ]]; then
   echo "Step 4: Create conversation"
   practice_for_conversation="$PRACTICE_INPUT"
   if [[ -n "$resolved_practice_id" ]]; then
@@ -654,7 +686,7 @@ if [[ -n "$AUTH_TOKEN" && -n "$user_id" ]]; then
   fi
 
   conversation_payload=$(echo '{}' | jq --arg id "$user_id" '.participantUserIds=[ $id ] | .metadata={source:"debug-script"}')
-  request "POST" "$WORKER_URL/api/conversations?practiceId=$(url_encode "$practice_for_conversation")" "$conversation_payload" "$AUTH_TOKEN"
+  request "POST" "$WORKER_URL/api/conversations?practiceId=$(url_encode "$practice_for_conversation")" "$conversation_payload"
   echo "POST /api/conversations status: $LAST_STATUS"
   if [[ "$LAST_STATUS" == "200" ]]; then
     conv_id=$(json_extract_conversation_id "$LAST_BODY" || true)
@@ -683,10 +715,11 @@ echo "Next steps"
 if [[ -z "$resolved_practice_id" ]]; then
   echo "- Practice ID still unresolved; check that /api/practice?slug=... returns an id."
 fi
-if [[ -z "$AUTH_TOKEN" ]]; then
+session_cookie=$(get_session_cookie_value || true)
+if [[ -z "$session_cookie" ]]; then
   echo "- Anonymous sign-in failed or was skipped. Ensure /api/auth/sign-in/anonymous is enabled."
 fi
-if [[ -n "$AUTH_TOKEN" && -z "$user_id" ]]; then
-  echo "- Token did not validate. Check REMOTE_API_URL and Better Auth token validation."
+if [[ -n "$session_cookie" && -z "$user_id" ]]; then
+  echo "- Session did not validate. Check BACKEND_API_URL and Better Auth session validation."
 fi
-echo "- If conversations still return 401, the worker is requiring auth and the token is not validating."
+echo "- If conversations still return 401, the worker is requiring auth and the session is not validating."

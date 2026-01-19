@@ -1,9 +1,35 @@
 import { http, HttpResponse, type StrictRequest, type DefaultBodyType } from 'msw';
-import { mockDb, ensurePracticeCollections, randomId, getAnonymousUserByToken, getOrCreateAnonymousUser, findConversationByPracticeAndUser } from './mockData';
+import { mockDb, ensurePracticeCollections, randomId, getOrCreateAnonymousUser, findConversationByPracticeAndUser } from './mockData';
 import type { MockPractice, MockInvitation, MockConversation, MockMessage } from './mockData';
 
 const ALLOWED_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal'] as const);
 type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
+
+const SESSION_COOKIE_NAME = 'better-auth.session_token';
+
+const getSessionIdFromRequest = (request: StrictRequest<DefaultBodyType>): string | null => {
+  const cookieHeader = request.headers.get('Cookie') ?? request.headers.get('cookie');
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const cookies = cookieHeader.split(';').map((cookie) => cookie.trim());
+  for (const cookie of cookies) {
+    if (cookie.startsWith(`${SESSION_COOKIE_NAME}=`)) {
+      const value = cookie.slice(SESSION_COOKIE_NAME.length + 1).trim();
+      if (!value) {
+        return null;
+      }
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
+    }
+  }
+
+  return null;
+};
 
 function isValidRole(role: unknown): role is Role {
   return typeof role === 'string' && ALLOWED_ROLES.has(role as Role);
@@ -58,13 +84,12 @@ function getOrCreateConversation(request: StrictRequest<DefaultBodyType>): { con
     return { error: HttpResponse.json({ error: 'practiceId is required' }, { status: 400 }) };
   }
 
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const sessionId = getSessionIdFromRequest(request);
+  if (!sessionId) {
     return { error: HttpResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const token = authHeader.replace('Bearer ', '').trim();
-  const user = getOrCreateAnonymousUser(token);
+  const user = getOrCreateAnonymousUser(sessionId);
   const isAnonymous = !user.email || user.email === '';
 
   let conversation = findConversationByPracticeAndUser(practiceId, user.id, isAnonymous);
@@ -492,18 +517,15 @@ export const handlers = [
   // ============================================
   // Guest Chat Flow Mocks
   // ============================================
-  // Note: These handlers use same-origin paths because getRemoteApiUrl() 
-  // returns window.location.origin in development, allowing MSW to intercept
+  // Note: These handlers use same-origin paths. Configure VITE_BACKEND_API_URL
+  // to the dev server origin when using MSW so requests stay same-origin.
 
   // Better Auth anonymous sign-in
   // Better Auth returns { data: { user, session } } format
   http.post('/api/auth/sign-in/anonymous', async () => {
     console.log('[MSW] Intercepted POST /api/auth/sign-in/anonymous');
-    const token = `mock-anonymous-token-${randomId('token')}`;
-    const user = getAnonymousUserByToken(token);
-    if (!user) {
-      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const sessionId = `mock-anonymous-session-${randomId('session')}`;
+    const user = getOrCreateAnonymousUser(sessionId);
     
     // Better Auth expects { data: { user, session } } format
     // The client will transform this appropriately
@@ -528,25 +550,21 @@ export const handlers = [
       }
     }, {
       headers: {
-        'set-auth-token': token,
-        'Set-Auth-Token': token, // Some clients use different case
-        'Set-Cookie': `better-auth.session_token=${token}; Path=/; HttpOnly; SameSite=Lax` // Also set as cookie for compatibility
+        'Set-Cookie': `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; SameSite=Lax`
       }
     });
   }),
 
-  // Better Auth get-session (for token validation)
+  // Better Auth get-session (for session validation)
   http.get('/api/auth/get-session', async ({ request }) => {
     console.log('[MSW] Intercepted GET /api/auth/get-session', request.url);
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[MSW] No auth header in get-session request');
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
+      console.log('[MSW] No session cookie in get-session request');
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const token = authHeader.replace('Bearer ', '').trim();
-    
-    const user = getOrCreateAnonymousUser(token);
+    const user = getOrCreateAnonymousUser(sessionId);
     
     return HttpResponse.json({
       user: {
@@ -571,12 +589,11 @@ export const handlers = [
 
   // Better Auth update-user (minimal mock for workspace preferences)
   http.post('/api/auth/update-user', async ({ request }) => {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const token = authHeader.replace('Bearer ', '').trim();
-    const user = getOrCreateAnonymousUser(token);
+    const user = getOrCreateAnonymousUser(sessionId);
     const payload = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
     if ('primaryWorkspace' in payload) {
@@ -606,16 +623,12 @@ export const handlers = [
     const url = new URL(request.url);
     const scope = url.searchParams.get('scope');
     if (scope === 'all') {
-      const authHeader = request.headers.get('Authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      const sessionId = getSessionIdFromRequest(request);
+      if (!sessionId) {
         return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
 
-      const token = authHeader.replace('Bearer ', '').trim();
-      const user = getOrCreateAnonymousUser(token);
-      if (!user || !token) {
-        return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
+      const user = getOrCreateAnonymousUser(sessionId);
 
       const practiceMap = new Map(
         mockDb.practices.map((practice) => [practice.id, { id: practice.id, name: practice.name, slug: practice.slug }])
@@ -686,14 +699,13 @@ export const handlers = [
       return HttpResponse.json({ error: 'practiceId is required' }, { status: 400 });
     }
 
-    const authHeader = request.headers.get('Authorization');
-    console.log('[MSW] POST /api/conversations - auth header:', authHeader ? 'present' : 'missing');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    console.log('[MSW] POST /api/conversations - session:', sessionId ? 'present' : 'missing');
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const token = authHeader.replace('Bearer ', '').trim();
-    const user = getOrCreateAnonymousUser(token);
+
+    const user = getOrCreateAnonymousUser(sessionId);
     const isAnonymous = !user.email || user.email === '';
     
     const convId = randomId('conv');
@@ -739,8 +751,8 @@ export const handlers = [
       return HttpResponse.json({ error: 'conversationId is required' }, { status: 400 });
     }
 
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
@@ -790,13 +802,12 @@ export const handlers = [
       return HttpResponse.json({ error: 'conversationId and content are required' }, { status: 400 });
     }
 
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const token = authHeader.replace('Bearer ', '').trim();
-    const user = getOrCreateAnonymousUser(token);
+
+    const user = getOrCreateAnonymousUser(sessionId);
     
     const conversation = mockDb.conversations.get(body.conversationId);
     if (!conversation) {
@@ -970,8 +981,8 @@ export const handlers = [
   }),
 
   http.get('/api/inbox/conversations', async ({ request }) => {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -993,8 +1004,8 @@ export const handlers = [
   }),
 
   http.get('/api/inbox/stats', async ({ request }) => {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -1015,8 +1026,8 @@ export const handlers = [
   }),
 
   http.post('/api/inbox/conversations/:conversationId/assign', async ({ params, request }) => {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -1034,8 +1045,8 @@ export const handlers = [
   }),
 
   http.patch('/api/inbox/conversations/:conversationId', async ({ params, request }) => {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -1057,8 +1068,8 @@ export const handlers = [
   }),
 
   http.post('/api/inbox/conversations/:conversationId/messages', async ({ params, request }) => {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!sessionId) {
       return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

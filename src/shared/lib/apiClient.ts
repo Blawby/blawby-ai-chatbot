@@ -1,5 +1,4 @@
-import axios, { type AxiosRequestConfig, type AxiosRequestHeaders } from 'axios';
-import { getTokenAsync, clearToken } from './tokenStorage';
+import axios, { type AxiosRequestConfig } from 'axios';
 import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
@@ -44,7 +43,7 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(
-  async (config) => {
+  (config) => {
     // Always get fresh baseURL in development to support MSW
     // Force override any cached baseURL - this is critical for MSW interception
     const baseUrl = ensureApiBaseUrl();
@@ -56,23 +55,8 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // Follow Better Auth guide assumptions: calls to staging-api are authenticated.
-    // Ensure cookies can be sent cross-origin when backend is configured to allow it.
+    // Use session cookies for auth; include credentials for cross-origin requests when allowed.
     config.withCredentials = true;
-
-    const token = await getTokenAsync();
-    if (token) {
-      if (!config.headers) {
-        config.headers = {} as AxiosRequestHeaders;
-      }
-      const headers = config.headers as AxiosRequestHeaders;
-      headers.Authorization = `Bearer ${token}`;
-      if (import.meta.env.DEV) {
-        console.log('[apiClient] Added token to request:', config.url);
-      }
-    } else if (import.meta.env.DEV) {
-      console.warn('[apiClient] No token available for request:', config.url, 'baseURL:', baseUrl);
-    }
 
     return config;
   },
@@ -1115,11 +1099,6 @@ apiClient.interceptors.response.use(
         // Create the handler promise immediately and assign it
         const handle401 = async () => {
           try {
-            try {
-              await clearToken();
-            } catch (err) {
-              console.error('Failed to clear token on 401:', err);
-            }
             if (typeof window !== 'undefined') {
               try {
                 window.dispatchEvent(new CustomEvent('auth:unauthorized'));

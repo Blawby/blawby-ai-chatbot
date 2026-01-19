@@ -21,7 +21,6 @@ export default defineConfig({
       'tests/e2e/**',
       'tests/integration/**',
       'src/components/**/__tests__/**',
-      'src/__tests__/lib/tokenStorage.test.ts',
       'src/__tests__/components/**',
       'src/__tests__/RTLSupport.test.tsx',
       'src/components/settings/**/__tests__/**'

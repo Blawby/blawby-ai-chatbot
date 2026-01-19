@@ -15,6 +15,7 @@ import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { displayPlan, hasManagedSubscription } from '@/shared/utils/subscription';
 import { formatDate } from '@/shared/utils/dateTime';
+import { deleteUser } from '@/shared/lib/authClient';
 import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { UserLinks, EmailSettings, SubscriptionTier } from '@/shared/types/user';
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
@@ -284,8 +285,6 @@ export const AccountPage = ({
 
   const handleConfirmDelete = async ({ password }: { password?: string } = {}) => {
     try {
-      const { deleteUser } = await import('@/shared/lib/authClient');
-      
       if (isOAuthUser) {
         // OAuth users: just call deleteUser, triggers verification email
         await deleteUser();

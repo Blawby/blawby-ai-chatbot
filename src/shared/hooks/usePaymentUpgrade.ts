@@ -358,7 +358,7 @@ export const usePaymentUpgrade = () => {
             disableRedirect: false // Auto-redirect to Stripe Checkout
           };
 
-          // Use fetch with Better Auth token (not axios)
+          // Use Better Auth session cookies (not axios)
           const response = await getClient().subscription.upgrade(createPayload);
           const isResponseObject = typeof response === 'object' && response !== null;
           const hasHeaders = isResponseObject &&

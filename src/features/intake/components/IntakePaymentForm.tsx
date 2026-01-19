@@ -5,7 +5,6 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
 import { getIntakeConfirmEndpoint } from '@/config/api';
 import { fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 
 interface IntakePaymentFormProps {
   practiceName: string;
@@ -81,17 +80,11 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       return;
     }
     try {
-      const token = await getTokenAsync();
-      if (!token) {
-        console.warn('[IntakePayment] Missing auth token for intake confirmation');
-        return;
-      }
       const response = await fetch(`${getIntakeConfirmEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           intakeUuid,

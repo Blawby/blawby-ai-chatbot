@@ -1,6 +1,10 @@
 # Local development environment variables (Worker secrets only)
 # Keep secrets here; non-sensitive configuration lives in wrangler.toml.
 # For production secrets, use: wrangler secret put <KEY_NAME>
+# Copy this file to worker/.dev.vars (single source of truth).
+
+# Required for local Worker development; must match VITE_BACKEND_API_URL when set
+BACKEND_API_URL=your_backend_api_url_here
 
 # API Keys and Tokens (SENSITIVE)
 LAWYER_SEARCH_API_KEY=your_lawyer_search_api_key_here

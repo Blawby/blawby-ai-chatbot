@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import type { Conversation } from '@/shared/types/conversation';
 
 export interface InboxFilters {
@@ -107,11 +106,9 @@ export function useInbox({
     setError(null);
 
     try {
-      const token = await getTokenAsync();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const params = new URLSearchParams();
       if (filters.assignedTo !== undefined) {
@@ -181,11 +178,9 @@ export function useInbox({
     if (!practiceId) return;
 
     try {
-      const token = await getTokenAsync();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const response = await fetch(`/api/inbox/stats?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'GET',
@@ -223,11 +218,9 @@ export function useInbox({
   ) => {
     const mutationController = new AbortController();
     try {
-      const token = await getTokenAsync();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const response = await fetch(`/api/inbox/conversations/${conversationId}/assign?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'POST',
@@ -266,11 +259,9 @@ export function useInbox({
   ) => {
     const mutationController = new AbortController();
     try {
-      const token = await getTokenAsync();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const response = await fetch(`/api/inbox/conversations/${conversationId}?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'PATCH',
@@ -304,11 +295,9 @@ export function useInbox({
   ) => {
     const mutationController = new AbortController();
     try {
-      const token = await getTokenAsync();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const response = await fetch(`/api/inbox/conversations/${conversationId}/messages?practiceId=${encodeURIComponent(practiceId)}`, {
         method: 'POST',

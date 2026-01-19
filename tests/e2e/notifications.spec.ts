@@ -2,7 +2,7 @@ import { test, expect, chromium, type BrowserContext, type Page } from '@playwri
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadE2EConfig } from './helpers/e2eConfig';
-import { waitForToken } from './helpers/auth';
+import { waitForSession } from './helpers/auth';
 
 const e2eConfig = loadE2EConfig();
 const AUTH_STATE_OWNER = 'playwright/.auth/owner.json';
@@ -167,7 +167,7 @@ const setupNotificationPage = async (
     && response.request().method() === 'GET'
   ), { timeout: 20000 });
   await page.goto('/settings/notifications');
-  await waitForToken(page);
+  await waitForSession(page);
 
   const prefsResponse = await prefsResponsePromise;
   const prefsPayload = await prefsResponse.json() as { data?: Record<string, unknown> };

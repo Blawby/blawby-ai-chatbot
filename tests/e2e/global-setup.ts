@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadE2EConfig } from './helpers/e2eConfig';
-import { persistTokenToLocalStorage, waitForSession, waitForToken } from './helpers/auth';
+import { waitForSession } from './helpers/auth';
 
 const EMPTY_STORAGE_STATE = {
   cookies: [],
@@ -130,20 +130,13 @@ const createSignedInState = async (options: {
     try {
       await waitForSession(page, { timeoutMs: authTimeoutMs });
     } catch (error) {
-      console.warn(`⚠️  Session check timed out for ${label}; continuing with token check.`);
-    }
-    let token: string;
-    try {
-      token = await waitForToken(page, { timeoutMs: authTimeoutMs });
-    } catch (error) {
       const resultsDir = ensureResultsDir();
-      const htmlPath = join(resultsDir, `signin-token-timeout-${label}.html`);
-      const screenshotPath = join(resultsDir, `signin-token-timeout-${label}.png`);
+      const htmlPath = join(resultsDir, `signin-session-timeout-${label}.html`);
+      const screenshotPath = join(resultsDir, `signin-session-timeout-${label}.png`);
       writeFileSync(htmlPath, await page.content());
       await page.screenshot({ path: screenshotPath, fullPage: true });
       throw error;
     }
-    await persistTokenToLocalStorage(page, token);
 
     await page.evaluate(async () => {
       try {
@@ -184,8 +177,7 @@ const createAnonymousState = async (options: {
     await page.goto(`/p/${encodeURIComponent(practiceSlug)}`);
     await page.waitForLoadState('domcontentloaded');
 
-    const token = await waitForToken(page, { timeoutMs: 20000 });
-    await persistTokenToLocalStorage(page, token);
+    await waitForSession(page, { timeoutMs: 20000 });
 
     await context.storageState({ path: storagePath });
     console.log(`✅ anonymous storageState saved to ${storagePath}`);

@@ -54,7 +54,7 @@ describe('PracticeContext Middleware Security Tests', () => {
       const request = new Request(`https://example.com/api/test?${param}=malicious-value&practiceId=test-practice`, {
         method: 'GET',
         headers: {
-          'Authorization': 'Bearer valid-token'
+          'Cookie': 'session=valid-session'
         }
       });
 
@@ -69,7 +69,7 @@ describe('PracticeContext Middleware Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer valid-token'
+            'Cookie': 'session=valid-session'
           }
         }
       );
@@ -110,7 +110,7 @@ describe('PracticeContext Middleware Security Tests', () => {
       vi.mocked(optionalAuth).mockResolvedValue({
         user: { id: 'user-1', email: 'test@example.com', name: 'Test User', emailVerified: true },
         session: { id: 'session-1', expiresAt: new Date() },
-        token: 'original-auth-token-12345'
+        cookie: 'session=abc123'
       });
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
@@ -179,7 +179,7 @@ describe('PracticeContext Middleware Security Tests', () => {
   describe('URL Override Cannot Affect Authentication', () => {
     it('should use original request auth headers, not URL params, for authentication', async () => {
       const originalUserId = 'user-123';
-      const originalToken = 'Bearer valid-token-for-user-123';
+      const originalCookie = 'session=valid-session-for-user-123';
       
       // Note: We don't include auth-related params in URL as they are now rejected by security validation
       // This test verifies that practiceId from URL is safe (metadata only) and auth comes from headers
@@ -188,19 +188,19 @@ describe('PracticeContext Middleware Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': originalToken
+            'Cookie': originalCookie
           }
         }
       );
 
-      // Mock auth to return user-123 based on the Authorization header
+      // Mock auth to return user-123 based on the Cookie header
       vi.mocked(optionalAuth).mockImplementation(async (req) => {
-        const authHeader = req.headers.get('Authorization');
-        if (authHeader === originalToken) {
+        const cookieHeader = req.headers.get('Cookie');
+        if (cookieHeader === originalCookie) {
           return {
             user: { id: originalUserId, email: 'user123@example.com', name: 'User 123', emailVerified: true },
             session: { id: 'session-123', expiresAt: new Date() },
-            token: originalToken.replace('Bearer ', '')
+            cookie: originalCookie
           };
         }
         return null;
@@ -218,8 +218,8 @@ describe('PracticeContext Middleware Security Tests', () => {
       // The optionalAuth should have been called with the original request
       expect(optionalAuth).toHaveBeenCalledWith(request, mockEnv);
       
-      // Verify the request still has original auth header (preserved)
-      expect(requestWithContext.headers.get('Authorization')).toBe(originalToken);
+      // Verify the request still has original session cookie (preserved)
+      expect(requestWithContext.headers.get('Cookie')).toBe(originalCookie);
       
       // Verify user identity comes from auth, not URL
       if (requestWithContext.practiceContext && 'userId' in requestWithContext.practiceContext) {
@@ -233,7 +233,7 @@ describe('PracticeContext Middleware Security Tests', () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': 'Bearer valid-token'
+            'Cookie': 'session=valid-session'
           }
         }
       );
@@ -252,14 +252,14 @@ describe('PracticeContext Middleware Security Tests', () => {
       const request = new Request('https://example.com/api/test?practiceId=test-practice', {
         method: 'GET',
         headers: {
-          'Authorization': 'Bearer valid-token'
+          'Cookie': 'session=valid-session'
         }
       });
 
       const mockAuthContext = {
         user: { id: 'authenticated-user', email: 'auth@example.com', name: 'Auth User', emailVerified: true },
         session: { id: 'session-1', expiresAt: new Date() },
-        token: 'valid-token'
+        cookie: 'session=valid-session'
       };
 
       vi.mocked(optionalAuth).mockResolvedValue(mockAuthContext);
@@ -289,14 +289,14 @@ describe('PracticeContext Middleware Security Tests', () => {
       const request = new Request('https://example.com/api/test?practiceId=test-practice', {
         method: 'GET',
         headers: {
-          'Authorization': 'Bearer valid-token'
+          'Cookie': 'session=valid-session'
         }
       });
 
       vi.mocked(optionalAuth).mockResolvedValue({
         user: { id: 'user-1', email: 'test@example.com', name: 'Test', emailVerified: true },
         session: { id: 'session-1', expiresAt: new Date() },
-        token: 'valid-token'
+        cookie: 'session=valid-session'
       });
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
@@ -310,7 +310,7 @@ describe('PracticeContext Middleware Security Tests', () => {
 
       // But authentication must come from headers
       // This would be tested in integration tests with requireOrganizationMember
-      expect(requestWithContext.headers.get('Authorization')).toBe('Bearer valid-token');
+      expect(requestWithContext.headers.get('Cookie')).toBe('session=valid-session');
     });
   });
 });

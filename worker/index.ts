@@ -12,6 +12,7 @@ import {
   handleNotifications,
   handlePracticeDetails,
   handlePractices,
+  handleAuthProxy,
   handleIntakes,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
@@ -77,6 +78,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 
     if (path.startsWith('/api/intakes')) {
       response = await handleIntakes(request, env);
+    } else if (path.startsWith('/api/auth')) {
+      response = await handleAuthProxy(request, env);
     } else if (path.startsWith('/api/practices')) {
       response = await handlePractices(request, env);
     } else if (path.startsWith('/api/activity')) {

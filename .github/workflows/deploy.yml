@@ -66,11 +66,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate build env
+        run: |
+          if [[ -z "${VITE_BACKEND_API_URL:-}" ]]; then
+            echo "VITE_BACKEND_API_URL is required for build." >&2
+            exit 1
+          fi
+        env:
+          VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL }}
+
       - name: Build
         run: npm run build
         env:
-          VITE_AUTH_SERVER_URL: ${{ secrets.VITE_AUTH_SERVER_URL }}
-          VITE_REMOTE_API_URL: ${{ secrets.VITE_REMOTE_API_URL }}
+          VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL }}
 
       - name: Debug - list build output
         run: |

@@ -2,7 +2,6 @@ import { atom, onMount } from 'nanostores';
 import { useStore } from '@nanostores/preact';
 import { useCallback } from 'preact/hooks';
 import { getWorkerApiUrl } from '@/config/urls';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import type {
   NotificationCategory,
   NotificationItem,
@@ -120,16 +119,9 @@ const updateConversationUnreadCounts = (nextCounts: Record<string, number>) => {
   });
 };
 
-const getAuthHeaders = async (): Promise<Record<string, string>> => {
-  const token = await getTokenAsync();
-  if (!token) {
-    throw new Error('Authentication token not available');
-  }
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`
-  };
-};
+const getAuthHeaders = async (): Promise<Record<string, string>> => ({
+  'Content-Type': 'application/json'
+});
 
 const buildWorkerUrl = (path: string, params?: Record<string, string | number | boolean | undefined | null>) => {
   const url = new URL(`${getWorkerApiUrl()}${path}`);
@@ -526,7 +518,7 @@ onMount(notificationStore, () => {
     }
   };
 
-  const handleTokenUpdated = () => {
+  const handleSessionUpdated = () => {
     stopStream();
     countsRequested = false;
     initialLoadRequested.clear();
@@ -541,7 +533,7 @@ onMount(notificationStore, () => {
     void startStream();
   };
 
-  const handleTokenCleared = () => {
+  const handleSessionCleared = () => {
     stopStream();
   };
 
@@ -575,8 +567,8 @@ onMount(notificationStore, () => {
   if (typeof window !== 'undefined') {
     loadFromPath();
     window.addEventListener('popstate', loadFromPath);
-    window.addEventListener('auth:token-updated', handleTokenUpdated);
-    window.addEventListener('auth:token-cleared', handleTokenCleared);
+    window.addEventListener('auth:session-updated', handleSessionUpdated);
+    window.addEventListener('auth:session-cleared', handleSessionCleared);
     window.addEventListener('notifications:system', handleSystemNotification);
   }
 
@@ -586,8 +578,8 @@ onMount(notificationStore, () => {
     countsRequested = false;
     if (typeof window !== 'undefined') {
       window.removeEventListener('popstate', loadFromPath);
-      window.removeEventListener('auth:token-updated', handleTokenUpdated);
-      window.removeEventListener('auth:token-cleared', handleTokenCleared);
+      window.removeEventListener('auth:session-updated', handleSessionUpdated);
+      window.removeEventListener('auth:session-cleared', handleSessionCleared);
       window.removeEventListener('notifications:system', handleSystemNotification);
     }
   };

@@ -72,10 +72,16 @@ type LocaleIndexModule = {
   practice: LocaleResourceBundle;
 };
 
-// Create typed loader maps for Vite static analysis
-const localeIndexLoaders = import.meta.glob('../../locales/*/index.ts') as Record<string, () => Promise<LocaleIndexModule>>;
+// Create typed loader maps for Vite static analysis (exclude default locale to avoid duplicate imports)
+const localeIndexLoaders = import.meta.glob([
+  '../../locales/*/index.ts',
+  '!../../locales/en/index.ts'
+]) as Record<string, () => Promise<LocaleIndexModule>>;
 
-const localeJsonLoaders = import.meta.glob('../../locales/*/*.json') as Record<string, () => Promise<{ default: LocaleResourceBundle }>>;
+const localeJsonLoaders = import.meta.glob([
+  '../../locales/*/*.json',
+  '!../../locales/en/*.json'
+]) as Record<string, () => Promise<{ default: LocaleResourceBundle }>>;
 
 const STORAGE_KEY = 'blawby_locale';
 let initialized = false;

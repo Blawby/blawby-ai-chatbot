@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
-import { getPracticeWorkspaceEndpoint, getRemoteApiUrl } from '@/config/api';
+import { getPracticeWorkspaceEndpoint } from '@/config/api';
+import { getBackendApiUrl } from '@/config/urls';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import {
   listPractices,
   createPractice as apiCreatePractice,
@@ -588,12 +588,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const token = await getTokenAsync();
       const headers = new Headers(options.headers || {});
       headers.set('Content-Type', 'application/json');
-      if (token && !headers.has('Authorization')) {
-        headers.set('Authorization', `Bearer ${token}`);
-      }
 
       const response = await fetch(url, {
         ...options,
@@ -798,7 +794,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     // Skip on staging due to backend routing bug (shadowed endpoint)
     // The endpoint /api/practice/invitations is shadowed by /api/practice/:uuid
-    if (getRemoteApiUrl().includes('staging')) {
+    if (getBackendApiUrl().includes('staging')) {
       console.debug('Skipping fetchInvitations on staging due to known backend routing bug');
       return;
     }

@@ -13,7 +13,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   globalSetup: './tests/e2e/global-setup.ts',
   reporter: [
-    ['html', { outputFolder: './playwright/reports' }],
+    ['html', { outputFolder: './playwright/reports', open: 'never' }],
     ['list']
   ],
   // dev:full is started manually for E2E runs

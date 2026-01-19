@@ -264,7 +264,7 @@ const AuthForm = ({
       storePostAuthRedirect();
 
       // callbackURL tells Better Auth where to redirect after OAuth completes
-      // With Bearer token auth, the token will be in the Set-Auth-Token header
+      // Better Auth will set the session cookie on redirect.
       const callbackURL = defaultPostAuthPath();
       const result = await client.signIn.social({
         provider: 'google',

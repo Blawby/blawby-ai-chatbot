@@ -53,14 +53,14 @@ The frontend talks to **two different APIs**:
 
 ## Current Configuration
 
-Use `src/config/urls.ts` as the single source of truth for URL routing and fallbacks.
+Use `src/config/urls.ts` as the single source of truth for URL routing and validation.
 
 Frontend environment variables:
 - `VITE_WORKER_API_URL` (optional): Worker base URL (no `/api` suffix).
-- `VITE_BACKEND_API_URL` (required in production): Remote backend base URL.
+- `VITE_BACKEND_API_URL` (required): Remote backend base URL.
 
 Worker environment variables:
-- `REMOTE_API_URL`: Remote backend base URL used by the Worker (must match frontend backend base).
+- `BACKEND_API_URL`: Remote backend base URL used by the Worker (must match frontend backend base).
 
 Routing rules:
 - Worker handles `/api/*` endpoints for chat, conversations, inbox, notifications, files, PDFs, and intake-related worker routes.
@@ -70,7 +70,7 @@ Routing rules:
 
 - Keep all URL logic centralized in `src/config/urls.ts`.
 - Use only `VITE_WORKER_API_URL` (worker base, no `/api` suffix) and `VITE_BACKEND_API_URL` (remote backend base) in frontend configuration.
-- Ensure worker `REMOTE_API_URL` matches the frontend backend base URL.
+- Ensure worker `BACKEND_API_URL` matches the frontend backend base URL.
 
 ---
 
@@ -78,7 +78,7 @@ Routing rules:
 
 - [ ] Keep `.env.example`, `README.md`, and `AGENTS.md` aligned with current env vars.
 - [ ] Confirm Cloudflare Pages env vars: `VITE_BACKEND_API_URL`, `VITE_WORKER_API_URL` (optional), `VITE_APP_BASE_URL`.
-- [ ] Confirm Worker env var `REMOTE_API_URL` matches the backend base URL.
+- [ ] Confirm Worker env var `BACKEND_API_URL` matches the backend base URL.
 
 ---
 
@@ -87,7 +87,7 @@ Routing rules:
 When working on this codebase:
 
 1. **URL Configuration**: All logic is in `src/config/urls.ts`
-2. **Two APIs**: Worker (localhost:8787) and Backend (staging-api.blawby.com)
+2. **Two APIs**: Worker (localhost:8787 in dev) and Backend (configured via `VITE_BACKEND_API_URL`)
 3. **Auth endpoints**: Use `getBackendApiUrl()` 
 4. **Chat endpoints**: Use `getWorkerApiUrl()`
 5. **Environment vars**: See `.env.example` for all options

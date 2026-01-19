@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { getConversationsEndpoint, getConversationParticipantsEndpoint } from '@/config/api';
 import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
 import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
@@ -86,21 +85,8 @@ export function useConversations({
     setError(null);
 
     try {
-      const token = await getTokenAsync();
-
-      if (!token) {
-        const errorMessage = 'Authentication required - please sign in';
-        if (!isDisposedRef.current) {
-          setError(errorMessage);
-          onErrorRef.current?.(errorMessage);
-          setIsLoading(false);
-        }
-        return;
-      }
-
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Content-Type': 'application/json'
       };
 
       const params = new URLSearchParams();
@@ -239,9 +225,7 @@ export function useConversations({
     }
 
     try {
-      const token = await getTokenAsync();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
 
       const response = await fetch(getConversationParticipantsEndpoint(conversationId), {
         method: 'POST',

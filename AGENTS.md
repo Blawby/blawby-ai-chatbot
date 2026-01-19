@@ -21,5 +21,5 @@ Frontend (local dev): .env in repo root for VITE_* vars. Production: Cloudflare 
 - Backend API base: VITE_BACKEND_API_URL (required in production); dev fallback to https://staging-api.blawby.com unless VITE_ENABLE_MSW=true.
 - Frontend host validation uses VITE_APP_BASE_URL / VITE_PUBLIC_APP_URL / VITE_APP_URL when window.location is unavailable.
 Worker (local dev): worker/.dev.vars for secrets (see dev.vars.example). Worker non-secrets live in worker/wrangler.toml [env.*.vars].
-- REMOTE_API_URL determines which remote backend the worker calls (RemoteApiService); defaults to https://staging-api.blawby.com if unset.
+- BACKEND_API_URL determines which remote backend the worker calls (RemoteApiService); must be set explicitly.
 - Production worker route: ai.blawby.com/api/* (worker/wrangler.toml).

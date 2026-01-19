@@ -16,7 +16,7 @@ import { config } from 'dotenv';
 import { resolve } from 'path';
 
 // Load environment variables
-config({ path: resolve(process.cwd(), '.dev.vars') });
+config({ path: resolve(process.cwd(), 'worker', '.dev.vars') });
 
 interface ValidationResult {
   success: boolean;
@@ -144,7 +144,7 @@ async function main() {
     console.log('❌ Validation FAILED - External API is not available or misconfigured.');
     console.log('   DO NOT proceed with the migration until the API is validated.');
     console.log('\n   Troubleshooting:');
-    console.log('   1. Check that LAWYER_SEARCH_API_KEY is set in .dev.vars');
+    console.log('   1. Check that LAWYER_SEARCH_API_KEY is set in worker/.dev.vars');
     console.log('   2. Verify the API URL is correct');
     console.log('   3. Test the API manually: curl -H "Authorization: Bearer $LAWYER_SEARCH_API_KEY" https://search.blawby.com/lawyers?state=ca&limit=1');
     console.log('   4. Check network connectivity\n');

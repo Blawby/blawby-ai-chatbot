@@ -8,7 +8,7 @@ Non-secret config (managed in `worker/wrangler.toml`):
 - `CF_AIG_GATEWAY_NAME`
 - `AI_PROVIDER` (optional: `cloudflare_gateway` or `openai_direct`)
 
-Secrets (set via Wrangler or local `.dev.vars`):
+Secrets (set via Wrangler or local `worker/.dev.vars`):
 
 - `CF_AIG_TOKEN` (Cloudflare AI Gateway auth token)
 - `OPENAI_TOKEN` (OpenAI-compatible token forwarded to the provider)

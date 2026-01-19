@@ -1,4 +1,3 @@
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import type { Conversation, ConversationMetadata } from '@/shared/types/conversation';
 
 export const updateConversationMetadata = async (
@@ -6,13 +5,9 @@ export const updateConversationMetadata = async (
   practiceId: string,
   metadata: ConversationMetadata
 ): Promise<Conversation | null> => {
-  const token = await getTokenAsync();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
@@ -39,13 +34,9 @@ export const logConversationEvent = async (
   eventType: string,
   payload?: Record<string, unknown>
 ): Promise<void> => {
-  const token = await getTokenAsync();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/audit?practiceId=${encodeURIComponent(practiceId)}`,

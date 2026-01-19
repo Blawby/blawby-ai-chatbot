@@ -55,7 +55,7 @@ function validateNoAuthQueryParams(url: URL): void {
     if (url.searchParams.has(param)) {
       throw HttpErrors.badRequest(
         `Security violation: Auth-related query parameter '${param}' is not allowed. ` +
-        'Authentication must be provided via Authorization header or cookies only.'
+        'Authentication must be provided via session cookies only.'
       );
     }
   }

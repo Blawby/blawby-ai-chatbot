@@ -32,7 +32,7 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 - ❌ Pure utility functions (use unit tests)
 
 **Setup Requirements**:
-- `BETTER_AUTH_SECRET` must be set in `.dev.vars` (minimum 32 characters)
+- `BETTER_AUTH_SECRET` must be set in `worker/.dev.vars` (minimum 32 characters)
 - Worker must be running on `http://localhost:8787`
 - Frontend must be running on `http://localhost:5173`
 
@@ -41,58 +41,43 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 - Use `credentials: 'include'` in fetch calls to ensure cookies are sent
 - Include `Content-Type: application/json` header for POST requests to Better Auth
 - Use `waitForSessionState` helper to poll for async session changes
-- For Bearer token tests, test token storage in IndexedDB and automatic inclusion in headers
+- For session cookie tests, verify cookies via Playwright context and request headers
 
-### Testing Better Auth Client & API Configuration
+### Testing Better Auth Client & Session Configuration
 
-**Purpose**: Test the new Bearer token authentication and automatic API client setup
+**Purpose**: Test session cookie authentication and API client setup
 
-**Location**: `tests/e2e/auth-client.test.ts`
+**Location**: `tests/e2e/auth-modes.spec.ts`
 
-**Environment**: Playwright with IndexedDB access
+**Environment**: Playwright with cookie access
 
 **What to test**:
-- ✅ Token storage in IndexedDB after successful authentication
-- ✅ Automatic Bearer token inclusion in API requests via axios interceptors
-- ✅ Token retrieval and refresh mechanisms
-- ✅ Organization switching with token updates
+- ✅ Session cookie set after successful authentication
+- ✅ Automatic session cookie inclusion in API requests via axios interceptors
+- ✅ Session refresh/rotation behavior
+- ✅ Organization switching with session updates
 - ✅ Session management with `useSession()` hook
-- ✅ Error handling for expired/invalid tokens
+- ✅ Error handling for expired/invalid sessions
 
 **Key Patterns**:
 ```typescript
-// Test token storage in IndexedDB
-test('auth token is stored in IndexedDB after login', async ({ page }) => {
+// Test session cookie presence
+test('session cookie is set after login', async ({ page, context }) => {
   await page.goto('/auth');
   // ... login actions
   
-  // Verify token in IndexedDB
-  const token = await page.evaluate(async () => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('blawby_auth');
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    
-    const token = await new Promise((resolve) => {
-      const transaction = db.transaction(['tokens'], 'readonly');
-      const store = transaction.objectStore('tokens');
-      const request = store.get('bearer_token');
-      request.onsuccess = () => resolve(request.result);
-    });
-    
-    return token;
-  });
-  
-  expect(token).toBeTruthy();
+  // Verify session cookie via Playwright context
+  const cookies = await context.cookies();
+  const sessionCookie = cookies.find(cookie => cookie.name === 'better-auth.session_token');
+  expect(sessionCookie).toBeTruthy();
 });
 
-// Test automatic Bearer token inclusion
-test('API calls include Bearer token automatically', async ({ page }) => {
+// Test automatic session cookie inclusion
+test('API calls include session cookies automatically', async ({ page }) => {
   await page.goto('/auth');
   // ... login actions
   
-  // Capture outgoing request and verify Authorization header
+  // Capture outgoing request and verify cookie header
   let capturedRequest: Request | undefined;
   page.on('request', request => {
     if (request.url().includes('/api/practice/list')) {
@@ -103,16 +88,17 @@ test('API calls include Bearer token automatically', async ({ page }) => {
   // Trigger API call
   await page.evaluate(async () => {
     await fetch('/api/practice/list', {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
     });
   });
   
   // Wait for request to be captured
   await page.waitForTimeout(100);
   
-  // Verify the Authorization header on the outgoing request
+  // Verify the Cookie header on the outgoing request
   expect(capturedRequest).toBeDefined();
-  expect(capturedRequest?.headers()['authorization']).toMatch(/^Bearer /);
+  expect(capturedRequest?.headers()['cookie']).toContain('better-auth.session_token=');
 });
 ```
 
@@ -173,7 +159,7 @@ test('requireFeature blocks request when quota exceeded', async () => {
   const response = await handleRequest(
     new Request('http://localhost/api/messages/send', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer test-token' },
+      headers: { 'Cookie': 'better-auth.session_token=mock-session' },
       body: JSON.stringify({ message: 'test' })
     }),
     env,
@@ -345,9 +331,9 @@ test('signup form validates email', async () => {
 
 ### Required Configuration
 
-1. **Better Auth Secret**: E2E tests require `BETTER_AUTH_SECRET` in `.dev.vars`:
+1. **Better Auth Secret**: E2E tests require `BETTER_AUTH_SECRET` in `worker/.dev.vars`:
    ```bash
-   # .dev.vars (required for D1 adapter, minimum 32 characters)
+   # worker/.dev.vars (required for D1 adapter, minimum 32 characters)
    BETTER_AUTH_SECRET=your-secret-key-here-minimum-32-characters
    BETTER_AUTH_URL=http://localhost:8787
    ```
@@ -497,7 +483,7 @@ Add unit tests for:
 **Solutions**:
 1. Ensure `wrangler dev` is running on `http://localhost:8787`
 2. Ensure frontend dev server is running on `http://localhost:5173`
-3. Check `.dev.vars` contains `BETTER_AUTH_SECRET` (32+ characters)
+3. Check `worker/.dev.vars` contains `BETTER_AUTH_SECRET` (32+ characters)
 4. Verify worker health: `curl http://localhost:8787/health`
 
 ### Integration Tests Failing

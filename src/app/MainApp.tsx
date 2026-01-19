@@ -15,7 +15,6 @@ import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
 import { getConversationsEndpoint } from '@/config/api';
-import { getTokenAsync } from '@/shared/lib/tokenStorage';
 import { useNavigation } from '@/shared/utils/navigation';
 import PricingModal from '@/features/modals/components/PricingModal';
 import WelcomeModal from '@/features/modals/components/WelcomeModal';
@@ -287,17 +286,9 @@ export function MainApp({
     try {
       setIsCreatingConversation(true);
 
-      const token = await getTokenAsync();
-
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      } else {
-        console.error('[createConversation] No token available - conversation creation will fail');
-        throw new Error('Authentication token not available');
-      }
       const url = `${getConversationsEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`;
 
       const response = await fetch(url, {

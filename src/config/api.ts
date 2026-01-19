@@ -4,24 +4,8 @@
 
 import { getWorkerApiUrl, getBackendApiUrl } from './urls';
 
-/**
- * Get the base URL for Worker API requests
- * @deprecated Use getWorkerApiUrl() from '@/config/urls' directly
- */
-function getBaseUrl(): string {
-  return getWorkerApiUrl();
-}
-
-/**
- * Get the base URL for backend API requests
- * @deprecated Use getBackendApiUrl() from '@/config/urls' directly
- */
-export function getRemoteApiUrl(): string {
-  return getBackendApiUrl();
-}
-
 const API_CONFIG = {
-  baseUrl: getBaseUrl(),
+  baseUrl: getWorkerApiUrl(),
   chatEndpoint: '/api/chat',
   practicesEndpoint: '/api/practices',
   healthEndpoint: '/api/health',
@@ -37,9 +21,9 @@ export const getChatEndpoint = () => {
   return `${config.baseUrl}${config.chatEndpoint}`;
 };
 
-// Forms share the same remote API base as auth/backend.
+// Forms share the same backend API base as auth.
 export const getFormsApiUrl = () => {
-  return getRemoteApiUrl();
+  return getBackendApiUrl();
 };
 
 export const getFormsEndpoint = () => {
@@ -80,24 +64,24 @@ export const getMatterCreationEndpoint = () => {
 
 // Subscription endpoints - now handled by remote API
 export const getSubscriptionBillingPortalEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/auth/subscription/billing-portal`;
+  return `${getBackendApiUrl()}/api/auth/subscription/billing-portal`;
 };
 
 export const getSubscriptionCancelEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/subscription/cancel`;
+  return `${getBackendApiUrl()}/api/subscription/cancel`;
 };
 
 export const getSubscriptionListEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/auth/subscription/list`;
+  return `${getBackendApiUrl()}/api/auth/subscription/list`;
 };
 
 // Practice management endpoints - now handled by remote API
 export const getPracticesManagementEndpoint = () => {
-  return `${getRemoteApiUrl()}/api/practices`;
+  return `${getBackendApiUrl()}/api/practices`;
 };
 
 export const getPracticeManagementEndpoint = (practiceId: string) => {
-  return `${getRemoteApiUrl()}/api/practices/${encodeURIComponent(practiceId)}`;
+  return `${getBackendApiUrl()}/api/practices/${encodeURIComponent(practiceId)}`;
 };
 
 export const getPracticeWorkspaceEndpoint = (practiceId: string, resource: string) => {
@@ -137,7 +121,7 @@ export const getConversationParticipantsEndpoint = (conversationId: string) => {
 };
 
 export const getConversationLinkEndpoint = (conversationId: string) => {
-  return `${getRemoteApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/link`;
+  return `${getBackendApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/link`;
 };
 
 // Chat message endpoints - handled by local worker
