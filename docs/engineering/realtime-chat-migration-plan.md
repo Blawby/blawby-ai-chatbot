@@ -77,9 +77,6 @@ All WS frames are JSON objects with `{ type, data }`.
   - Optional: `attachments` (array of uploaded file ids), `metadata`
   - Recommended: set `request_id` to correlate with `message.ack`.
   - Example: `{ type: "message.send", data: { conversation_id, client_id, content, attachments: [] } }`
-- `ping`
-  - Optional app-level heartbeat: `{ type: "ping", data: { ts } }`
-  - `ts` is opaque/echoed only; server does not trust it for timeouts.
 - `typing.start` / `typing.stop`
   - Required: `conversation_id`
 - `read.update`
@@ -103,8 +100,6 @@ All WS frames are JSON objects with `{ type, data }`.
   - For user-to-user chat, `role` must be `user`; `system` is server-generated only.
   - Optional: `attachments`, `metadata`
   - Sender also receives `message.new`; clients reconcile using `client_id` and `message_id`.
-- `pong`
-  - Optional app-level heartbeat response: `{ type: "pong", data: { ts } }`
 - `typing`
   - Required: `conversation_id`, `user_id`, `is_typing`
 - `presence`
@@ -165,9 +160,9 @@ All WS frames are JSON objects with `{ type, data }`.
 ### Presence/Typing Semantics
 - Presence is derived from active WS connections in the room.
 - Maintain per-user connection counts; emit presence only on 0->1 and 1->0 transitions.
-- Server emits presence on connect/disconnect and applies a heartbeat timeout for stale sockets.
-- Prefer Hibernatable WebSockets auto-response or protocol-level ping to avoid waking idle DOs.
-- Client ping interval: 25s. Server timeout: close if no ping in 60s.
+- Server emits presence on connect/disconnect and closes idle sockets per policy.
+- Do not use app-level ping/pong frames; rely on protocol-level ping or auto-response if needed.
+- No app-level ping interval; close idle sockets per policy.
 - Server should not initiate periodic pings (hibernation-safe).
 - Typing events are ephemeral, rate-limited, and coalesced; server can auto-stop after a short TTL.
 
@@ -346,7 +341,7 @@ All WS frames are JSON objects with `{ type, data }`.
 - `4401` missing negotiation frame.
 - `4403` membership revoked or forbidden.
 - `4408` negotiation timeout.
-- `4410` heartbeat timeout.
+- `4410` idle timeout.
 - `4429` rate limit exceeded.
 - `4500` internal error.
 - Standard WS close codes (1000/1008/1011) may be used by the platform; clients must handle both.
