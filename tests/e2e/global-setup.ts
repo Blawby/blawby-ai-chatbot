@@ -40,7 +40,8 @@ const cookieMatchesHost = (cookieDomain: string | undefined, host: string): bool
   const normalized = cookieDomain.toLowerCase();
   const target = host.toLowerCase();
   if (normalized.startsWith('.')) {
-    return target.endsWith(normalized.slice(1));
+    const suffix = normalized.slice(1);
+    return target === suffix || target.endsWith(normalized);
   }
   return normalized === target;
 };

@@ -227,11 +227,7 @@ export class NotificationHub {
       if (!attachment?.negotiated) {
         continue;
       }
-      try {
-        this.sendFrame(socket, 'notification.new', payload);
-      } catch {
-        this.closeSocket(socket, 4500, 'internal_error');
-      }
+      this.sendFrame(socket, 'notification.new', payload);
     }
 
     return new Response(JSON.stringify({ success: true }), {

@@ -69,6 +69,7 @@
     "react-markdown": "^10.1.0",
     "stripe": "^18.0.0",
     "ulid": "^3.0.1",
+    "tldts": "^7.0.9",
     "zod": "^4.1.11"
   },
   "devDependencies": {

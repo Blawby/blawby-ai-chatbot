@@ -492,6 +492,7 @@ const startStream = async () => {
   setStreamStatus('connecting');
 
   let ws: WebSocket;
+  let authTimeout: ReturnType<typeof setTimeout> | null = null;
   try {
     ws = new WebSocket(buildNotificationsWsUrl());
   } catch (error) {
@@ -513,6 +514,12 @@ const startStream = async () => {
         client_info: { platform: 'web' }
       }
     }));
+    authTimeout = setTimeout(() => {
+      if (import.meta.env.DEV) {
+        console.warn('[Notifications] Auth timeout');
+      }
+      ws.close();
+    }, 10000);
   });
 
   ws.addEventListener('message', (event) => {
@@ -523,10 +530,18 @@ const startStream = async () => {
         data?: unknown;
       };
       if (frame.type === 'auth.ok') {
+        if (authTimeout) {
+          clearTimeout(authTimeout);
+          authTimeout = null;
+        }
         setStreamStatus('connected');
         return;
       }
       if (frame.type === 'auth.error') {
+        if (authTimeout) {
+          clearTimeout(authTimeout);
+          authTimeout = null;
+        }
         authFailed = true;
         setStreamStatus('error');
         ws.close();
@@ -549,6 +564,10 @@ const startStream = async () => {
   });
 
   ws.addEventListener('close', () => {
+    if (authTimeout) {
+      clearTimeout(authTimeout);
+      authTimeout = null;
+    }
     const wasActive = streamActive;
     streamActive = false;
     if (streamSocket === ws) {

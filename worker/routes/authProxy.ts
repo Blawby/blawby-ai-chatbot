@@ -1,5 +1,6 @@
 import type { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
+import { getDomain } from 'tldts';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 
@@ -7,11 +8,8 @@ const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 
 const getBaseDomain = (host: string): string | null => {
   const hostname = host.split(':')[0].toLowerCase();
-  const parts = hostname.split('.').filter(Boolean);
-  if (parts.length < 2) {
-    return null;
-  }
-  return parts.slice(-2).join('.');
+  const domain = getDomain(hostname);
+  return domain ?? null;
 };
 
 const normalizeCookieDomain = (value: string, requestHost: string): string => {
