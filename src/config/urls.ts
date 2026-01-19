@@ -41,6 +41,32 @@
 import { isDevelopment } from '@/shared/utils/environment';
 
 /**
+ * Get base URL for the frontend application.
+ *
+ * Priority:
+ * 1. Browser: window.location.origin
+ * 2. SSR/Build: VITE_APP_BASE_URL
+ *
+ * @returns The base URL for the frontend
+ * @throws {Error} If the frontend base URL cannot be determined
+ */
+export function getFrontendBaseUrl(): string {
+	if (typeof window !== 'undefined' && window.location?.origin) {
+		return window.location.origin;
+	}
+
+	const explicit = import.meta.env.VITE_APP_BASE_URL;
+	if (explicit) {
+		return explicit;
+	}
+
+	throw new Error(
+		'Frontend base URL could not be determined. ' +
+		'Set VITE_APP_BASE_URL or ensure window.location is available.'
+	);
+}
+
+/**
  * Get URL for Cloudflare Worker API
  * 
  * This is the Worker that handles chat, conversations, inbox, files, etc.
@@ -50,7 +76,7 @@ import { isDevelopment } from '@/shared/utils/environment';
  * 1. VITE_WORKER_API_URL (primary override)
  * 2. Browser: window.location.origin (same as frontend)
  * 3. Development: http://localhost:8787
- * 4. SSR/Build: VITE_APP_BASE_URL / VITE_PUBLIC_APP_URL / VITE_APP_URL (required)
+ * 4. SSR/Build: VITE_APP_BASE_URL (required)
  *
  * NOTE: Base URL should NOT include `/api`. If it does, we normalize it away.
  * 
@@ -67,25 +93,13 @@ export function getWorkerApiUrl(): string {
 		baseUrl = import.meta.env.VITE_WORKER_API_URL;
 	} else if (typeof window !== 'undefined' && window.location?.origin) {
 		// Browser: same-origin to support session cookies.
-		baseUrl = window.location.origin;
+		baseUrl = getFrontendBaseUrl();
 	} else if (isDevelopment()) {
 		// Development: use localhost
 		baseUrl = 'http://localhost:8787';
 	} else {
 		// SSR/Build: require explicit frontend base URL
-		const explicit =
-			import.meta.env.VITE_APP_BASE_URL ||
-			import.meta.env.VITE_PUBLIC_APP_URL ||
-			import.meta.env.VITE_APP_URL;
-
-		if (!explicit) {
-			throw new Error(
-				'Worker base URL could not be determined. ' +
-				'Set VITE_WORKER_API_URL or VITE_APP_BASE_URL for SSR/build contexts.'
-			);
-		}
-
-		baseUrl = explicit;
+		baseUrl = getFrontendBaseUrl();
 	}
 
 	return normalizeWorkerBaseUrl(baseUrl);
@@ -149,33 +163,12 @@ export function getBackendHost(): string {
  * @throws {Error} If frontend URL cannot be determined
  */
 export function getFrontendHost(): string {
-	if (typeof window !== 'undefined' && window.location?.origin) {
-		try {
-			return new URL(window.location.origin).host;
-		} catch {
-			// Should not happen
-			throw new Error(`Invalid frontend origin: ${window.location.origin}`);
-		}
+	const baseUrl = getFrontendBaseUrl();
+	try {
+		return new URL(baseUrl).host;
+	} catch {
+		throw new Error(`Invalid frontend URL from env: ${baseUrl}`);
 	}
-
-	// Try explicit env vars
-	const explicit =
-		import.meta.env.VITE_APP_BASE_URL ||
-		import.meta.env.VITE_PUBLIC_APP_URL ||
-		import.meta.env.VITE_APP_URL;
-
-	if (explicit) {
-		try {
-			return new URL(explicit).host;
-		} catch {
-			throw new Error(`Invalid frontend URL from env: ${explicit}`);
-		}
-	}
-
-	throw new Error(
-		'Frontend host could not be determined. ' +
-		'Set VITE_APP_BASE_URL or ensure window.location is available.'
-	);
 }
 
 /**

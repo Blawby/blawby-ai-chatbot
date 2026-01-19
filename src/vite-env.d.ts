@@ -26,8 +26,6 @@ interface ImportMetaEnv {
 
   // Frontend base URL (for SSR/fallback scenarios)
   readonly VITE_APP_BASE_URL?: string;
-  readonly VITE_PUBLIC_APP_URL?: string;
-  readonly VITE_APP_URL?: string;
 
   readonly [key: string]: string | undefined;
 }
