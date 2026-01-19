@@ -112,6 +112,9 @@ All WS frames are JSON objects with `{ type, data }`.
   - Optional: `last_seen`
   - `status` allowed values: `online` | `offline`.
   - Disconnect emits `status=offline` with `last_seen = server_ts` only on offline events.
+- `membership.changed`
+  - Required: `conversation_id`, `membership_version`
+  - Clients should re-fetch membership or reconnect; server may close sockets for removed users.
 - `read`
   - Required: `conversation_id`, `user_id`, `last_read_seq`
 - `error`
@@ -163,7 +166,7 @@ All WS frames are JSON objects with `{ type, data }`.
 - Presence is derived from active WS connections in the room.
 - Maintain per-user connection counts; emit presence only on 0->1 and 1->0 transitions.
 - Server emits presence on connect/disconnect and applies a heartbeat timeout for stale sockets.
-- Heartbeat is app-level `ping`/`pong`; client initiates, server responds; close on timeout with `4410`.
+- Prefer Hibernatable WebSockets auto-response or protocol-level ping to avoid waking idle DOs.
 - Client ping interval: 25s. Server timeout: close if no ping in 60s.
 - Server should not initiate periodic pings (hibernation-safe).
 - Typing events are ephemeral, rate-limited, and coalesced; server can auto-stop after a short TTL.
@@ -219,11 +222,13 @@ All WS frames are JSON objects with `{ type, data }`.
     - Hashes are computed from normalized content and stable-ordered attachments.
     - If a pending record exists with mismatched hashes, close with `4400`.
     - Allocate `seq` in DO (durable storage counter) only for new inserts.
-    - Persist pending record + allocated seq in the same DO storage transaction before D1 writes.
+    - Persist pending record + allocated seq in a single DO storage transaction before D1 writes.
+      - Use `state.storage.transaction()` (or coalesced writes with no `await`) so counter + pending record updates are atomic across keys.
+      - If needed, store the pending record (including `allocated_seq`) as a single compound value under a single key.
     - Attempt insert with `(conversation_id, client_id)` unique constraint (authoritative):
       - On conflict, fetch existing row and return idempotent `message.ack`.
     - Pre-checks are optional optimizations only; do not rely on them for correctness.
-    - Persist in a single D1 transaction: insert message + update `conversations.latest_seq`.
+    - Persist in a single D1 transaction: insert message + update `conversations.latest_seq` (use `DB.batch()` so both statements commit/rollback together).
     - Assign `message_id`, `seq`, `server_ts`.
     - Broadcast after commit to avoid ghost messages.
     - Enforce uniqueness in D1 on `(conversation_id, client_id)`.
@@ -276,10 +281,13 @@ All WS frames are JSON objects with `{ type, data }`.
   - Triggered by the membership update handler.
   - Send a direct DO stub `fetch` to `ChatRoom` with `{ conversation_id, removed_user_id, membership_version }`.
   - DO closes sockets for removed_user_id and updates cached membership_version.
-  - On failure, retry via queue or log and rely on version revalidation.
+  - On failure, enqueue to dedicated `membership_revocation` queue with max 3 retries (1s, 5s, 15s backoff).
+  - After retries exhausted, broadcast `membership.changed` to all room connections to force revalidation.
+  - Target SLA: removed users disconnected within 30 seconds.
 - Track `membership_version` per conversation; cache in DO and revalidate on mismatch.
   - On any incoming frame: if cached version != current (from D1 or internal event), re-check membership.
   - If removed, close with `4403`; if still member, update cached version.
+  - Cache `membership_version` with max TTL of 5 minutes; revalidate on expiry regardless of incoming frames.
 - Add rate limits per connection (and optionally per user):
   - `message.send`: 5 per 10s per connection.
   - `typing`: 20 per 10s per connection.
@@ -348,6 +356,16 @@ All WS frames are JSON objects with `{ type, data }`.
   - `negotiation_invalid` or `protocol_version_unsupported`: send `auth.error`, then close `4400`.
   - Missing negotiation frame: close `4401`.
   - Negotiation timeout: close `4408`.
+
+## Cloudflare References
+- DO WebSockets + Hibernation guidance: https://developers.cloudflare.com/durable-objects/best-practices/websockets/
+- Hibernation API (acceptWebSocket, auto-response): https://developers.cloudflare.com/durable-objects/api/state/
+- DO WebSocket examples:
+  - https://developers.cloudflare.com/durable-objects/examples/websocket-server/
+  - https://developers.cloudflare.com/durable-objects/examples/websocket-hibernation-server/
+- DO examples index: https://developers.cloudflare.com/durable-objects/examples/
+- Chat tutorial (DO per room, WS fanout, durable history): https://developers.cloudflare.com/workers/tutorials/deploy-a-realtime-chat-app/
+- Workers WebSockets guidance (DOs as single coordination point): https://developers.cloudflare.com/workers/examples/websockets/
 
 ## Definition of Done
 - No polling intervals for chat or notifications in the app.
