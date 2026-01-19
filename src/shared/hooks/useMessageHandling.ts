@@ -445,6 +445,13 @@ export const useMessageHandling = ({
     let attempt = 0;
 
     while (nextSeq !== null && nextSeq <= targetLatest) {
+      if (
+        isDisposedRef.current ||
+        conversationIdRef.current !== activeConversationId ||
+        practiceIdRef.current !== activePracticeId
+      ) {
+        return;
+      }
       try {
         const params = new URLSearchParams({
           conversationId: activeConversationId,
@@ -477,6 +484,14 @@ export const useMessageHandling = ({
           throw new Error(data.error || 'Failed to fetch message gap');
         }
 
+        if (
+          isDisposedRef.current ||
+          conversationIdRef.current !== activeConversationId ||
+          practiceIdRef.current !== activePracticeId
+        ) {
+          return;
+        }
+
         applyServerMessages(data.data.messages ?? []);
         if (typeof data.data.latest_seq === 'number') {
           targetLatest = data.data.latest_seq;
@@ -488,6 +503,7 @@ export const useMessageHandling = ({
         if (attempt >= 3) {
           const message = error instanceof Error ? error.message : 'Failed to recover message gap';
           onError?.(message);
+          isClosingSocketRef.current = true;
           wsRef.current?.close();
           return;
         }
@@ -605,7 +621,11 @@ export const useMessageHandling = ({
           const fromSeq = Number(frame.data.from_seq);
           const latestSeq = Number(frame.data.latest_seq);
           if (Number.isFinite(fromSeq) && Number.isFinite(latestSeq)) {
-            void fetchGapMessages(fromSeq, latestSeq);
+            fetchGapMessages(fromSeq, latestSeq).catch((error) => {
+              if (import.meta.env.DEV) {
+                console.warn('[ChatRoom] Gap fetch failed', error);
+              }
+            });
           }
           return;
         }

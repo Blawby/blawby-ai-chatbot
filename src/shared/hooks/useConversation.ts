@@ -841,7 +841,7 @@ export function useConversation({
         error?: string;
         data?: {
           messages: ConversationMessage[];
-          hasMore: boolean;
+          hasMore?: boolean;
           cursor?: string | null;
         };
       };
@@ -859,16 +859,22 @@ export function useConversation({
           });
           data.data.messages.forEach((msg) => {
             messageIdSetRef.current.add(msg.id);
-            lastSeqRef.current = Math.max(lastSeqRef.current, msg.seq);
+            const seqValue = typeof msg.seq === 'number' ? msg.seq : Number(msg.seq);
+            if (Number.isFinite(seqValue)) {
+              lastSeqRef.current = Math.max(lastSeqRef.current, seqValue);
+            }
           });
         } else {
           messageIdSetRef.current = new Set(data.data.messages.map((msg) => msg.id));
-          lastSeqRef.current = data.data.messages.reduce((max, msg) => Math.max(max, msg.seq), 0);
+          lastSeqRef.current = data.data.messages.reduce(
+            (max, msg) => Math.max(max, msg.seq ?? 0),
+            0
+          );
           setMessages(uiMessages);
           sendReadUpdate(lastSeqRef.current);
         }
 
-        setHasMore(data.data.hasMore);
+        setHasMore(Boolean(data.data.hasMore));
         setNextCursor(data.data.cursor ?? null);
         setError(null);
       }

@@ -794,7 +794,11 @@ export const handlers = [
     }
 
     if (cursor) {
-      conversationMessages = conversationMessages.filter(msg => new Date(msg.created_at) < new Date(cursor));
+      const cursorDate = new Date(cursor);
+      if (Number.isNaN(cursorDate.getTime())) {
+        return HttpResponse.json({ error: 'cursor must be a valid ISO date string' }, { status: 400 });
+      }
+      conversationMessages = conversationMessages.filter(msg => new Date(msg.created_at) < cursorDate);
     }
 
     // Sort by created_at descending (newest first)
