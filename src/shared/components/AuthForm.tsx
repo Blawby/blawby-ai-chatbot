@@ -7,6 +7,7 @@ import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { useNavigation } from '@/shared/utils/navigation';
+import { getFrontendBaseUrl } from '@/config/urls';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -265,7 +266,7 @@ const AuthForm = ({
 
       // callbackURL tells Better Auth where to redirect after OAuth completes
       // Better Auth will set the session cookie on redirect.
-      const callbackURL = defaultPostAuthPath();
+      const callbackURL = new URL(defaultPostAuthPath(), getFrontendBaseUrl()).toString();
       const result = await client.signIn.social({
         provider: 'google',
         callbackURL,
