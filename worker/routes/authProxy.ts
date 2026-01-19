@@ -13,11 +13,12 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
     throw HttpErrors.notFound('Auth proxy route not found');
   }
 
-  if (!env.BACKEND_API_URL) {
-    throw HttpErrors.internalServerError('BACKEND_API_URL must be configured for auth proxy');
+  const backendUrl = env.BACKEND_API_URL ?? env.REMOTE_API_URL;
+  if (!backendUrl) {
+    throw HttpErrors.internalServerError('BACKEND_API_URL (or legacy REMOTE_API_URL) must be configured for auth proxy');
   }
 
-  const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
+  const targetUrl = new URL(url.pathname + url.search, backendUrl);
   const headers = new Headers(request.headers);
 
   const method = request.method.toUpperCase();
@@ -34,9 +35,17 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
   const response = await fetch(targetUrl.toString(), init);
   const proxyHeaders = new Headers(response.headers);
 
-  const setCookie = response.headers.get('Set-Cookie');
-  if (setCookie) {
-    proxyHeaders.set('Set-Cookie', stripCookieDomain(setCookie));
+  proxyHeaders.delete('Set-Cookie');
+  if (response.headers.getSetCookie) {
+    const cookies = response.headers.getSetCookie();
+    for (const cookie of cookies) {
+      proxyHeaders.append('Set-Cookie', stripCookieDomain(cookie));
+    }
+  } else {
+    const setCookie = response.headers.get('Set-Cookie');
+    if (setCookie) {
+      proxyHeaders.set('Set-Cookie', stripCookieDomain(setCookie));
+    }
   }
 
   return new Response(response.body, {

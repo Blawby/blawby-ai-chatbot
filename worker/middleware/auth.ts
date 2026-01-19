@@ -3,7 +3,7 @@ import { HttpErrors } from "../errorHandler";
 
 export interface AuthenticatedUser {
   id: string;
-  email: string;
+  email?: string;
   name: string;
   emailVerified: boolean;
   image?: string;
@@ -20,10 +20,11 @@ export interface AuthContext {
 }
 
 function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
-  if (!env.BACKEND_API_URL) {
-    throw HttpErrors.internalServerError(`BACKEND_API_URL must be configured (${context})`);
+  const backendUrl = env.BACKEND_API_URL ?? env.REMOTE_API_URL;
+  if (!backendUrl) {
+    throw HttpErrors.internalServerError(`BACKEND_API_URL (or legacy REMOTE_API_URL) must be configured (${context})`);
   }
-  return env.BACKEND_API_URL;
+  return backendUrl;
 }
 
 function parseAuthSessionPayload(
@@ -48,7 +49,7 @@ function parseAuthSessionPayload(
     throw HttpErrors.unauthorized(rawResponse.message);
   }
 
-  let user: { id: string; email: string; name: string; emailVerified?: boolean; image?: string | null } | undefined;
+  let user: { id: string; email?: string | null; name: string; emailVerified?: boolean; image?: string | null } | undefined;
   let session: { id: string; expiresAt: Date | string } | undefined;
 
   if (rawResponse.data && typeof rawResponse.data === 'object') {
@@ -80,7 +81,7 @@ function parseAuthSessionPayload(
   return {
     user: {
       id: sessionData.user.id,
-      email: sessionData.user.email,
+      email: sessionData.user.email ?? undefined,
       name: sessionData.user.name,
       emailVerified: sessionData.user.emailVerified ?? false,
       image: sessionData.user.image ?? undefined,

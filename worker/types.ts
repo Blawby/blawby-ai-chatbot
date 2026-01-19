@@ -133,8 +133,10 @@ export interface Env {
   ADOBE_EXTRACTOR_SERVICE?: import('./services/AdobeDocumentService.js').IAdobeExtractor; // Optional mock extractor for testing
 
   // ENV VAR: BACKEND_API_URL (worker/.dev.vars or wrangler.toml)
-  // Points to Better Auth backend for token validation (e.g., http://localhost:3000 or https://staging-api.blawby.com)
+  // Points to Better Auth backend for session validation (e.g., http://localhost:3000 or https://staging-api.blawby.com)
   BACKEND_API_URL?: string;
+  // Transitional alias: REMOTE_API_URL (legacy binding)
+  REMOTE_API_URL?: string;
 
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
   ENABLE_EMAIL_NOTIFICATIONS?: string | boolean;
