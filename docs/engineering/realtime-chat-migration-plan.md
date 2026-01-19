@@ -226,9 +226,10 @@ All WS frames are JSON objects with `{ type, data }`.
     - Hashes are computed from normalized content and stable-ordered attachments.
     - If a pending record exists with mismatched hashes, close with `4400`.
     - Allocate `seq` in DO (durable storage counter) only for new inserts.
-    - Persist pending record + allocated seq in a single DO storage transaction before D1 writes.
-      - Use `state.storage.transaction()` so counter + pending record updates are atomic across multiple keys.
-      - Alternatively, store the pending record (including `allocated_seq`) as a single compound value under a single key for single-write atomicity.
+    - Persist pending record + allocated seq atomically before D1 writes.
+      - For SQLite-backed DOs (recommended): use write coalescing by calling `ctx.storage.put()` for counter and pending record without awaiting between them.
+      - For legacy KV-backed DOs: use `ctx.storage.transaction()` for atomicity across multiple keys.
+      - Alternatively, store the pending record (including `allocated_seq`) as a single compound value under a single key.
     - Attempt insert with `(conversation_id, client_id)` unique constraint (authoritative):
       - On conflict, fetch existing row and return idempotent `message.ack`.
     - Pre-checks are optional optimizations only; do not rely on them for correctness.
