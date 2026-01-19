@@ -62,6 +62,8 @@ export const useMessageHandling = ({
   onConversationMetadataUpdated,
   onError
 }: UseMessageHandlingOptions) => {
+  const { session, isPending } = useSessionContext();
+  const sessionReady = Boolean(session?.user) && !isPending;
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const consultFlowAbortRef = useRef<globalThis.AbortController | null>(null);
@@ -216,6 +218,9 @@ export const useMessageHandling = ({
     patch: ConversationMetadata,
     targetConversationId?: string
   ) => {
+    if (!sessionReady) {
+      return null;
+    }
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) {
       return null;
@@ -232,12 +237,13 @@ export const useMessageHandling = ({
     const queued = metadataUpdateQueueRef.current.then(runUpdate, runUpdate);
     metadataUpdateQueueRef.current = queued.catch(() => null);
     return queued;
-  }, [applyConversationMetadata, conversationId, practiceId]);
+  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
   const fetchConversationMetadata = useCallback(async (
     signal?: AbortSignal,
     targetConversationId?: string
   ) => {
+    if (!sessionReady) return;
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) return;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -258,7 +264,7 @@ export const useMessageHandling = ({
     if (signal?.aborted || isDisposedRef.current) return;
     if (activeConversationId !== conversationIdRef.current) return;
     applyConversationMetadata(data.data?.user_info ?? null);
-  }, [applyConversationMetadata, conversationId, practiceId]);
+  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
@@ -529,6 +535,9 @@ export const useMessageHandling = ({
   }, []);
 
   const connectChatRoom = useCallback((targetConversationId: string) => {
+    if (!sessionReady) {
+      return;
+    }
     if (!targetConversationId) {
       return;
     }
@@ -685,7 +694,8 @@ export const useMessageHandling = ({
     resolveSocketReady,
     scheduleReconnect,
     sendFrame,
-    sendReadUpdate
+    sendReadUpdate,
+    sessionReady
   ]);
 
   connectChatRoomRef.current = connectChatRoom;
@@ -1119,6 +1129,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     signal?: AbortSignal,
     targetConversationId?: string
   ) => {
+    if (!sessionReady) {
+      return;
+    }
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) {
       return;
@@ -1163,9 +1176,12 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
       onError?.(errorMessage);
     }
-  }, [conversationId, practiceId, toUIMessage, onError, sendReadUpdate]);
+  }, [conversationId, practiceId, toUIMessage, onError, sendReadUpdate, sessionReady]);
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {
+    if (!sessionReady) {
+      return;
+    }
     if (!targetConversationId || !practiceId) {
       return;
     }
@@ -1179,10 +1195,14 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
     });
     connectChatRoom(targetConversationId);
-  }, [connectChatRoom, fetchConversationMetadata, fetchMessages, practiceId]);
+  }, [connectChatRoom, fetchConversationMetadata, fetchMessages, practiceId, sessionReady]);
 
   // Fetch messages and connect realtime socket when conversation is ready
   useEffect(() => {
+    if (!sessionReady) {
+      closeChatSocket();
+      return;
+    }
     if (!conversationId || !practiceId) {
       closeChatSocket();
       return;
@@ -1209,7 +1229,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     fetchConversationMetadata,
     fetchMessages,
     practiceId,
-    resetRealtimeState
+    resetRealtimeState,
+    sessionReady
   ]);
 
   useEffect(() => {

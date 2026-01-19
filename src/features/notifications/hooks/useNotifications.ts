@@ -154,12 +154,63 @@ const mergeItems = (existing: NotificationItem[], incoming: NotificationItem[], 
   return next;
 };
 
+const hasSessionPayload = (payload: unknown): boolean => {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+  const record = payload as Record<string, unknown>;
+  if (record.session || record.user) {
+    return true;
+  }
+  const nested = record.data;
+  if (!nested || typeof nested !== 'object') {
+    return false;
+  }
+  const nestedRecord = nested as Record<string, unknown>;
+  return Boolean(nestedRecord.session || nestedRecord.user);
+};
+
+let sessionReady = false;
+let sessionReadyPromise: Promise<boolean> | null = null;
+
+const ensureSessionReady = async (): Promise<boolean> => {
+  if (sessionReady) {
+    return true;
+  }
+  if (sessionReadyPromise) {
+    return sessionReadyPromise;
+  }
+  sessionReadyPromise = (async () => {
+    try {
+      const response = await fetch(buildWorkerUrl('/api/auth/get-session'), {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        return false;
+      }
+      const payload = await response.json().catch(() => null);
+      sessionReady = hasSessionPayload(payload);
+      return sessionReady;
+    } catch {
+      return false;
+    } finally {
+      sessionReadyPromise = null;
+    }
+  })();
+
+  return sessionReadyPromise;
+};
+
 const fetchNotifications = async (options: {
   category: NotificationCategory;
   cursor?: string | null;
   append?: boolean;
   unreadOnly?: boolean;
 }): Promise<void> => {
+  if (!await ensureSessionReady()) {
+    return;
+  }
   const { category, cursor, append = false, unreadOnly = false } = options;
   const currentState = notificationStore.get().categories[category];
   if (currentState.isLoading) return;
@@ -209,6 +260,9 @@ const fetchNotifications = async (options: {
 };
 
 export const refreshUnreadCounts = async () => {
+  if (!await ensureSessionReady()) {
+    return;
+  }
   try {
     const headers = await getAuthHeaders();
     const entries = await Promise.all(
@@ -270,6 +324,9 @@ const extractConversationId = (item: NotificationItem): string | null => {
 };
 
 export const refreshConversationCounts = async () => {
+  if (!await ensureSessionReady()) {
+    return;
+  }
   try {
     const headers = await getAuthHeaders();
     let cursor: string | null = null;
@@ -365,17 +422,26 @@ const getNotificationCategoryFromPath = (path: string): NotificationCategory | n
 export const ensureNotificationsLoaded = (targetCategory: NotificationCategory) => {
   const targetState = notificationStore.get().categories[targetCategory];
   const shouldLoad = targetState.items.length === 0 && !targetState.isLoading && !targetState.error;
-  if (shouldLoad && !initialLoadRequested.has(targetCategory)) {
+  if (!shouldLoad || initialLoadRequested.has(targetCategory)) {
+    return;
+  }
+  void ensureSessionReady().then((ready) => {
+    if (!ready || initialLoadRequested.has(targetCategory)) {
+      return;
+    }
     initialLoadRequested.add(targetCategory);
     void fetchNotifications({ category: targetCategory });
-  }
+  });
 };
 
 export const initUnreadAndConversationCounts = () => {
   if (countsRequested) return;
-  countsRequested = true;
-  void refreshUnreadCounts();
-  void refreshConversationCounts();
+  void ensureSessionReady().then((ready) => {
+    if (!ready) return;
+    countsRequested = true;
+    void refreshUnreadCounts();
+    void refreshConversationCounts();
+  });
 };
 
 const stopStream = () => {
@@ -416,8 +482,11 @@ const buildNotificationsWsUrl = () => {
   return url.toString();
 };
 
-const startStream = () => {
+const startStream = async () => {
   if (streamActive) return;
+  if (!await ensureSessionReady()) {
+    return;
+  }
   authFailed = false;
   streamActive = true;
   setStreamStatus('connecting');
@@ -510,6 +579,8 @@ onMount(notificationStore, () => {
   };
 
   const handleSessionUpdated = () => {
+    sessionReady = true;
+    sessionReadyPromise = null;
     authFailed = false;
     stopStream();
     countsRequested = false;
@@ -523,9 +594,12 @@ onMount(notificationStore, () => {
     });
     initUnreadAndConversationCounts();
     void startStream();
+    loadFromPath();
   };
 
   const handleSessionCleared = () => {
+    sessionReady = false;
+    sessionReadyPromise = null;
     stopStream();
   };
 
@@ -578,16 +652,25 @@ onMount(notificationStore, () => {
 });
 
 export const refreshNotifications = async (category: NotificationCategory) => {
+  if (!await ensureSessionReady()) {
+    return;
+  }
   await fetchNotifications({ category });
 };
 
 export const loadMoreNotifications = async (category: NotificationCategory) => {
+  if (!await ensureSessionReady()) {
+    return;
+  }
   const state = notificationStore.get().categories[category];
   if (!state.hasMore || state.isLoading || !state.nextCursor) return;
   await fetchNotifications({ category, cursor: state.nextCursor, append: true });
 };
 
 export const markNotificationRead = async (notificationId: string, category: NotificationCategory) => {
+  if (!await ensureSessionReady()) {
+    return;
+  }
   const headers = await getAuthHeaders();
   const url = buildWorkerUrl(`/api/notifications/${notificationId}/read`);
   const response = await fetch(url, {
@@ -624,6 +707,9 @@ export const markNotificationRead = async (notificationId: string, category: Not
 };
 
 export const markNotificationUnread = async (notificationId: string, category: NotificationCategory) => {
+  if (!await ensureSessionReady()) {
+    return;
+  }
   const headers = await getAuthHeaders();
   const url = buildWorkerUrl(`/api/notifications/${notificationId}/unread`);
   const response = await fetch(url, {
@@ -659,6 +745,9 @@ export const markNotificationUnread = async (notificationId: string, category: N
 };
 
 export const markAllNotificationsRead = async (category: NotificationCategory) => {
+  if (!await ensureSessionReady()) {
+    return;
+  }
   const headers = await getAuthHeaders();
   const url = buildWorkerUrl('/api/notifications/read-all', { category });
   const response = await fetch(url, {

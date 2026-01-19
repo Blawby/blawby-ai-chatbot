@@ -102,6 +102,7 @@ const workerEndpoints = [
 	'agent',
 	'auth',
 	'sessions',
+	'chat',
 	'lawyers',
 	'files',
 	'conversations',
@@ -114,6 +115,7 @@ const workerEndpoints = [
 	'config',
 	'health',
 	'inbox',
+	'notifications',
 ];
 
 // Proxy configuration types from http-proxy-middleware
@@ -121,6 +123,7 @@ const createWorkerProxyConfig = (): ProxyOptions => ({
 	target: 'http://localhost:8787',
 	changeOrigin: true,
 	secure: false,
+	ws: true,
 	configure: (proxy) => {
 		proxy.on('error', (err: Error) => {
 			console.log('[Vite Proxy] Worker proxy error:', err);

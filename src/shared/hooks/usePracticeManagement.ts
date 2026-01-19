@@ -567,7 +567,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     autoFetchPractices = true,
     fetchInvitations: shouldFetchInvitations = true,
   } = options;
-  const { session, isPending: sessionLoading } = useSessionContext();
+  const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const [members, setMembers] = useState<Record<string, Member[]>>({});
@@ -645,7 +645,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
 
       const userId = session?.user?.id ?? null;
-      if (!userId) {
+      if (!userId || isAnonymous) {
         setPractices([]);
         setCurrentPractice(null);
         setLoading(false);
@@ -786,11 +786,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [session]);
+  }, [isAnonymous, session]);
 
   // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || isAnonymous) return;
 
     // Skip on staging due to backend routing bug (shadowed endpoint)
     // The endpoint /api/practice/invitations is shadowed by /api/practice/:uuid
@@ -863,7 +863,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
       setInvitations([]);
     }
-  }, [session]);
+  }, [isAnonymous, session]);
 
   // Create practice
   const createPractice = useCallback(async (data: CreatePracticeData): Promise<Practice> => {
@@ -1216,7 +1216,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   // Refetch when session changes
   useEffect(() => {
-    if (!autoFetchPractices || sessionLoading) {
+    if (!autoFetchPractices || sessionLoading || isAnonymous) {
       return;
     }
 
@@ -1233,6 +1233,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     autoFetchPractices,
     sessionLoading,
     session?.user?.id,
+    isAnonymous,
     fetchPractices,
     fetchInvitations,
     shouldFetchInvitations

@@ -17,8 +17,12 @@ export function useChatCapabilities({
 }: {
   workspace: WorkspaceType;
 }): ChatCapabilities {
-  const { session } = useSessionContext();
-  const { currentPractice, getMembers } = usePracticeManagement();
+  const { session, isAnonymous } = useSessionContext();
+  const shouldLoadPracticeData = workspace === 'practice' && Boolean(session?.user) && !isAnonymous;
+  const { currentPractice, getMembers } = usePracticeManagement({
+    autoFetchPractices: shouldLoadPracticeData,
+    fetchInvitations: shouldLoadPracticeData
+  });
 
   const currentUserEmail = session?.user?.email || null;
 

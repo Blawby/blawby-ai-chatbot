@@ -1,6 +1,6 @@
 import { FullConfig } from '@playwright/test';
 import { chromium } from 'playwright';
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadE2EConfig } from './helpers/e2eConfig';
 import { waitForSession } from './helpers/auth';
@@ -24,6 +24,75 @@ const ensureResultsDir = (): string => {
 
 const writeEmptyStorageState = (path: string): void => {
   writeFileSync(path, JSON.stringify(EMPTY_STORAGE_STATE, null, 2));
+};
+
+type StorageState = {
+  cookies?: Array<{
+    name: string;
+    value: string;
+    domain?: string;
+    path?: string;
+  }>;
+};
+
+const cookieMatchesHost = (cookieDomain: string | undefined, host: string): boolean => {
+  if (!cookieDomain) return false;
+  const normalized = cookieDomain.toLowerCase();
+  const target = host.toLowerCase();
+  if (normalized.startsWith('.')) {
+    return target.endsWith(normalized.slice(1));
+  }
+  return normalized === target;
+};
+
+const hasValidSessionFromStorage = async (baseURL: string, storagePath: string): Promise<boolean> => {
+  if (!existsSync(storagePath)) {
+    return false;
+  }
+  let state: StorageState | null = null;
+  try {
+    state = JSON.parse(readFileSync(storagePath, 'utf-8')) as StorageState;
+  } catch {
+    return false;
+  }
+  if (!state?.cookies?.length) {
+    return false;
+  }
+
+  const host = new URL(baseURL).host;
+  const cookieHeader = state.cookies
+    .filter((cookie) => cookieMatchesHost(cookie.domain, host))
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join('; ');
+
+  if (!cookieHeader) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${baseURL}/api/auth/get-session`, {
+      headers: { Cookie: cookieHeader }
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const data = await response.json().catch(() => null);
+    if (!data || typeof data !== 'object') {
+      return false;
+    }
+    const record = data as Record<string, unknown>;
+    if (record.session || record.user) {
+      return true;
+    }
+    const nested = record.data;
+    if (!nested || typeof nested !== 'object') {
+      return false;
+    }
+    const nestedRecord = nested as Record<string, unknown>;
+    return Boolean(nestedRecord.session || nestedRecord.user);
+  } catch {
+    return false;
+  }
 };
 
 const getBaseUrlFromConfig = (config: FullConfig): string => {
@@ -138,22 +207,28 @@ const createSignedInState = async (options: {
       throw error;
     }
 
-    await page.evaluate(async () => {
-      try {
-        await fetch('/api/preferences/onboarding', {
-          method: 'PUT',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            completed: true,
-            welcome_modal_shown: true,
-            practice_welcome_shown: true
-          })
-        });
-      } catch {
-        // Ignore preference update failures in e2e bootstrap
+    try {
+      await page.evaluate(async () => {
+        try {
+          await fetch('/api/preferences/onboarding', {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              completed: true,
+              welcome_modal_shown: true,
+              practice_welcome_shown: true
+            })
+          });
+        } catch {
+          // Ignore preference update failures in e2e bootstrap
+        }
+      });
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('Execution context was destroyed')) {
+        console.warn('E2E setup onboarding preference update failed', error);
       }
-    });
+    }
 
     await context.storageState({ path: storagePath });
     console.log(`✅ ${label} storageState saved to ${storagePath}`);
@@ -177,7 +252,25 @@ const createAnonymousState = async (options: {
     await page.goto(`/p/${encodeURIComponent(practiceSlug)}`);
     await page.waitForLoadState('domcontentloaded');
 
-    await waitForSession(page, { timeoutMs: 20000 });
+    await page.evaluate(async () => {
+      try {
+        const response = await fetch('/api/auth/get-session', { credentials: 'include' });
+        let data: any = null;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+        const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
+        if (!hasSession) {
+          await fetch('/api/auth/sign-in/anonymous', { method: 'POST', credentials: 'include' });
+        }
+      } catch {
+        // Ignore bootstrap failures; waitForSession will handle retries.
+      }
+    });
+
+    await waitForSession(page, { timeoutMs: 60000 });
 
     await context.storageState({ path: storagePath });
     console.log(`✅ anonymous storageState saved to ${storagePath}`);
@@ -207,27 +300,39 @@ async function globalSetup(config: FullConfig) {
     return;
   }
 
-  await createSignedInState({
-    baseURL,
-    storagePath: ownerPath,
-    email: e2eConfig.owner.email,
-    password: e2eConfig.owner.password,
-    label: 'owner'
-  });
+  if (await hasValidSessionFromStorage(baseURL, ownerPath)) {
+    console.log(`✅ owner storageState already valid at ${ownerPath}`);
+  } else {
+    await createSignedInState({
+      baseURL,
+      storagePath: ownerPath,
+      email: e2eConfig.owner.email,
+      password: e2eConfig.owner.password,
+      label: 'owner'
+    });
+  }
 
-  await createSignedInState({
-    baseURL,
-    storagePath: clientPath,
-    email: e2eConfig.client.email,
-    password: e2eConfig.client.password,
-    label: 'client'
-  });
+  if (await hasValidSessionFromStorage(baseURL, clientPath)) {
+    console.log(`✅ client storageState already valid at ${clientPath}`);
+  } else {
+    await createSignedInState({
+      baseURL,
+      storagePath: clientPath,
+      email: e2eConfig.client.email,
+      password: e2eConfig.client.password,
+      label: 'client'
+    });
+  }
 
-  await createAnonymousState({
-    baseURL,
-    storagePath: anonymousPath,
-    practiceSlug: e2eConfig.practice.slug
-  });
+  if (await hasValidSessionFromStorage(baseURL, anonymousPath)) {
+    console.log(`✅ anonymous storageState already valid at ${anonymousPath}`);
+  } else {
+    await createAnonymousState({
+      baseURL,
+      storagePath: anonymousPath,
+      practiceSlug: e2eConfig.practice.slug
+    });
+  }
 
   console.log('✅ Global setup complete');
 }

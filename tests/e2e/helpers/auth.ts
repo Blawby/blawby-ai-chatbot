@@ -4,8 +4,8 @@ export const waitForSession = async (
   page: Page,
   options: { timeoutMs?: number; intervalMs?: number } = {}
 ): Promise<void> => {
-  const timeoutMs = options.timeoutMs ?? 15000;
-  const intervalMs = options.intervalMs ?? 300;
+  const timeoutMs = options.timeoutMs ?? 30000;
+  const intervalMs = options.intervalMs ?? 400;
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
