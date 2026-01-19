@@ -67,11 +67,8 @@ export class NotificationHub {
       throw error;
     }
 
-    if (!this.userId) {
-      this.userId = auth.user.id;
-    }
-
-    if (this.userId !== auth.user.id) {
+    const userGate = await this.getOrSetUserId(auth.user.id);
+    if (!userGate.allowed) {
       return new Response('Forbidden', { status: 403 });
     }
 
@@ -213,11 +210,8 @@ export class NotificationHub {
       throw error;
     }
 
-    if (!this.userId) {
-      this.userId = auth.user.id;
-    }
-
-    if (this.userId !== auth.user.id) {
+    const userGate = await this.getOrSetUserId(auth.user.id);
+    if (!userGate.allowed) {
       return new Response('Forbidden', { status: 403 });
     }
 
@@ -319,6 +313,22 @@ export class NotificationHub {
       return null;
     }
     return attachment;
+  }
+
+  private async getOrSetUserId(newUserId: string): Promise<{ allowed: boolean; userId: string }> {
+    if (this.userId) {
+      return { allowed: this.userId === newUserId, userId: this.userId };
+    }
+
+    const stored = await this.state.storage.get<string>('userId');
+    if (stored) {
+      this.userId = stored;
+      return { allowed: stored === newUserId, userId: stored };
+    }
+
+    await this.state.storage.put('userId', newUserId);
+    this.userId = newUserId;
+    return { allowed: true, userId: newUserId };
   }
 
   private scheduleNegotiationTimeout(ws: WorkerWebSocket): void {

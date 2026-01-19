@@ -1015,6 +1015,11 @@ export class ChatRoom {
     contentHash: string,
     attachmentsHash: string
   ): Promise<PendingRecord | null> {
+    const initialized = await this.ensureSeqInitialized(conversationId);
+    if (!initialized) {
+      return null;
+    }
+
     let pending: PendingRecord | null = null;
     await this.state.storage.transaction(async (txn) => {
       const existing = await txn.get<PendingRecord>(key);
@@ -1025,11 +1030,7 @@ export class ChatRoom {
 
       let current = await txn.get<number>('seq');
       if (current === undefined) {
-        const latestSeq = await this.fetchLatestSeq(conversationId);
-        if (latestSeq === null) {
-          return;
-        }
-        current = latestSeq;
+        return;
       }
       const next = current + 1;
       pending = {
@@ -1043,6 +1044,27 @@ export class ChatRoom {
     });
 
     return pending;
+  }
+
+  private async ensureSeqInitialized(conversationId: string): Promise<boolean> {
+    const current = await this.state.storage.get<number>('seq');
+    if (current !== undefined) {
+      return true;
+    }
+
+    const latestSeq = await this.fetchLatestSeq(conversationId);
+    if (latestSeq === null) {
+      return false;
+    }
+
+    await this.state.storage.transaction(async (txn) => {
+      const stored = await txn.get<number>('seq');
+      if (stored === undefined) {
+        await txn.put('seq', latestSeq);
+      }
+    });
+
+    return true;
   }
 
   private async sweepPending(conversationId: string): Promise<void> {
