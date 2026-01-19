@@ -98,28 +98,22 @@ export function getWorkerApiUrl(): string {
  * authentication, practice management, subscriptions, etc.
  * 
  * Priority:
- * 1. VITE_BACKEND_API_URL (preferred)
- * 2. Development fallback to staging when MSW is disabled
- * 3. Throws error if not set when MSW is enabled
+ * 1. VITE_BACKEND_API_URL (required)
+ * 2. Throws error if not set
  * 
  * @returns The base URL for the backend API
- * @throws {Error} If VITE_BACKEND_API_URL is not set and MSW is enabled
+ * @throws {Error} If VITE_BACKEND_API_URL is not set
  */
 export function getBackendApiUrl(): string {
-	// ENV VAR: VITE_BACKEND_API_URL (preferred in all environments)
+	// ENV VAR: VITE_BACKEND_API_URL (required in all environments)
 	// Points to Better Auth backend (e.g., http://localhost:3000 or https://production-api.blawby.com)
 	const explicit = import.meta.env.VITE_BACKEND_API_URL;
 	if (explicit) {
 		return explicit;
 	}
 
-	const enableMsw = Boolean(import.meta.env.VITE_ENABLE_MSW);
-	if (!enableMsw) {
-		return 'https://staging-api.blawby.com';
-	}
-
 	throw new Error(
-		'VITE_BACKEND_API_URL is required when VITE_ENABLE_MSW is enabled. ' +
+		'VITE_BACKEND_API_URL is required. ' +
 		'Set it for local development and in Cloudflare Pages. ' +
 		'Example: http://localhost:3000 or https://production-api.blawby.com'
 	);
