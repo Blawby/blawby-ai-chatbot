@@ -1,5 +1,7 @@
 -- Add realtime chat sequencing + membership tables
 
+BEGIN TRANSACTION;
+
 ALTER TABLE conversations ADD COLUMN latest_seq INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE conversations ADD COLUMN membership_version INTEGER NOT NULL DEFAULT 0;
 
@@ -59,3 +61,5 @@ SET latest_seq = COALESCE(
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_client ON chat_messages(conversation_id, client_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_seq ON chat_messages(conversation_id, seq);
+
+COMMIT;

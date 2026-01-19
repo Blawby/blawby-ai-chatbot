@@ -175,23 +175,6 @@ export function useConversation({
   }>());
   const pendingClientMessageRef = useRef(new Map<string, string>());
 
-  useEffect(() => {
-    return () => {
-      isDisposedRef.current = true;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, []);
-
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ConversationMessageUI => {
     return {
@@ -243,6 +226,24 @@ export function useConversation({
     }
     pendingAckRef.current.clear();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      isDisposedRef.current = true;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      flushPendingAcks(new Error('Chat connection closed'));
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [flushPendingAcks]);
 
   const waitForSocketReady = useCallback(async () => {
     if (!wsReadyRef.current) {
