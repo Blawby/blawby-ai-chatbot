@@ -80,6 +80,8 @@ DROP TABLE IF EXISTS organizations;
 DROP TABLE IF EXISTS session_audit_events;
 DROP TABLE IF EXISTS session_summaries;
 DROP TABLE IF EXISTS chat_messages;
+DROP TABLE IF EXISTS conversation_read_state;
+DROP TABLE IF EXISTS conversation_participants;
 DROP TABLE IF EXISTS chat_sessions;
 DROP TABLE IF EXISTS verifications;
 DROP TABLE IF EXISTS accounts;

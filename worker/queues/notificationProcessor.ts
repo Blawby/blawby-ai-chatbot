@@ -96,7 +96,7 @@ async function sendPushNotification(
   });
 }
 
-async function publishSse(env: Env, userId: string, payload: Record<string, unknown>): Promise<void> {
+async function publishNotification(env: Env, userId: string, payload: Record<string, unknown>): Promise<void> {
   const id = env.NOTIFICATION_HUB.idFromName(userId);
   const stub = env.NOTIFICATION_HUB.get(id);
   await stub.fetch('https://notification-hub/publish', {
@@ -152,6 +152,21 @@ export async function handleNotificationQueue(
         if (!shouldProcessRecipient(recipient, payload)) {
           continue;
         }
+        const payloadSnapshot = {
+          eventId: payload.eventId,
+          practiceId: payload.practiceId ?? null,
+          category: payload.category,
+          entityType: payload.entityType ?? null,
+          entityId: payload.entityId ?? null,
+          title: payload.title,
+          body: payload.body ?? null,
+          link: payload.link ?? null,
+          senderName: payload.senderName ?? null,
+          senderAvatarUrl: payload.senderAvatarUrl ?? null,
+          severity: payload.severity ?? null,
+          metadata: payload.metadata ?? null
+        };
+
         const insertResult = await store.createNotification({
           userId: recipient.userId,
           practiceId: payload.practiceId ?? null,
@@ -165,7 +180,9 @@ export async function handleNotificationQueue(
           senderAvatarUrl: payload.senderAvatarUrl ?? null,
           severity: payload.severity ?? null,
           metadata: payload.metadata ?? null,
+          payload: payloadSnapshot,
           dedupeKey: payload.dedupeKey ?? null,
+          sourceEventId: payload.eventId ?? null,
           createdAt: payload.createdAt
         });
 
@@ -173,12 +190,14 @@ export async function handleNotificationQueue(
           continue;
         }
 
-        await publishSse(env, recipient.userId, {
-          type: 'notification',
-          notificationId: insertResult.id,
+        await publishNotification(env, recipient.userId, {
+          notification_id: insertResult.id,
           category: payload.category,
-          createdAt: insertResult.createdAt,
-          title: payload.title
+          created_at: insertResult.createdAt,
+          title: payload.title,
+          body: payload.body ?? null,
+          link: payload.link ?? null,
+          metadata: payload.metadata ?? null
         });
 
         if (emailEnabled && shouldSendEmail(recipient) && oneSignal) {

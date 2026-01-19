@@ -88,7 +88,7 @@ The Worker was failing to authenticate requests because:
 ```bash
 # Backend API URL (Better Auth/remote API server)
 # - Development: http://localhost:3000 (custom backend) or https://staging-api.blawby.com
-# - Production: https://production-api.blawby.com
+# - Production: https://api.blawby.com
 VITE_BACKEND_API_URL=http://localhost:3000
 ```
 
@@ -155,13 +155,13 @@ BACKEND_API_URL=http://localhost:3000
 
 1. **Frontend (Cloudflare Pages)**
    - Go to Cloudflare Dashboard → Pages → Your Project → Settings → Environment Variables
-   - Add: `VITE_BACKEND_API_URL=https://production-api.blawby.com`
+   - Add: `VITE_BACKEND_API_URL=https://api.blawby.com`
 
 2. **Worker (Cloudflare Workers)**
    - Option 1: Set in `wrangler.toml` under `[env.production.vars]`:
      ```toml
      [env.production.vars]
-     BACKEND_API_URL = "https://production-api.blawby.com"
+     BACKEND_API_URL = "https://api.blawby.com"
      ```
    - Option 2: Use Cloudflare Dashboard → Workers & Pages → Settings → Variables
    - Option 3: Use `wrangler secret put BACKEND_API_URL` (for sensitive values)
@@ -171,7 +171,7 @@ BACKEND_API_URL=http://localhost:3000
 1. **URL Consistency**: `VITE_BACKEND_API_URL` (frontend) and `BACKEND_API_URL` (worker) must point to the **same backend** in the same environment so both sides hit the remote API that issued the session cookies
    - Local dev: Both should target `http://localhost:3000` (or another local backend you configure)
    - Staging: Both should target `https://staging-api.blawby.com`
-   - Production: Both should target `https://production-api.blawby.com`
+   - Production: Both should target `https://api.blawby.com`
 
 2. **Session Validity**: Sessions are only valid for the backend that issued them. Keep the configured remote API URL (via `VITE_BACKEND_API_URL`/`BACKEND_API_URL`) consistent across frontend and worker, otherwise the Worker will reject sessions issued by a different backend.
 

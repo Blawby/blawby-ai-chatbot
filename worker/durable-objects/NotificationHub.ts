@@ -1,91 +1,311 @@
-/* global WritableStreamDefaultWriter */
-import type { DurableObjectState } from '@cloudflare/workers-types';
+/* global WebSocketPair, WebSocket */
+import type { DurableObjectState, WebSocket as WorkerWebSocket } from '@cloudflare/workers-types';
+import type { Env } from '../types.js';
+import { HttpError } from '../types.js';
+import { requireAuth } from '../middleware/auth.js';
+
+const PROTOCOL_VERSION = 1;
+const NEGOTIATION_TIMEOUT_MS = 5000;
+const MAX_FRAME_BYTES = 64 * 1024;
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
+interface ConnectionAttachment {
+  userId: string;
+  negotiated: boolean;
+  lastActivityAt: number;
+}
+
+interface ClientFrame {
+  type: string;
+  data: Record<string, unknown>;
+  request_id?: string;
+}
 
 export class NotificationHub {
-  private connections = new Map<string, WritableStreamDefaultWriter<Uint8Array>>();
-  private encoder = new TextEncoder();
+  private readonly state: DurableObjectState;
+  private readonly env: Env;
+  private readonly negotiationTimers = new Map<WorkerWebSocket, ReturnType<typeof setTimeout>>();
+  private readonly decoder = new TextDecoder();
+  private readonly encoder = new TextEncoder();
+  private userId: string | null = null;
 
-  constructor(private state: DurableObjectState) {
-    void this.state;
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
+    this.env = env;
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === '/stream' && request.method === 'GET') {
-      return this.handleStream(request);
-    }
-
     if (url.pathname === '/publish' && request.method === 'POST') {
       return this.handlePublish(request);
     }
 
-    return new Response('Not found', { status: 404 });
-  }
+    if (url.pathname !== '/ws') {
+      return new Response('Not found', { status: 404 });
+    }
 
-  private handleStream(request: Request): Response {
-    const stream = new TransformStream<Uint8Array, Uint8Array>();
-    const writer = stream.writable.getWriter();
-    const connectionId = crypto.randomUUID();
-    this.connections.set(connectionId, writer);
+    if (request.method !== 'GET') {
+      return new Response('Method not allowed', { status: 405 });
+    }
 
-    const send = (payload: string) => writer.write(this.encoder.encode(payload));
+    if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
+      return new Response('Expected WebSocket upgrade', { status: 426 });
+    }
 
-    send('event: open\ndata: {}\n\n');
+    if (!this.isOriginAllowed(request.headers.get('Origin'))) {
+      return new Response('Forbidden', { status: 403 });
+    }
 
-    const keepAlive = setInterval(() => {
-      void send(': keep-alive\n\n');
-    }, 15000);
+    let auth;
+    try {
+      auth = await requireAuth(request, this.env);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        return new Response(error.message, { status: error.status });
+      }
+      throw error;
+    }
 
-    const close = () => {
-      clearInterval(keepAlive);
-      this.connections.delete(connectionId);
-      void writer.close();
+    if (!this.userId) {
+      this.userId = auth.user.id;
+    }
+
+    if (this.userId !== auth.user.id) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair) as unknown as [WorkerWebSocket, WorkerWebSocket];
+
+    const attachment: ConnectionAttachment = {
+      userId: auth.user.id,
+      negotiated: false,
+      lastActivityAt: Date.now()
     };
 
-    request.signal.addEventListener('abort', close, { once: true });
+    server.serializeAttachment(attachment);
+    this.state.acceptWebSocket(server as unknown as WebSocket, [`user:${auth.user.id}`]);
+    this.scheduleNegotiationTimeout(server);
+    await this.scheduleIdleAlarm();
 
-    return new Response(stream.readable, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
+    return new Response(null, { status: 101, webSocket: client as unknown as WebSocket });
+  }
+
+  async webSocketMessage(ws: WorkerWebSocket, message: string | ArrayBuffer): Promise<void> {
+    const payloadSize = typeof message === 'string'
+      ? this.encoder.encode(message).length
+      : message.byteLength;
+    if (payloadSize > MAX_FRAME_BYTES) {
+      this.sendFrame(ws, 'error', {
+        code: 'invalid_payload',
+        message: 'Frame too large'
+      });
+      this.closeSocket(ws, 4400, 'invalid_payload');
+      return;
+    }
+
+    const payload = typeof message === 'string' ? message : this.decoder.decode(message);
+    let frame: ClientFrame;
+
+    try {
+      frame = JSON.parse(payload) as ClientFrame;
+    } catch {
+      this.closeSocket(ws, 4400, 'invalid_payload');
+      return;
+    }
+
+    if (!frame.type || typeof frame.type !== 'string' || typeof frame.data !== 'object' || !frame.data) {
+      this.closeSocket(ws, 4400, 'invalid_payload');
+      return;
+    }
+
+    const attachment = this.getAttachment(ws);
+    if (!attachment) {
+      this.closeSocket(ws, 4400, 'invalid_payload');
+      return;
+    }
+
+    attachment.lastActivityAt = Date.now();
+    ws.serializeAttachment(attachment);
+    await this.scheduleIdleAlarm();
+
+    if (!attachment.negotiated) {
+      if (frame.type !== 'auth') {
+        this.closeSocket(ws, 4401, 'negotiation_required');
+        return;
       }
-    });
+
+      const ok = this.handleAuth(ws, attachment, frame);
+      if (!ok) {
+        return;
+      }
+
+      return;
+    }
+
+    this.sendFrame(ws, 'error', {
+      code: 'invalid_payload',
+      message: 'Unhandled frame'
+    }, frame.request_id);
+    this.closeSocket(ws, 4400, 'invalid_payload');
+  }
+
+  async webSocketClose(ws: WorkerWebSocket): Promise<void> {
+    this.clearNegotiationTimeout(ws);
+    await this.scheduleIdleAlarm();
+  }
+
+  async webSocketError(ws: WorkerWebSocket): Promise<void> {
+    this.clearNegotiationTimeout(ws);
+    await this.scheduleIdleAlarm();
+  }
+
+  async alarm(): Promise<void> {
+    const now = Date.now();
+    for (const socket of this.state.getWebSockets()) {
+      const attachment = this.getAttachment(socket);
+      if (!attachment) {
+        continue;
+      }
+      if (now - attachment.lastActivityAt > IDLE_TIMEOUT_MS) {
+        this.closeSocket(socket, 4410, 'idle_timeout');
+      }
+    }
+    await this.scheduleIdleAlarm();
+  }
+
+  private handleAuth(ws: WorkerWebSocket, attachment: ConnectionAttachment, frame: ClientFrame): boolean {
+    const protocolVersion = Number(frame.data.protocol_version);
+    if (protocolVersion !== PROTOCOL_VERSION) {
+      this.sendFrame(ws, 'auth.error', {
+        code: 'protocol_version_unsupported',
+        message: 'Unsupported protocol version'
+      }, frame.request_id);
+      this.closeSocket(ws, 4400, 'protocol_version_unsupported');
+      return false;
+    }
+
+    attachment.negotiated = true;
+    ws.serializeAttachment(attachment);
+    this.clearNegotiationTimeout(ws);
+
+    this.sendFrame(ws, 'auth.ok', {
+      user_id: attachment.userId
+    }, frame.request_id);
+
+    return true;
   }
 
   private async handlePublish(request: Request): Promise<Response> {
-    let payload: unknown;
-
+    let payload: Record<string, unknown>;
     try {
-      payload = await request.json();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown JSON parse error';
-      console.error('Failed to parse publish payload:', message);
-
-      return new Response(JSON.stringify({ error: 'Invalid JSON payload', message }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      payload = await request.json() as Record<string, unknown>;
+    } catch {
+      return new Response('Invalid JSON', { status: 400 });
     }
 
-    const message = `event: notification\ndata: ${JSON.stringify(payload)}\n\n`;
-    const encoded = this.encoder.encode(message);
-
-    const stale: string[] = [];
-
-    for (const [id, writer] of this.connections) {
+    for (const socket of this.state.getWebSockets()) {
+      const attachment = this.getAttachment(socket);
+      if (!attachment?.negotiated) {
+        continue;
+      }
       try {
-        await writer.write(encoded);
+        this.sendFrame(socket, 'notification.new', payload);
       } catch {
-        stale.push(id);
+        this.closeSocket(socket, 4500, 'internal_error');
       }
     }
-
-    stale.forEach((id) => this.connections.delete(id));
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' }
     });
+  }
+
+  private isOriginAllowed(origin: string | null): boolean {
+    if (!origin) {
+      return false;
+    }
+
+    const rawList = this.env.ALLOWED_WS_ORIGINS;
+    if (!rawList) {
+      return false;
+    }
+
+    const allowlist = rawList
+      .split(',')
+      .map(entry => entry.trim())
+      .filter(Boolean);
+
+    return allowlist.includes(origin);
+  }
+
+  private scheduleNegotiationTimeout(ws: WorkerWebSocket): void {
+    const timeoutId = setTimeout(() => {
+      const attachment = this.getAttachment(ws);
+      if (!attachment || attachment.negotiated) {
+        return;
+      }
+      this.closeSocket(ws, 4408, 'negotiation_timeout');
+    }, NEGOTIATION_TIMEOUT_MS);
+
+    this.negotiationTimers.set(ws, timeoutId);
+  }
+
+  private clearNegotiationTimeout(ws: WorkerWebSocket): void {
+    const timeoutId = this.negotiationTimers.get(ws);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      this.negotiationTimers.delete(ws);
+    }
+  }
+
+  private async scheduleIdleAlarm(): Promise<void> {
+    const nextDeadline = this.nextIdleDeadline();
+    if (nextDeadline === null) {
+      await this.state.storage.deleteAlarm();
+      return;
+    }
+    const scheduleAt = Math.max(nextDeadline, Date.now());
+    await this.state.storage.setAlarm(new Date(scheduleAt));
+  }
+
+  private nextIdleDeadline(): number | null {
+    let next: number | null = null;
+    for (const socket of this.state.getWebSockets()) {
+      const attachment = this.getAttachment(socket);
+      if (!attachment) {
+        continue;
+      }
+      const deadline = attachment.lastActivityAt + IDLE_TIMEOUT_MS;
+      if (next === null || deadline < next) {
+        next = deadline;
+      }
+    }
+    return next;
+  }
+
+  private sendFrame(ws: WorkerWebSocket, type: string, data: Record<string, unknown>, requestId?: string): void {
+    const payload: Record<string, unknown> = { type, data };
+    if (requestId) {
+      payload.request_id = requestId;
+    }
+    ws.send(JSON.stringify(payload));
+  }
+
+  private closeSocket(ws: WorkerWebSocket, code: number, reason?: string): void {
+    try {
+      ws.close(code, reason);
+    } catch {
+      // Ignore closing errors.
+    }
+  }
+
+  private getAttachment(ws: WorkerWebSocket): ConnectionAttachment | null {
+    const attachment = ws.deserializeAttachment() as ConnectionAttachment | null;
+    if (!attachment?.userId) {
+      return null;
+    }
+    return attachment;
   }
 }

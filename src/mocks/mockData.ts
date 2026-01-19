@@ -96,6 +96,9 @@ export interface MockMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   metadata: Record<string, unknown> | null;
+  client_id: string;
+  seq: number;
+  server_ts: string;
   token_count: number | null;
   created_at: string;
 }

@@ -343,7 +343,7 @@ const setStreamStatus = (status: StreamStatus, lastEventAt?: string | null) => {
   });
 };
 
-let streamController: AbortController | null = null;
+let streamSocket: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let streamActive = false;
 const initialLoadRequested = new Set<NotificationCategory>();
@@ -378,9 +378,9 @@ export const initUnreadAndConversationCounts = () => {
 };
 
 const stopStream = () => {
-  if (streamController) {
-    streamController.abort();
-    streamController = null;
+  if (streamSocket) {
+    streamSocket.close();
+    streamSocket = null;
   }
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
@@ -399,111 +399,82 @@ const scheduleReconnect = () => {
 };
 
 const handleStreamEvent = (event: NotificationStreamEvent) => {
-  if (event.notificationId) {
-    setStreamStatus('connected', event.createdAt ?? new Date().toISOString());
-    if (event.category) {
-      void fetchNotifications({ category: event.category });
-      void refreshUnreadCounts();
-      if (event.category === 'message') {
-        void refreshConversationCounts();
-      }
-    }
+  setStreamStatus('connected', event.created_at ?? new Date().toISOString());
+  void fetchNotifications({ category: event.category });
+  void refreshUnreadCounts();
+  if (event.category === 'message') {
+    void refreshConversationCounts();
   }
 
   maybeShowOsNotification(event);
 };
 
-const parseSseBlock = (block: string): { event: string; data: string } | null => {
-  const trimmed = block.trim();
-  if (!trimmed) return null;
+const buildNotificationsWsUrl = () => {
+  const url = new URL(buildWorkerUrl('/api/notifications/ws'));
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url.toString();
+};
 
-  let eventName = 'message';
-  let dataPayload = '';
+const startStream = () => {
+  if (streamActive) return;
+  streamActive = true;
+  setStreamStatus('connecting');
 
-  trimmed.split('\n').forEach((line) => {
-    const cleaned = line.trim();
-    if (!cleaned || cleaned.startsWith(':')) return;
-    if (cleaned.startsWith('event:')) {
-      eventName = cleaned.slice(6).trim();
-      return;
-    }
-    if (cleaned.startsWith('data:')) {
-      dataPayload += (dataPayload ? '\n' : '') + cleaned.slice(5).trim();
+  const ws = new WebSocket(buildNotificationsWsUrl());
+  streamSocket = ws;
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({
+      type: 'auth',
+      data: {
+        protocol_version: 1,
+        client_info: { platform: 'web' }
+      }
+    }));
+  });
+
+  ws.addEventListener('message', (event) => {
+    if (typeof event.data !== 'string') return;
+    try {
+      const frame = JSON.parse(event.data) as {
+        type?: string;
+        data?: NotificationStreamEvent | { code?: string; message?: string };
+      };
+      if (frame.type === 'auth.ok') {
+        setStreamStatus('connected');
+        return;
+      }
+      if (frame.type === 'auth.error') {
+        setStreamStatus('error');
+        ws.close();
+        return;
+      }
+      if (frame.type === 'notification.new' && frame.data) {
+        handleStreamEvent(frame.data as NotificationStreamEvent);
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[Notifications] Failed to parse WS frame', error);
+      }
     }
   });
 
-  if (!dataPayload) return null;
-  return { event: eventName, data: dataPayload };
-};
-
-const startStream = async () => {
-  if (streamActive) return;
-  streamActive = true;
-
-  try {
-    const headers = await getAuthHeaders();
-    const url = buildWorkerUrl('/api/notifications/stream');
-    streamController = new AbortController();
-    setStreamStatus('connecting');
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        ...headers,
-        Accept: 'text/event-stream',
-        'Cache-Control': 'no-cache'
-      },
-      credentials: 'include',
-      signal: streamController.signal
-    });
-
-    if (!response.ok || !response.body) {
-      throw new Error(`Stream failed: ${response.status}`);
-    }
-
-    setStreamStatus('connected');
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) {
-        scheduleReconnect();
-        break;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      let separatorIndex = buffer.indexOf('\n\n');
-      while (separatorIndex !== -1) {
-        const block = buffer.slice(0, separatorIndex);
-        buffer = buffer.slice(separatorIndex + 2);
-        const parsedBlock = parseSseBlock(block);
-        if (parsedBlock && parsedBlock.event === 'notification') {
-          try {
-            const parsed = JSON.parse(parsedBlock.data) as NotificationStreamEvent;
-            handleStreamEvent(parsed);
-          } catch (error) {
-            if (import.meta.env.DEV) {
-              console.warn('[Notifications] Failed to parse stream event', error);
-            }
-          }
-        }
-        separatorIndex = buffer.indexOf('\n\n');
-      }
-    }
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.warn('[Notifications] Notification stream error', error);
-    }
-    if (!streamController?.signal.aborted) {
-      setStreamStatus('error');
-      scheduleReconnect();
-    }
-  } finally {
+  ws.addEventListener('close', () => {
+    const wasActive = streamActive;
     streamActive = false;
-  }
+    if (streamSocket === ws) {
+      streamSocket = null;
+    }
+    if (!wasActive) return;
+    setStreamStatus('error');
+    scheduleReconnect();
+  });
+
+  ws.addEventListener('error', (error) => {
+    if (import.meta.env.DEV) {
+      console.warn('[Notifications] Notification WS error', error);
+    }
+  });
 };
 
 onMount(notificationStore, () => {

@@ -14,6 +14,7 @@ export interface NotificationRecord {
   senderAvatarUrl?: string | null;
   severity?: NotificationSeverity | null;
   metadata?: Record<string, unknown> | null;
+  payload?: Record<string, unknown> | null;
   createdAt: string;
   readAt?: string | null;
 }
@@ -31,7 +32,9 @@ export interface NotificationInsert {
   senderAvatarUrl?: string | null;
   severity?: NotificationSeverity | null;
   metadata?: Record<string, unknown> | null;
+  payload?: Record<string, unknown> | null;
   dedupeKey?: string | null;
+  sourceEventId?: string | null;
   createdAt?: string;
 }
 
@@ -96,13 +99,16 @@ export class NotificationStore {
     const id = crypto.randomUUID();
     const createdAt = input.createdAt ?? new Date().toISOString();
     const metadata = input.metadata ? JSON.stringify(input.metadata) : null;
+    const payload = input.payload ? JSON.stringify(input.payload) : null;
     const dedupeKey = input.dedupeKey ?? null;
+    const sourceEventId = input.sourceEventId ?? null;
 
     const result = await this.env.DB.prepare(
       `INSERT OR IGNORE INTO notifications (
         id, user_id, practice_id, category, entity_type, entity_id, title, body, link,
-        sender_name, sender_avatar_url, severity, metadata, dedupe_key, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        sender_name, sender_avatar_url, severity, metadata, payload, dedupe_key,
+        source_event_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id,
       input.userId,
@@ -117,7 +123,9 @@ export class NotificationStore {
       input.senderAvatarUrl ?? null,
       input.severity ?? null,
       metadata,
+      payload,
       dedupeKey,
+      sourceEventId,
       createdAt
     ).run();
 
@@ -164,7 +172,7 @@ export class NotificationStore {
 
     const rows = await this.env.DB.prepare(
       `SELECT id, user_id, practice_id, category, entity_type, entity_id, title, body, link,
-              sender_name, sender_avatar_url, severity, metadata, created_at, read_at
+              sender_name, sender_avatar_url, severity, metadata, payload, created_at, read_at
          FROM notifications
          ${whereClause}
          ORDER BY created_at DESC, id DESC
@@ -257,6 +265,7 @@ export class NotificationStore {
       senderAvatarUrl: row.sender_avatar_url ? String(row.sender_avatar_url) : null,
       severity: row.severity ? (String(row.severity) as NotificationSeverity) : null,
       metadata: parseMetadata(row.metadata ? String(row.metadata) : null),
+      payload: parseMetadata(row.payload ? String(row.payload) : null),
       createdAt: String(row.created_at),
       readAt: row.read_at ? String(row.read_at) : null
     };

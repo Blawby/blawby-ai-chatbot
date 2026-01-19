@@ -1,4 +1,3 @@
-import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
@@ -35,42 +34,16 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
   const practiceId = getPracticeId(requestWithContext);
 
   const conversationService = new ConversationService(env);
-  // POST /api/chat/messages - Send message
+  // POST /api/chat/messages removed: all message writes go through ChatRoom DO.
   if (segments.length === 3 && segments[2] === 'messages' && request.method === 'POST') {
-    const body = await parseJsonBody(request) as {
-      conversationId: string;
-      content: string;
-      attachments?: string[];
-      role?: 'user' | 'assistant' | 'system';
-      metadata?: Record<string, unknown>;
-    };
-
-    if (!body.conversationId || typeof body.conversationId !== 'string') {
-      throw HttpErrors.badRequest('conversationId is required');
-    }
-
-    if (!body.content || typeof body.content !== 'string' || body.content.trim().length === 0) {
-      throw HttpErrors.badRequest('content is required and cannot be empty');
-    }
-
-    const attachments = Array.isArray(body.attachments)
-      ? body.attachments.filter((attachment) => typeof attachment === 'string' && attachment.trim().length > 0)
-      : [];
-    let metadata = body.metadata ? { ...body.metadata } : undefined;
-    if (attachments.length > 0) {
-      metadata = { ...(metadata ?? {}), attachments };
-    }
-
-    const message = await conversationService.sendMessage({
-      conversationId: body.conversationId,
-      practiceId,
-      senderUserId: userId,
-      content: body.content.trim(),
-      role: body.role || 'user',
-      metadata
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Message writes must use WebSocket (ChatRoom DO)',
+      errorCode: 'CHAT_WRITE_REMOVED'
+    }), {
+      status: 410,
+      headers: { 'Content-Type': 'application/json' }
     });
-
-    return createJsonResponse(message);
   }
 
   // GET /api/chat/messages - Get messages
@@ -84,15 +57,29 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     // Validate user has access to conversation
     await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
 
-    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    if (url.searchParams.has('since')) {
+      throw HttpErrors.badRequest('since is no longer supported; use from_seq');
+    }
+
+    const limitParam = url.searchParams.get('limit');
+    const limit = parseInt(limitParam || '50', 10);
     const cursor = url.searchParams.get('cursor') || undefined;
-    const sinceParam = url.searchParams.get('since');
-    const since = sinceParam ? parseInt(sinceParam, 10) : undefined;
+    const fromSeqParam = url.searchParams.get('from_seq');
+    const fromSeq = fromSeqParam !== null ? parseInt(fromSeqParam, 10) : undefined;
+
+    if (fromSeqParam !== null) {
+      if (!limitParam) {
+        throw HttpErrors.badRequest('limit is required when using from_seq');
+      }
+      if (Number.isNaN(fromSeq) || fromSeq < 0) {
+        throw HttpErrors.badRequest('from_seq must be a non-negative integer');
+      }
+    }
 
     const result = await conversationService.getMessages(conversationId, practiceId, {
       limit,
       cursor,
-      since
+      fromSeq
     });
 
     return createJsonResponse(result);

@@ -106,7 +106,7 @@ export function getWorkerApiUrl(): string {
  */
 export function getBackendApiUrl(): string {
 	// ENV VAR: VITE_BACKEND_API_URL (required in all environments)
-	// Points to Better Auth backend (e.g., http://localhost:3000 or https://production-api.blawby.com)
+	// Points to Better Auth backend (e.g., http://localhost:3000 or https://api.blawby.com)
 	const explicit = import.meta.env.VITE_BACKEND_API_URL;
 	if (explicit) {
 		return explicit;
@@ -115,7 +115,7 @@ export function getBackendApiUrl(): string {
 	throw new Error(
 		'VITE_BACKEND_API_URL is required. ' +
 		'Set it for local development and in Cloudflare Pages. ' +
-		'Example: http://localhost:3000 or https://production-api.blawby.com'
+		'Example: http://localhost:3000 or https://api.blawby.com'
 	);
 }
 /**

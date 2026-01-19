@@ -165,3 +165,4 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 
 // Export Durable Object classes (none currently)
 export { NotificationHub } from './durable-objects/NotificationHub';
+export { ChatRoom } from './durable-objects/ChatRoom';

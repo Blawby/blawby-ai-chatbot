@@ -110,6 +110,13 @@ export const getConversationEndpoint = (conversationId: string) => {
   return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}`;
 };
 
+export const getConversationWsEndpoint = (conversationId: string) => {
+  const config = getApiConfig();
+  const url = new URL(`${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}/ws`);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url.toString();
+};
+
 export const getCurrentConversationEndpoint = () => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/conversations/active`;

@@ -1,3 +1,4 @@
+import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
@@ -23,6 +24,20 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   if (segments[0] !== 'api' || segments[1] !== 'conversations') {
     throw HttpErrors.notFound('Conversation route not found');
+  }
+
+  if (segments.length === 4 && segments[3] === 'ws' && request.method === 'GET') {
+    const conversationId = segments[2];
+    const id = env.CHAT_ROOM.idFromName(conversationId);
+    const stub = env.CHAT_ROOM.get(id);
+    const wsUrl = new URL(request.url);
+    wsUrl.pathname = `/ws/${conversationId}`;
+    const wsRequest = new Request(wsUrl.toString(), request);
+    return stub.fetch(wsRequest as unknown as WorkerRequest) as unknown as Response;
+  }
+
+  if (segments.length === 4 && segments[3] === 'ws') {
+    throw HttpErrors.methodNotAllowed('Unsupported method for conversation WS endpoint');
   }
 
   // Support optional auth for anonymous users (Better Auth anonymous plugin)

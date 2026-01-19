@@ -188,7 +188,7 @@ export async function handleInbox(request: Request, env: Env): Promise<Response>
       practiceId,
       senderUserId: userId,
       content: body.content,
-      role: 'assistant', // Practice members send as 'assistant' to distinguish from clients
+      role: 'user',
       metadata: body.metadata
     });
 

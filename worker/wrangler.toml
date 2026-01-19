@@ -38,6 +38,14 @@ class_name = "NotificationHub"
 tag = "v1"
 new_classes = ["NotificationHub"]
 
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v2"
+new_classes = ["ChatRoom"]
+
 [env.dev]
 name = "blawby-ai-chatbot-dev"
 kv_namespaces = [
@@ -65,6 +73,10 @@ dead_letter_queue = "notification-events-dlq"
 name = "NOTIFICATION_HUB"
 class_name = "NotificationHub"
 
+[[env.dev.durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
 [env.dev.vars]
 NODE_ENV = "development"
 LOG_LEVEL = "debug"
@@ -75,6 +87,7 @@ CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
 CF_AIG_GATEWAY_NAME = "blawby-ai"
 AI_PROVIDER = "cloudflare_gateway"
 BACKEND_API_URL = "https://staging-api.blawby.com"
+ALLOWED_WS_ORIGINS = "https://local.blawby.com"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"
 REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true
@@ -114,16 +127,21 @@ dead_letter_queue = "notification-events-dlq"
 name = "NOTIFICATION_HUB"
 class_name = "NotificationHub"
 
+[[env.production.durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
 [env.production.vars]
 NODE_ENV = "production"
 LOG_LEVEL = "warn"
 DEBUG = false
 VITE_DEBUG_OVERLAY = false
 CLOUDFLARE_PUBLIC_URL = "https://ai.blawby.com"
-BACKEND_API_URL = "https://production-api.blawby.com"
+BACKEND_API_URL = "https://api.blawby.com"
 CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
 CF_AIG_GATEWAY_NAME = "blawby-ai"
 AI_PROVIDER = "cloudflare_gateway"
+ALLOWED_WS_ORIGINS = "https://ai.blawby.com,https://blawby.com,https://www.blawby.com"
 LAWYER_SEARCH_API_URL = "https://search.blawby.com"
 REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true

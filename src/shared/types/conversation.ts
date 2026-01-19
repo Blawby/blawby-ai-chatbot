@@ -77,6 +77,9 @@ export interface ConversationMessage {
   role: MessageRole;
   content: string;
   metadata: Record<string, unknown> | null;
+  client_id: string;
+  seq: number;
+  server_ts: string;
   token_count: number | null;
   created_at: string; // ISO timestamp
 }
@@ -136,8 +139,10 @@ export interface SendMessageRequest {
  */
 export interface GetMessagesResponse {
   messages: ConversationMessage[];
-  hasMore: boolean;
+  hasMore?: boolean;
   cursor?: string | null;
+  latest_seq?: number;
+  next_from_seq?: number | null;
 }
 
 /**
@@ -147,5 +152,5 @@ export interface GetMessagesOptions {
   conversationId: string;
   limit?: number;
   cursor?: string;
-  since?: number; // Timestamp in milliseconds for polling new messages
+  from_seq?: number;
 }

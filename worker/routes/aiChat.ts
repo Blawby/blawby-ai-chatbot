@@ -95,80 +95,82 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
   });
 
   const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, body.practiceSlug);
+  let reply: string;
+
   if (!details || !isPublic) {
-    const reply = 'I don’t have access to this practice’s details right now. Please click “Request consultation” to connect with the practice.';
-    await auditService.createEvent({
-      conversationId: body.conversationId,
-      eventType: 'ai_message_received',
-      actorType: 'system',
-      payload: { conversationId: body.conversationId }
-    });
-    return new Response(JSON.stringify({ reply }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const aiClient = createAiClient(env);
-  const response = await aiClient.requestChatCompletions({
-    model: env.AI_MODEL || DEFAULT_AI_MODEL,
-    temperature: 0.2,
-    messages: [
-      {
-        role: 'system',
-        content: [
-          'You are an intake assistant for a law practice website.',
-          'You may answer only operational questions using provided practice details.',
-          `If user asks for legal advice: respond with the exact sentence: "${LEGAL_DISCLAIMER}" and recommend consultation.`,
-          'Ask only ONE clarifying question max per assistant message.',
-          'If you don’t have practice details: say you don’t have access and recommend consultation.',
-        ].join('\n')
-      },
-      {
-        role: 'system',
-        content: `PRACTICE_CONTEXT: ${JSON.stringify(details)}`
-      },
-      ...body.messages.map((message) => ({
-        role: message.role,
-        content: message.content
-      }))
-    ]
-  });
-
-  if (!response.ok) {
-    throw HttpErrors.internalServerError('AI request failed');
-  }
-
-  const payload = await response.json().catch(() => null) as {
-    choices?: Array<{ message?: { content?: string | null } }>;
-  } | null;
-
-  const rawReply = payload?.choices?.[0]?.message?.content;
-  let reply = typeof rawReply === 'string' && rawReply.trim() !== ''
-    ? rawReply
-    : EMPTY_REPLY_FALLBACK;
-  if (reply === EMPTY_REPLY_FALLBACK) {
-    Logger.warn('AI response missing or empty', {
-      conversationId: body.conversationId,
-      rawReplyType: typeof rawReply
-    });
+    reply = 'I don’t have access to this practice’s details right now. Please click “Request consultation” to connect with the practice.';
   } else {
-    const violations: string[] = [];
-    if (shouldRequireDisclaimer(body.messages) && !reply.includes(LEGAL_DISCLAIMER)) {
-      violations.push('missing_disclaimer');
+    const aiClient = createAiClient(env);
+    const response = await aiClient.requestChatCompletions({
+      model: env.AI_MODEL || DEFAULT_AI_MODEL,
+      temperature: 0.2,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'You are an intake assistant for a law practice website.',
+            'You may answer only operational questions using provided practice details.',
+            `If user asks for legal advice: respond with the exact sentence: "${LEGAL_DISCLAIMER}" and recommend consultation.`,
+            'Ask only ONE clarifying question max per assistant message.',
+            'If you don’t have practice details: say you don’t have access and recommend consultation.',
+          ].join('\n')
+        },
+        {
+          role: 'system',
+          content: `PRACTICE_CONTEXT: ${JSON.stringify(details)}`
+        },
+        ...body.messages.map((message) => ({
+          role: message.role,
+          content: message.content
+        }))
+      ]
+    });
+
+    if (!response.ok) {
+      throw HttpErrors.internalServerError('AI request failed');
     }
-    if (countQuestions(reply) > 1) {
-      violations.push('too_many_questions');
-    }
-    if (violations.length > 0) {
-      Logger.warn('AI response violated prompt contract', {
+
+    const payload = await response.json().catch(() => null) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    } | null;
+
+    const rawReply = payload?.choices?.[0]?.message?.content;
+    reply = typeof rawReply === 'string' && rawReply.trim() !== ''
+      ? rawReply
+      : EMPTY_REPLY_FALLBACK;
+    if (reply === EMPTY_REPLY_FALLBACK) {
+      Logger.warn('AI response missing or empty', {
         conversationId: body.conversationId,
-        rawReplyType: typeof rawReply,
-        violations
+        rawReplyType: typeof rawReply
       });
-      reply = EMPTY_REPLY_FALLBACK;
+    } else {
+      const violations: string[] = [];
+      if (shouldRequireDisclaimer(body.messages) && !reply.includes(LEGAL_DISCLAIMER)) {
+        violations.push('missing_disclaimer');
+      }
+      if (countQuestions(reply) > 1) {
+        violations.push('too_many_questions');
+      }
+      if (violations.length > 0) {
+        Logger.warn('AI response violated prompt contract', {
+          conversationId: body.conversationId,
+          rawReplyType: typeof rawReply,
+          violations
+        });
+        reply = EMPTY_REPLY_FALLBACK;
+      }
     }
   }
+
+  const storedMessage = await conversationService.sendSystemMessage({
+    conversationId: body.conversationId,
+    practiceId: conversation.practice_id,
+    content: reply,
+    metadata: {
+      source: 'ai',
+      model: env.AI_MODEL || DEFAULT_AI_MODEL
+    }
+  });
 
   await auditService.createEvent({
     conversationId: body.conversationId,
@@ -177,7 +179,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
     payload: { conversationId: body.conversationId }
   });
 
-  return new Response(JSON.stringify({ reply }), {
+  return new Response(JSON.stringify({ reply, message: storedMessage }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' }
   });
