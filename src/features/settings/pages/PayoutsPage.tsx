@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import axios from 'axios';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
@@ -21,13 +22,23 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
   const organizationId = useMemo(() => activeOrganizationId, [activeOrganizationId]);
+  const lastOrganizationIdRef = useRef<string | null>(null);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchStatus = useCallback(async (signal: AbortSignal) => {
     if (!organizationId) {
+      if (lastOrganizationIdRef.current !== null) {
+        lastOrganizationIdRef.current = null;
+        setStripeStatus(null);
+      }
       return;
+    }
+
+    if (lastOrganizationIdRef.current !== organizationId) {
+      lastOrganizationIdRef.current = organizationId;
+      setStripeStatus(null);
     }
 
     setIsLoading(true);
@@ -47,6 +58,10 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
       if ((error as { name?: string }).name === 'AbortError') {
         return;
       }
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        setStripeStatus(null);
+        return;
+      }
       console.warn('[PAYOUTS] Failed to load Stripe status:', error);
       showError('Payouts', 'Unable to load payout account status.');
     } finally {
@@ -59,6 +74,13 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   useEffect(() => {
     const controller = new AbortController();
     void fetchStatus(controller.signal);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('stripe')) {
+        url.searchParams.delete('stripe');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
     return () => {
       controller.abort();
     };
@@ -80,15 +102,18 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
       showError('Payouts', 'Unable to start Stripe onboarding in this environment.');
       return;
     }
-    const payoutsUrl = `${window.location.origin}${window.location.pathname}`;
+    const returnUrl = new URL(window.location.href);
+    returnUrl.searchParams.set('stripe', 'return');
+    const refreshUrl = new URL(window.location.href);
+    refreshUrl.searchParams.set('stripe', 'refresh');
 
     setIsSubmitting(true);
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
         practiceUuid: organizationId,
-        returnUrl: payoutsUrl,
-        refreshUrl: payoutsUrl
+        returnUrl: returnUrl.toString(),
+        refreshUrl: refreshUrl.toString()
       });
 
       if (connectedAccount.onboardingUrl) {

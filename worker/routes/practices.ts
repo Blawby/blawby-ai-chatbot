@@ -122,6 +122,7 @@ function parseJsonField<T = unknown>(value: unknown): T | null {
 
 async function notifyIntakeDecision(options: {
   env: Env;
+  request?: Request;
   practiceId: string;
   matterId: string;
   actorUserId: string;
@@ -183,7 +184,8 @@ async function notifyIntakeDecision(options: {
         intakeDecision: decision,
         actorUserId,
         reason: reason ?? null
-      }
+      },
+      request: options.request
     });
   } catch (error) {
     console.error('[Practice] Failed to notify intake decision in conversation:', error);
@@ -517,6 +519,7 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
 
               await notifyIntakeDecision({
                 env,
+                request,
                 practiceId: practice.id,
                 matterId,
                 actorUserId: authContext.user.id,
@@ -592,6 +595,7 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
 
               await notifyIntakeDecision({
                 env,
+                request,
                 practiceId: practice.id,
                 matterId,
                 actorUserId: authContext.user.id,

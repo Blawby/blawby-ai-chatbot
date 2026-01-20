@@ -697,9 +697,14 @@ export class ConversationService {
     content: string;
     role?: 'user' | 'assistant' | 'system';
     metadata?: Record<string, unknown>;
+    request?: Request;
   }): Promise<ConversationMessage> {
     // Validate practice exists in remote API to prevent orphaned records
-    const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId);
+    const practiceExists = await RemoteApiService.validatePractice(
+      this.env,
+      options.practiceId,
+      options.request
+    );
     if (!practiceExists) {
       Logger.error('Attempted to send message with invalid practice_id', {
         practiceId: options.practiceId,
@@ -744,8 +749,13 @@ export class ConversationService {
     content: string;
     role?: 'system';
     metadata?: Record<string, unknown>;
+    request?: Request;
   }): Promise<ConversationMessage> {
-    const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId);
+    const practiceExists = await RemoteApiService.validatePractice(
+      this.env,
+      options.practiceId,
+      options.request
+    );
     if (!practiceExists) {
       Logger.error('Attempted to send system message with invalid practice_id', {
         practiceId: options.practiceId,

@@ -271,6 +271,7 @@ export function MainApp({
 
   const messages = realMessageHandling.messages;
   const addMessage = realMessageHandling.addMessage;
+  const updateMessage = realMessageHandling.updateMessage;
   const intakeStatus = realMessageHandling.intakeStatus;
   const startConsultFlow = realMessageHandling.startConsultFlow;
   const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
@@ -552,46 +553,33 @@ export function MainApp({
 
   // Add intro message when practice config is loaded and no messages exist
   useEffect(() => {
-    if (!practiceConfig || !practiceConfig.introMessage || !addMessage) {
+    if (!practiceConfig || !practiceConfig.introMessage || !addMessage || !updateMessage) {
       return;
     }
     const introMessageId = 'system-intro';
-    const modeSelectorMessageId = 'system-mode-selector';
-    const hasIntroMessage = messages.some(m => m.id === introMessageId);
-    const hasModeSelectorMessage = messages.some(m => m.id === modeSelectorMessageId);
+    const introMessage = messages.find(m => m.id === introMessageId);
     const shouldShowModeSelector =
       shouldRequireModeSelection && !conversationMode && !isConsultFlowActive;
 
-    if (!hasIntroMessage && messages.length === 0) {
+    if (!introMessage && messages.length === 0) {
       const now = Date.now();
       addMessage({
         id: introMessageId,
         content: practiceConfig.introMessage,
         isUser: false,
         role: 'assistant',
-        timestamp: now
+        timestamp: now,
+        metadata: shouldShowModeSelector ? { modeSelector: true } : undefined
       });
-      if (shouldShowModeSelector && !hasModeSelectorMessage) {
-        addMessage({
-          id: modeSelectorMessageId,
-          content: 'How would you like to proceed?',
-          isUser: false,
-          role: 'assistant',
-          timestamp: now + 1,
-          metadata: { modeSelector: true }
-        });
-      }
       return;
     }
 
-    if (shouldShowModeSelector && hasIntroMessage && !hasModeSelectorMessage) {
-      addMessage({
-        id: modeSelectorMessageId,
-        content: 'How would you like to proceed?',
-        isUser: false,
-        role: 'assistant',
-        timestamp: Date.now(),
-        metadata: { modeSelector: true }
+    if (shouldShowModeSelector && introMessage && !introMessage.metadata?.modeSelector) {
+      updateMessage(introMessageId, {
+        metadata: {
+          ...(introMessage.metadata ?? {}),
+          modeSelector: true
+        }
       });
     }
   }, [
@@ -600,7 +588,8 @@ export function MainApp({
     isConsultFlowActive,
     messages,
     practiceConfig,
-    shouldRequireModeSelection
+    shouldRequireModeSelection,
+    updateMessage
   ]);
 
   useEffect(() => {

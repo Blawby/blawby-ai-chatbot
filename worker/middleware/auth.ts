@@ -19,6 +19,33 @@ export interface AuthContext {
   isAnonymous?: boolean; // Flag for anonymous users (Better Auth anonymous plugin)
 }
 
+type CachedSession = {
+  value: { user: AuthenticatedUser; session: { id: string; expiresAt: Date } };
+  expiresAt: number;
+};
+
+const SESSION_CACHE_TTL_MS = 30 * 1000;
+const SESSION_CACHE_MAX_ENTRIES = 200;
+const sessionCache = new Map<string, CachedSession>();
+const sessionValidationInflight = new Map<string, Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }>>();
+const SESSION_COOKIE_NAMES = ['__Secure-better-auth.session_token', 'better-auth.session_token'];
+
+const getSessionCacheKey = (cookieHeader: string): string => {
+  const cookies = cookieHeader.split(';');
+  for (const cookie of cookies) {
+    const trimmed = cookie.trim();
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+    const rawName = trimmed.slice(0, eqIndex);
+    const rawValue = trimmed.slice(eqIndex + 1);
+    if (!rawName || !rawValue) continue;
+    if (SESSION_COOKIE_NAMES.includes(rawName)) {
+      return `${rawName}=${rawValue}`;
+    }
+  }
+  return cookieHeader;
+};
+
 function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
   if (!env.BACKEND_API_URL) {
     throw HttpErrors.internalServerError(`BACKEND_API_URL must be configured (${context})`);
@@ -105,47 +132,94 @@ async function validateSessionWithRemoteServer(
   cookie: string,
   env: Env
 ): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }> {
+  const cacheKey = getSessionCacheKey(cookie);
+  const cached = sessionCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  if (cached) {
+    sessionCache.delete(cacheKey);
+  }
+
+  const inflight = sessionValidationInflight.get(cacheKey);
+  if (inflight) {
+    return inflight;
+  }
+
   const authServerUrl = resolveBackendApiUrl(env, 'Better Auth session validation');
   const AUTH_TIMEOUT_MS = 3000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+  const validationPromise = (async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
 
-  try {
-    const getSessionUrl = `${authServerUrl}/api/auth/get-session`;
-    const response = await fetch(getSessionUrl, {
-      method: 'GET',
-      headers: {
-        'Cookie': cookie,
-        'Content-Type': 'application/json',
-      },
-      signal: controller.signal,
-    });
+    try {
+      const getSessionUrl = `${authServerUrl}/api/auth/get-session`;
+      const response = await fetch(getSessionUrl, {
+        method: 'GET',
+        headers: {
+          'Cookie': cookie,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
 
-    clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error');
-      console.error('[Auth] Better Auth session validation failed:', response.status, errorText.substring(0, 200));
-      throw HttpErrors.unauthorized(`Authentication failed: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('[Auth] Better Auth session validation failed:', response.status, errorText.substring(0, 200));
+        throw HttpErrors.unauthorized(`Authentication failed: ${response.status} ${response.statusText}`);
+      }
+
+      const rawResponse = await response.json() as Record<string, unknown>;
+      const parsed = parseAuthSessionPayload(rawResponse);
+
+      const ttlFromSession = parsed.session.expiresAt.getTime() - Date.now();
+      const ttl = Math.min(SESSION_CACHE_TTL_MS, ttlFromSession);
+      if (ttl > 0) {
+        sessionCache.set(cacheKey, {
+          value: parsed,
+          expiresAt: Date.now() + ttl
+        });
+        if (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
+          for (const [key, entry] of sessionCache) {
+            if (entry.expiresAt <= Date.now()) {
+              sessionCache.delete(key);
+            }
+            if (sessionCache.size <= SESSION_CACHE_MAX_ENTRIES) {
+              break;
+            }
+          }
+          while (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
+            const firstKey = sessionCache.keys().next().value as string | undefined;
+            if (!firstKey) break;
+            sessionCache.delete(firstKey);
+          }
+        }
+      }
+
+      return parsed;
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('[Auth] Session validation timeout after 3s:', authServerUrl);
+        throw HttpErrors.gatewayTimeout('Authentication server timeout - please try again');
+      }
+
+      if (error instanceof HttpError) {
+        throw error;
+      }
+
+      console.error('[Auth] Session validation error:', error instanceof Error ? error.message : String(error));
+      throw HttpErrors.unauthorized('Failed to validate authentication session');
+    } finally {
+      sessionValidationInflight.delete(cacheKey);
     }
+  })();
 
-    const rawResponse = await response.json() as Record<string, unknown>;
-    return parseAuthSessionPayload(rawResponse);
-  } catch (error) {
-    clearTimeout(timeoutId);
-
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('[Auth] Session validation timeout after 3s:', authServerUrl);
-      throw HttpErrors.gatewayTimeout('Authentication server timeout - please try again');
-    }
-
-    if (error instanceof HttpError) {
-      throw error;
-    }
-
-    console.error('[Auth] Session validation error:', error instanceof Error ? error.message : String(error));
-    throw HttpErrors.unauthorized('Failed to validate authentication session');
-  }
+  sessionValidationInflight.set(cacheKey, validationPromise);
+  return validationPromise;
 }
 
 export async function requireAuth(
