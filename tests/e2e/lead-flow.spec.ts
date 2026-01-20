@@ -5,9 +5,9 @@ import { waitForSession } from './helpers/auth';
 import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
-const BACKEND_API_URL = process.env.E2E_BACKEND_API_URL;
-if (!BACKEND_API_URL) {
-  throw new Error('E2E_BACKEND_API_URL is required for lead flow tests.');
+const BACKEND_API_URL = process.env.E2E_BACKEND_API_URL || 'https://staging-api.blawby.com';
+if (!process.env.E2E_BACKEND_API_URL) {
+  console.warn('E2E_BACKEND_API_URL is not set; defaulting to https://staging-api.blawby.com.');
 }
 const PAYMENT_MODE = (process.env.E2E_PAYMENT_MODE || 'auto').toLowerCase();
 
@@ -57,24 +57,44 @@ const normalizePracticeSlug = (value: string): string => {
   return trimmed;
 };
 
-const getIntakeSettings = async (slug: string): Promise<IntakeSettings | null> => {
-  const normalizedSlug = normalizePracticeSlug(slug);
-  const response = await fetch(`${BACKEND_API_URL}/api/practice/client-intakes/${encodeURIComponent(normalizedSlug)}/intake`, {
-    method: 'GET',
-    headers: { 'Accept': 'application/json' }
-  });
+type IntakeSettingsResult = {
+  settings: IntakeSettings | null;
+  status: number;
+  errorText?: string;
+};
 
-  if (!response.ok) {
-    return null;
+const getIntakeSettings = async (
+  slug: string,
+  request?: APIRequestContext
+): Promise<IntakeSettingsResult> => {
+  const normalizedSlug = normalizePracticeSlug(slug);
+  const url = `${BACKEND_API_URL}/api/practice/client-intakes/${encodeURIComponent(normalizedSlug)}/intake`;
+  const response = request
+    ? await request.get(url, { headers: { Accept: 'application/json' } })
+    : await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+
+  const ok = typeof response.ok === 'function' ? response.ok() : response.ok;
+  const status = typeof response.status === 'function' ? response.status() : response.status;
+  if (!ok) {
+    const errorText = await response.text().catch(() => '');
+    return { settings: null, status, errorText };
   }
 
-  const payload = await response.json() as { data?: { settings?: IntakeSettings; connectedAccount?: { id?: string; chargesEnabled?: boolean } } };
+  const payload = await response.json() as {
+    data?: { settings?: IntakeSettings; connectedAccount?: { id?: string; chargesEnabled?: boolean } };
+  };
   if (!payload?.data) {
-    return null;
+    return { settings: null, status };
   }
   return {
-    ...payload.data.settings,
-    connectedAccount: payload.data.connectedAccount
+    status,
+    settings: {
+      ...payload.data.settings,
+      connectedAccount: payload.data.connectedAccount
+    }
   };
 };
 
@@ -232,6 +252,13 @@ const shouldRunPaymentMode = (required: boolean): boolean => {
   return true;
 };
 
+const formatIntakeSettingsSkip = (result: IntakeSettingsResult): string => {
+  const detail = result.errorText
+    ? ` ${result.errorText.slice(0, 200)}`
+    : '';
+  return `Skipping intake flow: unable to load intake settings from ${BACKEND_API_URL} (status ${result.status}).${detail}`;
+};
+
 test.describe('Lead intake workflow', () => {
   test.describe.configure({ mode: 'serial' });
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
@@ -245,12 +272,18 @@ test.describe('Lead intake workflow', () => {
   }) => {
     if (!e2eConfig) return;
 
-    const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
-    if (!intakeSettings?.connectedAccount?.id) {
-      test.skip(true, 'Skipping intake flow: practice has no connected Stripe account.');
+    const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, ownerContext.request);
+    if (!intakeSettingsResult.settings) {
+      const message = formatIntakeSettingsSkip(intakeSettingsResult);
+      console.warn(message);
+      test.skip(true, message);
     }
+    const intakeSettings = intakeSettingsResult.settings;
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
-    if (paymentRequired || !shouldRunPaymentMode(true)) {
+    if (paymentRequired) {
+      test.skip(true, 'Skipping free intake test: practice requires payment.');
+    }
+    if (!shouldRunPaymentMode(false)) {
       test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
@@ -315,16 +348,19 @@ test.describe('Lead intake workflow', () => {
   }) => {
     if (!e2eConfig) return;
 
-    const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
-    if (!intakeSettings?.connectedAccount?.id) {
-      test.skip(true, 'Skipping intake flow: practice has no connected Stripe account.');
+    const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, ownerContext.request);
+    if (!intakeSettingsResult.settings) {
+      const message = formatIntakeSettingsSkip(intakeSettingsResult);
+      console.warn(message);
+      test.skip(true, message);
     }
+    const intakeSettings = intakeSettingsResult.settings;
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
-    if (!paymentRequired) {
-      test.skip(true, 'Skipping payment-gated test: practice does not require payment.');
+    if (paymentRequired) {
+      test.skip(true, 'Skipping free intake test: practice requires payment.');
     }
-    if (!shouldRunPaymentMode(true)) {
-      test.skip(true, `Skipping payment-gated test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
+    if (!shouldRunPaymentMode(false)) {
+      test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
     await anonPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`);
@@ -386,14 +422,22 @@ test.describe('Lead intake workflow', () => {
   test('payment-required intake is gated until completion', async ({ baseURL, clientContext, clientPage }) => {
     if (!e2eConfig) return;
 
-    const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
-    if (!intakeSettings?.connectedAccount?.id) {
-      test.skip(true, 'Skipping intake flow: practice has no connected Stripe account.');
+    const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, clientContext.request);
+    if (!intakeSettingsResult.settings) {
+      const message = formatIntakeSettingsSkip(intakeSettingsResult);
+      console.warn(message);
+      test.skip(true, message);
     }
+    const intakeSettings = intakeSettingsResult.settings;
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
-    if (!shouldRunPaymentMode(paymentRequired)) {
-      const label = paymentRequired ? 'paid' : 'free';
-      test.skip(true, `Skipping ${label} flow for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
+    if (!paymentRequired) {
+      test.skip(true, 'Skipping paid intake test: practice does not require payment.');
+    }
+    if (!intakeSettings?.connectedAccount?.id) {
+      test.skip(true, 'Skipping paid intake test: practice has no connected Stripe account.');
+    }
+    if (!shouldRunPaymentMode(true)) {
+      test.skip(true, `Skipping paid intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
     await clientPage.goto('/');

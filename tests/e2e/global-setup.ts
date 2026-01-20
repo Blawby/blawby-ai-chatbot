@@ -71,30 +71,52 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
     return false;
   }
 
-  try {
-    const response = await fetch(`${baseURL}/api/auth/get-session`, {
-      headers: { Cookie: cookieHeader }
-    });
-    if (!response.ok) {
-      return false;
+  const maxAttempts = 3;
+  let retryDelayMs = 500;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(`${baseURL}/api/auth/get-session`, {
+        headers: { Cookie: cookieHeader }
+      });
+
+      if (response.status === 429 && attempt < maxAttempts - 1) {
+        const retryAfter = response.headers.get('Retry-After');
+        const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
+        const waitMs = Number.isFinite(retryAfterMs) ? retryAfterMs : retryDelayMs;
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        retryDelayMs = Math.min(retryDelayMs * 2, 5000);
+        continue;
+      }
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json().catch(() => null);
+      if (!data || typeof data !== 'object') {
+        return false;
+      }
+      const record = data as Record<string, unknown>;
+      if (record.session || record.user) {
+        return true;
+      }
+      const nested = record.data;
+      if (!nested || typeof nested !== 'object') {
+        return false;
+      }
+      const nestedRecord = nested as Record<string, unknown>;
+      return Boolean(nestedRecord.session || nestedRecord.user);
+    } catch {
+      if (attempt >= maxAttempts - 1) {
+        return false;
+      }
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      retryDelayMs = Math.min(retryDelayMs * 2, 5000);
     }
-    const data = await response.json().catch(() => null);
-    if (!data || typeof data !== 'object') {
-      return false;
-    }
-    const record = data as Record<string, unknown>;
-    if (record.session || record.user) {
-      return true;
-    }
-    const nested = record.data;
-    if (!nested || typeof nested !== 'object') {
-      return false;
-    }
-    const nestedRecord = nested as Record<string, unknown>;
-    return Boolean(nestedRecord.session || nestedRecord.user);
-  } catch {
-    return false;
   }
+
+  return false;
 };
 
 const VALIDATION_TTL_MS = 20 * 60 * 1000;
@@ -237,7 +259,7 @@ const createSignedInState = async (options: {
     ]).catch(() => undefined);
 
     try {
-      await waitForSession(page, { timeoutMs: authTimeoutMs });
+      await waitForSession(page, { timeoutMs: authTimeoutMs, skipIfCookiePresent: false, cookieUrl: baseURL });
     } catch (error) {
       const resultsDir = ensureResultsDir();
       const htmlPath = join(resultsDir, `signin-session-timeout-${label}.html`);
@@ -295,6 +317,9 @@ const createAnonymousState = async (options: {
     await page.evaluate(async () => {
       try {
         const response = await fetch('/api/auth/get-session', { credentials: 'include' });
+        if (!response.ok) {
+          return;
+        }
         let data: any = null;
         try {
           data = await response.json();
@@ -310,7 +335,7 @@ const createAnonymousState = async (options: {
       }
     });
 
-    await waitForSession(page, { timeoutMs: 60000 });
+    await waitForSession(page, { timeoutMs: 60000, skipIfCookiePresent: false, cookieUrl: baseURL });
 
     await context.storageState({ path: storagePath });
     console.log(`✅ anonymous storageState saved to ${storagePath}`);
