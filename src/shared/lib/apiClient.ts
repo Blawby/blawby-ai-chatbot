@@ -656,6 +656,8 @@ export interface PublicPracticeDetails {
   practiceId?: string;
   slug?: string;
   details: PracticeDetails | null;
+  name?: string | null;
+  logo?: string | null;
 }
 
 export async function getPublicPracticeDetails(
@@ -687,13 +689,16 @@ export async function getPublicPracticeDetails(
       );
       const details = normalizePracticeDetailsResponse(response.data);
       const meta = extractPracticeDetailsMeta(response.data);
+      const displayDetails = extractPublicPracticeDisplayDetails(response.data);
       if (!details && !meta.practiceId && !meta.slug) {
         return null;
       }
       return {
         practiceId: meta.practiceId,
         slug: meta.slug ?? normalizedSlug,
-        details
+        details,
+        name: displayDetails.name,
+        logo: displayDetails.logo
       };
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -801,6 +806,40 @@ function extractPracticeDetailsMeta(payload: unknown): { practiceId?: string; sl
   }
 
   return { practiceId, slug };
+}
+
+function extractPublicPracticeDisplayDetails(
+  payload: unknown
+): { name?: string | null; logo?: string | null } {
+  if (!isRecord(payload)) {
+    return {};
+  }
+
+  const candidates: Array<Record<string, unknown>> = [];
+  if ('practice' in payload && isRecord(payload.practice)) {
+    candidates.push(payload.practice);
+  }
+  if ('data' in payload && isRecord(payload.data)) {
+    candidates.push(payload.data);
+  }
+  candidates.push(payload);
+
+  let name: string | null | undefined;
+  let logo: string | null | undefined;
+
+  for (const record of candidates) {
+    if (name === undefined && 'name' in record) {
+      name = toNullableString(record.name);
+    }
+    if (logo === undefined && 'logo' in record) {
+      logo = toNullableString(record.logo);
+    }
+    if (name !== undefined && logo !== undefined) {
+      break;
+    }
+  }
+
+  return { name, logo };
 }
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {
