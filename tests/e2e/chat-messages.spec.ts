@@ -1,23 +1,15 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { loadE2EConfig } from './helpers/e2eConfig';
+import { expect, test } from './fixtures';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { waitForSession } from './helpers/auth';
+import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
-const DEFAULT_BASE_URL = process.env.E2E_BASE_URL || 'https://local.blawby.com';
-const AUTH_STATE_OWNER = 'playwright/.auth/owner.json';
-const AUTH_STATE_CLIENT = 'playwright/.auth/client.json';
-const AUTH_STATE_ANON = 'playwright/.auth/anonymous.json';
 
 interface ConversationMessage {
   id: string;
   role: string;
   content: string;
 }
-
-const resolveBaseUrl = (baseURL?: string): string => {
-  if (typeof baseURL === 'string' && baseURL.length > 0) return baseURL;
-  return DEFAULT_BASE_URL;
-};
 
 const getOrCreateConversation = async (request: APIRequestContext, practiceId: string): Promise<string> => {
   const response = await request.get(
@@ -209,81 +201,69 @@ test.describe('Chat messaging', () => {
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
   test.describe.configure({ mode: 'serial', timeout: 60000 });
 
-  test('anonymous guest can send a chat message', async ({ browser }) => {
+  test('anonymous guest can send a chat message', async ({ anonContext, anonPage, baseURL }) => {
     if (!e2eConfig) return;
-    const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);
-    const context = await browser.newContext({ storageState: AUTH_STATE_ANON, baseURL });
-    const page = await context.newPage();
-    await page.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
-    await waitForSession(page, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(context.request, e2eConfig.practice.id);
+    await anonPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
+    await waitForSession(anonPage, { timeoutMs: 60000 });
+    const conversationId = await getOrCreateConversation(anonContext.request, e2eConfig.practice.id);
     const content = `E2E anon ${Date.now()}`;
     await sendChatMessageWithRetry({
-      page,
+      page: anonPage,
       baseURL,
       conversationId,
       content
     });
 
     const messages = await getConversationMessages({
-      request: context.request,
+      request: anonContext.request,
       practiceId: e2eConfig.practice.id,
       conversationId
     });
 
     expect(messages.some((message) => message.content === content)).toBeTruthy();
-    await context.close();
   });
 
-  test('signed-in client can send a chat message', async ({ browser }) => {
+  test('signed-in client can send a chat message', async ({ clientContext, clientPage, baseURL }) => {
     if (!e2eConfig) return;
-    const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);
-    const context = await browser.newContext({ storageState: AUTH_STATE_CLIENT, baseURL });
-    const page = await context.newPage();
-    await page.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
-    await waitForSession(page, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(context.request, e2eConfig.practice.id);
+    await clientPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
+    await waitForSession(clientPage, { timeoutMs: 60000 });
+    const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
     const content = `E2E client ${Date.now()}`;
     await sendChatMessageWithRetry({
-      page,
+      page: clientPage,
       baseURL,
       conversationId,
       content
     });
 
     const messages = await getConversationMessages({
-      request: context.request,
+      request: clientContext.request,
       practiceId: e2eConfig.practice.id,
       conversationId
     });
 
     expect(messages.some((message) => message.content === content)).toBeTruthy();
-    await context.close();
   });
 
-  test('practice owner can send a chat message', async ({ browser }) => {
+  test('practice owner can send a chat message', async ({ ownerContext, ownerPage, baseURL }) => {
     if (!e2eConfig) return;
-    const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);
-    const context = await browser.newContext({ storageState: AUTH_STATE_OWNER, baseURL });
-    const page = await context.newPage();
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await waitForSession(page, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(context.request, e2eConfig.practice.id);
+    await ownerPage.goto('/', { waitUntil: 'domcontentloaded' });
+    await waitForSession(ownerPage, { timeoutMs: 60000 });
+    const conversationId = await getOrCreateConversation(ownerContext.request, e2eConfig.practice.id);
     const content = `E2E owner ${Date.now()}`;
     await sendChatMessageWithRetry({
-      page,
+      page: ownerPage,
       baseURL,
       conversationId,
       content
     });
 
     const messages = await getConversationMessages({
-      request: context.request,
+      request: ownerContext.request,
       practiceId: e2eConfig.practice.id,
       conversationId
     });
 
     expect(messages.some((message) => message.content === content)).toBeTruthy();
-    await context.close();
   });
 });

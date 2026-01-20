@@ -1,26 +1,17 @@
-import { test, expect } from '@playwright/test';
-import { loadE2EConfig } from './helpers/e2eConfig';
+import { expect, test } from './fixtures';
 import { waitForSession } from './helpers/auth';
+import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
-const DEFAULT_BASE_URL = process.env.E2E_BASE_URL || 'https://local.blawby.com';
-const AUTH_STATE_OWNER = 'playwright/.auth/owner.json';
-
-const resolveBaseUrl = (baseURL?: string): string => {
-  if (typeof baseURL === 'string' && baseURL.length > 0) return baseURL;
-  return DEFAULT_BASE_URL;
-};
 
 test.describe('Auth modes', () => {
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
   test.describe.configure({ mode: 'serial', timeout: 60000 });
 
-  test('requires session cookies for worker APIs', async ({ browser }) => {
+  test('requires session cookies for worker APIs', async ({ baseURL, ownerContext, unauthContext }) => {
     if (!e2eConfig) return;
 
-    const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);
-    const context = await browser.newContext({ storageState: AUTH_STATE_OWNER, baseURL });
-    const page = await context.newPage();
+    const page = await ownerContext.newPage();
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForSession(page, { timeoutMs: 30000 });
 
@@ -52,11 +43,6 @@ test.describe('Auth modes', () => {
     expect(sessionWithCookies.hasSession).toBeTruthy();
     expect(sessionWithoutCookies.hasSession).toBeFalsy();
 
-    const unauthContext = await browser.newContext({
-      baseURL,
-      storageState: { cookies: [], origins: [] },
-      extraHTTPHeaders: { Cookie: '' }
-    });
     const unauthCookies = await unauthContext.cookies(baseURL);
     console.info('[Auth modes] Unauth context cookies:', unauthCookies);
     console.info('[Auth modes] Unauth request headers:', { Cookie: '' });
@@ -76,7 +62,7 @@ test.describe('Auth modes', () => {
       expect(String(unauthError)).toMatch(/auth/i);
     }
 
-    const conversationWithAuthResponse = await context.request.get(
+    const conversationWithAuthResponse = await ownerContext.request.get(
       `/api/conversations/active?practiceId=${encodeURIComponent(e2eConfig.practice.id)}`,
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -87,8 +73,6 @@ test.describe('Auth modes', () => {
 
     expect(conversationWithAuthResponse.status()).toBe(200);
     expect(conversationId).toBeTruthy();
-
-    await unauthContext.close();
-    await context.close();
+    await page.close();
   });
 });

@@ -1,18 +1,15 @@
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import { expect, test } from './fixtures';
+import type { APIRequestContext } from '@playwright/test';
 import { randomUUID } from 'crypto';
-import { loadE2EConfig } from './helpers/e2eConfig';
 import { waitForSession } from './helpers/auth';
+import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
 const BACKEND_API_URL = process.env.E2E_BACKEND_API_URL;
 if (!BACKEND_API_URL) {
   throw new Error('E2E_BACKEND_API_URL is required for lead flow tests.');
 }
-const DEFAULT_BASE_URL = process.env.E2E_BASE_URL || 'https://local.blawby.com';
 const PAYMENT_MODE = (process.env.E2E_PAYMENT_MODE || 'auto').toLowerCase();
-const AUTH_STATE_OWNER = 'playwright/.auth/owner.json';
-const AUTH_STATE_CLIENT = 'playwright/.auth/client.json';
-const AUTH_STATE_ANON = 'playwright/.auth/anonymous.json';
 
 interface ConversationMessage {
   id: string;
@@ -235,16 +232,17 @@ const shouldRunPaymentMode = (required: boolean): boolean => {
   return true;
 };
 
-const resolveBaseUrl = (baseURL?: string): string => {
-  if (typeof baseURL === 'string' && baseURL.length > 0) return baseURL;
-  return DEFAULT_BASE_URL;
-};
-
 test.describe('Lead intake workflow', () => {
   test.describe.configure({ mode: 'serial' });
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
 
-  test('owner accepts lead for signed-in client (no payment required)', async ({ browser }) => {
+  test('owner accepts lead for signed-in client (no payment required)', async ({
+    baseURL,
+    ownerContext,
+    clientContext,
+    ownerPage,
+    clientPage
+  }) => {
     if (!e2eConfig) return;
 
     const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
@@ -256,70 +254,65 @@ test.describe('Lead intake workflow', () => {
       test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
-    const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);
-    const ownerContext = await browser.newContext({ storageState: AUTH_STATE_OWNER, baseURL });
-    const clientContext = await browser.newContext({ storageState: AUTH_STATE_CLIENT, baseURL });
-    const ownerPage = await ownerContext.newPage();
-    const clientPage = await clientContext.newPage();
+    await clientPage.goto('/');
+    await waitForSession(clientPage, { timeoutMs: 30000 });
 
-    try {
-      await clientPage.goto('/');
-      await waitForSession(clientPage, { timeoutMs: 30000 });
+    const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
+    const clientName = `E2E Client ${randomUUID().slice(0, 6)}`;
 
-      const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
-      const clientName = `E2E Client ${randomUUID().slice(0, 6)}`;
+    const intake = await createIntake({
+      slug: e2eConfig.practice.slug,
+      name: clientName,
+      email: e2eConfig.client.email,
+      description: 'E2E accept flow',
+      amount: intakeSettings?.prefillAmount,
+      request: clientContext.request,
+      origin: baseURL
+    });
 
-      const intake = await createIntake({
-        slug: e2eConfig.practice.slug,
-        name: clientName,
-        email: e2eConfig.client.email,
-        description: 'E2E accept flow',
-        amount: intakeSettings?.prefillAmount,
-        request: clientContext.request,
-        origin: baseURL
-      });
-
-      if (!intake.uuid) {
-        throw new Error('Intake create did not return uuid');
-      }
-
-      const confirmResult = await confirmIntakeLead({
-        request: clientContext.request,
-        practiceId: e2eConfig.practice.id,
-        intakeUuid: intake.uuid,
-        conversationId
-      });
-
-      expect(confirmResult.status).toBe(200);
-      const matterId = confirmResult.data?.matterId;
-      if (!matterId) {
-        throw new Error('Intake confirm did not return matterId');
-      }
-
-      await ownerPage.goto('/practice/leads');
-      const leadCard = ownerPage.getByTestId(`lead-card-${matterId}`);
-      await expect(leadCard).toBeVisible({ timeout: 20000 });
-
-      await ownerPage.getByTestId(`lead-accept-${matterId}`).click();
-      await ownerPage.getByRole('button', { name: 'Accept Lead' }).click();
-
-      await expect(leadCard).toHaveCount(0, { timeout: 20000 });
-
-      const decisionMessage = await waitForDecisionMessage({
-        request: clientContext.request,
-        practiceId: e2eConfig.practice.id,
-        conversationId,
-        decision: 'accepted'
-      });
-
-      expect(decisionMessage.content.toLowerCase()).toContain('accepted');
-    } finally {
-      await clientContext.close();
-      await ownerContext.close();
+    if (!intake.uuid) {
+      throw new Error('Intake create did not return uuid');
     }
+
+    const confirmResult = await confirmIntakeLead({
+      request: clientContext.request,
+      practiceId: e2eConfig.practice.id,
+      intakeUuid: intake.uuid,
+      conversationId
+    });
+
+    expect(confirmResult.status).toBe(200);
+    const matterId = confirmResult.data?.matterId;
+    if (!matterId) {
+      throw new Error('Intake confirm did not return matterId');
+    }
+
+    await ownerPage.goto('/practice/leads');
+    const leadCard = ownerPage.getByTestId(`lead-card-${matterId}`);
+    await expect(leadCard).toBeVisible({ timeout: 20000 });
+
+    await ownerPage.getByTestId(`lead-accept-${matterId}`).click();
+    await ownerPage.getByRole('button', { name: 'Accept Lead' }).click();
+
+    await expect(leadCard).toHaveCount(0, { timeout: 20000 });
+
+    const decisionMessage = await waitForDecisionMessage({
+      request: clientContext.request,
+      practiceId: e2eConfig.practice.id,
+      conversationId,
+      decision: 'accepted'
+    });
+
+    expect(decisionMessage.content.toLowerCase()).toContain('accepted');
   });
 
-  test('owner rejects lead for anonymous guest (no payment required)', async ({ browser }) => {
+  test('owner rejects lead for anonymous guest (no payment required)', async ({
+    baseURL,
+    ownerContext,
+    anonContext,
+    ownerPage,
+    anonPage
+  }) => {
     if (!e2eConfig) return;
 
     const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
@@ -334,74 +327,63 @@ test.describe('Lead intake workflow', () => {
       test.skip(true, `Skipping payment-gated test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
-    const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);
-    const ownerContext = await browser.newContext({ storageState: AUTH_STATE_OWNER, baseURL });
-    const anonymousContext = await browser.newContext({ storageState: AUTH_STATE_ANON, baseURL });
-    const ownerPage = await ownerContext.newPage();
-    const anonymousPage = await anonymousContext.newPage();
+    await anonPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`);
+    await waitForSession(anonPage, { timeoutMs: 30000 });
 
-    try {
-      await anonymousPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`);
-      await waitForSession(anonymousPage, { timeoutMs: 30000 });
+    const conversationId = await getOrCreateConversation(anonContext.request, e2eConfig.practice.id);
+    const intakeUuid = randomUUID();
+    const clientName = `E2E Guest ${intakeUuid.slice(0, 8)}`;
+    const rejectReason = `Conflict check ${intakeUuid.slice(0, 4)}`;
 
-      const conversationId = await getOrCreateConversation(anonymousContext.request, e2eConfig.practice.id);
-      const intakeUuid = randomUUID();
-      const clientName = `E2E Guest ${intakeUuid.slice(0, 8)}`;
-      const rejectReason = `Conflict check ${intakeUuid.slice(0, 4)}`;
+    const intake = await createIntake({
+      slug: e2eConfig.practice.slug,
+      name: clientName,
+      email: `guest+${intakeUuid.slice(0, 6)}@example.com`,
+      description: 'E2E reject flow',
+      amount: intakeSettings?.prefillAmount,
+      request: anonContext.request,
+      origin: baseURL
+    });
 
-      const intake = await createIntake({
-        slug: e2eConfig.practice.slug,
-        name: clientName,
-        email: `guest+${intakeUuid.slice(0, 6)}@example.com`,
-        description: 'E2E reject flow',
-        amount: intakeSettings?.prefillAmount,
-        request: anonymousContext.request,
-        origin: baseURL
-      });
-
-      if (!intake.uuid) {
-        throw new Error('Intake create did not return uuid');
-      }
-
-      const confirmResult = await confirmIntakeLead({
-        request: anonymousContext.request,
-        practiceId: e2eConfig.practice.id,
-        intakeUuid: intake.uuid,
-        conversationId
-      });
-
-      expect(confirmResult.status).toBe(200);
-      const matterId = confirmResult.data?.matterId;
-      if (!matterId) {
-        throw new Error('Intake confirm did not return matterId');
-      }
-
-      await ownerPage.goto('/practice/leads');
-      const leadCard = ownerPage.getByTestId(`lead-card-${matterId}`);
-      await expect(leadCard).toBeVisible({ timeout: 20000 });
-
-      await ownerPage.getByTestId(`lead-reject-${matterId}`).click();
-      await ownerPage.fill('#lead-reject-reason', rejectReason);
-      await ownerPage.getByRole('button', { name: 'Reject Lead' }).click();
-
-      await expect(leadCard).toHaveCount(0, { timeout: 20000 });
-
-      const decisionMessage = await waitForDecisionMessage({
-        request: anonymousContext.request,
-        practiceId: e2eConfig.practice.id,
-        conversationId,
-        decision: 'rejected'
-      });
-
-      expect(decisionMessage.content.toLowerCase()).toContain('declined');
-      expect(decisionMessage.content).toContain(rejectReason);
-    } finally {
-      await anonymousContext.close();
-      await ownerContext.close();
+    if (!intake.uuid) {
+      throw new Error('Intake create did not return uuid');
     }
+
+    const confirmResult = await confirmIntakeLead({
+      request: anonContext.request,
+      practiceId: e2eConfig.practice.id,
+      intakeUuid: intake.uuid,
+      conversationId
+    });
+
+    expect(confirmResult.status).toBe(200);
+    const matterId = confirmResult.data?.matterId;
+    if (!matterId) {
+      throw new Error('Intake confirm did not return matterId');
+    }
+
+    await ownerPage.goto('/practice/leads');
+    const leadCard = ownerPage.getByTestId(`lead-card-${matterId}`);
+    await expect(leadCard).toBeVisible({ timeout: 20000 });
+
+    await ownerPage.getByTestId(`lead-reject-${matterId}`).click();
+    await ownerPage.fill('#lead-reject-reason', rejectReason);
+    await ownerPage.getByRole('button', { name: 'Reject Lead' }).click();
+
+    await expect(leadCard).toHaveCount(0, { timeout: 20000 });
+
+    const decisionMessage = await waitForDecisionMessage({
+      request: anonContext.request,
+      practiceId: e2eConfig.practice.id,
+      conversationId,
+      decision: 'rejected'
+    });
+
+    expect(decisionMessage.content.toLowerCase()).toContain('declined');
+    expect(decisionMessage.content).toContain(rejectReason);
   });
 
-  test('payment-required intake is gated until completion', async ({ browser }) => {
+  test('payment-required intake is gated until completion', async ({ baseURL, clientContext, clientPage }) => {
     if (!e2eConfig) return;
 
     const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
@@ -414,39 +396,31 @@ test.describe('Lead intake workflow', () => {
       test.skip(true, `Skipping ${label} flow for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
-    const baseURL = resolveBaseUrl(test.info().project.use.baseURL as string | undefined);
-    const clientContext = await browser.newContext({ storageState: AUTH_STATE_CLIENT, baseURL });
-    const clientPage = await clientContext.newPage();
+    await clientPage.goto('/');
+    await waitForSession(clientPage, { timeoutMs: 30000 });
 
-    try {
-      await clientPage.goto('/');
-      await waitForSession(clientPage, { timeoutMs: 30000 });
+    const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
+    const intake = await createIntake({
+      slug: e2eConfig.practice.slug,
+      name: 'E2E Paid Intake',
+      email: e2eConfig.client.email,
+      description: 'E2E payment gated',
+      amount: intakeSettings?.prefillAmount,
+      request: clientContext.request,
+      origin: baseURL
+    });
 
-      const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
-      const intake = await createIntake({
-        slug: e2eConfig.practice.slug,
-        name: 'E2E Paid Intake',
-        email: e2eConfig.client.email,
-        description: 'E2E payment gated',
-        amount: intakeSettings?.prefillAmount,
-        request: clientContext.request,
-        origin: baseURL
-      });
-
-      if (!intake.uuid) {
-        throw new Error('Intake create did not return uuid');
-      }
-
-      const confirmResult = await confirmIntakeLead({
-        request: clientContext.request,
-        practiceId: e2eConfig.practice.id,
-        intakeUuid: intake.uuid,
-        conversationId
-      });
-
-      expect(confirmResult.status).toBe(402);
-    } finally {
-      await clientContext.close();
+    if (!intake.uuid) {
+      throw new Error('Intake create did not return uuid');
     }
+
+    const confirmResult = await confirmIntakeLead({
+      request: clientContext.request,
+      practiceId: e2eConfig.practice.id,
+      intakeUuid: intake.uuid,
+      conversationId
+    });
+
+    expect(confirmResult.status).toBe(402);
   });
 });
