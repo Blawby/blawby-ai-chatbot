@@ -971,13 +971,32 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       return;
     }
 
-    await apiUpdatePractice(id, payload);
-    practicesFetchedRef.current = false;
-    await fetchPractices();
+    const updatedPractice = normalizePracticeRecord(
+      await apiUpdatePractice(id, payload) as unknown as Record<string, unknown>
+    );
+
+    if (sharedPracticeSnapshot) {
+      const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
+        practice.id === id ? updatedPractice : practice
+      );
+      const nextCurrentPractice = sharedPracticeSnapshot.currentPractice?.id === id
+        ? updatedPractice
+        : sharedPracticeSnapshot.currentPractice;
+      sharedPracticeSnapshot = {
+        practices: nextPractices,
+        currentPractice: nextCurrentPractice
+      };
+    }
+
+    setCurrentPractice((prev) => (prev?.id === id ? updatedPractice : prev));
+    setPractices((prev) =>
+      prev.map((practice) => (practice.id === id ? updatedPractice : practice))
+    );
+
     if (shouldFetchInvitations) {
       await fetchInvitations();
     }
-  }, [fetchPractices, fetchInvitations, shouldFetchInvitations, practices]);
+  }, [fetchInvitations, practices, shouldFetchInvitations]);
 
   const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
     if (!id) {

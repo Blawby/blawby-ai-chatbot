@@ -346,6 +346,17 @@ function PracticeAppRoute({
     currentPractice?.id ||
     practices[0]?.id
   );
+  const practiceRefreshKey = useMemo(() => {
+    if (!currentPractice) return null;
+    return [
+      currentPractice.updatedAt,
+      currentPractice.slug,
+      currentPractice.logo,
+      currentPractice.name
+    ]
+      .filter(Boolean)
+      .join('|');
+  }, [currentPractice]);
 
   const handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
@@ -363,7 +374,8 @@ function PracticeAppRoute({
   } = usePracticeConfig({
     onError: handlePracticeError,
     practiceId: resolvedPracticeId,
-    allowUnauthenticated: false
+    allowUnauthenticated: false,
+    refreshKey: practiceRefreshKey
   });
 
   useEffect(() => {

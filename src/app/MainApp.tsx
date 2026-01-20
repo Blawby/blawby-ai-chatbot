@@ -721,6 +721,8 @@ export function MainApp({
   };
 
   const resolvedPracticeLogo = currentPractice?.logo ?? practiceConfig?.profileImage ?? null;
+  const resolvedPracticeName = currentPractice?.name ?? practiceConfig.name ?? '';
+  const resolvedPracticeSlug = currentPractice?.slug ?? practiceConfig?.slug ?? practiceId;
 
   // Handle navigation to chats - removed since bottom nav is disabled
   const shouldShowChatPlaceholder = workspace !== 'public' && !conversationId;
@@ -754,11 +756,11 @@ export function MainApp({
               conversationMode={conversationMode}
               composerDisabled={isComposerDisabled}
               practiceConfig={{
-                name: practiceConfig.name ?? '',
+                name: resolvedPracticeName,
                 profileImage: resolvedPracticeLogo,
                 practiceId,
                 description: practiceConfig?.description ?? '',
-                slug: practiceConfig?.slug ?? practiceId
+                slug: resolvedPracticeSlug
               }}
               onOpenSidebar={() => setIsMobileSidebarOpen(true)}
               practiceId={practiceId}
@@ -839,10 +841,10 @@ export function MainApp({
         notificationCategory={notificationCategory}
         onSelectNotificationCategory={handleNotificationCategoryChange}
         practiceConfig={{
-          name: practiceConfig.name ?? '',
+          name: resolvedPracticeName,
           profileImage: resolvedPracticeLogo,
           description: practiceConfig?.description ?? '',
-          slug: practiceConfig?.slug ?? practiceId
+          slug: resolvedPracticeSlug
         }}
         currentPractice={currentPractice}
         practiceDetails={practiceDetails}

@@ -123,7 +123,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const { openBillingPortal } = usePaymentUpgrade();
   const [matterAction, setMatterAction] = useState<'pay' | 'pdf' | 'share' | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
-  const practiceSlug = practiceConfig.slug ?? currentPractice?.slug ?? practiceId;
+  const practiceSlug = currentPractice?.slug ?? practiceConfig.slug ?? practiceId;
   const practiceDescription = practiceDetails?.description ?? currentPractice?.description ?? practiceConfig.description ?? null;
 
   const showDashboardTab = workspace !== 'public';

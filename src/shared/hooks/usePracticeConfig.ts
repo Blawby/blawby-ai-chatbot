@@ -51,12 +51,14 @@ interface UsePracticeConfigOptions {
   onError?: (error: string) => void;
   practiceId?: string; // Optional explicit override
   allowUnauthenticated?: boolean;
+  refreshKey?: string | number | null;
 }
 
 export const usePracticeConfig = ({
   onError,
   practiceId: explicitPracticeId,
-  allowUnauthenticated = false
+  allowUnauthenticated = false,
+  refreshKey
 }: UsePracticeConfigOptions = {}) => {
   const { activePracticeId, session } = useSessionContext();
   const isAuthenticated = Boolean(session?.user);
@@ -64,6 +66,7 @@ export const usePracticeConfig = ({
   const [practiceNotFound, setPracticeNotFound] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [practiceConfig, setPracticeConfig] = useState<UIPracticeConfig>(() => buildDefaultPracticeConfig());
+  const refreshKeyRef = useRef<string | number | null | undefined>(refreshKey);
 
   // Use ref to track if we've already fetched for this practiceId
   const fetchedPracticeIds = useRef<Set<string>>(new Set());
@@ -263,6 +266,15 @@ export const usePracticeConfig = ({
       fetchPracticeConfig(practiceId);
     }
   }, [practiceId, isAuthenticated, allowUnauthenticated, fetchPracticeConfig]);
+
+  useEffect(() => {
+    if (!practiceId) return;
+    if (refreshKey === undefined) return;
+    if (refreshKeyRef.current === refreshKey) return;
+    refreshKeyRef.current = refreshKey;
+    fetchedPracticeIds.current.delete(practiceId);
+    fetchPracticeConfig(practiceId);
+  }, [fetchPracticeConfig, practiceId, refreshKey]);
 
   return {
     practiceId,
