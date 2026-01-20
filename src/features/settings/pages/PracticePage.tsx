@@ -249,9 +249,19 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       return '';
     }
   }, []);
-  const practiceUrlValue = practice?.slug
-    ? `${practiceHost ? `${practiceHost}/p/${practice.slug}` : `/p/${practice.slug}`}`
-    : `${practiceHost ? `${practiceHost}/p/your-practice` : '/p/your-practice'}`;
+  const practicePath = `/p/${practice?.slug ?? 'your-practice'}`;
+  const practiceUrlValue = practiceHost
+    ? `${practiceHost}${practicePath}`
+    : practicePath;
+  const practiceUrlHref = useMemo(() => {
+    if (!practiceHost) {
+      return practicePath;
+    }
+    const protocol = typeof window !== 'undefined' && window.location?.protocol
+      ? window.location.protocol
+      : 'https:';
+    return `${protocol}//${practiceHost}${practicePath}`;
+  }, [practiceHost, practicePath]);
   const hasSavedLogo = editPracticeForm.logo.trim().length > 0;
   const showLogoUploader = isLogoEditing || !hasSavedLogo;
   const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
@@ -644,7 +654,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                       <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                         URL
                       </span>
-                      <span>{practiceUrlValue}</span>
+                      <a
+                        href={practiceUrlHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-brand-600 hover:text-brand-700 hover:underline"
+                      >
+                        {practiceUrlValue}
+                      </a>
                     </div>
                     <div className="flex items-start gap-3">
                       <span className="w-20 text-[10px] font-semibold uppercase tracking-wide text-gray-400">

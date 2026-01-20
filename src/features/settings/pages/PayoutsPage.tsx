@@ -21,6 +21,14 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
   const organizationId = useMemo(() => activeOrganizationId, [activeOrganizationId]);
+  const shouldFetchStatus = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const stripeParam = params.get('stripe');
+    return stripeParam === 'return' || stripeParam === 'refresh';
+  }, []);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,12 +65,20 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   }, [organizationId, showError]);
 
   useEffect(() => {
+    if (!shouldFetchStatus) {
+      return;
+    }
     const controller = new AbortController();
     void fetchStatus(controller.signal);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('stripe');
+      window.history.replaceState({}, '', url.toString());
+    }
     return () => {
       controller.abort();
     };
-  }, [fetchStatus]);
+  }, [fetchStatus, shouldFetchStatus]);
 
   const handleSubmitDetails = useCallback(async () => {
     if (!organizationId) {
@@ -80,15 +96,18 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
       showError('Payouts', 'Unable to start Stripe onboarding in this environment.');
       return;
     }
-    const payoutsUrl = `${window.location.origin}${window.location.pathname}`;
+    const returnUrl = new URL(window.location.href);
+    returnUrl.searchParams.set('stripe', 'return');
+    const refreshUrl = new URL(window.location.href);
+    refreshUrl.searchParams.set('stripe', 'refresh');
 
     setIsSubmitting(true);
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
         practiceUuid: organizationId,
-        returnUrl: payoutsUrl,
-        refreshUrl: payoutsUrl
+        returnUrl: returnUrl.toString(),
+        refreshUrl: refreshUrl.toString()
       });
 
       if (connectedAccount.onboardingUrl) {

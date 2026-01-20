@@ -27,6 +27,12 @@ interface IntakeSettings {
   };
 }
 
+type ConnectedAccountPayload = {
+  id?: string;
+  chargesEnabled?: boolean;
+  charges_enabled?: boolean;
+};
+
 interface IntakeCreateResult {
   uuid?: string;
   clientSecret?: string;
@@ -83,17 +89,34 @@ const getIntakeSettings = async (
     return { settings: null, status, errorText };
   }
 
-  const payload = await response.json() as {
-    data?: { settings?: IntakeSettings; connectedAccount?: { id?: string; chargesEnabled?: boolean } };
-  };
-  if (!payload?.data) {
+  const payload = await response.json().catch(() => null) as
+    | {
+        data?: {
+          settings?: IntakeSettings;
+          connectedAccount?: ConnectedAccountPayload;
+          connected_account?: ConnectedAccountPayload;
+        };
+        settings?: IntakeSettings;
+        connectedAccount?: ConnectedAccountPayload;
+        connected_account?: ConnectedAccountPayload;
+      }
+    | null;
+  const data = payload?.data ?? payload ?? null;
+  if (!data?.settings) {
     return { settings: null, status };
   }
+
+  const connectedAccount: ConnectedAccountPayload | undefined = data.connectedAccount ?? data.connected_account ?? undefined;
   return {
     status,
     settings: {
-      ...payload.data.settings,
-      connectedAccount: payload.data.connectedAccount
+      ...data.settings,
+      connectedAccount: connectedAccount
+        ? {
+            id: connectedAccount.id,
+            chargesEnabled: connectedAccount.chargesEnabled ?? connectedAccount.charges_enabled
+          }
+        : undefined
     }
   };
 };
@@ -115,7 +138,7 @@ const createIntake = async (options: {
   }
   const payload = {
     slug: normalizedSlug,
-    amount: options.amount ?? 50,
+    amount: typeof options.amount === 'number' ? Math.max(options.amount, 50) : 50,
     name: options.name,
     email: options.email,
     description: options.description,
@@ -138,11 +161,23 @@ const createIntake = async (options: {
     throw new Error(`Intake create failed (${status}): ${text}`);
   }
 
-  const responsePayload = await response.json() as { success?: boolean; error?: string; data?: Record<string, unknown> };
-  if (responsePayload.success === false) {
-    throw new Error(responsePayload.error || 'Intake create returned success=false');
+  const responsePayload = await response.json().catch(() => null) as Record<string, unknown> | null;
+  if (!responsePayload) {
+    throw new Error('Intake create returned empty response');
   }
-  const data = responsePayload?.data ?? {};
+  if (responsePayload.success === false) {
+    const errorValue = responsePayload.error;
+    const errorMessage = typeof errorValue === 'string'
+      ? errorValue
+      : typeof (errorValue as { message?: string } | null)?.message === 'string'
+        ? (errorValue as { message?: string }).message
+        : 'Intake create returned success=false';
+    throw new Error(errorMessage);
+  }
+
+  const data = (responsePayload.data && typeof responsePayload.data === 'object')
+    ? responsePayload.data as Record<string, unknown>
+    : responsePayload;
   return {
     uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
     clientSecret: typeof data.client_secret === 'string' ? data.client_secret : undefined,

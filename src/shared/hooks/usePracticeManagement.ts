@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { getBackendApiUrl } from '@/config/urls';
@@ -729,7 +730,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             );
             stripeDetailsSubmitted = resolveStripeDetailsSubmitted(payload);
           } catch (stripeError) {
-            console.warn('Failed to fetch onboarding status:', stripeError);
+            if (axios.isAxiosError(stripeError) && stripeError.response?.status === 404) {
+              stripeDetailsSubmitted = false;
+            } else {
+              console.warn('Failed to fetch onboarding status:', stripeError);
+            }
           }
         }
 

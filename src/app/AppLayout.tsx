@@ -305,68 +305,22 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     if (workspace !== 'practice') return null;
     if (!currentPractice?.id) return null;
 
-    const hasValue = (value: unknown): boolean =>
-      typeof value === 'string' && value.trim().length > 0;
-
-    const businessEmail = practiceDetails?.businessEmail ?? currentPractice.businessEmail ?? '';
-    const businessPhone = practiceDetails?.businessPhone ?? currentPractice.businessPhone ?? '';
-    const website = practiceDetails?.website ?? currentPractice.website ?? '';
-    const addressLine1 = practiceDetails?.addressLine1 ?? currentPractice.addressLine1 ?? '';
-    const city = practiceDetails?.city ?? currentPractice.city ?? '';
-    const state = practiceDetails?.state ?? currentPractice.state ?? '';
-    const postalCode = practiceDetails?.postalCode ?? currentPractice.postalCode ?? '';
-    const country = practiceDetails?.country ?? currentPractice.country ?? '';
-    const introMessage = practiceDetails?.introMessage ?? currentPractice.introMessage ?? '';
-    const description = practiceDetails?.description ?? currentPractice.description ?? '';
-    const isPublic = practiceDetails?.isPublic ?? currentPractice.isPublic ?? false;
-    const services = practiceDetails?.services ?? currentPractice.services ?? [];
-    const hasServices = Array.isArray(services)
-      ? services.some((service) => {
-        if (!service || typeof service !== 'object') return false;
-        const record = service as Record<string, unknown>;
-        const name = record.name ?? record.title;
-        return hasValue(name);
-      })
-      : false;
-
-    const hasProfileBasics = hasValue(currentPractice.name) && hasValue(businessEmail);
-    const hasContactInfo = hasValue(businessPhone) && hasValue(website);
-    const hasAddress =
-      hasValue(addressLine1) &&
-      hasValue(city) &&
-      hasValue(state) &&
-      hasValue(postalCode) &&
-      hasValue(country);
-    const hasMessaging = hasValue(introMessage) && hasValue(description);
-    const stripeReady = currentPractice.businessOnboardingStatus === 'completed';
-
-    const profileReady =
-      hasProfileBasics &&
-      hasContactInfo &&
-      hasAddress &&
-      hasMessaging &&
-      hasServices &&
-      isPublic;
-
-    if (profileReady && stripeReady) return null;
+    const stripeStatus = currentPractice.businessOnboardingStatus;
+    const stripeReady = stripeStatus === 'completed' || stripeStatus === 'not_required';
+    if (stripeReady) return null;
 
     return {
-      title: 'Complete your practice profile to launch.',
-      description: 'Add missing practice details and connect payouts so clients can discover and pay your firm.',
+      title: 'Blawby payouts is almost ready to go.',
+      description: 'You just need to provide a few details to start sending invoices and getting paid.',
       actions: [
         {
-          label: 'Practice settings',
-          onClick: () => navigate('/settings/practice'),
-          variant: 'secondary' as const
-        },
-        {
-          label: 'Payouts',
+          label: 'Set up payouts',
           onClick: () => navigate('/settings/account/payouts'),
-          variant: 'secondary' as const
+          variant: 'primary' as const
         }
       ]
     };
-  }, [currentPractice, navigate, practiceDetails, workspace]);
+  }, [currentPractice, navigate, workspace]);
 
   if (practiceNotFound) {
     return <PracticeNotFound practiceId={practiceId} onRetry={onRetryPracticeConfig} />;

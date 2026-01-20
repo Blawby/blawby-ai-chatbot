@@ -558,23 +558,35 @@ export class RemoteApiService {
         request
       );
 
-      const payload = await response.json() as { success?: boolean; data?: Record<string, unknown> };
-      if (payload?.success === false) {
+      const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
+      if (!payload || typeof payload !== 'object') {
         return null;
       }
-      const data = payload?.data;
-      if (!data || typeof data !== 'object') {
+      if (payload.success === false) {
         return null;
       }
+      const data = (payload.data && typeof payload.data === 'object')
+        ? payload.data as Record<string, unknown>
+        : payload;
 
       return {
         uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
         amount: typeof data.amount === 'number' ? data.amount : undefined,
         currency: typeof data.currency === 'string' ? data.currency : undefined,
         status: typeof data.status === 'string' ? data.status : undefined,
-        metadata: typeof data.metadata === 'object' && data.metadata !== null ? data.metadata as Record<string, unknown> : null,
-        succeeded_at: typeof data.succeeded_at === 'string' ? data.succeeded_at : null,
-        created_at: typeof data.created_at === 'string' ? data.created_at : null
+        metadata: typeof data.metadata === 'object' && data.metadata !== null
+          ? data.metadata as Record<string, unknown>
+          : null,
+        succeeded_at: typeof data.succeeded_at === 'string'
+          ? data.succeeded_at
+          : typeof data.succeededAt === 'string'
+            ? data.succeededAt
+            : null,
+        created_at: typeof data.created_at === 'string'
+          ? data.created_at
+          : typeof data.createdAt === 'string'
+            ? data.createdAt
+            : null
       };
     } catch (error) {
       if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
@@ -596,20 +608,32 @@ export class RemoteApiService {
         `/api/practice/client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
         request
       );
-      const payload = await response.json() as { success?: boolean; data?: { settings?: Record<string, unknown> } };
-      if (payload?.success === false) {
+      const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
+      if (!payload || typeof payload !== 'object') {
         return null;
       }
-      const settings = payload?.data?.settings;
+      if (payload.success === false) {
+        return null;
+      }
+
+      const data = (payload.data && typeof payload.data === 'object')
+        ? payload.data as Record<string, unknown>
+        : payload;
+      const settings = data.settings;
       if (!settings || typeof settings !== 'object') {
         return null;
       }
+      const settingsRecord = settings as Record<string, unknown>;
       return {
-        paymentLinkEnabled: typeof settings.paymentLinkEnabled === 'boolean'
-          ? settings.paymentLinkEnabled
+        paymentLinkEnabled: typeof settingsRecord.paymentLinkEnabled === 'boolean'
+          ? settingsRecord.paymentLinkEnabled as boolean
+          : typeof settingsRecord.payment_link_enabled === 'boolean'
+            ? settingsRecord.payment_link_enabled as boolean
           : undefined,
-        prefillAmount: typeof settings.prefillAmount === 'number'
-          ? settings.prefillAmount
+        prefillAmount: typeof settingsRecord.prefillAmount === 'number'
+          ? settingsRecord.prefillAmount as number
+          : typeof settingsRecord.prefill_amount === 'number'
+            ? settingsRecord.prefill_amount as number
           : undefined
       };
     } catch (error) {

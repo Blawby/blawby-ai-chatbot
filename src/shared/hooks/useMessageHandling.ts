@@ -1175,7 +1175,12 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         const uiMessages = data.data.messages.map(toUIMessage);
         messageIdSetRef.current = new Set(data.data.messages.map((msg) => msg.id));
         lastSeqRef.current = data.data.messages.reduce((max, msg) => Math.max(max, msg.seq), 0);
-        setMessages(uiMessages);
+        setMessages(prev => {
+          if (uiMessages.length === 0 && prev.length > 0) {
+            return prev;
+          }
+          return uiMessages;
+        });
         sendReadUpdate(lastSeqRef.current);
       }
     } catch (err) {
@@ -1475,10 +1480,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
     setMessages(prev => {
       // Check for existence of local system messages
-      const hasWelcome = prev.some(m => m.id === 'system-welcome');
       const hasContactForm = prev.some(m => m.id === 'system-contact-form');
       const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
-      const hasModeSelector = prev.some(m => m.id === 'system-mode-selector');
 
       const newMessages = [...prev];
       let changed = false;
@@ -1519,14 +1522,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         newMessages.push(msg);
         changed = true;
       };
-
-      // Welcome message on new intake threads
-      if (!hasModeSelector && !hasWelcome && newMessages.length === 0) {
-        addMsg(
-          'system-welcome',
-          "Hi! I'm Blawby AI. Share a quick summary of your case and I'll guide you to the right next step."
-        );
-      }
 
       // Contact form (present the form conversationally after first message)
       // We collect case details in the form itself, so no need for separate "issue" step
