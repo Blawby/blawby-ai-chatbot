@@ -306,7 +306,12 @@ export const useMessageHandling = ({
       if (!message?.id) {
         continue;
       }
-      nextLatestSeq = Math.max(nextLatestSeq, message.seq);
+      const seqValue = typeof message.seq === 'number' && Number.isFinite(message.seq)
+        ? message.seq
+        : null;
+      if (seqValue !== null) {
+        nextLatestSeq = Math.max(nextLatestSeq, seqValue);
+      }
       if (messageIdSetRef.current.has(message.id)) {
         continue;
       }

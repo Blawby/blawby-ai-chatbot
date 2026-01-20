@@ -876,12 +876,31 @@ export function useConversation({
             }
           });
         } else {
-          messageIdSetRef.current = new Set(data.data.messages.map((msg) => msg.id));
-          lastSeqRef.current = data.data.messages.reduce(
-            (max, msg) => Math.max(max, msg.seq ?? 0),
-            0
-          );
-          setMessages(uiMessages);
+          const serverMessageIds = new Set(data.data.messages.map((msg) => msg.id));
+          const pendingIds = new Set(pendingClientMessageRef.current.values());
+          lastSeqRef.current = data.data.messages.reduce((max, msg) => {
+            const seqValue = typeof msg.seq === 'number' && Number.isFinite(msg.seq) ? msg.seq : null;
+            return seqValue !== null ? Math.max(max, seqValue) : max;
+          }, 0);
+
+          setMessages(prev => {
+            const optimistic = prev.filter((message) => {
+              return pendingIds.has(message.id) || message.id.startsWith('temp-');
+            });
+            const mergedIds = new Set(uiMessages.map((message) => message.id));
+            const merged = [
+              ...uiMessages,
+              ...optimistic.filter((message) => !mergedIds.has(message.id))
+            ].sort((a, b) => a.timestamp - b.timestamp);
+
+            const nextIds = new Set(serverMessageIds);
+            for (const message of optimistic) {
+              nextIds.add(message.id);
+            }
+            messageIdSetRef.current = nextIds;
+
+            return merged;
+          });
           sendReadUpdate(lastSeqRef.current);
         }
 

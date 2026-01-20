@@ -785,7 +785,7 @@ export const handlers = [
       const limitedMessages = filtered.slice(0, limit);
       const nextFromSeq = limitedMessages.length > 0
         ? limitedMessages[limitedMessages.length - 1].seq + 1
-        : (latestSeq > 0 ? latestSeq + 1 : null);
+        : null;
 
       return HttpResponse.json({
         success: true,

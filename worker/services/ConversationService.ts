@@ -953,9 +953,13 @@ export class ConversationService {
       }));
 
       const latestSeq = Number(latestRecord.latest_seq);
-      const nextFromSeq = messages.length > 0
-        ? messages[messages.length - 1].seq + 1
-        : null;
+      let nextFromSeq: number | null = null;
+      if (messages.length > 0) {
+        const lastSeq = messages[messages.length - 1].seq;
+        if (lastSeq < latestSeq) {
+          nextFromSeq = lastSeq + 1;
+        }
+      }
 
       return {
         messages,

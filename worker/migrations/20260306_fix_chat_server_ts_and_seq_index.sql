@@ -10,6 +10,9 @@ DROP INDEX IF EXISTS ix_chat_messages_conv_seq;
 -- Also correct cases where server_ts is later than created_at (invalid future timestamp).
 UPDATE chat_messages
 SET server_ts = created_at
-WHERE server_ts IS NULL OR server_ts = '' OR datetime(server_ts) > datetime(created_at);
+WHERE server_ts IS NULL
+  OR server_ts = ''
+  OR datetime(server_ts) IS NULL
+  OR datetime(server_ts) > datetime(created_at);
 
 COMMIT;

@@ -60,7 +60,7 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
     return false;
   }
 
-  const host = new URL(baseURL).host;
+  const host = new URL(baseURL).hostname;
   const cookieHeader = state.cookies
     .filter((cookie) => cookieMatchesHost(cookie.domain, host))
     .map((cookie) => `${cookie.name}=${cookie.value}`)
