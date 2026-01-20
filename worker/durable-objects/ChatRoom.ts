@@ -468,12 +468,20 @@ export class ChatRoom {
     }
 
     const updatedAt = new Date().toISOString();
-    await this.env.DB.prepare(`
-      INSERT INTO conversation_read_state (conversation_id, user_id, last_read_seq, updated_at)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(conversation_id, user_id)
-      DO UPDATE SET last_read_seq = excluded.last_read_seq, updated_at = excluded.updated_at
-    `).bind(conversationId, attachment.userId, clamped, updatedAt).run();
+    try {
+      await this.env.DB.prepare(`
+        INSERT INTO conversation_read_state (conversation_id, user_id, last_read_seq, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(conversation_id, user_id)
+        DO UPDATE SET last_read_seq = excluded.last_read_seq, updated_at = excluded.updated_at
+      `).bind(conversationId, attachment.userId, clamped, updatedAt).run();
+    } catch {
+      this.sendFrame(ws, 'error', {
+        code: 'internal_error',
+        message: 'Failed to update read state'
+      }, frame.request_id);
+      return;
+    }
 
     this.broadcastFrame('read', {
       conversation_id: conversationId,

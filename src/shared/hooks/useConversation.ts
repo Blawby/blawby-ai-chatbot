@@ -776,6 +776,7 @@ export function useConversation({
         method: 'GET',
         headers,
         credentials: 'include',
+        signal: abortControllerRef.current?.signal,
       });
 
       if (!response.ok) {
@@ -794,6 +795,7 @@ export function useConversation({
       }
     } catch (err) {
       if (isDisposedRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch conversation';
       setError(errorMessage);
       onError?.(errorMessage);
@@ -829,6 +831,7 @@ export function useConversation({
         method: 'GET',
         headers,
         credentials: 'include',
+        signal: abortControllerRef.current?.signal,
       });
 
       if (!response.ok) {
@@ -880,6 +883,7 @@ export function useConversation({
       }
     } catch (err) {
       if (isDisposedRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
       setError(errorMessage);
       onError?.(errorMessage);
