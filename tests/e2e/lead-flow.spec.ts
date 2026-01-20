@@ -1,8 +1,10 @@
 import { expect, test } from './fixtures';
-import type { APIRequestContext, APIResponse, BrowserContext } from '@playwright/test';
+import type { APIRequestContext, APIResponse, BrowserContext, Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { readFileSync } from 'fs';
 import { waitForSession } from './helpers/auth';
 import { loadE2EConfig } from './helpers/e2eConfig';
+import { AUTH_STATE_PATHS } from './helpers/authState';
 
 const e2eConfig = loadE2EConfig();
 const BACKEND_API_URL = process.env.E2E_BACKEND_API_URL || 'https://staging-api.blawby.com';
@@ -48,10 +50,36 @@ interface IntakeCreateResult {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const buildCookieHeader = async (context: BrowserContext, baseURL: string): Promise<string> => {
-  const cookies = await context.cookies(baseURL);
-  if (!cookies.length) return '';
-  return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+const buildCookieHeader = async (
+  context: BrowserContext,
+  baseURL: string,
+  storagePath?: string
+): Promise<string> => {
+  type CookiePair = { name: string; value: string };
+
+  let cookies = await context.cookies(baseURL);
+  if (!cookies.length) {
+    cookies = await context.cookies();
+  }
+  let cookiePairs: CookiePair[] = cookies.map((cookie) => ({
+    name: cookie.name,
+    value: cookie.value
+  }));
+
+  const hasSessionCookie = cookiePairs.some((cookie) => /better-auth\.session_token/i.test(cookie.name));
+  if ((!cookiePairs.length || !hasSessionCookie) && storagePath) {
+    try {
+      const raw = readFileSync(storagePath, 'utf-8');
+      const stored = JSON.parse(raw) as { cookies?: CookiePair[] };
+      if (Array.isArray(stored.cookies) && stored.cookies.length > 0) {
+        cookiePairs = stored.cookies;
+      }
+    } catch {
+      // ignore storage read failures
+    }
+  }
+  if (!cookiePairs.length) return '';
+  return cookiePairs.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
 };
 
 const normalizePracticeSlug = (value: string): string => {
@@ -89,6 +117,8 @@ type LeadQueueItem = {
   status?: string;
 };
 
+const intakeSettingsCache = new Map<string, IntakeSettingsResult>();
+
 const extractPracticeList = (payload: unknown): PracticeSummary[] => {
   if (Array.isArray(payload)) return payload as PracticeSummary[];
   if (!payload || typeof payload !== 'object') return [];
@@ -108,17 +138,28 @@ const resolvePracticeId = async (
   practiceSlug: string,
   fallbackId: string
 ): Promise<string> => {
-  const response = await request.get('/api/practice/list', {
-    headers: { Accept: 'application/json' }
-  });
+  let response: APIResponse | null = null;
+  try {
+    response = await request.get('/api/practice/list', {
+      headers: { Accept: 'application/json' },
+      timeout: 10000
+    });
+  } catch (error) {
+    console.warn('[E2E] Practice list request failed; using fallback practice id.', error);
+    return fallbackId;
+  }
   if (!response.ok()) {
-    throw new Error(`Failed to load practice list: ${response.status()} ${response.statusText()}`);
+    console.warn(
+      `[E2E] Practice list returned ${response.status()}; using fallback practice id.`
+    );
+    return fallbackId;
   }
   const payload = await response.json().catch(() => null);
   const practices = extractPracticeList(payload);
   const match = practices.find((practice) => practice?.slug === practiceSlug || practice?.id === fallbackId);
   if (!match?.id) {
-    throw new Error(`Practice slug ${practiceSlug} not found for owner; check e2e credentials.`);
+    console.warn('[E2E] Practice slug not found in list; using fallback practice id.');
+    return fallbackId;
   }
   return match.id;
 };
@@ -131,21 +172,77 @@ const getLeadQueue = async (options: {
 }): Promise<LeadQueueItem[]> => {
   const cookieHeader = await buildCookieHeader(options.context, options.baseURL);
   const url = `${WORKER_API_URL}/api/practices/${encodeURIComponent(options.practiceId)}/workspace/matters?status=lead`;
-  const response = await options.request.get(url, {
-    headers: {
-      Accept: 'application/json',
-      Cookie: cookieHeader
+  const maxAttempts = 3;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const response = await options.request.get(url, {
+      headers: {
+        Accept: 'application/json',
+        Cookie: cookieHeader
+      }
+    });
+    if (response.ok()) {
+      const payload = await response.json().catch(() => null) as {
+        data?: { items?: LeadQueueItem[]; matters?: LeadQueueItem[] };
+      } | null;
+      const items = payload?.data?.items ?? payload?.data?.matters ?? [];
+      return items;
     }
-  });
-  if (!response.ok()) {
+
     const bodyText = await response.text().catch(() => '');
-    throw new Error(`Failed to fetch lead queue: ${response.status()} ${bodyText}`);
+    const status = response.status();
+    const isRateLimited = status === 429 || bodyText.includes('Failed to verify membership (status 429)');
+    if (isRateLimited && attempt < maxAttempts - 1) {
+      await sleep(1000 * (attempt + 1));
+      continue;
+    }
+
+    throw new Error(`Failed to fetch lead queue: ${status} ${bodyText}`);
   }
-  const payload = await response.json().catch(() => null) as {
-    data?: { items?: LeadQueueItem[]; matters?: LeadQueueItem[] };
-  } | null;
-  const items = payload?.data?.items ?? payload?.data?.matters ?? [];
-  return items;
+
+  throw new Error('Failed to fetch lead queue after retries');
+};
+
+const waitForLeadInQueue = async (options: {
+  request: APIRequestContext;
+  context: BrowserContext;
+  baseURL: string;
+  practiceId: string;
+  matterId: string;
+  timeoutMs?: number;
+}): Promise<void> => {
+  const { request, context, baseURL, practiceId, matterId, timeoutMs = 15000 } = options;
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const items = await getLeadQueue({ request, context, baseURL, practiceId });
+    if (items.some((lead) => lead.id === matterId)) {
+      return;
+    }
+    await sleep(1000);
+  }
+
+  throw new Error(`Lead ${matterId} not found in queue after ${timeoutMs}ms`);
+};
+
+const waitForLeadCard = async (options: {
+  page: Page;
+  testId: string;
+  timeoutMs?: number;
+}): Promise<void> => {
+  const { page, testId, timeoutMs = 10000 } = options;
+  const locator = page.getByTestId(testId);
+  const firstPassMs = Math.max(2000, Math.floor(timeoutMs / 2));
+
+  try {
+    await expect(locator).toBeVisible({ timeout: firstPassMs });
+    return;
+  } catch {
+    // Reload once if the list was stale when we navigated.
+    await page.reload({ waitUntil: 'networkidle' }).catch(() => page.reload().catch(() => undefined));
+    const remainingMs = Math.max(2000, timeoutMs - firstPassMs);
+    await expect(locator).toBeVisible({ timeout: remainingMs });
+  }
 };
 
 const getIntakeSettings = async (
@@ -153,51 +250,70 @@ const getIntakeSettings = async (
   request?: APIRequestContext
 ): Promise<IntakeSettingsResult> => {
   const normalizedSlug = normalizePracticeSlug(slug);
+  const cached = intakeSettingsCache.get(normalizedSlug);
+  if (cached) return cached;
+
   const url = `${BACKEND_API_URL}/api/practice/client-intakes/${encodeURIComponent(normalizedSlug)}/intake`;
-  const response = request
-    ? await request.get(url, { headers: { Accept: 'application/json' } })
-    : await fetch(url, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' }
-    });
+  const maxAttempts = 3;
+  let lastStatus = 0;
+  let lastErrorText = '';
 
-  const ok = typeof response.ok === 'function' ? response.ok() : response.ok;
-  const status = typeof response.status === 'function' ? response.status() : response.status;
-  if (!ok) {
-    const errorText = await response.text().catch(() => '');
-    return { settings: null, status, errorText };
-  }
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const response = request
+      ? await request.get(url, { headers: { Accept: 'application/json' } })
+      : await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
 
-  const payload = await response.json().catch(() => null) as
-    | {
-        data?: {
+    const ok = typeof response.ok === 'function' ? response.ok() : response.ok;
+    const status = typeof response.status === 'function' ? response.status() : response.status;
+    lastStatus = status;
+    if (!ok) {
+      const errorText = await response.text().catch(() => '');
+      lastErrorText = errorText;
+      if (status === 429 && attempt < maxAttempts - 1) {
+        await sleep(1000 * (attempt + 1));
+        continue;
+      }
+      return { settings: null, status, errorText };
+    }
+
+    const payload = await response.json().catch(() => null) as
+      | {
+          data?: {
+            settings?: IntakeSettings;
+            connectedAccount?: ConnectedAccountPayload;
+            connected_account?: ConnectedAccountPayload;
+          };
           settings?: IntakeSettings;
           connectedAccount?: ConnectedAccountPayload;
           connected_account?: ConnectedAccountPayload;
-        };
-        settings?: IntakeSettings;
-        connectedAccount?: ConnectedAccountPayload;
-        connected_account?: ConnectedAccountPayload;
+        }
+      | null;
+    const data = payload?.data ?? payload ?? null;
+    if (!data?.settings) {
+      return { settings: null, status };
+    }
+
+    const connectedAccount: ConnectedAccountPayload | undefined = data.connectedAccount ?? data.connected_account ?? undefined;
+    const result = {
+      status,
+      settings: {
+        ...data.settings,
+        connectedAccount: connectedAccount
+          ? {
+              id: connectedAccount.id,
+              chargesEnabled: connectedAccount.chargesEnabled ?? connectedAccount.charges_enabled
+            }
+          : undefined
       }
-    | null;
-  const data = payload?.data ?? payload ?? null;
-  if (!data?.settings) {
-    return { settings: null, status };
+    };
+    intakeSettingsCache.set(normalizedSlug, result);
+    return result;
   }
 
-  const connectedAccount: ConnectedAccountPayload | undefined = data.connectedAccount ?? data.connected_account ?? undefined;
-  return {
-    status,
-    settings: {
-      ...data.settings,
-      connectedAccount: connectedAccount
-        ? {
-            id: connectedAccount.id,
-            chargesEnabled: connectedAccount.chargesEnabled ?? connectedAccount.charges_enabled
-          }
-        : undefined
-    }
-  };
+  return { settings: null, status: lastStatus || 429, errorText: lastErrorText };
 };
 
 const createIntake = async (options: {
@@ -207,6 +323,9 @@ const createIntake = async (options: {
   description?: string;
   amount?: number;
   request?: APIRequestContext;
+  context?: BrowserContext;
+  baseURL?: string;
+  storagePath?: string;
   origin?: string;
 }): Promise<IntakeCreateResult> => {
   const normalizedSlug = normalizePracticeSlug(options.slug);
@@ -214,6 +333,12 @@ const createIntake = async (options: {
   if (options.origin) {
     headers.Origin = options.origin;
     headers.Referer = `${options.origin}/`;
+  }
+  if (options.request && options.context && options.baseURL) {
+    const cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
+    if (cookieHeader) {
+      headers.Cookie = cookieHeader;
+    }
   }
   const payload = {
     slug: normalizedSlug,
@@ -307,6 +432,7 @@ const confirmIntakeLead = async (options: {
   practiceSlug: string;
   intakeUuid: string;
   conversationId: string;
+  storagePath?: string;
 }): Promise<{ status: number; data?: { matterId?: string } } > => {
   const params = new URLSearchParams({ practiceId: options.practiceId });
   if (options.practiceSlug) {
@@ -318,12 +444,20 @@ const confirmIntakeLead = async (options: {
     conversationId: options.conversationId
   };
 
-  const initial = await parseConfirmResponse(await options.request.post(path, { data: payload }));
+  const cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
+  const initial = await parseConfirmResponse(await options.request.post(path, {
+    data: payload,
+    headers: cookieHeader
+      ? {
+          'Content-Type': 'application/json',
+          Cookie: cookieHeader
+        }
+      : undefined
+  }));
   if (initial.status !== 404) {
     return { status: initial.status, data: initial.data };
   }
 
-  const cookieHeader = await buildCookieHeader(options.context, options.baseURL);
   if (!cookieHeader) {
     console.warn('[E2E] Intake confirm returned 404 with empty cookie jar; skipping worker retry.');
     return { status: initial.status, data: initial.data };
@@ -364,33 +498,69 @@ const confirmIntakeLead = async (options: {
   return { status: retry.status, data: retry.data };
 };
 
-const getOrCreateConversation = async (request: APIRequestContext, practiceId: string) => {
-  const response = await request.get(
-    `/api/conversations/active?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      headers: {
-        'Content-Type': 'application/json'
+const getOrCreateConversation = async (options: {
+  request: APIRequestContext;
+  context: BrowserContext;
+  baseURL: string;
+  practiceId: string;
+  storagePath?: string;
+}) => {
+  const ensureCookieHeader = async (): Promise<string> => {
+    let cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
+    if (!cookieHeader) {
+      const page = await options.context.newPage();
+      try {
+        await page.goto('/', { waitUntil: 'domcontentloaded' });
+        await waitForSession(page, { timeoutMs: 30000, cookieUrl: options.baseURL });
+      } finally {
+        await page.close();
+      }
+      cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
+    }
+    return cookieHeader;
+  };
+
+  const maxAttempts = 2;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const cookieHeader = await ensureCookieHeader();
+    const response = await options.request.get(
+      `/api/conversations/active?practiceId=${encodeURIComponent(options.practiceId)}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: cookieHeader
+        }
+      }
+    );
+
+    if ((response.status() === 401 || response.status() === 429) && attempt < maxAttempts - 1) {
+      await sleep(500 * (attempt + 1));
+      continue;
+    }
+
+    const rawText = await response.text().catch(() => '');
+    let data: { data?: { conversation?: { id?: string } } } | null = null;
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText) as { data?: { conversation?: { id?: string } } };
+      } catch {
+        data = null;
       }
     }
-  );
-
-  const rawText = await response.text().catch(() => '');
-  let data: { data?: { conversation?: { id?: string } } } | null = null;
-  if (rawText) {
-    try {
-      data = JSON.parse(rawText) as { data?: { conversation?: { id?: string } } };
-    } catch {
-      data = null;
+    if (!response.ok() || !data?.data?.conversation?.id) {
+      const fallbackText = data ? JSON.stringify(data) : rawText;
+      lastError = new Error(
+        `Failed to create conversation: ${response.status()} (${response.url()}) ${fallbackText.slice(0, 300)}`
+      );
+      break;
     }
-  }
-  if (!response.ok() || !data?.data?.conversation?.id) {
-    const fallbackText = data ? JSON.stringify(data) : rawText;
-    throw new Error(
-      `Failed to create conversation: ${response.status()} (${response.url()}) ${fallbackText.slice(0, 300)}`
-    );
+
+    return data.data.conversation.id as string;
   }
 
-  return data.data.conversation.id as string;
+  throw lastError ?? new Error('Failed to create conversation: unknown error');
 };
 
 const getConversationMessages = async (options: {
@@ -399,22 +569,34 @@ const getConversationMessages = async (options: {
   baseURL: string;
   practiceId: string;
   conversationId: string;
+  storagePath?: string;
 }) => {
-  const cookieHeader = await buildCookieHeader(options.context, options.baseURL);
   const url = `${WORKER_API_URL}/api/chat/messages?practiceId=${encodeURIComponent(options.practiceId)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
-  const response = await options.request.get(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: cookieHeader
-    }
-  });
+  const maxAttempts = 3;
 
-  const data = await response.json().catch(() => null) as { data?: { messages?: ConversationMessage[] } } | null;
-  if (!response.ok() || !data?.data?.messages) {
-    throw new Error(`Failed to fetch messages: ${response.status()}`);
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
+    const response = await options.request.get(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: cookieHeader
+      }
+    });
+
+    if ((response.status() === 401 || response.status() === 429) && attempt < maxAttempts - 1) {
+      await sleep(500 * (attempt + 1));
+      continue;
+    }
+
+    const data = await response.json().catch(() => null) as { data?: { messages?: ConversationMessage[] } } | null;
+    if (!response.ok() || !data?.data?.messages) {
+      throw new Error(`Failed to fetch messages: ${response.status()}`);
+    }
+
+    return data.data.messages as ConversationMessage[];
   }
 
-  return data.data.messages as ConversationMessage[];
+  throw new Error('Failed to fetch messages after retries');
 };
 
 const waitForDecisionMessage = async (options: {
@@ -424,9 +606,23 @@ const waitForDecisionMessage = async (options: {
   practiceId: string;
   conversationId: string;
   decision: 'accepted' | 'rejected';
+  intakeUuid?: string;
+  reason?: string;
+  storagePath?: string;
   timeoutMs?: number;
 }) => {
-  const { request, context, baseURL, practiceId, conversationId, decision, timeoutMs = 15000 } = options;
+  const {
+    request,
+    context,
+    baseURL,
+    practiceId,
+    conversationId,
+    decision,
+    intakeUuid,
+    reason,
+    storagePath,
+    timeoutMs = 15000
+  } = options;
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
@@ -435,9 +631,15 @@ const waitForDecisionMessage = async (options: {
       context,
       baseURL,
       practiceId,
-      conversationId
+      conversationId,
+      storagePath
     });
-    const match = messages.find(message => message.metadata?.intakeDecision === decision);
+    const match = messages.find(message => {
+      if (message.metadata?.intakeDecision !== decision) return false;
+      if (intakeUuid && message.metadata?.intakeUuid !== intakeUuid) return false;
+      if (reason && message.metadata?.reason !== reason) return false;
+      return true;
+    });
     if (match) return match;
     await sleep(500);
   }
@@ -459,7 +661,7 @@ const formatIntakeSettingsSkip = (result: IntakeSettingsResult): string => {
 };
 
 test.describe('Lead intake workflow', () => {
-  test.describe.configure({ mode: 'serial', timeout: 60000 });
+  test.describe.configure({ mode: 'serial', timeout: 90000 });
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
 
   test('owner accepts lead for signed-in client (no payment required)', async ({
@@ -470,6 +672,10 @@ test.describe('Lead intake workflow', () => {
     clientPage
   }) => {
     if (!e2eConfig) return;
+
+    if (!shouldRunPaymentMode(false)) {
+      test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
+    }
 
     const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, ownerContext.request);
     if (!intakeSettingsResult.settings) {
@@ -482,15 +688,17 @@ test.describe('Lead intake workflow', () => {
     if (paymentRequired) {
       test.skip(true, 'Skipping free intake test: practice requires payment.');
     }
-    if (!shouldRunPaymentMode(false)) {
-      test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
-    }
 
     await clientPage.goto('/');
-    await waitForSession(clientPage, { timeoutMs: 30000 });
 
     const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
-    const conversationId = await getOrCreateConversation(clientContext.request, practiceId);
+    const conversationId = await getOrCreateConversation({
+      request: clientContext.request,
+      context: clientContext,
+      baseURL,
+      practiceId,
+      storagePath: AUTH_STATE_PATHS.client
+    });
     const clientName = `E2E Client ${randomUUID().slice(0, 6)}`;
 
     const intake = await createIntake({
@@ -500,6 +708,9 @@ test.describe('Lead intake workflow', () => {
       description: 'E2E accept flow',
       amount: intakeSettings?.prefillAmount,
       request: clientContext.request,
+      context: clientContext,
+      baseURL,
+      storagePath: AUTH_STATE_PATHS.client,
       origin: baseURL
     });
 
@@ -514,7 +725,8 @@ test.describe('Lead intake workflow', () => {
       practiceId,
       practiceSlug: e2eConfig.practice.slug,
       intakeUuid: intake.uuid,
-      conversationId
+      conversationId,
+      storagePath: AUTH_STATE_PATHS.client
     });
 
     expect(confirmResult.status).toBe(200);
@@ -523,9 +735,16 @@ test.describe('Lead intake workflow', () => {
       throw new Error('Intake confirm did not return matterId');
     }
 
+    await waitForLeadInQueue({
+      request: ownerContext.request,
+      context: ownerContext,
+      baseURL,
+      practiceId,
+      matterId
+    });
+
     await ownerPage.goto('/practice/leads');
-    const leadCard = ownerPage.getByTestId(`lead-card-${matterId}`);
-    await expect(leadCard).toBeVisible({ timeout: 20000 });
+    await waitForLeadCard({ page: ownerPage, testId: `lead-card-${matterId}` });
 
     const acceptUrlFragment = `/api/practices/${encodeURIComponent(practiceId)}/workspace/matters/${encodeURIComponent(matterId)}/accept`;
     const acceptResponsePromise = ownerPage.waitForResponse((response) => (
@@ -557,7 +776,9 @@ test.describe('Lead intake workflow', () => {
       baseURL,
       practiceId,
       conversationId,
-      decision: 'accepted'
+      decision: 'accepted',
+      intakeUuid: intake.uuid,
+      storagePath: AUTH_STATE_PATHS.client
     });
 
     expect(decisionMessage.content.toLowerCase()).toContain('accepted');
@@ -572,6 +793,10 @@ test.describe('Lead intake workflow', () => {
   }) => {
     if (!e2eConfig) return;
 
+    if (!shouldRunPaymentMode(false)) {
+      test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
+    }
+
     const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, ownerContext.request);
     if (!intakeSettingsResult.settings) {
       const message = formatIntakeSettingsSkip(intakeSettingsResult);
@@ -583,15 +808,18 @@ test.describe('Lead intake workflow', () => {
     if (paymentRequired) {
       test.skip(true, 'Skipping free intake test: practice requires payment.');
     }
-    if (!shouldRunPaymentMode(false)) {
-      test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
-    }
 
     await anonPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`);
-    await waitForSession(anonPage, { timeoutMs: 30000 });
+    await waitForSession(anonPage, { timeoutMs: 30000, skipIfCookiePresent: false, cookieUrl: baseURL });
 
     const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
-    const conversationId = await getOrCreateConversation(anonContext.request, practiceId);
+    const conversationId = await getOrCreateConversation({
+      request: anonContext.request,
+      context: anonContext,
+      baseURL,
+      practiceId,
+      storagePath: AUTH_STATE_PATHS.anonymous
+    });
     const intakeUuid = randomUUID();
     const clientName = `E2E Guest ${intakeUuid.slice(0, 8)}`;
     const rejectReason = `Conflict check ${intakeUuid.slice(0, 4)}`;
@@ -603,6 +831,9 @@ test.describe('Lead intake workflow', () => {
       description: 'E2E reject flow',
       amount: intakeSettings?.prefillAmount,
       request: anonContext.request,
+      context: anonContext,
+      baseURL,
+      storagePath: AUTH_STATE_PATHS.anonymous,
       origin: baseURL
     });
 
@@ -617,7 +848,8 @@ test.describe('Lead intake workflow', () => {
       practiceId,
       practiceSlug: e2eConfig.practice.slug,
       intakeUuid: intake.uuid,
-      conversationId
+      conversationId,
+      storagePath: AUTH_STATE_PATHS.anonymous
     });
 
     expect(confirmResult.status).toBe(200);
@@ -626,9 +858,16 @@ test.describe('Lead intake workflow', () => {
       throw new Error('Intake confirm did not return matterId');
     }
 
+    await waitForLeadInQueue({
+      request: ownerContext.request,
+      context: ownerContext,
+      baseURL,
+      practiceId,
+      matterId
+    });
+
     await ownerPage.goto('/practice/leads');
-    const leadCard = ownerPage.getByTestId(`lead-card-${matterId}`);
-    await expect(leadCard).toBeVisible({ timeout: 20000 });
+    await waitForLeadCard({ page: ownerPage, testId: `lead-card-${matterId}` });
 
     const rejectUrlFragment = `/api/practices/${encodeURIComponent(practiceId)}/workspace/matters/${encodeURIComponent(matterId)}/reject`;
     const rejectResponsePromise = ownerPage.waitForResponse((response) => (
@@ -661,7 +900,10 @@ test.describe('Lead intake workflow', () => {
       baseURL,
       practiceId,
       conversationId,
-      decision: 'rejected'
+      decision: 'rejected',
+      intakeUuid: intake.uuid,
+      reason: rejectReason,
+      storagePath: AUTH_STATE_PATHS.anonymous
     });
 
     expect(decisionMessage.content.toLowerCase()).toContain('declined');
@@ -676,36 +918,55 @@ test.describe('Lead intake workflow', () => {
   }) => {
     if (!e2eConfig) return;
 
-    const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, clientContext.request);
+    if (!shouldRunPaymentMode(true)) {
+      test.skip(true, `Skipping paid intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
+    }
+
+    const paidPractice = e2eConfig.paidPractice ?? e2eConfig.practice;
+    const intakeSettingsResult = await getIntakeSettings(paidPractice.slug, clientContext.request);
     if (!intakeSettingsResult.settings) {
       const message = formatIntakeSettingsSkip(intakeSettingsResult);
+      if (PAYMENT_MODE === 'paid') {
+        throw new Error(message);
+      }
       console.warn(message);
       test.skip(true, message);
     }
     const intakeSettings = intakeSettingsResult.settings;
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
     if (!paymentRequired) {
+      if (PAYMENT_MODE === 'paid') {
+        throw new Error('Paid intake test requires a practice with payment enabled. Configure E2E_PAID_PRACTICE_ID/E2E_PAID_PRACTICE_SLUG.');
+      }
       test.skip(true, 'Skipping paid intake test: practice does not require payment.');
     }
     if (!intakeSettings?.connectedAccount?.id) {
+      if (PAYMENT_MODE === 'paid') {
+        throw new Error('Paid intake test requires a connected Stripe account on the practice.');
+      }
       test.skip(true, 'Skipping paid intake test: practice has no connected Stripe account.');
-    }
-    if (!shouldRunPaymentMode(true)) {
-      test.skip(true, `Skipping paid intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
     await clientPage.goto('/');
-    await waitForSession(clientPage, { timeoutMs: 30000 });
 
-    const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
-    const conversationId = await getOrCreateConversation(clientContext.request, practiceId);
+    const practiceId = await resolvePracticeId(ownerContext.request, paidPractice.slug, paidPractice.id);
+    const conversationId = await getOrCreateConversation({
+      request: clientContext.request,
+      context: clientContext,
+      baseURL,
+      practiceId,
+      storagePath: AUTH_STATE_PATHS.client
+    });
     const intake = await createIntake({
-      slug: e2eConfig.practice.slug,
+      slug: paidPractice.slug,
       name: 'E2E Paid Intake',
       email: e2eConfig.client.email,
       description: 'E2E payment gated',
       amount: intakeSettings?.prefillAmount,
       request: clientContext.request,
+      context: clientContext,
+      baseURL,
+      storagePath: AUTH_STATE_PATHS.client,
       origin: baseURL
     });
 
@@ -718,9 +979,10 @@ test.describe('Lead intake workflow', () => {
       context: clientContext,
       baseURL,
       practiceId,
-      practiceSlug: e2eConfig.practice.slug,
+      practiceSlug: paidPractice.slug,
       intakeUuid: intake.uuid,
-      conversationId
+      conversationId,
+      storagePath: AUTH_STATE_PATHS.client
     });
 
     expect(confirmResult.status).toBe(402);

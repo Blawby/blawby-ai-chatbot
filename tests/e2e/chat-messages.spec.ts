@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, BrowserContext, Page } from '@playwright/test';
 import { waitForSession } from './helpers/auth';
 import { loadE2EConfig } from './helpers/e2eConfig';
 
@@ -11,12 +11,28 @@ interface ConversationMessage {
   content: string;
 }
 
-const getOrCreateConversation = async (request: APIRequestContext, practiceId: string): Promise<string> => {
-  const response = await request.get(
-    `/api/conversations/active?practiceId=${encodeURIComponent(practiceId)}`,
+const buildCookieHeader = async (context: BrowserContext, baseURL: string): Promise<string> => {
+  let cookies = await context.cookies(baseURL);
+  if (!cookies.length) {
+    cookies = await context.cookies();
+  }
+  if (!cookies.length) return '';
+  return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+};
+
+const getOrCreateConversation = async (options: {
+  request: APIRequestContext;
+  context: BrowserContext;
+  baseURL: string;
+  practiceId: string;
+}): Promise<string> => {
+  const cookieHeader = await buildCookieHeader(options.context, options.baseURL);
+  const response = await options.request.get(
+    `/api/conversations/active?practiceId=${encodeURIComponent(options.practiceId)}`,
     {
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        Cookie: cookieHeader
       }
     }
   );
@@ -205,7 +221,12 @@ test.describe('Chat messaging', () => {
     if (!e2eConfig) return;
     await anonPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(anonPage, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(anonContext.request, e2eConfig.practice.id);
+    const conversationId = await getOrCreateConversation({
+      request: anonContext.request,
+      context: anonContext,
+      baseURL,
+      practiceId: e2eConfig.practice.id
+    });
     const content = `E2E anon ${Date.now()}`;
     await sendChatMessageWithRetry({
       page: anonPage,
@@ -227,7 +248,12 @@ test.describe('Chat messaging', () => {
     if (!e2eConfig) return;
     await clientPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(clientPage, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
+    const conversationId = await getOrCreateConversation({
+      request: clientContext.request,
+      context: clientContext,
+      baseURL,
+      practiceId: e2eConfig.practice.id
+    });
     const content = `E2E client ${Date.now()}`;
     await sendChatMessageWithRetry({
       page: clientPage,
@@ -249,7 +275,12 @@ test.describe('Chat messaging', () => {
     if (!e2eConfig) return;
     await ownerPage.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForSession(ownerPage, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(ownerContext.request, e2eConfig.practice.id);
+    const conversationId = await getOrCreateConversation({
+      request: ownerContext.request,
+      context: ownerContext,
+      baseURL,
+      practiceId: e2eConfig.practice.id
+    });
     const content = `E2E owner ${Date.now()}`;
     await sendChatMessageWithRetry({
       page: ownerPage,

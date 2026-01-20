@@ -24,11 +24,20 @@ type CachedSession = {
   expiresAt: number;
 };
 
+type CachedMembership = {
+  role: string;
+  expiresAt: number;
+};
+
 const SESSION_CACHE_TTL_MS = 30 * 1000;
 const SESSION_CACHE_MAX_ENTRIES = 200;
 const sessionCache = new Map<string, CachedSession>();
 const sessionValidationInflight = new Map<string, Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }>>();
 const SESSION_COOKIE_NAMES = ['__Secure-better-auth.session_token', 'better-auth.session_token'];
+const MEMBERSHIP_CACHE_TTL_MS = 30 * 1000;
+const MEMBERSHIP_CACHE_MAX_ENTRIES = 500;
+const membershipCache = new Map<string, CachedMembership>();
+const membershipValidationInflight = new Map<string, Promise<string>>();
 
 const getSessionCacheKey = (cookieHeader: string): string => {
   const cookies = cookieHeader.split(';');
@@ -44,6 +53,27 @@ const getSessionCacheKey = (cookieHeader: string): string => {
     }
   }
   return cookieHeader;
+};
+
+const getMembershipCacheKey = (practiceId: string, userId: string): string =>
+  `${practiceId}:${userId}`;
+
+const pruneMembershipCache = (): void => {
+  if (membershipCache.size <= MEMBERSHIP_CACHE_MAX_ENTRIES) return;
+  const now = Date.now();
+  for (const [key, entry] of membershipCache) {
+    if (entry.expiresAt <= now) {
+      membershipCache.delete(key);
+    }
+    if (membershipCache.size <= MEMBERSHIP_CACHE_MAX_ENTRIES) {
+      return;
+    }
+  }
+  while (membershipCache.size > MEMBERSHIP_CACHE_MAX_ENTRIES) {
+    const firstKey = membershipCache.keys().next().value as string | undefined;
+    if (!firstKey) break;
+    membershipCache.delete(firstKey);
+  }
 };
 
 function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
@@ -149,59 +179,88 @@ async function validateSessionWithRemoteServer(
   const authServerUrl = resolveBackendApiUrl(env, 'Better Auth session validation');
   const AUTH_TIMEOUT_MS = 3000;
   const validationPromise = (async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
-
     try {
       const getSessionUrl = `${authServerUrl}/api/auth/get-session`;
-      const response = await fetch(getSessionUrl, {
-        method: 'GET',
-        headers: {
-          'Cookie': cookie,
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-      });
+      const maxAttempts = 3;
+      let retryDelayMs = 500;
 
-      clearTimeout(timeoutId);
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        console.error('[Auth] Better Auth session validation failed:', response.status, errorText.substring(0, 200));
-        throw HttpErrors.unauthorized(`Authentication failed: ${response.status} ${response.statusText}`);
-      }
+        try {
+          const response = await fetch(getSessionUrl, {
+            method: 'GET',
+            headers: {
+              'Cookie': cookie,
+              'Content-Type': 'application/json',
+            },
+            signal: controller.signal,
+          });
 
-      const rawResponse = await response.json() as Record<string, unknown>;
-      const parsed = parseAuthSessionPayload(rawResponse);
+          clearTimeout(timeoutId);
 
-      const ttlFromSession = parsed.session.expiresAt.getTime() - Date.now();
-      const ttl = Math.min(SESSION_CACHE_TTL_MS, ttlFromSession);
-      if (ttl > 0) {
-        sessionCache.set(cacheKey, {
-          value: parsed,
-          expiresAt: Date.now() + ttl
-        });
-        if (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
-          for (const [key, entry] of sessionCache) {
-            if (entry.expiresAt <= Date.now()) {
-              sessionCache.delete(key);
-            }
-            if (sessionCache.size <= SESSION_CACHE_MAX_ENTRIES) {
-              break;
+          if (response.status === 429 && attempt < maxAttempts - 1) {
+            const retryAfter = response.headers.get('Retry-After');
+            const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
+            const waitMs = Number.isFinite(retryAfterMs)
+              ? Math.max(retryAfterMs, retryDelayMs)
+              : retryDelayMs;
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+            retryDelayMs = Math.min(retryDelayMs * 2, 3000);
+            continue;
+          }
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => 'Unknown error');
+            console.error('[Auth] Better Auth session validation failed:', response.status, errorText.substring(0, 200));
+            throw HttpErrors.unauthorized(`Authentication failed: ${response.status} ${response.statusText}`);
+          }
+
+          const rawResponse = await response.json() as Record<string, unknown>;
+          const parsed = parseAuthSessionPayload(rawResponse);
+
+          const ttlFromSession = parsed.session.expiresAt.getTime() - Date.now();
+          const ttl = Math.min(SESSION_CACHE_TTL_MS, ttlFromSession);
+          if (ttl > 0) {
+            sessionCache.set(cacheKey, {
+              value: parsed,
+              expiresAt: Date.now() + ttl
+            });
+            if (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
+              for (const [key, entry] of sessionCache) {
+                if (entry.expiresAt <= Date.now()) {
+                  sessionCache.delete(key);
+                }
+                if (sessionCache.size <= SESSION_CACHE_MAX_ENTRIES) {
+                  break;
+                }
+              }
+              while (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
+                const firstKey = sessionCache.keys().next().value as string | undefined;
+                if (!firstKey) break;
+                sessionCache.delete(firstKey);
+              }
             }
           }
-          while (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
-            const firstKey = sessionCache.keys().next().value as string | undefined;
-            if (!firstKey) break;
-            sessionCache.delete(firstKey);
+
+          return parsed;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if (error instanceof Error && error.name === 'AbortError') {
+            throw HttpErrors.gatewayTimeout('Authentication server timeout - please try again');
+          }
+          if (error instanceof HttpError) {
+            throw error;
+          }
+          if (attempt >= maxAttempts - 1) {
+            throw error;
           }
         }
       }
 
-      return parsed;
+      throw HttpErrors.unauthorized('Authentication failed after retries');
     } catch (error) {
-      clearTimeout(timeoutId);
-
       if (error instanceof Error && error.name === 'AbortError') {
         console.error('[Auth] Session validation timeout after 3s:', authServerUrl);
         throw HttpErrors.gatewayTimeout('Authentication server timeout - please try again');
@@ -305,11 +364,23 @@ async function fetchMemberRoleFromRemote(
   userId: string,
   userEmail: string
 ): Promise<string> {
+  const cacheKey = getMembershipCacheKey(practiceId, userId);
+  const cached = membershipCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.role;
+  }
+  if (cached) {
+    membershipCache.delete(cacheKey);
+  }
+
+  const inflight = membershipValidationInflight.get(cacheKey);
+  if (inflight) {
+    return inflight;
+  }
+
+  const validationPromise = (async () => {
   // ENV VAR: BACKEND_API_URL (worker/.dev.vars or wrangler.toml)
   const baseUrl = resolveBackendApiUrl(env, 'practice membership verification');
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
     const headers: Record<string, string> = {
@@ -320,60 +391,88 @@ async function fetchMemberRoleFromRemote(
     }
     headers.Cookie = cookie;
 
-    const response = await fetch(
-      `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}/members`,
-      {
-        method: 'GET',
-        headers,
-        signal: controller.signal
+    const maxAttempts = 2;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      try {
+        const response = await fetch(
+          `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}/members`,
+          {
+            method: 'GET',
+            headers,
+            signal: controller.signal
+          }
+        );
+        clearTimeout(timeoutId);
+
+        if (response.status === 429 && attempt < maxAttempts - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          continue;
+        }
+
+        if (response.status === 404) {
+          throw HttpErrors.notFound("Practice not found");
+        }
+
+        if (!response.ok) {
+          throw HttpErrors.badGateway(`Failed to verify membership (status ${response.status})`);
+        }
+
+        const payload = await response.json().catch(() => ({}));
+        const members = extractMembersPayload(payload);
+        const normalizedEmail = userEmail.toLowerCase();
+
+        const match = members.find((member) => {
+          const { userId: memberUserId, email } = extractMemberIdentifiers(member);
+          if (memberUserId && memberUserId === userId) {
+            return true;
+          }
+          if (email && normalizedEmail && email === normalizedEmail) {
+            return true;
+          }
+          return false;
+        });
+
+        if (!match) {
+          throw HttpErrors.forbidden("User is not a member of this practice");
+        }
+
+        const { role } = extractMemberIdentifiers(match);
+        if (!role) {
+          throw HttpErrors.forbidden("User membership is missing role information");
+        }
+
+        membershipCache.set(cacheKey, {
+          role,
+          expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS
+        });
+        pruneMembershipCache();
+
+        return role;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw HttpErrors.gatewayTimeout("Membership verification timed out");
+        }
+        if (error instanceof HttpError) {
+          throw error;
+        }
+        if (attempt >= maxAttempts - 1) {
+          console.error('Error verifying practice membership via remote API:', error);
+          throw HttpErrors.badGateway("Failed to verify practice membership");
+        }
       }
-    );
-    clearTimeout(timeoutId);
-
-    if (response.status === 404) {
-      throw HttpErrors.notFound("Practice not found");
     }
 
-    if (!response.ok) {
-      throw HttpErrors.badGateway(`Failed to verify membership (status ${response.status})`);
-    }
-
-    const payload = await response.json().catch(() => ({}));
-    const members = extractMembersPayload(payload);
-    const normalizedEmail = userEmail.toLowerCase();
-
-    const match = members.find((member) => {
-      const { userId: memberUserId, email } = extractMemberIdentifiers(member);
-      if (memberUserId && memberUserId === userId) {
-        return true;
-      }
-      if (email && normalizedEmail && email === normalizedEmail) {
-        return true;
-      }
-      return false;
-    });
-
-    if (!match) {
-      throw HttpErrors.forbidden("User is not a member of this practice");
-    }
-
-    const { role } = extractMemberIdentifiers(match);
-    if (!role) {
-      throw HttpErrors.forbidden("User membership is missing role information");
-    }
-
-    return role;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof HttpError) {
-      throw error;
-    }
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw HttpErrors.gatewayTimeout("Membership verification timed out");
-    }
-    console.error('Error verifying practice membership via remote API:', error);
     throw HttpErrors.badGateway("Failed to verify practice membership");
+  } finally {
+    membershipValidationInflight.delete(cacheKey);
   }
+  })();
+
+  membershipValidationInflight.set(cacheKey, validationPromise);
+  return validationPromise;
 }
 
 export async function requirePracticeMember(

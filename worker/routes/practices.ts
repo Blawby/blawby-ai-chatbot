@@ -139,6 +139,7 @@ async function notifyIntakeDecision(options: {
 
   const customFields = parseJsonField<Record<string, unknown>>(record?.custom_fields ?? null);
   const sessionId = typeof customFields?.sessionId === 'string' ? customFields.sessionId : null;
+  const intakeUuid = typeof customFields?.intakeUuid === 'string' ? customFields.intakeUuid : null;
   if (!sessionId) return;
 
   const conversationService = new ConversationService(env);
@@ -183,7 +184,8 @@ async function notifyIntakeDecision(options: {
       metadata: {
         intakeDecision: decision,
         actorUserId,
-        reason: reason ?? null
+        reason: reason ?? null,
+        intakeUuid: intakeUuid ?? null
       },
       request: options.request
     });

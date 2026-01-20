@@ -11,6 +11,10 @@ export interface E2EConfig {
     id: string;
     slug: string;
   };
+  paidPractice?: {
+    id: string;
+    slug: string;
+  };
   owner: E2EUser;
   client: E2EUser;
 }
@@ -49,6 +53,8 @@ export const loadE2EConfig = (): E2EConfig | null => {
 
   const practiceId = normalizeValue(process.env.E2E_PRACTICE_ID) ?? normalizeValue(fileConfig?.practice?.id);
   const practiceSlug = normalizeValue(process.env.E2E_PRACTICE_SLUG) ?? normalizeValue(fileConfig?.practice?.slug);
+  const paidPracticeId = normalizeValue(process.env.E2E_PAID_PRACTICE_ID) ?? normalizeValue(fileConfig?.paidPractice?.id);
+  const paidPracticeSlug = normalizeValue(process.env.E2E_PAID_PRACTICE_SLUG) ?? normalizeValue(fileConfig?.paidPractice?.slug);
   const ownerEmail = normalizeValue(process.env.E2E_OWNER_EMAIL) ?? normalizeValue(fileConfig?.owner?.email);
   const ownerPassword = normalizeValue(process.env.E2E_OWNER_PASSWORD) ?? normalizeValue(fileConfig?.owner?.password);
   const clientEmail = normalizeValue(process.env.E2E_CLIENT_EMAIL) ?? normalizeValue(fileConfig?.client?.email);
@@ -62,6 +68,9 @@ export const loadE2EConfig = (): E2EConfig | null => {
       id: practiceId,
       slug: practiceSlug
     },
+    paidPractice: paidPracticeId && paidPracticeSlug
+      ? { id: paidPracticeId, slug: paidPracticeSlug }
+      : undefined,
     owner: {
       email: ownerEmail,
       password: ownerPassword
