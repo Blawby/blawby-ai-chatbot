@@ -366,92 +366,6 @@ export function useConversation({
     sendReadUpdate(nextLatestSeq);
   }, [sendReadUpdate, toUIMessage]);
 
-  const handleMessageAck = useCallback((data: Record<string, unknown>) => {
-    const clientId = typeof data.client_id === 'string' ? data.client_id : null;
-    const messageId = typeof data.message_id === 'string' ? data.message_id : null;
-    const seqValue = typeof data.seq === 'number' ? data.seq : Number(data.seq);
-    const serverTs = typeof data.server_ts === 'string' ? data.server_ts : null;
-    if (!clientId || !messageId || !serverTs || !Number.isFinite(seqValue)) {
-      return;
-    }
-
-    const pending = pendingAckRef.current.get(clientId);
-    if (pending) {
-      pending.resolve({ messageId, seq: seqValue, serverTs, clientId });
-      pendingAckRef.current.delete(clientId);
-    }
-
-    messageIdSetRef.current.add(messageId);
-    lastSeqRef.current = Math.max(lastSeqRef.current, seqValue);
-
-    const pendingId = pendingClientMessageRef.current.get(clientId);
-    if (!pendingId) {
-      sendReadUpdate(lastSeqRef.current);
-      return;
-    }
-
-    pendingClientMessageRef.current.delete(clientId);
-    setMessages(prev => prev.map(message => {
-      if (message.id !== pendingId) {
-        return message;
-      }
-      const nextTimestamp = new Date(serverTs).getTime();
-      if (!Number.isFinite(nextTimestamp)) {
-        return message;
-      }
-      return {
-        ...message,
-        id: messageId,
-        seq: seqValue,
-        server_ts: serverTs,
-        created_at: serverTs,
-        timestamp: nextTimestamp
-      };
-    }));
-    sendReadUpdate(lastSeqRef.current);
-  }, [sendReadUpdate]);
-
-  const handleMessageNew = useCallback((data: Record<string, unknown>) => {
-    const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
-    if (!conversationIdValue || conversationIdValue !== conversationId) {
-      return;
-    }
-
-    const messageId = typeof data.message_id === 'string' ? data.message_id : null;
-    const clientId = typeof data.client_id === 'string' ? data.client_id : null;
-    const content = typeof data.content === 'string' ? data.content : null;
-    const role = typeof data.role === 'string' ? data.role : null;
-    const serverTs = typeof data.server_ts === 'string' ? data.server_ts : null;
-    const seqValue = typeof data.seq === 'number' ? data.seq : Number(data.seq);
-    if (!messageId || !clientId || !content || !serverTs || !Number.isFinite(seqValue)) {
-      return;
-    }
-
-    const metadata = typeof data.metadata === 'object' && data.metadata !== null && !Array.isArray(data.metadata)
-      ? data.metadata as Record<string, unknown>
-      : null;
-    const attachments = Array.isArray(data.attachments)
-      ? (data.attachments as string[]).filter((item) => typeof item === 'string')
-      : [];
-
-    const message: ConversationMessage = {
-      id: messageId,
-      conversation_id: conversationIdValue,
-      practice_id: practiceId || '',
-      user_id: typeof data.user_id === 'string' ? data.user_id : '',
-      role: role === 'assistant' ? 'assistant' : role === 'system' ? 'system' : 'user',
-      content,
-      metadata: metadata ?? (attachments.length > 0 ? { attachments } : null),
-      client_id: clientId,
-      seq: seqValue,
-      server_ts: serverTs,
-      token_count: null,
-      created_at: serverTs
-    };
-
-    applyServerMessages([message]);
-  }, [applyServerMessages, conversationId, practiceId]);
-
   const fetchGapMessages = useCallback(async (
     fromSeq: number,
     latestSeq: number,
@@ -522,6 +436,93 @@ export function useConversation({
       }
     }
   }, [applyServerMessages, conversationId, practiceId, onError]);
+
+  const handleMessageAck = useCallback((data: Record<string, unknown>) => {
+    const clientId = typeof data.client_id === 'string' ? data.client_id : null;
+    const messageId = typeof data.message_id === 'string' ? data.message_id : null;
+    const seqValue = typeof data.seq === 'number' ? data.seq : Number(data.seq);
+    const serverTs = typeof data.server_ts === 'string' ? data.server_ts : null;
+    if (!clientId || !messageId || !serverTs || !Number.isFinite(seqValue)) {
+      return;
+    }
+
+    const pending = pendingAckRef.current.get(clientId);
+    if (pending) {
+      pending.resolve({ messageId, seq: seqValue, serverTs, clientId });
+      pendingAckRef.current.delete(clientId);
+    }
+
+    lastSeqRef.current = Math.max(lastSeqRef.current, seqValue);
+
+    const pendingId = pendingClientMessageRef.current.get(clientId);
+    if (!pendingId) {
+      sendReadUpdate(lastSeqRef.current);
+      void fetchGapMessages(seqValue, seqValue, abortControllerRef.current?.signal);
+      return;
+    }
+
+    pendingClientMessageRef.current.delete(clientId);
+    messageIdSetRef.current.add(messageId);
+    setMessages(prev => prev.map(message => {
+      if (message.id !== pendingId) {
+        return message;
+      }
+      const nextTimestamp = new Date(serverTs).getTime();
+      if (!Number.isFinite(nextTimestamp)) {
+        return message;
+      }
+      return {
+        ...message,
+        id: messageId,
+        seq: seqValue,
+        server_ts: serverTs,
+        created_at: serverTs,
+        timestamp: nextTimestamp
+      };
+    }));
+    sendReadUpdate(lastSeqRef.current);
+  }, [fetchGapMessages, sendReadUpdate]);
+
+  const handleMessageNew = useCallback((data: Record<string, unknown>) => {
+    const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
+    if (!conversationIdValue || conversationIdValue !== conversationId) {
+      return;
+    }
+
+    const messageId = typeof data.message_id === 'string' ? data.message_id : null;
+    const clientId = typeof data.client_id === 'string' ? data.client_id : null;
+    const content = typeof data.content === 'string' ? data.content : null;
+    const role = typeof data.role === 'string' ? data.role : null;
+    const serverTs = typeof data.server_ts === 'string' ? data.server_ts : null;
+    const seqValue = typeof data.seq === 'number' ? data.seq : Number(data.seq);
+    if (!messageId || !clientId || !content || !serverTs || !Number.isFinite(seqValue)) {
+      return;
+    }
+
+    const metadata = typeof data.metadata === 'object' && data.metadata !== null && !Array.isArray(data.metadata)
+      ? data.metadata as Record<string, unknown>
+      : null;
+    const attachments = Array.isArray(data.attachments)
+      ? (data.attachments as string[]).filter((item) => typeof item === 'string')
+      : [];
+
+    const message: ConversationMessage = {
+      id: messageId,
+      conversation_id: conversationIdValue,
+      practice_id: practiceId || '',
+      user_id: typeof data.user_id === 'string' ? data.user_id : '',
+      role: role === 'assistant' ? 'assistant' : role === 'system' ? 'system' : 'user',
+      content,
+      metadata: metadata ?? (attachments.length > 0 ? { attachments } : null),
+      client_id: clientId,
+      seq: seqValue,
+      server_ts: serverTs,
+      token_count: null,
+      created_at: serverTs
+    };
+
+    applyServerMessages([message]);
+  }, [applyServerMessages, conversationId, practiceId]);
 
   const connectChatRoom = useCallback(() => {
     if (!conversationId) {
