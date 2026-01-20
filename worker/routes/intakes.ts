@@ -74,6 +74,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       allowUrlOverride: true
     });
     const practiceId = getPracticeId(requestWithContext);
+    const practiceSlug = url.searchParams.get('practiceSlug')?.trim() ?? '';
 
     const body = await parseJsonBody(request) as Record<string, unknown>;
     const intakeUuid = typeof body.intakeUuid === 'string' ? body.intakeUuid.trim() : '';
@@ -92,12 +93,9 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     }
 
     const practice = await RemoteApiService.getPractice(env, practiceId, request);
-    if (!practice) {
-      throw HttpErrors.notFound('Practice not found');
-    }
-
-    const settings = practice.slug
-      ? await RemoteApiService.getPracticeClientIntakeSettings(env, practice.slug, request)
+    const settingsSlug = practice?.slug ?? practiceSlug;
+    const settings = settingsSlug
+      ? await RemoteApiService.getPracticeClientIntakeSettings(env, settingsSlug, request)
       : null;
     const paymentRequired = settings?.paymentLinkEnabled === true;
     const status = normalizeStatus(intakeStatus.status);
@@ -191,7 +189,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       console.warn('[Intake] Failed to attach matter to conversation', error);
     }
 
-    const practiceName = practice.name ?? 'the practice';
+    const practiceName = practice?.name ?? settings?.organization?.name ?? 'the practice';
     try {
       await conversationService.sendSystemMessage({
         conversationId,
@@ -202,7 +200,8 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
           intakeUuid,
           paymentStatus: status ?? null,
           paymentRequired
-        }
+        },
+        request
       });
     } catch (error) {
       console.warn('[Intake] Failed to send intake confirmation message', error);
@@ -212,7 +211,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       const notifier = new NotificationService(env);
       await notifier.sendMatterCreatedNotification({
         type: 'matter_created',
-        practiceConfig: practice,
+        practiceConfig: practice ?? undefined,
         matterInfo: {
           type: matterType,
           description: description ?? undefined
@@ -227,33 +226,37 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       void error;
     }
 
-    try {
-      const recipients = await getAdminRecipients(env, practiceId, request, {
-        actorUserId: authContext.user.id,
-        category: 'intake'
-      });
-      if (recipients.length > 0) {
-        await enqueueNotification(env, {
-          eventId: crypto.randomUUID(),
-          dedupeKey: `intake:${intakeUuid}`,
-          practiceId,
-          category: 'intake',
-          entityType: 'matter',
-          entityId: matterId,
-          title: paymentRequired ? 'Consultation fee received' : 'New intake submitted',
-          body: `${clientName} submitted an intake for ${matterType}.`,
-          link: '/practice/leads',
-          metadata: {
-            matterId,
-            conversationId,
-            intakeUuid,
-            paymentStatus: status ?? null
-          },
-          recipients
+    if (practice) {
+      try {
+        const recipients = await getAdminRecipients(env, practiceId, request, {
+          actorUserId: authContext.user.id,
+          category: 'intake'
         });
+        if (recipients.length > 0) {
+          await enqueueNotification(env, {
+            eventId: crypto.randomUUID(),
+            dedupeKey: `intake:${intakeUuid}`,
+            practiceId,
+            category: 'intake',
+            entityType: 'matter',
+            entityId: matterId,
+            title: paymentRequired ? 'Consultation fee received' : 'New intake submitted',
+            body: `${clientName} submitted an intake for ${matterType}.`,
+            link: '/practice/leads',
+            metadata: {
+              matterId,
+              conversationId,
+              intakeUuid,
+              paymentStatus: status ?? null
+            },
+            recipients
+          });
+        }
+      } catch (error) {
+        void error;
       }
-    } catch (error) {
-      void error;
+    } else {
+      console.warn('[Intake] Skipping admin notifications because practice lookup failed.');
     }
 
     return createSuccessResponse({

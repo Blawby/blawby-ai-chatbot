@@ -175,7 +175,8 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
     metadata: {
       source: 'ai',
       model: env.AI_MODEL || DEFAULT_AI_MODEL
-    }
+    },
+    request
   });
 
   await auditService.createEvent({

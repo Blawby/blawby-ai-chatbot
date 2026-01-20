@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import axios from 'axios';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
@@ -21,21 +22,23 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   const { currentPractice } = usePracticeManagement();
   const { showError } = useToastContext();
   const organizationId = useMemo(() => activeOrganizationId, [activeOrganizationId]);
-  const shouldFetchStatus = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-    const params = new URLSearchParams(window.location.search);
-    const stripeParam = params.get('stripe');
-    return stripeParam === 'return' || stripeParam === 'refresh';
-  }, []);
+  const lastOrganizationIdRef = useRef<string | null>(null);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchStatus = useCallback(async (signal: AbortSignal) => {
     if (!organizationId) {
+      if (lastOrganizationIdRef.current !== null) {
+        lastOrganizationIdRef.current = null;
+        setStripeStatus(null);
+      }
       return;
+    }
+
+    if (lastOrganizationIdRef.current !== organizationId) {
+      lastOrganizationIdRef.current = organizationId;
+      setStripeStatus(null);
     }
 
     setIsLoading(true);
@@ -55,6 +58,10 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
       if ((error as { name?: string }).name === 'AbortError') {
         return;
       }
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        setStripeStatus(null);
+        return;
+      }
       console.warn('[PAYOUTS] Failed to load Stripe status:', error);
       showError('Payouts', 'Unable to load payout account status.');
     } finally {
@@ -65,20 +72,19 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   }, [organizationId, showError]);
 
   useEffect(() => {
-    if (!shouldFetchStatus) {
-      return;
-    }
     const controller = new AbortController();
     void fetchStatus(controller.signal);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      url.searchParams.delete('stripe');
-      window.history.replaceState({}, '', url.toString());
+      if (url.searchParams.has('stripe')) {
+        url.searchParams.delete('stripe');
+        window.history.replaceState({}, '', url.toString());
+      }
     }
     return () => {
       controller.abort();
     };
-  }, [fetchStatus, shouldFetchStatus]);
+  }, [fetchStatus]);
 
   const handleSubmitDetails = useCallback(async () => {
     if (!organizationId) {

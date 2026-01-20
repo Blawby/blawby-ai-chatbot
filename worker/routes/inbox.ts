@@ -189,7 +189,8 @@ export async function handleInbox(request: Request, env: Env): Promise<Response>
       senderUserId: userId,
       content: body.content,
       role: 'user',
-      metadata: body.metadata
+      metadata: body.metadata,
+      request
     });
 
     // Update first_response_at if this is the first practice member response

@@ -310,7 +310,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     if (stripeReady) return null;
 
     return {
-      title: 'Blawby payouts is almost ready to go.',
+      title: 'Blawby payouts are almost ready to go.',
       description: 'You just need to provide a few details to start sending invoices and getting paid.',
       actions: [
         {

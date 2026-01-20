@@ -600,7 +600,14 @@ export class RemoteApiService {
     env: Env,
     practiceSlug: string,
     request?: Request
-  ): Promise<{ paymentLinkEnabled?: boolean; prefillAmount?: number } | null> {
+  ): Promise<{
+    paymentLinkEnabled?: boolean;
+    prefillAmount?: number;
+    organization?: {
+      name?: string;
+      logo?: string;
+    };
+  } | null> {
     if (!practiceSlug) return null;
     try {
       const response = await this.fetchFromRemoteApi(
@@ -624,6 +631,9 @@ export class RemoteApiService {
         return null;
       }
       const settingsRecord = settings as Record<string, unknown>;
+      const orgRecord = data.organization && typeof data.organization === 'object'
+        ? data.organization as Record<string, unknown>
+        : null;
       return {
         paymentLinkEnabled: typeof settingsRecord.paymentLinkEnabled === 'boolean'
           ? settingsRecord.paymentLinkEnabled as boolean
@@ -634,6 +644,12 @@ export class RemoteApiService {
           ? settingsRecord.prefillAmount as number
           : typeof settingsRecord.prefill_amount === 'number'
             ? settingsRecord.prefill_amount as number
+          : undefined,
+        organization: orgRecord
+          ? {
+              name: typeof orgRecord.name === 'string' ? orgRecord.name : undefined,
+              logo: typeof orgRecord.logo === 'string' ? orgRecord.logo : undefined
+            }
           : undefined
       };
     } catch (error) {

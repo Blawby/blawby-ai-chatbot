@@ -62,8 +62,8 @@ export const useMessageHandling = ({
   onConversationMetadataUpdated,
   onError
 }: UseMessageHandlingOptions) => {
-  const { session, isPending } = useSessionContext();
-  const sessionReady = Boolean(session?.user) && !isPending;
+  const { session } = useSessionContext();
+  const sessionReady = Boolean(session?.user);
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const consultFlowAbortRef = useRef<globalThis.AbortController | null>(null);
@@ -92,6 +92,7 @@ export const useMessageHandling = ({
     reject: (error: Error) => void;
   }>());
   const pendingClientMessageRef = useRef(new Map<string, string>());
+  const socketConversationIdRef = useRef<string | null>(null);
   const connectChatRoomRef = useRef<(conversationId: string) => void>(() => {});
   const isClosingSocketRef = useRef(false);
   conversationIdRef.current = conversationId;
@@ -552,7 +553,7 @@ export const useMessageHandling = ({
     }
     if (
       wsRef.current &&
-      conversationIdRef.current === targetConversationId &&
+      socketConversationIdRef.current === targetConversationId &&
       wsRef.current.readyState === WebSocket.OPEN &&
       isSocketReadyRef.current
     ) {
@@ -567,6 +568,7 @@ export const useMessageHandling = ({
       wsRef.current.close();
       wsRef.current = null;
     }
+    socketConversationIdRef.current = targetConversationId;
     initSocketReadyPromise();
 
     const ws = new WebSocket(getConversationWsEndpoint(targetConversationId));
@@ -676,6 +678,7 @@ export const useMessageHandling = ({
       flushPendingAcks(new Error('Chat connection closed'));
       if (wsRef.current === ws) {
         wsRef.current = null;
+        socketConversationIdRef.current = null;
       }
       if (!isClosingSocketRef.current && conversationIdRef.current === targetConversationId) {
         scheduleReconnect(targetConversationId);
@@ -715,6 +718,7 @@ export const useMessageHandling = ({
       wsRef.current.close();
       wsRef.current = null;
     }
+    socketConversationIdRef.current = null;
   }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
 
   const sendMessageOverWs = useCallback(async (
@@ -756,7 +760,7 @@ export const useMessageHandling = ({
     const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
     try {
-      if (!isSocketReadyRef.current) {
+      if (!isSocketReadyRef.current || socketConversationIdRef.current !== activeConversationId) {
         connectChatRoomRef.current(activeConversationId);
       }
       await waitForSocketReady();
@@ -935,11 +939,17 @@ export const useMessageHandling = ({
 
   const confirmIntakeLead = useCallback(async (intakeUuid: string) => {
     if (!intakeUuid || !conversationId) return;
-    const practiceContextId = (practiceId ?? practiceSlug ?? '').trim();
-    if (!practiceContextId) return;
+    const practiceContextId = (practiceId ?? '').trim();
+    const practiceSlugValue = (practiceSlug ?? '').trim();
+    const effectivePracticeId = practiceContextId || practiceSlugValue;
+    if (!effectivePracticeId) return;
 
     try {
-      const response = await fetch(`${getIntakeConfirmEndpoint()}?practiceId=${encodeURIComponent(practiceContextId)}`, {
+      const params = new URLSearchParams({ practiceId: effectivePracticeId });
+      if (practiceSlugValue && practiceSlugValue !== practiceContextId) {
+        params.set('practiceSlug', practiceSlugValue);
+      }
+      const response = await fetch(`${getIntakeConfirmEndpoint()}?${params.toString()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
