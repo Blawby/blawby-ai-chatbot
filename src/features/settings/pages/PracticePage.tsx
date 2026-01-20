@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'preact/hooks';
+import { useState, useMemo } from 'preact/hooks';
 import {
   ChevronRightIcon,
   GlobeAltIcon,
@@ -31,8 +31,6 @@ import {
   usePracticeSyncParamRefetch,
   type EditPracticeFormState
 } from '@/features/settings/hooks/usePracticePageEffects';
-import { LeadReviewQueue } from '@/features/leads/components/LeadReviewQueue';
-import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -134,8 +132,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     deletePractice,
     fetchMembers,
     refetch,
-    acceptMatter,
-    rejectMatter
   } = usePracticeManagement();
   const activePracticeId = currentPractice?.id ?? practices[0]?.id ?? null;
   const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId);
@@ -187,7 +183,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const currentUserRole = currentMember?.role || 'paralegal';
   const isOwner = currentUserRole === 'owner';
-  const canReviewLeads = hasLeadReviewPermission(currentUserRole, practice?.metadata ?? null);
   const servicesList = useMemo(() => {
     const source = practiceDetails?.services ?? practice?.services;
     if (!Array.isArray(source)) return [];
@@ -289,10 +284,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
   const [introDraft, setIntroDraft] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
-
-  const handleOpenLeadConversation = useCallback((conversationId: string) => {
-    navigateTo(`/practice/chats/${encodeURIComponent(conversationId)}`);
-  }, [navigateTo]);
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -853,19 +844,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   value={isPublicValue}
                   onChange={handleTogglePublic}
                   disabled={isSettingsSaving}
-                />
-              </div>
-
-              <div className="border-t border-gray-200 dark:border-dark-border" />
-
-              {/* Lead Review Queue */}
-              <div className="py-3">
-                <LeadReviewQueue
-                  practiceId={practice?.id ?? null}
-                  canReviewLeads={canReviewLeads}
-                  acceptMatter={acceptMatter}
-                  rejectMatter={rejectMatter}
-                  onOpenConversation={handleOpenLeadConversation}
                 />
               </div>
 
