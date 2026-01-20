@@ -27,37 +27,44 @@ function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
 }
 
 function parseAuthSessionPayload(
-  rawResponse: Record<string, unknown>
+  rawResponse: unknown
 ): { user: AuthenticatedUser; session: { id: string; expiresAt: Date } } {
-  if (rawResponse.error) {
-    const errorObj = rawResponse.error as { message?: string };
+  if (!rawResponse || typeof rawResponse !== 'object') {
+    console.error('[Auth] Invalid session payload from Better Auth API:', rawResponse);
+    throw HttpErrors.unauthorized('Invalid session data - empty response');
+  }
+
+  const responseRecord = rawResponse as Record<string, unknown>;
+
+  if (responseRecord.error) {
+    const errorObj = responseRecord.error as { message?: string };
     console.error('[Auth] Better Auth API returned error:', errorObj.message || 'Unknown error');
     throw HttpErrors.unauthorized(errorObj.message || 'Invalid or expired session');
   }
 
   const dataPayload =
-    rawResponse.data && typeof rawResponse.data === 'object'
-      ? rawResponse.data as Record<string, unknown>
+    responseRecord.data && typeof responseRecord.data === 'object'
+      ? responseRecord.data as Record<string, unknown>
       : null;
 
   const hasUserPayload =
-    !!rawResponse.user ||
+    !!responseRecord.user ||
     (!!dataPayload && ('user' in dataPayload || 'session' in dataPayload));
 
-  if (rawResponse.message && typeof rawResponse.message === 'string' && !hasUserPayload) {
-    throw HttpErrors.unauthorized(rawResponse.message);
+  if (responseRecord.message && typeof responseRecord.message === 'string' && !hasUserPayload) {
+    throw HttpErrors.unauthorized(responseRecord.message);
   }
 
   let user: { id: string; email?: string | null; name: string; emailVerified?: boolean; image?: string | null } | undefined;
   let session: { id: string; expiresAt: Date | string } | undefined;
 
-  if (rawResponse.data && typeof rawResponse.data === 'object') {
-    const data = rawResponse.data as { user?: typeof user; session?: typeof session };
+  if (responseRecord.data && typeof responseRecord.data === 'object') {
+    const data = responseRecord.data as { user?: typeof user; session?: typeof session };
     user = data.user;
     session = data.session;
-  } else if (rawResponse.user && typeof rawResponse.user === 'object') {
-    user = rawResponse.user as typeof user;
-    session = rawResponse.session as typeof session;
+  } else if (responseRecord.user && typeof responseRecord.user === 'object') {
+    user = responseRecord.user as typeof user;
+    session = responseRecord.session as typeof session;
   }
 
   if (!user?.id) {

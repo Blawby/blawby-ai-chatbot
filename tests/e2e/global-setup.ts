@@ -4,6 +4,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadE2EConfig } from './helpers/e2eConfig';
 import { waitForSession } from './helpers/auth';
+import { AUTH_DIR, AUTH_STATE_PATHS } from './helpers/authState';
+import { getBaseUrlFromConfig } from './helpers/baseUrl';
 
 const EMPTY_STORAGE_STATE = {
   cookies: [],
@@ -11,9 +13,8 @@ const EMPTY_STORAGE_STATE = {
 };
 
 const ensureAuthDir = (): string => {
-  const authDir = join(process.cwd(), 'playwright', '.auth');
-  mkdirSync(authDir, { recursive: true });
-  return authDir;
+  mkdirSync(AUTH_DIR, { recursive: true });
+  return AUTH_DIR;
 };
 
 const ensureResultsDir = (): string => {
@@ -70,39 +71,99 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
     return false;
   }
 
+  const maxAttempts = 3;
+  let retryDelayMs = 500;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(`${baseURL}/api/auth/get-session`, {
+        headers: { Cookie: cookieHeader }
+      });
+
+      if (response.status === 429 && attempt < maxAttempts - 1) {
+        const retryAfter = response.headers.get('Retry-After');
+        const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
+        const waitMs = Number.isFinite(retryAfterMs) ? retryAfterMs : retryDelayMs;
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        retryDelayMs = Math.min(retryDelayMs * 2, 5000);
+        continue;
+      }
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json().catch(() => null);
+      if (!data || typeof data !== 'object') {
+        return false;
+      }
+      const record = data as Record<string, unknown>;
+      if (record.session || record.user) {
+        return true;
+      }
+      const nested = record.data;
+      if (!nested || typeof nested !== 'object') {
+        return false;
+      }
+      const nestedRecord = nested as Record<string, unknown>;
+      return Boolean(nestedRecord.session || nestedRecord.user);
+    } catch {
+      if (attempt >= maxAttempts - 1) {
+        return false;
+      }
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      retryDelayMs = Math.min(retryDelayMs * 2, 5000);
+    }
+  }
+
+  return false;
+};
+
+const VALIDATION_TTL_MS = 20 * 60 * 1000;
+const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(
+  (process.env.E2E_FORCE_AUTH_REFRESH || '').toLowerCase()
+);
+
+type ValidationCache = {
+  owner?: number;
+  client?: number;
+  anonymous?: number;
+};
+
+const readValidationCache = (cachePath: string): ValidationCache => {
+  if (!existsSync(cachePath)) {
+    return {};
+  }
   try {
-    const response = await fetch(`${baseURL}/api/auth/get-session`, {
-      headers: { Cookie: cookieHeader }
-    });
-    if (!response.ok) {
-      return false;
-    }
-    const data = await response.json().catch(() => null);
-    if (!data || typeof data !== 'object') {
-      return false;
-    }
-    const record = data as Record<string, unknown>;
-    if (record.session || record.user) {
-      return true;
-    }
-    const nested = record.data;
-    if (!nested || typeof nested !== 'object') {
-      return false;
-    }
-    const nestedRecord = nested as Record<string, unknown>;
-    return Boolean(nestedRecord.session || nestedRecord.user);
+    return JSON.parse(readFileSync(cachePath, 'utf-8')) as ValidationCache;
   } catch {
-    return false;
+    return {};
   }
 };
 
-const getBaseUrlFromConfig = (config: FullConfig): string => {
-  const project = config.projects[0];
-  const baseURL = project?.use?.baseURL;
-  if (typeof baseURL === 'string' && baseURL.length > 0) {
-    return baseURL;
-  }
-  return process.env.E2E_BASE_URL || 'https://local.blawby.com';
+const writeValidationCache = (cachePath: string, cache: ValidationCache): void => {
+  writeFileSync(cachePath, JSON.stringify(cache, null, 2));
+};
+
+const isValidationFresh = (options: {
+  cache: ValidationCache;
+  role: keyof ValidationCache;
+  storagePath: string;
+}): boolean => {
+  if (FORCE_AUTH_REFRESH) return false;
+  if (!existsSync(options.storagePath)) return false;
+  const timestamp = options.cache[options.role];
+  if (!timestamp) return false;
+  return Date.now() - timestamp < VALIDATION_TTL_MS;
+};
+
+const markValidated = (options: {
+  cache: ValidationCache;
+  cachePath: string;
+  role: keyof ValidationCache;
+}): void => {
+  options.cache[options.role] = Date.now();
+  writeValidationCache(options.cachePath, options.cache);
 };
 
 const verifyWorkerHealth = async (): Promise<void> => {
@@ -198,7 +259,7 @@ const createSignedInState = async (options: {
     ]).catch(() => undefined);
 
     try {
-      await waitForSession(page, { timeoutMs: authTimeoutMs });
+      await waitForSession(page, { timeoutMs: authTimeoutMs, skipIfCookiePresent: false, cookieUrl: baseURL });
     } catch (error) {
       const resultsDir = ensureResultsDir();
       const htmlPath = join(resultsDir, `signin-session-timeout-${label}.html`);
@@ -256,6 +317,9 @@ const createAnonymousState = async (options: {
     await page.evaluate(async () => {
       try {
         const response = await fetch('/api/auth/get-session', { credentials: 'include' });
+        if (!response.ok) {
+          return;
+        }
         let data: any = null;
         try {
           data = await response.json();
@@ -271,7 +335,7 @@ const createAnonymousState = async (options: {
       }
     });
 
-    await waitForSession(page, { timeoutMs: 60000 });
+    await waitForSession(page, { timeoutMs: 60000, skipIfCookiePresent: false, cookieUrl: baseURL });
 
     await context.storageState({ path: storagePath });
     console.log(`✅ anonymous storageState saved to ${storagePath}`);
@@ -289,20 +353,24 @@ async function globalSetup(config: FullConfig) {
   const baseURL = getBaseUrlFromConfig(config);
   await waitForBaseUrl(baseURL);
   const authDir = ensureAuthDir();
-  const ownerPath = join(authDir, 'owner.json');
-  const clientPath = join(authDir, 'client.json');
-  const anonymousPath = join(authDir, 'anonymous.json');
+  const cachePath = join(authDir, 'last-validated.json');
+  const validationCache = readValidationCache(cachePath);
+  const { owner: ownerPath, client: clientPath, anonymous: anonymousPath } = AUTH_STATE_PATHS;
 
   if (!e2eConfig) {
     console.warn('⚠️  E2E credentials are not configured. Writing empty auth states.');
     writeEmptyStorageState(ownerPath);
     writeEmptyStorageState(clientPath);
     writeEmptyStorageState(anonymousPath);
+    writeValidationCache(cachePath, {});
     return;
   }
 
-  if (await hasValidSessionFromStorage(baseURL, ownerPath)) {
+  if (isValidationFresh({ cache: validationCache, role: 'owner', storagePath: ownerPath })) {
+    console.log(`✅ owner storageState recently validated; skipping session check at ${ownerPath}`);
+  } else if (await hasValidSessionFromStorage(baseURL, ownerPath)) {
     console.log(`✅ owner storageState already valid at ${ownerPath}`);
+    markValidated({ cache: validationCache, cachePath, role: 'owner' });
   } else {
     await createSignedInState({
       baseURL,
@@ -311,10 +379,14 @@ async function globalSetup(config: FullConfig) {
       password: e2eConfig.owner.password,
       label: 'owner'
     });
+    markValidated({ cache: validationCache, cachePath, role: 'owner' });
   }
 
-  if (await hasValidSessionFromStorage(baseURL, clientPath)) {
+  if (isValidationFresh({ cache: validationCache, role: 'client', storagePath: clientPath })) {
+    console.log(`✅ client storageState recently validated; skipping session check at ${clientPath}`);
+  } else if (await hasValidSessionFromStorage(baseURL, clientPath)) {
     console.log(`✅ client storageState already valid at ${clientPath}`);
+    markValidated({ cache: validationCache, cachePath, role: 'client' });
   } else {
     await createSignedInState({
       baseURL,
@@ -323,16 +395,21 @@ async function globalSetup(config: FullConfig) {
       password: e2eConfig.client.password,
       label: 'client'
     });
+    markValidated({ cache: validationCache, cachePath, role: 'client' });
   }
 
-  if (await hasValidSessionFromStorage(baseURL, anonymousPath)) {
+  if (isValidationFresh({ cache: validationCache, role: 'anonymous', storagePath: anonymousPath })) {
+    console.log(`✅ anonymous storageState recently validated; skipping session check at ${anonymousPath}`);
+  } else if (await hasValidSessionFromStorage(baseURL, anonymousPath)) {
     console.log(`✅ anonymous storageState already valid at ${anonymousPath}`);
+    markValidated({ cache: validationCache, cachePath, role: 'anonymous' });
   } else {
     await createAnonymousState({
       baseURL,
       storagePath: anonymousPath,
       practiceSlug: e2eConfig.practice.slug
     });
+    markValidated({ cache: validationCache, cachePath, role: 'anonymous' });
   }
 
   console.log('✅ Global setup complete');
