@@ -16,6 +16,7 @@ interface VirtualMessageListProps {
         profileImage: string | null;
         practiceId: string;
         description?: string | null;
+        slug?: string | null;
     };
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
@@ -144,7 +145,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     <PracticeProfile
                         name={practiceConfig.name}
                         profileImage={practiceConfig.profileImage}
-                        practiceId={practiceId}
+                        practiceSlug={practiceConfig.slug ?? practiceConfig.practiceId}
                         description={practiceConfig.description}
                         variant="welcome"
                         showVerified={true}

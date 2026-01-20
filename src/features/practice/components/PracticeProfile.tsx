@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 interface PracticeProfileProps {
 	name: string;
 	profileImage: string | null;
-	practiceId: string;
+	practiceSlug: string;
 	description?: string | null;
 	variant?: 'sidebar' | 'welcome';
 	showVerified?: boolean;
@@ -13,7 +13,7 @@ interface PracticeProfileProps {
 export default function PracticeProfile({ 
 	name, 
 	profileImage, 
-	practiceId, 
+	practiceSlug, 
 	description,
 	variant = 'sidebar',
 	showVerified = true,
@@ -48,15 +48,21 @@ export default function PracticeProfile({
 
 			{/* Practice ID */}
 			<div className="text-center w-full">
-				<span className="text-sm sm:text-base lg:text-lg font-medium text-[#d4af37] truncate block" title={t('profile.slug', { slug: practiceId })}>@{practiceId}</span>
+				<span className="text-sm sm:text-base lg:text-lg font-medium text-[#d4af37] truncate block" title={t('profile.slug', { slug: practiceSlug })}>@{practiceSlug}</span>
 			</div>
 
 			{/* Onboarding reminder removed in favor of global top banner */}
 
-			{/* Practice Description - Only show for welcome variant */}
-			{description && variant === 'welcome' && (
+			{/* Practice Description */}
+			{description && (
 				<div className="text-center">
-					<p className="text-gray-700 dark:text-gray-400 text-center text-sm sm:text-base lg:text-lg leading-relaxed max-w-xs mx-auto line-clamp-3">{description}</p>
+					<p
+						className={`text-gray-700 dark:text-gray-400 text-center leading-relaxed max-w-xs mx-auto line-clamp-3 ${
+							isWelcome ? 'text-sm sm:text-base lg:text-lg' : 'text-xs sm:text-sm'
+						}`}
+					>
+						{description}
+					</p>
 				</div>
 			)}
 		</div>
