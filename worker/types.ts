@@ -168,6 +168,7 @@ export interface Env {
   ONESIGNAL_APP_ID?: string;
   ONESIGNAL_REST_API_KEY?: string;
   ONESIGNAL_API_BASE?: string;
+  INTERNAL_SECRET?: string;
 
 }
 

@@ -73,7 +73,8 @@ export class NotificationHub {
     }
 
     const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair) as unknown as [WorkerWebSocket, WorkerWebSocket];
+    const client = pair[0] as unknown as WorkerWebSocket;
+    const server = pair[1] as unknown as WorkerWebSocket;
 
     const attachment: ConnectionAttachment = {
       userId: auth.user.id,

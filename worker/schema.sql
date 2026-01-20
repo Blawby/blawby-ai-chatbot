@@ -306,7 +306,9 @@ CREATE TABLE IF NOT EXISTS notification_delivery_results (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe ON notifications(user_id, dedupe_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe
+  ON notifications(user_id, dedupe_key)
+  WHERE dedupe_key IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_source_event
   ON notifications(user_id, source_event_id)
   WHERE source_event_id IS NOT NULL;

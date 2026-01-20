@@ -35,8 +35,12 @@ CREATE TABLE IF NOT EXISTS notification_destinations (
   disabled_at TEXT
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe ON notifications(user_id, dedupe_key);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_source_event ON notifications(user_id, source_event_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe
+  ON notifications(user_id, dedupe_key)
+  WHERE dedupe_key IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_source_event
+  ON notifications(user_id, source_event_id)
+  WHERE source_event_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_category ON notifications(user_id, category, read_at, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_destinations_provider_id ON notification_destinations(provider, onesignal_id);

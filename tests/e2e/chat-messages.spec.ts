@@ -72,6 +72,7 @@ const sendChatMessageOverWs = async (options: {
       let authOk = false;
       let settled = false;
       const timeoutId = setTimeout(() => {
+        settled = true;
         ws.close();
         reject(new Error('Timed out waiting for message ack'));
       }, 10000);
@@ -107,6 +108,7 @@ const sendChatMessageOverWs = async (options: {
         }
 
         if (frame.type === 'auth.error' || frame.type === 'error') {
+          settled = true;
           cleanup();
           const message = typeof frame.data?.message === 'string' ? frame.data.message : 'WebSocket error';
           reject(new Error(message));
@@ -148,6 +150,7 @@ const sendChatMessageOverWs = async (options: {
       });
 
       ws.addEventListener('error', () => {
+        settled = true;
         cleanup();
         reject(new Error('WebSocket error'));
       });

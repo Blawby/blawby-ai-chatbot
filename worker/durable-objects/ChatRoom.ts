@@ -100,6 +100,9 @@ export class ChatRoom {
     const url = new URL(request.url);
 
     if (url.pathname === '/internal/membership-revoked') {
+      if (!this.isInternalAuthorized(request)) {
+        return new Response('Forbidden', { status: 403 });
+      }
       if (request.method !== 'POST') {
         return new Response('Method not allowed', { status: 405 });
       }
@@ -107,6 +110,9 @@ export class ChatRoom {
     }
 
     if (url.pathname === '/internal/message') {
+      if (!this.isInternalAuthorized(request)) {
+        return new Response('Forbidden', { status: 403 });
+      }
       if (request.method !== 'POST') {
         return new Response('Method not allowed', { status: 405 });
       }
@@ -1218,6 +1224,14 @@ export class ChatRoom {
     } catch {
       // Ignore closing errors.
     }
+  }
+
+  private isInternalAuthorized(request: Request): boolean {
+    const secret = this.env.INTERNAL_SECRET;
+    if (!secret) {
+      return true;
+    }
+    return request.headers.get('X-Internal-Secret') === secret;
   }
 
   private getAttachment(ws: WorkerWebSocket): ConnectionAttachment | null {

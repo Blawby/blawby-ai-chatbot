@@ -783,9 +783,13 @@ export class ConversationService {
     clientId: string;
   }): Promise<{ messageId: string; seq: number; serverTs: string }> {
     const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(options.conversationId));
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.env.INTERNAL_SECRET) {
+      headers['X-Internal-Secret'] = this.env.INTERNAL_SECRET;
+    }
     const response = await stub.fetch('https://chat-room/internal/message', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         conversation_id: options.conversationId,
         user_id: options.userId,
@@ -1365,9 +1369,13 @@ export class ConversationService {
 
     try {
       const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(conversationId));
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.env.INTERNAL_SECRET) {
+        headers['X-Internal-Secret'] = this.env.INTERNAL_SECRET;
+      }
       await stub.fetch('https://chat-room/internal/membership-revoked', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       });
     } catch (error) {
