@@ -1558,6 +1558,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     isConsultFlowActive,
     confirmIntakeLead,
     conversationId,
+    messages,
     practiceId,
     practiceSlug
   ]);

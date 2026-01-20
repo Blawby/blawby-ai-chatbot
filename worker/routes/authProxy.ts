@@ -119,6 +119,7 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
   } else {
     const setCookie = response.headers.get('Set-Cookie');
     if (setCookie) {
+      // Fallback for environments without getSetCookie(); multiple cookies may be joined and ambiguous.
       proxyHeaders.set('Set-Cookie', normalizeCookieDomain(setCookie, requestHost));
     }
   }

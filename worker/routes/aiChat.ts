@@ -90,6 +90,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
   const auditService = new SessionAuditService(env);
   await auditService.createEvent({
     conversationId: body.conversationId,
+    practiceId: conversation.practice_id,
     eventType: 'ai_message_sent',
     actorType: 'user',
     actorId: authContext.user.id,
@@ -179,6 +180,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
 
   await auditService.createEvent({
     conversationId: body.conversationId,
+    practiceId: conversation.practice_id,
     eventType: 'ai_message_received',
     actorType: 'system',
     payload: { conversationId: body.conversationId }

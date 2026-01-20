@@ -190,15 +190,24 @@ export async function handleNotificationQueue(
           continue;
         }
 
-        await publishNotification(env, recipient.userId, {
-          notification_id: insertResult.id,
-          category: payload.category,
-          created_at: insertResult.createdAt,
-          title: payload.title,
-          body: payload.body ?? null,
-          link: payload.link ?? null,
-          metadata: payload.metadata ?? null
-        });
+        try {
+          await publishNotification(env, recipient.userId, {
+            notification_id: insertResult.id,
+            category: payload.category,
+            created_at: insertResult.createdAt,
+            title: payload.title,
+            body: payload.body ?? null,
+            link: payload.link ?? null,
+            metadata: payload.metadata ?? null
+          });
+        } catch (error) {
+          hadFailure = true;
+          Logger.warn('Failed to publish notification to hub', {
+            eventId: payload.eventId,
+            recipient: recipient.userId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
 
         if (emailEnabled && shouldSendEmail(recipient) && oneSignal) {
           try {

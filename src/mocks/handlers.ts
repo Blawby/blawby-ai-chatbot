@@ -748,6 +748,10 @@ export const handlers = [
     const limit = parseInt(limitParam || '50', 10);
     const fromSeqParam = url.searchParams.get('from_seq');
     const cursor = url.searchParams.get('cursor');
+
+    if (!Number.isFinite(limit) || limit < 1) {
+      return HttpResponse.json({ error: 'limit must be a positive integer' }, { status: 400 });
+    }
     
     if (!conversationId) {
       return HttpResponse.json({ error: 'conversationId is required' }, { status: 400 });

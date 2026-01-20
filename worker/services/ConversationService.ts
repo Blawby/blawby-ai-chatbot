@@ -63,6 +63,7 @@ export interface GetMessagesResult {
   cursor?: string;
   hasMore?: boolean;
   latest_seq?: number;
+  // undefined when sequence pagination not requested; null when no more pages.
   next_from_seq?: number | null;
 }
 

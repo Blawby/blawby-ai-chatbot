@@ -303,6 +303,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const auditService = new SessionAuditService(env);
     await auditService.createEvent({
       conversationId,
+      practiceId,
       eventType: body.eventType,
       actorType: 'user',
       actorId: userId,

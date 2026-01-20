@@ -70,6 +70,7 @@ const sendChatMessageOverWs = async (options: {
       const ws = new WebSocket(wsUrlString);
       const clientId = buildClientId();
       let authOk = false;
+      let settled = false;
       const timeoutId = setTimeout(() => {
         ws.close();
         reject(new Error('Timed out waiting for message ack'));
@@ -138,6 +139,7 @@ const sendChatMessageOverWs = async (options: {
             reject(new Error('Invalid message ack payload'));
             return;
           }
+          settled = true;
           resolve({ messageId, seq, serverTs, clientId });
           return;
         }
@@ -149,7 +151,7 @@ const sendChatMessageOverWs = async (options: {
       });
 
       ws.addEventListener('close', (event) => {
-        if (!authOk) {
+        if (!settled) {
           cleanup();
           reject(new Error(`WebSocket closed (${event.code}) ${event.reason || 'closed'}`));
         }
