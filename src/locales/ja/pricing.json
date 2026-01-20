@@ -93,25 +93,6 @@
         "business": "無制限の会話履歴"
       }
     },
-    "lawyerSearch": {
-      "name": "弁護士検索",
-      "description": "資格のある弁護士を検索して接続",
-      "tiers": {
-        "free": "制限付き",
-        "plus": "強化版",
-        "business": "無制限"
-      },
-      "text": {
-        "free": "制限付き弁護士検索",
-        "plus": "強化された弁護士検索",
-        "business": "高度な弁護士検索"
-      },
-      "detail": {
-        "free": "基本的な弁護士検索機能",
-        "plus": "高度な弁護士マッチング機能",
-        "business": "完全な弁護士マッチングと研究機能"
-      }
-    },
     "teamCollaboration": {
       "name": "チームコラボレーション",
       "description": "共有プロジェクトとチーム機能",

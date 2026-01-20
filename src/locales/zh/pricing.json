@@ -93,25 +93,6 @@
         "business": "无限对话历史"
       }
     },
-    "lawyerSearch": {
-      "name": "律师搜索",
-      "description": "查找并联系合格的律师",
-      "tiers": {
-        "free": "限制版",
-        "plus": "增强版",
-        "business": "无限制"
-      },
-      "text": {
-        "free": "限制律师搜索",
-        "plus": "增强律师搜索",
-        "business": "高级律师搜索"
-      },
-      "detail": {
-        "free": "基本律师搜索功能",
-        "plus": "高级律师匹配功能",
-        "business": "完整的律师匹配和研究功能"
-      }
-    },
     "teamCollaboration": {
       "name": "团队协作",
       "description": "共享项目和团队功能",

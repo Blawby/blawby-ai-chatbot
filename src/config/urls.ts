@@ -9,7 +9,7 @@
  * This application uses TWO separate backends:
  * 
  * 1. WORKER API (Cloudflare Worker)
- *    - Handles: /api/chat, /api/conversations, /api/inbox, /api/files, /api/lawyers
+ *    - Handles: /api/chat, /api/conversations, /api/inbox, /api/files
  *    - Dev: http://localhost:8787
  *    - Prod: Same origin as frontend (ai.blawby.com)
  * 
@@ -24,7 +24,6 @@
  *   /api/conversations/*           - Conversation management
  *   /api/inbox/*                   - Inbox messages
  *   /api/files/*                   - File uploads/downloads
- *   /api/lawyers/*                 - Lawyer search
  *   /api/status                    - Status check
  *   /api/health                    - Health check
  *   /api/practices/:id/workspace/* - Practice workspace data (chatbot-specific)

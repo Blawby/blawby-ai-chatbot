@@ -93,25 +93,6 @@
         "business": "Lịch sử cuộc trò chuyện không giới hạn"
       }
     },
-    "lawyerSearch": {
-      "name": "Tìm kiếm Luật sư",
-      "description": "Tìm và kết nối với luật sư có trình độ",
-      "tiers": {
-        "free": "Giới hạn",
-        "plus": "Nâng cao",
-        "business": "Không giới hạn"
-      },
-      "text": {
-        "free": "Tìm kiếm luật sư giới hạn",
-        "plus": "Tìm kiếm luật sư nâng cao",
-        "business": "Tìm kiếm luật sư tiên tiến"
-      },
-      "detail": {
-        "free": "Khả năng tìm kiếm luật sư cơ bản",
-        "plus": "Khả năng kết nối luật sư tiên tiến",
-        "business": "Khả năng kết nối và nghiên cứu luật sư đầy đủ"
-      }
-    },
     "teamCollaboration": {
       "name": "Cộng tác Nhóm",
       "description": "Dự án chia sẻ và tính năng nhóm",

@@ -55,27 +55,6 @@ interface MessageProps {
 			file?: File;
 		}>;
 	};
-	lawyerSearchResults?: {
-		matterType: string;
-		lawyers: Array<{
-			id: string;
-			name: string;
-			firm?: string;
-			location: string;
-			practiceAreas: string[];
-			rating?: number;
-			reviewCount?: number;
-			phone?: string;
-			email?: string;
-			website?: string;
-			bio?: string;
-			experience?: string;
-			languages?: string[];
-			consultationFee?: number;
-			availability?: string;
-		}>;
-		total: number;
-	};
 	generatedPDF?: {
 		filename: string;
 		size: number;
@@ -118,7 +97,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	matterCanvas,
 	contactForm,
 	documentChecklist,
-	lawyerSearchResults,
 	generatedPDF,
 	paymentRequest,
 	practiceConfig: _practiceConfig,
@@ -194,7 +172,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					matterCanvas={matterCanvas}
 					contactForm={contactForm}
 					documentChecklist={documentChecklist}
-					lawyerSearchResults={lawyerSearchResults}
 					generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}
 					onOpenPayment={onOpenPayment}

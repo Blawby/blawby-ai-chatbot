@@ -11,7 +11,6 @@ import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
-import LawyerSearchInline from '@/features/lawyer-search/components/LawyerSearchInline';
 import type { ConversationMode } from '@/shared/types/conversation';
 
 interface ChatContainerProps {
@@ -268,9 +267,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               onRequestConsultation={() => onSelectMode?.('REQUEST_CONSULTATION', 'composer_footer')}
             />
           </>
-        ) : (
-          <LawyerSearchInline />
-        )}
+        ) : null}
       </main>
 
       <AuthPromptModal

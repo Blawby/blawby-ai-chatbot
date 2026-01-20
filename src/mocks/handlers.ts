@@ -926,26 +926,6 @@ export const handlers = [
     });
   }),
 
-  http.get('/api/lawyers', async ({ request }) => {
-    const url = new URL(request.url);
-    const page = parseInt(url.searchParams.get('page') || '1', 10);
-    const limit = parseInt(url.searchParams.get('limit') || '20', 10);
-    return HttpResponse.json({
-      success: true,
-      data: {
-        lawyers: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          pages: 0
-        },
-        source: 'mock',
-        query: Object.fromEntries(url.searchParams.entries())
-      }
-    });
-  }),
-
   http.get('/api/activity', async () => {
     return HttpResponse.json({
       success: true,

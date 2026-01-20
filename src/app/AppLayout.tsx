@@ -34,7 +34,7 @@ import { useNotificationCounts } from '@/features/notifications/hooks/useNotific
 
 // Simple messages object for localization
 const messages = {
-  findLawyer: 'Find Lawyer'
+  requestConsultation: 'Request Consultation'
 };
 
 interface AppLayoutProps {
@@ -573,7 +573,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                   type="button"
                   icon={<UserIcon className="w-4 h-4" />}
                 >
-                  {messages.findLawyer}
+                  {messages.requestConsultation}
                 </Button>
               </div>
             )}
