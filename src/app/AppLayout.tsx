@@ -54,9 +54,11 @@ interface AppLayoutProps {
     name: string;
     profileImage: string | null;
     description?: string | null;
+    slug?: string | null;
   };
   currentPractice?: {
     id: string;
+    slug?: string | null;
     subscriptionTier?: SubscriptionTier;
     businessOnboardingStatus?: BusinessOnboardingStatus;
     businessOnboardingCompletedAt?: number | null;
@@ -121,6 +123,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   const { openBillingPortal } = usePaymentUpgrade();
   const [matterAction, setMatterAction] = useState<'pay' | 'pdf' | 'share' | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const practiceSlug = practiceConfig.slug ?? currentPractice?.slug ?? practiceId;
+  const practiceDescription = practiceDetails?.description ?? currentPractice?.description ?? practiceConfig.description ?? null;
 
   const showDashboardTab = workspace !== 'public';
   const showChatsTab = true;
@@ -554,8 +558,8 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
             <PracticeProfile
               name={practiceConfig.name}
               profileImage={practiceConfig.profileImage}
-              practiceId={practiceId}
-              description={practiceConfig.description}
+              practiceSlug={practiceSlug}
+              description={practiceDescription}
               variant="sidebar"
               showVerified={true}
             />

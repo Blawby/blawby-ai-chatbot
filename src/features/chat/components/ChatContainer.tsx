@@ -27,6 +27,7 @@ interface ChatContainerProps {
     profileImage: string | null;
     practiceId: string;
     description?: string | null;
+    slug?: string | null;
   };
   onOpenSidebar?: () => void;
   practiceId?: string;

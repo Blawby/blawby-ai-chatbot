@@ -720,6 +720,8 @@ export function MainApp({
     }
   };
 
+  const resolvedPracticeLogo = currentPractice?.logo ?? practiceConfig?.profileImage ?? null;
+
   // Handle navigation to chats - removed since bottom nav is disabled
   const shouldShowChatPlaceholder = workspace !== 'public' && !conversationId;
   const chatPanel = chatContent ?? (
@@ -753,9 +755,10 @@ export function MainApp({
               composerDisabled={isComposerDisabled}
               practiceConfig={{
                 name: practiceConfig.name ?? '',
-                profileImage: practiceConfig?.profileImage ?? null,
+                profileImage: resolvedPracticeLogo,
                 practiceId,
-                description: practiceConfig?.description ?? ''
+                description: practiceConfig?.description ?? '',
+                slug: practiceConfig?.slug ?? practiceId
               }}
               onOpenSidebar={() => setIsMobileSidebarOpen(true)}
               practiceId={practiceId}
@@ -837,8 +840,9 @@ export function MainApp({
         onSelectNotificationCategory={handleNotificationCategoryChange}
         practiceConfig={{
           name: practiceConfig.name ?? '',
-          profileImage: practiceConfig?.profileImage ?? null,
-          description: practiceConfig?.description ?? ''
+          profileImage: resolvedPracticeLogo,
+          description: practiceConfig?.description ?? '',
+          slug: practiceConfig?.slug ?? practiceId
         }}
         currentPractice={currentPractice}
         practiceDetails={practiceDetails}

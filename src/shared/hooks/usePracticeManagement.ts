@@ -406,6 +406,7 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     businessPhone: getDetailString('businessPhone', 'business_phone') ?? null,
     businessEmail: getDetailString('businessEmail', 'business_email') ?? null,
     calendlyUrl: getDetailString('calendlyUrl', 'calendly_url') ?? null,
+    logo: getDetailString('logo', 'logo') ?? null,
     subscriptionTier: normalizedTier,
     seats,
     subscriptionStatus: normalizedStatus,
