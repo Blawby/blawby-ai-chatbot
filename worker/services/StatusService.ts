@@ -26,8 +26,6 @@ export class StatusService {
   private static readonly SUBSCRIPTION_PREFIX = 'sub:';
   private static readonly STATUS_TTL = 24 * 60 * 60; // 24 hours
   private static readonly SUBSCRIPTION_TTL = 60 * 60; // 1 hour
-  private static readonly DEFAULT_POLL_INTERVAL = 2000; // 2 seconds
-  private static readonly MAX_BACKOFF_INTERVAL = 30000; // 30 seconds
 
   /**
    * Create or update a status entry
@@ -171,32 +169,6 @@ export class StatusService {
         console.error('Failed to update subscription:', error);
       }
     }
-  }
-
-  /**
-   * Get configurable polling interval from environment or use default
-   */
-  static getPollInterval(env: Env): number {
-    const envInterval = env.SSE_POLL_INTERVAL;
-    if (envInterval && typeof envInterval === 'string') {
-      const parsed = parseInt(envInterval, 10);
-      if (!isNaN(parsed) && parsed > 0) {
-        return parsed;
-      }
-    }
-    return StatusService.DEFAULT_POLL_INTERVAL;
-  }
-
-  /**
-   * Calculate exponential backoff delay with cap
-   */
-  static calculateBackoffDelay(baseInterval: number, errorCount: number): number {
-    // Coerce errorCount to a number and ensure it's finite
-    const numericErrorCount = Number(errorCount);
-    const finiteErrorCount = Number.isFinite(numericErrorCount) ? numericErrorCount : 0;
-    const safeCount = Math.max(0, Math.floor(finiteErrorCount));
-    const exponentialDelay = baseInterval * Math.pow(2, safeCount);
-    return Math.min(exponentialDelay, StatusService.MAX_BACKOFF_INTERVAL);
   }
 
   /**

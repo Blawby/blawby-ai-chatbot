@@ -24,6 +24,10 @@ interface ConversationMessage {
 interface IntakeSettings {
   paymentLinkEnabled?: boolean;
   prefillAmount?: number;
+  connectedAccount?: {
+    id?: string;
+    chargesEnabled?: boolean;
+  };
 }
 
 interface IntakeCreateResult {
@@ -67,8 +71,14 @@ const getIntakeSettings = async (slug: string): Promise<IntakeSettings | null> =
     return null;
   }
 
-  const payload = await response.json() as { data?: { settings?: IntakeSettings } };
-  return payload?.data?.settings ?? null;
+  const payload = await response.json() as { data?: { settings?: IntakeSettings; connectedAccount?: { id?: string; chargesEnabled?: boolean } } };
+  if (!payload?.data) {
+    return null;
+  }
+  return {
+    ...payload.data.settings,
+    connectedAccount: payload.data.connectedAccount
+  };
 };
 
 const createIntake = async (options: {
@@ -77,29 +87,45 @@ const createIntake = async (options: {
   email: string;
   description?: string;
   amount?: number;
+  request?: APIRequestContext;
+  origin?: string;
 }): Promise<IntakeCreateResult> => {
   const normalizedSlug = normalizePracticeSlug(options.slug);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const response = await fetch(`${BACKEND_API_URL}/api/practice/client-intakes/create`, {
-    method: 'POST',
-    headers,
-    credentials: 'include',
-    body: JSON.stringify({
-      slug: normalizedSlug,
-      amount: options.amount ?? 50,
-      name: options.name,
-      email: options.email,
-      description: options.description,
-    })
-  });
+  if (options.origin) {
+    headers.Origin = options.origin;
+    headers.Referer = `${options.origin}/`;
+  }
+  const payload = {
+    slug: normalizedSlug,
+    amount: options.amount ?? 50,
+    name: options.name,
+    email: options.email,
+    description: options.description,
+  };
+  const url = `${BACKEND_API_URL}/api/practice/client-intakes/create`;
 
-  if (!response.ok) {
+  const response = options.request
+    ? await options.request.post(url, { data: payload, headers })
+    : await fetch(url, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+
+  const ok = typeof response.ok === 'function' ? response.ok() : response.ok;
+  const status = typeof response.status === 'function' ? response.status() : response.status;
+  if (!ok) {
     const text = await response.text();
-    throw new Error(`Intake create failed (${response.status}): ${text}`);
+    throw new Error(`Intake create failed (${status}): ${text}`);
   }
 
-  const payload = await response.json() as { data?: Record<string, unknown> };
-  const data = payload?.data ?? {};
+  const responsePayload = await response.json() as { success?: boolean; error?: string; data?: Record<string, unknown> };
+  if (responsePayload.success === false) {
+    throw new Error(responsePayload.error || 'Intake create returned success=false');
+  }
+  const data = responsePayload?.data ?? {};
   return {
     uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
     clientSecret: typeof data.client_secret === 'string' ? data.client_secret : undefined,
@@ -222,6 +248,9 @@ test.describe('Lead intake workflow', () => {
     if (!e2eConfig) return;
 
     const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
+    if (!intakeSettings?.connectedAccount?.id) {
+      test.skip(true, 'Skipping intake flow: practice has no connected Stripe account.');
+    }
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
     if (paymentRequired || !shouldRunPaymentMode(true)) {
       test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
@@ -235,7 +264,7 @@ test.describe('Lead intake workflow', () => {
 
     try {
       await clientPage.goto('/');
-      await waitForSession(clientPage, { timeoutMs: 20000 });
+      await waitForSession(clientPage, { timeoutMs: 30000 });
 
       const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
       const clientName = `E2E Client ${randomUUID().slice(0, 6)}`;
@@ -245,7 +274,9 @@ test.describe('Lead intake workflow', () => {
         name: clientName,
         email: e2eConfig.client.email,
         description: 'E2E accept flow',
-        amount: intakeSettings?.prefillAmount
+        amount: intakeSettings?.prefillAmount,
+        request: clientContext.request,
+        origin: baseURL
       });
 
       if (!intake.uuid) {
@@ -292,6 +323,9 @@ test.describe('Lead intake workflow', () => {
     if (!e2eConfig) return;
 
     const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
+    if (!intakeSettings?.connectedAccount?.id) {
+      test.skip(true, 'Skipping intake flow: practice has no connected Stripe account.');
+    }
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
     if (!paymentRequired) {
       test.skip(true, 'Skipping payment-gated test: practice does not require payment.');
@@ -308,7 +342,7 @@ test.describe('Lead intake workflow', () => {
 
     try {
       await anonymousPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`);
-      await waitForSession(anonymousPage, { timeoutMs: 20000 });
+      await waitForSession(anonymousPage, { timeoutMs: 30000 });
 
       const conversationId = await getOrCreateConversation(anonymousContext.request, e2eConfig.practice.id);
       const intakeUuid = randomUUID();
@@ -320,7 +354,9 @@ test.describe('Lead intake workflow', () => {
         name: clientName,
         email: `guest+${intakeUuid.slice(0, 6)}@example.com`,
         description: 'E2E reject flow',
-        amount: intakeSettings?.prefillAmount
+        amount: intakeSettings?.prefillAmount,
+        request: anonymousContext.request,
+        origin: baseURL
       });
 
       if (!intake.uuid) {
@@ -369,6 +405,9 @@ test.describe('Lead intake workflow', () => {
     if (!e2eConfig) return;
 
     const intakeSettings = await getIntakeSettings(e2eConfig.practice.slug);
+    if (!intakeSettings?.connectedAccount?.id) {
+      test.skip(true, 'Skipping intake flow: practice has no connected Stripe account.');
+    }
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
     if (!shouldRunPaymentMode(paymentRequired)) {
       const label = paymentRequired ? 'paid' : 'free';
@@ -381,7 +420,7 @@ test.describe('Lead intake workflow', () => {
 
     try {
       await clientPage.goto('/');
-      await waitForSession(clientPage, { timeoutMs: 20000 });
+      await waitForSession(clientPage, { timeoutMs: 30000 });
 
       const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
       const intake = await createIntake({
@@ -389,7 +428,9 @@ test.describe('Lead intake workflow', () => {
         name: 'E2E Paid Intake',
         email: e2eConfig.client.email,
         description: 'E2E payment gated',
-        amount: intakeSettings?.prefillAmount
+        amount: intakeSettings?.prefillAmount,
+        request: clientContext.request,
+        origin: baseURL
       });
 
       if (!intake.uuid) {

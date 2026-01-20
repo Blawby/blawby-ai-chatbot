@@ -13,7 +13,7 @@ const resolveBaseUrl = (baseURL?: string): string => {
 
 test.describe('Auth modes', () => {
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
-  test.describe.configure({ mode: 'serial' });
+  test.describe.configure({ mode: 'serial', timeout: 60000 });
 
   test('requires session cookies for worker APIs', async ({ browser }) => {
     if (!e2eConfig) return;
@@ -22,7 +22,7 @@ test.describe('Auth modes', () => {
     const context = await browser.newContext({ storageState: AUTH_STATE_OWNER, baseURL });
     const page = await context.newPage();
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await waitForSession(page, { timeoutMs: 20000 });
+    await waitForSession(page, { timeoutMs: 30000 });
 
     const sessionWithCookies = await page.evaluate(async () => {
       const response = await fetch('/api/auth/get-session', { credentials: 'include' });

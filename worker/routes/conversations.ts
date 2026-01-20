@@ -1,3 +1,4 @@
+import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
@@ -28,11 +29,27 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // Support optional auth for anonymous users (Better Auth anonymous plugin)
   const authContext = await optionalAuth(request, env);
   if (!authContext) {
-    throw HttpErrors.unauthorized("Authentication required - anonymous or authenticated session needed");
+    throw HttpErrors.unauthorized('Authentication required - anonymous or authenticated session needed');
   }
   const userId = authContext.user.id;
 
   const conversationService = new ConversationService(env);
+
+  if (segments.length === 4 && segments[3] === 'ws' && request.method === 'GET') {
+    const conversationId = segments[2];
+    const conversation = await conversationService.getConversationById(conversationId);
+    await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
+    const id = env.CHAT_ROOM.idFromName(conversationId);
+    const stub = env.CHAT_ROOM.get(id);
+    const wsUrl = new URL(request.url);
+    wsUrl.pathname = `/ws/${conversationId}`;
+    const wsRequest = new Request(wsUrl.toString(), request);
+    return stub.fetch(wsRequest as unknown as WorkerRequest) as unknown as Response;
+  }
+
+  if (segments.length === 4 && segments[3] === 'ws') {
+    throw HttpErrors.methodNotAllowed('Unsupported method for conversation WS endpoint');
+  }
 
   // POST /api/conversations - Create new conversation
   if (segments.length === 2 && request.method === 'POST') {
@@ -286,6 +303,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const auditService = new SessionAuditService(env);
     await auditService.createEvent({
       conversationId,
+      practiceId,
       eventType: body.eventType,
       actorType: 'user',
       actorId: userId,

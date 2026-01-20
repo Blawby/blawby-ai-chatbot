@@ -744,8 +744,14 @@ export const handlers = [
   http.get('/api/chat/messages', async ({ request }) => {
     const url = new URL(request.url);
     const conversationId = url.searchParams.get('conversationId');
-    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
-    const since = url.searchParams.get('since');
+    const limitParam = url.searchParams.get('limit');
+    const limit = parseInt(limitParam || '50', 10);
+    const fromSeqParam = url.searchParams.get('from_seq');
+    const cursor = url.searchParams.get('cursor');
+
+    if (!Number.isFinite(limit) || limit < 1) {
+      return HttpResponse.json({ error: 'limit must be a positive integer' }, { status: 400 });
+    }
     
     if (!conversationId) {
       return HttpResponse.json({ error: 'conversationId is required' }, { status: 400 });
@@ -762,90 +768,61 @@ export const handlers = [
     }
     
     let conversationMessages = mockDb.messages.get(conversationId) || [];
-    
-    // Filter by since timestamp if provided (for polling)
-    if (since) {
-      const sinceDate = new Date(since);
-      conversationMessages = conversationMessages.filter(msg => new Date(msg.created_at) > sinceDate);
+    const latestSeq = conversationMessages.reduce((max, msg) => Math.max(max, msg.seq ?? 0), 0);
+
+    if (fromSeqParam) {
+      if (!limitParam) {
+        return HttpResponse.json({ error: 'limit is required when using from_seq' }, { status: 400 });
+      }
+      const fromSeq = parseInt(fromSeqParam, 10);
+      if (!Number.isFinite(fromSeq) || fromSeq < 0) {
+        return HttpResponse.json({ error: 'from_seq must be a non-negative integer' }, { status: 400 });
+      }
+
+      const filtered = conversationMessages
+        .filter(msg => typeof msg.seq === 'number' && msg.seq >= fromSeq)
+        .sort((a, b) => a.seq - b.seq);
+      const limitedMessages = filtered.slice(0, limit);
+      const nextFromSeq = limitedMessages.length > 0
+        ? limitedMessages[limitedMessages.length - 1].seq + 1
+        : null;
+
+      return HttpResponse.json({
+        success: true,
+        data: {
+          messages: limitedMessages,
+          latest_seq: latestSeq,
+          next_from_seq: nextFromSeq
+        }
+      });
     }
-    
+
+    if (cursor) {
+      const cursorDate = new Date(cursor);
+      if (Number.isNaN(cursorDate.getTime())) {
+        return HttpResponse.json({ error: 'cursor must be a valid ISO date string' }, { status: 400 });
+      }
+      conversationMessages = conversationMessages.filter(msg => new Date(msg.created_at) < cursorDate);
+    }
+
     // Sort by created_at descending (newest first)
-    conversationMessages.sort((a, b) => 
+    conversationMessages = [...conversationMessages].sort((a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-    
+
     // Apply limit
     const limitedMessages = conversationMessages.slice(0, limit);
-    
+
     // Reverse to oldest first (for display)
     limitedMessages.reverse();
-    
+
     return HttpResponse.json({
       success: true,
       data: {
         messages: limitedMessages,
-        hasMore: conversationMessages.length > limit
+        hasMore: conversationMessages.length > limit,
+        cursor: limitedMessages.length > 0 ? limitedMessages[0].created_at : null
       }
-    });
-  }),
-
-  // POST /api/chat/messages - Send a message
-  http.post('/api/chat/messages', async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as {
-      conversationId?: string;
-      content?: string;
-      attachments?: string[];
-      metadata?: Record<string, unknown>;
-    };
-    
-    if (!body.conversationId || !body.content) {
-      return HttpResponse.json({ error: 'conversationId and content are required' }, { status: 400 });
-    }
-
-    const sessionId = getSessionIdFromRequest(request);
-    if (!sessionId) {
-      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = getOrCreateAnonymousUser(sessionId);
-    
-    const conversation = mockDb.conversations.get(body.conversationId);
-    if (!conversation) {
-      return HttpResponse.json({ error: 'Conversation not found' }, { status: 404 });
-    }
-    
-    // Verify user is a participant
-    if (!conversation.participants.includes(user.id)) {
-      return HttpResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-    
-    // Create message
-    const messageId = randomId('msg');
-    const now = new Date().toISOString();
-    const message: MockMessage = {
-      id: messageId,
-      conversation_id: body.conversationId,
-      practice_id: conversation.practice_id,
-      user_id: user.id,
-      role: 'user',
-      content: body.content,
-      metadata: body.metadata || (body.attachments ? { attachments: body.attachments } : null),
-      token_count: null,
-      created_at: now
-    };
-    
-    // Add message to conversation
-    const conversationMessages = mockDb.messages.get(body.conversationId) || [];
-    conversationMessages.push(message);
-    mockDb.messages.set(body.conversationId, conversationMessages);
-    
-    // Update conversation last_message_at
-    conversation.last_message_at = now;
-    conversation.updated_at = now;
-    
-    return HttpResponse.json({
-      success: true,
-      data: message
     });
   }),
 
@@ -1082,6 +1059,10 @@ export const handlers = [
 
     const messageId = randomId('msg');
     const now = new Date().toISOString();
+    const conversationMessages = mockDb.messages.get(conversationId) || [];
+    const nextSeq = conversationMessages.length > 0
+      ? Math.max(...conversationMessages.map(msg => msg.seq ?? 0)) + 1
+      : 1;
     const message: MockMessage = {
       id: messageId,
       conversation_id: conversationId,
@@ -1090,11 +1071,13 @@ export const handlers = [
       role: 'assistant',
       content: body.content || '',
       metadata: body.metadata || null,
+      client_id: randomId('client'),
+      seq: nextSeq,
+      server_ts: now,
       token_count: null,
       created_at: now
     };
 
-    const conversationMessages = mockDb.messages.get(conversationId) || [];
     conversationMessages.push(message);
     mockDb.messages.set(conversationId, conversationMessages);
 

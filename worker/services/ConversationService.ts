@@ -37,6 +37,9 @@ export interface ConversationMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   metadata: Record<string, unknown> | null;
+  client_id: string;
+  seq: number;
+  server_ts: string;
   token_count: number | null;
   created_at: string;
 }
@@ -52,13 +55,17 @@ export interface CreateConversationOptions {
 export interface GetMessagesOptions {
   limit?: number;
   cursor?: string;
-  since?: number; // Timestamp in milliseconds
+  fromSeq?: number;
 }
 
 export interface GetMessagesResult {
   messages: ConversationMessage[];
   cursor?: string;
-  hasMore: boolean;
+  hasMore?: boolean;
+  latest_seq?: number;
+  // undefined when sequence pagination not requested; null when no more pages.
+  next_from_seq?: number | null;
+  warning?: string;
 }
 
 export class ConversationService {
@@ -97,20 +104,33 @@ export class ConversationService {
     const participantsJson = JSON.stringify(participants);
     const userInfoJson = options.metadata ? JSON.stringify(options.metadata) : null;
 
-    await this.env.DB.prepare(`
-      INSERT INTO conversations (
-        id, practice_id, user_id, matter_id, participants, user_info, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
-    `).bind(
-      conversationId,
-      options.practiceId,
-      options.userId, // Can be null for anonymous users
-      options.matterId || null,
-      participantsJson,
-      userInfoJson,
-      now,
-      now
-    ).run();
+    const statements = [
+      this.env.DB.prepare(`
+        INSERT INTO conversations (
+          id, practice_id, user_id, matter_id, participants, user_info, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+      `).bind(
+        conversationId,
+        options.practiceId,
+        options.userId, // Can be null for anonymous users
+        options.matterId || null,
+        participantsJson,
+        userInfoJson,
+        now,
+        now
+      )
+    ];
+
+    for (const participantId of participants) {
+      statements.push(
+        this.env.DB.prepare(`
+          INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id)
+          VALUES (?, ?)
+        `).bind(conversationId, participantId)
+      );
+    }
+
+    await this.env.DB.batch(statements);
 
     return this.getConversation(conversationId, options.practiceId);
   }
@@ -538,17 +558,34 @@ export class ConversationService {
     }
 
     const now = new Date().toISOString();
+    const newParticipantIds = mergedParticipants.filter(
+      (participantId) => !conversation.participants.includes(participantId)
+    );
 
-    await this.env.DB.prepare(`
-      UPDATE conversations
-      SET participants = ?, updated_at = ?
-      WHERE id = ? AND practice_id = ?
-    `).bind(
-      JSON.stringify(mergedParticipants),
-      now,
-      conversationId,
-      practiceId
-    ).run();
+    const statements = [
+      this.env.DB.prepare(`
+        UPDATE conversations
+        SET participants = ?, updated_at = ?, membership_version = membership_version + 1
+        WHERE id = ? AND practice_id = ?
+      `).bind(
+        JSON.stringify(mergedParticipants),
+        now,
+        conversationId,
+        practiceId
+      )
+    ];
+
+    for (const participantId of newParticipantIds) {
+      statements.push(
+        this.env.DB.prepare(`
+          INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id)
+          VALUES (?, ?)
+        `).bind(conversationId, participantId)
+      );
+    }
+
+    await this.env.DB.batch(statements);
+    await this.notifyMembershipChanged(conversationId);
 
     return this.getConversation(conversationId, practiceId);
   }
@@ -596,7 +633,7 @@ export class ConversationService {
 
     const updateResult = await this.env.DB.prepare(`
       UPDATE conversations
-      SET user_id = ?, participants = ?, updated_at = ?
+      SET user_id = ?, participants = ?, updated_at = ?, membership_version = membership_version + 1
       WHERE id = ? AND practice_id = ? AND (user_id IS NULL OR user_id = ?)
     `).bind(
       userId,
@@ -617,6 +654,13 @@ export class ConversationService {
       throw HttpErrors.conflict('Conversation already linked to a different user');
     }
 
+    await this.env.DB.prepare(`
+      INSERT OR IGNORE INTO conversation_participants (conversation_id, user_id)
+      VALUES (?, ?)
+    `).bind(conversationId, userId).run();
+
+    await this.notifyMembershipChanged(conversationId);
+
     return this.getConversation(conversationId, practiceId);
   }
 
@@ -628,9 +672,15 @@ export class ConversationService {
     practiceId: string,
     userId: string
   ): Promise<void> {
-    const conversation = await this.getConversation(conversationId, practiceId);
+    await this.getConversation(conversationId, practiceId);
 
-    if (!conversation.participants.includes(userId)) {
+    const record = await this.env.DB.prepare(`
+      SELECT 1
+      FROM conversation_participants
+      WHERE conversation_id = ? AND user_id = ?
+    `).bind(conversationId, userId).first();
+
+    if (!record) {
       throw HttpErrors.forbidden('User is not a participant in this conversation');
     }
   }
@@ -668,30 +718,21 @@ export class ConversationService {
       options.senderUserId
     );
 
-    const messageId = crypto.randomUUID();
-    const now = new Date().toISOString();
     const role = options.role || 'user';
-    const metadataJson = options.metadata ? JSON.stringify(options.metadata) : null;
+    if (role === 'assistant') {
+      throw HttpErrors.badRequest('Assistant role is not supported for user-to-user chat');
+    }
 
-    await this.env.DB.prepare(`
-      INSERT INTO chat_messages (
-        id, conversation_id, practice_id, user_id, role, content, metadata, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      messageId,
-      options.conversationId,
-      options.practiceId,
-      options.senderUserId,
+    const ack = await this.postChatRoomMessage({
+      conversationId: options.conversationId,
+      userId: options.senderUserId,
       role,
-      options.content,
-      metadataJson,
-      now
-    ).run();
+      content: options.content,
+      metadata: options.metadata,
+      clientId: crypto.randomUUID()
+    });
 
-    // Update conversation's updated_at and last_message_at timestamps
-    await this.updateLastMessageAt(options.conversationId, options.practiceId);
-
-    return this.getMessage(messageId);
+    return this.getMessage(ack.messageId);
   }
 
   /**
@@ -701,7 +742,7 @@ export class ConversationService {
     conversationId: string;
     practiceId: string;
     content: string;
-    role?: 'system' | 'assistant';
+    role?: 'system';
     metadata?: Record<string, unknown>;
   }): Promise<ConversationMessage> {
     const practiceExists = await RemoteApiService.validatePractice(this.env, options.practiceId);
@@ -717,29 +758,71 @@ export class ConversationService {
 
     await this.getConversation(options.conversationId, options.practiceId);
 
-    const messageId = crypto.randomUUID();
-    const now = new Date().toISOString();
     const role = options.role || 'system';
-    const metadataJson = options.metadata ? JSON.stringify(options.metadata) : null;
+    if (role !== 'system') {
+      throw HttpErrors.badRequest('System messages must use system role');
+    }
 
-    await this.env.DB.prepare(`
-      INSERT INTO chat_messages (
-        id, conversation_id, practice_id, user_id, role, content, metadata, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      messageId,
-      options.conversationId,
-      options.practiceId,
-      null,
+    const ack = await this.postChatRoomMessage({
+      conversationId: options.conversationId,
+      userId: null,
       role,
-      options.content,
-      metadataJson,
-      now
-    ).run();
+      content: options.content,
+      metadata: options.metadata,
+      clientId: crypto.randomUUID()
+    });
 
-    await this.updateLastMessageAt(options.conversationId, options.practiceId);
+    return this.getMessage(ack.messageId);
+  }
 
-    return this.getMessage(messageId);
+  private async postChatRoomMessage(options: {
+    conversationId: string;
+    userId: string | null;
+    role: 'user' | 'system';
+    content: string;
+    metadata?: Record<string, unknown>;
+    clientId: string;
+  }): Promise<{ messageId: string; seq: number; serverTs: string }> {
+    const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(options.conversationId));
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.env.INTERNAL_SECRET) {
+      headers['X-Internal-Secret'] = this.env.INTERNAL_SECRET;
+    }
+    const response = await stub.fetch('https://chat-room/internal/message', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        conversation_id: options.conversationId,
+        user_id: options.userId,
+        role: options.role,
+        content: options.content,
+        metadata: options.metadata ?? null,
+        client_id: options.clientId
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => 'Unknown error');
+      throw HttpErrors.internalServerError(`ChatRoom message failed: ${text}`);
+    }
+
+    const payload = await response.json().catch(() => null) as {
+      data?: {
+        message_id?: string;
+        seq?: number;
+        server_ts?: string;
+      };
+    } | null;
+
+    if (!payload?.data?.message_id || payload.data.seq === undefined || !payload.data.server_ts) {
+      throw HttpErrors.internalServerError('ChatRoom message response invalid');
+    }
+
+    return {
+      messageId: payload.data.message_id,
+      seq: payload.data.seq,
+      serverTs: payload.data.server_ts
+    };
   }
 
   /**
@@ -748,7 +831,18 @@ export class ConversationService {
   async getMessage(messageId: string): Promise<ConversationMessage> {
     const record = await this.env.DB.prepare(`
       SELECT 
-        id, conversation_id, practice_id, user_id, role, content, metadata, token_count, created_at
+        id,
+        conversation_id,
+        practice_id,
+        user_id,
+        role,
+        content,
+        metadata,
+        client_id,
+        seq,
+        server_ts,
+        token_count,
+        created_at
       FROM chat_messages
       WHERE id = ?
     `).bind(messageId).first<{
@@ -759,6 +853,9 @@ export class ConversationService {
       role: string;
       content: string;
       metadata: string | null;
+      client_id: string;
+      seq: number;
+      server_ts: string;
       token_count: number | null;
       created_at: string;
     } | null>();
@@ -775,6 +872,9 @@ export class ConversationService {
       role: record.role as ConversationMessage['role'],
       content: record.content,
       metadata: record.metadata ? JSON.parse(record.metadata) : null,
+      client_id: record.client_id,
+      seq: record.seq,
+      server_ts: record.server_ts,
       token_count: record.token_count,
       created_at: record.created_at
     };
@@ -792,20 +892,110 @@ export class ConversationService {
     await this.getConversation(conversationId, practiceId);
 
     const limit = Math.min(options.limit || 50, 100); // Max 100
+
+    if (options.fromSeq !== undefined) {
+      const latestRecord = await this.env.DB.prepare(`
+        SELECT latest_seq
+        FROM conversations
+        WHERE id = ? AND practice_id = ?
+      `).bind(conversationId, practiceId).first<{ latest_seq: number } | null>();
+
+      if (!latestRecord || latestRecord.latest_seq === null || latestRecord.latest_seq === undefined) {
+        return {
+          messages: [],
+          latest_seq: undefined,
+          next_from_seq: null,
+          warning: 'latest_seq unavailable - migrations required'
+        };
+      }
+
+      const records = await this.env.DB.prepare(`
+        SELECT
+          id,
+          conversation_id,
+          practice_id,
+          user_id,
+          role,
+          content,
+          metadata,
+          client_id,
+          seq,
+          server_ts,
+          token_count,
+          created_at
+        FROM chat_messages
+        WHERE conversation_id = ? AND practice_id = ? AND seq >= ?
+        ORDER BY seq ASC
+        LIMIT ?
+      `).bind(
+        conversationId,
+        practiceId,
+        options.fromSeq,
+        limit
+      ).all<{
+        id: string;
+        conversation_id: string;
+        practice_id: string;
+        user_id: string | null;
+        role: string;
+        content: string;
+        metadata: string | null;
+        client_id: string;
+        seq: number;
+        server_ts: string;
+        token_count: number | null;
+        created_at: string;
+      }>();
+
+      const messages = records.results.map(record => ({
+        id: record.id,
+        conversation_id: record.conversation_id,
+        practice_id: record.practice_id,
+        user_id: record.user_id,
+        role: record.role as ConversationMessage['role'],
+        content: record.content,
+        metadata: record.metadata ? JSON.parse(record.metadata) : null,
+        client_id: record.client_id,
+        seq: record.seq,
+        server_ts: record.server_ts,
+        token_count: record.token_count,
+        created_at: record.created_at
+      }));
+
+      const latestSeq = Number(latestRecord.latest_seq);
+      let nextFromSeq: number | null = null;
+      if (messages.length > 0) {
+        const lastSeq = messages[messages.length - 1].seq;
+        if (lastSeq < latestSeq) {
+          nextFromSeq = lastSeq + 1;
+        }
+      }
+
+      return {
+        messages,
+        latest_seq: latestSeq,
+        next_from_seq: nextFromSeq
+      };
+    }
+
     let query = `
       SELECT 
-        id, conversation_id, practice_id, user_id, role, content, metadata, token_count, created_at
+        id,
+        conversation_id,
+        practice_id,
+        user_id,
+        role,
+        content,
+        metadata,
+        client_id,
+        seq,
+        server_ts,
+        token_count,
+        created_at
       FROM chat_messages
       WHERE conversation_id = ? AND practice_id = ?
     `;
     const bindings: unknown[] = [conversationId, practiceId];
-
-    // Support 'since' parameter for polling new messages
-    if (options.since) {
-      const sinceDate = new Date(options.since).toISOString();
-      query += ' AND created_at > ?';
-      bindings.push(sinceDate);
-    }
 
     // Cursor-based pagination (for loading older messages)
     if (options.cursor) {
@@ -824,6 +1014,9 @@ export class ConversationService {
       role: string;
       content: string;
       metadata: string | null;
+      client_id: string;
+      seq: number;
+      server_ts: string;
       token_count: number | null;
       created_at: string;
     }>();
@@ -837,6 +1030,9 @@ export class ConversationService {
       role: record.role as ConversationMessage['role'],
       content: record.content,
       metadata: record.metadata ? JSON.parse(record.metadata) : null,
+      client_id: record.client_id,
+      seq: record.seq,
+      server_ts: record.server_ts,
       token_count: record.token_count,
       created_at: record.created_at
     }));
@@ -1152,6 +1348,49 @@ export class ConversationService {
       archived: stats?.archived || 0,
       closed: stats?.closed || 0
     };
+  }
+
+  private async notifyMembershipChanged(conversationId: string, removedUserId?: string): Promise<void> {
+    if (!this.env.CHAT_ROOM) {
+      return;
+    }
+
+    const record = await this.env.DB.prepare(`
+      SELECT membership_version
+      FROM conversations
+      WHERE id = ?
+    `).bind(conversationId).first<{ membership_version: number } | null>();
+
+    if (!record || record.membership_version === null || record.membership_version === undefined) {
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      conversation_id: conversationId,
+      membership_version: record.membership_version
+    };
+    if (removedUserId) {
+      payload.removed_user_id = removedUserId;
+    }
+
+    try {
+      const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(conversationId));
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.env.INTERNAL_SECRET) {
+        headers['X-Internal-Secret'] = this.env.INTERNAL_SECRET;
+      }
+      await stub.fetch('https://chat-room/internal/membership-revoked', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      Logger.warn('Failed to notify ChatRoom membership change', {
+        conversationId,
+        removedUserId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 
   /**

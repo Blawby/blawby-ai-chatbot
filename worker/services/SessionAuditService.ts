@@ -2,6 +2,7 @@ import type { Env } from '../types.js';
 
 export interface SessionAuditEventInput {
   conversationId: string;
+  practiceId: string;
   eventType: string;
   actorType?: 'user' | 'lawyer' | 'system';
   actorId?: string | null;
@@ -76,11 +77,12 @@ export class SessionAuditService {
     try {
       await this.env.DB.prepare(`
         INSERT INTO session_audit_events (
-          id, conversation_id, event_type, actor_type, actor_id, payload, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          id, conversation_id, practice_id, event_type, actor_type, actor_id, payload, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         eventId,
         event.conversationId,
+        event.practiceId,
         event.eventType,
         event.actorType ?? 'system',
         event.actorId ?? null,

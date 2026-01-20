@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { getCurrentConversationEndpoint, getConversationEndpoint, getChatMessagesEndpoint } from '@/config/api';
+import { getCurrentConversationEndpoint, getConversationEndpoint, getConversationWsEndpoint, getChatMessagesEndpoint } from '@/config/api';
 import type { Conversation, ConversationMessage, ConversationMessageUI } from '@/shared/types/conversation';
 
 interface UseConversationOptions {
   conversationId: string;
   practiceId?: string;
-  autoPoll?: boolean;
-  pollInterval?: number; // milliseconds
   onError?: (error: string) => void;
 }
 
@@ -24,9 +22,20 @@ interface UseConversationReturn {
   nextCursor: string | null;
 }
 
+const CHAT_PROTOCOL_VERSION = 1;
+const SOCKET_READY_TIMEOUT_MS = 8000;
+const GAP_FETCH_LIMIT = 50;
+
+const createClientId = (): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 /**
  * Hook for managing a single conversation
- * Fetches conversation details and messages, supports polling for new messages
+ * Fetches conversation details and messages, uses WebSocket for realtime updates
  */
 export function useConversationWithContext(options: Omit<UseConversationOptions, 'practiceId'>): UseConversationReturn {
   const { activePracticeId } = useSessionContext();
@@ -137,8 +146,6 @@ export function useCurrentConversation(
 export function useConversation({
   conversationId,
   practiceId,
-  autoPoll = false,
-  pollInterval = 5000,
   onError,
 }: UseConversationOptions): UseConversationReturn {
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -148,23 +155,26 @@ export function useConversation({
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [lastPollTime, setLastPollTime] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const pollIntervalRef = useRef<number | null>(null);
   const isDisposedRef = useRef(false);
-
-  useEffect(() => {
-    return () => {
-      isDisposedRef.current = true;
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsReadyRef = useRef<Promise<void> | null>(null);
+  const wsReadyResolveRef = useRef<(() => void) | null>(null);
+  const wsReadyRejectRef = useRef<((error: Error) => void) | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const socketSessionRef = useRef(0);
+  const isSocketReadyRef = useRef(false);
+  const shouldReconnectRef = useRef(true);
+  const lastSeqRef = useRef(0);
+  const lastReadSeqRef = useRef(0);
+  const messageIdSetRef = useRef(new Set<string>());
+  const pendingAckRef = useRef(new Map<string, {
+    resolve: (ack: { messageId: string; seq: number; serverTs: string; clientId: string }) => void;
+    reject: (error: Error) => void;
+    timeoutId: ReturnType<typeof setTimeout>;
+  }>());
+  const pendingClientMessageRef = useRef(new Map<string, string>());
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ConversationMessageUI => {
@@ -182,6 +192,608 @@ export function useConversation({
     };
   }, []);
 
+  const initSocketReadyPromise = useCallback(() => {
+    wsReadyRef.current = new Promise((resolve, reject) => {
+      wsReadyResolveRef.current = resolve;
+      wsReadyRejectRef.current = reject;
+    });
+    isSocketReadyRef.current = false;
+  }, []);
+
+  const resolveSocketReady = useCallback(() => {
+    isSocketReadyRef.current = true;
+    wsReadyResolveRef.current?.();
+    wsReadyResolveRef.current = null;
+    wsReadyRejectRef.current = null;
+  }, []);
+
+  const rejectSocketReady = useCallback((error: Error) => {
+    isSocketReadyRef.current = false;
+    wsReadyRejectRef.current?.(error);
+    wsReadyResolveRef.current = null;
+    wsReadyRejectRef.current = null;
+  }, []);
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
+  const flushPendingAcks = useCallback((error: Error) => {
+    for (const pending of pendingAckRef.current.values()) {
+      clearTimeout(pending.timeoutId);
+      pending.reject(error);
+    }
+    pendingAckRef.current.clear();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      isDisposedRef.current = true;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      flushPendingAcks(new Error('Chat connection closed'));
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [flushPendingAcks]);
+
+  const waitForSocketReady = useCallback(async () => {
+    if (!wsReadyRef.current) {
+      throw new Error('Chat connection not initialized');
+    }
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<void>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error('Chat connection timed out'));
+      }, SOCKET_READY_TIMEOUT_MS);
+    });
+
+    try {
+      await Promise.race([wsReadyRef.current, timeoutPromise]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }, []);
+
+  const sendFrame = useCallback((frame: { type: string; data: Record<string, unknown>; request_id?: string }) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      throw new Error('Chat connection not open');
+    }
+    ws.send(JSON.stringify(frame));
+  }, []);
+
+  const sendReadUpdate = useCallback((seq: number) => {
+    if (!conversationId || !isSocketReadyRef.current) {
+      return;
+    }
+    if (seq <= lastReadSeqRef.current) {
+      return;
+    }
+    lastReadSeqRef.current = seq;
+    try {
+      sendFrame({
+        type: 'read.update',
+        data: {
+          conversation_id: conversationId,
+          last_read_seq: seq
+        }
+      });
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[ChatRoom] Failed to send read.update', error);
+      }
+    }
+  }, [conversationId, sendFrame]);
+
+  const applyServerMessages = useCallback((incoming: ConversationMessage[]) => {
+    if (incoming.length === 0 || isDisposedRef.current) {
+      return;
+    }
+
+    let nextLatestSeq = lastSeqRef.current;
+    const replacements = new Map<string, ConversationMessageUI>();
+    const additions: ConversationMessageUI[] = [];
+
+    for (const message of incoming) {
+      if (!message?.id) {
+        continue;
+      }
+      const seqValue = typeof message.seq === 'number' && Number.isFinite(message.seq)
+        ? message.seq
+        : null;
+      if (seqValue !== null) {
+        nextLatestSeq = Math.max(nextLatestSeq, seqValue);
+      }
+      if (messageIdSetRef.current.has(message.id)) {
+        continue;
+      }
+      messageIdSetRef.current.add(message.id);
+      const uiMessage = toUIMessage(message);
+      const pendingId = pendingClientMessageRef.current.get(message.client_id);
+      if (pendingId) {
+        replacements.set(pendingId, uiMessage);
+        pendingClientMessageRef.current.delete(message.client_id);
+      } else {
+        additions.push(uiMessage);
+      }
+    }
+
+    if (replacements.size === 0 && additions.length === 0) {
+      if (nextLatestSeq > lastSeqRef.current) {
+        lastSeqRef.current = nextLatestSeq;
+        sendReadUpdate(nextLatestSeq);
+      }
+      return;
+    }
+
+    lastSeqRef.current = nextLatestSeq;
+
+    setMessages(prev => {
+      let next = prev;
+      if (replacements.size > 0) {
+        next = next.map(message => {
+          const replacement = replacements.get(message.id);
+          if (!replacement) {
+            return message;
+          }
+          return {
+            ...replacement,
+            files: replacement.files ?? message.files
+          } as ConversationMessageUI;
+        });
+      } else {
+        next = [...next];
+      }
+
+      if (additions.length > 0) {
+        next = [...next, ...additions];
+      }
+
+      return next.sort((a, b) => a.timestamp - b.timestamp);
+    });
+
+    sendReadUpdate(nextLatestSeq);
+  }, [sendReadUpdate, toUIMessage]);
+
+  const fetchGapMessages = useCallback(async (
+    fromSeq: number,
+    latestSeq: number,
+    signal?: AbortSignal
+  ) => {
+    if (!conversationId || !practiceId) {
+      return;
+    }
+
+    let nextSeq: number | null = fromSeq;
+    let targetLatest = latestSeq;
+    let attempt = 0;
+
+    while (nextSeq !== null && nextSeq <= targetLatest && !signal?.aborted) {
+      try {
+        const params = new URLSearchParams({
+          conversationId,
+          practiceId,
+          from_seq: String(nextSeq),
+          limit: String(GAP_FETCH_LIMIT)
+        });
+
+        const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          signal
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json() as {
+          success: boolean;
+          error?: string;
+          data?: {
+            messages: ConversationMessage[];
+            latest_seq?: number;
+            next_from_seq?: number | null;
+          };
+        };
+        if (!data.success || !data.data) {
+          throw new Error(data.error || 'Failed to fetch message gap');
+        }
+
+        applyServerMessages(data.data.messages ?? []);
+        if (typeof data.data.latest_seq === 'number') {
+          targetLatest = data.data.latest_seq;
+        }
+        nextSeq = data.data.next_from_seq ?? null;
+        attempt = 0;
+      } catch (error) {
+        if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+          return;
+        }
+        attempt += 1;
+        if (attempt >= 3) {
+          const message = error instanceof Error ? error.message : 'Failed to recover message gap';
+          setError(message);
+          onError?.(message);
+          shouldReconnectRef.current = false;
+          wsRef.current?.close();
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+      }
+    }
+  }, [applyServerMessages, conversationId, practiceId, onError]);
+
+  const handleMessageAck = useCallback((data: Record<string, unknown>) => {
+    const clientId = typeof data.client_id === 'string' ? data.client_id : null;
+    const messageId = typeof data.message_id === 'string' ? data.message_id : null;
+    const seqValue = typeof data.seq === 'number' ? data.seq : Number(data.seq);
+    const serverTs = typeof data.server_ts === 'string' ? data.server_ts : null;
+    if (!clientId || !messageId || !serverTs || !Number.isFinite(seqValue)) {
+      return;
+    }
+
+    const pending = pendingAckRef.current.get(clientId);
+    if (pending) {
+      clearTimeout(pending.timeoutId);
+      pending.resolve({ messageId, seq: seqValue, serverTs, clientId });
+      pendingAckRef.current.delete(clientId);
+    }
+
+    lastSeqRef.current = Math.max(lastSeqRef.current, seqValue);
+
+    const pendingId = pendingClientMessageRef.current.get(clientId);
+    if (!pendingId) {
+      sendReadUpdate(lastSeqRef.current);
+      void fetchGapMessages(seqValue, seqValue, abortControllerRef.current?.signal);
+      return;
+    }
+
+    pendingClientMessageRef.current.delete(clientId);
+    messageIdSetRef.current.add(messageId);
+    setMessages(prev => prev.map(message => {
+      if (message.id !== pendingId) {
+        return message;
+      }
+      const nextTimestamp = new Date(serverTs).getTime();
+      if (!Number.isFinite(nextTimestamp)) {
+        return message;
+      }
+      return {
+        ...message,
+        id: messageId,
+        seq: seqValue,
+        server_ts: serverTs,
+        created_at: serverTs,
+        timestamp: nextTimestamp
+      };
+    }));
+    sendReadUpdate(lastSeqRef.current);
+  }, [fetchGapMessages, sendReadUpdate]);
+
+  const handleMessageNew = useCallback((data: Record<string, unknown>) => {
+    const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
+    if (!conversationIdValue || conversationIdValue !== conversationId) {
+      return;
+    }
+
+    const messageId = typeof data.message_id === 'string' ? data.message_id : null;
+    const clientId = typeof data.client_id === 'string' ? data.client_id : null;
+    const content = typeof data.content === 'string' ? data.content : null;
+    const role = typeof data.role === 'string' ? data.role : null;
+    const serverTs = typeof data.server_ts === 'string' ? data.server_ts : null;
+    const seqValue = typeof data.seq === 'number' ? data.seq : Number(data.seq);
+    if (!messageId || !clientId || !content || !serverTs || !Number.isFinite(seqValue)) {
+      return;
+    }
+
+    const metadata = typeof data.metadata === 'object' && data.metadata !== null && !Array.isArray(data.metadata)
+      ? data.metadata as Record<string, unknown>
+      : null;
+    const attachments = Array.isArray(data.attachments)
+      ? (data.attachments as string[]).filter((item) => typeof item === 'string')
+      : [];
+
+    const message: ConversationMessage = {
+      id: messageId,
+      conversation_id: conversationIdValue,
+      practice_id: practiceId || '',
+      user_id: typeof data.user_id === 'string' ? data.user_id : '',
+      role: role === 'assistant' ? 'assistant' : role === 'system' ? 'system' : 'user',
+      content,
+      metadata: metadata ?? (attachments.length > 0 ? { attachments } : null),
+      client_id: clientId,
+      seq: seqValue,
+      server_ts: serverTs,
+      token_count: null,
+      created_at: serverTs
+    };
+
+    applyServerMessages([message]);
+  }, [applyServerMessages, conversationId, practiceId]);
+
+  const connectChatRoom = useCallback(() => {
+    if (!conversationId) {
+      return;
+    }
+    if (typeof WebSocket === 'undefined') {
+      const message = 'WebSocket is not available in this environment.';
+      setError(message);
+      onError?.(message);
+      return;
+    }
+    if (
+      wsRef.current &&
+      wsRef.current.readyState === WebSocket.OPEN &&
+      isSocketReadyRef.current
+    ) {
+      return;
+    }
+
+    shouldReconnectRef.current = true;
+    clearReconnectTimer();
+    socketSessionRef.current += 1;
+    const sessionId = socketSessionRef.current;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    initSocketReadyPromise();
+
+    const ws = new WebSocket(getConversationWsEndpoint(conversationId));
+    wsRef.current = ws;
+
+    ws.addEventListener('open', () => {
+      ws.send(JSON.stringify({
+        type: 'auth',
+        data: {
+          protocol_version: CHAT_PROTOCOL_VERSION,
+          client_info: { platform: 'web' }
+        }
+      }));
+    });
+
+    ws.addEventListener('message', (event) => {
+      if (socketSessionRef.current !== sessionId || typeof event.data !== 'string') {
+        return;
+      }
+      let frame: { type?: string; data?: Record<string, unknown>; request_id?: string };
+      try {
+        frame = JSON.parse(event.data) as { type?: string; data?: Record<string, unknown>; request_id?: string };
+      } catch {
+        return;
+      }
+      if (!frame.type || !frame.data || typeof frame.data !== 'object') {
+        return;
+      }
+
+      switch (frame.type) {
+        case 'auth.ok': {
+          resolveSocketReady();
+          try {
+            sendFrame({
+              type: 'resume',
+              data: {
+                conversation_id: conversationId,
+                last_seq: lastSeqRef.current
+              }
+            });
+          } catch (error) {
+            if (import.meta.env.DEV) {
+              console.warn('[ChatRoom] Failed to send resume', error);
+            }
+          }
+          return;
+        }
+        case 'auth.error': {
+          const message = typeof frame.data.message === 'string' ? frame.data.message : 'Chat protocol error';
+          setError(message);
+          onError?.(message);
+          rejectSocketReady(new Error(message));
+          shouldReconnectRef.current = false;
+          ws.close();
+          return;
+        }
+        case 'resume.ok': {
+          const latestSeq = Number(frame.data.latest_seq);
+          if (Number.isFinite(latestSeq)) {
+            lastSeqRef.current = Math.max(lastSeqRef.current, latestSeq);
+            sendReadUpdate(lastSeqRef.current);
+          }
+          return;
+        }
+        case 'resume.gap': {
+          const fromSeq = Number(frame.data.from_seq);
+          const latestSeq = Number(frame.data.latest_seq);
+          if (Number.isFinite(fromSeq) && Number.isFinite(latestSeq)) {
+            fetchGapMessages(fromSeq, latestSeq, abortControllerRef.current?.signal).catch((error) => {
+              if (import.meta.env.DEV) {
+                console.warn('[ChatRoom] Gap fetch failed', error);
+              }
+            });
+          }
+          return;
+        }
+        case 'message.new':
+          handleMessageNew(frame.data);
+          return;
+        case 'message.ack':
+          handleMessageAck(frame.data);
+          return;
+        case 'error': {
+          const message = typeof frame.data.message === 'string' ? frame.data.message : 'Chat error';
+          const requestId = typeof frame.request_id === 'string' ? frame.request_id : null;
+          if (requestId) {
+            const pending = pendingAckRef.current.get(requestId);
+            if (pending) {
+              clearTimeout(pending.timeoutId);
+              pending.reject(new Error(message));
+              pendingAckRef.current.delete(requestId);
+            }
+          }
+          setError(message);
+          onError?.(message);
+          return;
+        }
+        default:
+          return;
+      }
+    });
+
+    ws.addEventListener('close', () => {
+      if (socketSessionRef.current !== sessionId) {
+        return;
+      }
+      isSocketReadyRef.current = false;
+      rejectSocketReady(new Error('Chat connection closed'));
+      flushPendingAcks(new Error('Chat connection closed'));
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
+      if (!conversationId || !shouldReconnectRef.current) {
+        return;
+      }
+      if (!reconnectTimeoutRef.current) {
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectTimeoutRef.current = null;
+          connectChatRoom();
+        }, 2000);
+      }
+    });
+
+    ws.addEventListener('error', (error) => {
+      if (import.meta.env.DEV) {
+        console.warn('[ChatRoom] WebSocket error', error);
+      }
+    });
+  }, [
+    clearReconnectTimer,
+    conversationId,
+    fetchGapMessages,
+    flushPendingAcks,
+    handleMessageAck,
+    handleMessageNew,
+    initSocketReadyPromise,
+    onError,
+    rejectSocketReady,
+    resolveSocketReady,
+    sendFrame,
+    sendReadUpdate
+  ]);
+
+  const closeChatSocket = useCallback(() => {
+    clearReconnectTimer();
+    isSocketReadyRef.current = false;
+    shouldReconnectRef.current = false;
+    rejectSocketReady(new Error('Chat connection closed'));
+    flushPendingAcks(new Error('Chat connection closed'));
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
+
+  const sendMessageOverWs = useCallback(async (
+    content: string,
+    attachments?: string[]
+  ) => {
+    const ACK_TIMEOUT_MS = 15000;
+    if (!conversationId || !practiceId) {
+      throw new Error('Conversation ID and practice ID are required');
+    }
+    if (!content.trim()) {
+      throw new Error('Message cannot be empty.');
+    }
+
+    const clientId = createClientId();
+    const tempId = `temp-${clientId}`;
+    const nowIso = new Date().toISOString();
+    const tempMessage: ConversationMessageUI = {
+      id: tempId,
+      conversation_id: conversationId,
+      practice_id: practiceId,
+      user_id: '',
+      role: 'user',
+      content,
+      metadata: attachments?.length ? { attachments } : null,
+      client_id: clientId,
+      seq: 0,
+      server_ts: nowIso,
+      token_count: null,
+      created_at: nowIso,
+      isUser: true,
+      timestamp: Date.now(),
+      files: attachments ? attachments.map((fileId) => ({
+        id: fileId,
+        name: 'File',
+        size: 0,
+        type: 'application/octet-stream',
+        url: ''
+      })) : undefined
+    };
+
+    setMessages(prev => [...prev, tempMessage]);
+    pendingClientMessageRef.current.set(clientId, tempId);
+
+    const ackPromise = new Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        if (pendingAckRef.current.has(clientId)) {
+          pendingAckRef.current.delete(clientId);
+          reject(new Error('Message acknowledgment timed out'));
+        }
+      }, ACK_TIMEOUT_MS);
+      pendingAckRef.current.set(clientId, { resolve, reject, timeoutId });
+    });
+
+    try {
+      if (!wsReadyRef.current) {
+        initSocketReadyPromise();
+        connectChatRoom();
+      }
+      await waitForSocketReady();
+      sendFrame({
+        type: 'message.send',
+        data: {
+          conversation_id: conversationId,
+          client_id: clientId,
+          content,
+          ...(attachments && attachments.length > 0 ? { attachments } : {})
+        },
+        request_id: clientId
+      });
+    } catch (error) {
+      const pending = pendingAckRef.current.get(clientId);
+      if (pending) {
+        clearTimeout(pending.timeoutId);
+        pendingAckRef.current.delete(clientId);
+      }
+      pendingClientMessageRef.current.delete(clientId);
+      setMessages(prev => prev.filter(message => message.id !== tempId));
+      throw error;
+    }
+
+    return ackPromise.catch((error) => {
+      pendingClientMessageRef.current.delete(clientId);
+      setMessages(prev => prev.filter(message => message.id !== tempId));
+      throw error;
+    });
+  }, [connectChatRoom, conversationId, practiceId, initSocketReadyPromise, sendFrame, waitForSocketReady]);
+
   // Fetch conversation details
   const fetchConversation = useCallback(async () => {
     if (!conversationId || !practiceId) {
@@ -197,6 +809,7 @@ export function useConversation({
         method: 'GET',
         headers,
         credentials: 'include',
+        signal: abortControllerRef.current?.signal,
       });
 
       if (!response.ok) {
@@ -215,6 +828,7 @@ export function useConversation({
       }
     } catch (err) {
       if (isDisposedRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch conversation';
       setError(errorMessage);
       onError?.(errorMessage);
@@ -222,7 +836,7 @@ export function useConversation({
   }, [conversationId, practiceId, onError]);
 
   // Fetch messages
-  const fetchMessages = useCallback(async (options?: { since?: number; cursor?: string; isLoadMore?: boolean }) => {
+  const fetchMessages = useCallback(async (options?: { cursor?: string; isLoadMore?: boolean }) => {
     if (!conversationId || !practiceId) {
       return;
     }
@@ -242,9 +856,7 @@ export function useConversation({
         limit: '50',
       });
 
-      if (options?.since !== undefined) {
-        params.set('since', options.since.toString());
-      } else if (options?.cursor) {
+      if (options?.cursor) {
         params.set('cursor', options.cursor);
       }
 
@@ -252,6 +864,7 @@ export function useConversation({
         method: 'GET',
         headers,
         credentials: 'include',
+        signal: abortControllerRef.current?.signal,
       });
 
       if (!response.ok) {
@@ -264,7 +877,7 @@ export function useConversation({
         error?: string;
         data?: {
           messages: ConversationMessage[];
-          hasMore: boolean;
+          hasMore?: boolean;
           cursor?: string | null;
         };
       };
@@ -274,24 +887,55 @@ export function useConversation({
 
       if (!isDisposedRef.current) {
         const uiMessages = data.data.messages.map(toUIMessage);
-        
+
         if (options?.isLoadMore) {
-          // Prepend older messages
-          setMessages(prev => [...uiMessages, ...prev]);
-        } else if (options?.since) {
-          // Append new messages (polling)
-          setMessages(prev => [...prev, ...uiMessages]);
+          setMessages(prev => {
+            const merged = [...uiMessages, ...prev];
+            return merged.sort((a, b) => a.timestamp - b.timestamp);
+          });
+          data.data.messages.forEach((msg) => {
+            messageIdSetRef.current.add(msg.id);
+            const seqValue = typeof msg.seq === 'number' ? msg.seq : Number(msg.seq);
+            if (Number.isFinite(seqValue)) {
+              lastSeqRef.current = Math.max(lastSeqRef.current, seqValue);
+            }
+          });
         } else {
-          // Initial load or refresh
-          setMessages(uiMessages);
+          const serverMessageIds = new Set(data.data.messages.map((msg) => msg.id));
+          const pendingIds = new Set(pendingClientMessageRef.current.values());
+          lastSeqRef.current = data.data.messages.reduce((max, msg) => {
+            const seqValue = typeof msg.seq === 'number' && Number.isFinite(msg.seq) ? msg.seq : null;
+            return seqValue !== null ? Math.max(max, seqValue) : max;
+          }, 0);
+
+          setMessages(prev => {
+            const optimistic = prev.filter((message) => {
+              return pendingIds.has(message.id) || message.id.startsWith('temp-');
+            });
+            const mergedIds = new Set(uiMessages.map((message) => message.id));
+            const merged = [
+              ...uiMessages,
+              ...optimistic.filter((message) => !mergedIds.has(message.id))
+            ].sort((a, b) => a.timestamp - b.timestamp);
+
+            const nextIds = new Set(serverMessageIds);
+            for (const message of optimistic) {
+              nextIds.add(message.id);
+            }
+            messageIdSetRef.current = nextIds;
+
+            return merged;
+          });
+          sendReadUpdate(lastSeqRef.current);
         }
 
-        setHasMore(data.data.hasMore);
+        setHasMore(Boolean(data.data.hasMore));
         setNextCursor(data.data.cursor ?? null);
         setError(null);
       }
     } catch (err) {
       if (isDisposedRef.current) return;
+      if (err instanceof Error && err.name === 'AbortError') return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
       setError(errorMessage);
       onError?.(errorMessage);
@@ -300,83 +944,20 @@ export function useConversation({
         loadingState(false);
       }
     }
-  }, [conversationId, practiceId, toUIMessage, onError]);
+  }, [conversationId, practiceId, toUIMessage, onError, sendReadUpdate]);
 
   // Send message
   const sendMessage = useCallback(async (content: string, attachments?: string[]) => {
-    if (!conversationId || !practiceId) {
-      throw new Error('Conversation ID and practice ID are required');
-    }
-
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      // Optimistic update
-      const tempMessage: ConversationMessageUI = {
-        id: `temp-${Date.now()}`,
-        conversation_id: conversationId,
-        practice_id: practiceId,
-        user_id: '', // Will be set by server (messages always have a user_id, not null)
-        role: 'user',
-        content,
-        metadata: attachments ? { attachments } : null,
-        token_count: null,
-        created_at: new Date().toISOString(),
-        isUser: true,
-        timestamp: Date.now(),
-        files: attachments?.map((fileId) => ({
-          id: fileId,
-          name: 'File',
-          size: 0,
-          type: 'application/octet-stream',
-          url: '',
-        })),
-      };
-
-      setMessages(prev => [...prev, tempMessage]);
-
-      const response = await fetch(`${getChatMessagesEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          conversationId,
-          content,
-          attachments,
-        }),
-      });
-
-      if (!response.ok) {
-        // Remove optimistic message on error
-        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json() as { success: boolean; error?: string; data?: ConversationMessage };
-      if (!data.success || !data.data) {
-        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-        throw new Error(data.error || 'Failed to send message');
-      }
-
-      // Replace temp message with real message
-      if (!isDisposedRef.current) {
-        const serverMessage = data.data;
-        if (serverMessage) {
-          setMessages(prev => prev.map(m => m.id === tempMessage.id ? toUIMessage(serverMessage) : m));
-          // Refresh conversation to update updated_at
-          await fetchConversation();
-        }
-      }
+      await sendMessageOverWs(content, attachments);
+      await fetchConversation();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
       setError(errorMessage);
       onError?.(errorMessage);
       throw err;
     }
-  }, [conversationId, practiceId, toUIMessage, fetchConversation, onError]);
+  }, [fetchConversation, onError, sendMessageOverWs]);
 
   // Load more messages (pagination)
   const loadMore = useCallback(async () => {
@@ -391,69 +972,34 @@ export function useConversation({
     await Promise.all([fetchConversation(), fetchMessages()]);
   }, [fetchConversation, fetchMessages]);
 
-  // Poll for new messages
-  const pollForNewMessages = useCallback(async () => {
-    if (!conversationId || !practiceId || !autoPoll) {
-      return;
-    }
-
-    const lastMessageTimestamp = lastPollTime
-      ? new Date(lastPollTime).getTime()
-      : (messages.length > 0 ? new Date(messages[messages.length - 1].created_at).getTime() : undefined);
-    if (typeof lastMessageTimestamp === 'number' && Number.isFinite(lastMessageTimestamp)) {
-      await fetchMessages({ since: lastMessageTimestamp, isLoadMore: false });
-      if (!isDisposedRef.current && messages.length > 0) {
-        setLastPollTime(messages[messages.length - 1].created_at);
-      }
-    }
-  }, [conversationId, practiceId, autoPoll, lastPollTime, messages, fetchMessages]);
-
   // Initial load
   useEffect(() => {
     if (!conversationId || !practiceId) {
       setIsLoading(false);
+      closeChatSocket();
       return;
     }
+
+    messageIdSetRef.current.clear();
+    pendingClientMessageRef.current.clear();
+    lastSeqRef.current = 0;
+    lastReadSeqRef.current = 0;
 
     abortControllerRef.current = new AbortController();
     Promise.all([fetchConversation(), fetchMessages()]).finally(() => {
       if (!isDisposedRef.current) {
         setIsLoading(false);
-        if (messages.length > 0) {
-          setLastPollTime(messages[messages.length - 1].created_at);
-        }
       }
     });
+    connectChatRoom();
 
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      closeChatSocket();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, practiceId]); // Only run on mount or when IDs change
-
-  // Set up polling
-  useEffect(() => {
-    if (!autoPoll || !conversationId || !practiceId) {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-      return;
-    }
-
-    pollIntervalRef.current = window.setInterval(() => {
-      pollForNewMessages();
-    }, pollInterval);
-
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-    };
-  }, [autoPoll, pollInterval, conversationId, practiceId, pollForNewMessages]);
+  }, [conversationId, practiceId, closeChatSocket, connectChatRoom, fetchConversation, fetchMessages]); // Only run on mount or when IDs change
 
   return {
     conversation,

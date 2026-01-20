@@ -1,10 +1,85 @@
 import type { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
+import { getDomain } from 'tldts';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 
-const stripCookieDomain = (value: string): string => {
-  return value.replace(/;\s*domain=[^;]+/gi, '');
+const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
+
+const getBaseDomain = (host: string): string | null => {
+  const hostname = host.split(':')[0].toLowerCase();
+  const domain = getDomain(hostname);
+  return domain ?? null;
+};
+
+const normalizeCookieDomain = (value: string, requestHost: string): string => {
+  const cookieName = value.split('=')[0]?.trim().toLowerCase() ?? '';
+  if (cookieName.startsWith('__host-')) {
+    return value.replace(DOMAIN_PATTERN, '');
+  }
+
+  const baseDomain = getBaseDomain(requestHost);
+  if (!baseDomain) {
+    return value.replace(DOMAIN_PATTERN, '');
+  }
+
+  const domainValue = `.${baseDomain}`;
+  if (DOMAIN_PATTERN.test(value)) {
+    return value.replace(DOMAIN_PATTERN, `; Domain=${domainValue}`);
+  }
+
+  return value;
+};
+
+const getForwardedHost = (headerValue: string): string | null => {
+  const entries = headerValue.split(',').map((entry) => entry.trim());
+  for (const entry of entries) {
+    const match = entry.match(/host=([^;]+)/i);
+    if (!match) {
+      continue;
+    }
+    const rawHost = match[1].trim();
+    const cleaned = rawHost.replace(/^"|"$|^'|'$/g, '');
+    if (cleaned) {
+      return cleaned;
+    }
+  }
+  return null;
+};
+
+const resolveRequestHost = (request: Request): string => {
+  const forwardedHost = request.headers.get('X-Forwarded-Host');
+  if (forwardedHost) {
+    return forwardedHost.split(',')[0].trim();
+  }
+
+  const forwarded = request.headers.get('Forwarded');
+  if (forwarded) {
+    const host = getForwardedHost(forwarded);
+    if (host) {
+      return host;
+    }
+  }
+
+  const origin = request.headers.get('Origin');
+  if (origin) {
+    try {
+      return new URL(origin).host;
+    } catch {
+      // Fall through to other headers.
+    }
+  }
+
+  const referer = request.headers.get('Referer');
+  if (referer) {
+    try {
+      return new URL(referer).host;
+    } catch {
+      // Fall through to URL host.
+    }
+  }
+
+  return new URL(request.url).host;
 };
 
 export async function handleAuthProxy(request: Request, env: Env): Promise<Response> {
@@ -33,17 +108,22 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
 
   const response = await fetch(targetUrl.toString(), init);
   const proxyHeaders = new Headers(response.headers);
+  const requestHost = resolveRequestHost(request);
 
   proxyHeaders.delete('Set-Cookie');
   if (response.headers.getSetCookie) {
     const cookies = response.headers.getSetCookie();
     for (const cookie of cookies) {
-      proxyHeaders.append('Set-Cookie', stripCookieDomain(cookie));
+      proxyHeaders.append('Set-Cookie', normalizeCookieDomain(cookie, requestHost));
     }
   } else {
     const setCookie = response.headers.get('Set-Cookie');
     if (setCookie) {
-      proxyHeaders.set('Set-Cookie', stripCookieDomain(setCookie));
+      // Fallback for environments without getSetCookie().
+      // Warning: Multiple cookies may be comma-joined here, which can cause incorrect processing.
+      // Only the first cookie is properly analyzed for __Host- prefix, and domain replacement
+      // may affect all cookies in the string. This is a known limitation when getSetCookie() is unavailable.
+      proxyHeaders.set('Set-Cookie', normalizeCookieDomain(setCookie, requestHost));
     }
   }
 

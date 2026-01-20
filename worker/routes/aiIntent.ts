@@ -117,6 +117,7 @@ export async function handleAiIntent(request: Request, env: Env): Promise<Respon
   try {
     await auditService.createEvent({
       conversationId: body.conversationId,
+      practiceId: conversation.practice_id,
       eventType: 'intent_classified',
       actorType: 'system',
       payload: {

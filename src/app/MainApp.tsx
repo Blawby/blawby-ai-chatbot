@@ -255,7 +255,9 @@ export function MainApp({
   }, []);
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
-    setConversationMode(metadata?.mode ?? null);
+    if (metadata?.mode) {
+      setConversationMode(metadata.mode);
+    }
   }, []);
 
   const realMessageHandling = useMessageHandling({
@@ -557,7 +559,8 @@ export function MainApp({
     const modeSelectorMessageId = 'system-mode-selector';
     const hasIntroMessage = messages.some(m => m.id === introMessageId);
     const hasModeSelectorMessage = messages.some(m => m.id === modeSelectorMessageId);
-    const shouldShowModeSelector = shouldRequireModeSelection;
+    const shouldShowModeSelector =
+      shouldRequireModeSelection && !conversationMode && !isConsultFlowActive;
 
     if (!hasIntroMessage && messages.length === 0) {
       const now = Date.now();
@@ -591,7 +594,14 @@ export function MainApp({
         metadata: { modeSelector: true }
       });
     }
-  }, [practiceConfig, messages, addMessage, shouldRequireModeSelection]);
+  }, [
+    addMessage,
+    conversationMode,
+    isConsultFlowActive,
+    messages,
+    practiceConfig,
+    shouldRequireModeSelection
+  ]);
 
   useEffect(() => {
     if (!currentPractice?.id) return;

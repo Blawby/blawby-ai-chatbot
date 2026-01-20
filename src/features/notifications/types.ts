@@ -27,9 +27,11 @@ export interface NotificationListResult {
 }
 
 export interface NotificationStreamEvent {
-  type?: string;
-  notificationId?: string;
-  category?: NotificationCategory;
-  createdAt?: string;
-  title?: string;
+  notification_id: string;
+  category: NotificationCategory;
+  created_at: string;
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  metadata?: Record<string, unknown> | null;
 }

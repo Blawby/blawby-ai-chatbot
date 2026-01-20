@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "dev:mock": "cross-env VITE_ENABLE_MSW=true vite",
-    "dev:worker": "wrangler dev --port 8787 --config worker/wrangler.toml",
+    "dev:worker": "wrangler dev --port 8787 --config worker/wrangler.toml --env dev",
     "dev:worker:clean": "lsof -ti:8787 | xargs kill -9 2>/dev/null || true && npm run dev:worker",
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:worker\" \"npm run tunnel\"",
     "tunnel": "tsx scripts/run-tunnel.ts",
@@ -69,6 +69,7 @@
     "react-markdown": "^10.1.0",
     "stripe": "^18.0.0",
     "ulid": "^3.0.1",
+    "tldts": "^7.0.9",
     "zod": "^4.1.11"
   },
   "devDependencies": {

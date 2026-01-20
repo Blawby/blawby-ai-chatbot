@@ -120,6 +120,7 @@ export interface Env {
   CHAT_SESSIONS: KVNamespace;
   NOTIFICATION_EVENTS: Queue<NotificationQueueMessage>;
   NOTIFICATION_HUB: DurableObjectNamespace;
+  CHAT_ROOM: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;
@@ -161,13 +162,13 @@ export interface Env {
   IS_PRODUCTION?: string;
 
   DEFAULT_PLATFORM_SLUG?: string;
-  // SSE Configuration
-  SSE_POLL_INTERVAL?: string;
+  ALLOWED_WS_ORIGINS?: string;
 
   // OneSignal configuration
   ONESIGNAL_APP_ID?: string;
   ONESIGNAL_REST_API_KEY?: string;
   ONESIGNAL_API_BASE?: string;
+  INTERNAL_SECRET?: string;
 
 }
 

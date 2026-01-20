@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { ChatBubbleLeftRightIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useInbox } from '@/shared/hooks/useInbox';
-import { useConversationsWithContext } from '@/shared/hooks/useConversations';
+import { useConversations, useConversationsWithContext } from '@/shared/hooks/useConversations';
 import { useChatCapabilities } from '@/shared/hooks/useChatCapabilities';
 import { useNotificationCounts } from '@/features/notifications/hooks/useNotificationCounts';
 import { cn } from '@/shared/utils/cn';
@@ -54,8 +55,12 @@ export const ConversationSidebar = ({
   onSelectConversation
 }: ConversationSidebarProps) => {
   const { showError } = useToastContext();
+  const { session, isAnonymous } = useSessionContext();
+  const hasSession = Boolean(session?.user);
   const capabilities = useChatCapabilities({ workspace });
   const isPracticeInbox = capabilities.canManageInbox && Boolean(practiceId);
+  const isPublicWorkspace = workspace === 'public';
+  const allowAllScope = hasSession && !isAnonymous;
   const { conversationUnreadCounts } = useNotificationCounts();
 
   const inboxData = useInbox({
@@ -66,18 +71,26 @@ export const ConversationSidebar = ({
     onError: (message) => showError(message)
   });
 
-  const conversationsData = useConversationsWithContext({
-    scope: 'all',
-    enabled: !isPracticeInbox,
+  const publicConversationsData = useConversations({
+    practiceId,
+    scope: 'practice',
+    enabled: isPublicWorkspace && hasSession && Boolean(practiceId),
     onError: (message) => showError(message)
   });
 
-  const conversations = (isPracticeInbox
-    ? inboxData.conversations
-    : conversationsData.conversations) as Conversation[];
-  const isLoading = isPracticeInbox ? inboxData.isLoading : conversationsData.isLoading;
-  const error = isPracticeInbox ? inboxData.error : conversationsData.error;
-  const refresh = isPracticeInbox ? inboxData.refresh : conversationsData.refresh;
+  const conversationsData = useConversationsWithContext({
+    scope: 'all',
+    enabled: !isPracticeInbox && !isPublicWorkspace && allowAllScope,
+    onError: (message) => showError(message)
+  });
+
+  const activeConversationsData = isPracticeInbox
+    ? inboxData
+    : (isPublicWorkspace ? publicConversationsData : conversationsData);
+  const conversations = activeConversationsData.conversations as Conversation[];
+  const isLoading = activeConversationsData.isLoading;
+  const error = activeConversationsData.error;
+  const refresh = activeConversationsData.refresh;
   const stats = isPracticeInbox ? inboxData.stats : null;
 
   const sections = useMemo(() => {
