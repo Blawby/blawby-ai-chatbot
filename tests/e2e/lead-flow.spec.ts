@@ -232,16 +232,20 @@ const waitForLeadCard = async (options: {
 }): Promise<void> => {
   const { page, testId, timeoutMs = 10000 } = options;
   const locator = page.getByTestId(testId);
-  const firstPassMs = Math.max(2000, Math.floor(timeoutMs / 2));
+  const firstPassMs = Math.floor(timeoutMs / 2);
 
   try {
     await expect(locator).toBeVisible({ timeout: firstPassMs });
     return;
   } catch {
     // Reload once if the list was stale when we navigated.
-    await page.reload({ waitUntil: 'networkidle' }).catch(() => page.reload().catch(() => undefined));
-    const remainingMs = Math.max(2000, timeoutMs - firstPassMs);
+    await page.reload({ waitUntil: 'networkidle' }).catch(() => {
+      // Fallback to basic reload if networkidle times out
+      return page.reload().catch(() => undefined);
+    });
+    const remainingMs = timeoutMs - firstPassMs;
     await expect(locator).toBeVisible({ timeout: remainingMs });
+  }
   }
 };
 
