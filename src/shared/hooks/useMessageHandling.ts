@@ -904,7 +904,10 @@ export const useMessageHandling = ({
       if (!reply) {
         throw new Error('AI response missing');
       }
-      onError?.('AI response was not persisted. Please retry.');
+      if (import.meta.env.DEV) {
+        console.warn('[useMessageHandling] AI returned reply without persisted message');
+      }
+      onError?.('Something went wrong. Please try again.');
     } catch (error) {
       console.error('Error sending message:', {
         error,
