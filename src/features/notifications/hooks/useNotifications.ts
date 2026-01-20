@@ -436,9 +436,12 @@ export const ensureNotificationsLoaded = (targetCategory: NotificationCategory) 
 
 export const initUnreadAndConversationCounts = () => {
   if (countsRequested) return;
+  countsRequested = true;
   void ensureSessionReady().then((ready) => {
-    if (!ready) return;
-    countsRequested = true;
+    if (!ready) {
+      countsRequested = false;
+      return;
+    }
     void refreshUnreadCounts();
     void refreshConversationCounts();
   });

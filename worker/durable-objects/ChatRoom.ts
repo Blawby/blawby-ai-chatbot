@@ -1086,6 +1086,7 @@ export class ChatRoom {
     }
 
     if (expiredKeys.length > 0) {
+      // Expiring pending records can leave seq gaps; resume.gap handles the missing range.
       await this.state.storage.delete(expiredKeys);
     }
   }

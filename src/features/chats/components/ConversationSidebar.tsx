@@ -74,7 +74,7 @@ export const ConversationSidebar = ({
   const publicConversationsData = useConversations({
     practiceId,
     scope: 'practice',
-    enabled: isPublicWorkspace && hasSession,
+    enabled: isPublicWorkspace && hasSession && Boolean(practiceId),
     onError: (message) => showError(message)
   });
 

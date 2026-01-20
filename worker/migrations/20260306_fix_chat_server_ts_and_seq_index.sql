@@ -9,6 +9,6 @@ DROP INDEX IF EXISTS ix_chat_messages_conv_seq;
 -- server_ts is stored as TEXT; empty string is a sentinel for backfill.
 UPDATE chat_messages
 SET server_ts = created_at
-WHERE server_ts IS NULL OR server_ts = '' OR server_ts > created_at;
+WHERE server_ts IS NULL OR server_ts = '' OR datetime(server_ts) > datetime(created_at);
 
 COMMIT;
