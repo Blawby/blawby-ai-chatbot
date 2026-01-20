@@ -623,6 +623,15 @@ onMount(notificationStore, () => {
     sessionReady = false;
     sessionReadyPromise = null;
     stopStream();
+    countsRequested = false;
+    initialLoadRequested.clear();
+    notificationStore.set({
+      categories: createCategoryMap(createCategoryState),
+      unreadCounts: createCategoryMap(() => 0),
+      conversationUnreadCounts: {},
+      streamStatus: 'idle',
+      lastEventAt: null
+    });
   };
 
   const handleSystemNotification = (event: Event) => {

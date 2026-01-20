@@ -806,7 +806,7 @@ export const handlers = [
     }
 
     // Sort by created_at descending (newest first)
-    conversationMessages.sort((a, b) =>
+    conversationMessages = [...conversationMessages].sort((a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 

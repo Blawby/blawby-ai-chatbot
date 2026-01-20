@@ -119,7 +119,10 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
   } else {
     const setCookie = response.headers.get('Set-Cookie');
     if (setCookie) {
-      // Fallback for environments without getSetCookie(); multiple cookies may be joined and ambiguous.
+      // Fallback for environments without getSetCookie().
+      // Warning: Multiple cookies may be comma-joined here, which can cause incorrect processing.
+      // Only the first cookie is properly analyzed for __Host- prefix, and domain replacement
+      // may affect all cookies in the string. This is a known limitation when getSetCookie() is unavailable.
       proxyHeaders.set('Set-Cookie', normalizeCookieDomain(setCookie, requestHost));
     }
   }

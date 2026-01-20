@@ -134,12 +134,14 @@ const sendChatMessageOverWs = async (options: {
           const messageId = typeof frame.data.message_id === 'string' ? frame.data.message_id : '';
           const seq = typeof frame.data.seq === 'number' ? frame.data.seq : Number(frame.data.seq);
           const serverTs = typeof frame.data.server_ts === 'string' ? frame.data.server_ts : '';
-          cleanup();
           if (!messageId || !serverTs || !Number.isFinite(seq)) {
+            settled = true;
+            cleanup();
             reject(new Error('Invalid message ack payload'));
             return;
           }
           settled = true;
+          cleanup();
           resolve({ messageId, seq, serverTs, clientId });
           return;
         }
