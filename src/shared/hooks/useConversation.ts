@@ -172,6 +172,7 @@ export function useConversation({
   const pendingAckRef = useRef(new Map<string, {
     resolve: (ack: { messageId: string; seq: number; serverTs: string; clientId: string }) => void;
     reject: (error: Error) => void;
+    timeoutId: ReturnType<typeof setTimeout>;
   }>());
   const pendingClientMessageRef = useRef(new Map<string, string>());
 
@@ -222,6 +223,7 @@ export function useConversation({
 
   const flushPendingAcks = useCallback((error: Error) => {
     for (const pending of pendingAckRef.current.values()) {
+      clearTimeout(pending.timeoutId);
       pending.reject(error);
     }
     pendingAckRef.current.clear();
@@ -448,6 +450,7 @@ export function useConversation({
 
     const pending = pendingAckRef.current.get(clientId);
     if (pending) {
+      clearTimeout(pending.timeoutId);
       pending.resolve({ messageId, seq: seqValue, serverTs, clientId });
       pendingAckRef.current.delete(clientId);
     }
@@ -638,6 +641,7 @@ export function useConversation({
           if (requestId) {
             const pending = pendingAckRef.current.get(requestId);
             if (pending) {
+              clearTimeout(pending.timeoutId);
               pending.reject(new Error(message));
               pendingAckRef.current.delete(requestId);
             }
@@ -747,13 +751,13 @@ export function useConversation({
     pendingClientMessageRef.current.set(clientId, tempId);
 
     const ackPromise = new Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }>((resolve, reject) => {
-      pendingAckRef.current.set(clientId, { resolve, reject });
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (pendingAckRef.current.has(clientId)) {
           pendingAckRef.current.delete(clientId);
           reject(new Error('Message acknowledgment timed out'));
         }
       }, ACK_TIMEOUT_MS);
+      pendingAckRef.current.set(clientId, { resolve, reject, timeoutId });
     });
 
     try {
@@ -773,7 +777,11 @@ export function useConversation({
         request_id: clientId
       });
     } catch (error) {
-      pendingAckRef.current.delete(clientId);
+      const pending = pendingAckRef.current.get(clientId);
+      if (pending) {
+        clearTimeout(pending.timeoutId);
+        pendingAckRef.current.delete(clientId);
+      }
       pendingClientMessageRef.current.delete(clientId);
       setMessages(prev => prev.filter(message => message.id !== tempId));
       throw error;

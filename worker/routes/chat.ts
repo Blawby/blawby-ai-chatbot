@@ -4,10 +4,10 @@ import { ConversationService } from '../services/ConversationService.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
-function createJsonResponse(data: unknown): Response {
+function createJsonResponse(data: unknown, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify({ success: true, data }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json', ...headers }
   });
 }
 
@@ -85,7 +85,8 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
       fromSeq
     });
 
-    return createJsonResponse(result);
+    const responseHeaders = result.warning ? { 'X-Sequence-Warning': result.warning } : undefined;
+    return createJsonResponse(result, responseHeaders);
   }
 
   throw HttpErrors.methodNotAllowed('Unsupported method for chat endpoint');

@@ -65,6 +65,7 @@ export interface GetMessagesResult {
   latest_seq?: number;
   // undefined when sequence pagination not requested; null when no more pages.
   next_from_seq?: number | null;
+  warning?: string;
 }
 
 export class ConversationService {
@@ -900,7 +901,12 @@ export class ConversationService {
       `).bind(conversationId, practiceId).first<{ latest_seq: number } | null>();
 
       if (!latestRecord || latestRecord.latest_seq === null || latestRecord.latest_seq === undefined) {
-        throw HttpErrors.internalServerError('latest_seq unavailable - migrations required');
+        return {
+          messages: [],
+          latest_seq: undefined,
+          next_from_seq: null,
+          warning: 'latest_seq unavailable - migrations required'
+        };
       }
 
       const records = await this.env.DB.prepare(`
