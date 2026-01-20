@@ -317,15 +317,17 @@ export class NotificationHub {
       return { allowed: this.userId === newUserId, userId: this.userId };
     }
 
-    const stored = await this.state.storage.get<string>('userId');
-    if (stored) {
-      this.userId = stored;
-      return { allowed: stored === newUserId, userId: stored };
-    }
+    const result = await this.state.storage.transaction(async (tx) => {
+      const stored = await tx.get<string>('userId');
+      if (stored) {
+        return { allowed: stored === newUserId, userId: stored };
+      }
+      await tx.put('userId', newUserId);
+      return { allowed: true, userId: newUserId };
+    });
 
-    await this.state.storage.put('userId', newUserId);
-    this.userId = newUserId;
-    return { allowed: true, userId: newUserId };
+    this.userId = result.userId;
+    return result;
   }
 
   private scheduleNegotiationTimeout(ws: WorkerWebSocket): void {

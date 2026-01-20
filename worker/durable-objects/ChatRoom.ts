@@ -1229,7 +1229,8 @@ export class ChatRoom {
   private isInternalAuthorized(request: Request): boolean {
     const secret = this.env.INTERNAL_SECRET;
     if (!secret) {
-      return true;
+      const nodeEnv = this.env.NODE_ENV ?? 'production';
+      return nodeEnv !== 'production';
     }
     return request.headers.get('X-Internal-Secret') === secret;
   }
