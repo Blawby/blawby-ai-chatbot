@@ -93,25 +93,6 @@
         "business": "Histórico de conversas ilimitado"
       }
     },
-    "lawyerSearch": {
-      "name": "Busca de Advogados",
-      "description": "Encontre e conecte-se com advogados qualificados",
-      "tiers": {
-        "free": "Limitado",
-        "plus": "Aprimorado",
-        "business": "Ilimitado"
-      },
-      "text": {
-        "free": "Busca limitada de advogados",
-        "plus": "Busca aprimorada de advogados",
-        "business": "Busca avançada de advogados"
-      },
-      "detail": {
-        "free": "Capacidades básicas de busca de advogados",
-        "plus": "Capacidades avançadas de correspondência de advogados",
-        "business": "Capacidades completas de correspondência e pesquisa de advogados"
-      }
-    },
     "teamCollaboration": {
       "name": "Colaboração em Equipe",
       "description": "Projetos compartilhados e recursos de equipe",

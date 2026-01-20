@@ -5,11 +5,9 @@ import { ContactForm, ContactData } from '@/features/intake/components/ContactFo
 import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import DocumentChecklist from '@/features/intake/components/DocumentChecklist';
-import LawyerSearchResults from '@/features/lawyer-search/components/LawyerSearchResults';
 import MatterCanvas from '@/features/matters/components/MatterCanvas';
 import { DocumentIcon } from "@heroicons/react/24/outline";
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
-import { handleContactLawyer } from '@/shared/utils/lawyerContact';
 import { Button } from '@/shared/ui/Button';
 
 interface MessageActionsProps {
@@ -46,27 +44,6 @@ interface MessageActionsProps {
 			file?: File;
 		}>;
 	};
-	lawyerSearchResults?: {
-		matterType: string;
-		lawyers: Array<{
-			id: string;
-			name: string;
-			firm?: string;
-			location: string;
-			practiceAreas: string[];
-			rating?: number;
-			reviewCount?: number;
-			phone?: string;
-			email?: string;
-			website?: string;
-			bio?: string;
-			experience?: string;
-			languages?: string[];
-			consultationFee?: number;
-			availability?: string;
-		}>;
-		total: number;
-	};
 	generatedPDF?: {
 		filename: string;
 		size: number;
@@ -91,7 +68,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	matterCanvas,
 	contactForm,
 	documentChecklist,
-	lawyerSearchResults,
 	generatedPDF,
 	paymentRequest,
 	onOpenPayment,
@@ -171,21 +147,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					}}
 					onSkip={() => {
 						showInfo('Checklist Skipped', 'Document checklist skipped. You can return to it later if needed.');
-					}}
-				/>
-			)}
-
-			{/* Display lawyer search results */}
-			{lawyerSearchResults && (
-				<LawyerSearchResults
-					matterType={lawyerSearchResults.matterType}
-					lawyers={lawyerSearchResults.lawyers}
-					total={lawyerSearchResults.total}
-					onContactLawyer={(lawyer) => {
-						handleContactLawyer(lawyer, { showInfo, openWebsiteInNewTab: true });
-					}}
-					onSearchAgain={() => {
-						showInfo('New Search', 'Please ask the AI to search for lawyers again with different criteria.');
 					}}
 				/>
 			)}

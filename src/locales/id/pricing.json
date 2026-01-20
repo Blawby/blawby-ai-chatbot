@@ -93,25 +93,6 @@
         "business": "Riwayat percakapan tanpa batas"
       }
     },
-    "lawyerSearch": {
-      "name": "Pencarian Pengacara",
-      "description": "Temukan dan hubungkan dengan pengacara berkualitas",
-      "tiers": {
-        "free": "Terbatas",
-        "plus": "Ditingkatkan",
-        "business": "Tanpa Batas"
-      },
-      "text": {
-        "free": "Pencarian pengacara terbatas",
-        "plus": "Pencarian pengacara yang ditingkatkan",
-        "business": "Pencarian pengacara tingkat lanjut"
-      },
-      "detail": {
-        "free": "Kemampuan pencarian pengacara dasar",
-        "plus": "Kemampuan pencocokan pengacara tingkat lanjut",
-        "business": "Kemampuan pencocokan dan riset pengacara penuh"
-      }
-    },
     "teamCollaboration": {
       "name": "Kolaborasi Tim",
       "description": "Proyek bersama dan fitur tim",

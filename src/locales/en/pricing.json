@@ -163,25 +163,6 @@
         "business": "Unlimited conversation history"
       }
     },
-    "lawyerSearch": {
-      "name": "Lawyer Search",
-      "description": "Find and connect with qualified lawyers",
-      "tiers": {
-        "free": "Limited",
-        "plus": "Enhanced",
-        "business": "Unlimited"
-      },
-      "text": {
-        "free": "Limited lawyer search",
-        "plus": "Enhanced lawyer search",
-        "business": "Advanced lawyer search"
-      },
-      "detail": {
-        "free": "Basic lawyer search capabilities",
-        "plus": "Advanced lawyer matching capabilities",
-        "business": "Full lawyer matching and research capabilities"
-      }
-    },
     "teamCollaboration": {
       "name": "Team Collaboration",
       "description": "Shared projects and team features",

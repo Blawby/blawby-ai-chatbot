@@ -93,25 +93,6 @@
         "business": "[NEEDS TRANSLATION] Unlimited conversation history"
       }
     },
-    "lawyerSearch": {
-      "name": "[NEEDS TRANSLATION] Lawyer Search",
-      "description": "[NEEDS TRANSLATION] Find and connect with qualified lawyers",
-      "tiers": {
-        "free": "[NEEDS TRANSLATION] Limited",
-        "plus": "[NEEDS TRANSLATION] Enhanced",
-        "business": "[NEEDS TRANSLATION] Unlimited"
-      },
-      "text": {
-        "free": "[NEEDS TRANSLATION] Limited lawyer search",
-        "plus": "[NEEDS TRANSLATION] Enhanced lawyer search",
-        "business": "[NEEDS TRANSLATION] Advanced lawyer search"
-      },
-      "detail": {
-        "free": "[NEEDS TRANSLATION] Basic lawyer search capabilities",
-        "plus": "[NEEDS TRANSLATION] Advanced lawyer matching capabilities",
-        "business": "[NEEDS TRANSLATION] Full lawyer matching and research capabilities"
-      }
-    },
     "teamCollaboration": {
       "name": "[NEEDS TRANSLATION] Team Collaboration",
       "description": "[NEEDS TRANSLATION] Shared projects and team features",

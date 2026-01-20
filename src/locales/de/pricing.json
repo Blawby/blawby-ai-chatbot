@@ -93,25 +93,6 @@
         "business": "Unbegrenzter Gesprächsverlauf"
       }
     },
-    "lawyerSearch": {
-      "name": "Anwaltssuche",
-      "description": "Qualifizierte Anwälte finden und kontaktieren",
-      "tiers": {
-        "free": "Begrenzt",
-        "plus": "Erweitert",
-        "business": "Unbegrenzt"
-      },
-      "text": {
-        "free": "Begrenzte Anwaltssuche",
-        "plus": "Erweiterte Anwaltssuche",
-        "business": "Fortgeschrittene Anwaltssuche"
-      },
-      "detail": {
-        "free": "Grundlegende Anwaltssuchfunktionen",
-        "plus": "Erweiterte Anwaltsvermittlung",
-        "business": "Vollständige Anwaltsvermittlung und Recherche"
-      }
-    },
     "teamCollaboration": {
       "name": "Team-Zusammenarbeit",
       "description": "Gemeinsame Projekte und Team-Funktionen",

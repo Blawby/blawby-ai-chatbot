@@ -93,25 +93,6 @@
         "business": "Historique de conversation illimité"
       }
     },
-    "lawyerSearch": {
-      "name": "Recherche d'Avocats",
-      "description": "Trouver et contacter des avocats qualifiés",
-      "tiers": {
-        "free": "Limité",
-        "plus": "Amélioré",
-        "business": "Illimité"
-      },
-      "text": {
-        "free": "Recherche d'avocats limitée",
-        "plus": "Recherche d'avocats améliorée",
-        "business": "Recherche avancée d'avocats"
-      },
-      "detail": {
-        "free": "Capacités de recherche d'avocats de base",
-        "plus": "Capacités avancées de mise en relation avec des avocats",
-        "business": "Capacités complètes de mise en relation et de recherche d'avocats"
-      }
-    },
     "teamCollaboration": {
       "name": "Collaboration d'Équipe",
       "description": "Projets partagés et fonctionnalités d'équipe",
