@@ -25,6 +25,7 @@ import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
+import { getFrontendHost } from '@/config/urls';
 import {
   usePracticeMembersSync,
   usePracticeSyncParamRefetch,
@@ -171,6 +172,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [isLogoEditing, setIsLogoEditing] = useState(false);
 
   const practice = currentPractice ?? practices[0] ?? null;
   const hasPractice = !!practice;
@@ -237,9 +239,21 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const isPublicValue = typeof onboardingData.isPublic === 'boolean'
     ? onboardingData.isPublic
     : false;
+  const practiceHost = useMemo(() => {
+    try {
+      return getFrontendHost();
+    } catch {
+      if (typeof window !== 'undefined' && window.location?.host) {
+        return window.location.host;
+      }
+      return '';
+    }
+  }, []);
   const practiceUrlValue = practice?.slug
-    ? `ai.blawby.com/p/${practice.slug}`
-    : 'ai.blawby.com/p/your-practice';
+    ? `${practiceHost ? `${practiceHost}/p/${practice.slug}` : `/p/${practice.slug}`}`
+    : `${practiceHost ? `${practiceHost}/p/your-practice` : '/p/your-practice'}`;
+  const hasSavedLogo = editPracticeForm.logo.trim().length > 0;
+  const showLogoUploader = isLogoEditing || !hasSavedLogo;
   const descriptionPreview = descriptionValue ? truncateText(descriptionValue, 140) : 'Not set';
   const teamAvatars = useMemo(
     () => members.map((member) => ({
@@ -340,6 +354,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     setLogoFiles([]);
     setLogoUploadProgress(null);
     setLogoUploading(false);
+    setIsLogoEditing(false);
     setEditPracticeForm({
       name: practice.name,
       slug: practice.slug || '',
@@ -369,6 +384,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         setLogoUploadProgress(percentage);
       });
       setEditPracticeForm(prev => ({ ...prev, logo: logoUrl }));
+      setIsLogoEditing(false);
       showSuccess('Logo uploaded', 'Logo ready to save. Click Save Changes to persist.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Logo upload failed';
@@ -948,20 +964,53 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           </div>
 
           <div>
-            <FileInput
-              label="Upload logo (optional)"
-              description="Upload a square logo. Maximum 5 MB."
-              accept="image/*"
-              multiple={false}
-              maxFileSize={5 * 1024 * 1024}
-              value={logoFiles}
-              onChange={handleLogoChange}
-              disabled={isSettingsSaving || logoUploading}
-            />
-            {(logoUploading || logoUploadProgress !== null) && (
-              <p className="text-xs text-gray-500 mt-2">
-                {logoUploading ? 'Uploading logo' : 'Upload progress'}{logoUploadProgress !== null ? ` • ${logoUploadProgress}%` : ''}
-              </p>
+            {showLogoUploader ? (
+              <>
+                <FileInput
+                  label="Upload logo (optional)"
+                  description="Upload a square logo. Maximum 5 MB."
+                  accept="image/*"
+                  multiple={false}
+                  maxFileSize={5 * 1024 * 1024}
+                  value={logoFiles}
+                  onChange={handleLogoChange}
+                  disabled={isSettingsSaving || logoUploading}
+                />
+                {(logoUploading || logoUploadProgress !== null) && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    {logoUploading ? 'Uploading logo' : 'Upload progress'}
+                    {logoUploadProgress !== null ? ` • ${logoUploadProgress}%` : ''}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-4 rounded-lg border border-gray-200 p-3 dark:border-dark-border">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={editPracticeForm.logo}
+                    alt={`${editPracticeForm.name} logo`}
+                    className="h-12 w-12 rounded-lg border border-gray-200 object-cover dark:border-dark-border"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Saved logo</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Upload a new image to replace it.</p>
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => {
+                    setLogoFiles([]);
+                    setLogoUploadProgress(null);
+                    setLogoUploading(false);
+                    setIsLogoEditing(true);
+                  }}
+                  disabled={isSettingsSaving}
+                >
+                  Change
+                </Button>
+              </div>
             )}
           </div>
 
