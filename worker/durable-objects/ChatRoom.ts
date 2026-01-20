@@ -1122,7 +1122,7 @@ export class ChatRoom {
         next = idleDeadline;
       }
       if (!attachment.negotiated && attachment.negotiationDeadline) {
-        if (next === null || attachment.negotiationDeadline < next) {
+        if (attachment.negotiationDeadline < next) {
           next = attachment.negotiationDeadline;
         }
       }

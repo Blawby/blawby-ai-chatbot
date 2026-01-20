@@ -309,7 +309,12 @@ export function useConversation({
       if (!message?.id) {
         continue;
       }
-      nextLatestSeq = Math.max(nextLatestSeq, message.seq);
+      const seqValue = typeof message.seq === 'number' && Number.isFinite(message.seq)
+        ? message.seq
+        : null;
+      if (seqValue !== null) {
+        nextLatestSeq = Math.max(nextLatestSeq, seqValue);
+      }
       if (messageIdSetRef.current.has(message.id)) {
         continue;
       }
@@ -541,7 +546,9 @@ export function useConversation({
       wsRef.current.close();
       wsRef.current = null;
     }
-    initSocketReadyPromise();
+    if (!wsReadyRef.current) {
+      initSocketReadyPromise();
+    }
 
     const ws = new WebSocket(getConversationWsEndpoint(conversationId));
     wsRef.current = ws;
@@ -742,6 +749,7 @@ export function useConversation({
 
     try {
       if (!wsReadyRef.current) {
+        initSocketReadyPromise();
         connectChatRoom();
       }
       await waitForSocketReady();
@@ -767,7 +775,7 @@ export function useConversation({
       setMessages(prev => prev.filter(message => message.id !== tempId));
       throw error;
     });
-  }, [connectChatRoom, conversationId, practiceId, sendFrame, waitForSocketReady]);
+  }, [connectChatRoom, conversationId, practiceId, initSocketReadyPromise, sendFrame, waitForSocketReady]);
 
   // Fetch conversation details
   const fetchConversation = useCallback(async () => {
