@@ -444,7 +444,11 @@ export function useConversation({
     applyServerMessages([message]);
   }, [applyServerMessages, conversationId, practiceId]);
 
-  const fetchGapMessages = useCallback(async (fromSeq: number, latestSeq: number) => {
+  const fetchGapMessages = useCallback(async (
+    fromSeq: number,
+    latestSeq: number,
+    signal?: AbortSignal
+  ) => {
     if (!conversationId || !practiceId) {
       return;
     }
@@ -453,7 +457,7 @@ export function useConversation({
     let targetLatest = latestSeq;
     let attempt = 0;
 
-    while (nextSeq !== null && nextSeq <= targetLatest) {
+    while (nextSeq !== null && nextSeq <= targetLatest && !signal?.aborted) {
       try {
         const params = new URLSearchParams({
           conversationId,
@@ -465,7 +469,8 @@ export function useConversation({
         const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include'
+          credentials: 'include',
+          signal
         });
 
         if (!response.ok) {
@@ -493,6 +498,9 @@ export function useConversation({
         nextSeq = data.data.next_from_seq ?? null;
         attempt = 0;
       } catch (error) {
+        if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+          return;
+        }
         attempt += 1;
         if (attempt >= 3) {
           const message = error instanceof Error ? error.message : 'Failed to recover message gap';
@@ -601,7 +609,7 @@ export function useConversation({
           const fromSeq = Number(frame.data.from_seq);
           const latestSeq = Number(frame.data.latest_seq);
           if (Number.isFinite(fromSeq) && Number.isFinite(latestSeq)) {
-            fetchGapMessages(fromSeq, latestSeq).catch((error) => {
+            fetchGapMessages(fromSeq, latestSeq, abortControllerRef.current?.signal).catch((error) => {
               if (import.meta.env.DEV) {
                 console.warn('[ChatRoom] Gap fetch failed', error);
               }
