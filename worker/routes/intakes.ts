@@ -74,7 +74,6 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       allowUrlOverride: true
     });
     const practiceId = getPracticeId(requestWithContext);
-    const practiceSlug = url.searchParams.get('practiceSlug')?.trim() ?? '';
 
     const body = await parseJsonBody(request) as Record<string, unknown>;
     const intakeUuid = typeof body.intakeUuid === 'string' ? body.intakeUuid.trim() : '';
@@ -93,7 +92,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     }
 
     const practice = await RemoteApiService.getPractice(env, practiceId, request);
-    const settingsSlug = practice?.slug ?? practiceSlug;
+    const settingsSlug = practice?.slug ?? null;
     const settings = settingsSlug
       ? await RemoteApiService.getPracticeClientIntakeSettings(env, settingsSlug, request)
       : null;

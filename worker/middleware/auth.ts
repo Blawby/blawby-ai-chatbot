@@ -33,7 +33,11 @@ const SESSION_COOKIE_NAMES = ['__Secure-better-auth.session_token', 'better-auth
 const getSessionCacheKey = (cookieHeader: string): string => {
   const cookies = cookieHeader.split(';');
   for (const cookie of cookies) {
-    const [rawName, rawValue] = cookie.trim().split('=');
+    const trimmed = cookie.trim();
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+    const rawName = trimmed.slice(0, eqIndex);
+    const rawValue = trimmed.slice(eqIndex + 1);
     if (!rawName || !rawValue) continue;
     if (SESSION_COOKIE_NAMES.includes(rawName)) {
       return `${rawName}=${rawValue}`;
