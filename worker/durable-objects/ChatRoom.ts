@@ -1226,13 +1226,30 @@ export class ChatRoom {
     }
   }
 
+  private timingSafeEqual(a: string, b: string): boolean {
+    if (a.length !== b.length) {
+      return false;
+    }
+    const bufA = this.encoder.encode(a);
+    const bufB = this.encoder.encode(b);
+    let result = 0;
+    for (let i = 0; i < bufA.length; i++) {
+      result |= bufA[i] ^ bufB[i];
+    }
+    return result === 0;
+  }
+
   private isInternalAuthorized(request: Request): boolean {
     const secret = this.env.INTERNAL_SECRET;
     if (!secret) {
       const nodeEnv = this.env.NODE_ENV ?? 'production';
       return nodeEnv !== 'production';
     }
-    return request.headers.get('X-Internal-Secret') === secret;
+    const provided = request.headers.get('X-Internal-Secret');
+    if (!provided) {
+      return false;
+    }
+    return this.timingSafeEqual(provided, secret);
   }
 
   private getAttachment(ws: WorkerWebSocket): ConnectionAttachment | null {

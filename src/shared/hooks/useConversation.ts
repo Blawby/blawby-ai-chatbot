@@ -396,6 +396,9 @@ export function useConversation({
         return message;
       }
       const nextTimestamp = new Date(serverTs).getTime();
+      if (!Number.isFinite(nextTimestamp)) {
+        return message;
+      }
       return {
         ...message,
         id: messageId,
@@ -546,9 +549,7 @@ export function useConversation({
       wsRef.current.close();
       wsRef.current = null;
     }
-    if (!wsReadyRef.current) {
-      initSocketReadyPromise();
-    }
+    initSocketReadyPromise();
 
     const ws = new WebSocket(getConversationWsEndpoint(conversationId));
     wsRef.current = ws;
@@ -706,6 +707,7 @@ export function useConversation({
     content: string,
     attachments?: string[]
   ) => {
+    const ACK_TIMEOUT_MS = 15000;
     if (!conversationId || !practiceId) {
       throw new Error('Conversation ID and practice ID are required');
     }
@@ -745,6 +747,12 @@ export function useConversation({
 
     const ackPromise = new Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }>((resolve, reject) => {
       pendingAckRef.current.set(clientId, { resolve, reject });
+      setTimeout(() => {
+        if (pendingAckRef.current.has(clientId)) {
+          pendingAckRef.current.delete(clientId);
+          reject(new Error('Message acknowledgment timed out'));
+        }
+      }, ACK_TIMEOUT_MS);
     });
 
     try {

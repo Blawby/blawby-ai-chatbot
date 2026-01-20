@@ -402,6 +402,7 @@ const setStreamStatus = (status: StreamStatus, lastEventAt?: string | null) => {
 
 let streamSocket: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+let authTimeout: ReturnType<typeof setTimeout> | null = null;
 let streamActive = false;
 let authFailed = false;
 const initialLoadRequested = new Set<NotificationCategory>();
@@ -448,6 +449,10 @@ export const initUnreadAndConversationCounts = () => {
 };
 
 const stopStream = () => {
+  if (authTimeout) {
+    clearTimeout(authTimeout);
+    authTimeout = null;
+  }
   if (streamSocket) {
     streamSocket.close();
     streamSocket = null;
@@ -495,7 +500,6 @@ const startStream = async () => {
   setStreamStatus('connecting');
 
   let ws: WebSocket;
-  let authTimeout: ReturnType<typeof setTimeout> | null = null;
   try {
     ws = new WebSocket(buildNotificationsWsUrl());
   } catch (error) {
