@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, BrowserContext, Page } from '@playwright/test';
 import { waitForSession } from './helpers/auth';
 import { loadE2EConfig } from './helpers/e2eConfig';
 
@@ -11,34 +11,88 @@ interface ConversationMessage {
   content: string;
 }
 
-const getOrCreateConversation = async (request: APIRequestContext, practiceId: string): Promise<string> => {
-  const response = await request.get(
-    `/api/conversations/active?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      headers: {
-        'Content-Type': 'application/json'
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const buildCookieHeader = async (context: BrowserContext, baseURL: string): Promise<string> => {
+  let cookies = await context.cookies(baseURL);
+  if (!cookies.length) {
+    cookies = await context.cookies();
+  }
+  if (!cookies.length) return '';
+  return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+};
+
+const getOrCreateConversation = async (options: {
+  request: APIRequestContext;
+  context: BrowserContext;
+  page?: Page;
+  baseURL: string;
+  practiceId: string;
+}): Promise<string> => {
+  const ensureCookieHeader = async (): Promise<string> => {
+    let cookieHeader = await buildCookieHeader(options.context, options.baseURL);
+    if (!cookieHeader && options.page) {
+      await waitForSession(options.page, {
+        timeoutMs: 30000,
+        skipIfCookiePresent: false,
+        cookieUrl: options.baseURL
+      });
+      cookieHeader = await buildCookieHeader(options.context, options.baseURL);
+    }
+    return cookieHeader;
+  };
+
+  const maxAttempts = 3;
+  let retryDelayMs = 500;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const cookieHeader = await ensureCookieHeader();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (cookieHeader) {
+      headers.Cookie = cookieHeader;
+    }
+
+    const response = await options.request.get(
+      `/api/conversations/active?practiceId=${encodeURIComponent(options.practiceId)}`,
+      { headers }
+    );
+
+    const rawText = await response.text().catch(() => '');
+    let data: { data?: { conversation?: { id?: string } } } | null = null;
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText) as { data?: { conversation?: { id?: string } } };
+      } catch {
+        data = null;
       }
     }
-  );
 
-  const rawText = await response.text().catch(() => '');
-  let data: { data?: { conversation?: { id?: string } } } | null = null;
-  if (rawText) {
-    try {
-      data = JSON.parse(rawText) as { data?: { conversation?: { id?: string } } };
-    } catch {
-      data = null;
+    if (response.ok() && data?.data?.conversation?.id) {
+      return data.data.conversation.id as string;
     }
-  }
 
-  if (!response.ok() || !data?.data?.conversation?.id) {
     const fallbackText = data ? JSON.stringify(data) : rawText;
-    throw new Error(
+    lastError = new Error(
       `Failed to create conversation: ${response.status()} (${response.url()}) ${fallbackText.slice(0, 300)}`
     );
+
+    const status = response.status();
+    const retriable = status === 401 || status === 429 || status >= 500;
+    if (!retriable || attempt >= maxAttempts - 1) {
+      break;
+    }
+
+    const retryAfter = response.headers()['retry-after'];
+    const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
+    const waitMs = Number.isFinite(retryAfterMs)
+      ? Math.max(retryAfterMs, retryDelayMs)
+      : retryDelayMs;
+    await sleep(Math.min(Math.max(waitMs, 250), 5000));
+    retryDelayMs = Math.min(retryDelayMs * 2, 3000);
   }
 
-  return data.data.conversation.id as string;
+  throw lastError ?? new Error('Failed to create conversation: unknown error');
 };
 
 const sendChatMessageOverWs = async (options: {
@@ -179,22 +233,71 @@ const sendChatMessageWithRetry = async (options: {
 
 const getConversationMessages = async (options: {
   request: APIRequestContext;
+  context: BrowserContext;
+  page?: Page;
+  baseURL: string;
   practiceId: string;
   conversationId: string;
 }): Promise<ConversationMessage[]> => {
   const url = `/api/chat/messages?practiceId=${encodeURIComponent(options.practiceId)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
-  const response = await options.request.get(url, {
-    headers: {
-      'Content-Type': 'application/json'
+  const ensureCookieHeader = async (): Promise<string> => {
+    let cookieHeader = await buildCookieHeader(options.context, options.baseURL);
+    if (!cookieHeader && options.page) {
+      await waitForSession(options.page, {
+        timeoutMs: 30000,
+        skipIfCookiePresent: false,
+        cookieUrl: options.baseURL
+      });
+      cookieHeader = await buildCookieHeader(options.context, options.baseURL);
     }
-  });
+    return cookieHeader;
+  };
 
-  const payload = await response.json().catch(() => null) as { data?: { messages?: ConversationMessage[] } } | null;
-  if (!response.ok() || !payload?.data?.messages) {
-    throw new Error(`Failed to fetch messages: ${response.status()}`);
+  const maxAttempts = 3;
+  let retryDelayMs = 500;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const cookieHeader = await ensureCookieHeader();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (cookieHeader) {
+      headers.Cookie = cookieHeader;
+    }
+
+    const response = await options.request.get(url, { headers });
+    const rawText = await response.text().catch(() => '');
+    let payload: { data?: { messages?: ConversationMessage[] } } | null = null;
+    if (rawText) {
+      try {
+        payload = JSON.parse(rawText) as { data?: { messages?: ConversationMessage[] } };
+      } catch {
+        payload = null;
+      }
+    }
+
+    if (response.ok() && payload?.data?.messages) {
+      return payload.data.messages;
+    }
+
+    const fallbackText = payload ? JSON.stringify(payload) : rawText;
+    lastError = new Error(`Failed to fetch messages: ${response.status()} ${fallbackText.slice(0, 300)}`);
+
+    const status = response.status();
+    const retriable = status === 401 || status === 429 || status >= 500;
+    if (!retriable || attempt >= maxAttempts - 1) {
+      break;
+    }
+
+    const retryAfter = response.headers()['retry-after'];
+    const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
+    const waitMs = Number.isFinite(retryAfterMs)
+      ? Math.max(retryAfterMs, retryDelayMs)
+      : retryDelayMs;
+    await sleep(Math.min(Math.max(waitMs, 250), 5000));
+    retryDelayMs = Math.min(retryDelayMs * 2, 3000);
   }
 
-  return payload.data.messages;
+  throw lastError ?? new Error('Failed to fetch messages after retries');
 };
 
 test.describe('Chat messaging', () => {
@@ -205,7 +308,13 @@ test.describe('Chat messaging', () => {
     if (!e2eConfig) return;
     await anonPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(anonPage, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(anonContext.request, e2eConfig.practice.id);
+    const conversationId = await getOrCreateConversation({
+      request: anonContext.request,
+      context: anonContext,
+      page: anonPage,
+      baseURL,
+      practiceId: e2eConfig.practice.id
+    });
     const content = `E2E anon ${Date.now()}`;
     await sendChatMessageWithRetry({
       page: anonPage,
@@ -216,6 +325,9 @@ test.describe('Chat messaging', () => {
 
     const messages = await getConversationMessages({
       request: anonContext.request,
+      context: anonContext,
+      page: anonPage,
+      baseURL,
       practiceId: e2eConfig.practice.id,
       conversationId
     });
@@ -227,7 +339,13 @@ test.describe('Chat messaging', () => {
     if (!e2eConfig) return;
     await clientPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(clientPage, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(clientContext.request, e2eConfig.practice.id);
+    const conversationId = await getOrCreateConversation({
+      request: clientContext.request,
+      context: clientContext,
+      page: clientPage,
+      baseURL,
+      practiceId: e2eConfig.practice.id
+    });
     const content = `E2E client ${Date.now()}`;
     await sendChatMessageWithRetry({
       page: clientPage,
@@ -238,6 +356,9 @@ test.describe('Chat messaging', () => {
 
     const messages = await getConversationMessages({
       request: clientContext.request,
+      context: clientContext,
+      page: clientPage,
+      baseURL,
       practiceId: e2eConfig.practice.id,
       conversationId
     });
@@ -249,7 +370,13 @@ test.describe('Chat messaging', () => {
     if (!e2eConfig) return;
     await ownerPage.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForSession(ownerPage, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation(ownerContext.request, e2eConfig.practice.id);
+    const conversationId = await getOrCreateConversation({
+      request: ownerContext.request,
+      context: ownerContext,
+      page: ownerPage,
+      baseURL,
+      practiceId: e2eConfig.practice.id
+    });
     const content = `E2E owner ${Date.now()}`;
     await sendChatMessageWithRetry({
       page: ownerPage,
@@ -260,6 +387,9 @@ test.describe('Chat messaging', () => {
 
     const messages = await getConversationMessages({
       request: ownerContext.request,
+      context: ownerContext,
+      page: ownerPage,
+      baseURL,
       practiceId: e2eConfig.practice.id,
       conversationId
     });

@@ -1,8 +1,47 @@
 import { expect, test } from './fixtures';
+import type { APIRequestContext } from '@playwright/test';
 import { waitForSession } from './helpers/auth';
 import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
+
+const fetchSession = async (
+  request: APIRequestContext
+): Promise<{ status: number; hasSession: boolean; retryAfterMs: number | null }> => {
+  const response = await request.get('/api/auth/get-session', {
+    headers: { 'Content-Type': 'application/json' }
+  });
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  const retryAfter = response.headers()['retry-after'];
+  const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : null;
+  const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
+  return { status: response.status(), hasSession, retryAfterMs: Number.isFinite(retryAfterMs) ? retryAfterMs : null };
+};
+
+const fetchSessionWithRetry = async (
+  request: APIRequestContext
+): Promise<{ status: number; hasSession: boolean }> => {
+  const maxAttempts = 3;
+  let retryDelayMs = 500;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const result = await fetchSession(request);
+    if (result.status !== 429 || attempt >= maxAttempts - 1) {
+      return { status: result.status, hasSession: result.hasSession };
+    }
+
+    const waitMs = result.retryAfterMs ?? retryDelayMs;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(Math.max(waitMs, 250), 3000)));
+    retryDelayMs = Math.min(retryDelayMs * 2, 3000);
+  }
+
+  return { status: 429, hasSession: false };
+};
 
 test.describe('Auth modes', () => {
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
@@ -14,30 +53,10 @@ test.describe('Auth modes', () => {
     const page = await ownerContext.newPage();
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForSession(page, { timeoutMs: 30000 });
+    await page.close();
 
-    const sessionWithCookies = await page.evaluate(async () => {
-      const response = await fetch('/api/auth/get-session', { credentials: 'include' });
-      let data: any = null;
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
-      const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
-      return { status: response.status, hasSession };
-    });
-
-    const sessionWithoutCookies = await page.evaluate(async () => {
-      const response = await fetch('/api/auth/get-session', { credentials: 'omit' });
-      let data: any = null;
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
-      const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
-      return { status: response.status, hasSession };
-    });
+    const sessionWithCookies = await fetchSessionWithRetry(ownerContext.request);
+    const sessionWithoutCookies = await fetchSessionWithRetry(unauthContext.request);
 
     expect(sessionWithCookies.status).toBe(200);
     expect(sessionWithCookies.hasSession).toBeTruthy();
@@ -73,6 +92,5 @@ test.describe('Auth modes', () => {
 
     expect(conversationWithAuthResponse.status()).toBe(200);
     expect(conversationId).toBeTruthy();
-    await page.close();
   });
 });

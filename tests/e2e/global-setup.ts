@@ -11,6 +11,7 @@ const EMPTY_STORAGE_STATE = {
   cookies: [],
   origins: []
 };
+const SESSION_COOKIE_PATTERN = /better-auth\.session_token/i;
 
 const ensureAuthDir = (): string => {
   mkdirSync(AUTH_DIR, { recursive: true });
@@ -33,6 +34,7 @@ type StorageState = {
     value: string;
     domain?: string;
     path?: string;
+    expires?: number;
   }>;
 };
 
@@ -47,7 +49,7 @@ const cookieMatchesHost = (cookieDomain: string | undefined, host: string): bool
   return normalized === target;
 };
 
-const hasValidSessionFromStorage = async (baseURL: string, storagePath: string): Promise<boolean> => {
+const hasValidSessionFromStorage = (baseURL: string, storagePath: string): boolean => {
   if (!existsSync(storagePath)) {
     return false;
   }
@@ -62,109 +64,17 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
   }
 
   const host = new URL(baseURL).hostname;
-  const cookieHeader = state.cookies
-    .filter((cookie) => cookieMatchesHost(cookie.domain, host))
-    .map((cookie) => `${cookie.name}=${cookie.value}`)
-    .join('; ');
-
-  if (!cookieHeader) {
-    return false;
-  }
-
-  const maxAttempts = 3;
-  let retryDelayMs = 500;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    try {
-      const response = await fetch(`${baseURL}/api/auth/get-session`, {
-        headers: { Cookie: cookieHeader }
-      });
-
-      if (response.status === 429 && attempt < maxAttempts - 1) {
-        const retryAfter = response.headers.get('Retry-After');
-        const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
-        const waitMs = Number.isFinite(retryAfterMs) ? retryAfterMs : retryDelayMs;
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-        retryDelayMs = Math.min(retryDelayMs * 2, 5000);
-        continue;
-      }
-
-      if (!response.ok) {
-        return false;
-      }
-
-      const data = await response.json().catch(() => null);
-      if (!data || typeof data !== 'object') {
-        return false;
-      }
-      const record = data as Record<string, unknown>;
-      if (record.session || record.user) {
-        return true;
-      }
-      const nested = record.data;
-      if (!nested || typeof nested !== 'object') {
-        return false;
-      }
-      const nestedRecord = nested as Record<string, unknown>;
-      return Boolean(nestedRecord.session || nestedRecord.user);
-    } catch {
-      if (attempt >= maxAttempts - 1) {
-        return false;
-      }
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-      retryDelayMs = Math.min(retryDelayMs * 2, 5000);
-    }
-  }
-
-  return false;
+  const nowSeconds = Date.now() / 1000;
+  return state.cookies.some((cookie) => (
+    cookieMatchesHost(cookie.domain, host) &&
+    SESSION_COOKIE_PATTERN.test(cookie.name) &&
+    (cookie.expires === undefined || cookie.expires <= 0 || cookie.expires > nowSeconds + 1)
+  ));
 };
 
-const VALIDATION_TTL_MS = 20 * 60 * 1000;
 const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(
   (process.env.E2E_FORCE_AUTH_REFRESH || '').toLowerCase()
 );
-
-type ValidationCache = {
-  owner?: number;
-  client?: number;
-  anonymous?: number;
-};
-
-const readValidationCache = (cachePath: string): ValidationCache => {
-  if (!existsSync(cachePath)) {
-    return {};
-  }
-  try {
-    return JSON.parse(readFileSync(cachePath, 'utf-8')) as ValidationCache;
-  } catch {
-    return {};
-  }
-};
-
-const writeValidationCache = (cachePath: string, cache: ValidationCache): void => {
-  writeFileSync(cachePath, JSON.stringify(cache, null, 2));
-};
-
-const isValidationFresh = (options: {
-  cache: ValidationCache;
-  role: keyof ValidationCache;
-  storagePath: string;
-}): boolean => {
-  if (FORCE_AUTH_REFRESH) return false;
-  if (!existsSync(options.storagePath)) return false;
-  const timestamp = options.cache[options.role];
-  if (!timestamp) return false;
-  return Date.now() - timestamp < VALIDATION_TTL_MS;
-};
-
-const markValidated = (options: {
-  cache: ValidationCache;
-  cachePath: string;
-  role: keyof ValidationCache;
-}): void => {
-  options.cache[options.role] = Date.now();
-  writeValidationCache(options.cachePath, options.cache);
-};
 
 const verifyWorkerHealth = async (): Promise<void> => {
   const maxRetries = 10;
@@ -352,9 +262,7 @@ async function globalSetup(config: FullConfig) {
   const e2eConfig = loadE2EConfig();
   const baseURL = getBaseUrlFromConfig(config);
   await waitForBaseUrl(baseURL);
-  const authDir = ensureAuthDir();
-  const cachePath = join(authDir, 'last-validated.json');
-  const validationCache = readValidationCache(cachePath);
+  ensureAuthDir();
   const { owner: ownerPath, client: clientPath, anonymous: anonymousPath } = AUTH_STATE_PATHS;
 
   if (!e2eConfig) {
@@ -362,15 +270,11 @@ async function globalSetup(config: FullConfig) {
     writeEmptyStorageState(ownerPath);
     writeEmptyStorageState(clientPath);
     writeEmptyStorageState(anonymousPath);
-    writeValidationCache(cachePath, {});
     return;
   }
 
-  if (isValidationFresh({ cache: validationCache, role: 'owner', storagePath: ownerPath })) {
-    console.log(`✅ owner storageState recently validated; skipping session check at ${ownerPath}`);
-  } else if (await hasValidSessionFromStorage(baseURL, ownerPath)) {
+  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, ownerPath)) {
     console.log(`✅ owner storageState already valid at ${ownerPath}`);
-    markValidated({ cache: validationCache, cachePath, role: 'owner' });
   } else {
     await createSignedInState({
       baseURL,
@@ -379,14 +283,10 @@ async function globalSetup(config: FullConfig) {
       password: e2eConfig.owner.password,
       label: 'owner'
     });
-    markValidated({ cache: validationCache, cachePath, role: 'owner' });
   }
 
-  if (isValidationFresh({ cache: validationCache, role: 'client', storagePath: clientPath })) {
-    console.log(`✅ client storageState recently validated; skipping session check at ${clientPath}`);
-  } else if (await hasValidSessionFromStorage(baseURL, clientPath)) {
+  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, clientPath)) {
     console.log(`✅ client storageState already valid at ${clientPath}`);
-    markValidated({ cache: validationCache, cachePath, role: 'client' });
   } else {
     await createSignedInState({
       baseURL,
@@ -395,21 +295,16 @@ async function globalSetup(config: FullConfig) {
       password: e2eConfig.client.password,
       label: 'client'
     });
-    markValidated({ cache: validationCache, cachePath, role: 'client' });
   }
 
-  if (isValidationFresh({ cache: validationCache, role: 'anonymous', storagePath: anonymousPath })) {
-    console.log(`✅ anonymous storageState recently validated; skipping session check at ${anonymousPath}`);
-  } else if (await hasValidSessionFromStorage(baseURL, anonymousPath)) {
+  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, anonymousPath)) {
     console.log(`✅ anonymous storageState already valid at ${anonymousPath}`);
-    markValidated({ cache: validationCache, cachePath, role: 'anonymous' });
   } else {
     await createAnonymousState({
       baseURL,
       storagePath: anonymousPath,
       practiceSlug: e2eConfig.practice.slug
     });
-    markValidated({ cache: validationCache, cachePath, role: 'anonymous' });
   }
 
   console.log('✅ Global setup complete');
