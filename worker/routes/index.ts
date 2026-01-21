@@ -1,6 +1,6 @@
 export { handleHealth } from './health';
 export { handleRoot } from './root';
-export { handleAuthProxy } from './authProxy';
+export { handleAuthProxy, handleBackendProxy } from './authProxy';
 // Practice management is handled by remote API, but workspace endpoints remain for chatbot data
 export { handlePractices } from './practices';
 // Sessions removed - using activity endpoint instead

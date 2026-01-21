@@ -56,24 +56,16 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
         : null);
 
   const activeOrganizationId = activeOrgId ?? null;
-  const activePracticeIdFromSession =
-    activeOrganizationId ??
-    sessionData?.user?.practiceId ??
-    sessionData?.user?.activePracticeId ??
-    null;
-
-  const activePracticeId = activePracticeIdFromSession ?? null;
+  const activePracticeId = activeOrganizationId;
   const primaryWorkspace = sessionData?.user?.primaryWorkspace ?? null;
   const preferredPracticeId = sessionData?.user?.preferredPracticeId ?? null;
   const practiceCount = sessionData?.user?.practiceCount ?? null;
   const hasPracticeFlag = sessionData?.user?.hasPractice ?? null;
-  const hasActivePractice = Boolean(activePracticeIdFromSession);
-  const hasPreferredPractice = Boolean(preferredPracticeId);
+  const hasActivePractice = Boolean(activeOrganizationId);
   const hasPractice = Boolean(
     (typeof hasPracticeFlag === 'boolean' ? hasPracticeFlag : null) ??
     (typeof practiceCount === 'number' ? practiceCount > 0 : null) ??
-    (hasActivePractice ? true : null) ??
-    (hasPreferredPractice ? true : null)
+    (hasActivePractice ? true : null)
   );
 
   const value = useMemo<SessionContextValue>(() => ({

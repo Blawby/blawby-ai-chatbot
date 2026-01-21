@@ -24,15 +24,13 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
   const {
     session,
     activeOrganizationId,
-    activePracticeId,
-    preferredPracticeId,
     isPending: sessionIsPending
   } = useSessionContext();
   const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const referenceId = options.referenceId ?? activeOrganizationId ?? activePracticeId ?? preferredPracticeId ?? null;
+  const referenceId = options.referenceId ?? activeOrganizationId ?? null;
   const userId = session?.user?.id ?? null;
   const hasUser = Boolean(session?.user);
   const shouldFetch = (options.enabled ?? true) && hasUser && Boolean(referenceId) && !sessionIsPending;

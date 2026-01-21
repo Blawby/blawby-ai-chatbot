@@ -4,11 +4,19 @@ import { getDomain } from 'tldts';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const GET_SESSION_PATH = `${AUTH_PATH_PREFIX}/get-session`;
-
+const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 const SESSION_COOKIE_NAMES = ['__Secure-better-auth.session_token', 'better-auth.session_token'];
 const SESSION_CACHE_TTL_MS = 5000;
 const SESSION_CACHE_MAX_ENTRIES = 200;
+const BACKEND_PATH_PREFIXES = [
+  '/api/onboarding',
+  '/api/practice',
+  '/api/preferences',
+  '/api/subscriptions',
+  '/api/subscription',
+  '/api/uploads'
+];
 
 type SessionCacheEntry = {
   body: ArrayBuffer;
@@ -19,6 +27,9 @@ type SessionCacheEntry = {
 };
 
 const sessionCache = new Map<string, SessionCacheEntry>();
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const getBaseDomain = (host: string): string | null => {
   const hostname = host.split(':')[0].toLowerCase();
@@ -75,26 +86,32 @@ const resolveRequestHost = (request: Request): string => {
     }
   }
 
-  const origin = request.headers.get('Origin');
-  if (origin) {
-    try {
-      return new URL(origin).host;
-    } catch {
-      // Fall through to other headers.
-    }
-  }
-
-  const referer = request.headers.get('Referer');
-  if (referer) {
-    try {
-      return new URL(referer).host;
-    } catch {
-      // Fall through to URL host.
-    }
-  }
-
   return new URL(request.url).host;
 };
+
+const resolveReferenceIdFromSession = async (env: Env, request: Request): Promise<string | null> => {
+  const cookie = request.headers.get('Cookie');
+  if (!cookie) return null;
+
+  const response = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+    method: 'GET',
+    headers: { Cookie: cookie }
+  });
+
+  if (!response.ok) return null;
+  const payload = await response.json().catch(() => null);
+  if (!isRecord(payload)) return null;
+  const container = isRecord(payload.data) ? payload.data : payload;
+  if (!isRecord(container)) return null;
+  const session = isRecord(container.session) ? container.session : null;
+  if (!session) return null;
+
+  const raw = session.active_organization_id ?? session.activeOrganizationId ?? null;
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 
 const extractSessionCookie = (cookieHeader: string): string | null => {
   const cookies = cookieHeader.split(';');
@@ -182,6 +199,7 @@ const buildProxyHeaders = (
   return { headers: proxyHeaders, hasSetCookie: false };
 };
 
+
 export async function handleAuthProxy(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith(AUTH_PATH_PREFIX)) {
@@ -262,6 +280,64 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
       statusText: response.statusText,
       headers: proxyHeaders
     });
+  }
+
+  proxyHeaders.set('X-Backend-Url', env.BACKEND_API_URL);
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: proxyHeaders
+  });
+}
+
+const isBackendProxyPath = (path: string): boolean =>
+  BACKEND_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+
+export async function handleBackendProxy(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  if (!isBackendProxyPath(url.pathname)) {
+    throw HttpErrors.notFound('Backend proxy route not found');
+  }
+
+  if (!env.BACKEND_API_URL) {
+    throw HttpErrors.internalServerError('BACKEND_API_URL must be configured for backend proxy');
+  }
+
+  const method = request.method.toUpperCase();
+  const requestHost = resolveRequestHost(request);
+  let resolvedReferenceId: string | null = null;
+  if (url.pathname === SUBSCRIPTIONS_CURRENT_PATH) {
+    const hasReferenceId =
+      url.searchParams.has('reference_id') || url.searchParams.has('referenceId');
+    if (!hasReferenceId) {
+      resolvedReferenceId = await resolveReferenceIdFromSession(env, request);
+      if (resolvedReferenceId) {
+        url.searchParams.set('reference_id', resolvedReferenceId);
+        url.searchParams.set('referenceId', resolvedReferenceId);
+      }
+    }
+  }
+
+  const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
+  const headers = new Headers(request.headers);
+
+  const init: globalThis.RequestInit = {
+    method,
+    headers,
+    redirect: 'manual'
+  };
+
+  if (method !== 'GET' && method !== 'HEAD') {
+    init.body = await request.arrayBuffer();
+  }
+
+  const response = await fetch(targetUrl.toString(), init);
+  const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
+  proxyHeaders.set('X-Backend-Url', env.BACKEND_API_URL);
+  proxyHeaders.set('X-Backend-Request-Url', targetUrl.toString());
+  if (resolvedReferenceId) {
+    proxyHeaders.set('X-Active-Organization-Id', resolvedReferenceId);
   }
 
   return new Response(response.body, {

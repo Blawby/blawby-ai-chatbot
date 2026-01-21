@@ -7,14 +7,14 @@ import {
 } from '@/config/api';
 import { isPlatformPractice } from '@/shared/utils/practice';
 import type { Conversation } from '@/shared/types/conversation';
-import { getBackendApiUrl } from '@/config/urls';
+import { getWorkerApiUrl } from '@/config/urls';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
 const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
 
 /**
- * Get the base URL for backend API requests
+ * Get the base URL for backend API requests via the Worker proxy
  * Uses centralized URL configuration from src/config/urls.ts
  * 
  * Caching strategy:
@@ -24,7 +24,7 @@ const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDeta
 function ensureApiBaseUrl(): string {
   // NEVER cache in development - always get fresh URL to support MSW
   if (import.meta.env.DEV) {
-    return getBackendApiUrl();
+    return getWorkerApiUrl();
   }
 
   // In production, cache after first call
@@ -32,7 +32,7 @@ function ensureApiBaseUrl(): string {
     return cachedBaseUrl;
   }
 
-  cachedBaseUrl = getBackendApiUrl();
+  cachedBaseUrl = getWorkerApiUrl();
   return cachedBaseUrl;
 }
 
@@ -675,7 +675,7 @@ export async function getPublicPracticeDetails(
 
   const requestPromise = (async () => {
     try {
-      const apiUrl = `${getBackendApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
+      const apiUrl = `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
       if (import.meta.env.DEV) {
         console.log('[getPublicPracticeDetails] Making request to:', apiUrl);
       }

@@ -16,7 +16,4 @@ export const THEME = {
 export const SUMMARY_MIN_LENGTH = 50;
 
 // Practice constants
-// Used as the fallback platform/practice identifier for public experiences
-export const DEFAULT_PRACTICE_ID = '01K0TNGNKTM4Q0AG0XF0A8ST0Q';
 export const DEFAULT_PLATFORM_SLUG = 'blawby-ai';
-export const PLATFORM_PRACTICE_ID = DEFAULT_PRACTICE_ID;

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { z } from 'zod';
 import type { PracticeConfig } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { DEFAULT_PRACTICE_ID } from '@/shared/utils/constants';
 import { getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { PLATFORM_SETTINGS } from '@/config/platform';
 import { isPlatformPractice } from '@/shared/utils/practice';
@@ -60,7 +59,7 @@ export const usePracticeConfig = ({
   allowUnauthenticated = false,
   refreshKey
 }: UsePracticeConfigOptions = {}) => {
-  const { activePracticeId, session } = useSessionContext();
+  const { activeOrganizationId, session } = useSessionContext();
   const isAuthenticated = Boolean(session?.user);
   const [practiceId, setPracticeId] = useState<string>('');
   const [practiceNotFound, setPracticeNotFound] = useState<boolean>(false);
@@ -83,18 +82,18 @@ export const usePracticeConfig = ({
       const urlParams = new URLSearchParams(window.location.search);
       const practiceIdParam = urlParams.get('practiceId');
 
-      // Priority: explicit param (slug from path) > URL query param > active practice > constant (only if authenticated)
+      // Priority: explicit param (slug from path) > URL query param > active organization
       // explicitPracticeId takes priority because it comes from path-based routing (guest routes)
-      const resolved = (explicitPracticeId ?? practiceIdParam ?? activePracticeId ?? (isAuthenticated ? DEFAULT_PRACTICE_ID : ''));
+      const resolved = (explicitPracticeId ?? practiceIdParam ?? activeOrganizationId ?? '');
       setPracticeId(resolved);
     }
-  }, [explicitPracticeId, activePracticeId, isAuthenticated]);
+  }, [explicitPracticeId, activeOrganizationId]);
 
   // Fetch practice configuration
   const fetchPracticeConfig = useCallback(async (currentPracticeId: string) => {
     const requestedPracticeId = currentPracticeId;
-    // Always fetch the specified practice configuration
-    // No need for personal practice fallback since we default to blawby-ai
+    // Always fetch the specified practice configuration.
+    // Platform defaults are handled by isPlatformPractice.
     if (isPlatformPractice(currentPracticeId)) {
       fetchedPracticeIds.current.add(currentPracticeId);
       setPracticeConfig(buildDefaultPracticeConfig());

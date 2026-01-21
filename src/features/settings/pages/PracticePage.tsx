@@ -123,7 +123,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const { session, isPending: sessionPending, hasPractice: sessionHasPractice } = useSessionContext();
   const { 
     currentPractice,
-    practices,
     getMembers,
     loading, 
     error,
@@ -133,7 +132,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     fetchMembers,
     refetch,
   } = usePracticeManagement();
-  const activePracticeId = currentPractice?.id ?? practices[0]?.id ?? null;
+  const activePracticeId = currentPractice?.id ?? null;
   const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId);
   
   const { showSuccess, showError, showWarning } = useToastContext();
@@ -170,7 +169,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [logoUploading, setLogoUploading] = useState(false);
   const [isLogoEditing, setIsLogoEditing] = useState(false);
 
-  const practice = currentPractice ?? practices[0] ?? null;
+  const practice = currentPractice ?? null;
   const hasPractice = !!practice;
   const members = useMemo(() => practice ? getMembers(practice.id) : [], [practice, getMembers]);
   

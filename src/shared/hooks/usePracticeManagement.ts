@@ -569,7 +569,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     autoFetchPractices = true,
     fetchInvitations: shouldFetchInvitations = true,
   } = options;
-  const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
+  const { session, isPending: sessionLoading, isAnonymous, activeOrganizationId } = useSessionContext();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
   const [members, setMembers] = useState<Record<string, Member[]>>({});
@@ -704,16 +704,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
           .filter((practice) => practice.id.length > 0);
 
-        const preferredPracticeId =
-          session?.user?.preferredPracticeId ??
-          session?.user?.practiceId ??
-          session?.user?.activePracticeId ??
-          null;
-        const preferredPractice = preferredPracticeId
-          ? normalizedList.find(practice => practice.id === preferredPracticeId)
+        const activeOrgId = activeOrganizationId ?? null;
+        const activePractice = activeOrgId
+          ? normalizedList.find(practice =>
+            practice.betterAuthOrgId === activeOrgId || practice.id === activeOrgId
+          )
           : undefined;
-        const personalPractice = normalizedList.find(practice => practice.kind === 'personal');
-        const currentPracticeNext = preferredPractice || personalPractice || normalizedList[0] || null;
+        const currentPracticeNext = activePractice || normalizedList[0] || null;
         let details: PracticeDetails | null = null;
         let stripeDetailsSubmitted: boolean | null = null;
         if (currentPracticeNext) {
@@ -792,7 +789,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [isAnonymous, session]);
+  }, [activeOrganizationId, isAnonymous, session]);
 
   // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {

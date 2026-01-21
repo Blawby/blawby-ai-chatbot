@@ -118,6 +118,12 @@ const workerEndpoints = [
 	'notifications',
 	'intakes',
 	'practices',
+	'onboarding',
+	'practice',
+	'preferences',
+	'subscriptions',
+	'subscription',
+	'uploads',
 ];
 
 // Proxy configuration types from http-proxy-middleware
