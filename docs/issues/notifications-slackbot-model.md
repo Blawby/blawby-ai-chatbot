@@ -10,6 +10,7 @@ Context/Background
 - Keeps system events discoverable inside chat history.
 
 Current behavior (code refs)
+- Note: current behavior is code-only reference; there are no existing users or production data.
 - Left sidebar exposes notification categories and unread dots. `src/shared/ui/sidebar/organisms/SidebarContent.tsx`
 - Notifications live on dedicated routes (`/notifications/:category`) with a category header and list. `src/app/MainApp.tsx`, `src/app/AppLayout.tsx`, `src/features/notifications/pages/NotificationCenterPage.tsx`
 - Unread counts and per-conversation counts are derived from the notifications store. `src/features/notifications/hooks/useNotifications.ts`, `src/features/notifications/hooks/useNotificationCounts.ts`
@@ -74,7 +75,13 @@ Message format
 
 Notification preferences
 - Keep existing notification settings UI and preferences storage. `src/features/settings/pages/NotificationsPage.tsx`, `src/features/settings/hooks/useNotificationSettings.ts`, `src/shared/lib/preferencesApi.ts`
-- Preferences continue to govern push/email/desktop delivery only (OneSignal + email). In-app bot messages always appear.
+- Add in-app controls for bot messages while keeping the core Slack/Discord model.
+- In-app controls apply only to bot messages (not user-to-user chat messages).
+- New preferences (stored in existing `notifications` payload):
+  - `in_app_messages`, `in_app_system`, `in_app_payments`, `in_app_intakes`, `in_app_matters` (boolean; default true; system locked on).
+  - `in_app_frequency` for system conversation: `all` | `summaries_only` (default `all`).
+- Push/email/desktop delivery continues to be governed by existing channel settings (OneSignal + email).
+- Mentions-only still applies to push/email for message category.
 - Practice-level notification policy enforcement remains (system notifications required for all members). `worker/services/NotificationPublisher.ts`, `src/features/settings/utils/notificationPolicy.ts`
 
 Notification deduplication
@@ -89,9 +96,22 @@ Rate limiting
 - Per user (global): max 20 bot messages per hour across all conversations.
 - Enforce in `worker/queues/notificationProcessor.ts` before calling `ConversationService.sendSystemMessage`.
 
+Coalescing and summarization
+- Group excess events by `notificationType` within the rate-limit window.
+- If `in_app_frequency = summaries_only`, always emit summaries for the system conversation (even if under the rate limit).
+- Precedence/duplication rule: emit a single summary per window for the system conversation when either condition applies (summaries_only OR rate-limit exceeded). Do not emit separate summaries.
+- Summary format:
+  - Title: "X updates in the last 5 minutes"
+  - Body: list top 3 types with counts (e.g., "Payments failed (3), Exports ready (2), Matter updates (1)") and "View conversation for details."
+- Include metadata: `notificationType = "summary"`, `context = { windowStart, windowEnd, totalCount, byType, sampleLinks, reason: "rate_limit" | "preference" | "both" }`.
+- Link: use the most recent event link (if any) or omit.
+
 Security and abuse prevention
 - Bot messages can only be created server-side via the queue processor; no client-exposed endpoints.
-- Use the internal ChatRoom route with `INTERNAL_SECRET` and `ConversationService.sendSystemMessage` to bypass user impersonation.
+- Use `ConversationService.sendSystemMessage` to post server-side messages; no shared secret required.
+- Do not introduce `INTERNAL_SECRET`; rely on the existing Worker -> ChatRoom internal call path.
+- Verify `ChatRoom` internal routes are not exposed via any HTTP handler; only Worker-side `stub.fetch` calls should reach them. `worker/durable-objects/ChatRoom.ts`
+- Ensure no public route calls `sendSystemMessage` with arbitrary input; restrict to server-side notification flows only. `worker/queues/notificationProcessor.ts`, `worker/services/ConversationService.ts`
 - Validate practice existence and conversation membership before posting; never post to conversations the recipient cannot access.
 - Reject oversized or malformed metadata; cap payload sizes to prevent abuse.
 - Record bot message creation in `session_audit_events` for auditability.
@@ -110,17 +130,20 @@ Performance and storage
 - Conversation list ordering continues to rely on `conversations.last_message_at` updates.
 - Retention:
   - Conversation-scoped bot messages: retained with the conversation history.
-  - System conversation: retain last 180 days or 1,000 messages (whichever is smaller) and prune older entries.
+  - System conversation: apply both constraints:
+    - Drop messages older than 180 days.
+    - If more than 1,000 remain, keep the most recent 1,000.
 
 Migration/data handling
 - No migration of existing notification records into conversations (greenfield, no existing users).
 - Drop notification UI data at cutover (remove tables/endpoints in the same release).
+- Any dev/staging notification records are discarded (no preservation or backfill).
 - User communication: internal release note only; no end-user migration messaging required.
 
 Implementation approach
 - Single atomic change: remove notifications UI/routes and switch to bot messages in the same release.
 - No dual-write or phased rollout.
-- No rollback plan (forward-only change).
+- No rollback plan (forward-only change) because the app is greenfield with no existing users.
 
 Endpoint retention
 - Keep for push/email device registration:
@@ -154,6 +177,7 @@ Acceptance criteria
 - Conversation-relevant notifications appear in the correct conversation for its parties.
 - Non-conversation notifications appear in the Blawby System conversation.
 - The conversation list shows unread counts per conversation without the notifications store.
+- In-app bot message controls work (per-category mute except system, summaries-only mode for system conversation).
 
 Decision
 - Use a per-user, per-practice workspace Blawby System conversation (Slackbot-style 1:1).
@@ -181,5 +205,5 @@ Testing checklist
 - Cross-device: client-side pinning order consistent on multiple devices/sessions.
 - Integration: push/email notifications still work (OneSignal destinations + preferences). `tests/e2e/notifications.spec.ts`
 - Data integrity: dedupe window enforcement; metadata validation; membership enforcement.
-- UX: settings page still works and saves preferences. `tests/e2e/notifications.spec.ts`, `src/features/settings/__tests__/SettingsPage.integration.test.tsx`
+- UX: settings page still works and saves preferences (including in-app controls + summaries-only mode). `tests/e2e/notifications.spec.ts`, `src/features/settings/__tests__/SettingsPage.integration.test.tsx`
 - Chat flows remain intact. `tests/e2e/chat-messages.spec.ts`, `tests/e2e/lead-flow.spec.ts`, `tests/e2e/auth-modes.spec.ts`
