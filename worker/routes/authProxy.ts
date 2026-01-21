@@ -11,6 +11,7 @@ const SESSION_CACHE_TTL_MS = 5000;
 const SESSION_CACHE_MAX_ENTRIES = 200;
 const BACKEND_PATH_PREFIXES = [
   '/api/onboarding',
+  '/api/conversations',
   '/api/practice',
   '/api/preferences',
   '/api/subscriptions',
