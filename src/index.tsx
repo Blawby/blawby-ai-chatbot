@@ -22,7 +22,6 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import ClientHomePage from '@/pages/ClientHomePage';
 import { PracticeDashboardPage } from '@/features/dashboard/pages/PracticeDashboardPage';
 import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
-import { initOneSignal } from '@/shared/notifications/oneSignalClient';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -623,11 +622,6 @@ async function mountClientApp() {
 }
 
 if (typeof window !== 'undefined') {
-  Promise.resolve()
-    .then(() => initOneSignal())
-    .catch((error) => {
-      console.error('[OneSignal] Failed to initialize:', error);
-    });
   const bootstrap = () => mountClientApp();
   const enableMocks = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW === 'true';
 
