@@ -42,6 +42,11 @@ let lastRegistrationKey: string | null = null;
 
 export type NotificationPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
 
+export type OptInResult = {
+  permission: NotificationPermissionState;
+  subscribed: boolean;
+};
+
 export function initOneSignal(): void {
   if (initStarted || typeof window === 'undefined') {
     return;
@@ -81,9 +86,9 @@ export function getNotificationPermissionState(): NotificationPermissionState {
   return Notification.permission as NotificationPermissionState;
 }
 
-export async function optInDesktopNotifications(): Promise<NotificationPermissionState> {
+export async function optInDesktopNotifications(): Promise<OptInResult> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
-    return 'unsupported';
+    return { permission: 'unsupported', subscribed: false };
   }
 
   initOneSignal();
@@ -97,22 +102,22 @@ export async function optInDesktopNotifications(): Promise<NotificationPermissio
 
   const permission = Notification.permission as NotificationPermissionState;
   if (permission !== 'granted') {
-    return permission;
+    return { permission, subscribed: false };
   }
 
   if (sdk?.User?.PushSubscription?.optIn) {
     await sdk.User.PushSubscription.optIn();
   }
 
-  const onesignalId = sdk ? await waitForOneSignalId(sdk) : null;
+  const onesignalId = sdk ? await waitForOneSignalId(sdk, { requireOptedIn: true }) : null;
   if (!onesignalId) {
-    throw new Error('OneSignal subscription not available');
+    return { permission, subscribed: false };
   }
 
   pendingOneSignalId = onesignalId;
   await registerDestination(onesignalId);
 
-  return permission;
+  return { permission, subscribed: true };
 }
 
 export async function optOutDesktopNotifications(): Promise<boolean> {
@@ -122,12 +127,15 @@ export async function optOutDesktopNotifications(): Promise<boolean> {
 
   initOneSignal();
 
+  pendingOneSignalId = null;
+  lastRegistrationKey = null;
+
   const sdk = await waitForOneSignalSdk();
   if (!sdk?.User?.PushSubscription) {
     return false;
   }
 
-  const onesignalId = await waitForOneSignalId(sdk);
+  const onesignalId = await waitForOneSignalId(sdk, { requireOptedIn: false });
   if (!onesignalId) {
     return false;
   }
@@ -189,7 +197,7 @@ async function initializeSdk(OneSignal: OneSignalSDK, appId: string): Promise<vo
     return;
   }
 
-  const onesignalId = await waitForOneSignalId(OneSignal);
+  const onesignalId = await waitForOneSignalId(OneSignal, { requireOptedIn: true });
   if (!onesignalId) {
     if (import.meta.env.DEV) {
       console.warn('[OneSignal] User id not available; skipping destination registration.');
@@ -201,12 +209,20 @@ async function initializeSdk(OneSignal: OneSignalSDK, appId: string): Promise<vo
   await registerDestination(onesignalId);
 }
 
-async function waitForOneSignalId(OneSignal: OneSignalSDK): Promise<string | null> {
+type OneSignalIdOptions = {
+  requireOptedIn?: boolean;
+};
+
+async function waitForOneSignalId(
+  OneSignal: OneSignalSDK,
+  options: OneSignalIdOptions = {}
+): Promise<string | null> {
   const attempts = 10;
   const delayMs = 1000;
+  const requireOptedIn = options.requireOptedIn ?? false;
 
   for (let i = 0; i < attempts; i += 1) {
-    const id = await resolveOneSignalId(OneSignal);
+    const id = await resolveOneSignalId(OneSignal, requireOptedIn);
     if (id) {
       return id;
     }
@@ -216,18 +232,12 @@ async function waitForOneSignalId(OneSignal: OneSignalSDK): Promise<string | nul
   return null;
 }
 
-async function resolveOneSignalId(OneSignal: OneSignalSDK): Promise<string | null> {
-  const userId = normalizeId(OneSignal.User?.id);
-  if (userId) {
-    return userId;
-  }
-
-  if (OneSignal.getUserId) {
-    const legacyId = await Promise.resolve(OneSignal.getUserId());
-    const normalized = normalizeId(legacyId);
-    if (normalized) {
-      return normalized;
-    }
+async function resolveOneSignalId(
+  OneSignal: OneSignalSDK,
+  requireOptedIn: boolean
+): Promise<string | null> {
+  if (requireOptedIn && OneSignal.User?.PushSubscription?.optedIn === false) {
+    return null;
   }
 
   const subscriptionId = normalizeId(OneSignal.User?.PushSubscription?.id);

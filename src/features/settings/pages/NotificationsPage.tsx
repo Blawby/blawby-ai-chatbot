@@ -118,12 +118,19 @@ export const NotificationsPage = ({
           );
           return;
         }
-        const next = await optInDesktopNotifications();
-        setPermissionState(next);
-        if (next !== 'granted') {
+        const result = await optInDesktopNotifications();
+        setPermissionState(result.permission);
+        if (result.permission !== 'granted') {
           showError(
             t('settings:notifications.desktop.permissionDeniedTitle', { defaultValue: 'Permission blocked' }),
             t('settings:notifications.desktop.permissionDeniedBody', { defaultValue: 'Enable notifications in your browser settings to receive alerts.' })
+          );
+          return;
+        }
+        if (!result.subscribed) {
+          showError(
+            t('settings:notifications.desktop.permissionErrorTitle', { defaultValue: 'Permission failed' }),
+            t('settings:notifications.desktop.permissionErrorBody', { defaultValue: 'We could not enable desktop notifications.' })
           );
           return;
         }
