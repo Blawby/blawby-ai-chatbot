@@ -22,6 +22,80 @@ const buildCookieHeader = async (context: BrowserContext, baseURL: string): Prom
   return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
 };
 
+const summarizeCookieHeader = (cookieHeader: string): string[] => (
+  cookieHeader
+    .split(';')
+    .map((segment) => segment.split('=')[0]?.trim())
+    .filter((name): name is string => Boolean(name))
+);
+
+const fetchDebugResponse = async (
+  request: APIRequestContext,
+  url: string,
+  headers: Record<string, string>
+): Promise<{ url: string; status: number; body: string }> => {
+  try {
+    const response = await request.get(url, { headers });
+    const body = await response.text().catch(() => '');
+    return {
+      url: response.url(),
+      status: response.status(),
+      body: body.slice(0, 500)
+    };
+  } catch (error) {
+    return {
+      url,
+      status: -1,
+      body: `request_error: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+};
+
+const logMessageFetchDiagnostics = async (options: {
+  request: APIRequestContext;
+  baseURL: string;
+  practiceId: string;
+  practiceSlug?: string;
+  conversationId: string;
+  cookieHeader: string;
+  status: number;
+  url: string;
+  body: string;
+}): Promise<void> => {
+  const cookieNames = summarizeCookieHeader(options.cookieHeader);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (options.cookieHeader) {
+    headers.Cookie = options.cookieHeader;
+  }
+
+  const conversationPath = `/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceId)}`;
+  const conversationCheck = await fetchDebugResponse(options.request, conversationPath, headers);
+
+  let conversationSlugCheck: { url: string; status: number; body: string } | undefined;
+  let messagesSlugCheck: { url: string; status: number; body: string } | undefined;
+  if (options.practiceSlug && options.practiceSlug !== options.practiceId) {
+    const slugConversationPath = `/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceSlug)}`;
+    conversationSlugCheck = await fetchDebugResponse(options.request, slugConversationPath, headers);
+
+    const slugMessagesPath = `/api/chat/messages?practiceId=${encodeURIComponent(options.practiceSlug)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
+    messagesSlugCheck = await fetchDebugResponse(options.request, slugMessagesPath, headers);
+  }
+
+  console.warn('[E2E][chat] Message fetch failed', {
+    baseURL: options.baseURL,
+    practiceId: options.practiceId,
+    practiceSlug: options.practiceSlug,
+    conversationId: options.conversationId,
+    status: options.status,
+    url: options.url,
+    cookieNames,
+    body: options.body.slice(0, 500),
+    conversationCheck,
+    conversationSlugCheck,
+    messagesSlugCheck
+  });
+};
+
 const getOrCreateConversation = async (options: {
   request: APIRequestContext;
   context: BrowserContext;
@@ -237,6 +311,7 @@ const getConversationMessages = async (options: {
   page?: Page;
   baseURL: string;
   practiceId: string;
+  practiceSlug?: string;
   conversationId: string;
 }): Promise<ConversationMessage[]> => {
   const url = `/api/chat/messages?practiceId=${encodeURIComponent(options.practiceId)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
@@ -285,6 +360,17 @@ const getConversationMessages = async (options: {
     const status = response.status();
     const retriable = status === 401 || status === 429 || status >= 500;
     if (!retriable || attempt >= maxAttempts - 1) {
+      await logMessageFetchDiagnostics({
+        request: options.request,
+        baseURL: options.baseURL,
+        practiceId: options.practiceId,
+        practiceSlug: options.practiceSlug,
+        conversationId: options.conversationId,
+        cookieHeader,
+        status,
+        url: response.url(),
+        body: fallbackText
+      });
       break;
     }
 
@@ -417,6 +503,7 @@ test.describe('Chat messaging', () => {
       page: anonPage,
       baseURL,
       practiceId: e2eConfig.practice.id,
+      practiceSlug: e2eConfig.practice.slug,
       conversationId
     });
 
@@ -448,6 +535,7 @@ test.describe('Chat messaging', () => {
       page: clientPage,
       baseURL,
       practiceId: e2eConfig.practice.id,
+      practiceSlug: e2eConfig.practice.slug,
       conversationId
     });
 
@@ -479,6 +567,7 @@ test.describe('Chat messaging', () => {
       page: ownerPage,
       baseURL,
       practiceId: e2eConfig.practice.id,
+      practiceSlug: e2eConfig.practice.slug,
       conversationId
     });
 

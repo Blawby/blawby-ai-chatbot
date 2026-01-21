@@ -156,18 +156,19 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     });
     const practiceId = getPracticeId(requestWithContext);
 
-    // Check if user is practice member
-    const membershipCheck = await checkPracticeMembership(request, env, practiceId);
-    
-    if (membershipCheck.isMember) {
-      // Practice member: Redirect to inbox endpoint
-      const inboxUrl = new URL(request.url);
-      inboxUrl.pathname = '/api/inbox/conversations';
-      return Response.redirect(inboxUrl.toString(), 302);
-    }
-    
     // Check if anonymous user
     const isAnonymous = authContext.isAnonymous === true;
+
+    // Check if user is practice member (skip for anonymous sessions)
+    if (!isAnonymous) {
+      const membershipCheck = await checkPracticeMembership(request, env, practiceId);
+      if (membershipCheck.isMember) {
+        // Practice member: Redirect to inbox endpoint
+        const inboxUrl = new URL(request.url);
+        inboxUrl.pathname = '/api/inbox/conversations';
+        return Response.redirect(inboxUrl.toString(), 302);
+      }
+    }
     
     if (isAnonymous) {
       // Anonymous user: Return single conversation (get-or-create)
