@@ -70,11 +70,38 @@ export function MainApp({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
+  const isPublicWorkspace = workspace === 'public';
+  const publicPracticeSlug = useMemo(() => {
+    if (!isPublicWorkspace) return null;
+    if (location.path.startsWith('/p/')) {
+      const rawSlug = location.path.slice('/p/'.length).split('/')[0];
+      if (rawSlug) {
+        try {
+          return decodeURIComponent(rawSlug);
+        } catch (error) {
+          console.warn('[MainApp] Failed to decode public practice slug from URL', {
+            rawSlug,
+            error
+          });
+          return rawSlug;
+        }
+      }
+    }
+    return practiceId || practiceConfig.slug || null;
+  }, [isPublicWorkspace, location.path, practiceConfig.slug, practiceId]);
+  const publicChatsBasePath = useMemo(() => {
+    if (!publicPracticeSlug) return null;
+    return `/p/${encodeURIComponent(publicPracticeSlug)}/chats`;
+  }, [publicPracticeSlug]);
+  const conversationResetKey = useMemo(() => {
+    if (isPublicWorkspace) return publicPracticeSlug ?? '';
+    return practiceId;
+  }, [isPublicWorkspace, practiceId, publicPracticeSlug]);
 
   useEffect(() => {
     setConversationId(null);
     setConversationMode(null);
-  }, [practiceId]);
+  }, [conversationResetKey]);
 
   useEffect(() => {
     if (workspace === 'public' && currentTab !== 'chats') {
@@ -88,6 +115,7 @@ export function MainApp({
     return null;
   }, [workspace]);
   const chatsBasePath = useMemo(() => (basePath ? `${basePath}/chats` : null), [basePath]);
+  const resolvedChatsBasePath = useMemo(() => chatsBasePath ?? publicChatsBasePath, [chatsBasePath, publicChatsBasePath]);
   const notificationsBasePath = useMemo(() => (basePath ? `${basePath}/notifications` : null), [basePath]);
   const leadsBasePath = useMemo(() => (basePath ? `${basePath}/leads` : null), [basePath]);
 
@@ -121,9 +149,9 @@ export function MainApp({
   }, [notificationsBasePath, location.path]);
 
   const conversationIdFromPath = useMemo(() => {
-    if (!chatsBasePath) return null;
-    if (!location.path.startsWith(`${chatsBasePath}/`)) return null;
-    const raw = location.path.slice(`${chatsBasePath}/`.length);
+    if (!resolvedChatsBasePath) return null;
+    if (!location.path.startsWith(`${resolvedChatsBasePath}/`)) return null;
+    const raw = location.path.slice(`${resolvedChatsBasePath}/`.length);
     const id = raw.split('/')[0];
     if (!id) return null;
     try {
@@ -135,7 +163,7 @@ export function MainApp({
       });
       return id;
     }
-  }, [chatsBasePath, location.path]);
+  }, [location.path, resolvedChatsBasePath]);
 
   useEffect(() => {
     if (!basePath || !dashboardPath) return;
@@ -178,14 +206,14 @@ export function MainApp({
   }, [conversationId, conversationIdFromPath]);
 
   useEffect(() => {
-    if (!chatsBasePath) return;
-    if (currentTab !== 'chats') return;
+    if (!resolvedChatsBasePath) return;
+    if (!isPublicWorkspace && currentTab !== 'chats') return;
     if (!conversationId) return;
-    const targetPath = `${chatsBasePath}/${encodeURIComponent(conversationId)}`;
+    const targetPath = `${resolvedChatsBasePath}/${encodeURIComponent(conversationId)}`;
     if (location.path !== targetPath) {
       navigate(targetPath, true);
     }
-  }, [chatsBasePath, conversationId, currentTab, location.path, navigate]);
+  }, [resolvedChatsBasePath, conversationId, currentTab, isPublicWorkspace, location.path, navigate]);
 
   const handleTabChange = useCallback((tab: 'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads') => {
     setCurrentTab(tab);
@@ -222,7 +250,19 @@ export function MainApp({
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
-  const effectivePracticeId = practiceId || undefined;
+  const effectivePracticeId = useMemo(() => {
+    if (isPublicWorkspace) {
+      if (
+        practiceConfig.id &&
+        publicPracticeSlug &&
+        practiceConfig.slug === publicPracticeSlug
+      ) {
+        return practiceConfig.id;
+      }
+      return practiceId || undefined;
+    }
+    return practiceId || undefined;
+  }, [isPublicWorkspace, practiceConfig.id, practiceConfig.slug, practiceId, publicPracticeSlug]);
 
   // Practice data is now passed as props
 
@@ -274,6 +314,9 @@ export function MainApp({
   const startConsultFlow = realMessageHandling.startConsultFlow;
   const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
   const isConsultFlowActive = realMessageHandling.isConsultFlowActive;
+  const hasMoreMessages = realMessageHandling.hasMoreMessages;
+  const isLoadingMoreMessages = realMessageHandling.isLoadingMoreMessages;
+  const loadMoreMessages = realMessageHandling.loadMoreMessages;
 
   useEffect(() => {
     realMessageHandling.clearMessages();
@@ -751,6 +794,9 @@ export function MainApp({
               conversationId={conversationId}
               isAnonymousUser={isAnonymousUser}
               canChat={canChat}
+              hasMoreMessages={hasMoreMessages}
+              isLoadingMoreMessages={isLoadingMoreMessages}
+              onLoadMoreMessages={loadMoreMessages}
             />
           </div>
         </>
@@ -777,10 +823,10 @@ export function MainApp({
 
   const handleSelectConversation = useCallback((id: string) => {
     setConversationId(id);
-    if (chatsBasePath) {
-      navigate(`${chatsBasePath}/${encodeURIComponent(id)}`);
+    if (resolvedChatsBasePath) {
+      navigate(`${resolvedChatsBasePath}/${encodeURIComponent(id)}`);
     }
-  }, [chatsBasePath, navigate]);
+  }, [navigate, resolvedChatsBasePath]);
 
   const chatSidebarContent = useMemo(() => (
     <ConversationSidebar

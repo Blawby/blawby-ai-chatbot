@@ -1,7 +1,7 @@
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { checkPracticeMembership, optionalAuth } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
 function createJsonResponse(data: unknown, headers?: Record<string, string>): Response {
@@ -54,8 +54,11 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
       throw HttpErrors.badRequest('conversationId query parameter is required');
     }
 
-    // Validate user has access to conversation
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    // Validate user has access to conversation (participants or practice members)
+    const membership = await checkPracticeMembership(request, env, practiceId);
+    if (!membership.isMember) {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    }
 
     if (url.searchParams.has('since')) {
       throw HttpErrors.badRequest('since is no longer supported; use from_seq');

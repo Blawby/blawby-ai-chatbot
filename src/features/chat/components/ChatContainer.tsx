@@ -50,6 +50,9 @@ interface ChatContainerProps {
   conversationId?: string | null;
   isAnonymousUser?: boolean;
   canChat?: boolean;
+  hasMoreMessages?: boolean;
+  isLoadingMoreMessages?: boolean;
+  onLoadMoreMessages?: () => void | Promise<void>;
 
   // Input control prop
   clearInput?: number;
@@ -82,7 +85,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   canChat = true,
   onSelectMode,
   conversationMode,
-  composerDisabled
+  composerDisabled,
+  hasMoreMessages,
+  isLoadingMoreMessages,
+  onLoadMoreMessages
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -242,6 +248,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 onAskQuestion: () => onSelectMode('ASK_QUESTION', 'intro_gate'),
                 onRequestConsultation: () => onSelectMode('REQUEST_CONSULTATION', 'intro_gate')
               } : undefined}
+              hasMoreMessages={hasMoreMessages}
+              isLoadingMoreMessages={isLoadingMoreMessages}
+              onLoadMoreMessages={onLoadMoreMessages}
             />
             
             <MessageComposer

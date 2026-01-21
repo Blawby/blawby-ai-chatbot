@@ -29,6 +29,9 @@ interface VirtualMessageListProps {
         onAskQuestion: () => void;
         onRequestConsultation: () => void;
     };
+    hasMoreMessages?: boolean;
+    isLoadingMoreMessages?: boolean;
+    onLoadMoreMessages?: () => void | Promise<void>;
 }
 
 const BATCH_SIZE = 20;
@@ -43,7 +46,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onOpenPayment,
     practiceId,
     intakeStatus: _intakeStatus,
-    modeSelectorActions
+    modeSelectorActions,
+    hasMoreMessages,
+    isLoadingMoreMessages,
+    onLoadMoreMessages
 }) => {
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
@@ -75,7 +81,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         
         (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop = currentScrollTop;
 
-        // Load more messages when scrolling up
+        // Load more messages when scrolling up (client-side)
         if (element.scrollTop < SCROLL_THRESHOLD && startIndex > 0) {
             const newStartIndex = Math.max(0, startIndex - BATCH_SIZE);
             setStartIndex(newStartIndex);
@@ -90,7 +96,33 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 }
             });
         }
-    }, [startIndex, checkIfScrolledToBottom]);
+        if (
+            element.scrollTop < SCROLL_THRESHOLD &&
+            startIndex === 0 &&
+            hasMoreMessages &&
+            !isLoadingMoreMessages &&
+            onLoadMoreMessages
+        ) {
+            const previousScrollHeight = element.scrollHeight;
+            const previousScrollTop = element.scrollTop;
+            void Promise.resolve(onLoadMoreMessages()).then(() => {
+                requestAnimationFrame(() => {
+                    if (!listRef.current) return;
+                    const newScrollHeight = listRef.current.scrollHeight;
+                    const heightDiff = newScrollHeight - previousScrollHeight;
+                    if (heightDiff > 0) {
+                        listRef.current.scrollTop = previousScrollTop + heightDiff;
+                    }
+                });
+            });
+        }
+    }, [
+        startIndex,
+        checkIfScrolledToBottom,
+        hasMoreMessages,
+        isLoadingMoreMessages,
+        onLoadMoreMessages
+    ]);
 
     const debouncedHandleScroll = useMemo(() => {
         return debounce(handleScroll, DEBOUNCE_DELAY);
@@ -156,6 +188,18 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             {startIndex > 0 && (
                 <div className="flex justify-center items-center py-4">
                     <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm lg:text-base">Loading more messages...</div>
+                </div>
+            )}
+            {startIndex === 0 && hasMoreMessages && (
+                <div className="flex justify-center items-center py-4">
+                    <button
+                        type="button"
+                        className="text-xs sm:text-sm lg:text-base text-brand-purple hover:text-brand-purple-dark disabled:opacity-60"
+                        onClick={() => onLoadMoreMessages?.()}
+                        disabled={isLoadingMoreMessages}
+                    >
+                        {isLoadingMoreMessages ? 'Loading older messages...' : 'Load older messages'}
+                    </button>
                 </div>
             )}
             <ErrorBoundary>

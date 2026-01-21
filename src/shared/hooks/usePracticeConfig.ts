@@ -154,6 +154,10 @@ export const usePracticeConfig = ({
           });
 
           setPracticeConfig(config);
+          if (publicDetails.practiceId && publicDetails.practiceId !== currentPracticeId) {
+            fetchedPracticeIds.current.add(publicDetails.practiceId);
+            setPracticeId(publicDetails.practiceId);
+          }
           setPracticeNotFound(false);
           setIsLoading(false);
           return;

@@ -65,6 +65,9 @@ export const useMessageHandling = ({
   const { session } = useSessionContext();
   const sessionReady = Boolean(session?.user);
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const consultFlowAbortRef = useRef<globalThis.AbortController | null>(null);
   const intentAbortRef = useRef<globalThis.AbortController | null>(null);
@@ -1140,16 +1143,29 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   const clearMessages = useCallback(() => {
     resetRealtimeState();
     setMessages([]);
+    setHasMoreMessages(false);
+    setNextCursor(null);
+    setIsLoadingMoreMessages(false);
   }, [resetRealtimeState]);
 
   // Fetch messages from conversation
   const fetchMessages = useCallback(async (
-    signal?: AbortSignal,
-    targetConversationId?: string
+    options?: {
+      signal?: AbortSignal;
+      targetConversationId?: string;
+      cursor?: string | null;
+      isLoadMore?: boolean;
+    }
   ) => {
     if (!sessionReady) {
       return;
     }
+    const {
+      signal,
+      targetConversationId,
+      cursor,
+      isLoadMore
+    } = options ?? {};
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) {
       return;
@@ -1163,6 +1179,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         practiceId,
         limit: '50',
       });
+      if (cursor) {
+        params.set('cursor', cursor);
+      }
+
+      if (isLoadMore) {
+        setIsLoadingMoreMessages(true);
+      }
 
       const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
         method: 'GET',
@@ -1182,24 +1205,41 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       }
 
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
-        const uiMessages = data.data.messages.map(toUIMessage);
-        messageIdSetRef.current = new Set(data.data.messages.map((msg) => msg.id));
-        lastSeqRef.current = data.data.messages.reduce((max, msg) => Math.max(max, msg.seq), 0);
-        setMessages(prev => {
-          if (uiMessages.length === 0 && prev.length > 0) {
-            return prev;
-          }
-          return uiMessages;
-        });
-        sendReadUpdate(lastSeqRef.current);
+        if (isLoadMore) {
+          applyServerMessages(data.data.messages ?? []);
+        } else {
+          const uiMessages = data.data.messages.map(toUIMessage);
+          messageIdSetRef.current = new Set(data.data.messages.map((msg) => msg.id));
+          lastSeqRef.current = data.data.messages.reduce((max, msg) => Math.max(max, msg.seq), 0);
+          setMessages(prev => {
+            if (uiMessages.length === 0 && prev.length > 0) {
+              return prev;
+            }
+            return uiMessages;
+          });
+          sendReadUpdate(lastSeqRef.current);
+        }
+        setHasMoreMessages(Boolean(data.data.hasMore));
+        setNextCursor(data.data.cursor ?? null);
       }
     } catch (err) {
       if (isDisposedRef.current) return;
       if (err instanceof Error && err.name === 'AbortError') return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
       onError?.(errorMessage);
+    } finally {
+      if (!isDisposedRef.current && isLoadMore) {
+        setIsLoadingMoreMessages(false);
+      }
     }
-  }, [conversationId, practiceId, toUIMessage, onError, sendReadUpdate, sessionReady]);
+  }, [conversationId, practiceId, toUIMessage, onError, sendReadUpdate, sessionReady, applyServerMessages]);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!nextCursor || isLoadingMoreMessages) {
+      return;
+    }
+    await fetchMessages({ cursor: nextCursor, isLoadMore: true });
+  }, [fetchMessages, isLoadingMoreMessages, nextCursor]);
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {
     if (!sessionReady) {
@@ -1213,7 +1253,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     consultFlowAbortRef.current = controller;
     conversationIdRef.current = targetConversationId;
     setIsConsultFlowActive(true);
-    fetchMessages(controller.signal, targetConversationId);
+    setHasMoreMessages(false);
+    setNextCursor(null);
+    fetchMessages({ signal: controller.signal, targetConversationId });
     fetchConversationMetadata(controller.signal, targetConversationId).catch((error) => {
       console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
     });
@@ -1235,7 +1277,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    fetchMessages(controller.signal);
+    setHasMoreMessages(false);
+    setNextCursor(null);
+    fetchMessages({ signal: controller.signal });
     fetchConversationMetadata(controller.signal).catch((error) => {
       console.warn('[useMessageHandling] Failed to fetch conversation metadata', error);
     });
@@ -1587,6 +1631,9 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     clearMessages,
     updateConversationMetadata,
     isConsultFlowActive,
+    hasMoreMessages,
+    isLoadingMoreMessages,
+    loadMoreMessages,
     intakeStatus: {
       step: currentStep,
       decision: intakeDecision
