@@ -55,6 +55,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(messages.length);
     const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+    const isLoadingRef = useRef(false);
 
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
         const { scrollTop, scrollHeight, clientHeight } = element;
@@ -101,20 +102,29 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             startIndex === 0 &&
             hasMoreMessages &&
             !isLoadingMoreMessages &&
+            !isLoadingRef.current &&
             onLoadMoreMessages
         ) {
+            isLoadingRef.current = true;
             const previousScrollHeight = element.scrollHeight;
             const previousScrollTop = element.scrollTop;
-            void Promise.resolve(onLoadMoreMessages()).then(() => {
-                requestAnimationFrame(() => {
-                    if (!listRef.current) return;
-                    const newScrollHeight = listRef.current.scrollHeight;
-                    const heightDiff = newScrollHeight - previousScrollHeight;
-                    if (heightDiff > 0) {
-                        listRef.current.scrollTop = previousScrollTop + heightDiff;
-                    }
+            void Promise.resolve(onLoadMoreMessages())
+                .then(() => {
+                    requestAnimationFrame(() => {
+                        if (!listRef.current) return;
+                        const newScrollHeight = listRef.current.scrollHeight;
+                        const heightDiff = newScrollHeight - previousScrollHeight;
+                        if (heightDiff > 0) {
+                            listRef.current.scrollTop = previousScrollTop + heightDiff;
+                        }
+                    });
+                })
+                .catch((error) => {
+                    console.error('[VirtualMessageList] Failed to load more messages', error);
+                })
+                .finally(() => {
+                    isLoadingRef.current = false;
                 });
-            });
         }
     }, [
         startIndex,

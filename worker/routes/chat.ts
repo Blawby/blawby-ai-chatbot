@@ -1,12 +1,25 @@
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 import { checkPracticeMembership, optionalAuth } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
 const looksLikeUuid = (value: string): boolean => (
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value)
 );
+
+const resolvePracticeIdForConversation = async (
+  conversationService: ConversationService,
+  conversationId: string
+): Promise<string> => {
+  try {
+    const conversation = await conversationService.getConversationById(conversationId);
+    return conversation.practice_id;
+  } catch {
+    throw HttpErrors.notFound('Conversation not found');
+  }
+};
 
 function createJsonResponse(data: unknown, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify({ success: true, data }), {
@@ -60,7 +73,14 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
 
     const resolvedPracticeId = looksLikeUuid(practiceId)
       ? practiceId
-      : (await conversationService.getConversationById(conversationId)).practice_id;
+      : await resolvePracticeIdForConversation(conversationService, conversationId);
+
+    if (!looksLikeUuid(practiceId)) {
+      const practice = await RemoteApiService.getPractice(env, resolvedPracticeId, request);
+      if (!practice || practice.slug !== practiceId) {
+        throw HttpErrors.notFound('Conversation not found');
+      }
+    }
 
     // Validate user has access to conversation (participants or practice members)
     const membership = await checkPracticeMembership(request, env, resolvedPracticeId);
