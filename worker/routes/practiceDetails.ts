@@ -25,5 +25,41 @@ export async function handlePracticeDetails(request: Request, env: Env): Promise
     throw HttpErrors.badRequest('Invalid slug encoding');
   }
 
-  return RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
+  const response = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
+  const rawText = await response.text();
+
+  let payload: Record<string, unknown> | null = null;
+  try {
+    payload = JSON.parse(rawText) as Record<string, unknown>;
+  } catch {
+    return new Response(rawText, {
+      status: response.status,
+      headers: response.headers
+    });
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return new Response(rawText, {
+      status: response.status,
+      headers: response.headers
+    });
+  }
+
+  if (!('practiceId' in payload) && !('practice_id' in payload)) {
+    const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, decodedSlug, request);
+    const practiceId = intakeSettings?.organization?.id;
+    if (practiceId) {
+      payload.practiceId = practiceId;
+    }
+  }
+
+  const headers = new Headers(response.headers);
+  headers.delete('content-encoding');
+  headers.delete('content-length');
+  headers.set('content-type', 'application/json');
+
+  return new Response(JSON.stringify(payload), {
+    status: response.status,
+    headers
+  });
 }

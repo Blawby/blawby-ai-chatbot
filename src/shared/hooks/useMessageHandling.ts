@@ -68,6 +68,7 @@ export const useMessageHandling = ({
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
+  const isLoadingMoreRef = useRef(false);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const consultFlowAbortRef = useRef<globalThis.AbortController | null>(null);
   const intentAbortRef = useRef<globalThis.AbortController | null>(null);
@@ -1146,6 +1147,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     setHasMoreMessages(false);
     setNextCursor(null);
     setIsLoadingMoreMessages(false);
+    isLoadingMoreRef.current = false;
   }, [resetRealtimeState]);
 
   // Fetch messages from conversation
@@ -1199,7 +1201,15 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[] } };
+      const data = await response.json() as {
+        success: boolean;
+        error?: string;
+        data?: {
+          messages: ConversationMessage[];
+          hasMore?: boolean;
+          cursor?: string | null;
+        };
+      };
       if (!data.success || !data.data) {
         throw new Error(data.error || 'Failed to fetch messages');
       }
@@ -1235,10 +1245,15 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   }, [conversationId, practiceId, toUIMessage, onError, sendReadUpdate, sessionReady, applyServerMessages]);
 
   const loadMoreMessages = useCallback(async () => {
-    if (!nextCursor || isLoadingMoreMessages) {
+    if (!nextCursor || isLoadingMoreMessages || isLoadingMoreRef.current) {
       return;
     }
-    await fetchMessages({ cursor: nextCursor, isLoadMore: true });
+    isLoadingMoreRef.current = true;
+    try {
+      await fetchMessages({ cursor: nextCursor, isLoadMore: true });
+    } finally {
+      isLoadingMoreRef.current = false;
+    }
   }, [fetchMessages, isLoadingMoreMessages, nextCursor]);
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {

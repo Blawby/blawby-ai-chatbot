@@ -9,6 +9,22 @@ import { withPracticeContext, getPracticeId } from '../middleware/practiceContex
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 
+const looksLikeUuid = (value: string): boolean => (
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+);
+
+const resolvePracticeIdForConversation = async (
+  conversationService: ConversationService,
+  conversationId: string,
+  practiceId: string
+): Promise<string> => {
+  if (looksLikeUuid(practiceId)) {
+    return practiceId;
+  }
+  const conversation = await conversationService.getConversationById(conversationId);
+  return conversation.practice_id;
+};
+
 function createJsonResponse(data: unknown): Response {
   return new Response(JSON.stringify({ success: true, data }), {
     status: 200,
@@ -208,8 +224,12 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true,
       allowUrlOverride: true
     });
-    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
+    const practiceId = await resolvePracticeIdForConversation(
+      conversationService,
+      conversationId,
+      getPracticeId(requestWithContext)
+    );
 
     // Validate user has access
     await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
@@ -228,8 +248,12 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true,
       allowUrlOverride: true
     });
-    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
+    const practiceId = await resolvePracticeIdForConversation(
+      conversationService,
+      conversationId,
+      getPracticeId(requestWithContext)
+    );
     const body = await parseJsonBody(request) as { userId?: string | null };
 
     if (authContext.isAnonymous) {
@@ -259,8 +283,12 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true,
       allowUrlOverride: true
     });
-    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
+    const practiceId = await resolvePracticeIdForConversation(
+      conversationService,
+      conversationId,
+      getPracticeId(requestWithContext)
+    );
     const body = await parseJsonBody(request) as {
       status?: 'active' | 'archived' | 'closed';
       metadata?: Record<string, unknown>;
@@ -287,8 +315,12 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true,
       allowUrlOverride: true
     });
-    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
+    const practiceId = await resolvePracticeIdForConversation(
+      conversationService,
+      conversationId,
+      getPracticeId(requestWithContext)
+    );
     const body = await parseJsonBody(request) as {
       eventType?: string;
       payload?: Record<string, unknown>;
@@ -319,8 +351,12 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true,
       allowUrlOverride: true
     });
-    const practiceId = getPracticeId(requestWithContext);
     const conversationId = segments[2];
+    const practiceId = await resolvePracticeIdForConversation(
+      conversationService,
+      conversationId,
+      getPracticeId(requestWithContext)
+    );
     const body = await parseJsonBody(request) as {
       participantUserIds: string[];
     };

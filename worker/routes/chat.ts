@@ -4,6 +4,10 @@ import { ConversationService } from '../services/ConversationService.js';
 import { checkPracticeMembership, optionalAuth } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 
+const looksLikeUuid = (value: string): boolean => (
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+);
+
 function createJsonResponse(data: unknown, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify({ success: true, data }), {
     status: 200,
@@ -54,10 +58,14 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
       throw HttpErrors.badRequest('conversationId query parameter is required');
     }
 
+    const resolvedPracticeId = looksLikeUuid(practiceId)
+      ? practiceId
+      : (await conversationService.getConversationById(conversationId)).practice_id;
+
     // Validate user has access to conversation (participants or practice members)
-    const membership = await checkPracticeMembership(request, env, practiceId);
+    const membership = await checkPracticeMembership(request, env, resolvedPracticeId);
     if (!membership.isMember) {
-      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      await conversationService.validateParticipantAccess(conversationId, resolvedPracticeId, userId);
     }
 
     if (url.searchParams.has('since')) {
@@ -82,7 +90,7 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
       }
     }
 
-    const result = await conversationService.getMessages(conversationId, practiceId, {
+    const result = await conversationService.getMessages(conversationId, resolvedPracticeId, {
       limit,
       cursor,
       fromSeq

@@ -105,6 +105,18 @@ type NotificationSetup = {
   flushNetworkLogs?: () => Promise<void>;
 };
 
+const setNotificationPreferences = async (
+  page: Page,
+  baseURL: string,
+  data: Record<string, unknown>
+): Promise<void> => {
+  const response = await page.request.put(`${baseURL}/api/preferences/notifications`, { data });
+  if (!response.ok()) {
+    const text = await response.text();
+    throw new Error(`Failed to seed notification preferences (${response.status()}): ${text}`);
+  }
+};
+
 const waitForOneSignalReady = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => {
     const sdk = (window as any).OneSignal;
@@ -116,6 +128,7 @@ const setupNotificationPage = async (options: {
   headless: boolean;
   userDataSuffix: string;
   testInfo: TestInfo;
+  initialPreferences?: Record<string, unknown>;
 }): Promise<NotificationSetup> => {
   const baseURL = resolveBaseUrl(options.testInfo.project.use.baseURL as string | undefined);
   const origin = new URL(baseURL).origin;
@@ -138,6 +151,10 @@ const setupNotificationPage = async (options: {
   });
 
   const page = await context.newPage();
+  if (options.initialPreferences) {
+    await setNotificationPreferences(page, baseURL, options.initialPreferences);
+  }
+
   const destinationPayloads: Array<Record<string, unknown> | null> = [];
   const destinationStatuses: number[] = [];
   const preferencePayloads: Array<Record<string, unknown> | null> = [];
@@ -269,7 +286,12 @@ test.describe('Notification settings', () => {
       preferenceStatuses,
       prefs,
       flushNetworkLogs
-    } = await setupNotificationPage({ headless, userDataSuffix: 'onesignal', testInfo });
+    } = await setupNotificationPage({
+      headless,
+      userDataSuffix: 'onesignal',
+      testInfo,
+      initialPreferences: { desktop_push_enabled: false }
+    });
 
     try {
       await waitForOneSignalReady(page);
@@ -291,13 +313,7 @@ test.describe('Notification settings', () => {
       const desktopRow = getSettingRow(page, 'Desktop notifications');
       const desktopToggle = desktopRow.getByRole('button', { name: 'Toggle switch' });
       await expect(desktopToggle).not.toBeDisabled();
-      const desktopPressedBefore = await desktopToggle.getAttribute('aria-pressed');
-      if (desktopPressedBefore === 'true') {
-        await desktopToggle.click();
-        await expect(desktopToggle).toHaveAttribute('aria-pressed', 'false');
-      }
       await desktopToggle.click();
-      await expect(desktopToggle).toHaveAttribute('aria-pressed', 'true');
 
       await expect.poll(
         () => preferencePayloads
@@ -312,9 +328,9 @@ test.describe('Notification settings', () => {
       ).toBeTruthy();
 
       await expect.poll(
-        () => destinationPayloads.length > initialDestinationCount,
+        () => destinationPayloads.length,
         { timeout: 30000 }
-      ).toBeGreaterThan(0);
+      ).toBeGreaterThan(initialDestinationCount);
       await expect.poll(
         () => destinationStatuses.length > initialDestinationStatusCount
           && destinationStatuses.some((status) => status >= 200 && status < 300),

@@ -300,6 +300,94 @@ const getConversationMessages = async (options: {
   throw lastError ?? new Error('Failed to fetch messages after retries');
 };
 
+const createConversationForPage = async (options: {
+  page: Page;
+  practiceId: string;
+}): Promise<string> => {
+  return options.page.evaluate(async ({ practiceId }) => {
+    const sessionResponse = await fetch('/api/auth/get-session', { credentials: 'include' });
+    if (!sessionResponse.ok) {
+      throw new Error(`Failed to load session: ${sessionResponse.status}`);
+    }
+    const sessionData = await sessionResponse.json().catch(() => null) as {
+      user?: { id?: string };
+      session?: { user?: { id?: string } };
+      data?: { user?: { id?: string }; session?: { user?: { id?: string } } };
+    } | null;
+    const userId = sessionData?.user?.id
+      ?? sessionData?.data?.user?.id
+      ?? sessionData?.session?.user?.id
+      ?? sessionData?.data?.session?.user?.id;
+    if (!userId) {
+      throw new Error('Session user id missing');
+    }
+    const response = await fetch(
+      `/api/conversations?practiceId=${encodeURIComponent(practiceId)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          participantUserIds: [userId],
+          metadata: { source: 'e2e' }
+        })
+      }
+    );
+    const payload = await response.json().catch(() => null) as {
+      data?: { id?: string; conversation?: { id?: string } };
+      id?: string;
+      error?: string;
+      message?: string;
+    } | null;
+    const conversationId = payload?.data?.id
+      ?? payload?.data?.conversation?.id
+      ?? payload?.id;
+    if (!response.ok || !conversationId) {
+      const message = payload?.error ?? payload?.message ?? response.statusText;
+      throw new Error(`Failed to create conversation: ${response.status} ${message}`);
+    }
+    return conversationId;
+  }, { practiceId: options.practiceId });
+};
+
+const openConversationPage = async (options: {
+  page: Page;
+  practiceSlug: string;
+  conversationId: string;
+}): Promise<void> => {
+  await options.page.goto(
+    `/p/${encodeURIComponent(options.practiceSlug)}/chats/${encodeURIComponent(options.conversationId)}`,
+    { waitUntil: 'domcontentloaded' }
+  );
+  await waitForSession(options.page, { timeoutMs: 60000 });
+  await expect(options.page.getByTestId('chat-container')).toBeVisible({ timeout: 30000 });
+  await expect(options.page.getByTestId('message-input')).toBeVisible({ timeout: 30000 });
+};
+
+const ensureComposerReady = async (page: Page): Promise<void> => {
+  const input = page.getByTestId('message-input');
+  await expect(input).toBeVisible({ timeout: 30000 });
+  if (await input.isDisabled()) {
+    const askButton = page.getByRole('button', { name: /ask a question/i });
+    await expect(askButton).toBeVisible({ timeout: 30000 });
+    await askButton.click();
+    await expect(input).toBeEnabled({ timeout: 30000 });
+  }
+};
+
+const expectUserMessage = async (page: Page, content: string, timeoutMs = 15000): Promise<void> => {
+  const message = page.getByTestId('user-message').filter({ hasText: content });
+  await expect(message).toBeVisible({ timeout: timeoutMs });
+};
+
+const sendMessageFromComposer = async (page: Page, content: string): Promise<void> => {
+  await ensureComposerReady(page);
+  const input = page.getByTestId('message-input');
+  await input.fill(content);
+  await page.getByTestId('message-send-button').click();
+  await expectUserMessage(page, content);
+};
+
 test.describe('Chat messaging', () => {
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
   test.describe.configure({ mode: 'serial', timeout: 60000 });
@@ -395,5 +483,46 @@ test.describe('Chat messaging', () => {
     });
 
     expect(messages.some((message) => message.content === content)).toBeTruthy();
+  });
+
+  test('chat UI syncs across tabs and preserves history', async ({ clientContext, clientPage }) => {
+    if (!e2eConfig) return;
+    await clientPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
+    await waitForSession(clientPage, { timeoutMs: 60000 });
+    const conversationId = await createConversationForPage({
+      page: clientPage,
+      practiceId: e2eConfig.practice.id
+    });
+
+    const secondaryPage = await clientContext.newPage();
+    try {
+      await openConversationPage({
+        page: clientPage,
+        practiceSlug: e2eConfig.practice.slug,
+        conversationId
+      });
+      await openConversationPage({
+        page: secondaryPage,
+        practiceSlug: e2eConfig.practice.slug,
+        conversationId
+      });
+
+      const timestamp = Date.now();
+      const firstMessage = `E2E realtime ${timestamp} A`;
+      const secondMessage = `E2E realtime ${timestamp} B`;
+
+      await sendMessageFromComposer(clientPage, firstMessage);
+      await expectUserMessage(secondaryPage, firstMessage);
+
+      await sendMessageFromComposer(secondaryPage, secondMessage);
+      await expectUserMessage(clientPage, secondMessage);
+
+      await clientPage.reload({ waitUntil: 'domcontentloaded' });
+      await waitForSession(clientPage, { timeoutMs: 60000 });
+      await expectUserMessage(clientPage, firstMessage);
+      await expectUserMessage(clientPage, secondMessage);
+    } finally {
+      await secondaryPage.close();
+    }
   });
 });
