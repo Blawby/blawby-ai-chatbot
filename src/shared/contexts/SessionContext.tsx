@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef } from 'preact/compat';
 import { ComponentChildren } from 'preact';
-import { useTypedSession } from '@/shared/lib/authClient';
+import { useActiveMemberRole, useTypedSession } from '@/shared/lib/authClient';
 
 export interface SessionContextValue {
   session: ReturnType<typeof useTypedSession>['data'];
@@ -9,6 +9,8 @@ export interface SessionContextValue {
   isAnonymous: boolean;
   activeOrganizationId: string | null;
   activePracticeId: string | null;
+  activeMemberRole: string | null;
+  activeMemberRoleLoading: boolean;
   primaryWorkspace: 'client' | 'practice' | null;
   preferredPracticeId: string | null;
   hasPractice: boolean;
@@ -18,6 +20,7 @@ export const SessionContext = createContext<SessionContextValue | undefined>(und
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData, isPending, error } = useTypedSession();
+  const activeMemberRoleState = useActiveMemberRole();
 
   const isAnonymous = sessionData?.user?.isAnonymous ?? !sessionData?.user;
   const sessionKey =
@@ -62,11 +65,22 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const practiceCount = sessionData?.user?.practiceCount ?? null;
   const hasPracticeFlag = sessionData?.user?.hasPractice ?? null;
   const hasActivePractice = Boolean(activeOrganizationId);
+  const activeMemberRole = activeMemberRoleState?.data?.role ?? null;
+  const activeMemberRoleLoading = activeMemberRoleState?.isPending ?? false;
   const hasPractice = Boolean(
     (typeof hasPracticeFlag === 'boolean' ? hasPracticeFlag : null) ??
     (typeof practiceCount === 'number' ? practiceCount > 0 : null) ??
     (hasActivePractice ? true : null)
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!sessionKey || isAnonymous || !activeOrganizationId) return;
+
+    const refetch = activeMemberRoleState?.refetch;
+    if (typeof refetch !== 'function') return;
+    void refetch({ query: { organizationId: activeOrganizationId } });
+  }, [activeOrganizationId, activeMemberRoleState?.refetch, isAnonymous, sessionKey]);
 
   const value = useMemo<SessionContextValue>(() => ({
     session: sessionData ?? null,
@@ -75,6 +89,8 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     isAnonymous,
     activeOrganizationId,
     activePracticeId,
+    activeMemberRole,
+    activeMemberRoleLoading,
     primaryWorkspace,
     preferredPracticeId,
     hasPractice
@@ -85,6 +101,8 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     isAnonymous,
     activeOrganizationId,
     activePracticeId,
+    activeMemberRole,
+    activeMemberRoleLoading,
     primaryWorkspace,
     preferredPracticeId,
     hasPractice

@@ -19,7 +19,7 @@ import { CheckCircleIcon, LockClosedIcon, ShieldCheckIcon, UserCircleIcon } from
 
 export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   const { session, activeOrganizationId } = useSessionContext();
-  const { currentPractice } = usePracticeManagement();
+  const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showError } = useToastContext();
   const organizationId = useMemo(() => activeOrganizationId, [activeOrganizationId]);
   const lastOrganizationIdRef = useRef<string | null>(null);

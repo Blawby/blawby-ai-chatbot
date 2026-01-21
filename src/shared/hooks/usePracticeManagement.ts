@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { atom } from 'nanostores';
+import { useStore } from '@nanostores/preact';
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { getBackendApiUrl } from '@/config/urls';
@@ -34,11 +36,31 @@ type SharedPracticeSnapshot = {
 let sharedPracticeSnapshot: SharedPracticeSnapshot | null = null;
 let sharedPracticePromise: Promise<SharedPracticeSnapshot> | null = null;
 let sharedPracticeUserId: string | null = null;
+let sharedPracticeIncludesDetails = false;
 
 const resetSharedPracticeCache = () => {
   sharedPracticeSnapshot = null;
   sharedPracticePromise = null;
   sharedPracticeUserId = null;
+  sharedPracticeIncludesDetails = false;
+};
+
+const membersStore = atom<Record<string, Member[]>>({});
+const membersLoaded = new Set<string>();
+const membersInFlight = new Map<string, Promise<Member[]>>();
+let membersCacheUserId: string | null = null;
+
+const resetMembersCache = () => {
+  membersStore.set({});
+  membersLoaded.clear();
+  membersInFlight.clear();
+  membersCacheUserId = null;
+};
+
+const setMembersForPractice = (practiceId: string, nextMembers: Member[]) => {
+  if (!practiceId) return;
+  const snapshot = membersStore.get();
+  membersStore.set({ ...snapshot, [practiceId]: nextMembers });
 };
 
 // Types
@@ -157,6 +179,11 @@ interface UsePracticeManagementOptions {
    * screen or test.
    */
   fetchInvitations?: boolean;
+  /**
+   * When true, fetches practice details for the active practice and merges
+   * them into the practice list snapshot.
+   */
+  fetchPracticeDetails?: boolean;
 }
 
 interface UsePracticeManagementReturn {
@@ -174,7 +201,7 @@ interface UsePracticeManagementReturn {
   
   // Team management
   getMembers: (practiceId: string) => Member[];
-  fetchMembers: (practiceId: string) => Promise<void>;
+  fetchMembers: (practiceId: string, options?: { force?: boolean }) => Promise<void>;
   updateMemberRole: (practiceId: string, userId: string, role: Role) => Promise<void>;
   removeMember: (practiceId: string, userId: string) => Promise<void>;
   
@@ -568,11 +595,12 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const {
     autoFetchPractices = true,
     fetchInvitations: shouldFetchInvitations = true,
+    fetchPracticeDetails = false,
   } = options;
   const { session, isPending: sessionLoading, isAnonymous, activeOrganizationId } = useSessionContext();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
-  const [members, setMembers] = useState<Record<string, Member[]>>({});
+  const members = useStore(membersStore);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
   // Initialize loading to true when autoFetchPractices is enabled
@@ -583,6 +611,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Track if we've already fetched practices to prevent duplicate calls
   const practicesFetchedRef = useRef(false);
   const currentRequestRef = useRef<AbortController | null>(null);
+  const resolvedUserId = !session?.user || isAnonymous ? null : session.user.id;
+
+  useEffect(() => {
+    if (membersCacheUserId !== resolvedUserId) {
+      resetMembersCache();
+      membersCacheUserId = resolvedUserId;
+    }
+  }, [resolvedUserId]);
 
   // Helper for workspace/local endpoints still served by the Worker
   const workspaceCall = useCallback(async (url: string, options: RequestInit = {}, timeoutMs: number = 15000) => {
@@ -642,7 +678,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
-      if (practicesFetchedRef.current && session?.user) {
+      if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails)) {
         return;
       }
 
@@ -661,11 +697,62 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         resetSharedPracticeCache();
       }
 
-      if (sharedPracticeSnapshot) {
-        setPractices(sharedPracticeSnapshot.practices);
-        setCurrentPractice(sharedPracticeSnapshot.currentPractice);
+      const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
+        setPractices(snapshot.practices);
+        setCurrentPractice(snapshot.currentPractice);
         setLoading(false);
         practicesFetchedRef.current = true;
+      };
+
+      const hydrateSnapshotDetails = async (snapshot: SharedPracticeSnapshot) => {
+        if (!fetchPracticeDetails) return snapshot;
+        if (!snapshot.currentPractice) return snapshot;
+
+        if (currentRequestRef.current) {
+          currentRequestRef.current.abort();
+        }
+
+        const controller = new AbortController();
+        currentRequestRef.current = controller;
+
+        let details: PracticeDetails | null = null;
+        try {
+          details = await getPracticeDetails(snapshot.currentPractice.id, { signal: controller.signal });
+          setPracticeDetailsEntry(snapshot.currentPractice.id, details);
+        } catch (detailsError) {
+          console.warn('Failed to fetch practice details:', detailsError);
+        }
+
+        if (!details) {
+          return snapshot;
+        }
+
+        const updatedCurrentPractice = mergePracticeDetails(snapshot.currentPractice, details);
+        const updatedPractices = snapshot.practices.map((practice) =>
+          practice.id === snapshot.currentPractice?.id
+            ? mergePracticeDetails(practice, details)
+            : practice
+        );
+
+        const updatedSnapshot = {
+          practices: updatedPractices,
+          currentPractice: updatedCurrentPractice
+        };
+        sharedPracticeSnapshot = updatedSnapshot;
+        sharedPracticeIncludesDetails = true;
+        return updatedSnapshot;
+      };
+
+      if (sharedPracticeSnapshot) {
+        if (!fetchPracticeDetails || sharedPracticeIncludesDetails || !sharedPracticeSnapshot.currentPractice) {
+          applySnapshot(sharedPracticeSnapshot);
+          return;
+        }
+
+        setLoading(true);
+        setError(null);
+        const hydrated = await hydrateSnapshotDetails(sharedPracticeSnapshot);
+        applySnapshot(hydrated);
         return;
       }
 
@@ -673,10 +760,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         const cachedPromise = sharedPracticePromise;
         try {
           const cached = await sharedPracticePromise;
-          setPractices(cached.practices);
-          setCurrentPractice(cached.currentPractice);
-          setLoading(false);
-          practicesFetchedRef.current = true;
+          if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cached.currentPractice) {
+            setLoading(true);
+            setError(null);
+            const hydrated = await hydrateSnapshotDetails(cached);
+            applySnapshot(hydrated);
+            return;
+          }
+          applySnapshot(cached);
           return;
         } catch (_err) {
           console.warn('Cached practice promise failed, retrying with fresh fetch.');
@@ -714,11 +805,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         let details: PracticeDetails | null = null;
         let stripeDetailsSubmitted: boolean | null = null;
         if (currentPracticeNext) {
-          try {
-            details = await getPracticeDetails(currentPracticeNext.id, { signal: controller.signal });
-            setPracticeDetailsEntry(currentPracticeNext.id, details);
-          } catch (detailsError) {
-            console.warn('Failed to fetch practice details:', detailsError);
+          if (fetchPracticeDetails) {
+            try {
+              details = await getPracticeDetails(currentPracticeNext.id, { signal: controller.signal });
+              setPracticeDetailsEntry(currentPracticeNext.id, details);
+            } catch (detailsError) {
+              console.warn('Failed to fetch practice details:', detailsError);
+            }
           }
           try {
             const payload = await getOnboardingStatusPayload(
@@ -763,6 +856,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           ? applyStripeOverride(mergePracticeDetails(currentPracticeNext, details))
           : null;
 
+        sharedPracticeIncludesDetails = Boolean(details);
+
         return { practices: mergedPractices, currentPractice: mergedCurrentPractice };
       })();
       currentFetchPromise = sharedPracticePromise;
@@ -789,7 +884,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [activeOrganizationId, isAnonymous, session]);
+  }, [activeOrganizationId, fetchPracticeDetails, isAnonymous, session]);
 
   // Fetch practice invitations
   const fetchInvitations = useCallback(async () => {
@@ -1018,6 +1113,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           practices: nextPractices,
           currentPractice: nextCurrentPractice
         };
+        if (sharedPracticeSnapshot.currentPractice?.id === id) {
+          sharedPracticeIncludesDetails = true;
+        }
       }
       setCurrentPractice((prev) => {
         if (!prev || prev.id !== id) return prev;
@@ -1046,13 +1144,29 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   }, [fetchPractices, fetchInvitations, shouldFetchInvitations]);
 
   // Fetch members
-  const fetchMembers = useCallback(async (practiceId: string): Promise<void> => {
-    try {
+  const fetchMembers = useCallback(async (
+    practiceId: string,
+    options: { force?: boolean } = {}
+  ): Promise<void> => {
+    if (!practiceId) return;
+
+    const force = options.force ?? false;
+    if (!force && membersLoaded.has(practiceId)) {
+      return;
+    }
+
+    const inFlight = membersInFlight.get(practiceId);
+    if (inFlight) {
+      await inFlight;
+      return;
+    }
+
+    const promise = (async () => {
       const data = await listPracticeMembers(practiceId);
       // Validate and normalize members manually
       const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal'];
-      
-      const normalizedMembers: Member[] = (Array.isArray(data) ? data : [])
+
+      return (Array.isArray(data) ? data : [])
         .map(m => {
           if (!m || typeof m !== 'object') {
             return null;
@@ -1100,23 +1214,33 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           } as Member;
         })
         .filter((m): m is Member => m !== null);
-      setMembers(prev => ({ ...prev, [practiceId]: normalizedMembers }));
+    })();
+
+    membersInFlight.set(practiceId, promise);
+    try {
+      const normalizedMembers = await promise;
+      membersLoaded.add(practiceId);
+      setMembersForPractice(practiceId, normalizedMembers);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');
-      setMembers(prev => ({ ...prev, [practiceId]: [] }));
+      membersLoaded.delete(practiceId);
+      setMembersForPractice(practiceId, []);
+      throw err;
+    } finally {
+      membersInFlight.delete(practiceId);
     }
   }, []);
 
   // Update member role
   const updateMemberRole = useCallback(async (practiceId: string, userId: string, role: Role): Promise<void> => {
     await apiUpdatePracticeMemberRole(practiceId, { userId, role });
-    await fetchMembers(practiceId);
+    await fetchMembers(practiceId, { force: true });
   }, [fetchMembers]);
 
   // Remove member
   const removeMember = useCallback(async (practiceId: string, userId: string): Promise<void> => {
     await apiDeletePracticeMember(practiceId, userId);
-    await fetchMembers(practiceId);
+    await fetchMembers(practiceId, { force: true });
   }, [fetchMembers]);
 
   // Send invitation

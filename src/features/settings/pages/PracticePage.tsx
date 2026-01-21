@@ -120,7 +120,7 @@ interface PracticePageProps {
 }
 
 export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
-  const { session, isPending: sessionPending, hasPractice: sessionHasPractice } = useSessionContext();
+  const { session, isPending: sessionPending, hasPractice: sessionHasPractice, activeMemberRole } = useSessionContext();
   const { 
     currentPractice,
     getMembers,
@@ -131,7 +131,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     deletePractice,
     fetchMembers,
     refetch,
-  } = usePracticeManagement();
+  } = usePracticeManagement({ fetchPracticeDetails: true });
   const activePracticeId = currentPractice?.id ?? null;
   const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId);
   
@@ -180,7 +180,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
            members.find(m => m.userId === session?.user?.id);
   }, [practice, currentUserEmail, members, session?.user?.id]);
 
-  const currentUserRole = currentMember?.role || 'paralegal';
+  const roleFromMembers = currentMember?.role ?? null;
+  const currentUserRole = activeMemberRole ?? roleFromMembers ?? 'paralegal';
   const isOwner = currentUserRole === 'owner';
   const servicesList = useMemo(() => {
     const source = practiceDetails?.services ?? practice?.services;
@@ -290,9 +291,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     : '';
 
   // Subscription guard for deletion
-  const hasManagedSub = Boolean(practice?.stripeCustomerId);
-  const subStatus = (practice?.subscriptionStatus || 'none').toLowerCase();
-  const deletionBlockedBySubscription = hasManagedSub && !(subStatus === 'canceled' || subStatus === 'none');
+  const subStatus = (practice?.subscriptionStatus ?? 'none').toLowerCase();
+  const deletionBlockedBySubscription = !(subStatus === 'canceled' || subStatus === 'none');
   const deletionBlockedMessage = (() => {
     if (!deletionBlockedBySubscription) return '';
     const ts = practice?.subscriptionPeriodEnd;

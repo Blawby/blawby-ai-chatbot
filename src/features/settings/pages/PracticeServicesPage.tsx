@@ -56,7 +56,7 @@ interface PracticeServicesPageProps {
 }
 
 export const PracticeServicesPage = ({ onNavigate }: PracticeServicesPageProps) => {
-  const { currentPractice } = usePracticeManagement();
+  const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details, updateDetails } = usePracticeDetails(currentPractice?.id);
   const { showError, showSuccess } = useToastContext();
   const { navigate: baseNavigate } = useNavigation();

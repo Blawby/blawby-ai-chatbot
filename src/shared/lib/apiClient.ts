@@ -689,14 +689,12 @@ export async function getPublicPracticeDetails(
         }
       );
       const details = normalizePracticeDetailsResponse(response.data);
-      const meta = extractPracticeDetailsMeta(response.data);
       const displayDetails = extractPublicPracticeDisplayDetails(response.data);
-      if (!details && !meta.practiceId && !meta.slug) {
+      if (!details) {
         return null;
       }
       return {
-        practiceId: meta.practiceId,
-        slug: meta.slug ?? normalizedSlug,
+        slug: normalizedSlug,
         details,
         name: displayDetails.name,
         logo: displayDetails.logo
@@ -748,99 +746,17 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
   return normalized;
 }
 
-function extractPracticeDetailsMeta(payload: unknown): { practiceId?: string; slug?: string } {
-  const normalized = unwrapApiData(payload);
-  if (!isRecord(normalized)) {
-    return {};
-  }
-
-  const candidates: Array<Record<string, unknown>> = [];
-  const pushCandidate = (value: unknown) => {
-    if (isRecord(value)) {
-      candidates.push(value);
-    }
-  };
-
-  pushCandidate(normalized);
-  if ('data' in normalized) {
-    pushCandidate(normalized.data);
-  }
-  if ('details' in normalized) {
-    pushCandidate(normalized.details);
-  }
-  if ('data' in normalized && isRecord(normalized.data) && 'details' in normalized.data) {
-    pushCandidate(normalized.data.details);
-  }
-
-  const getStringValue = (record: Record<string, unknown>, keys: string[]): string | undefined => {
-    for (const key of keys) {
-      if (key in record) {
-        const value = toNullableString(record[key]);
-        if (value) {
-          return value;
-        }
-      }
-    }
-    return undefined;
-  };
-
-  let practiceId: string | undefined;
-  let slug: string | undefined;
-
-  for (const record of candidates) {
-    if (!practiceId) {
-      practiceId = getStringValue(record, [
-        'practiceId',
-        'practice_id',
-        'practiceUuid',
-        'practice_uuid',
-        'uuid',
-        'id'
-      ]);
-    }
-    if (!slug) {
-      slug = getStringValue(record, ['slug']);
-    }
-    if (practiceId && slug) {
-      break;
-    }
-  }
-
-  return { practiceId, slug };
-}
-
 function extractPublicPracticeDisplayDetails(
   payload: unknown
 ): { name?: string | null; logo?: string | null } {
-  if (!isRecord(payload)) {
+  if (!isRecord(payload) || !('details' in payload) || !isRecord(payload.details)) {
     return {};
   }
 
-  const candidates: Array<Record<string, unknown>> = [];
-  if ('practice' in payload && isRecord(payload.practice)) {
-    candidates.push(payload.practice);
-  }
-  if ('data' in payload && isRecord(payload.data)) {
-    candidates.push(payload.data);
-  }
-  candidates.push(payload);
-
-  let name: string | null | undefined;
-  let logo: string | null | undefined;
-
-  for (const record of candidates) {
-    if (name === undefined && 'name' in record) {
-      name = toNullableString(record.name);
-    }
-    if (logo === undefined && 'logo' in record) {
-      logo = toNullableString(record.logo);
-    }
-    if (name !== undefined && logo !== undefined) {
-      break;
-    }
-  }
-
-  return { name, logo };
+  return {
+    name: toNullableString(payload.details.name),
+    logo: toNullableString(payload.details.logo)
+  };
 }
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {
@@ -924,19 +840,10 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
 }
 
 function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | null {
-  const normalized = unwrapApiData(payload);
-  if (!isRecord(normalized)) {
+  if (!isRecord(payload) || !('details' in payload) || !isRecord(payload.details)) {
     return null;
   }
-  const container = (() => {
-    if ('details' in normalized && isRecord(normalized.details)) {
-      return normalized.details;
-    }
-    if ('data' in normalized && isRecord(normalized.data) && 'details' in normalized.data && isRecord(normalized.data.details)) {
-      return normalized.data.details;
-    }
-    return normalized;
-  })();
+  const container = payload.details;
 
   const address = isRecord(container.address) ? container.address : {};
   const getOptionalNullableString = (

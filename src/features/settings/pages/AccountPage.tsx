@@ -45,8 +45,8 @@ export const AccountPage = ({
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
-  const { currentPractice, loading: practiceLoading, refetch, getMembers, fetchMembers } = usePracticeManagement();
-  const { session, isPending } = useSessionContext();
+  const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
+  const { session, isPending, activeMemberRole } = useSessionContext();
   const [links, setLinks] = useState<UserLinks | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +59,6 @@ export const AccountPage = ({
   const [passwordRequiredOverride, setPasswordRequiredOverride] = useState<boolean | null>(null);
   
 
-  const canManageBilling = Boolean(currentPractice?.stripeCustomerId);
   const hasSubscription = hasManagedSubscription(
     currentPractice?.kind,
     currentPractice?.subscriptionStatus,
@@ -86,19 +85,6 @@ export const AccountPage = ({
   const verificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ref to track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
-  // Ref to track which practice IDs we've already fetched members for
-  const fetchedOrgIdsRef = useRef<Set<string>>(new Set());
-  // Ref to track if we're currently fetching members
-  const isFetchingMembersRef = useRef(false);
-  // Refresh token to trigger re-fetch of members (increment to refresh)
-  const [membersRefreshToken, setMembersRefreshToken] = useState(0);
-
-  // Function to clear cached practiceId so it can be re-fetched
-  const _clearFetchedPracticeId = useCallback((practiceId: string) => {
-    fetchedOrgIdsRef.current.delete(practiceId);
-    setMembersRefreshToken(prev => prev + 1);
-  }, []);
-
   // Load account data from Better Auth session
   const loadAccountData = useCallback(async () => {
     if (!session?.user) return;
@@ -161,22 +147,8 @@ export const AccountPage = ({
   const requiresPassword = passwordRequiredOverride ?? loginMethodRequiresPassword;
   const isOAuthUser = !requiresPassword;
 
-  // (moved) deletionBlockedBySubscription computed after isOwner is available
-
-  // Check if current user is practice owner
-  const currentUserEmail = session?.user?.email || '';
-  const members = useMemo(() => {
-    if (!currentPractice) return [];
-    return getMembers(currentPractice.id);
-  }, [currentPractice, getMembers]);
-  
-  const currentMember = useMemo(() => {
-    if (!currentPractice || !currentUserEmail) return null;
-    return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) || 
-           members.find(m => m.userId === session?.user?.id);
-  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
-  
-  const isOwner = currentMember?.role === 'owner';
+  const isOwner = activeMemberRole === 'owner';
+  const canManageBilling = isOwner;
 
   // Subscription deletion guard for personal account deletion (compute after isOwner)
   const subStatus = (currentPractice?.subscriptionStatus ?? 'none').toLowerCase();
@@ -186,33 +158,6 @@ export const AccountPage = ({
   const origin = (typeof window !== 'undefined' && window.location)
     ? window.location.origin
     : '';
-
-  // Fetch members when practice is available (needed for owner check)
-  useEffect(() => {
-    const practiceId = currentPractice?.id;
-    if (!practiceId) return;
-    
-    // Skip if already fetching or already fetched this practice
-    if (isFetchingMembersRef.current || fetchedOrgIdsRef.current.has(practiceId)) {
-      return;
-    }
-    
-    // Mark as fetching and fetch members
-    isFetchingMembersRef.current = true;
-    fetchMembers(practiceId)
-      .then(() => {
-        // Only mark as fetched on successful fetch
-        fetchedOrgIdsRef.current.add(practiceId);
-      })
-      .catch((error) => {
-        console.error('Failed to fetch members for owner check:', error);
-        // Don't mark as fetched on error - allows retry
-      })
-      .finally(() => {
-        // Always clear fetching flag regardless of success/failure
-        isFetchingMembersRef.current = false;
-      });
-  }, [currentPractice?.id, fetchMembers, membersRefreshToken]);
 
   // Refetch after return from Stripe portal or checkout
   useEffect(() => {
