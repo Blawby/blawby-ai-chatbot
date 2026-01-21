@@ -11,6 +11,7 @@ const EMPTY_STORAGE_STATE = {
   cookies: [],
   origins: []
 };
+const SESSION_COOKIE_PATTERN = /better-auth\.session_token/i;
 
 const ensureAuthDir = (): string => {
   mkdirSync(AUTH_DIR, { recursive: true });
@@ -33,6 +34,7 @@ type StorageState = {
     value: string;
     domain?: string;
     path?: string;
+    expires?: number;
   }>;
 };
 
@@ -47,7 +49,7 @@ const cookieMatchesHost = (cookieDomain: string | undefined, host: string): bool
   return normalized === target;
 };
 
-const hasValidSessionFromStorage = async (baseURL: string, storagePath: string): Promise<boolean> => {
+const hasValidSessionFromStorage = (baseURL: string, storagePath: string): boolean => {
   if (!existsSync(storagePath)) {
     return false;
   }
@@ -62,61 +64,12 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
   }
 
   const host = new URL(baseURL).hostname;
-  const cookieHeader = state.cookies
-    .filter((cookie) => cookieMatchesHost(cookie.domain, host))
-    .map((cookie) => `${cookie.name}=${cookie.value}`)
-    .join('; ');
-
-  if (!cookieHeader) {
-    return false;
-  }
-
-  const maxAttempts = 3;
-  let retryDelayMs = 500;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    try {
-      const response = await fetch(`${baseURL}/api/auth/get-session`, {
-        headers: { Cookie: cookieHeader }
-      });
-
-      if (response.status === 429 && attempt < maxAttempts - 1) {
-        const retryAfter = response.headers.get('Retry-After');
-        const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
-        const waitMs = Number.isFinite(retryAfterMs) ? retryAfterMs : retryDelayMs;
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-        retryDelayMs = Math.min(retryDelayMs * 2, 5000);
-        continue;
-      }
-
-      if (!response.ok) {
-        return false;
-      }
-
-      const data = await response.json().catch(() => null);
-      if (!data || typeof data !== 'object') {
-        return false;
-      }
-      const record = data as Record<string, unknown>;
-      if (record.session || record.user) {
-        return true;
-      }
-      const nested = record.data;
-      if (!nested || typeof nested !== 'object') {
-        return false;
-      }
-      const nestedRecord = nested as Record<string, unknown>;
-      return Boolean(nestedRecord.session || nestedRecord.user);
-    } catch {
-      if (attempt >= maxAttempts - 1) {
-        return false;
-      }
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-      retryDelayMs = Math.min(retryDelayMs * 2, 5000);
-    }
-  }
-
-  return false;
+  const nowSeconds = Date.now() / 1000;
+  return state.cookies.some((cookie) => (
+    cookieMatchesHost(cookie.domain, host) &&
+    SESSION_COOKIE_PATTERN.test(cookie.name) &&
+    (cookie.expires === undefined || cookie.expires <= 0 || cookie.expires > nowSeconds + 1)
+  ));
 };
 
 const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(

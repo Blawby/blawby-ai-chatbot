@@ -24,7 +24,7 @@ export const waitForSession = async (
   } = {}
 ): Promise<void> => {
   const timeoutMs = options.timeoutMs ?? 30000;
-  const intervalMs = options.intervalMs ?? 400;
+  const intervalMs = options.intervalMs ?? 800;
   const maxIntervalMs = options.maxIntervalMs ?? 5000;
   const skipIfCookiePresent = options.skipIfCookiePresent ?? true;
   const cookieUrl = options.cookieUrl ?? (page.url() && page.url() !== 'about:blank' ? page.url() : undefined);
@@ -42,6 +42,16 @@ export const waitForSession = async (
   }
 
   while (Date.now() - start < timeoutMs) {
+    try {
+      if (!(await hasSessionCookie(page, cookieUrl))) {
+        nextIntervalMs = Math.min(Math.max(Math.round(nextIntervalMs * 1.5), intervalMs), maxIntervalMs);
+        await page.waitForTimeout(nextIntervalMs);
+        continue;
+      }
+    } catch {
+      // Ignore cookie lookup failures and proceed with network validation.
+    }
+
     let hasSession = false;
     let status = 0;
     let retryAfterMs: number | null = null;
@@ -85,6 +95,8 @@ export const waitForSession = async (
       } else {
         nextIntervalMs = Math.min(Math.max(nextIntervalMs * 2, intervalMs), maxIntervalMs);
       }
+    } else if (status === 0 || status >= 500) {
+      nextIntervalMs = Math.min(Math.max(Math.round(nextIntervalMs * 1.5), intervalMs), maxIntervalMs);
     } else {
       nextIntervalMs = intervalMs;
     }

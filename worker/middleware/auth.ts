@@ -421,7 +421,7 @@ async function fetchMemberRoleFromRemote(
 
         const payload = await response.json().catch(() => ({}));
         const members = extractMembersPayload(payload);
-        const normalizedEmail = userEmail.toLowerCase();
+        const normalizedEmail = userEmail ? userEmail.toLowerCase() : undefined;
 
         const match = members.find((member) => {
           const { userId: memberUserId, email } = extractMemberIdentifiers(member);

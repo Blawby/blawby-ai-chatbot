@@ -246,7 +246,6 @@ const waitForLeadCard = async (options: {
     const remainingMs = timeoutMs - firstPassMs;
     await expect(locator).toBeVisible({ timeout: remainingMs });
   }
-  }
 };
 
 const getIntakeSettings = async (
@@ -926,8 +925,7 @@ test.describe('Lead intake workflow', () => {
       test.skip(true, `Skipping paid intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
-    const paidPractice = e2eConfig.paidPractice ?? e2eConfig.practice;
-    const intakeSettingsResult = await getIntakeSettings(paidPractice.slug, clientContext.request);
+    const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, clientContext.request);
     if (!intakeSettingsResult.settings) {
       const message = formatIntakeSettingsSkip(intakeSettingsResult);
       if (PAYMENT_MODE === 'paid') {
@@ -940,7 +938,7 @@ test.describe('Lead intake workflow', () => {
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
     if (!paymentRequired) {
       if (PAYMENT_MODE === 'paid') {
-        throw new Error('Paid intake test requires a practice with payment enabled. Configure E2E_PAID_PRACTICE_ID/E2E_PAID_PRACTICE_SLUG.');
+        throw new Error('Paid intake test requires a practice with payment enabled.');
       }
       test.skip(true, 'Skipping paid intake test: practice does not require payment.');
     }
@@ -953,7 +951,7 @@ test.describe('Lead intake workflow', () => {
 
     await clientPage.goto('/');
 
-    const practiceId = await resolvePracticeId(ownerContext.request, paidPractice.slug, paidPractice.id);
+    const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
     const conversationId = await getOrCreateConversation({
       request: clientContext.request,
       context: clientContext,
@@ -962,7 +960,7 @@ test.describe('Lead intake workflow', () => {
       storagePath: AUTH_STATE_PATHS.client
     });
     const intake = await createIntake({
-      slug: paidPractice.slug,
+      slug: e2eConfig.practice.slug,
       name: 'E2E Paid Intake',
       email: e2eConfig.client.email,
       description: 'E2E payment gated',
@@ -983,7 +981,7 @@ test.describe('Lead intake workflow', () => {
       context: clientContext,
       baseURL,
       practiceId,
-      practiceSlug: paidPractice.slug,
+      practiceSlug: e2eConfig.practice.slug,
       intakeUuid: intake.uuid,
       conversationId,
       storagePath: AUTH_STATE_PATHS.client
