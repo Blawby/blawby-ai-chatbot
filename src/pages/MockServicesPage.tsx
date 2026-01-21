@@ -200,6 +200,8 @@ function MockSessionProvider({ children }: { children: preact.ComponentChildren 
     error: null,
     activeOrganizationId: MOCK_PRACTICE_ID,
     activePracticeId: mockSession.data.user.activePracticeId,
+    activeMemberRole: 'owner',
+    activeMemberRoleLoading: false,
     isAnonymous: false,
     primaryWorkspace: 'practice' as const,
     preferredPracticeId: MOCK_PRACTICE_ID,

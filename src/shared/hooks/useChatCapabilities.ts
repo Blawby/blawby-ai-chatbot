@@ -1,6 +1,5 @@
 import { useMemo } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import type { WorkspaceType } from '@/shared/types/workspace';
 
 export interface ChatCapabilities {
@@ -17,36 +16,10 @@ export function useChatCapabilities({
 }: {
   workspace: WorkspaceType;
 }): ChatCapabilities {
-  const { session, isAnonymous } = useSessionContext();
-  const shouldLoadPracticeData = workspace === 'practice' && Boolean(session?.user) && !isAnonymous;
-  const { currentPractice, getMembers } = usePracticeManagement({
-    autoFetchPractices: shouldLoadPracticeData,
-    fetchInvitations: shouldLoadPracticeData
-  });
-
-  const currentUserEmail = session?.user?.email || null;
-
-  const members = useMemo(
-    () => (currentPractice ? getMembers(currentPractice.id) : []),
-    [currentPractice, getMembers]
-  );
-
-  const currentMember = useMemo(() => {
-    if (!currentPractice || !members.length) return null;
-    if (currentUserEmail) {
-      const emailMatch = members.find((member) =>
-        member.email && member.email.toLowerCase() === currentUserEmail.toLowerCase()
-      );
-      if (emailMatch) return emailMatch;
-    }
-    const userId = session?.user?.id;
-    if (!userId) return null;
-    return members.find((member) => member.userId === userId) || null;
-  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
-
-  const role = currentMember?.role ?? null;
+  const { session, isAnonymous, activeMemberRole } = useSessionContext();
+  const role = activeMemberRole ?? null;
   const isPracticeWorkspace = workspace === 'practice';
-  const isPracticeMember = isPracticeWorkspace && Boolean(role);
+  const isPracticeMember = isPracticeWorkspace && Boolean(role) && Boolean(session?.user) && !isAnonymous;
   const isManager = role === 'owner' || role === 'admin';
 
   return useMemo(() => ({

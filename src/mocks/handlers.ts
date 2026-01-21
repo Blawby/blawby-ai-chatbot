@@ -508,6 +508,12 @@ export const handlers = [
     });
   }),
 
+  http.post('*/api/subscriptions/cancel', async () => {
+    return HttpResponse.json({
+      success: true
+    });
+  }),
+
   http.post('*/api/subscription/cancel', async () => {
     return HttpResponse.json({
       success: true

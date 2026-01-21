@@ -219,7 +219,7 @@ export function MainApp({
   }, [location.path, navigate, notificationsBasePath]);
 
   // Use session from Better Auth
-  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
+  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
   const effectivePracticeId = practiceId || undefined;
@@ -240,9 +240,7 @@ export function MainApp({
     currentPractice,
     acceptMatter,
     rejectMatter,
-    updateMatterStatus,
-    getMembers,
-    fetchMembers
+    updateMatterStatus
   } = usePracticeManagement({
     autoFetchPractices: workspace !== 'public',
     fetchInvitations: workspace !== 'public'
@@ -536,18 +534,7 @@ export function MainApp({
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(conversationId));
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
 
-  const currentUserEmail = session?.user?.email || null;
-  const members = useMemo(
-    () => (currentPractice ? getMembers(currentPractice.id) : []),
-    [currentPractice, getMembers]
-  );
-  const currentMember = useMemo(() => {
-    if (!currentPractice || !currentUserEmail) return null;
-    return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) ||
-      members.find(m => m.userId === session?.user?.id) ||
-      null;
-  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
-  const currentUserRole = currentMember?.role ?? 'paralegal';
+  const currentUserRole = activeMemberRole ?? 'paralegal';
   const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
 
 
@@ -591,14 +578,6 @@ export function MainApp({
     shouldRequireModeSelection,
     updateMessage
   ]);
-
-  useEffect(() => {
-    if (!currentPractice?.id) return;
-    void fetchMembers(currentPractice.id).catch((error) => {
-      console.warn('[Members] Failed to fetch practice members:', error);
-      showErrorRef.current?.('Team members unavailable', 'Unable to load team members.');
-    });
-  }, [currentPractice?.id, fetchMembers]);
 
   // Create stable callback references for keyboard handlers
   const handleEscape = useCallback(() => {

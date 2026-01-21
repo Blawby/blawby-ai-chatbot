@@ -191,6 +191,7 @@ export interface SubscriptionUpgradeRequest {
 export interface BillingPortalRequest {
   practiceId: string;
   returnUrl?: string;
+  customerType?: 'user' | 'organization';
 }
 
 export const usePaymentUpgrade = () => {
@@ -226,12 +227,13 @@ export const usePaymentUpgrade = () => {
   );
 
   const openBillingPortal = useCallback(
-    async ({ practiceId, returnUrl }: BillingPortalRequest) => {
+    async ({ practiceId, returnUrl, customerType }: BillingPortalRequest) => {
       try {
         const rawReturnUrl = resolveReturnUrl(returnUrl, practiceId);
         const safeReturnUrl = ensureValidReturnUrl(rawReturnUrl, practiceId);
         const result = await requestBillingPortalSession({
           practiceId,
+          customerType: customerType ?? 'organization',
           returnUrl: safeReturnUrl
         });
 

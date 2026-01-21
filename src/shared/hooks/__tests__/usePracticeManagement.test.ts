@@ -80,6 +80,18 @@ vi.mock('@/shared/lib/authClient', () => ({
     data: { user: { id: 'user-1', email: 'test@example.com' } },
     isPending: false,
   }),
+  useTypedSession: () => ({
+    data: { user: { id: 'user-1', email: 'test@example.com' }, session: { id: 'session-1' } },
+    isPending: false,
+    error: null,
+  }),
+  useActiveMemberRole: () => ({
+    data: { role: 'owner' },
+    isPending: false,
+    isRefetching: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }));
 
 vi.mock('@/config/api', async () => {

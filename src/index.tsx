@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
@@ -66,7 +66,7 @@ function AppShell() {
   const { navigate } = useNavigation();
   const isSettingsOpen = location.path.startsWith('/settings');
   const isMobileHoisted = useMobileDetection();
-  const { session, isPending: sessionPending, activePracticeId } = useSessionContext();
+  const { session, isPending: sessionPending, activeOrganizationId } = useSessionContext();
   const { defaultWorkspace, canAccessPractice, isPracticeLoading } = useWorkspace();
   const lastWorkspaceRef = useRef<'client' | 'practice' | null>(null);
   const lastActivePracticeRef = useRef<string | null>(null);
@@ -112,11 +112,7 @@ function AppShell() {
     });
 
     if (workspaceFromPath === 'practice') {
-      const practiceIdCandidate =
-        session.user.preferredPracticeId ??
-        session.user.activePracticeId ??
-        activePracticeId ??
-        null;
+      const practiceIdCandidate = activeOrganizationId ?? null;
 
       if (practiceIdCandidate && lastActivePracticeRef.current !== practiceIdCandidate) {
         const previousActivePractice = lastActivePracticeRef.current;
@@ -130,21 +126,8 @@ function AppShell() {
           lastActivePracticeRef.current = previousActivePractice;
         });
       }
-    } else if (workspaceFromPath === 'client') {
-      if (activePracticeId || lastActivePracticeRef.current) {
-        const previousActivePractice = lastActivePracticeRef.current;
-        lastActivePracticeRef.current = null;
-        const client = getClient();
-        client.organization.setActive({ organizationId: null }).catch((error) => {
-          if (routeTransitionRef.current !== transitionId) {
-            return;
-          }
-          console.warn('[Workspace] Failed to clear active organization', error);
-          lastActivePracticeRef.current = previousActivePractice;
-        });
-      }
     }
-  }, [activePracticeId, canAccessPractice, isPracticeLoading, session?.user, sessionPending]);
+  }, [activeOrganizationId, canAccessPractice, isPracticeLoading, session?.user, sessionPending]);
 
   const handleCloseSettings = useCallback(() => {
     const returnPath = getSettingsReturnPath();
@@ -215,11 +198,9 @@ function SettingsRoute() {
 }
 
 function RootRoute() {
-  const { session, isPending } = useSessionContext();
+  const { session, isPending, activeOrganizationId } = useSessionContext();
   const {
     defaultWorkspace,
-    preferredPracticeId,
-    activePracticeId,
     canAccessPractice,
     isPracticeLoading
   } = useWorkspace();
@@ -248,7 +229,7 @@ function RootRoute() {
     ) {
       workspaceInitRef.current = true;
       const nextPreferredPracticeId = defaultWorkspace === 'practice'
-        ? (preferredPracticeId ?? activePracticeId ?? null)
+        ? (activeOrganizationId ?? null)
         : null;
       updateUser({
         primaryWorkspace: defaultWorkspace,
@@ -276,13 +257,12 @@ function RootRoute() {
       navigate(destination, true);
     }
   }, [
-    activePracticeId,
     canAccessPractice,
     defaultWorkspace,
     isPracticeLoading,
     isPending,
     navigate,
-    preferredPracticeId,
+    activeOrganizationId,
     session?.user
   ]);
 
@@ -336,16 +316,14 @@ function PracticeAppRoute({
   settingsMode?: boolean;
   settingsOverlayOpen?: boolean;
 }) {
-  const { session, isPending } = useSessionContext();
+  const { session, isPending, activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
-  const { preferredPracticeId, activePracticeId, isPracticeEnabled, canAccessPractice } = useWorkspace();
+  const { isPracticeEnabled, canAccessPractice } = useWorkspace();
   const { currentPractice, practices, loading: practicesLoading } = usePracticeManagement();
-  const hasPracticeCandidate = Boolean(
-    preferredPracticeId ||
-    activePracticeId ||
-    currentPractice?.id ||
-    practices[0]?.id
-  );
+  const [autoActivationState, setAutoActivationState] = useState<'idle' | 'pending' | 'done' | 'failed'>('idle');
+  const autoActivationKeyRef = useRef<string | null>(null);
+  const autoActivationCandidateId = practices[0]?.id ?? currentPractice?.id ?? '';
+  const hasPracticeCandidate = Boolean(activeOrganizationId || autoActivationCandidateId);
   const practiceRefreshKey = useMemo(() => {
     if (!currentPractice) return null;
     return [
@@ -362,8 +340,14 @@ function PracticeAppRoute({
     console.error('Practice config error:', error);
   }, []);
 
-  const resolvedPracticeId =
-    preferredPracticeId ?? currentPractice?.id ?? activePracticeId ?? practices[0]?.id ?? '';
+  const resolvedPracticeId = activeOrganizationId ?? '';
+  const canAutoActivatePractice = Boolean(
+    !practicesLoading &&
+    session?.user &&
+    autoActivationCandidateId &&
+    !activeOrganizationId
+  );
+  const shouldDelayPracticeConfig = canAutoActivatePractice && autoActivationState !== 'done' && autoActivationState !== 'failed';
 
   const {
     practiceId,
@@ -373,20 +357,49 @@ function PracticeAppRoute({
     isLoading
   } = usePracticeConfig({
     onError: handlePracticeError,
-    practiceId: resolvedPracticeId,
+    practiceId: shouldDelayPracticeConfig ? '' : resolvedPracticeId,
     allowUnauthenticated: false,
     refreshKey: practiceRefreshKey
   });
 
   useEffect(() => {
+    if (!canAutoActivatePractice) return;
+    const activationKey = `${session?.user?.id ?? 'unknown'}:${autoActivationCandidateId}`;
+    if (autoActivationKeyRef.current === activationKey) return;
+    autoActivationKeyRef.current = activationKey;
+    setAutoActivationState('pending');
+    const client = getClient();
+    client.organization
+      .setActive({ organizationId: autoActivationCandidateId })
+      .then(() => {
+        setAutoActivationState('done');
+      })
+      .catch((error) => {
+        console.warn('[Workspace] Failed to auto-activate practice', error);
+        setAutoActivationState('failed');
+      });
+  }, [autoActivationCandidateId, canAutoActivatePractice, session?.user?.id]);
+
+  useEffect(() => {
     if (settingsMode || isPending || practicesLoading) return;
     if (!session?.user) return;
+    if (shouldDelayPracticeConfig) return;
     if (!isPracticeEnabled || (!canAccessPractice && !hasPracticeCandidate)) {
       navigate('/client/dashboard', true);
     }
-  }, [canAccessPractice, hasPracticeCandidate, isPracticeEnabled, isPending, navigate, practicesLoading, session?.user, settingsMode]);
+  }, [
+    canAccessPractice,
+    hasPracticeCandidate,
+    isPracticeEnabled,
+    isPending,
+    navigate,
+    practicesLoading,
+    session?.user,
+    settingsMode,
+    shouldDelayPracticeConfig
+  ]);
 
-  if (isPending || practicesLoading || isLoading) {
+  if (isPending || practicesLoading || isLoading || shouldDelayPracticeConfig) {
     return <LoadingScreen />;
   }
 
@@ -399,7 +412,7 @@ function PracticeAppRoute({
   }
 
   if (!practiceId) {
-    if (practiceNotFound) {
+    if (practiceNotFound || autoActivationState === 'failed') {
       return <ClientHomePage />;
     }
     return <LoadingScreen />;

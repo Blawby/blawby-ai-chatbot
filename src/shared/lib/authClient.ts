@@ -197,6 +197,11 @@ export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSess
   };
 };
 
+export const useActiveMemberRole = () => {
+  const client = getAuthClient();
+  return client.useActiveMemberRole();
+};
+
 export const getSession = (...args: Parameters<AuthClientType['getSession']>) => getAuthClient().getSession(...args);
 type UpdateUserArgs = Parameters<AuthClientType['updateUser']>;
 type UpdateUserInput = Partial<BetterAuthSessionUser> & Record<string, unknown>;

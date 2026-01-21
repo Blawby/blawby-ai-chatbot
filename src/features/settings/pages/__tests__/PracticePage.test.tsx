@@ -11,6 +11,14 @@ vi.mock('@/shared/lib/authClient', () => ({
     useSession: mockUseSession,
   },
   useSession: mockUseSession,
+  useTypedSession: mockUseSession,
+  useActiveMemberRole: () => ({
+    data: { role: 'owner' },
+    isPending: false,
+    isRefetching: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }));
 
 import { render, screen, fireEvent, waitFor } from '../../../../__tests__/test-utils';

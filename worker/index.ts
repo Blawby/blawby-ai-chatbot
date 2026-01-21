@@ -13,6 +13,7 @@ import {
   handlePracticeDetails,
   handlePractices,
   handleAuthProxy,
+  handleBackendProxy,
   handleIntakes,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
@@ -75,10 +76,23 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 
     console.log('🔍 Route matching for path:', path);
 
-    if (path.startsWith('/api/intakes')) {
+  if (path.startsWith('/api/intakes')) {
       response = await handleIntakes(request, env);
     } else if (path.startsWith('/api/auth')) {
       response = await handleAuthProxy(request, env);
+    } else if (path.startsWith('/api/conversations/') && path.endsWith('/link')) {
+      response = await handleBackendProxy(request, env);
+    } else if (
+      path.startsWith('/api/onboarding') ||
+      ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
+        !path.startsWith('/api/practice/details/') &&
+        !path.startsWith('/api/practices')) ||
+      path.startsWith('/api/preferences') ||
+      path.startsWith('/api/subscriptions') ||
+      path.startsWith('/api/subscription') ||
+      path.startsWith('/api/uploads')
+    ) {
+      response = await handleBackendProxy(request, env);
     } else if (path.startsWith('/api/practices')) {
       response = await handlePractices(request, env);
     } else if (path.startsWith('/api/activity')) {

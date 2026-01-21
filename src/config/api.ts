@@ -2,7 +2,7 @@
 // This file provides endpoint builders for both Worker and Backend APIs
 // All URL logic is centralized in src/config/urls.ts
 
-import { getWorkerApiUrl, getBackendApiUrl } from './urls';
+import { getWorkerApiUrl } from './urls';
 
 const API_CONFIG = {
   baseUrl: getWorkerApiUrl(),
@@ -23,7 +23,7 @@ export const getChatEndpoint = () => {
 
 // Forms share the same backend API base as auth.
 export const getFormsApiUrl = () => {
-  return getBackendApiUrl();
+  return getWorkerApiUrl();
 };
 
 export const getFormsEndpoint = () => {
@@ -64,24 +64,24 @@ export const getMatterCreationEndpoint = () => {
 
 // Subscription endpoints - now handled by remote API
 export const getSubscriptionBillingPortalEndpoint = () => {
-  return `${getBackendApiUrl()}/api/auth/subscription/billing-portal`;
+  return `${getWorkerApiUrl()}/api/auth/subscription/billing-portal`;
 };
 
 export const getSubscriptionCancelEndpoint = () => {
-  return `${getBackendApiUrl()}/api/subscription/cancel`;
+  return `${getWorkerApiUrl()}/api/subscriptions/cancel`;
 };
 
 export const getSubscriptionListEndpoint = () => {
-  return `${getBackendApiUrl()}/api/auth/subscription/list`;
+  return `${getWorkerApiUrl()}/api/auth/subscription/list`;
 };
 
 // Practice management endpoints - now handled by remote API
 export const getPracticesManagementEndpoint = () => {
-  return `${getBackendApiUrl()}/api/practices`;
+  return `${getWorkerApiUrl()}/api/practice`;
 };
 
 export const getPracticeManagementEndpoint = (practiceId: string) => {
-  return `${getBackendApiUrl()}/api/practices/${encodeURIComponent(practiceId)}`;
+  return `${getWorkerApiUrl()}/api/practice/${encodeURIComponent(practiceId)}`;
 };
 
 export const getPracticeWorkspaceEndpoint = (practiceId: string, resource: string) => {
@@ -128,7 +128,7 @@ export const getConversationParticipantsEndpoint = (conversationId: string) => {
 };
 
 export const getConversationLinkEndpoint = (conversationId: string) => {
-  return `${getBackendApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/link`;
+  return `${getWorkerApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/link`;
 };
 
 // Chat message endpoints - handled by local worker

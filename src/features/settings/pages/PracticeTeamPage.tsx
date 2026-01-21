@@ -19,7 +19,7 @@ interface PracticeTeamPageProps {
 }
 
 export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
-  const { session } = useSessionContext();
+  const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const {
     currentPractice,
     getMembers,
@@ -51,9 +51,11 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
       members.find(m => m.userId === session?.user?.id);
   }, [currentPractice, currentUserEmail, members, session?.user?.id]);
 
-  const currentUserRole = currentMember?.role || 'paralegal';
+  const roleFromMembers = currentMember?.role ?? null;
+  const currentUserRole = activeMemberRole ?? roleFromMembers ?? 'paralegal';
   const isOwner = currentUserRole === 'owner';
   const isAdmin = currentUserRole === 'admin' || isOwner;
+  const isMember = Boolean(activeMemberRole ?? roleFromMembers);
 
   const [isInvitingMember, setIsInvitingMember] = useState(false);
   const [isEditingMember, setIsEditingMember] = useState(false);
@@ -86,7 +88,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
     });
   }, [currentPractice, fetchMembers, showError]);
 
-  if (!currentMember && currentPractice) {
+  if (currentPractice && !activeMemberRoleLoading && !isMember) {
     return (
       <div className="h-full flex items-center justify-center">
         <p className="text-sm text-gray-500">You are not a member of this practice.</p>
@@ -206,7 +208,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
           <div role="status" aria-live="polite" className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
               You&apos;re using {members.length} seats but your plan includes {normalizeSeats(currentPractice?.seats)}. The billing owner can increase seats in Stripe.
-              {isOwner && currentPractice?.stripeCustomerId && (
+              {isOwner && (
                 <Button
                   variant="ghost"
                   size="sm"
