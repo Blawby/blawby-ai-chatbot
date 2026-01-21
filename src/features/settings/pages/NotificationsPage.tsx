@@ -10,7 +10,8 @@ import { useNotificationSettings, updateNotificationChannel, updateDesktopPushEn
 import { Switch } from '@/shared/ui/input';
 import {
   getNotificationPermissionState,
-  requestNotificationPermission,
+  optInDesktopNotifications,
+  optOutDesktopNotifications,
   type NotificationPermissionState
 } from '@/shared/notifications/oneSignalClient';
 import type { NotificationSettings } from '@/shared/types/user';
@@ -117,16 +118,22 @@ export const NotificationsPage = ({
           );
           return;
         }
-        if (permissionState !== 'granted') {
-          const next = await requestNotificationPermission();
-          setPermissionState(next);
-          if (next !== 'granted') {
-            showError(
-              t('settings:notifications.desktop.permissionDeniedTitle', { defaultValue: 'Permission blocked' }),
-              t('settings:notifications.desktop.permissionDeniedBody', { defaultValue: 'Enable notifications in your browser settings to receive alerts.' })
-            );
-            return;
-          }
+        const next = await optInDesktopNotifications();
+        setPermissionState(next);
+        if (next !== 'granted') {
+          showError(
+            t('settings:notifications.desktop.permissionDeniedTitle', { defaultValue: 'Permission blocked' }),
+            t('settings:notifications.desktop.permissionDeniedBody', { defaultValue: 'Enable notifications in your browser settings to receive alerts.' })
+          );
+          return;
+        }
+      } else {
+        const optOutSucceeded = await optOutDesktopNotifications();
+        if (!optOutSucceeded) {
+          showError(
+            t('settings:notifications.desktop.optOutFailedTitle', { defaultValue: 'Browser still subscribed' }),
+            t('settings:notifications.desktop.optOutFailedBody', { defaultValue: 'Disable notifications in your browser settings to stop this device from receiving alerts.' })
+          );
         }
       }
       await updateDesktopPushEnabled(value);

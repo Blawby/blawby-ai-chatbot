@@ -11,6 +11,8 @@ type OneSignalInitOptions = {
 type OneSignalPushSubscription = {
   id?: string | null;
   optedIn?: boolean | null;
+  optIn?: () => Promise<void> | void;
+  optOut?: () => Promise<void> | void;
 };
 
 type OneSignalNotifications = {
@@ -79,7 +81,7 @@ export function getNotificationPermissionState(): NotificationPermissionState {
   return Notification.permission as NotificationPermissionState;
 }
 
-export async function requestNotificationPermission(): Promise<NotificationPermissionState> {
+export async function optInDesktopNotifications(): Promise<NotificationPermissionState> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return 'unsupported';
   }
@@ -87,22 +89,74 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   initOneSignal();
 
   const sdk = await waitForOneSignalSdk();
-  if (sdk?.Notifications?.requestPermission) {
+  if (sdk?.Notifications?.requestPermission && Notification.permission !== 'granted') {
     await sdk.Notifications.requestPermission();
-  } else if (Notification.requestPermission) {
+  } else if (Notification.permission !== 'granted' && Notification.requestPermission) {
     await Notification.requestPermission();
   }
 
   const permission = Notification.permission as NotificationPermissionState;
-  if (permission === 'granted' && sdk) {
-      const onesignalId = await waitForOneSignalId(sdk);
-      if (onesignalId) {
-        pendingOneSignalId = onesignalId;
-        await registerDestination(onesignalId);
-      }
+  if (permission !== 'granted') {
+    return permission;
   }
 
+  if (sdk?.User?.PushSubscription?.optIn) {
+    await sdk.User.PushSubscription.optIn();
+  }
+
+  const onesignalId = sdk ? await waitForOneSignalId(sdk) : null;
+  if (!onesignalId) {
+    throw new Error('OneSignal subscription not available');
+  }
+
+  pendingOneSignalId = onesignalId;
+  await registerDestination(onesignalId);
+
   return permission;
+}
+
+export async function optOutDesktopNotifications(): Promise<boolean> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return false;
+  }
+
+  initOneSignal();
+
+  const sdk = await waitForOneSignalSdk();
+  if (!sdk?.User?.PushSubscription) {
+    return false;
+  }
+
+  const onesignalId = await waitForOneSignalId(sdk);
+  if (!onesignalId) {
+    return false;
+  }
+
+  let success = true;
+
+  try {
+    if (sdk.User.PushSubscription.optOut) {
+      await sdk.User.PushSubscription.optOut();
+    } else {
+      success = false;
+    }
+  } catch (error) {
+    success = false;
+    if (import.meta.env.DEV) {
+      console.warn('[OneSignal] opt-out failed', error);
+    }
+  }
+
+  try {
+    await disableDestination(onesignalId);
+  } catch (error) {
+    success = false;
+    if (import.meta.env.DEV) {
+      console.warn('[OneSignal] Destination disable failed', error);
+    }
+  }
+
+  return success;
 }
 
 function handleSessionUpdated(): void {
@@ -264,5 +318,18 @@ async function registerDestination(onesignalId: string): Promise<void> {
     }
   } finally {
     inFlightRegistration = null;
+  }
+}
+
+async function disableDestination(onesignalId: string): Promise<void> {
+  const baseUrl = getWorkerApiUrl();
+  const response = await fetch(`${baseUrl}${DESTINATIONS_ENDPOINT}/${onesignalId}`, {
+    method: 'DELETE',
+    credentials: 'include'
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`Destination disable failed (${response.status}): ${text}`);
   }
 }

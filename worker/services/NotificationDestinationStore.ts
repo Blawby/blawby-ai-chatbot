@@ -53,4 +53,15 @@ export class NotificationDestinationStore {
 
     return result.success ? result.meta.changes : 0;
   }
+
+  async disableDestination(onesignalId: string, userId: string): Promise<number> {
+    const now = new Date().toISOString();
+    const result = await this.env.DB.prepare(
+      `UPDATE notification_destinations
+          SET disabled_at = ?, updated_at = ?, last_seen_at = ?
+        WHERE provider = ? AND onesignal_id = ? AND user_id = ? AND disabled_at IS NULL`
+    ).bind(now, now, now, 'onesignal', onesignalId, userId).run();
+
+    return result.success ? result.meta.changes : 0;
+  }
 }
