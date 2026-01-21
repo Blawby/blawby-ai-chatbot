@@ -55,6 +55,25 @@ export async function handleNotifications(request: Request, env: Env): Promise<R
     });
   }
 
+  if (path.startsWith('/api/notifications/destinations/') && request.method === 'DELETE') {
+    const auth = await requireAuth(request, env);
+    const parts = path.split('/');
+    if (parts.length !== 5) {
+      throw HttpErrors.notFound('Notification endpoint not found');
+    }
+    const onesignalId = parts[4];
+    if (!onesignalId) {
+      throw HttpErrors.badRequest('OneSignal destination id is required');
+    }
+
+    const destinationStore = new NotificationDestinationStore(env);
+    const disabled = await destinationStore.disableDestination(onesignalId, auth.user.id);
+
+    return new Response(JSON.stringify({ success: true, data: { disabled } }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   if (path === '/api/notifications/unread-count' && request.method === 'GET') {
     const auth = await requireAuth(request, env);
     const store = new NotificationStore(env);
