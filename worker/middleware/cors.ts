@@ -25,7 +25,7 @@ const DEFAULT_CORS_OPTIONS: Required<CorsOptions> = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
   allowCredentials: false,
   maxAge: 86400, // 24 hours
-  exposeHeaders: ['Content-Disposition', 'Content-Length', 'X-Backend-Url', 'X-Backend-Request-Url', 'X-Active-Organization-Id']
+  exposeHeaders: ['Content-Disposition', 'Content-Length']
 };
 
 // Security headers following Cloudflare best practices
@@ -164,7 +164,7 @@ export function createProductionCorsOptions(allowedDomains: string[]): CorsOptio
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
     allowCredentials: true,
     maxAge: 86400,
-    exposeHeaders: ['Content-Disposition', 'Content-Length', 'X-Backend-Url', 'X-Backend-Request-Url', 'X-Active-Organization-Id']
+    exposeHeaders: ['Content-Disposition', 'Content-Length']
   };
 }
 
@@ -180,7 +180,7 @@ export function createDevelopmentCorsOptions(): CorsOptions {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
     allowCredentials: false, // Cannot be true with wildcard origin
     maxAge: 86400,
-    exposeHeaders: ['Content-Disposition', 'Content-Length', 'X-Backend-Url', 'X-Backend-Request-Url', 'X-Active-Organization-Id']
+    exposeHeaders: ['Content-Disposition', 'Content-Length']
   };
 }
 

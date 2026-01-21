@@ -199,6 +199,7 @@ export interface OnboardingStatus {
 export interface BillingPortalPayload {
   practiceId: string;
   returnUrl?: string;
+  customerType?: 'user' | 'organization';
 }
 
 export interface SubscriptionEndpointResult {
@@ -990,6 +991,7 @@ export async function requestBillingPortalSession(
 ): Promise<SubscriptionEndpointResult> {
   return postSubscriptionEndpoint(getSubscriptionBillingPortalEndpoint(), {
     referenceId: payload.practiceId,
+    customerType: payload.customerType,
     returnUrl: payload.returnUrl
   });
 }

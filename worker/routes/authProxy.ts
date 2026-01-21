@@ -282,8 +282,6 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
     });
   }
 
-  proxyHeaders.set('X-Backend-Url', env.BACKEND_API_URL);
-
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -334,12 +332,6 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
 
   const response = await fetch(targetUrl.toString(), init);
   const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
-  proxyHeaders.set('X-Backend-Url', env.BACKEND_API_URL);
-  proxyHeaders.set('X-Backend-Request-Url', targetUrl.toString());
-  if (resolvedReferenceId) {
-    proxyHeaders.set('X-Active-Organization-Id', resolvedReferenceId);
-  }
-
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
