@@ -448,20 +448,24 @@ async function sendConversationBotMessage(options: {
       })
     : buildMessageMetadata(payload, notificationType);
 
-  const message = await conversationService.sendSystemMessage({
-    conversationId,
-    practiceId: payload.practiceId,
-    content,
-    metadata,
-    recipientUserId: participantUserId,
-    auditEventType: 'notification_bot_message',
-    auditPayload: { conversationId },
-    skipPracticeValidation: true
-  });
+  let messageId: string | null = null;
+  try {
+    const message = await conversationService.sendSystemMessage({
+      conversationId,
+      practiceId: payload.practiceId,
+      content,
+      metadata,
+      recipientUserId: participantUserId,
+      auditEventType: 'notification_bot_message',
+      auditPayload: { conversationId },
+      skipPracticeValidation: true
+    });
+    messageId = message.id;
+  } finally {
+    await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
+  }
 
-  await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
-
-  return message.id;
+  return messageId;
 }
 
 async function sendSystemBotMessage(options: {
