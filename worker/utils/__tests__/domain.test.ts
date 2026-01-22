@@ -32,7 +32,7 @@ describe('domain utilities', () => {
 
     it('should handle complex URLs', () => {
       expect(normalizeDomain('https://ai.blawby.com:443/api/auth')).toBe('ai.blawby.com');
-      expect(normalizeDomain('http://staging.blawby.com:8080/dashboard?tab=settings')).toBe('staging.blawby.com');
+      expect(normalizeDomain('http://staging.blawby.com:8080/practice/home?tab=settings')).toBe('staging.blawby.com');
     });
   });
 

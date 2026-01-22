@@ -1,19 +1,13 @@
 import { useState } from 'preact/hooks';
-import { SidebarContent } from '@/shared/ui/sidebar/organisms/SidebarContent';
+import { SidebarContent, type SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { ComponentChildren } from 'preact';
 import type { SubscriptionTier } from '@/shared/types/user';
 
 interface LeftSidebarProps {
-  currentRoute: string;
-  onGoToDashboard?: () => void;
-  onGoToChats?: () => void;
-  onGoToLeads?: () => void;
+  navItems: SidebarNavItem[];
   onClose?: () => void;
-  showDashboardTab?: boolean;
-  showChatsTab?: boolean;
-  showLeadsTab?: boolean;
-  chatSidebarContent?: ComponentChildren;
+  conversationContent?: ComponentChildren;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
@@ -26,15 +20,9 @@ interface LeftSidebarProps {
 }
 
 const LeftSidebar = ({
-  currentRoute,
-  onGoToDashboard,
-  onGoToChats,
-  onGoToLeads,
+  navItems,
   onClose,
-  showDashboardTab = true,
-  showChatsTab = true,
-  showLeadsTab = false,
-  chatSidebarContent,
+  conversationContent,
   practiceConfig,
   currentPractice
 }: LeftSidebarProps) => {
@@ -48,15 +36,9 @@ const LeftSidebar = ({
     <div className="h-full">
       <SidebarContent
         practiceConfig={practiceConfig}
-        currentRoute={currentRoute}
-        onGoToDashboard={onGoToDashboard}
-        onGoToChats={onGoToChats}
-        onGoToLeads={onGoToLeads}
+        navItems={navItems}
         onClose={onClose}
-        showDashboardTab={showDashboardTab}
-        showChatsTab={showChatsTab}
-        showLeadsTab={showLeadsTab}
-        chatSidebarContent={chatSidebarContent}
+        conversationContent={conversationContent}
         currentPractice={currentPractice}
         isCollapsed={shouldShowCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}

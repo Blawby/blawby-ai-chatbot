@@ -120,7 +120,7 @@ export const PracticeDashboardPage = () => {
                 {isLoading ? 'Loading updates...' : 'Jump back into the latest client threads.'}
               </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => navigate('/practice/chats')}>
+            <Button variant="secondary" size="sm" onClick={() => navigate('/practice/conversations')}>
               View all chats
             </Button>
           </div>

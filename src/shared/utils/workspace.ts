@@ -6,26 +6,24 @@ export function resolveWorkspaceFromPath(path: string): WorkspaceType | null {
   if (path === '/practice' || path.startsWith('/practice/')) return 'practice';
   if (
     path === '/client' ||
-    path.startsWith('/client/') ||
-    path === '/dashboard' ||
-    path.startsWith('/dashboard/')
+    path.startsWith('/client/')
   ) {
     return 'client';
   }
-  if (path === '/p' || path.startsWith('/p/')) return 'public';
+  if (path === '/embed' || path.startsWith('/embed/')) return 'public';
   return null;
 }
 
 export function getWorkspaceBasePath(workspace: WorkspaceType): string | null {
   if (workspace === 'practice') return '/practice';
   if (workspace === 'client') return '/client';
-  if (workspace === 'public') return '/p';
+  if (workspace === 'public') return '/embed';
   return null;
 }
 
 export function getWorkspaceDashboardPath(workspace: WorkspaceType): string | null {
-  if (workspace === 'practice') return '/practice/dashboard';
-  if (workspace === 'client') return '/client/dashboard';
+  if (workspace === 'practice') return '/practice/home';
+  if (workspace === 'client') return '/client/conversations';
   return null;
 }
 
