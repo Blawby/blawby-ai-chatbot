@@ -26,9 +26,6 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ConversationSidebar } from '@/features/chats/components/ConversationSidebar';
-import { NotificationCenterPage } from '@/features/notifications/pages/NotificationCenterPage';
-import { ensureNotificationsLoaded } from '@/features/notifications/hooks/useNotifications';
-import type { NotificationCategory } from '@/features/notifications/types';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import { logConversationEvent } from '@/shared/lib/conversationApi';
 import { LeadsPage } from '@/features/leads/pages/LeadsPage';
@@ -59,8 +56,7 @@ export function MainApp({
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
   const initialTab = workspace === 'public' ? 'chats' : 'dashboard';
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads'>(initialTab);
-  const [notificationCategory, setNotificationCategory] = useState<NotificationCategory>('message');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'chats' | 'matter' | 'leads'>(initialTab);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const location = useLocation();
@@ -116,7 +112,6 @@ export function MainApp({
   }, [workspace]);
   const chatsBasePath = useMemo(() => (basePath ? `${basePath}/chats` : null), [basePath]);
   const resolvedChatsBasePath = useMemo(() => chatsBasePath ?? publicChatsBasePath, [chatsBasePath, publicChatsBasePath]);
-  const notificationsBasePath = useMemo(() => (basePath ? `${basePath}/notifications` : null), [basePath]);
   const leadsBasePath = useMemo(() => (basePath ? `${basePath}/leads` : null), [basePath]);
 
   const dashboardPath = useMemo(() => {
@@ -129,24 +124,12 @@ export function MainApp({
     if (location.path.startsWith(`${basePath}/chats`)) return 'chats';
     if (leadsBasePath && location.path.startsWith(leadsBasePath)) return 'leads';
     if (location.path.startsWith(`${basePath}/matter`)) return 'matter';
-    if (location.path.startsWith(`${basePath}/notifications`)) return 'notifications';
     if (location.path === basePath || location.path === `${basePath}/`) return 'dashboard';
     if (dashboardPath && (location.path === dashboardPath || location.path.startsWith(`${dashboardPath}/`))) {
       return 'dashboard';
     }
     return null;
   }, [basePath, dashboardPath, leadsBasePath, location.path]);
-
-  const notificationCategoryFromPath = useMemo(() => {
-    if (!notificationsBasePath) return null;
-    if (!location.path.startsWith(notificationsBasePath)) return null;
-    const raw = location.path.slice(notificationsBasePath.length).replace(/^\//, '');
-    const candidate = raw.split('/')[0];
-    if (!candidate) return 'message' as NotificationCategory;
-    const normalized = candidate.toLowerCase();
-    const allowed: NotificationCategory[] = ['message', 'system', 'payment', 'intake', 'matter'];
-    return allowed.includes(normalized as NotificationCategory) ? (normalized as NotificationCategory) : 'message';
-  }, [notificationsBasePath, location.path]);
 
   const conversationIdFromPath = useMemo(() => {
     if (!resolvedChatsBasePath) return null;
@@ -180,23 +163,13 @@ export function MainApp({
       navigate(dashboardPath, true);
       return;
     }
-    if (notificationsBasePath && (location.path === notificationsBasePath || location.path === `${notificationsBasePath}/`)) {
-      navigate(`${notificationsBasePath}/${notificationCategoryFromPath ?? 'message'}`, true);
-    }
-  }, [basePath, dashboardPath, location.path, navigate, notificationCategoryFromPath, notificationsBasePath]);
+  }, [basePath, dashboardPath, location.path, navigate]);
 
   useEffect(() => {
     if (tabFromPath && tabFromPath !== currentTab) {
       setCurrentTab(tabFromPath);
     }
-    if (
-      tabFromPath === 'notifications' &&
-      notificationCategoryFromPath &&
-      notificationCategoryFromPath !== notificationCategory
-    ) {
-      setNotificationCategory(notificationCategoryFromPath);
-    }
-  }, [currentTab, notificationCategory, notificationCategoryFromPath, tabFromPath]);
+  }, [currentTab, tabFromPath]);
 
   useEffect(() => {
     if (!conversationIdFromPath) return;
@@ -215,36 +188,20 @@ export function MainApp({
     }
   }, [resolvedChatsBasePath, conversationId, currentTab, isPublicWorkspace, location.path, navigate]);
 
-  const handleTabChange = useCallback((tab: 'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads') => {
+  const handleTabChange = useCallback((tab: 'dashboard' | 'chats' | 'matter' | 'leads') => {
     setCurrentTab(tab);
-    if (tab === 'notifications') {
-      ensureNotificationsLoaded(notificationCategory);
-    }
     if (!basePath || !dashboardPath) return;
     const nextPath = tab === 'dashboard'
       ? dashboardPath
       : tab === 'chats' && conversationId
         ? `${basePath}/chats/${encodeURIComponent(conversationId)}`
-        : tab === 'notifications' && notificationsBasePath
-          ? `${notificationsBasePath}/${notificationCategory}`
-          : tab === 'leads' && leadsBasePath
-            ? leadsBasePath
+        : tab === 'leads' && leadsBasePath
+          ? leadsBasePath
           : `${basePath}/${tab}`;
     if (location.path !== nextPath) {
       navigate(nextPath);
     }
-  }, [basePath, conversationId, dashboardPath, leadsBasePath, location.path, navigate, notificationCategory, notificationsBasePath]);
-
-  const handleNotificationCategoryChange = useCallback((nextCategory: NotificationCategory) => {
-    ensureNotificationsLoaded(nextCategory);
-    setNotificationCategory(nextCategory);
-    setCurrentTab('notifications');
-    if (!notificationsBasePath) return;
-    const target = `${notificationsBasePath}/${nextCategory}`;
-    if (location.path !== target) {
-      navigate(target);
-    }
-  }, [location.path, navigate, notificationsBasePath]);
+  }, [basePath, conversationId, dashboardPath, leadsBasePath, location.path, navigate]);
 
   // Use session from Better Auth
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
@@ -808,14 +765,6 @@ export function MainApp({
     </div>
   );
 
-  const notificationsPanel = (
-    <NotificationCenterPage
-      category={notificationCategory}
-      onCategoryChange={handleNotificationCategoryChange}
-      className="h-full"
-    />
-  );
-
   const leadsPanel = isPracticeWorkspace ? (
     <LeadsPage
       practiceId={currentPractice?.id ?? practiceId ?? null}
@@ -856,8 +805,6 @@ export function MainApp({
         isMobileSidebarOpen={isMobileSidebarOpen}
         onToggleMobileSidebar={setIsMobileSidebarOpen}
         isSettingsModalOpen={isSettingsRouteNow}
-        notificationCategory={notificationCategory}
-        onSelectNotificationCategory={handleNotificationCategoryChange}
         practiceConfig={{
           name: resolvedPracticeName,
           profileImage: resolvedPracticeLogo,
@@ -873,7 +820,6 @@ export function MainApp({
         }}
         dashboardContent={dashboardContent}
         chatSidebarContent={chatSidebarContent}
-        notificationsContent={notificationsPanel}
         leadsContent={leadsPanel ?? undefined}
         showLeadsTab={isPracticeWorkspace}
       >

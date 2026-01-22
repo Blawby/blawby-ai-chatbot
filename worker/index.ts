@@ -20,7 +20,6 @@ import { handleConversations } from './routes/conversations.js';
 import { handleChat } from './routes/chat.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
-import { handleInbox } from './routes/inbox.js';
 import { handleStatus } from './routes/status.js';
 import { Env } from './types';
 import { handleError, HttpErrors } from './errorHandler';
@@ -113,8 +112,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handlePracticeDetails(request, env);
     } else if (path.startsWith('/api/config')) {
       response = await handleConfig(request, env);
-    } else if (path.startsWith('/api/inbox')) {
-      response = await handleInbox(request, env);
     } else if (path.startsWith('/api/conversations')) {
       response = await handleConversations(request, env);
     } else if (path.startsWith('/api/chat')) {
@@ -175,5 +172,4 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 }
 
 // Export Durable Object classes
-export { NotificationHub } from './durable-objects/NotificationHub';
 export { ChatRoom } from './durable-objects/ChatRoom';

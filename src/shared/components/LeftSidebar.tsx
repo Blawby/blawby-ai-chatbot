@@ -3,19 +3,16 @@ import { SidebarContent } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { ComponentChildren } from 'preact';
 import type { SubscriptionTier } from '@/shared/types/user';
-import type { NotificationCategory } from '@/features/notifications/types';
 
 interface LeftSidebarProps {
   currentRoute: string;
   onGoToDashboard?: () => void;
   onGoToChats?: () => void;
   onGoToLeads?: () => void;
-  onSelectNotificationCategory?: (category: NotificationCategory) => void;
   onClose?: () => void;
   showDashboardTab?: boolean;
   showChatsTab?: boolean;
   showLeadsTab?: boolean;
-  notificationCategory?: NotificationCategory;
   chatSidebarContent?: ComponentChildren;
   practiceConfig?: {
     name: string;
@@ -33,12 +30,10 @@ const LeftSidebar = ({
   onGoToDashboard,
   onGoToChats,
   onGoToLeads,
-  onSelectNotificationCategory,
   onClose,
   showDashboardTab = true,
   showChatsTab = true,
   showLeadsTab = false,
-  notificationCategory = 'message',
   chatSidebarContent,
   practiceConfig,
   currentPractice
@@ -57,12 +52,10 @@ const LeftSidebar = ({
         onGoToDashboard={onGoToDashboard}
         onGoToChats={onGoToChats}
         onGoToLeads={onGoToLeads}
-        onSelectNotificationCategory={onSelectNotificationCategory}
         onClose={onClose}
         showDashboardTab={showDashboardTab}
         showChatsTab={showChatsTab}
         showLeadsTab={showLeadsTab}
-        notificationCategory={notificationCategory}
         chatSidebarContent={chatSidebarContent}
         currentPractice={currentPractice}
         isCollapsed={shouldShowCollapsed}

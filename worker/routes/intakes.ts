@@ -200,6 +200,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
           paymentStatus: status ?? null,
           paymentRequired
         },
+        recipientUserId: authContext.user.id,
         request
       });
     } catch (error) {
@@ -235,7 +236,9 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
           await enqueueNotification(env, {
             eventId: crypto.randomUUID(),
             dedupeKey: `intake:${intakeUuid}`,
+            dedupeWindow: 'permanent',
             practiceId,
+            conversationId,
             category: 'intake',
             entityType: 'matter',
             entityId: matterId,

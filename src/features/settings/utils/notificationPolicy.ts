@@ -1,7 +1,7 @@
 import { NOTIFICATION_DEFAULTS } from '@/shared/ui/validation/defaultValues';
 import type { NotificationDefaults } from '@/shared/ui/validation/defaultValues';
 import type { NotificationSettings } from '@/shared/types/user';
-import type { NotificationCategory } from '@/features/notifications/types';
+import type { NotificationCategory } from '@/shared/types/notifications';
 
 export type NotificationPolicyScope = 'defaults' | 'allowed';
 export type NotificationChannelKey = 'push' | 'email';

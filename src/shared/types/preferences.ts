@@ -28,6 +28,12 @@ export interface NotificationPreferences {
   matters_push?: boolean;
   matters_email?: boolean;
   desktop_push_enabled?: boolean;
+  in_app_messages?: boolean;
+  in_app_system?: boolean;
+  in_app_payments?: boolean;
+  in_app_intakes?: boolean;
+  in_app_matters?: boolean;
+  in_app_frequency?: 'all' | 'summaries_only';
 }
 
 export interface SecurityPreferences {

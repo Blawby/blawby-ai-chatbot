@@ -45,8 +45,34 @@ CREATE TABLE IF NOT EXISTS conversations (
   participants JSON, -- Array of user IDs: ["userId1", "userId2"]
   user_info JSON,
   status TEXT DEFAULT 'active',
+  assigned_to TEXT,
+  priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+  tags TEXT, -- JSON array
+  internal_notes TEXT,
+  last_message_at DATETIME,
+  first_response_at DATETIME,
+  closed_at DATETIME,
+  latest_seq INTEGER NOT NULL DEFAULT 0,
+  membership_version INTEGER NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Conversation participants table
+CREATE TABLE IF NOT EXISTS conversation_participants (
+  conversation_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT,
+  PRIMARY KEY (conversation_id, user_id)
+);
+
+-- Conversation read state table
+CREATE TABLE IF NOT EXISTS conversation_read_state (
+  conversation_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  last_read_seq INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (conversation_id, user_id)
 );
 
 -- Contact form submissions table
@@ -89,10 +115,19 @@ CREATE TABLE IF NOT EXISTS matters (
   opposing_party TEXT,
   matter_number TEXT, -- Changed from case_number to matter_number
   tags JSON, -- Array of tags for categorization
+  internal_notes TEXT, -- Internal notes for practice members
   custom_fields JSON, -- Flexible metadata storage
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   closed_at DATETIME
+);
+
+-- Counters table for atomic sequences per practice
+CREATE TABLE IF NOT EXISTS counters (
+  practice_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  next_value INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (practice_id, name)
 );
 
 -- Matter events table for matter activity logs
@@ -184,7 +219,10 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   content TEXT NOT NULL,
   metadata TEXT,
   token_count INTEGER,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  seq INTEGER NOT NULL DEFAULT 0,
+  client_id TEXT NOT NULL DEFAULT '',
+  server_ts TEXT NOT NULL DEFAULT ''
 );
 
 -- Sample data removed - organizations are managed by remote API
@@ -210,11 +248,17 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE INDEX IF NOT EXISTS idx_conversations_practice ON conversations(practice_id, status);
 CREATE INDEX IF NOT EXISTS idx_conversations_matter ON conversations(matter_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_closed_at ON conversations(practice_id, closed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_assigned ON conversations(practice_id, assigned_to, status);
+CREATE INDEX IF NOT EXISTS idx_conversations_priority ON conversations(practice_id, priority, status);
+CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(practice_id, last_message_at DESC);
 
 -- Create indexes for chat_messages
 CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_practice ON chat_messages(practice_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_client ON chat_messages(conversation_id, client_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_seq ON chat_messages(conversation_id, seq);
 
 -- Session audit events table (now uses conversation_id instead of session_id)
 -- Note: Table name kept as session_audit_events for backward compatibility
@@ -238,6 +282,9 @@ CREATE INDEX IF NOT EXISTS idx_session_audit_events_practice ON session_audit_ev
 CREATE INDEX IF NOT EXISTS idx_matters_practice ON matters(practice_id);
 CREATE INDEX IF NOT EXISTS idx_matters_user ON matters(user_id);
 CREATE INDEX IF NOT EXISTS idx_matters_status ON matters(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_matters_practice_matter_number_unique
+  ON matters(practice_id, matter_number)
+  WHERE matter_number IS NOT NULL;
 
 -- Create indexes for files
 CREATE INDEX IF NOT EXISTS idx_files_practice ON files(practice_id);
@@ -259,27 +306,6 @@ CREATE INDEX IF NOT EXISTS idx_ai_feedback_practice ON ai_feedback(practice_id);
 -- ========================================
 -- NOTIFICATIONS
 -- ========================================
-CREATE TABLE IF NOT EXISTS notifications (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  practice_id TEXT,
-  category TEXT NOT NULL,
-  entity_type TEXT,
-  entity_id TEXT,
-  title TEXT NOT NULL,
-  body TEXT,
-  link TEXT,
-  sender_name TEXT,
-  sender_avatar_url TEXT,
-  severity TEXT,
-  metadata TEXT,
-  payload TEXT,
-  dedupe_key TEXT,
-  source_event_id TEXT,
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  read_at TEXT
-);
-
 CREATE TABLE IF NOT EXISTS notification_destinations (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -305,19 +331,27 @@ CREATE TABLE IF NOT EXISTS notification_delivery_results (
   external_user_id TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe
-  ON notifications(user_id, dedupe_key)
-  WHERE dedupe_key IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_source_event
-  ON notifications(user_id, source_event_id)
-  WHERE source_event_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_category ON notifications(user_id, category, read_at, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_destinations_provider_id ON notification_destinations(provider, onesignal_id);
 CREATE INDEX IF NOT EXISTS idx_notification_destinations_user ON notification_destinations(user_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notification_delivery_user_created ON notification_delivery_results(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notification_delivery_notification ON notification_delivery_results(notification_id, created_at DESC);
+
+-- Chat message integrity triggers
+CREATE TRIGGER IF NOT EXISTS trg_chat_messages_require_seq_client
+BEFORE INSERT ON chat_messages
+FOR EACH ROW
+WHEN NEW.seq IS NULL OR NEW.seq = 0 OR NEW.client_id IS NULL OR NEW.client_id = ''
+BEGIN
+  SELECT RAISE(ABORT, 'seq and client_id must be provided by application');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_chat_messages_require_seq_client_update
+BEFORE UPDATE ON chat_messages
+FOR EACH ROW
+WHEN NEW.seq IS NULL OR NEW.seq = 0 OR NEW.client_id IS NULL OR NEW.client_id = ''
+BEGIN
+  SELECT RAISE(ABORT, 'seq and client_id cannot be set to null or empty');
+END;
 
 -- Auth views removed - user management is handled by remote API
 

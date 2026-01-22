@@ -22,8 +22,6 @@ interface ActivityTimelineProps {
   matterId?: string;
   conversationId?: string;
   limit?: number;
-  autoRefresh?: boolean;
-  refreshInterval?: number;
 }
 
 // Event type to icon mapping - heroicons components are ForwardRefExoticComponent with SVGProps
@@ -77,18 +75,14 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
   practiceId,
   matterId,
   conversationId,
-  limit = 25,
-  autoRefresh = true,
-  refreshInterval = 30000
+  limit = 25
 }) => {
   // Use the activity hook to fetch real data
   const { events, loading: _loading, error, hasMore, loadMore, refresh } = useActivity({
     practiceId,
     matterId,
     conversationId,
-    limit,
-    autoRefresh,
-    refreshInterval
+    limit
   });
 
   return (

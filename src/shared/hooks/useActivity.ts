@@ -24,8 +24,6 @@ export interface UseActivityOptions {
   until?: string; // ISO 8601 timestamp
   type?: string[]; // event types to filter by
   actorType?: 'user' | 'lawyer' | 'system';
-  autoRefresh?: boolean;
-  refreshInterval?: number; // milliseconds
   enablePagination?: boolean; // default true
 }
 
@@ -52,9 +50,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
     since,
     until,
     type,
-    actorType,
-    autoRefresh = false,
-    refreshInterval = 30000 // 30 seconds
+    actorType
   } = options;
 
   const [events, setEvents] = useState<ActivityEvent[]>([]);
@@ -66,7 +62,6 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
   const [lastModified, setLastModified] = useState<string | undefined>();
   
   const nextCursorRef = useRef<string | undefined>();
-  const refreshTimeoutRef = useRef<ReturnType<typeof setInterval>>();
   const enabled = features.enableActivity;
 
   const buildQueryParams = useCallback(() => {
@@ -208,30 +203,6 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
       refresh();
     }
   }, [enabled, practiceId, refresh]);
-
-  // Auto refresh
-  useEffect(() => {
-    if (enabled && autoRefresh && refreshInterval > 0) {
-      refreshTimeoutRef.current = setInterval(() => {
-        refresh();
-      }, refreshInterval);
-
-      return () => {
-        if (refreshTimeoutRef.current) {
-          clearInterval(refreshTimeoutRef.current);
-        }
-      };
-    }
-  }, [enabled, autoRefresh, refreshInterval, refresh]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearInterval(refreshTimeoutRef.current);
-      }
-    };
-  }, []);
 
   return {
     events,

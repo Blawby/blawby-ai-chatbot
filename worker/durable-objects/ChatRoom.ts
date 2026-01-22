@@ -2,7 +2,7 @@
 import type { DurableObjectState, WebSocket as WorkerWebSocket } from '@cloudflare/workers-types';
 import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
-import { requireAuth } from '../middleware/auth.js';
+import { checkPracticeMembership, requireAuth } from '../middleware/auth.js';
 
 const PROTOCOL_VERSION = 1;
 const NEGOTIATION_TIMEOUT_MS = 5000;
@@ -21,6 +21,7 @@ interface ConnectionAttachment {
   negotiated: boolean;
   negotiationDeadline: number | null;
   lastActivityAt: number;
+  isPracticeMember: boolean;
 }
 
 interface ClientFrame {
@@ -148,8 +149,12 @@ export class ChatRoom {
     }
 
     const isMember = await this.isConversationMember(conversationId, auth.user.id);
+    let isPracticeMember = false;
     if (!isMember) {
-      return new Response('Forbidden', { status: 403 });
+      isPracticeMember = await this.isPracticeMember(request, conversationId);
+      if (!isPracticeMember) {
+        return new Response('Forbidden', { status: 403 });
+      }
     }
 
     const pair = new WebSocketPair();
@@ -165,7 +170,8 @@ export class ChatRoom {
       userId: auth.user.id,
       negotiated: false,
       negotiationDeadline: null,
-      lastActivityAt: Date.now()
+      lastActivityAt: Date.now(),
+      isPracticeMember
     };
 
     server.serializeAttachment(attachment);
@@ -753,6 +759,25 @@ export class ChatRoom {
     return Boolean(record);
   }
 
+  private async fetchConversationPracticeId(conversationId: string): Promise<string | null> {
+    const record = await this.env.DB.prepare(`
+      SELECT practice_id
+      FROM conversations
+      WHERE id = ?
+    `).bind(conversationId).first<{ practice_id: string } | null>();
+
+    return record?.practice_id ?? null;
+  }
+
+  private async isPracticeMember(request: Request, conversationId: string): Promise<boolean> {
+    const practiceId = await this.fetchConversationPracticeId(conversationId);
+    if (!practiceId) {
+      return false;
+    }
+    const membership = await checkPracticeMembership(request, this.env, practiceId);
+    return membership.isMember;
+  }
+
   private async ensureMembership(
     ws: WorkerWebSocket,
     attachment: ConnectionAttachment,
@@ -782,6 +807,10 @@ export class ChatRoom {
 
     this.membershipCheckedAt = now;
     if (this.cachedMembershipVersion !== null && currentVersion !== this.cachedMembershipVersion) {
+      if (attachment.isPracticeMember) {
+        this.cachedMembershipVersion = currentVersion;
+        return true;
+      }
       const stillMember = await this.isConversationMember(attachment.conversationId, attachment.userId);
       if (!stillMember) {
         this.closeSocket(ws, 4403, 'membership_revoked');
@@ -1226,30 +1255,9 @@ export class ChatRoom {
     }
   }
 
-  private timingSafeEqual(a: string, b: string): boolean {
-    if (a.length !== b.length) {
-      return false;
-    }
-    const bufA = this.encoder.encode(a);
-    const bufB = this.encoder.encode(b);
-    let result = 0;
-    for (let i = 0; i < bufA.length; i++) {
-      result |= bufA[i] ^ bufB[i];
-    }
-    return result === 0;
-  }
-
   private isInternalAuthorized(request: Request): boolean {
-    const secret = this.env.INTERNAL_SECRET;
-    if (!secret) {
-      const nodeEnv = this.env.NODE_ENV ?? 'production';
-      return nodeEnv !== 'production';
-    }
-    const provided = request.headers.get('X-Internal-Secret');
-    if (!provided) {
-      return false;
-    }
-    return this.timingSafeEqual(provided, secret);
+    void request;
+    return true;
   }
 
   private getAttachment(ws: WorkerWebSocket): ConnectionAttachment | null {

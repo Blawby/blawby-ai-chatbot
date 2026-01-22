@@ -29,8 +29,6 @@ import type { WorkspaceType } from '@/shared/types/workspace';
 import type { SubscriptionTier } from '@/shared/types/user';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import AnnouncementBanner from '@/shared/components/AnnouncementBanner';
-import type { NotificationCategory } from '@/features/notifications/types';
-import { useNotificationCounts } from '@/features/notifications/hooks/useNotificationCounts';
 
 // Simple messages object for localization
 const messages = {
@@ -42,13 +40,11 @@ interface AppLayoutProps {
   practiceNotFound: boolean;
   practiceId: string;
   onRetryPracticeConfig: () => void;
-  currentTab: 'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads';
-  onTabChange: (tab: 'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads') => void;
+  currentTab: 'dashboard' | 'chats' | 'matter' | 'leads';
+  onTabChange: (tab: 'dashboard' | 'chats' | 'matter' | 'leads') => void;
   isMobileSidebarOpen: boolean;
   onToggleMobileSidebar: (open: boolean) => void;
   isSettingsModalOpen?: boolean;
-  notificationCategory: NotificationCategory;
-  onSelectNotificationCategory: (category: NotificationCategory) => void;
   showLeadsTab?: boolean;
   practiceConfig: {
     name: string;
@@ -85,7 +81,6 @@ interface AppLayoutProps {
   onUploadDocument?: (files: File[], metadata?: { documentType?: string; matterId?: string }) => Promise<FileAttachment[]>;
   dashboardContent?: ComponentChildren;
   chatSidebarContent?: ComponentChildren;
-  notificationsContent?: ComponentChildren;
   leadsContent?: ComponentChildren;
   children: ComponentChildren; // ChatContainer component
 }
@@ -100,8 +95,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   isMobileSidebarOpen,
   onToggleMobileSidebar,
   isSettingsModalOpen = false,
-  notificationCategory,
-  onSelectNotificationCategory,
   showLeadsTab = false,
   practiceConfig,
   currentPractice,
@@ -111,7 +104,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   onUploadDocument,
   dashboardContent,
   chatSidebarContent,
-  notificationsContent,
   leadsContent,
   children,
   practiceDetails
@@ -137,8 +129,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   
   // Mobile detection using shared hook
   const isMobile = useMobileDetection();
-  const { unreadByCategory } = useNotificationCounts();
-  const hasUnreadNotifications = Object.values(unreadByCategory).some((count) => count > 0);
 
   const openMatterAction = useCallback((action: 'pay' | 'pdf' | 'share') => {
     setShareCopied(false);
@@ -254,11 +244,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
     onTabChange('leads');
   };
 
-  const handleGoToNotifications = (category: NotificationCategory) => {
-    onTabChange('notifications');
-    onSelectNotificationCategory(category);
-  };
-
   // Enhanced handler for continuing in chat with context
   const handleContinueInChat = () => {
     // Switch to chat tab first
@@ -283,7 +268,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   
 
   useEffect(() => {
-    const allowedTabs: Array<'dashboard' | 'chats' | 'matter' | 'notifications' | 'leads'> = ['matter', 'notifications'];
+    const allowedTabs: Array<'dashboard' | 'chats' | 'matter' | 'leads'> = ['matter'];
     if (showChatsTab) allowedTabs.push('chats');
     if (showDashboardTab) allowedTabs.push('dashboard');
     if (showLeadsTabComputed) allowedTabs.push('leads');
@@ -354,8 +339,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               onGoToDashboard={showDashboardTab ? handleGoToDashboard : undefined}
               onGoToChats={showChatsTab ? handleGoToChats : undefined}
               onGoToLeads={showLeadsTabComputed ? handleGoToLeads : undefined}
-              onSelectNotificationCategory={handleGoToNotifications}
-              notificationCategory={notificationCategory}
               chatSidebarContent={chatSidebarContent}
               practiceConfig={{
                 name: practiceConfig.name,
@@ -420,11 +403,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
                       handleGoToLeads();
                       onToggleMobileSidebar(false);
                     } : undefined}
-                    onSelectNotificationCategory={(category) => {
-                      handleGoToNotifications(category);
-                      onToggleMobileSidebar(false);
-                    }}
-                    notificationCategory={notificationCategory}
                     onClose={() => onToggleMobileSidebar(false)}
                     chatSidebarContent={chatSidebarContent}
                     practiceConfig={{
@@ -465,14 +443,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               </div>
             ) : currentTab === 'chats' ? (
               children
-            ) : currentTab === 'notifications' ? (
-              <div className="h-full">
-                {notificationsContent ?? (
-                  <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-                    Notifications coming soon.
-                  </div>
-                )}
-              </div>
             ) : currentTab === 'leads' ? (
               <div className="h-full">
                 {leadsContent ?? (
@@ -545,8 +515,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
       {features.enableLeftSidebar && (
         <MobileTopNav
           onOpenSidebar={() => onToggleMobileSidebar(true)}
-          onOpenNotifications={() => handleGoToNotifications(notificationCategory)}
-          hasUnreadNotifications={hasUnreadNotifications}
           onPlusClick={workspace !== 'public' ? () => {
             window.location.hash = '#pricing';
           } : undefined}

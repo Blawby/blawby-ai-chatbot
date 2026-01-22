@@ -94,7 +94,7 @@ Notification deduplication
 Rate limiting
 - Per conversation: max 5 bot messages per 5 minutes; additional events in the window are coalesced into a single summary message.
 - System conversation: max 3 bot messages per 5 minutes per user; excess events are summarized.
-- Per user (global): max 20 bot messages per hour across all conversations.
+- Per user (global): max 20 bot messages per hour for the system conversation. Conversation-scoped bot messages rely on per-conversation limits to avoid suppressing shared messages.
 - Enforce in `worker/queues/notificationProcessor.ts` before calling `ConversationService.sendSystemMessage`.
 
 Coalescing and summarization
@@ -175,7 +175,7 @@ Chatbot flow coverage (current + changes)
 - Current: guest/anonymous AI chat uses `POST /api/ai/chat` and stores the AI reply via `ConversationService.sendSystemMessage` (role: system, user_id null, metadata source/model). `worker/routes/aiChat.ts`
 - Current: intake submission creates a matter and posts a confirmation system message into the conversation via `sendSystemMessage` (anonymous until linked). `worker/routes/intakes.ts`
 - Current: intake accept/reject posts a system message; accept also attaches the matter and adds the practice participant. `worker/routes/practices.ts`
-- Changes needed to meet the flow goal + "queue processor only" rule: either move AI replies and intake decision messages into the queue processor, or scope the rule to notification bot messages only and explicitly exempt AI/intake system messages.
+- Decision: queue processor only applies to notification bot messages. AI replies and intake decision system messages continue to call `sendSystemMessage` directly (with membership + metadata validation).
 
 Operational safeguards
 - Monitor queue processing errors and bot message creation failures (log + alert).

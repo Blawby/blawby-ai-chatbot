@@ -28,6 +28,14 @@ const categoryPreferenceKey: Record<NotificationCategory, { push: string; email:
   system: { push: 'system_push', email: 'system_email' }
 };
 
+const inAppPreferenceKey: Record<NotificationCategory, string> = {
+  message: 'in_app_messages',
+  payment: 'in_app_payments',
+  intake: 'in_app_intakes',
+  matter: 'in_app_matters',
+  system: 'in_app_system'
+};
+
 const categoryPolicyKey: Record<NotificationCategory, NotificationPolicyCategoryKey> = {
   message: 'messages',
   payment: 'payments',
@@ -56,15 +64,21 @@ function resolveRecipientPreferences(
   const mentionsOnly = category === 'message'
     ? resolveChannelPreference(prefs, 'messages_mentions_only', false)
     : false;
+  const inAppFrequency = typeof prefs?.in_app_frequency === 'string' && prefs.in_app_frequency === 'summaries_only'
+    ? 'summaries_only'
+    : 'all';
   const channelKeys = categoryPreferenceKey[category];
   const pushEnabled = allowed.push && resolveChannelPreference(prefs, channelKeys.push, defaults.push);
   const emailEnabled = allowed.email && resolveChannelPreference(prefs, channelKeys.email, defaults.email);
+  const inAppEnabled = category === 'system'
+    ? true
+    : resolveChannelPreference(prefs, inAppPreferenceKey[category], true);
 
   if (category === 'system') {
-    return { pushEnabled: true, emailEnabled: true, desktopPushEnabled, mentionsOnly };
+    return { pushEnabled: true, emailEnabled: true, desktopPushEnabled, mentionsOnly, inAppEnabled: true, inAppFrequency };
   }
 
-  return { pushEnabled, emailEnabled, desktopPushEnabled, mentionsOnly };
+  return { pushEnabled, emailEnabled, desktopPushEnabled, mentionsOnly, inAppEnabled, inAppFrequency };
 }
 
 export async function getAdminRecipients(

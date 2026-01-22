@@ -28,6 +28,9 @@ function createSuccessResponse(data: unknown): Response {
 type MatterStatusValue = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
 const MATTER_STATUS_VALUES: Set<MatterStatusValue> = new Set(['lead', 'open', 'in_progress', 'completed', 'archived']);
 
+type MatterPriorityValue = 'low' | 'normal' | 'high' | 'urgent';
+const MATTER_PRIORITY_VALUES: Set<MatterPriorityValue> = new Set(['low', 'normal', 'high', 'urgent']);
+
 type PracticeRole = 'owner' | 'admin' | 'attorney' | 'paralegal';
 const ROLE_HIERARCHY: Record<PracticeRole, number> = {
   paralegal: 1,
@@ -89,6 +92,9 @@ type WorkspaceMatterRow = {
   matterType: string;
   status: MatterStatusValue;
   priority: string;
+  assignedTo?: string | null;
+  tags?: string | null;
+  internalNotes?: string | null;
   clientName?: string | null;
   clientEmail?: string | null;
   clientPhone?: string | null;
@@ -157,12 +163,15 @@ async function notifyIntakeDecision(options: {
   }
 
   let isConversationLinked = false;
+  let conversationUserId: string | null = null;
   try {
     const conversation = await conversationService.getConversation(sessionId, practiceId);
     isConversationLinked = Boolean(conversation.user_id);
+    conversationUserId = conversation.user_id ?? null;
   } catch {
     // If we can't read the conversation, fall back to anonymous messaging
     isConversationLinked = false;
+    conversationUserId = null;
   }
 
   const signInPath = `/auth?mode=signin&conversationId=${encodeURIComponent(sessionId)}&practiceId=${encodeURIComponent(practiceId)}`;
@@ -187,6 +196,7 @@ async function notifyIntakeDecision(options: {
         reason: reason ?? null,
         intakeUuid: intakeUuid ?? null
       },
+      recipientUserId: conversationUserId ?? undefined,
       request: options.request
     });
   } catch (error) {
@@ -213,6 +223,7 @@ async function enqueueMatterNotification(options: {
   await enqueueNotification(env, {
     eventId: crypto.randomUUID(),
     dedupeKey: `matter:${matterId}:${metadata.action ?? 'update'}:${metadata.toStatus ?? 'unknown'}`,
+    dedupeWindow: 'permanent',
     practiceId,
     category: 'matter',
     entityType: 'matter',
@@ -231,6 +242,49 @@ function normalizeMatterStatus(value: string): MatterStatusValue {
     throw HttpErrors.badRequest(`Invalid matter status: ${value}`);
   }
   return normalized as MatterStatusValue;
+}
+
+function normalizeMatterPriority(value: string): MatterPriorityValue {
+  const normalized = value.trim().toLowerCase();
+  if (!MATTER_PRIORITY_VALUES.has(normalized as MatterPriorityValue)) {
+    throw HttpErrors.badRequest(`Invalid matter priority: ${value}`);
+  }
+  return normalized as MatterPriorityValue;
+}
+
+function normalizeTags(value: unknown): string[] {
+  if (value === null || value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw HttpErrors.badRequest('tags must be an array of strings');
+  }
+
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      throw HttpErrors.badRequest('tags must be an array of strings');
+    }
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(trimmed);
+  }
+  return normalized;
+}
+
+function normalizeInternalNotes(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value !== 'string') {
+    throw HttpErrors.badRequest('internalNotes must be a string');
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 type MattersCursor = { createdAt: string; id: string };
@@ -396,6 +450,9 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                         matter_type as matterType,
                         status,
                         priority,
+                        assigned_lawyer_id as assignedTo,
+                        tags,
+                        internal_notes as internalNotes,
                         client_name as clientName,
                         client_email as clientEmail,
                         client_phone as clientPhone,
@@ -429,6 +486,8 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                 throw HttpErrors.notFound('Matter not found');
               }
 
+              const tags = parseJsonField<string[]>(record.tags ?? null) ?? [];
+
               if (record.status === 'lead') {
                 requireLeadReviewRole(authContext.memberRole, leadReviewRoles);
               } else {
@@ -441,6 +500,9 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                 matterType: record.matterType,
                 status: record.status,
                 priority: record.priority,
+                assignedTo: record.assignedTo ?? null,
+                tags,
+                internalNotes: record.internalNotes ?? null,
                 clientName: record.clientName ?? null,
                 clientEmail: record.clientEmail ?? null,
                 clientPhone: record.clientPhone ?? null,
@@ -458,6 +520,147 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
               };
 
               return createSuccessResponse({ matter: payload });
+            }
+
+            if (!action && request.method === 'PATCH') {
+              const body = await parseJsonBody(request);
+              const record = await env.DB.prepare(
+                `SELECT status
+                   FROM matters
+                  WHERE practice_id = ?
+                    AND id = ?`
+              ).bind(practice.id, matterId).first<{ status: MatterStatusValue } | null>();
+
+              if (!record) {
+                throw HttpErrors.notFound('Matter not found');
+              }
+
+              if (record.status === 'lead') {
+                requireLeadReviewRole(authContext.memberRole, leadReviewRoles);
+              } else {
+                requireMinimumRole(authContext.memberRole, 'admin');
+              }
+
+              const assignedToRaw = (body as Record<string, unknown>).assignedTo;
+              const priorityRaw = (body as Record<string, unknown>).priority;
+              const tagsRaw = (body as Record<string, unknown>).tags;
+              const internalNotesRaw = (body as Record<string, unknown>).internalNotes;
+
+              if (
+                assignedToRaw === undefined &&
+                priorityRaw === undefined &&
+                tagsRaw === undefined &&
+                internalNotesRaw === undefined
+              ) {
+                throw HttpErrors.badRequest('No triage fields provided');
+              }
+
+              let assignedTo: string | null | undefined;
+              if (assignedToRaw !== undefined) {
+                if (assignedToRaw === null) {
+                  assignedTo = null;
+                } else if (typeof assignedToRaw === 'string') {
+                  const trimmed = assignedToRaw.trim();
+                  assignedTo = trimmed.length > 0 ? trimmed : null;
+                } else {
+                  throw HttpErrors.badRequest('assignedTo must be a string or null');
+                }
+
+                if (assignedTo) {
+                  const members = await RemoteApiService.getPracticeMembers(env, practice.id, request);
+                  const isMember = members.some(member => member.user_id === assignedTo);
+                  if (!isMember) {
+                    throw HttpErrors.badRequest('Assigned member is not in this practice');
+                  }
+                }
+              }
+
+              let priority: MatterPriorityValue | undefined;
+              if (priorityRaw !== undefined) {
+                if (typeof priorityRaw !== 'string') {
+                  throw HttpErrors.badRequest('priority must be a string');
+                }
+                priority = normalizeMatterPriority(priorityRaw);
+              }
+
+              let tags: string[] | undefined;
+              if (tagsRaw !== undefined) {
+                tags = normalizeTags(tagsRaw);
+              }
+
+              let internalNotes: string | null | undefined;
+              if (internalNotesRaw !== undefined) {
+                internalNotes = normalizeInternalNotes(internalNotesRaw);
+              }
+
+              const updates: string[] = [];
+              const bindings: unknown[] = [];
+
+              if (assignedToRaw !== undefined) {
+                updates.push('assigned_lawyer_id = ?');
+                bindings.push(assignedTo);
+              }
+              if (priorityRaw !== undefined && priority) {
+                updates.push('priority = ?');
+                bindings.push(priority);
+              }
+              if (tagsRaw !== undefined && tags) {
+                updates.push('tags = ?');
+                bindings.push(tags.length > 0 ? JSON.stringify(tags) : null);
+              }
+              if (internalNotesRaw !== undefined) {
+                updates.push('internal_notes = ?');
+                bindings.push(internalNotes);
+              }
+
+              if (updates.length === 0) {
+                throw HttpErrors.badRequest('No triage fields provided');
+              }
+
+              const updatedAt = new Date().toISOString();
+              updates.push('updated_at = ?');
+              bindings.push(updatedAt);
+
+              await env.DB.prepare(
+                `UPDATE matters
+                    SET ${updates.join(', ')}
+                  WHERE practice_id = ?
+                    AND id = ?`
+              ).bind(...bindings, practice.id, matterId).run();
+
+              const updated = await env.DB.prepare(
+                `SELECT priority,
+                        assigned_lawyer_id as assignedTo,
+                        tags,
+                        internal_notes as internalNotes,
+                        updated_at as updatedAt
+                   FROM matters
+                  WHERE practice_id = ?
+                    AND id = ?`
+              ).bind(practice.id, matterId).first<{
+                priority: string;
+                assignedTo?: string | null;
+                tags?: string | null;
+                internalNotes?: string | null;
+                updatedAt: string;
+              } | null>();
+
+              if (!updated) {
+                throw HttpErrors.notFound('Matter not found');
+              }
+
+              const updatedTags = parseJsonField<string[]>(updated.tags ?? null) ?? [];
+
+              return createSuccessResponse({
+                matter: {
+                  id: matterId,
+                  priority: updated.priority,
+                  assignedTo: updated.assignedTo ?? null,
+                  tags: updatedTags,
+                  internalNotes: updated.internalNotes ?? null,
+                  updatedAt: updated.updatedAt
+                }
+              });
             }
 
             if (action === 'accept' && request.method === 'POST') {
@@ -728,6 +931,9 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
                    matter_type as matterType,
                    status,
                    priority,
+                   assigned_lawyer_id as assignedTo,
+                   tags,
+                   internal_notes as internalNotes,
                    client_name as clientName,
                    client_email as clientEmail,
                    client_phone as clientPhone,
@@ -763,27 +969,33 @@ async function storeMatterMutationResult(env: Env, practiceId: string, key: stri
           const hasMore = rows.length > limitWithBuffer;
           const slicedRows = hasMore ? rows.slice(0, limitWithBuffer) : rows;
 
-          const items = slicedRows.map(row => ({
-            id: row.id,
-            title: row.title,
-            matterType: row.matterType,
-            status: row.status,
-            priority: row.priority,
-            clientName: row.clientName ?? null,
-            clientEmail: row.clientEmail ?? null,
-            clientPhone: row.clientPhone ?? null,
-            leadSource: row.leadSource ?? null,
-            conversationId: row.conversationId ?? null,
-            intakeUuid: row.intakeUuid ?? null,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-            acceptedBy: row.acceptedByUserId
-              ? {
-                  userId: row.acceptedByUserId,
-                  acceptedAt: row.acceptedAt ?? null
-                }
-              : null
-          }));
+          const items = slicedRows.map(row => {
+            const tags = parseJsonField<string[]>(row.tags ?? null) ?? [];
+            return {
+              id: row.id,
+              title: row.title,
+              matterType: row.matterType,
+              status: row.status,
+              priority: row.priority,
+              assignedTo: row.assignedTo ?? null,
+              tags,
+              internalNotes: row.internalNotes ?? null,
+              clientName: row.clientName ?? null,
+              clientEmail: row.clientEmail ?? null,
+              clientPhone: row.clientPhone ?? null,
+              leadSource: row.leadSource ?? null,
+              conversationId: row.conversationId ?? null,
+              intakeUuid: row.intakeUuid ?? null,
+              createdAt: row.createdAt,
+              updatedAt: row.updatedAt,
+              acceptedBy: row.acceptedByUserId
+                ? {
+                    userId: row.acceptedByUserId,
+                    acceptedAt: row.acceptedAt ?? null
+                  }
+                : null
+            };
+          });
 
           const nextCursor = hasMore
             ? encodeMattersCursor({

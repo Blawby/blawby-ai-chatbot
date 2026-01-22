@@ -117,19 +117,6 @@ export function useConversations({
         credentials: 'include',
       });
 
-      // Handle redirects (practice members get redirected to inbox)
-      // Note: fetch() automatically follows redirects by default, so we check response.redirected
-      // and response.url to detect if a redirect to inbox occurred
-      if (response.redirected && response.url.includes('/api/inbox')) {
-        // Practice member - conversations should be fetched via inbox endpoint
-        // For now, set empty array (inbox hook handles this separately)
-        if (!isDisposedRef.current) {
-          setConversations([]);
-          setError(null);
-        }
-        return;
-      }
-
       if (!response.ok) {
         // Worker returns error responses in format: { success: false, error: string, errorCode: string }
         const errorData = await response.json().catch(() => ({

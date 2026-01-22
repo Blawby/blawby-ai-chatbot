@@ -176,6 +176,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
       source: 'ai',
       model: env.AI_MODEL || DEFAULT_AI_MODEL
     },
+    recipientUserId: authContext.user.id,
     request
   });
 

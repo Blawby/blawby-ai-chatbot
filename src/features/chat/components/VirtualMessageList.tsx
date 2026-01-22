@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
@@ -51,11 +52,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     isLoadingMoreMessages,
     onLoadMoreMessages
 }) => {
+    const { session } = useSessionContext();
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(messages.length);
     const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
     const isLoadingRef = useRef(false);
+    const currentUserName = session?.user?.name || session?.user?.email || 'You';
+    const currentUserAvatar = session?.user?.image ?? null;
 
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
         const { scrollTop, scrollHeight, clientHeight } = element;
@@ -217,17 +221,27 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     // Determine avatar for message
                     // Check if message has avatar in metadata (for mock data)
                     const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
+                    const isBotNotification = message.role === 'system'
+                        && typeof message.metadata?.notificationType === 'string';
                     
-                    const avatar = mockAvatar 
+                    const avatar = mockAvatar
                         ? mockAvatar
-                        : message.isUser 
-                            ? undefined // User avatars can be added later if needed
-                            : practiceConfig 
+                        : isBotNotification
+                            ? {
+                                src: '/blawby-favicon-iframe.png',
+                                name: 'Blawby'
+                            }
+                            : message.isUser 
                                 ? {
-                                    src: practiceConfig.profileImage,
-                                    name: practiceConfig.name
+                                    src: currentUserAvatar,
+                                    name: currentUserName
                                 }
-                                : undefined;
+                                : practiceConfig 
+                                    ? {
+                                        src: practiceConfig.profileImage,
+                                        name: practiceConfig.name
+                                    }
+                                    : undefined;
 
                     return (
                         <Message

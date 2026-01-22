@@ -3,6 +3,7 @@ import type { KVNamespace, R2Bucket, D1Database, Queue, DurableObjectNamespace }
 export type NotificationCategory = 'message' | 'payment' | 'intake' | 'matter' | 'system';
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
 export type NotificationPolicyCategoryKey = 'messages' | 'system' | 'payments' | 'intakes' | 'matters';
+export type InAppNotificationFrequency = 'all' | 'summaries_only';
 
 export interface NotificationPolicyChannel {
   push: boolean;
@@ -93,13 +94,17 @@ export interface NotificationRecipientSnapshot {
     emailEnabled?: boolean;
     desktopPushEnabled?: boolean;
     mentionsOnly?: boolean;
+    inAppEnabled?: boolean;
+    inAppFrequency?: InAppNotificationFrequency;
   };
 }
 
 export interface NotificationQueueMessage {
   eventId: string;
   dedupeKey?: string | null;
+  dedupeWindow?: 'permanent' | '24h';
   practiceId?: string | null;
+  conversationId?: string | null;
   category: NotificationCategory;
   entityType?: string | null;
   entityId?: string | null;
@@ -119,7 +124,6 @@ export interface Env {
   DB: D1Database;
   CHAT_SESSIONS: KVNamespace;
   NOTIFICATION_EVENTS: Queue<NotificationQueueMessage>;
-  NOTIFICATION_HUB: DurableObjectNamespace;
   CHAT_ROOM: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
@@ -166,7 +170,6 @@ export interface Env {
   ONESIGNAL_APP_ID?: string;
   ONESIGNAL_REST_API_KEY?: string;
   ONESIGNAL_API_BASE?: string;
-  INTERNAL_SECRET?: string;
 
 }
 

@@ -4,7 +4,7 @@ import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
+import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
@@ -54,7 +54,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 4 && segments[3] === 'ws' && request.method === 'GET') {
     const conversationId = segments[2];
     const conversation = await conversationService.getConversationById(conversationId);
-    await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
+    } else {
+      const membership = await checkPracticeMembership(request, env, conversation.practice_id);
+      if (!membership.isMember) {
+        await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
+      }
+    }
     const id = env.CHAT_ROOM.idFromName(conversationId);
     const stub = env.CHAT_ROOM.get(id);
     const wsUrl = new URL(request.url);
@@ -159,17 +166,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     // Check if anonymous user
     const isAnonymous = authContext.isAnonymous === true;
 
-    // Check if user is practice member (skip for anonymous sessions)
-    if (!isAnonymous) {
-      const membershipCheck = await checkPracticeMembership(request, env, practiceId);
-      if (membershipCheck.isMember) {
-        // Practice member: Redirect to inbox endpoint
-        const inboxUrl = new URL(request.url);
-        inboxUrl.pathname = '/api/inbox/conversations';
-        return Response.redirect(inboxUrl.toString(), 302);
-      }
-    }
-    
+    const isPracticeWorkspace = looksLikeUuid(practiceId);
+
     if (isAnonymous) {
       // Anonymous user: Return single conversation (get-or-create)
       const conversation = await conversationService.getOrCreateCurrentConversation(
@@ -179,6 +177,28 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         isAnonymous
       );
       return createJsonResponse({ conversation }); // Single object
+    }
+
+    if (isPracticeWorkspace) {
+      await requirePracticeMember(request, env, practiceId, 'paralegal');
+
+      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+      const sortBy = (url.searchParams.get('sortBy') || 'last_message_at') as 'last_message_at' | 'created_at' | 'priority';
+      const sortOrder = (url.searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
+
+      const conversations = await conversationService.getPracticeConversations({
+        practiceId,
+        userId,
+        status: status || undefined,
+        limit,
+        offset,
+        sortBy,
+        sortOrder
+      });
+
+      return createJsonResponse({ conversations });
     }
     
     // Signed-in client: Return list of their conversations with this practice
@@ -226,14 +246,19 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       allowUrlOverride: true
     });
     const conversationId = segments[2];
+    const rawPracticeId = getPracticeId(requestWithContext);
     const practiceId = await resolvePracticeIdForConversation(
       conversationService,
       conversationId,
-      getPracticeId(requestWithContext)
+      rawPracticeId
     );
 
     // Validate user has access
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    if (!authContext.isAnonymous && looksLikeUuid(rawPracticeId)) {
+      await requirePracticeMember(request, env, practiceId, 'paralegal');
+    } else {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    }
 
     const conversation = await conversationService.getConversation(conversationId, practiceId);
     return createJsonResponse(conversation);

@@ -136,6 +136,14 @@ export const settingsSchemas = {
     }),
     messagesMentionsOnly: z.boolean(),
     desktopPushEnabled: z.boolean(),
+    inApp: z.object({
+      messages: z.boolean(),
+      system: z.boolean(),
+      payments: z.boolean(),
+      intakes: z.boolean(),
+      matters: z.boolean(),
+    }),
+    inAppFrequency: z.enum(['all', 'summaries_only']),
   }),
 };
 

@@ -35,6 +35,7 @@ export interface ConversationMetadata {
   title?: string;
   mode?: ConversationMode;
   first_message_intent?: FirstMessageIntent;
+  system_conversation?: boolean;
   [key: string]: unknown;
 }
 
@@ -54,12 +55,13 @@ export interface Conversation {
   participants: string[]; // Array of user IDs
   user_info: ConversationMetadata | null;
   status: ConversationStatus;
-  // Inbox fields (optional, only present in inbox context)
+  // Triage fields (optional, practice workflows only)
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   tags?: string[]; // Array of tag strings
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // ISO timestamp of last message
+  unread_count?: number | null;
   first_response_at?: string | null; // ISO timestamp of first practice member response
   closed_at?: string | null; // ISO timestamp when conversation was closed
   created_at: string; // ISO timestamp

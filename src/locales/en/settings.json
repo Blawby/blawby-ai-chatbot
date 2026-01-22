@@ -331,6 +331,33 @@
       "title": "Mentions only",
       "description": "Only notify me when I am @mentioned in a conversation.",
       "toastBody": "Mention preferences updated."
+    },
+    "inApp": {
+      "sectionTitle": "In-app bot messages",
+      "toastBody": "In-app preferences updated.",
+      "frequencyLabel": "System summaries only",
+      "frequencyDescription": "Show a single summary message for the Blawby System conversation.",
+      "frequencyToast": "System conversation preferences updated.",
+      "messages": {
+        "title": "Messages (in-app)",
+        "description": "Bot updates inside conversation threads."
+      },
+      "system": {
+        "title": "System (in-app)",
+        "description": "Required system updates from Blawby."
+      },
+      "payments": {
+        "title": "Payments (in-app)",
+        "description": "Payment and billing updates in chat."
+      },
+      "intakes": {
+        "title": "Intakes (in-app)",
+        "description": "Intake updates posted by Blawby."
+      },
+      "matters": {
+        "title": "Matters (in-app)",
+        "description": "Matter updates posted by Blawby."
+      }
     }
   },
   "security": {

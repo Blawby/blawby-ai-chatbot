@@ -23,7 +23,6 @@ const createMockEnv = (): {
       getWithMetadata: mockGetWithMetadata
     } as Env['CHAT_SESSIONS'],
     NOTIFICATION_EVENTS: {} as Env['NOTIFICATION_EVENTS'],
-    NOTIFICATION_HUB: {} as Env['NOTIFICATION_HUB'],
     CHAT_ROOM: {} as Env['CHAT_ROOM'],
     ONESIGNAL_APP_ID: 'test-app',
     ONESIGNAL_REST_API_KEY: 'test-key',
