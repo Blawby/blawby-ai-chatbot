@@ -38,6 +38,7 @@ Frontend
 
 Worker/API
 - Introduce a "Blawby bot" identity and a dedicated "Blawby System" conversation per user (or per user+practice workspace).
+- Add validation enforcement to `ConversationService.sendSystemMessage`: verify `practiceId` + `conversationId`, enforce membership (reject if recipient lacks access), schema-validate metadata and cap sizes (content <= 4,000 chars; metadata <= 8 KB), and record creation in `session_audit_events` with caller context.
 - When a system notification is tied to a conversation, create a bot message in that conversation instead of a notification record.
 - When a system notification is not tied to a conversation, create a bot message in the Blawby System conversation.
 - Remove notifications endpoints and D1 storage used solely for the UI (see Endpoint retention below).
@@ -213,9 +214,9 @@ Testing checklist
 - Performance: conversation list with 100+ bot messages; high-frequency bot message creation; query latency.
 - Security: authorization checks on bot message creation; cross-workspace leakage; privilege escalation attempts.
 - Security: attempt to call any `ChatRoom` internal routes via HTTP; expect `404`/`403`.
-- Security: remove `sendSystemMessage` usage from public HTTP routes (currently `worker/routes/aiChat.ts`, `worker/routes/practices.ts`, `worker/routes/intakes.ts`); bot/system messages originate from the queue processor only.
+- Security: if all system/bot messages move to the queue processor, remove `sendSystemMessage` usage from public HTTP routes (currently `worker/routes/aiChat.ts`, `worker/routes/practices.ts`, `worker/routes/intakes.ts`); if AI/intake flows are exempted, verify those routes enforce membership, metadata schema, and size caps before calling `sendSystemMessage`.
 - Cross-device: client-side pinning order consistent on multiple devices/sessions.
 - Integration: push/email notifications still work (OneSignal destinations + preferences). `tests/e2e/notifications.spec.ts`
 - Data integrity: dedupe window enforcement; metadata validation; membership enforcement.
 - UX: settings page still works and saves preferences (including in-app controls + summaries-only mode). `tests/e2e/notifications.spec.ts`, `src/features/settings/__tests__/SettingsPage.integration.test.tsx`
-- Chat flows remain intact. `tests/e2e/chat-messages.spec.ts`, `tests/e2e/lead-flow.spec.ts`, `tests/e2e/auth-modes.spec.ts`
+- Chat flows remain intact; if AI replies move to the queue processor, verify acceptable response latency. `tests/e2e/chat-messages.spec.ts`, `tests/e2e/lead-flow.spec.ts`, `tests/e2e/auth-modes.spec.ts`

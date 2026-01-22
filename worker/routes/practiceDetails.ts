@@ -46,10 +46,17 @@ export async function handlePracticeDetails(request: Request, env: Env): Promise
   }
 
   if (!('practiceId' in payload) && !('practice_id' in payload)) {
-    const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, decodedSlug, request);
-    const practiceId = intakeSettings?.organization?.id;
-    if (practiceId) {
-      payload.practiceId = practiceId;
+    try {
+      const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, decodedSlug, request);
+      const practiceId = intakeSettings?.organization?.id;
+      if (practiceId) {
+        payload.practiceId = practiceId;
+      }
+    } catch (error) {
+      console.warn('[PracticeDetails] Failed to fetch intake settings for slug', {
+        slug: decodedSlug,
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
