@@ -12,7 +12,6 @@
 interface ImportMetaEnv {
   // Feature flags
   readonly VITE_DEBUG_OVERLAY?: string;
-  readonly VITE_ENABLE_MSW?: string;
 
   // API URLs
   /** Cloudflare Worker API URL (optional - auto-detected) */

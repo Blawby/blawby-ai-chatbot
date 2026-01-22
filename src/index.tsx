@@ -10,8 +10,6 @@ import { getClient, updateUser } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { SettingsLayout } from '@/features/settings/components/SettingsLayout';
 import { useNavigation } from '@/shared/utils/navigation';
-import { MockChatPage } from '@/pages/MockChatPage';
-import { MockServicesPage } from '@/pages/MockServicesPage';
 import { CartPage } from '@/features/cart/pages/CartPage';
 import { usePracticeConfig, type UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
@@ -158,8 +156,6 @@ function AppShell() {
         <Router onRouteChange={handleRouteChange}>
           <Route path="/auth" component={AuthPage} />
           <Route path="/cart" component={CartPage} />
-          <Route path="/dev/mock-chat" component={MockChatPage} />
-          <Route path="/dev/mock-services" component={MockServicesPage} />
           <Route path="/intake/pay" component={IntakePaymentPage} />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
@@ -652,29 +648,7 @@ async function mountClientApp() {
 }
 
 if (typeof window !== 'undefined') {
-  const bootstrap = () => mountClientApp();
-  const enableMocks = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW === 'true';
-
-  if (enableMocks) {
-    import('./mocks')
-      .then(({ setupMocks }) => {
-        console.log('[App] Setting up MSW mocks...');
-        return setupMocks();
-      })
-      .then(() => {
-        console.log('[App] MSW mocks ready, bootstrapping app...');
-        bootstrap();
-      })
-      .catch((err) => {
-        console.error('[App] Failed to setup mocks, bootstrapping anyway:', err);
-        bootstrap();
-      });
-  } else {
-    if (import.meta.env.DEV) {
-      console.log('[App] Running without MSW mocks - using real staging-api endpoints');
-    }
-    bootstrap();
-  }
+  mountClientApp();
 }
 
 export async function prerender() {

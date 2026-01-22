@@ -6,7 +6,6 @@
   },
   "scripts": {
     "dev": "vite",
-    "dev:mock": "cross-env VITE_ENABLE_MSW=true vite",
     "dev:worker": "wrangler dev --port 8787 --config worker/wrangler.toml --env dev",
     "dev:worker:clean": "lsof -ti:8787 | xargs kill -9 2>/dev/null || true && npm run dev:worker",
     "dev:full": "concurrently \"npm run dev\" \"npm run dev:worker\" \"npm run tunnel\"",
@@ -89,7 +88,6 @@
     "baseline-browser-mapping": "^2.9.15",
     "concurrently": "^8.2.2",
     "critters": "^0.0.25",
-    "cross-env": "^7.0.3",
     "eslint": "^9.36.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-preact": "^0.1.0",
@@ -97,7 +95,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "happy-dom": "^18.0.1",
     "jsdom": "^26.1.0",
-    "msw": "^2.12.3",
     "node-fetch": "^3.3.2",
     "open": "^10.2.0",
     "postcss": "^8.5.6",
@@ -111,10 +108,5 @@
     "vite-plugin-pwa": "^0.21.1",
     "vitest": "^3.2.4",
     "wrangler": "^4.38.0"
-  },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
   }
 }
