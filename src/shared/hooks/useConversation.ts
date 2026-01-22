@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { getCurrentConversationEndpoint, getConversationEndpoint, getConversationWsEndpoint, getChatMessagesEndpoint } from '@/config/api';
+import { getConversationMessagesEndpoint, getCurrentConversationEndpoint, getConversationEndpoint, getConversationWsEndpoint } from '@/config/api';
 import type { Conversation, ConversationMessage, ConversationMessageUI } from '@/shared/types/conversation';
 
 interface UseConversationOptions {
   conversationId: string;
   practiceId?: string;
+  practiceSlug?: string;
   onError?: (error: string) => void;
 }
 
@@ -49,7 +50,7 @@ export function useConversationWithContext(options: Omit<UseConversationOptions,
  */
 export function useCurrentConversation(
   practiceId: string | undefined,
-  options?: { onError?: (error: string) => void }
+  options?: { onError?: (error: string) => void; practiceSlug?: string }
 ): UseConversationReturn & { conversationId: string | null } {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoadingCurrent, setIsLoadingCurrent] = useState<boolean>(true);
@@ -75,8 +76,13 @@ export function useCurrentConversation(
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
+        const params = new URLSearchParams({ practiceId });
+        const practiceSlugParam = options?.practiceSlug?.trim();
+        if (practiceSlugParam && practiceSlugParam !== practiceId) {
+          params.set('practiceSlug', practiceSlugParam);
+        }
         const response = await fetch(
-          `${getCurrentConversationEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`,
+          `${getCurrentConversationEndpoint()}?${params.toString()}`,
           {
             method: 'GET',
             headers,
@@ -111,7 +117,7 @@ export function useCurrentConversation(
     };
     
     fetchCurrent();
-  }, [practiceId]); // Only depend on practiceId to avoid infinite re-renders
+  }, [practiceId, options?.practiceSlug]); // Only depend on practiceId/slug to avoid infinite re-renders
   
   // Use existing useConversation hook with the conversationId
   const conversationHook = useConversation({ 
@@ -146,6 +152,7 @@ export function useCurrentConversation(
 export function useConversation({
   conversationId,
   practiceId,
+  practiceSlug,
   onError,
 }: UseConversationOptions): UseConversationReturn {
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -384,13 +391,16 @@ export function useConversation({
     while (nextSeq !== null && nextSeq <= targetLatest && !signal?.aborted) {
       try {
         const params = new URLSearchParams({
-          conversationId,
           practiceId,
           from_seq: String(nextSeq),
           limit: String(GAP_FETCH_LIMIT)
         });
+        const practiceSlugParam = practiceSlug?.trim();
+        if (practiceSlugParam && practiceSlugParam !== practiceId) {
+          params.set('practiceSlug', practiceSlugParam);
+        }
 
-        const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
+        const response = await fetch(`${getConversationMessagesEndpoint(conversationId)}?${params.toString()}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -437,7 +447,7 @@ export function useConversation({
         await new Promise(resolve => setTimeout(resolve, 400 * attempt));
       }
     }
-  }, [applyServerMessages, conversationId, practiceId, onError]);
+  }, [applyServerMessages, conversationId, practiceId, practiceSlug, onError]);
 
   const handleMessageAck = useCallback((data: Record<string, unknown>) => {
     const clientId = typeof data.client_id === 'string' ? data.client_id : null;
@@ -805,7 +815,12 @@ export function useConversation({
         'Content-Type': 'application/json'
       };
 
-      const response = await fetch(`${getConversationEndpoint(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`, {
+      const params = new URLSearchParams({ practiceId });
+      const practiceSlugParam = practiceSlug?.trim();
+      if (practiceSlugParam && practiceSlugParam !== practiceId) {
+        params.set('practiceSlug', practiceSlugParam);
+      }
+      const response = await fetch(`${getConversationEndpoint(conversationId)}?${params.toString()}`, {
         method: 'GET',
         headers,
         credentials: 'include',
@@ -833,7 +848,7 @@ export function useConversation({
       setError(errorMessage);
       onError?.(errorMessage);
     }
-  }, [conversationId, practiceId, onError]);
+  }, [conversationId, practiceId, practiceSlug, onError]);
 
   // Fetch messages
   const fetchMessages = useCallback(async (options?: { cursor?: string; isLoadMore?: boolean }) => {
@@ -851,16 +866,19 @@ export function useConversation({
       };
 
       const params = new URLSearchParams({
-        conversationId,
         practiceId,
         limit: '50',
       });
+      const practiceSlugParam = practiceSlug?.trim();
+      if (practiceSlugParam && practiceSlugParam !== practiceId) {
+        params.set('practiceSlug', practiceSlugParam);
+      }
 
       if (options?.cursor) {
         params.set('cursor', options.cursor);
       }
 
-      const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
+      const response = await fetch(`${getConversationMessagesEndpoint(conversationId)}?${params.toString()}`, {
         method: 'GET',
         headers,
         credentials: 'include',
@@ -944,7 +962,7 @@ export function useConversation({
         loadingState(false);
       }
     }
-  }, [conversationId, practiceId, toUIMessage, onError, sendReadUpdate]);
+  }, [conversationId, practiceId, practiceSlug, toUIMessage, onError, sendReadUpdate]);
 
   // Send message
   const sendMessage = useCallback(async (content: string, attachments?: string[]) => {

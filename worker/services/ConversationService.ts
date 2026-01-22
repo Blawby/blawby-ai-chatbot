@@ -302,12 +302,15 @@ export class ConversationService {
     userId: string,
     practiceId: string,
     request?: Request,
-    isAnonymous?: boolean
+    isAnonymous?: boolean,
+    options?: { skipPracticeValidation?: boolean }
   ): Promise<Conversation> {
-    // Validate practice exists (pass request for auth token)
-    const practiceExists = await RemoteApiService.validatePractice(this.env, practiceId, request);
-    if (!practiceExists) {
-      throw HttpErrors.notFound(`Practice not found: ${practiceId}`);
+    if (!options?.skipPracticeValidation) {
+      // Validate practice exists (pass request for auth token)
+      const practiceExists = await RemoteApiService.validatePractice(this.env, practiceId, request);
+      if (!practiceExists) {
+        throw HttpErrors.notFound(`Practice not found: ${practiceId}`);
+      }
     }
 
     // Try to get most recent conversation (prefer active if present)
@@ -373,7 +376,8 @@ export class ConversationService {
       userId: isAnonymous ? null : userId, // Store actual userId for authenticated users, null for anonymous
       matterId: null,
       participantUserIds: isAnonymous ? [userId] : [], // userId will be added automatically by createConversation for authenticated users
-      metadata: null
+      metadata: null,
+      skipPracticeValidation: options?.skipPracticeValidation
     }, request);
   }
 
@@ -440,7 +444,7 @@ export class ConversationService {
       bindings.push(options.status);
     }
 
-    query += ' ORDER BY updated_at DESC LIMIT ?';
+    query += ' ORDER BY conversations.updated_at DESC LIMIT ?';
     bindings.push(limit);
 
     const records = await this.env.DB.prepare(query).bind(...bindings).all<{

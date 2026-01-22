@@ -124,6 +124,89 @@ function getOrCreateConversation(request: StrictRequest<DefaultBodyType>): { con
   return { conversation };
 }
 
+const handleConversationMessagesRequest = async (
+  request: StrictRequest<DefaultBodyType>,
+  conversationId: string | null
+) => {
+  const url = new URL(request.url);
+  const limitParam = url.searchParams.get('limit');
+  const limit = parseInt(limitParam || '50', 10);
+  const fromSeqParam = url.searchParams.get('from_seq');
+  const cursor = url.searchParams.get('cursor');
+
+  if (!Number.isFinite(limit) || limit < 1) {
+    return HttpResponse.json({ error: 'limit must be a positive integer' }, { status: 400 });
+  }
+
+  if (!conversationId) {
+    return HttpResponse.json({ error: 'conversationId is required' }, { status: 400 });
+  }
+
+  const sessionId = getSessionIdFromRequest(request);
+  if (!sessionId) {
+    return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const conversation = mockDb.conversations.get(conversationId);
+  if (!conversation) {
+    return HttpResponse.json({ error: 'Conversation not found' }, { status: 404 });
+  }
+
+  let conversationMessages = mockDb.messages.get(conversationId) || [];
+  const latestSeq = conversationMessages.reduce((max, msg) => Math.max(max, msg.seq ?? 0), 0);
+
+  if (fromSeqParam) {
+    if (!limitParam) {
+      return HttpResponse.json({ error: 'limit is required when using from_seq' }, { status: 400 });
+    }
+    const fromSeq = parseInt(fromSeqParam, 10);
+    if (!Number.isFinite(fromSeq) || fromSeq < 0) {
+      return HttpResponse.json({ error: 'from_seq must be a non-negative integer' }, { status: 400 });
+    }
+
+    const filtered = conversationMessages
+      .filter(msg => typeof msg.seq === 'number' && msg.seq >= fromSeq)
+      .sort((a, b) => a.seq - b.seq);
+    const limitedMessages = filtered.slice(0, limit);
+    const nextFromSeq = limitedMessages.length > 0
+      ? limitedMessages[limitedMessages.length - 1].seq + 1
+      : null;
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        messages: limitedMessages,
+        latest_seq: latestSeq,
+        next_from_seq: nextFromSeq
+      }
+    });
+  }
+
+  if (cursor) {
+    const cursorDate = new Date(cursor);
+    if (Number.isNaN(cursorDate.getTime())) {
+      return HttpResponse.json({ error: 'cursor must be a valid ISO date string' }, { status: 400 });
+    }
+    conversationMessages = conversationMessages.filter(msg => new Date(msg.created_at) < cursorDate);
+  }
+
+  conversationMessages = [...conversationMessages].sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  const limitedMessages = conversationMessages.slice(0, limit);
+  limitedMessages.reverse();
+
+  return HttpResponse.json({
+    success: true,
+    data: {
+      messages: limitedMessages,
+      hasMore: conversationMessages.length > limit,
+      cursor: limitedMessages.length > 0 ? limitedMessages[0].created_at : null
+    }
+  });
+};
+
 export const handlers = [
   http.get('/api/practice/list', () => {
     return HttpResponse.json({ practices: mockDb.practices });
@@ -746,104 +829,14 @@ export const handlers = [
     });
   }),
 
-  // GET /api/chat/messages - Fetch messages for a conversation
-  http.get('/api/chat/messages', async ({ request }) => {
-    const url = new URL(request.url);
-    const conversationId = url.searchParams.get('conversationId');
-    const limitParam = url.searchParams.get('limit');
-    const limit = parseInt(limitParam || '50', 10);
-    const fromSeqParam = url.searchParams.get('from_seq');
-    const cursor = url.searchParams.get('cursor');
-
-    if (!Number.isFinite(limit) || limit < 1) {
-      return HttpResponse.json({ error: 'limit must be a positive integer' }, { status: 400 });
-    }
-    
-    if (!conversationId) {
-      return HttpResponse.json({ error: 'conversationId is required' }, { status: 400 });
-    }
-
-    const sessionId = getSessionIdFromRequest(request);
-    if (!sessionId) {
-      return HttpResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const conversation = mockDb.conversations.get(conversationId);
-    if (!conversation) {
-      return HttpResponse.json({ error: 'Conversation not found' }, { status: 404 });
-    }
-    
-    let conversationMessages = mockDb.messages.get(conversationId) || [];
-    const latestSeq = conversationMessages.reduce((max, msg) => Math.max(max, msg.seq ?? 0), 0);
-
-    if (fromSeqParam) {
-      if (!limitParam) {
-        return HttpResponse.json({ error: 'limit is required when using from_seq' }, { status: 400 });
-      }
-      const fromSeq = parseInt(fromSeqParam, 10);
-      if (!Number.isFinite(fromSeq) || fromSeq < 0) {
-        return HttpResponse.json({ error: 'from_seq must be a non-negative integer' }, { status: 400 });
-      }
-
-      const filtered = conversationMessages
-        .filter(msg => typeof msg.seq === 'number' && msg.seq >= fromSeq)
-        .sort((a, b) => a.seq - b.seq);
-      const limitedMessages = filtered.slice(0, limit);
-      const nextFromSeq = limitedMessages.length > 0
-        ? limitedMessages[limitedMessages.length - 1].seq + 1
-        : null;
-
-      return HttpResponse.json({
-        success: true,
-        data: {
-          messages: limitedMessages,
-          latest_seq: latestSeq,
-          next_from_seq: nextFromSeq
-        }
-      });
-    }
-
-    if (cursor) {
-      const cursorDate = new Date(cursor);
-      if (Number.isNaN(cursorDate.getTime())) {
-        return HttpResponse.json({ error: 'cursor must be a valid ISO date string' }, { status: 400 });
-      }
-      conversationMessages = conversationMessages.filter(msg => new Date(msg.created_at) < cursorDate);
-    }
-
-    // Sort by created_at descending (newest first)
-    conversationMessages = [...conversationMessages].sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-
-    // Apply limit
-    const limitedMessages = conversationMessages.slice(0, limit);
-
-    // Reverse to oldest first (for display)
-    limitedMessages.reverse();
-
-    return HttpResponse.json({
-      success: true,
-      data: {
-        messages: limitedMessages,
-        hasMore: conversationMessages.length > limit,
-        cursor: limitedMessages.length > 0 ? limitedMessages[0].created_at : null
-      }
-    });
+  http.get('/api/conversations/:conversationId/messages', async ({ params, request }) => {
+    const conversationId = params.conversationId ? String(params.conversationId) : null;
+    return handleConversationMessagesRequest(request, conversationId);
   }),
 
   // ============================================
   // Additional dev-only mocks
   // ============================================
-
-  http.post('/api/chat', async () => {
-    return HttpResponse.json({
-      success: true,
-      data: {
-        message: 'ok'
-      }
-    });
-  }),
 
   http.get('/api/health', async () => {
     return HttpResponse.json({

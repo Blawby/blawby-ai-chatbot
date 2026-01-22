@@ -290,7 +290,12 @@ export function MainApp({
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      const url = `${getConversationsEndpoint()}?practiceId=${encodeURIComponent(practiceId)}`;
+      const practiceSlugParam = (publicPracticeSlug ?? practiceConfig.slug ?? '').trim();
+      const params = new URLSearchParams({ practiceId });
+      if (practiceSlugParam && practiceSlugParam !== practiceId) {
+        params.set('practiceSlug', practiceSlugParam);
+      }
+      const url = `${getConversationsEndpoint()}?${params.toString()}`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -322,7 +327,7 @@ export function MainApp({
     } finally {
       setIsCreatingConversation(false);
     }
-  }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation]);
+  }, [isPracticeWorkspace, practiceId, practiceConfig.slug, publicPracticeSlug, session?.user, isCreatingConversation]);
 
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
@@ -785,10 +790,11 @@ export function MainApp({
     <ConversationSidebar
       workspace={workspace}
       practiceId={practiceId}
+      practiceSlug={resolvedPracticeSlug}
       selectedConversationId={conversationId}
       onSelectConversation={handleSelectConversation}
     />
-  ), [conversationId, handleSelectConversation, practiceId, workspace]);
+  ), [conversationId, handleSelectConversation, practiceId, resolvedPracticeSlug, workspace]);
 
   // Render the main app
   return (

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { ChatMessageUI, FileAttachment } from '../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
-import { getChatMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
+import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl, fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
@@ -503,13 +503,12 @@ export const useMessageHandling = ({
       }
       try {
         const params = new URLSearchParams({
-          conversationId: activeConversationId,
           practiceId: activePracticeId,
           from_seq: String(nextSeq),
           limit: String(GAP_FETCH_LIMIT)
         });
 
-        const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
+        const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params.toString()}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include'
@@ -1211,7 +1210,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
       const params = new URLSearchParams({
-        conversationId: activeConversationId,
         practiceId,
         limit: '50',
       });
@@ -1223,7 +1221,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         setIsLoadingMoreMessages(true);
       }
 
-      const response = await fetch(`${getChatMessagesEndpoint()}?${params.toString()}`, {
+      const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params.toString()}`, {
         method: 'GET',
         headers,
         credentials: 'include',

@@ -9,7 +9,7 @@
  * This application uses TWO separate backends:
  * 
  * 1. WORKER API (Cloudflare Worker)
- *    - Handles: /api/chat, /api/conversations, /api/files
+ *    - Handles: /api/conversations, /api/files
  *    - Dev: http://localhost:8787
  *    - Prod: Same origin as frontend (ai.blawby.com)
  * 
@@ -20,8 +20,8 @@
  * ENDPOINT ROUTING GUIDE:
  * 
  * WORKER API (use getWorkerApiUrl()):
- *   /api/chat/*                    - AI chat conversations
- *   /api/conversations/*           - Conversation management
+ *   /api/conversations/*           - Conversation management + messages
+ *   /api/ai/chat                   - AI chat responses
  *   /api/files/*                   - File uploads/downloads
  *   /api/status                    - Status check
  *   /api/health                    - Health check

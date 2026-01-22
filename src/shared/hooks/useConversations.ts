@@ -6,6 +6,7 @@ import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/li
 
 interface UseConversationsOptions {
   practiceId?: string;
+  practiceSlug?: string;
   matterId?: string | null;
   status?: ConversationStatus | null;
   scope?: 'practice' | 'all';
@@ -39,6 +40,7 @@ export function useConversationsWithContext(options?: Omit<UseConversationsOptio
  */
 export function useConversations({
   practiceId,
+  practiceSlug,
   matterId,
   status,
   scope = 'practice',
@@ -95,6 +97,10 @@ export function useConversations({
         params.set('scope', 'all');
       } else if (practiceId) {
         params.set('practiceId', practiceId);
+        const normalizedPracticeSlug = practiceSlug?.trim();
+        if (normalizedPracticeSlug) {
+          params.set('practiceSlug', normalizedPracticeSlug);
+        }
       }
 
       if (matterId && scope !== 'all') {
@@ -176,7 +182,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, scope, limit, offset, enabled]);
+  }, [practiceId, practiceSlug, matterId, status, scope, limit, offset, enabled]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {

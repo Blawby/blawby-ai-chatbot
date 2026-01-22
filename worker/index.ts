@@ -17,7 +17,6 @@ import {
   handleIntakes,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
-import { handleChat } from './routes/chat.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
 import { handleStatus } from './routes/status.js';
@@ -114,8 +113,6 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleConfig(request, env);
     } else if (path.startsWith('/api/conversations')) {
       response = await handleConversations(request, env);
-    } else if (path.startsWith('/api/chat')) {
-      response = await handleChat(request, env);
     } else if (path.startsWith('/api/ai/intent')) {
       response = await handleAiIntent(request, env);
     } else if (path.startsWith('/api/ai/chat')) {

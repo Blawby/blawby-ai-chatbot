@@ -179,7 +179,8 @@ function buildSummaryContent(summary: SummaryState): string {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([key, count]) => `${key} (${count})`);
-  const title = `${summary.totalCount} updates in the last 5 minutes`;
+  const windowMinutes = Math.max(1, Math.round(RATE_WINDOW_MS / 60_000));
+  const title = `${summary.totalCount} updates in the last ${windowMinutes} minute${windowMinutes === 1 ? '' : 's'}`;
   const body = entries.length > 0
     ? `${entries.join(', ')}. View conversation for details.`
     : 'View conversation for details.';
@@ -413,9 +414,10 @@ async function sendConversationBotMessage(options: {
     state.messageCount += 1;
   }
 
-  await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
-
-  if (action === 'skip') return null;
+  if (action === 'skip') {
+    await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
+    return null;
+  }
 
   const content = action === 'summary'
     ? buildSummaryContent(nextSummary)
@@ -439,6 +441,8 @@ async function sendConversationBotMessage(options: {
     auditPayload: { conversationId },
     skipPracticeValidation: true
   });
+
+  await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
 
   return message.id;
 }
@@ -513,9 +517,10 @@ async function sendSystemBotMessage(options: {
     }
   }
 
-  await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
-
-  if (action === 'skip') return null;
+  if (action === 'skip') {
+    await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
+    return null;
+  }
 
   const content = action === 'summary'
     ? buildSummaryContent(state.summary)
@@ -539,6 +544,8 @@ async function sendSystemBotMessage(options: {
     auditPayload: { conversationId },
     skipPracticeValidation: true
   });
+
+  await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
 
   if (shouldIncrement) {
     globalState.messageCount += 1;

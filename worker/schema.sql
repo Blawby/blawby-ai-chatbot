@@ -220,9 +220,9 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   metadata TEXT,
   token_count INTEGER,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  seq INTEGER NOT NULL DEFAULT 0,
-  client_id TEXT NOT NULL DEFAULT '',
-  server_ts TEXT NOT NULL DEFAULT ''
+  seq INTEGER NOT NULL,
+  client_id TEXT NOT NULL,
+  server_ts TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 -- Sample data removed - organizations are managed by remote API

@@ -6,7 +6,6 @@ import { getWorkerApiUrl } from './urls';
 
 const API_CONFIG = {
   baseUrl: getWorkerApiUrl(),
-  chatEndpoint: '/api/chat',
   practicesEndpoint: '/api/practices',
   healthEndpoint: '/api/health',
   matterCreationEndpoint: '/api/matter-creation'
@@ -14,11 +13,6 @@ const API_CONFIG = {
 
 export const getApiConfig = () => {
   return API_CONFIG;
-};
-
-export const getChatEndpoint = () => {
-  const config = getApiConfig();
-  return `${config.baseUrl}${config.chatEndpoint}`;
 };
 
 // Forms share the same backend API base as auth.
@@ -131,10 +125,10 @@ export const getConversationLinkEndpoint = (conversationId: string) => {
   return `${getWorkerApiUrl()}/api/conversations/${encodeURIComponent(conversationId)}/link`;
 };
 
-// Chat message endpoints - handled by local worker
-export const getChatMessagesEndpoint = () => {
+// Conversation message endpoints - handled by local worker
+export const getConversationMessagesEndpoint = (conversationId: string) => {
   const config = getApiConfig();
-  return `${config.baseUrl}/api/chat/messages`;
+  return `${config.baseUrl}/api/conversations/${encodeURIComponent(conversationId)}/messages`;
 };
 
 // Intake confirmation endpoint - handled by local worker

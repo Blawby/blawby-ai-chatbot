@@ -102,7 +102,7 @@ const workerEndpoints = [
 	'agent',
 	'auth',
 	'sessions',
-	'chat',
+	'ai',
 	'lawyers',
 	'files',
 	'conversations',

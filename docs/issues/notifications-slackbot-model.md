@@ -108,15 +108,14 @@ Coalescing and summarization
 - Link: use the most recent event link (if any) or omit.
 
 Security and abuse prevention
-- Bot messages can only be created server-side via the queue processor; no client-exposed endpoints.
-- Use `ConversationService.sendSystemMessage` to post server-side messages; no shared secret required.
-- Do not introduce `INTERNAL_SECRET`; rely on the existing Worker -> ChatRoom internal call path.
-- Internal routes are `ChatRoom` Durable Object endpoints (`/internal/message`, `/internal/membership-revoked`) and should only be reachable via Worker-side `stub.fetch` (current routing only proxies `/api/conversations/:id/ws` to `/ws/:id`, not `/internal/*`). `worker/durable-objects/ChatRoom.ts`, `worker/routes/conversations.ts`
+- Notification bot messages can only be created server-side via the queue processor; no client-exposed endpoints. AI replies and intake decision system messages may call `ConversationService.sendSystemMessage` directly after validation.
+- Use `ConversationService.sendSystemMessage` to post server-side messages; do not expose `ChatRoom` internal endpoints via HTTP routing.
+- Internal routes are `ChatRoom` Durable Object endpoints and should only be reachable via Worker-side `stub.fetch` (current routing only proxies `/api/conversations/:id/ws` to `/ws/:id`, not `/internal/*`). `worker/durable-objects/ChatRoom.ts`, `worker/routes/conversations.ts`
 - Define "arbitrary input" as any payload that is not validated against server-side identifiers and membership rules. `sendSystemMessage` calls must validate `practiceId`, `conversationId`, and membership; message content/metadata must be schema-validated and size-capped.
 - Findings from review (must change):
-  - Public HTTP handlers call `sendSystemMessage` (`worker/routes/aiChat.ts`, `worker/routes/practices.ts`, `worker/routes/intakes.ts`), which violates the "queue processor only" rule.
-  - `sendSystemMessage` validates practice + conversation existence but does not enforce membership, metadata schema, or payload size caps. `worker/services/ConversationService.ts`
-  - `ChatRoom` internal auth currently depends on `INTERNAL_SECRET` (or `NODE_ENV` fallback), which conflicts with "no shared secret required." `worker/durable-objects/ChatRoom.ts`
+  - Public HTTP handlers call `sendSystemMessage` (`worker/routes/aiChat.ts`, `worker/routes/practices.ts`, `worker/routes/intakes.ts`). These are exempt from the queue-only rule and must enforce membership, metadata schema validation, size caps, and audit logging.
+  - `sendSystemMessage` must validate practice + conversation existence, enforce membership, validate metadata schema, and apply payload size caps. `worker/services/ConversationService.ts`
+  - `ChatRoom` internal endpoints must not be reachable via HTTP routing. `worker/durable-objects/ChatRoom.ts`
 - Validate practice existence and conversation membership before posting; never post to conversations the recipient cannot access.
 - Reject oversized or malformed metadata; cap payload sizes to prevent abuse.
 - Record bot message creation in `session_audit_events` for auditability.
@@ -175,7 +174,7 @@ Chatbot flow coverage (current + changes)
 - Current: guest/anonymous AI chat uses `POST /api/ai/chat` and stores the AI reply via `ConversationService.sendSystemMessage` (role: system, user_id null, metadata source/model). `worker/routes/aiChat.ts`
 - Current: intake submission creates a matter and posts a confirmation system message into the conversation via `sendSystemMessage` (anonymous until linked). `worker/routes/intakes.ts`
 - Current: intake accept/reject posts a system message; accept also attaches the matter and adds the practice participant. `worker/routes/practices.ts`
-- Decision: queue processor only applies to notification bot messages. AI replies and intake decision system messages continue to call `sendSystemMessage` directly (with membership + metadata validation).
+- Decision: queue processor only applies to notification bot messages. AI replies and intake decision system messages continue to call `sendSystemMessage` directly (with membership + metadata validation, size caps, audit logging).
 
 Operational safeguards
 - Monitor queue processing errors and bot message creation failures (log + alert).

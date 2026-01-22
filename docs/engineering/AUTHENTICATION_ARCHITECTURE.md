@@ -207,6 +207,24 @@ BACKEND_API_URL=http://localhost:3000
 4. Better Auth validates session and returns user data
 5. Worker extracts `user.id` and passes to business logic
 
+### Anonymous-to-Authenticated Conversation Linking
+
+Better Auth anonymous sessions do not automatically link conversations to a real user account. The app must call the link endpoint after authentication.
+
+**How it works**
+1. Anonymous chat creates a conversation with `user_id = null` and the anonymous user in `participants`.
+2. After sign-in, the frontend calls `PATCH /api/conversations/:id/link` with `conversationId` and `practiceId`.
+3. The Worker updates `conversations.user_id` and ensures the authenticated user is in `participants`.
+
+**When to call the link endpoint**
+- After sign-in completion (email/password, OAuth callback, or account creation).
+- Use the active chat route parameters so the correct conversation is linked.
+- Repeat calls are safe; the service is idempotent for the same user.
+
+**Relevant code paths**
+- Frontend: `src/shared/components/AuthForm.tsx`, `src/features/dashboard/pages/PracticeDashboardPage.tsx`
+- Worker: `worker/routes/conversations.ts`, `worker/services/ConversationService.ts`
+
 ## Troubleshooting
 
 ### "Authentication required" (401) Error
