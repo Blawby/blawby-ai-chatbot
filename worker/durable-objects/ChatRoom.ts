@@ -22,6 +22,7 @@ interface ConnectionAttachment {
   negotiationDeadline: number | null;
   lastActivityAt: number;
   isPracticeMember: boolean;
+  authCookie: string | null;
 }
 
 interface ClientFrame {
@@ -100,10 +101,8 @@ export class ChatRoom {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
+    // Internal endpoints are reachable only via Worker stub.fetch; HTTP routing does not expose /internal/*.
     if (url.pathname === '/internal/membership-revoked') {
-      if (!this.isInternalAuthorized(request)) {
-        return new Response('Forbidden', { status: 403 });
-      }
       if (request.method !== 'POST') {
         return new Response('Method not allowed', { status: 405 });
       }
@@ -111,9 +110,6 @@ export class ChatRoom {
     }
 
     if (url.pathname === '/internal/message') {
-      if (!this.isInternalAuthorized(request)) {
-        return new Response('Forbidden', { status: 403 });
-      }
       if (request.method !== 'POST') {
         return new Response('Method not allowed', { status: 405 });
       }
@@ -157,6 +153,7 @@ export class ChatRoom {
       }
     }
 
+    const authCookie = request.headers.get('Cookie');
     const pair = new WebSocketPair();
     const client = pair[0] as unknown as WorkerWebSocket;
     const server = pair[1] as unknown as WorkerWebSocket;
@@ -171,7 +168,8 @@ export class ChatRoom {
       negotiated: false,
       negotiationDeadline: null,
       lastActivityAt: Date.now(),
-      isPracticeMember
+      isPracticeMember,
+      authCookie: authCookie && authCookie.trim() ? authCookie : null
     };
 
     server.serializeAttachment(attachment);
@@ -778,6 +776,29 @@ export class ChatRoom {
     return membership.isMember;
   }
 
+  private buildAuthRequest(attachment: ConnectionAttachment): Request | null {
+    const cookie = attachment.authCookie?.trim();
+    if (!cookie) {
+      return null;
+    }
+    return new Request('https://auth.local', {
+      headers: { Cookie: cookie }
+    });
+  }
+
+  private async revalidatePracticeMembership(attachment: ConnectionAttachment): Promise<boolean> {
+    const practiceId = await this.fetchConversationPracticeId(attachment.conversationId);
+    if (!practiceId) {
+      return false;
+    }
+    const authRequest = this.buildAuthRequest(attachment);
+    if (!authRequest) {
+      return false;
+    }
+    const membership = await checkPracticeMembership(authRequest, this.env, practiceId);
+    return membership.isMember;
+  }
+
   private async ensureMembership(
     ws: WorkerWebSocket,
     attachment: ConnectionAttachment,
@@ -808,13 +829,17 @@ export class ChatRoom {
     this.membershipCheckedAt = now;
     if (this.cachedMembershipVersion !== null && currentVersion !== this.cachedMembershipVersion) {
       if (attachment.isPracticeMember) {
-        this.cachedMembershipVersion = currentVersion;
-        return true;
-      }
-      const stillMember = await this.isConversationMember(attachment.conversationId, attachment.userId);
-      if (!stillMember) {
-        this.closeSocket(ws, 4403, 'membership_revoked');
-        return false;
+        const stillPracticeMember = await this.revalidatePracticeMembership(attachment);
+        if (!stillPracticeMember) {
+          this.closeSocket(ws, 4403, 'membership_revoked');
+          return false;
+        }
+      } else {
+        const stillMember = await this.isConversationMember(attachment.conversationId, attachment.userId);
+        if (!stillMember) {
+          this.closeSocket(ws, 4403, 'membership_revoked');
+          return false;
+        }
       }
     }
 
@@ -870,9 +895,6 @@ export class ChatRoom {
       return new Response('membership_version required', { status: 400 });
     }
 
-    this.cachedMembershipVersion = membershipVersion;
-    this.membershipCheckedAt = Date.now();
-
     const removedUserId = this.readString(payload.removed_user_id);
     if (removedUserId) {
       const sockets = this.state.getWebSockets(`user:${removedUserId}`);
@@ -880,6 +902,20 @@ export class ChatRoom {
         this.closeSocket(socket, 4403, 'membership_revoked');
       }
     }
+
+    for (const socket of this.state.getWebSockets()) {
+      const attachment = this.getAttachment(socket);
+      if (!attachment?.negotiated || !attachment.isPracticeMember) {
+        continue;
+      }
+      const stillPracticeMember = await this.revalidatePracticeMembership(attachment);
+      if (!stillPracticeMember) {
+        this.closeSocket(socket, 4403, 'membership_revoked');
+      }
+    }
+
+    this.cachedMembershipVersion = membershipVersion;
+    this.membershipCheckedAt = Date.now();
 
     this.broadcastFrame('membership.changed', {
       conversation_id: conversationId,
@@ -1253,11 +1289,6 @@ export class ChatRoom {
     } catch {
       // Ignore closing errors.
     }
-  }
-
-  private isInternalAuthorized(request: Request): boolean {
-    void request;
-    return true;
   }
 
   private getAttachment(ws: WorkerWebSocket): ConnectionAttachment | null {

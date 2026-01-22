@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ChatBubbleLeftRightIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -62,13 +62,14 @@ export const ConversationSidebar = ({
   const [searchQuery, setSearchQuery] = useState('');
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
-  const getConversationTitle = (conversation: Conversation) => {
+  const getConversationTitle = useCallback((conversation: Conversation) => {
     return conversation.user_info?.title
       || conversation.practice?.name
       || conversation.practice?.slug
       || practiceLabelCacheRef.current.get(conversation.practice_id)
       || (typeof conversation.practice_id === 'string' ? conversation.practice_id.slice(0, 6) : 'Conversation');
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practiceLabelCacheRef.current]);
 
   const isSystemConversation = (conversation: Conversation) => (
     conversation.user_info?.system_conversation === true
@@ -81,7 +82,7 @@ export const ConversationSidebar = ({
       const title = getConversationTitle(conversation);
       return title.toLowerCase().includes(normalizedQuery);
     });
-  }, [conversations, normalizedQuery]);
+  }, [conversations, getConversationTitle, normalizedQuery]);
 
   const sections = useMemo(() => {
     if (filteredConversations.length === 0) return [];

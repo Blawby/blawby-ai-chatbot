@@ -222,8 +222,14 @@ Better Auth anonymous sessions do not automatically link conversations to a real
 - Repeat calls are safe; the service is idempotent for the same user.
 
 **Relevant code paths**
-- Frontend: `src/shared/components/AuthForm.tsx`, `src/features/dashboard/pages/PracticeDashboardPage.tsx`
+- Frontend: `src/index.tsx` (ClientAppRoute -> `linkConversationToUser`), `src/shared/components/AuthForm.tsx`, `src/features/dashboard/pages/PracticeDashboardPage.tsx` (older flows may be outdated)
 - Worker: `worker/routes/conversations.ts`, `worker/services/ConversationService.ts`
+
+### Internal Durable Object Endpoints
+
+The ChatRoom Durable Object exposes `/internal/*` endpoints that are only meant to be called via `stub.fetch` from the Worker. These are not public HTTP routes.
+
+**Do not** expose `/internal/*` via Worker routing, proxy rules, or Vite dev proxies. If a new route must forward to a Durable Object, explicitly block `/internal/*` to keep these endpoints internal-only.
 
 ## Troubleshooting
 

@@ -3,7 +3,7 @@ Don’t use useEffect for React-internal logic (derived state, data transforms, 
 System boundaries and sources of truth:
 Frontend (Cloudflare Pages): Preact app in src/ built by Vite. Use src/config/urls.ts for API routing rules and env variable behavior.
 Worker API (Cloudflare Workers): see worker/index.ts and worker/routes/*.ts for local endpoints. Current worker routes include:
-- /api/conversations, /api/chat, /api/ai/chat, /api/ai/intent
+- /api/conversations, /api/ai/chat, /api/ai/intent
 - /api/inbox
 - /api/notifications
 - /api/files, /api/analyze, /api/pdf

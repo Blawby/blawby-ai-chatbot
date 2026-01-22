@@ -7,7 +7,6 @@
 BACKEND_API_URL=your_backend_api_url_here
 
 # API Keys and Tokens (SENSITIVE)
-LAWYER_SEARCH_API_KEY=your_lawyer_search_api_key_here
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
 CF_AIG_TOKEN=your_cloudflare_ai_gateway_token_here
 OPENAI_TOKEN=your_openai_api_token_here
