@@ -110,8 +110,12 @@ Security and abuse prevention
 - Bot messages can only be created server-side via the queue processor; no client-exposed endpoints.
 - Use `ConversationService.sendSystemMessage` to post server-side messages; no shared secret required.
 - Do not introduce `INTERNAL_SECRET`; rely on the existing Worker -> ChatRoom internal call path.
-- Verify `ChatRoom` internal routes are not exposed via any HTTP handler; only Worker-side `stub.fetch` calls should reach them. `worker/durable-objects/ChatRoom.ts`
-- Ensure no public route calls `sendSystemMessage` with arbitrary input; restrict to server-side notification flows only. `worker/queues/notificationProcessor.ts`, `worker/services/ConversationService.ts`
+- Internal routes are `ChatRoom` Durable Object endpoints (`/internal/message`, `/internal/membership-revoked`) and should only be reachable via Worker-side `stub.fetch` (current routing only proxies `/api/conversations/:id/ws` to `/ws/:id`, not `/internal/*`). `worker/durable-objects/ChatRoom.ts`, `worker/routes/conversations.ts`
+- Define "arbitrary input" as any payload that is not validated against server-side identifiers and membership rules. `sendSystemMessage` calls must validate `practiceId`, `conversationId`, and membership; message content/metadata must be schema-validated and size-capped.
+- Findings from review (must change):
+  - Public HTTP handlers call `sendSystemMessage` (`worker/routes/aiChat.ts`, `worker/routes/practices.ts`, `worker/routes/intakes.ts`), which violates the "queue processor only" rule.
+  - `sendSystemMessage` validates practice + conversation existence but does not enforce membership, metadata schema, or payload size caps. `worker/services/ConversationService.ts`
+  - `ChatRoom` internal auth currently depends on `INTERNAL_SECRET` (or `NODE_ENV` fallback), which conflicts with "no shared secret required." `worker/durable-objects/ChatRoom.ts`
 - Validate practice existence and conversation membership before posting; never post to conversations the recipient cannot access.
 - Reject oversized or malformed metadata; cap payload sizes to prevent abuse.
 - Record bot message creation in `session_audit_events` for auditability.
@@ -166,6 +170,12 @@ Queue processor flow (post-change)
 3) Optional: processor also sends push/email notification
 4) No D1 notification record for in-app UI
 
+Chatbot flow coverage (current + changes)
+- Current: guest/anonymous AI chat uses `POST /api/ai/chat` and stores the AI reply via `ConversationService.sendSystemMessage` (role: system, user_id null, metadata source/model). `worker/routes/aiChat.ts`
+- Current: intake submission creates a matter and posts a confirmation system message into the conversation via `sendSystemMessage` (anonymous until linked). `worker/routes/intakes.ts`
+- Current: intake accept/reject posts a system message; accept also attaches the matter and adds the practice participant. `worker/routes/practices.ts`
+- Changes needed to meet the flow goal + "queue processor only" rule: either move AI replies and intake decision messages into the queue processor, or scope the rule to notification bot messages only and explicitly exempt AI/intake system messages.
+
 Operational safeguards
 - Monitor queue processing errors and bot message creation failures (log + alert).
 - Track bot message volume per practice/user to validate rate limiting.
@@ -202,6 +212,8 @@ Testing checklist
 - Error handling: system conversation creation failures, bot message delivery failures, concurrent creation races.
 - Performance: conversation list with 100+ bot messages; high-frequency bot message creation; query latency.
 - Security: authorization checks on bot message creation; cross-workspace leakage; privilege escalation attempts.
+- Security: attempt to call any `ChatRoom` internal routes via HTTP; expect `404`/`403`.
+- Security: remove `sendSystemMessage` usage from public HTTP routes (currently `worker/routes/aiChat.ts`, `worker/routes/practices.ts`, `worker/routes/intakes.ts`); bot/system messages originate from the queue processor only.
 - Cross-device: client-side pinning order consistent on multiple devices/sessions.
 - Integration: push/email notifications still work (OneSignal destinations + preferences). `tests/e2e/notifications.spec.ts`
 - Data integrity: dedupe window enforcement; metadata validation; membership enforcement.

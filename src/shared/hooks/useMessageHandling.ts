@@ -29,6 +29,7 @@ interface UseMessageHandlingOptions {
 
 const CHAT_PROTOCOL_VERSION = 1;
 const SOCKET_READY_TIMEOUT_MS = 8000;
+const SESSION_READY_TIMEOUT_MS = 8000;
 const GAP_FETCH_LIMIT = 50;
 
 const createClientId = (): string => {
@@ -62,8 +63,8 @@ export const useMessageHandling = ({
   onConversationMetadataUpdated,
   onError
 }: UseMessageHandlingOptions) => {
-  const { session } = useSessionContext();
-  const sessionReady = Boolean(session?.user);
+  const { session, isPending: sessionIsPending } = useSessionContext();
+  const sessionReady = Boolean(session?.user) && !sessionIsPending;
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -99,8 +100,11 @@ export const useMessageHandling = ({
   const socketConversationIdRef = useRef<string | null>(null);
   const connectChatRoomRef = useRef<(conversationId: string) => void>(() => {});
   const isClosingSocketRef = useRef(false);
+  const [isSocketReady, setIsSocketReady] = useState(false);
   conversationIdRef.current = conversationId;
   practiceIdRef.current = practiceId;
+  const sessionReadyRef = useRef(sessionReady);
+  sessionReadyRef.current = sessionReady;
   
   // Debug hooks for test environment (development only)
   useEffect(() => {
@@ -118,27 +122,37 @@ export const useMessageHandling = ({
     }
   }, []);
 
+  const updateSocketReady = useCallback((ready: boolean) => {
+    if (isDisposedRef.current) {
+      return;
+    }
+    setIsSocketReady(ready);
+  }, []);
+
   const initSocketReadyPromise = useCallback(() => {
     wsReadyRef.current = new Promise((resolve, reject) => {
       wsReadyResolveRef.current = resolve;
       wsReadyRejectRef.current = reject;
     });
     isSocketReadyRef.current = false;
-  }, []);
+    updateSocketReady(false);
+  }, [updateSocketReady]);
 
   const resolveSocketReady = useCallback(() => {
     isSocketReadyRef.current = true;
+    updateSocketReady(true);
     wsReadyResolveRef.current?.();
     wsReadyResolveRef.current = null;
     wsReadyRejectRef.current = null;
-  }, []);
+  }, [updateSocketReady]);
 
   const rejectSocketReady = useCallback((error: Error) => {
     isSocketReadyRef.current = false;
+    updateSocketReady(false);
     wsReadyRejectRef.current?.(error);
     wsReadyResolveRef.current = null;
     wsReadyRejectRef.current = null;
-  }, []);
+  }, [updateSocketReady]);
 
   const clearReconnectTimer = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -178,6 +192,25 @@ export const useMessageHandling = ({
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+    }
+  }, []);
+
+  const waitForSessionReady = useCallback(async () => {
+    if (sessionReadyRef.current) {
+      return;
+    }
+    if (typeof window === 'undefined') {
+      throw new Error('Chat session is not available in this environment.');
+    }
+    const start = Date.now();
+    while (!sessionReadyRef.current) {
+      if (isDisposedRef.current) {
+        throw new Error('Chat session was disposed.');
+      }
+      if (Date.now() - start > SESSION_READY_TIMEOUT_MS) {
+        throw new Error('Secure session is not ready yet. Please try again in a moment.');
+      }
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   }, []);
 
@@ -764,6 +797,7 @@ export const useMessageHandling = ({
     const attachmentIds = attachments.map(att => att.id || att.storageKey || '').filter(Boolean);
 
     try {
+      await waitForSessionReady();
       if (!isSocketReadyRef.current || socketConversationIdRef.current !== activeConversationId) {
         connectChatRoomRef.current(activeConversationId);
       }
@@ -791,7 +825,7 @@ export const useMessageHandling = ({
       setMessages(prev => prev.filter(message => message.id !== tempId));
       throw error;
     });
-  }, [sendFrame, waitForSocketReady]);
+  }, [sendFrame, waitForSessionReady, waitForSocketReady]);
 
   // Main message sending function
   const sendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
@@ -1645,6 +1679,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     updateMessage,
     clearMessages,
     updateConversationMetadata,
+    isSocketReady,
     isConsultFlowActive,
     hasMoreMessages,
     isLoadingMoreMessages,

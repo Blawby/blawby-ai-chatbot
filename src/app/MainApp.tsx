@@ -572,7 +572,10 @@ export function MainApp({
   // User tier is now derived directly from practice - no need for custom event listeners
 
   const shouldRequireModeSelection = workspace === 'public';
-  const isSessionReady = Boolean(conversationId && !isCreatingConversation);
+  const isConversationReady = Boolean(conversationId && !isCreatingConversation);
+  const isAuthReady = Boolean(session?.user) && !sessionIsPending;
+  const isSessionReady = isConversationReady && isAuthReady;
+  const isSocketReady = isConversationReady && isAuthReady ? realMessageHandling.isSocketReady : false;
   const isComposerDisabled = (shouldRequireModeSelection && !conversationMode) || isConsultFlowActive;
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(conversationId));
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
@@ -790,6 +793,7 @@ export function MainApp({
               clearInput={clearInputTrigger}
               isReadyToUpload={isReadyToUpload}
               isSessionReady={isSessionReady}
+              isSocketReady={isSocketReady}
               intakeStatus={intakeStatus}
               conversationId={conversationId}
               isAnonymousUser={isAnonymousUser}

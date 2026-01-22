@@ -29,6 +29,7 @@ interface MessageComposerProps {
   textareaRef: RefObject<HTMLTextAreaElement>;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
+  isSocketReady?: boolean;
   intakeStatus?: {
     step: string;
   };
@@ -54,6 +55,7 @@ const MessageComposer = ({
   textareaRef,
   isReadyToUpload,
   isSessionReady,
+  isSocketReady,
   intakeStatus,
   disabled,
   conversationMode,
@@ -65,7 +67,7 @@ const MessageComposer = ({
     intakeStep === 'pending_review' ||
     intakeStep === 'accepted' ||
     intakeStep === 'rejected';
-  const isComposerDisabled = Boolean(disabled) || isSessionReady === false || isIntakeLocked;
+  const isComposerDisabled = Boolean(disabled) || isSessionReady === false || isSocketReady === false || isIntakeLocked;
 
   const handleInput = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
     const t = e.currentTarget;
@@ -101,6 +103,9 @@ const MessageComposer = ({
     }
     if (isSessionReady === false) {
       return 'Setting up a secure session...';
+    }
+    if (isSocketReady === false) {
+      return 'Connecting to chat...';
     }
     return 'Blawby can make mistakes. Check for important information.';
   })();
@@ -196,6 +201,8 @@ const MessageComposer = ({
               aria-label={
                 isSessionReady === false
                   ? 'Send message (waiting for secure session)'
+                  : isSocketReady === false
+                  ? 'Send message (connecting to chat)'
                   : (!inputValue.trim() && previewFiles.length === 0
                   ? 'Send message (disabled)'
                   : 'Send message')}

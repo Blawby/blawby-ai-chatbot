@@ -455,8 +455,12 @@ const ensureComposerReady = async (page: Page): Promise<void> => {
   await expect(input).toBeVisible({ timeout: 30000 });
   if (await input.isDisabled()) {
     const askButton = page.getByRole('button', { name: /ask a question/i });
-    await expect(askButton).toBeVisible({ timeout: 30000 });
-    await askButton.click();
+    if (await askButton.isVisible()) {
+      if (!(await askButton.isEnabled())) {
+        await expect(askButton).toBeEnabled({ timeout: 30000 });
+      }
+      await askButton.click();
+    }
     await expect(input).toBeEnabled({ timeout: 30000 });
   }
 };

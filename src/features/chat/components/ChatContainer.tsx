@@ -44,6 +44,7 @@ interface ChatContainerProps {
   setIsRecording: (v: boolean) => void;
   isReadyToUpload?: boolean;
   isSessionReady?: boolean;
+  isSocketReady?: boolean;
   intakeStatus?: {
     step: string;
   };
@@ -78,6 +79,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   setIsRecording,
   isReadyToUpload,
   isSessionReady,
+  isSocketReady,
   intakeStatus,
   clearInput,
   conversationId,
@@ -97,6 +99,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -153,7 +156,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   }, [clearInput]);
 
   const handleSubmit = () => {
-    if (composerDisabled) return;
+    if (isChatInputLocked) return;
     if (!inputValue.trim() && previewFiles.length === 0) return;
 
     const message = inputValue.trim();
@@ -181,7 +184,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if ((e as KeyboardEvent & { isComposing?: boolean }).isComposing || e.repeat) {
       return;
     }
-    if (composerDisabled) {
+    if (isChatInputLocked) {
       return;
     }
     baseKeyHandler(e);
@@ -270,6 +273,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               textareaRef={textareaRef}
               isReadyToUpload={isReadyToUpload}
               isSessionReady={isSessionReady}
+              isSocketReady={isSocketReady}
               intakeStatus={intakeStatus}
               disabled={composerDisabled}
               conversationMode={conversationMode}
