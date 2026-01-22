@@ -18,11 +18,11 @@ const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDeta
  * Uses centralized URL configuration from src/config/urls.ts
  * 
  * Caching strategy:
- * - Development: Never cache (supports MSW switching)
+ * - Development: Never cache (always read the current URL)
  * - Production: Cache after first call
  */
 function ensureApiBaseUrl(): string {
-  // NEVER cache in development - always get fresh URL to support MSW
+  // NEVER cache in development - always get the latest URL.
   if (import.meta.env.DEV) {
     return getWorkerApiUrl();
   }
@@ -37,15 +37,15 @@ function ensureApiBaseUrl(): string {
 }
 
 // Create axios instance without default baseURL
-// We'll set it dynamically in the interceptor to support MSW in dev
+// We'll set it dynamically in the interceptor to avoid stale base URLs.
 export const apiClient = axios.create({
   // Don't set baseURL here - let interceptor handle it dynamically
 });
 
 apiClient.interceptors.request.use(
   (config) => {
-    // Always get fresh baseURL in development to support MSW
-    // Force override any cached baseURL - this is critical for MSW interception
+    // Always get fresh baseURL in development.
+    // Force override any cached baseURL to avoid stale endpoints.
     const baseUrl = ensureApiBaseUrl();
     // Always set baseURL fresh - don't rely on existing value
     if (config.baseURL !== baseUrl) {
