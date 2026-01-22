@@ -903,16 +903,17 @@ export class ChatRoom {
       }
     }
 
-    for (const socket of this.state.getWebSockets()) {
+    const sockets = this.state.getWebSockets();
+    await Promise.all(sockets.map(async (socket) => {
       const attachment = this.getAttachment(socket);
       if (!attachment?.negotiated || !attachment.isPracticeMember) {
-        continue;
+        return;
       }
       const stillPracticeMember = await this.revalidatePracticeMembership(attachment);
       if (!stillPracticeMember) {
         this.closeSocket(socket, 4403, 'membership_revoked');
       }
-    }
+    }));
 
     this.cachedMembershipVersion = membershipVersion;
     this.membershipCheckedAt = Date.now();

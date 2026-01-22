@@ -545,25 +545,24 @@ async function sendSystemBotMessage(options: {
     skipPracticeValidation: true
   });
 
-  try {
-    if (shouldIncrement) {
-      globalState.messageCount += 1;
+  if (shouldIncrement) {
+    globalState.messageCount += 1;
+    try {
       await saveGlobalRateLimitState(env, globalKey, globalState, USER_WINDOW_MS);
+    } catch (error) {
+      Logger.warn('Failed to save global rate-limit state', {
+        error: error instanceof Error ? error.message : String(error),
+        globalKey
+      });
     }
+  }
+  try {
     await saveRateLimitState(env, rateKey, state, RATE_WINDOW_MS);
   } catch (error) {
-    if (shouldIncrement) {
-      globalState.messageCount = Math.max(0, globalState.messageCount - 1);
-      try {
-        await saveGlobalRateLimitState(env, globalKey, globalState, USER_WINDOW_MS);
-      } catch (rollbackError) {
-        Logger.error('Failed to rollback global rate-limit state', {
-          error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
-          globalKey
-        });
-      }
-    }
-    throw error;
+    Logger.warn('Failed to save rate-limit state', {
+      error: error instanceof Error ? error.message : String(error),
+      rateKey
+    });
   }
 
   await maybePruneSystemConversation(env, conversationService, conversationId);
