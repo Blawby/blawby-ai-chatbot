@@ -604,6 +604,8 @@ export class RemoteApiService {
     paymentLinkEnabled?: boolean;
     prefillAmount?: number;
     organization?: {
+      id?: string;
+      slug?: string;
       name?: string;
       logo?: string;
     };
@@ -647,6 +649,8 @@ export class RemoteApiService {
           : undefined,
         organization: orgRecord
           ? {
+              id: typeof orgRecord.id === 'string' ? orgRecord.id : undefined,
+              slug: typeof orgRecord.slug === 'string' ? orgRecord.slug : undefined,
               name: typeof orgRecord.name === 'string' ? orgRecord.name : undefined,
               logo: typeof orgRecord.logo === 'string' ? orgRecord.logo : undefined
             }

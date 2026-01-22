@@ -22,6 +22,80 @@ const buildCookieHeader = async (context: BrowserContext, baseURL: string): Prom
   return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
 };
 
+const summarizeCookieHeader = (cookieHeader: string): string[] => (
+  cookieHeader
+    .split(';')
+    .map((segment) => segment.split('=')[0]?.trim())
+    .filter((name): name is string => Boolean(name))
+);
+
+const fetchDebugResponse = async (
+  request: APIRequestContext,
+  url: string,
+  headers: Record<string, string>
+): Promise<{ url: string; status: number; body: string }> => {
+  try {
+    const response = await request.get(url, { headers });
+    const body = await response.text().catch(() => '');
+    return {
+      url: response.url(),
+      status: response.status(),
+      body: body.slice(0, 500)
+    };
+  } catch (error) {
+    return {
+      url,
+      status: -1,
+      body: `request_error: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+};
+
+const logMessageFetchDiagnostics = async (options: {
+  request: APIRequestContext;
+  baseURL: string;
+  practiceId: string;
+  practiceSlug?: string;
+  conversationId: string;
+  cookieHeader: string;
+  status: number;
+  url: string;
+  body: string;
+}): Promise<void> => {
+  const cookieNames = summarizeCookieHeader(options.cookieHeader);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (options.cookieHeader) {
+    headers.Cookie = options.cookieHeader;
+  }
+
+  const conversationPath = `/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceId)}`;
+  const conversationCheck = await fetchDebugResponse(options.request, conversationPath, headers);
+
+  let conversationSlugCheck: { url: string; status: number; body: string } | undefined;
+  let messagesSlugCheck: { url: string; status: number; body: string } | undefined;
+  if (options.practiceSlug && options.practiceSlug !== options.practiceId) {
+    const slugConversationPath = `/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceSlug)}`;
+    conversationSlugCheck = await fetchDebugResponse(options.request, slugConversationPath, headers);
+
+    const slugMessagesPath = `/api/chat/messages?practiceId=${encodeURIComponent(options.practiceSlug)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
+    messagesSlugCheck = await fetchDebugResponse(options.request, slugMessagesPath, headers);
+  }
+
+  console.warn('[E2E][chat] Message fetch failed', {
+    baseURL: options.baseURL,
+    practiceId: options.practiceId,
+    practiceSlug: options.practiceSlug,
+    conversationId: options.conversationId,
+    status: options.status,
+    url: options.url,
+    cookieNames,
+    body: options.body.slice(0, 500),
+    conversationCheck,
+    conversationSlugCheck,
+    messagesSlugCheck
+  });
+};
+
 const getOrCreateConversation = async (options: {
   request: APIRequestContext;
   context: BrowserContext;
@@ -237,6 +311,7 @@ const getConversationMessages = async (options: {
   page?: Page;
   baseURL: string;
   practiceId: string;
+  practiceSlug?: string;
   conversationId: string;
 }): Promise<ConversationMessage[]> => {
   const url = `/api/chat/messages?practiceId=${encodeURIComponent(options.practiceId)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
@@ -285,6 +360,17 @@ const getConversationMessages = async (options: {
     const status = response.status();
     const retriable = status === 401 || status === 429 || status >= 500;
     if (!retriable || attempt >= maxAttempts - 1) {
+      await logMessageFetchDiagnostics({
+        request: options.request,
+        baseURL: options.baseURL,
+        practiceId: options.practiceId,
+        practiceSlug: options.practiceSlug,
+        conversationId: options.conversationId,
+        cookieHeader,
+        status,
+        url: response.url(),
+        body: fallbackText
+      });
       break;
     }
 
@@ -298,6 +384,98 @@ const getConversationMessages = async (options: {
   }
 
   throw lastError ?? new Error('Failed to fetch messages after retries');
+};
+
+const createConversationForPage = async (options: {
+  page: Page;
+  practiceId: string;
+}): Promise<string> => {
+  return options.page.evaluate(async ({ practiceId }) => {
+    const sessionResponse = await fetch('/api/auth/get-session', { credentials: 'include' });
+    if (!sessionResponse.ok) {
+      throw new Error(`Failed to load session: ${sessionResponse.status}`);
+    }
+    const sessionData = await sessionResponse.json().catch(() => null) as {
+      user?: { id?: string };
+      session?: { user?: { id?: string } };
+      data?: { user?: { id?: string }; session?: { user?: { id?: string } } };
+    } | null;
+    const userId = sessionData?.user?.id
+      ?? sessionData?.data?.user?.id
+      ?? sessionData?.session?.user?.id
+      ?? sessionData?.data?.session?.user?.id;
+    if (!userId) {
+      throw new Error('Session user id missing');
+    }
+    const response = await fetch(
+      `/api/conversations?practiceId=${encodeURIComponent(practiceId)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          participantUserIds: [userId],
+          metadata: { source: 'e2e' }
+        })
+      }
+    );
+    const payload = await response.json().catch(() => null) as {
+      data?: { id?: string; conversation?: { id?: string } };
+      id?: string;
+      error?: string;
+      message?: string;
+    } | null;
+    const conversationId = payload?.data?.id
+      ?? payload?.data?.conversation?.id
+      ?? payload?.id;
+    if (!response.ok || !conversationId) {
+      const message = payload?.error ?? payload?.message ?? response.statusText;
+      throw new Error(`Failed to create conversation: ${response.status} ${message}`);
+    }
+    return conversationId;
+  }, { practiceId: options.practiceId });
+};
+
+const openConversationPage = async (options: {
+  page: Page;
+  practiceSlug: string;
+  conversationId: string;
+}): Promise<void> => {
+  await options.page.goto(
+    `/p/${encodeURIComponent(options.practiceSlug)}/chats/${encodeURIComponent(options.conversationId)}`,
+    { waitUntil: 'domcontentloaded' }
+  );
+  await waitForSession(options.page, { timeoutMs: 60000 });
+  await expect(options.page.getByTestId('chat-container')).toBeVisible({ timeout: 30000 });
+  await expect(options.page.getByTestId('message-input')).toBeVisible({ timeout: 30000 });
+};
+
+const ensureComposerReady = async (page: Page): Promise<void> => {
+  const input = page.getByTestId('message-input');
+  await expect(input).toBeVisible({ timeout: 30000 });
+  if (await input.isDisabled()) {
+    const askButton = page.getByRole('button', { name: /ask a question/i });
+    if (await askButton.isVisible()) {
+      if (!(await askButton.isEnabled())) {
+        await expect(askButton).toBeEnabled({ timeout: 30000 });
+      }
+      await askButton.click();
+    }
+    await expect(input).toBeEnabled({ timeout: 30000 });
+  }
+};
+
+const expectUserMessage = async (page: Page, content: string, timeoutMs = 15000): Promise<void> => {
+  const message = page.getByTestId('user-message').filter({ hasText: content });
+  await expect(message).toBeVisible({ timeout: timeoutMs });
+};
+
+const sendMessageFromComposer = async (page: Page, content: string): Promise<void> => {
+  await ensureComposerReady(page);
+  const input = page.getByTestId('message-input');
+  await input.fill(content);
+  await page.getByTestId('message-send-button').click();
+  await expectUserMessage(page, content);
 };
 
 test.describe('Chat messaging', () => {
@@ -329,6 +507,7 @@ test.describe('Chat messaging', () => {
       page: anonPage,
       baseURL,
       practiceId: e2eConfig.practice.id,
+      practiceSlug: e2eConfig.practice.slug,
       conversationId
     });
 
@@ -360,6 +539,7 @@ test.describe('Chat messaging', () => {
       page: clientPage,
       baseURL,
       practiceId: e2eConfig.practice.id,
+      practiceSlug: e2eConfig.practice.slug,
       conversationId
     });
 
@@ -391,9 +571,51 @@ test.describe('Chat messaging', () => {
       page: ownerPage,
       baseURL,
       practiceId: e2eConfig.practice.id,
+      practiceSlug: e2eConfig.practice.slug,
       conversationId
     });
 
     expect(messages.some((message) => message.content === content)).toBeTruthy();
+  });
+
+  test('chat UI syncs across tabs and preserves history', async ({ clientContext, clientPage }) => {
+    if (!e2eConfig) return;
+    await clientPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`, { waitUntil: 'domcontentloaded' });
+    await waitForSession(clientPage, { timeoutMs: 60000 });
+    const conversationId = await createConversationForPage({
+      page: clientPage,
+      practiceId: e2eConfig.practice.id
+    });
+
+    const secondaryPage = await clientContext.newPage();
+    try {
+      await openConversationPage({
+        page: clientPage,
+        practiceSlug: e2eConfig.practice.slug,
+        conversationId
+      });
+      await openConversationPage({
+        page: secondaryPage,
+        practiceSlug: e2eConfig.practice.slug,
+        conversationId
+      });
+
+      const timestamp = Date.now();
+      const firstMessage = `E2E realtime ${timestamp} A`;
+      const secondMessage = `E2E realtime ${timestamp} B`;
+
+      await sendMessageFromComposer(clientPage, firstMessage);
+      await expectUserMessage(secondaryPage, firstMessage);
+
+      await sendMessageFromComposer(secondaryPage, secondMessage);
+      await expectUserMessage(clientPage, secondMessage);
+
+      await clientPage.reload({ waitUntil: 'domcontentloaded' });
+      await waitForSession(clientPage, { timeoutMs: 60000 });
+      await expectUserMessage(clientPage, firstMessage);
+      await expectUserMessage(clientPage, secondMessage);
+    } finally {
+      await secondaryPage.close();
+    }
   });
 });

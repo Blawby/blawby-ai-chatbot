@@ -690,10 +690,12 @@ export async function getPublicPracticeDetails(
       );
       const details = normalizePracticeDetailsResponse(response.data);
       const displayDetails = extractPublicPracticeDisplayDetails(response.data);
+      const practiceId = extractPublicPracticeId(response.data);
       if (!details) {
         return null;
       }
       return {
+        practiceId: practiceId ?? undefined,
         slug: normalizedSlug,
         details,
         name: displayDetails.name,
@@ -757,6 +759,24 @@ function extractPublicPracticeDisplayDetails(
     name: toNullableString(payload.details.name),
     logo: toNullableString(payload.details.logo)
   };
+}
+
+function extractPublicPracticeId(payload: unknown): string | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  const direct = toNullableString(payload.practiceId ?? payload.practice_id);
+  if (direct) {
+    return direct;
+  }
+  const organization = payload.organization;
+  if (isRecord(organization)) {
+    const orgId = toNullableString(organization.id ?? organization.practiceId ?? organization.practice_id);
+    if (orgId) {
+      return orgId;
+    }
+  }
+  return null;
 }
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {

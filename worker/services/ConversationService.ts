@@ -263,7 +263,7 @@ export class ConversationService {
       throw HttpErrors.notFound(`Practice not found: ${practiceId}`);
     }
 
-    // Try to get most recent active conversation
+    // Try to get most recent conversation (prefer active if present)
     // Build WHERE clause conditionally to avoid SQL keyword interpolation
     const userIdCondition = isAnonymous ? 'AND user_id IS NULL' : 'AND user_id IS NOT NULL';
     const query = `
@@ -275,8 +275,7 @@ export class ConversationService {
       WHERE practice_id = ? 
         AND EXISTS (SELECT 1 FROM json_each(participants) WHERE json_each.value = ?)
         ${userIdCondition}
-        AND status = 'active'
-      ORDER BY updated_at DESC
+      ORDER BY (status = 'active') DESC, updated_at DESC
       LIMIT 1
     `;
     const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<{

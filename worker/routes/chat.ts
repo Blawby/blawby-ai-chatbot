@@ -1,8 +1,25 @@
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
+import { checkPracticeMembership, optionalAuth } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
+
+const looksLikeUuid = (value: string): boolean => (
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+);
+
+const resolvePracticeIdForConversation = async (
+  conversationService: ConversationService,
+  conversationId: string
+): Promise<string> => {
+  try {
+    const conversation = await conversationService.getConversationById(conversationId);
+    return conversation.practice_id;
+  } catch {
+    throw HttpErrors.notFound('Conversation not found');
+  }
+};
 
 function createJsonResponse(data: unknown, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify({ success: true, data }), {
@@ -25,6 +42,7 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
     throw HttpErrors.unauthorized("Authentication required - anonymous or authenticated session needed");
   }
   const userId = authContext.user.id;
+  const isAnonymous = authContext.isAnonymous === true;
 
   // Get practice context
   const requestWithContext = await withPracticeContext(request, env, {
@@ -54,8 +72,42 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
       throw HttpErrors.badRequest('conversationId query parameter is required');
     }
 
-    // Validate user has access to conversation
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    const conversationPracticeId = await resolvePracticeIdForConversation(conversationService, conversationId);
+
+    if (looksLikeUuid(practiceId)) {
+      if (practiceId !== conversationPracticeId) {
+        console.warn('[Chat] Practice ID mismatch for messages request', {
+          conversationId,
+          practiceId,
+          resolvedPracticeId: conversationPracticeId,
+          isAnonymous
+        });
+        throw HttpErrors.notFound('Conversation not found');
+      }
+    } else {
+      const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, practiceId, request);
+      const mappedPracticeId = intakeSettings?.organization?.id;
+      if (!mappedPracticeId || mappedPracticeId !== conversationPracticeId) {
+        console.warn('[Chat] Practice slug mapping mismatch for messages request', {
+          conversationId,
+          practiceId,
+          resolvedPracticeId: conversationPracticeId,
+          mappedPracticeId: mappedPracticeId ?? null,
+          isAnonymous
+        });
+        throw HttpErrors.notFound('Conversation not found');
+      }
+    }
+
+    // Validate user has access to conversation (participants or practice members)
+    if (isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+    } else {
+      const membership = await checkPracticeMembership(request, env, conversationPracticeId);
+      if (!membership.isMember) {
+        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+      }
+    }
 
     if (url.searchParams.has('since')) {
       throw HttpErrors.badRequest('since is no longer supported; use from_seq');
@@ -79,11 +131,23 @@ export async function handleChat(request: Request, env: Env): Promise<Response> 
       }
     }
 
-    const result = await conversationService.getMessages(conversationId, practiceId, {
-      limit,
-      cursor,
-      fromSeq
-    });
+    let result;
+    try {
+      result = await conversationService.getMessages(conversationId, conversationPracticeId, {
+        limit,
+        cursor,
+        fromSeq
+      });
+    } catch (error) {
+      console.warn('[Chat] Failed to fetch messages', {
+        conversationId,
+        practiceId,
+        resolvedPracticeId: conversationPracticeId,
+        isAnonymous,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
 
     const responseHeaders = result.warning ? { 'X-Sequence-Warning': result.warning } : undefined;
     return createJsonResponse(result, responseHeaders);

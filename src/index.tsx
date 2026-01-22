@@ -163,6 +163,7 @@ function AppShell() {
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
           <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
+          <Route path="/p/:practiceSlug/chats/:conversationId" component={PublicPracticeRoute} />
           <Route path="/practice" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} />
           <Route path="/practice/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} />
           <Route path="/client" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />

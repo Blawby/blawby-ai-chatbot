@@ -82,6 +82,80 @@ const buildCookieHeader = async (
   return cookiePairs.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
 };
 
+const summarizeCookieHeader = (cookieHeader: string): string[] => (
+  cookieHeader
+    .split(';')
+    .map((segment) => segment.split('=')[0]?.trim())
+    .filter((name): name is string => Boolean(name))
+);
+
+const fetchDebugResponse = async (
+  request: APIRequestContext,
+  url: string,
+  headers: Record<string, string>
+): Promise<{ url: string; status: number; body: string }> => {
+  try {
+    const response = await request.get(url, { headers });
+    const body = await response.text().catch(() => '');
+    return {
+      url: response.url(),
+      status: response.status(),
+      body: body.slice(0, 500)
+    };
+  } catch (error) {
+    return {
+      url,
+      status: -1,
+      body: `request_error: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+};
+
+const logMessageFetchDiagnostics = async (options: {
+  request: APIRequestContext;
+  baseURL: string;
+  practiceId: string;
+  practiceSlug?: string;
+  conversationId: string;
+  cookieHeader: string;
+  status: number;
+  url: string;
+  body: string;
+}): Promise<void> => {
+  const cookieNames = summarizeCookieHeader(options.cookieHeader);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (options.cookieHeader) {
+    headers.Cookie = options.cookieHeader;
+  }
+
+  const conversationPath = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceId)}`;
+  const conversationCheck = await fetchDebugResponse(options.request, conversationPath, headers);
+
+  let conversationSlugCheck: { url: string; status: number; body: string } | undefined;
+  let messagesSlugCheck: { url: string; status: number; body: string } | undefined;
+  if (options.practiceSlug && options.practiceSlug !== options.practiceId) {
+    const slugConversationPath = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceSlug)}`;
+    conversationSlugCheck = await fetchDebugResponse(options.request, slugConversationPath, headers);
+
+    const slugMessagesPath = `${WORKER_API_URL}/api/chat/messages?practiceId=${encodeURIComponent(options.practiceSlug)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
+    messagesSlugCheck = await fetchDebugResponse(options.request, slugMessagesPath, headers);
+  }
+
+  console.warn('[E2E][lead-flow] Message fetch failed', {
+    baseURL: options.baseURL,
+    practiceId: options.practiceId,
+    practiceSlug: options.practiceSlug,
+    conversationId: options.conversationId,
+    status: options.status,
+    url: options.url,
+    cookieNames,
+    body: options.body.slice(0, 500),
+    conversationCheck,
+    conversationSlugCheck,
+    messagesSlugCheck
+  });
+};
+
 const normalizePracticeSlug = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return trimmed;
@@ -498,6 +572,19 @@ const confirmIntakeLead = async (options: {
     console.warn('[E2E] Intake confirm still returning 404:', retry.error || retry.rawText || 'no body');
   }
 
+  if (retry.status !== 200) {
+    console.warn('[E2E] Intake confirm returned non-200', {
+      status: retry.status,
+      url: retry.url,
+      error: retry.error,
+      body: retry.rawText?.slice(0, 500) ?? '',
+      practiceId: options.practiceId,
+      practiceSlug: options.practiceSlug,
+      conversationId: options.conversationId,
+      intakeUuid: options.intakeUuid
+    });
+  }
+
   return { status: retry.status, data: retry.data };
 };
 
@@ -571,6 +658,7 @@ const getConversationMessages = async (options: {
   context: BrowserContext;
   baseURL: string;
   practiceId: string;
+  practiceSlug?: string;
   conversationId: string;
   storagePath?: string;
 }) => {
@@ -591,8 +679,27 @@ const getConversationMessages = async (options: {
       continue;
     }
 
-    const data = await response.json().catch(() => null) as { data?: { messages?: ConversationMessage[] } } | null;
+    const rawText = await response.text().catch(() => '');
+    let data: { data?: { messages?: ConversationMessage[] } } | null = null;
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText) as { data?: { messages?: ConversationMessage[] } };
+      } catch {
+        data = null;
+      }
+    }
     if (!response.ok() || !data?.data?.messages) {
+      await logMessageFetchDiagnostics({
+        request: options.request,
+        baseURL: options.baseURL,
+        practiceId: options.practiceId,
+        practiceSlug: options.practiceSlug,
+        conversationId: options.conversationId,
+        cookieHeader,
+        status: response.status(),
+        url: response.url(),
+        body: rawText || JSON.stringify(data)
+      });
       throw new Error(`Failed to fetch messages: ${response.status()}`);
     }
 
@@ -607,6 +714,7 @@ const waitForDecisionMessage = async (options: {
   context: BrowserContext;
   baseURL: string;
   practiceId: string;
+  practiceSlug?: string;
   conversationId: string;
   decision: 'accepted' | 'rejected';
   intakeUuid?: string;
@@ -619,6 +727,7 @@ const waitForDecisionMessage = async (options: {
     context,
     baseURL,
     practiceId,
+    practiceSlug,
     conversationId,
     decision,
     intakeUuid,
@@ -634,6 +743,7 @@ const waitForDecisionMessage = async (options: {
       context,
       baseURL,
       practiceId,
+      practiceSlug,
       conversationId,
       storagePath
     });
@@ -778,6 +888,7 @@ test.describe('Lead intake workflow', () => {
       context: clientContext,
       baseURL,
       practiceId,
+      practiceSlug: e2eConfig.practice.slug,
       conversationId,
       decision: 'accepted',
       intakeUuid: intake.uuid,
@@ -902,6 +1013,7 @@ test.describe('Lead intake workflow', () => {
       context: anonContext,
       baseURL,
       practiceId,
+      practiceSlug: e2eConfig.practice.slug,
       conversationId,
       decision: 'rejected',
       intakeUuid: intake.uuid,
