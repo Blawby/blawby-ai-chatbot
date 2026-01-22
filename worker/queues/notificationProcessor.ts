@@ -610,7 +610,9 @@ export async function handleNotificationQueue(
     const perRecipientMessageIds = new Map<string, string>();
 
     if (payload.practiceId && conversationId) {
-      const inAppRecipients = payload.recipients.filter(shouldSendInApp);
+      const inAppRecipients = payload.recipients.filter((recipient) =>
+        shouldSendInApp(recipient) && shouldProcessRecipient(recipient, payload)
+      );
       let participantUserId: string | null = null;
       for (const recipient of inAppRecipients) {
         try {
@@ -643,7 +645,7 @@ export async function handleNotificationQueue(
       }
     } else if (payload.practiceId) {
       for (const recipient of payload.recipients) {
-        if (!shouldSendInApp(recipient)) {
+        if (!shouldSendInApp(recipient) || !shouldProcessRecipient(recipient, payload)) {
           continue;
         }
         try {
