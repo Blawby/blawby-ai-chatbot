@@ -28,20 +28,24 @@ export async function handlePracticeDetails(request: Request, env: Env): Promise
   const response = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
   const rawText = await response.text();
 
+  const normalizedHeaders = new Headers(response.headers);
+  normalizedHeaders.delete('content-encoding');
+  normalizedHeaders.delete('content-length');
+
   let payload: Record<string, unknown> | null = null;
   try {
     payload = JSON.parse(rawText) as Record<string, unknown>;
   } catch {
     return new Response(rawText, {
       status: response.status,
-      headers: response.headers
+      headers: normalizedHeaders
     });
   }
 
   if (!payload || typeof payload !== 'object') {
     return new Response(rawText, {
       status: response.status,
-      headers: response.headers
+      headers: normalizedHeaders
     });
   }
 
@@ -60,13 +64,10 @@ export async function handlePracticeDetails(request: Request, env: Env): Promise
     }
   }
 
-  const headers = new Headers(response.headers);
-  headers.delete('content-encoding');
-  headers.delete('content-length');
-  headers.set('content-type', 'application/json');
+  normalizedHeaders.set('content-type', 'application/json');
 
   return new Response(JSON.stringify(payload), {
     status: response.status,
-    headers
+    headers: normalizedHeaders
   });
 }
