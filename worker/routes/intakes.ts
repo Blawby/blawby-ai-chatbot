@@ -1,6 +1,7 @@
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors, createSuccessResponse } from '../errorHandler.js';
 import type { Env } from '../types.js';
+import { HttpError } from '../types.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { ConversationService } from '../services/ConversationService.js';
@@ -74,6 +75,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       allowUrlOverride: true
     });
     const practiceId = getPracticeId(requestWithContext);
+    const practiceSlug = url.searchParams.get('practiceSlug')?.trim() || null;
 
     const body = await parseJsonBody(request) as Record<string, unknown>;
     const intakeUuid = typeof body.intakeUuid === 'string' ? body.intakeUuid.trim() : '';
@@ -91,8 +93,22 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       throw HttpErrors.notFound('Intake not found');
     }
 
-    const practice = await RemoteApiService.getPractice(env, practiceId, request);
-    const settingsSlug = practice?.slug ?? null;
+    let practice = null;
+    try {
+      practice = await RemoteApiService.getPractice(env, practiceId, request);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        console.warn('[Intake] Practice lookup failed; continuing with intake settings only', {
+          practiceId,
+          status: error.status,
+          message: error.message
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    const settingsSlug = practiceSlug ?? practice?.slug ?? null;
     const settings = settingsSlug
       ? await RemoteApiService.getPracticeClientIntakeSettings(env, settingsSlug, request)
       : null;
@@ -200,6 +216,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
           paymentStatus: status ?? null,
           paymentRequired
         },
+        recipientUserId: authContext.user.id,
         request
       });
     } catch (error) {
@@ -235,7 +252,9 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
           await enqueueNotification(env, {
             eventId: crypto.randomUUID(),
             dedupeKey: `intake:${intakeUuid}`,
+            dedupeWindow: 'permanent',
             practiceId,
+            conversationId,
             category: 'intake',
             entityType: 'matter',
             entityId: matterId,

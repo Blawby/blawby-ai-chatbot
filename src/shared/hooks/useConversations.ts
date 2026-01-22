@@ -6,6 +6,7 @@ import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/li
 
 interface UseConversationsOptions {
   practiceId?: string;
+  practiceSlug?: string;
   matterId?: string | null;
   status?: ConversationStatus | null;
   scope?: 'practice' | 'all';
@@ -39,6 +40,7 @@ export function useConversationsWithContext(options?: Omit<UseConversationsOptio
  */
 export function useConversations({
   practiceId,
+  practiceSlug,
   matterId,
   status,
   scope = 'practice',
@@ -95,6 +97,10 @@ export function useConversations({
         params.set('scope', 'all');
       } else if (practiceId) {
         params.set('practiceId', practiceId);
+        const normalizedPracticeSlug = practiceSlug?.trim();
+        if (normalizedPracticeSlug) {
+          params.set('practiceSlug', normalizedPracticeSlug);
+        }
       }
 
       if (matterId && scope !== 'all') {
@@ -116,19 +122,6 @@ export function useConversations({
         headers,
         credentials: 'include',
       });
-
-      // Handle redirects (practice members get redirected to inbox)
-      // Note: fetch() automatically follows redirects by default, so we check response.redirected
-      // and response.url to detect if a redirect to inbox occurred
-      if (response.redirected && response.url.includes('/api/inbox')) {
-        // Practice member - conversations should be fetched via inbox endpoint
-        // For now, set empty array (inbox hook handles this separately)
-        if (!isDisposedRef.current) {
-          setConversations([]);
-          setError(null);
-        }
-        return;
-      }
 
       if (!response.ok) {
         // Worker returns error responses in format: { success: false, error: string, errorCode: string }
@@ -189,7 +182,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, scope, limit, offset, enabled]);
+  }, [practiceId, practiceSlug, matterId, status, scope, limit, offset, enabled]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {

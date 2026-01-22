@@ -1,8 +1,8 @@
-import { useMemo, useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { useInbox } from '@/shared/hooks/useInbox';
+import { useConversations } from '@/shared/hooks/useConversations';
 import { Button } from '@/shared/ui/Button';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 
@@ -32,19 +32,13 @@ export const PracticeDashboardPage = () => {
 
   const {
     conversations,
-    stats,
     isLoading
-  } = useInbox({
+  } = useConversations({
     practiceId: activePracticeId || undefined,
+    scope: 'practice',
     limit: 5,
-    autoRefresh: false
+    enabled: Boolean(activePracticeId)
   });
-
-  const highlightCards = useMemo(() => ([
-    { label: 'Active chats', value: stats?.active ?? 0 },
-    { label: 'Unassigned', value: stats?.unassigned ?? 0 },
-    { label: 'High priority', value: stats?.highPriority ?? 0 },
-  ]), [stats?.active, stats?.unassigned, stats?.highPriority]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -114,20 +108,8 @@ export const PracticeDashboardPage = () => {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {highlightCards.map(card => (
-            <div
-              key={card.label}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-4"
-            >
-              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {card.label}
-              </p>
-              <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
-                {card.value}
-              </p>
-            </div>
-          ))}
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-4 text-sm text-gray-600 dark:text-gray-400">
+          Lead triage now lives in the Leads tab. Conversations are shown below.
         </div>
 
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-5 space-y-4">
@@ -158,8 +140,8 @@ export const PracticeDashboardPage = () => {
                       Conversation {conversation.id.slice(0, 8)}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {conversation.last_message_at
-                        ? `Last message ${formatRelativeTime(conversation.last_message_at)}`
+                      {conversation.last_message_at || conversation.updated_at
+                        ? `Last message ${formatRelativeTime(conversation.last_message_at ?? conversation.updated_at)}`
                         : 'No messages yet'}
                     </p>
                   </div>

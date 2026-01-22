@@ -6,7 +6,14 @@ import { getNotificationDisplayText } from '@/shared/ui/validation/defaultValues
 import { SettingHeader } from '@/features/settings/components/SettingHeader';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
-import { useNotificationSettings, updateNotificationChannel, updateDesktopPushEnabled, updateMessagesMentionsOnly } from '@/features/settings/hooks/useNotificationSettings';
+import {
+  useNotificationSettings,
+  updateNotificationChannel,
+  updateDesktopPushEnabled,
+  updateMessagesMentionsOnly,
+  updateInAppCategory,
+  updateInAppFrequency
+} from '@/features/settings/hooks/useNotificationSettings';
 import { Switch } from '@/shared/ui/input';
 import {
   getNotificationPermissionState,
@@ -15,7 +22,7 @@ import {
   type NotificationPermissionState
 } from '@/shared/notifications/oneSignalClient';
 import type { NotificationSettings } from '@/shared/types/user';
-import type { NotificationCategory } from '@/features/notifications/types';
+import type { NotificationCategory, InAppNotificationFrequency } from '@/shared/types/notifications';
 
 export interface NotificationsPageProps {
   className?: string;
@@ -65,6 +72,50 @@ const CATEGORY_CONFIG: Array<{
   }
 ];
 
+const IN_APP_CATEGORY_CONFIG: Array<{
+  key: NotificationCategory;
+  labelKey: string;
+  descriptionKey: string;
+  fallbackLabel: string;
+  fallbackDescription: string;
+}> = [
+  {
+    key: 'message',
+    labelKey: 'settings:notifications.inApp.messages.title',
+    descriptionKey: 'settings:notifications.inApp.messages.description',
+    fallbackLabel: 'Messages (in-app)',
+    fallbackDescription: 'Bot updates inside conversation threads.'
+  },
+  {
+    key: 'system',
+    labelKey: 'settings:notifications.inApp.system.title',
+    descriptionKey: 'settings:notifications.inApp.system.description',
+    fallbackLabel: 'System (in-app)',
+    fallbackDescription: 'Required system updates from Blawby.'
+  },
+  {
+    key: 'payment',
+    labelKey: 'settings:notifications.inApp.payments.title',
+    descriptionKey: 'settings:notifications.inApp.payments.description',
+    fallbackLabel: 'Payments (in-app)',
+    fallbackDescription: 'Payment and billing updates in chat.'
+  },
+  {
+    key: 'intake',
+    labelKey: 'settings:notifications.inApp.intakes.title',
+    descriptionKey: 'settings:notifications.inApp.intakes.description',
+    fallbackLabel: 'Intakes (in-app)',
+    fallbackDescription: 'Intake updates posted by Blawby.'
+  },
+  {
+    key: 'matter',
+    labelKey: 'settings:notifications.inApp.matters.title',
+    descriptionKey: 'settings:notifications.inApp.matters.description',
+    fallbackLabel: 'Matters (in-app)',
+    fallbackDescription: 'Matter updates posted by Blawby.'
+  }
+];
+
 const getCategorySettings = (settings: NotificationSettings, category: NotificationCategory) => {
   switch (category) {
     case 'message':
@@ -80,6 +131,14 @@ const getCategorySettings = (settings: NotificationSettings, category: Notificat
     default:
       return settings.system;
   }
+};
+
+const inAppSettingKey: Record<NotificationCategory, keyof NotificationSettings['inApp']> = {
+  message: 'messages',
+  system: 'system',
+  payment: 'payments',
+  intake: 'intakes',
+  matter: 'matters'
 };
 
 export const NotificationsPage = ({
@@ -180,6 +239,39 @@ export const NotificationsPage = ({
     }
   };
 
+  const handleInAppToggle = async (category: NotificationCategory, value: boolean) => {
+    try {
+      await updateInAppCategory(category, value);
+      showSuccess(
+        t('common:notifications.settingsSavedTitle', { defaultValue: 'Settings saved' }),
+        t('settings:notifications.inApp.toastBody', { defaultValue: 'In-app preferences updated.' })
+      );
+    } catch (error) {
+      console.error('Failed to update in-app notification settings:', error);
+      showError(
+        t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
+        t('common:notifications.settingsSaveErrorBody', { defaultValue: 'Unable to save your settings. Please try again.' })
+      );
+    }
+  };
+
+  const handleInAppFrequencyToggle = async (value: boolean) => {
+    const nextValue: InAppNotificationFrequency = value ? 'summaries_only' : 'all';
+    try {
+      await updateInAppFrequency(nextValue);
+      showSuccess(
+        t('common:notifications.settingsSavedTitle', { defaultValue: 'Settings saved' }),
+        t('settings:notifications.inApp.frequencyToast', { defaultValue: 'System conversation preferences updated.' })
+      );
+    } catch (error) {
+      console.error('Failed to update in-app summary preference:', error);
+      showError(
+        t('common:notifications.settingsSaveErrorTitle', { defaultValue: 'Settings save failed' }),
+        t('common:notifications.settingsSaveErrorBody', { defaultValue: 'Unable to save your settings. Please try again.' })
+      );
+    }
+  };
+
   if (isLoading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
@@ -269,6 +361,51 @@ export const NotificationsPage = ({
                   </>
                 )}
                 {index < CATEGORY_CONFIG.length - 1 && <SectionDivider />}
+              </div>
+            );
+          })}
+
+          <SectionDivider />
+
+          <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            {t('settings:notifications.inApp.sectionTitle', { defaultValue: 'In-app bot messages' })}
+          </div>
+
+          {IN_APP_CATEGORY_CONFIG.map((category, index) => {
+            const isSystem = category.key === 'system';
+            const description = t(category.descriptionKey, { defaultValue: category.fallbackDescription });
+
+            return (
+              <div key={`in-app-${category.key}`}>
+                <SettingRow
+                  label={t(category.labelKey, { defaultValue: category.fallbackLabel })}
+                  description={description}
+                >
+                  <Switch
+                    value={settings.inApp[inAppSettingKey[category.key]]}
+                    onChange={(value) => handleInAppToggle(category.key, value)}
+                    disabled={isSystem}
+                    className="py-0"
+                  />
+                </SettingRow>
+                {isSystem && (
+                  <>
+                    <SectionDivider />
+                    <SettingRow
+                      label={t('settings:notifications.inApp.frequencyLabel', { defaultValue: 'System summaries only' })}
+                      description={t('settings:notifications.inApp.frequencyDescription', {
+                        defaultValue: 'Show a single summary message for the Blawby System conversation.'
+                      })}
+                    >
+                      <Switch
+                        value={settings.inAppFrequency === 'summaries_only'}
+                        onChange={handleInAppFrequencyToggle}
+                        className="py-0"
+                      />
+                    </SettingRow>
+                  </>
+                )}
+                {index < IN_APP_CATEGORY_CONFIG.length - 1 && <SectionDivider />}
               </div>
             );
           })}

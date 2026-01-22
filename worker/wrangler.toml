@@ -31,14 +31,6 @@ max_retries = 3
 dead_letter_queue = "notification-events-dlq"
 
 [[durable_objects.bindings]]
-name = "NOTIFICATION_HUB"
-class_name = "NotificationHub"
-
-[[migrations]]
-tag = "v1"
-new_classes = ["NotificationHub"]
-
-[[durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
 
@@ -68,10 +60,6 @@ max_batch_size = 10
 max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-dlq"
-
-[[env.dev.durable_objects.bindings]]
-name = "NOTIFICATION_HUB"
-class_name = "NotificationHub"
 
 [[env.dev.durable_objects.bindings]]
 name = "CHAT_ROOM"
@@ -121,10 +109,6 @@ max_batch_size = 10
 max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-dlq"
-
-[[env.production.durable_objects.bindings]]
-name = "NOTIFICATION_HUB"
-class_name = "NotificationHub"
 
 [[env.production.durable_objects.bindings]]
 name = "CHAT_ROOM"

@@ -1,49 +1,17 @@
-import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ChatBubbleLeftRightIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { useInbox } from '@/shared/hooks/useInbox';
 import { useConversations, useConversationsWithContext } from '@/shared/hooks/useConversations';
-import { useChatCapabilities } from '@/shared/hooks/useChatCapabilities';
-import { useNotificationCounts } from '@/features/notifications/hooks/useNotificationCounts';
 import { cn } from '@/shared/utils/cn';
+import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import type { Conversation } from '@/shared/types/conversation';
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  if (Number.isNaN(date.getTime())) return 'Unknown';
-
-  const diffMs = date.getTime() - now.getTime();
-  const diffMinutes = Math.round(diffMs / (1000 * 60));
-  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-  if (typeof Intl !== 'undefined' && 'RelativeTimeFormat' in Intl) {
-    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-    if (Math.abs(diffMinutes) < 60) return rtf.format(diffMinutes, 'minute');
-    if (Math.abs(diffHours) < 24) return rtf.format(diffHours, 'hour');
-    if (Math.abs(diffDays) < 7) return rtf.format(diffDays, 'day');
-  } else {
-    if (Math.abs(diffMinutes) < 60) {
-      if (diffMinutes === 0) return 'Just now';
-      return diffMinutes > 0 ? `in ${diffMinutes}m` : `${Math.abs(diffMinutes)}m ago`;
-    }
-    if (Math.abs(diffHours) < 24) {
-      return diffHours > 0 ? `in ${diffHours}h` : `${Math.abs(diffHours)}h ago`;
-    }
-    if (Math.abs(diffDays) < 7) {
-      return diffDays > 0 ? `in ${diffDays}d` : `${Math.abs(diffDays)}d ago`;
-    }
-  }
-
-  return date.toLocaleDateString();
-}
 
 interface ConversationSidebarProps {
   workspace: WorkspaceType;
   practiceId?: string;
+  practiceSlug?: string;
   selectedConversationId?: string | null;
   onSelectConversation?: (conversationId: string) => void;
 }
@@ -51,28 +19,27 @@ interface ConversationSidebarProps {
 export const ConversationSidebar = ({
   workspace,
   practiceId,
+  practiceSlug,
   selectedConversationId,
   onSelectConversation
 }: ConversationSidebarProps) => {
   const { showError } = useToastContext();
   const { session, isAnonymous } = useSessionContext();
   const hasSession = Boolean(session?.user);
-  const capabilities = useChatCapabilities({ workspace });
-  const isPracticeInbox = capabilities.canManageInbox && Boolean(practiceId);
   const isPublicWorkspace = workspace === 'public';
+  const isPracticeWorkspace = workspace === 'practice';
   const allowAllScope = hasSession && !isAnonymous;
-  const { conversationUnreadCounts } = useNotificationCounts();
-
-  const inboxData = useInbox({
-    practiceId: isPracticeInbox ? practiceId : undefined,
-    limit: 50,
-    autoRefresh: isPracticeInbox,
-    refreshInterval: 30000,
+  const practiceConversationsData = useConversations({
+    practiceId,
+    practiceSlug,
+    scope: 'practice',
+    enabled: isPracticeWorkspace && hasSession && Boolean(practiceId),
     onError: (message) => showError(message)
   });
 
   const publicConversationsData = useConversations({
     practiceId,
+    practiceSlug,
     scope: 'practice',
     enabled: isPublicWorkspace && hasSession && Boolean(practiceId),
     onError: (message) => showError(message)
@@ -80,46 +47,60 @@ export const ConversationSidebar = ({
 
   const conversationsData = useConversationsWithContext({
     scope: 'all',
-    enabled: !isPracticeInbox && !isPublicWorkspace && allowAllScope,
+    enabled: !isPracticeWorkspace && !isPublicWorkspace && allowAllScope,
     onError: (message) => showError(message)
   });
 
-  const activeConversationsData = isPracticeInbox
-    ? inboxData
+  const activeConversationsData = isPracticeWorkspace
+    ? practiceConversationsData
     : (isPublicWorkspace ? publicConversationsData : conversationsData);
   const conversations = activeConversationsData.conversations as Conversation[];
   const isLoading = activeConversationsData.isLoading;
   const error = activeConversationsData.error;
   const refresh = activeConversationsData.refresh;
-  const stats = isPracticeInbox ? inboxData.stats : null;
+  const practiceLabelCacheRef = useRef(new Map<string, string>());
+  const [searchQuery, setSearchQuery] = useState('');
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const getConversationTitle = useCallback((conversation: Conversation) => {
+    return conversation.user_info?.title
+      || conversation.practice?.name
+      || conversation.practice?.slug
+      || practiceLabelCacheRef.current.get(conversation.practice_id)
+      || (typeof conversation.practice_id === 'string' ? conversation.practice_id.slice(0, 6) : 'Conversation');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practiceLabelCacheRef.current]);
+
+  const isSystemConversation = (conversation: Conversation) => (
+    conversation.user_info?.system_conversation === true
+    || conversation.user_info?.title === 'Blawby System'
+  );
+
+  const filteredConversations = useMemo(() => {
+    if (!normalizedQuery) return conversations;
+    return conversations.filter((conversation) => {
+      const title = getConversationTitle(conversation);
+      return title.toLowerCase().includes(normalizedQuery);
+    });
+  }, [conversations, getConversationTitle, normalizedQuery]);
 
   const sections = useMemo(() => {
-    if (conversations.length === 0) return [];
+    if (filteredConversations.length === 0) return [];
 
-    const active = conversations.filter((conversation) => conversation.status === 'active' || !conversation.status);
-    const closed = conversations.filter((conversation) => conversation.status === 'closed' || conversation.status === 'completed');
-    const archived = conversations.filter((conversation) => conversation.status === 'archived');
+    const active = filteredConversations.filter((conversation) => conversation.status === 'active' || !conversation.status);
+    const closed = filteredConversations.filter((conversation) => conversation.status === 'closed' || conversation.status === 'completed');
+    const archived = filteredConversations.filter((conversation) => conversation.status === 'archived');
 
-    if (isPracticeInbox) {
-      const unassigned = active.filter((conversation) => !conversation.assigned_to);
-      const assigned = active.filter((conversation) => conversation.assigned_to);
-
-      return [
-        { key: 'unassigned', label: 'Unassigned', items: unassigned },
-        { key: 'active', label: 'Active', items: assigned },
-        { key: 'closed', label: 'Closed', items: closed },
-        { key: 'archived', label: 'Archived', items: archived }
-      ].filter((section) => section.items.length > 0);
-    }
+    const sortItems = (items: Conversation[]) => (
+      [...items].sort((a, b) => Number(isSystemConversation(b)) - Number(isSystemConversation(a)))
+    );
 
     return [
-      { key: 'active', label: 'Active', items: active },
-      { key: 'closed', label: 'Closed', items: closed },
-      { key: 'archived', label: 'Archived', items: archived }
+      { key: 'active', label: 'Active', items: sortItems(active) },
+      { key: 'closed', label: 'Closed', items: sortItems(closed) },
+      { key: 'archived', label: 'Archived', items: sortItems(archived) }
     ].filter((section) => section.items.length > 0);
-  }, [conversations, isPracticeInbox]);
-
-  const practiceLabelCacheRef = useRef(new Map<string, string>());
+  }, [filteredConversations]);
 
   useEffect(() => {
     conversations.forEach((conversation) => {
@@ -134,15 +115,6 @@ export const ConversationSidebar = ({
   useEffect(() => {
     onSelectConversationRef.current = onSelectConversation;
   }, [onSelectConversation]);
-
-  useEffect(() => {
-    if (conversations.length === 0) return;
-
-    const hasSelection = selectedConversationId && conversations.some((conversation) => conversation.id === selectedConversationId);
-    if (!hasSelection) {
-      onSelectConversationRef.current?.(conversations[0].id);
-    }
-  }, [conversations, selectedConversationId]);
 
   if (workspace === 'practice' && !practiceId) {
     return (
@@ -169,13 +141,19 @@ export const ConversationSidebar = ({
         </button>
       </div>
 
-      {stats && (
-        <div className="px-2 text-xs text-gray-500 dark:text-gray-400">
-          <span>{stats.active} active</span>
-          <span className="px-1">|</span>
-          <span>{stats.unassigned} unassigned</span>
-        </div>
-      )}
+      <div className="px-2">
+        <label className="sr-only" htmlFor="conversation-search">
+          Find or start a conversation
+        </label>
+        <input
+          id="conversation-search"
+          type="search"
+          value={searchQuery}
+          onInput={(event) => setSearchQuery((event.target as HTMLInputElement).value)}
+          placeholder="Find or start a conversation"
+          className="w-full rounded-full bg-gray-100 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-500 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-500"
+        />
+      </div>
 
       {isLoading && conversations.length === 0 ? (
         <div className="px-3 text-sm text-gray-500 dark:text-gray-400">
@@ -187,83 +165,65 @@ export const ConversationSidebar = ({
         </div>
       ) : conversations.length === 0 ? (
         <div className="px-3 text-sm text-gray-500 dark:text-gray-400">
-          {isPracticeInbox
+          {isPracticeWorkspace
             ? 'No conversations yet. Share your practice link to start chatting.'
             : 'No conversations yet. Open a practice link to start chatting.'}
         </div>
       ) : (
         <div className="flex flex-col gap-4 px-2">
-          {sections.map((section) => (
-            <div key={section.key} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                <span>{section.label}</span>
-                <span>{section.items.length}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                {section.items.map((conversation) => {
-                  const timestamp = conversation.last_message_at || conversation.updated_at;
-                  const cachedLabel = practiceLabelCacheRef.current.get(conversation.practice_id);
-                  const practiceIdLabel = typeof conversation.practice_id === 'string' && conversation.practice_id.length > 0
-                    ? conversation.practice_id.slice(0, 6)
-                    : 'Unknown';
-                  const practiceLabel = conversation.practice?.name
-                    || conversation.practice?.slug
-                    || cachedLabel
-                    || practiceIdLabel;
-
-                  const unreadCount = conversationUnreadCounts[conversation.id] ?? 0;
-
-                  return (
-                    <button
-                      key={conversation.id}
-                      type="button"
-                      onClick={() => onSelectConversation?.(conversation.id)}
-                      className={cn(
-                        'w-full rounded-md px-2 py-2 text-left transition-colors',
-                        'hover:bg-gray-100 dark:hover:bg-white/5',
-                        selectedConversationId === conversation.id
-                          ? 'bg-gray-100 dark:bg-white/10'
-                          : 'bg-transparent'
-                      )}
-                      aria-current={selectedConversationId === conversation.id ? 'true' : undefined}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={cn('truncate text-sm text-gray-900 dark:text-white', unreadCount > 0 ? 'font-semibold' : 'font-medium')}>
-                          {`Conversation ${conversation.id.slice(0, 6)}`}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {timestamp && (
-                            <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                              {formatRelativeTime(timestamp)}
-                            </span>
-                          )}
-                          {unreadCount > 0 && (
-                            <span
-                              className="rounded-full bg-accent-500 px-2 py-0.5 text-[11px] font-semibold text-gray-900"
-                              aria-label={`${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`}
-                              role="status"
-                            >
-                              {unreadCount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
-                        {isPracticeInbox ? (
-                          <span>{conversation.assigned_to ? 'Assigned' : 'Unassigned'}</span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full border border-gray-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-gray-500 dark:border-white/10 dark:text-gray-300">
-                            {practiceLabel}
-                          </span>
-                        )}
-                        <span className="capitalize">{conversation.status ?? 'active'}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+          {filteredConversations.length === 0 ? (
+            <div className="px-2 text-xs text-gray-500 dark:text-gray-400">
+              No conversations match that search.
             </div>
-          ))}
+          ) : (
+            sections.map((section) => (
+              <div key={section.key} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  <span>{section.label}</span>
+                  <span>{section.items.length}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {section.items.map((conversation) => {
+                    const displayTitle = getConversationTitle(conversation);
+                    const unreadCount = conversation.unread_count ?? 0;
+                    const isUnread = unreadCount > 0;
+                    const isActive = selectedConversationId === conversation.id;
+                    const avatarSrc = isSystemConversation(conversation)
+                      ? '/blawby-favicon-iframe.png'
+                      : null;
+
+                    return (
+                      <button
+                        key={conversation.id}
+                        type="button"
+                        onClick={() => onSelectConversation?.(conversation.id)}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors',
+                          'hover:bg-gray-100 dark:hover:bg-white/5',
+                          isActive
+                            ? 'bg-gray-100 dark:bg-white/10'
+                            : 'bg-transparent'
+                        )}
+                        aria-current={isActive ? 'true' : undefined}
+                      >
+                        <span
+                          className={cn(
+                            'h-2 w-2 rounded-full',
+                            isUnread ? 'bg-accent-500' : 'bg-transparent'
+                          )}
+                          aria-hidden="true"
+                        />
+                        <Avatar size="sm" name={displayTitle} src={avatarSrc} />
+                        <span className={cn('truncate text-sm text-gray-900 dark:text-white', isUnread ? 'font-semibold' : 'font-medium')}>
+                          {displayTitle}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

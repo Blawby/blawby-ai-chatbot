@@ -2,7 +2,7 @@
 import type { DurableObjectState, WebSocket as WorkerWebSocket } from '@cloudflare/workers-types';
 import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
-import { requireAuth } from '../middleware/auth.js';
+import { checkPracticeMembership, requireAuth } from '../middleware/auth.js';
 
 const PROTOCOL_VERSION = 1;
 const NEGOTIATION_TIMEOUT_MS = 5000;
@@ -21,6 +21,8 @@ interface ConnectionAttachment {
   negotiated: boolean;
   negotiationDeadline: number | null;
   lastActivityAt: number;
+  isPracticeMember: boolean;
+  authCookie: string | null;
 }
 
 interface ClientFrame {
@@ -99,10 +101,8 @@ export class ChatRoom {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
+    // Internal endpoints are reachable only via Worker stub.fetch; HTTP routing does not expose /internal/*.
     if (url.pathname === '/internal/membership-revoked') {
-      if (!this.isInternalAuthorized(request)) {
-        return new Response('Forbidden', { status: 403 });
-      }
       if (request.method !== 'POST') {
         return new Response('Method not allowed', { status: 405 });
       }
@@ -110,9 +110,6 @@ export class ChatRoom {
     }
 
     if (url.pathname === '/internal/message') {
-      if (!this.isInternalAuthorized(request)) {
-        return new Response('Forbidden', { status: 403 });
-      }
       if (request.method !== 'POST') {
         return new Response('Method not allowed', { status: 405 });
       }
@@ -148,10 +145,15 @@ export class ChatRoom {
     }
 
     const isMember = await this.isConversationMember(conversationId, auth.user.id);
+    let isPracticeMember = false;
     if (!isMember) {
-      return new Response('Forbidden', { status: 403 });
+      isPracticeMember = await this.isPracticeMember(request, conversationId);
+      if (!isPracticeMember) {
+        return new Response('Forbidden', { status: 403 });
+      }
     }
 
+    const authCookie = request.headers.get('Cookie');
     const pair = new WebSocketPair();
     const client = pair[0] as unknown as WorkerWebSocket;
     const server = pair[1] as unknown as WorkerWebSocket;
@@ -165,7 +167,9 @@ export class ChatRoom {
       userId: auth.user.id,
       negotiated: false,
       negotiationDeadline: null,
-      lastActivityAt: Date.now()
+      lastActivityAt: Date.now(),
+      isPracticeMember,
+      authCookie: authCookie && authCookie.trim() ? authCookie : null
     };
 
     server.serializeAttachment(attachment);
@@ -753,6 +757,48 @@ export class ChatRoom {
     return Boolean(record);
   }
 
+  private async fetchConversationPracticeId(conversationId: string): Promise<string | null> {
+    const record = await this.env.DB.prepare(`
+      SELECT practice_id
+      FROM conversations
+      WHERE id = ?
+    `).bind(conversationId).first<{ practice_id: string } | null>();
+
+    return record?.practice_id ?? null;
+  }
+
+  private async isPracticeMember(request: Request, conversationId: string): Promise<boolean> {
+    const practiceId = await this.fetchConversationPracticeId(conversationId);
+    if (!practiceId) {
+      return false;
+    }
+    const membership = await checkPracticeMembership(request, this.env, practiceId);
+    return membership.isMember;
+  }
+
+  private buildAuthRequest(attachment: ConnectionAttachment): Request | null {
+    const cookie = attachment.authCookie?.trim();
+    if (!cookie) {
+      return null;
+    }
+    return new Request('https://auth.local', {
+      headers: { Cookie: cookie }
+    });
+  }
+
+  private async revalidatePracticeMembership(attachment: ConnectionAttachment): Promise<boolean> {
+    const practiceId = await this.fetchConversationPracticeId(attachment.conversationId);
+    if (!practiceId) {
+      return false;
+    }
+    const authRequest = this.buildAuthRequest(attachment);
+    if (!authRequest) {
+      return false;
+    }
+    const membership = await checkPracticeMembership(authRequest, this.env, practiceId);
+    return membership.isMember;
+  }
+
   private async ensureMembership(
     ws: WorkerWebSocket,
     attachment: ConnectionAttachment,
@@ -782,10 +828,18 @@ export class ChatRoom {
 
     this.membershipCheckedAt = now;
     if (this.cachedMembershipVersion !== null && currentVersion !== this.cachedMembershipVersion) {
-      const stillMember = await this.isConversationMember(attachment.conversationId, attachment.userId);
-      if (!stillMember) {
-        this.closeSocket(ws, 4403, 'membership_revoked');
-        return false;
+      if (attachment.isPracticeMember) {
+        const stillPracticeMember = await this.revalidatePracticeMembership(attachment);
+        if (!stillPracticeMember) {
+          this.closeSocket(ws, 4403, 'membership_revoked');
+          return false;
+        }
+      } else {
+        const stillMember = await this.isConversationMember(attachment.conversationId, attachment.userId);
+        if (!stillMember) {
+          this.closeSocket(ws, 4403, 'membership_revoked');
+          return false;
+        }
       }
     }
 
@@ -841,9 +895,6 @@ export class ChatRoom {
       return new Response('membership_version required', { status: 400 });
     }
 
-    this.cachedMembershipVersion = membershipVersion;
-    this.membershipCheckedAt = Date.now();
-
     const removedUserId = this.readString(payload.removed_user_id);
     if (removedUserId) {
       const sockets = this.state.getWebSockets(`user:${removedUserId}`);
@@ -851,6 +902,21 @@ export class ChatRoom {
         this.closeSocket(socket, 4403, 'membership_revoked');
       }
     }
+
+    const sockets = this.state.getWebSockets();
+    await Promise.all(sockets.map(async (socket) => {
+      const attachment = this.getAttachment(socket);
+      if (!attachment?.negotiated || !attachment.isPracticeMember) {
+        return;
+      }
+      const stillPracticeMember = await this.revalidatePracticeMembership(attachment);
+      if (!stillPracticeMember) {
+        this.closeSocket(socket, 4403, 'membership_revoked');
+      }
+    }));
+
+    this.cachedMembershipVersion = membershipVersion;
+    this.membershipCheckedAt = Date.now();
 
     this.broadcastFrame('membership.changed', {
       conversation_id: conversationId,
@@ -1224,32 +1290,6 @@ export class ChatRoom {
     } catch {
       // Ignore closing errors.
     }
-  }
-
-  private timingSafeEqual(a: string, b: string): boolean {
-    if (a.length !== b.length) {
-      return false;
-    }
-    const bufA = this.encoder.encode(a);
-    const bufB = this.encoder.encode(b);
-    let result = 0;
-    for (let i = 0; i < bufA.length; i++) {
-      result |= bufA[i] ^ bufB[i];
-    }
-    return result === 0;
-  }
-
-  private isInternalAuthorized(request: Request): boolean {
-    const secret = this.env.INTERNAL_SECRET;
-    if (!secret) {
-      const nodeEnv = this.env.NODE_ENV ?? 'production';
-      return nodeEnv !== 'production';
-    }
-    const provided = request.headers.get('X-Internal-Secret');
-    if (!provided) {
-      return false;
-    }
-    return this.timingSafeEqual(provided, secret);
   }
 
   private getAttachment(ws: WorkerWebSocket): ConnectionAttachment | null {

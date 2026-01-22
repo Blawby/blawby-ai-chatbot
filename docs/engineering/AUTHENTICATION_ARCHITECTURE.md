@@ -207,6 +207,30 @@ BACKEND_API_URL=http://localhost:3000
 4. Better Auth validates session and returns user data
 5. Worker extracts `user.id` and passes to business logic
 
+### Anonymous-to-Authenticated Conversation Linking
+
+Better Auth anonymous sessions do not automatically link conversations to a real user account. The app must call the link endpoint after authentication.
+
+**How it works**
+1. Anonymous chat creates a conversation with `user_id = null` and the anonymous user in `participants`.
+2. After sign-in, the frontend calls `PATCH /api/conversations/:id/link` with `conversationId` and `practiceId`.
+3. The Worker updates `conversations.user_id` and ensures the authenticated user is in `participants`.
+
+**When to call the link endpoint**
+- After sign-in completion (email/password, OAuth callback, or account creation).
+- Use the active chat route parameters so the correct conversation is linked.
+- Repeat calls are safe; the service is idempotent for the same user.
+
+**Relevant code paths**
+- Frontend: `src/index.tsx` (ClientAppRoute -> `linkConversationToUser`), `src/shared/components/AuthForm.tsx`, `src/features/dashboard/pages/PracticeDashboardPage.tsx` (older flows may be outdated)
+- Worker: `worker/routes/conversations.ts`, `worker/services/ConversationService.ts`
+
+### Internal Durable Object Endpoints
+
+The ChatRoom Durable Object exposes `/internal/*` endpoints that are only meant to be called via `stub.fetch` from the Worker. These are not public HTTP routes.
+
+**Do not** expose `/internal/*` via Worker routing, proxy rules, or Vite dev proxies. If a new route must forward to a Durable Object, explicitly block `/internal/*` to keep these endpoints internal-only.
+
 ## Troubleshooting
 
 ### "Authentication required" (401) Error
@@ -225,6 +249,15 @@ BACKEND_API_URL=http://localhost:3000
 3. **Backend Not Running**: Better Auth server not accessible
    - Check: Can you access `http://localhost:3000/api/auth/get-session`?
    - Fix: Start backend server
+
+### "Forbidden" (403) on Practice Endpoints
+
+**Symptoms**: `/api/practice/:id` returns 403 for signed-in users
+
+**Possible Causes**:
+1. **Member-gated endpoint**: The user is not a member of the practice
+   - Check: Confirm the user is a member of the organization
+   - Fix: Use public endpoints (e.g., `/api/practice/details/:slug`) for unauthenticated/public data, or ensure membership before calling member-only endpoints
 
 ### "Auth validation timeout" Error
 

@@ -17,7 +17,6 @@ export async function handleRoot(_request: Request, _env: Env): Promise<Response
         <li><strong>GET/POST</strong> /api/conversations - Conversation management</li>
         <li><strong>GET/POST</strong> /api/activity - Activity tracking</li>
         <!-- REMOVED: Session endpoints - using conversations instead -->
-        <!-- REMOVED: AI endpoints - /api/chat, /api/feedback, /api/export -->
     </ul>
     <p>✅ API operational</p>
 </body>

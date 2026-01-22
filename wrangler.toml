@@ -1,5 +1,6 @@
 name = "blawby-ai-chatbot-frontend"
 pages_build_output_dir = "dist"
+compatibility_date = "2026-01-22"
 [env.preview]
 
 [env.production]

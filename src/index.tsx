@@ -22,6 +22,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import ClientHomePage from '@/pages/ClientHomePage';
 import { PracticeDashboardPage } from '@/features/dashboard/pages/PracticeDashboardPage';
 import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
+import { linkConversationToUser } from '@/shared/lib/apiClient';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -278,6 +279,7 @@ function ClientAppRoute({
 }) {
   const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
+  const linkingHandledRef = useRef(false);
 
   useEffect(() => {
     if (settingsMode || isPending) return;
@@ -286,6 +288,34 @@ function ClientAppRoute({
       return;
     }
   }, [isPending, navigate, session?.user, settingsMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isPending || !session?.user) return;
+    if (linkingHandledRef.current) return;
+
+    const url = new URL(window.location.href);
+    const conversationId = url.searchParams.get('conversationId');
+    const practiceId = url.searchParams.get('practiceId');
+    if (!conversationId || !practiceId) {
+      return;
+    }
+
+    linkingHandledRef.current = true;
+
+    (async () => {
+      try {
+        await linkConversationToUser(conversationId, practiceId);
+      } catch (error) {
+        console.error('[Client] Failed to link conversation after auth redirect', error);
+      } finally {
+        url.searchParams.delete('conversationId');
+        url.searchParams.delete('practiceId');
+        const cleaned = `${url.pathname}${url.search}${url.hash}`;
+        window.history.replaceState({}, '', cleaned);
+      }
+    })();
+  }, [isPending, session?.user]);
 
   if (isPending) {
     return <LoadingScreen />;

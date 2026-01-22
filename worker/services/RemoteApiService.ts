@@ -499,8 +499,13 @@ export class RemoteApiService {
         const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
         const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
 
-        if (payload && (payload.practice || payload.data)) {
-          return true;
+        if (payload && typeof payload === 'object') {
+          if ('practice' in payload || 'data' in payload) {
+            return true;
+          }
+          if (typeof payload.id === 'string' || typeof payload.slug === 'string' || typeof payload.practice_id === 'string') {
+            return true;
+          }
         }
 
         const errorMessage =

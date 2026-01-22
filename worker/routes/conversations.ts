@@ -4,7 +4,7 @@ import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
+import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
@@ -13,22 +13,148 @@ const looksLikeUuid = (value: string): boolean => (
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 );
 
+const normalizePracticeSlug = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
+
+const resolvePublicPracticeId = async (
+  env: Env,
+  practiceSlug: string,
+  request: Request
+): Promise<string> => {
+  const response = await RemoteApiService.getPublicPracticeDetails(env, practiceSlug, request);
+  const rawText = await response.text().catch(() => '');
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw HttpErrors.notFound(`Practice not found: ${practiceSlug}`);
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw HttpErrors.unauthorized('Authentication required');
+    }
+    throw HttpErrors.badGateway(`Failed to load practice details (${response.status})`);
+  }
+
+  let payload: Record<string, unknown> | null = null;
+  if (rawText) {
+    try {
+      payload = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      payload = null;
+    }
+  }
+
+  let practiceId = typeof payload?.practiceId === 'string'
+    ? payload.practiceId
+    : typeof payload?.practice_id === 'string'
+      ? payload.practice_id
+      : undefined;
+
+  if (!practiceId) {
+    const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, practiceSlug, request);
+    practiceId = intakeSettings?.organization?.id;
+  }
+
+  if (!practiceId) {
+    throw HttpErrors.notFound(`Practice not found: ${practiceSlug}`);
+  }
+
+  return practiceId;
+};
+
+type PracticeContextResolution = {
+  rawPracticeId: string;
+  practiceId: string;
+  practiceSlug?: string;
+  isMember: boolean;
+};
+
+const resolvePracticeContext = async (options: {
+  request: Request;
+  env: Env;
+  authContext: { isAnonymous?: boolean };
+}): Promise<PracticeContextResolution> => {
+  const { request, env, authContext } = options;
+  const url = new URL(request.url);
+  const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+  const requestWithContext = await withPracticeContext(request, env, {
+    requirePractice: true,
+    allowUrlOverride: true
+  });
+  const rawPracticeId = getPracticeId(requestWithContext);
+
+  if (looksLikeUuid(rawPracticeId)) {
+    const membership = authContext.isAnonymous
+      ? { isMember: false }
+      : await checkPracticeMembership(request, env, rawPracticeId);
+
+    if (!membership.isMember) {
+      if (!practiceSlugParam) {
+        throw HttpErrors.badRequest('practiceSlug is required for public conversation access');
+      }
+      const mappedPracticeId = await resolvePublicPracticeId(env, practiceSlugParam, request);
+      if (mappedPracticeId !== rawPracticeId) {
+        throw HttpErrors.notFound('Practice not found');
+      }
+    }
+
+    return {
+      rawPracticeId,
+      practiceId: rawPracticeId,
+      practiceSlug: practiceSlugParam ?? undefined,
+      isMember: membership.isMember
+    };
+  }
+
+  const practiceSlug = rawPracticeId;
+  const mappedPracticeId = await resolvePublicPracticeId(env, practiceSlug, request);
+  const membership = authContext.isAnonymous
+    ? { isMember: false }
+    : await checkPracticeMembership(request, env, mappedPracticeId);
+
+  return {
+    rawPracticeId,
+    practiceId: mappedPracticeId,
+    practiceSlug,
+    isMember: membership.isMember
+  };
+};
+
 const resolvePracticeIdForConversation = async (
   conversationService: ConversationService,
   conversationId: string,
-  practiceId: string
-): Promise<string> => {
-  if (looksLikeUuid(practiceId)) {
-    return practiceId;
-  }
+  rawPracticeId: string,
+  env: Env,
+  request: Request,
+  practiceSlugParam: string | null
+): Promise<{ practiceId: string; practiceSlug?: string }> => {
   const conversation = await conversationService.getConversationById(conversationId);
-  return conversation.practice_id;
+  const conversationPracticeId = conversation.practice_id;
+  const practiceSlug = practiceSlugParam ?? (looksLikeUuid(rawPracticeId) ? null : rawPracticeId);
+
+  if (practiceSlug) {
+    const mappedPracticeId = await resolvePublicPracticeId(env, practiceSlug, request);
+    if (mappedPracticeId !== conversationPracticeId) {
+      throw HttpErrors.notFound('Conversation not found');
+    }
+    return { practiceId: conversationPracticeId, practiceSlug };
+  }
+
+  if (looksLikeUuid(rawPracticeId)) {
+    if (rawPracticeId !== conversationPracticeId) {
+      throw HttpErrors.notFound('Conversation not found');
+    }
+    return { practiceId: conversationPracticeId };
+  }
+
+  throw HttpErrors.badRequest('practiceSlug is required for public conversation access');
 };
 
-function createJsonResponse(data: unknown): Response {
+function createJsonResponse(data: unknown, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify({ success: true, data }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json', ...(headers ?? {}) }
   });
 }
 
@@ -54,7 +180,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 4 && segments[3] === 'ws' && request.method === 'GET') {
     const conversationId = segments[2];
     const conversation = await conversationService.getConversationById(conversationId);
-    await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
+    } else {
+      const membership = await checkPracticeMembership(request, env, conversation.practice_id);
+      if (!membership.isMember) {
+        await conversationService.validateParticipantAccess(conversationId, conversation.practice_id, userId);
+      }
+    }
     const id = env.CHAT_ROOM.idFromName(conversationId);
     const stub = env.CHAT_ROOM.get(id);
     const wsUrl = new URL(request.url);
@@ -67,13 +200,81 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     throw HttpErrors.methodNotAllowed('Unsupported method for conversation WS endpoint');
   }
 
-  // POST /api/conversations - Create new conversation
-  if (segments.length === 2 && request.method === 'POST') {
+  // GET /api/conversations/:id/messages - Get messages for a conversation
+  if (segments.length === 4 && segments[3] === 'messages' && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
       allowUrlOverride: true
     });
-    const practiceId = getPracticeId(requestWithContext);
+    const conversationId = segments[2];
+    const rawPracticeId = getPracticeId(requestWithContext);
+    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+    const { practiceId: conversationPracticeId } = await resolvePracticeIdForConversation(
+      conversationService,
+      conversationId,
+      rawPracticeId,
+      env,
+      request,
+      practiceSlugParam
+    );
+
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+    } else {
+      const membership = await checkPracticeMembership(request, env, conversationPracticeId);
+      if (!membership.isMember) {
+        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+      }
+    }
+
+    if (url.searchParams.has('since')) {
+      throw HttpErrors.badRequest('since is no longer supported; use from_seq');
+    }
+
+    const limitParam = url.searchParams.get('limit');
+    const limit = parseInt(limitParam || '50', 10);
+    if (Number.isNaN(limit) || limit < 1) {
+      throw HttpErrors.badRequest('limit must be a positive integer');
+    }
+    const cursor = url.searchParams.get('cursor') || undefined;
+    const fromSeqParam = url.searchParams.get('from_seq');
+    const fromSeq = fromSeqParam !== null ? parseInt(fromSeqParam, 10) : undefined;
+
+    if (fromSeqParam !== null) {
+      if (!limitParam) {
+        throw HttpErrors.badRequest('limit is required when using from_seq');
+      }
+      if (Number.isNaN(fromSeq) || fromSeq < 0) {
+        throw HttpErrors.badRequest('from_seq must be a non-negative integer');
+      }
+    }
+
+    let result;
+    try {
+      result = await conversationService.getMessages(conversationId, conversationPracticeId, {
+        limit,
+        cursor,
+        fromSeq
+      });
+    } catch (error) {
+      Logger.warn('[Conversations] Failed to fetch messages', {
+        conversationId,
+        practiceId: rawPracticeId,
+        resolvedPracticeId: conversationPracticeId,
+        isAnonymous: authContext.isAnonymous,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
+
+    const responseHeaders = result.warning ? { 'X-Sequence-Warning': result.warning } : undefined;
+    return createJsonResponse(result, responseHeaders);
+  }
+
+  // POST /api/conversations - Create new conversation
+  if (segments.length === 2 && request.method === 'POST') {
+    const practiceContext = await resolvePracticeContext({ request, env, authContext });
+    const practiceId = practiceContext.practiceId;
 
     const body = await parseJsonBody(request) as {
       matterId?: string;
@@ -96,7 +297,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       userId: isAnonymous ? null : userId, // Null user_id for anonymous users
       matterId: body.matterId || null,
       participantUserIds: participants,
-      metadata: body.metadata
+      metadata: body.metadata,
+      skipPracticeValidation: !practiceContext.isMember
     }, request);
 
     return createJsonResponse(conversation);
@@ -150,35 +352,52 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     }
 
     // Get practice context
-    const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
-    });
-    const practiceId = getPracticeId(requestWithContext);
+    const practiceContext = await resolvePracticeContext({ request, env, authContext });
+    const practiceId = practiceContext.practiceId;
 
     // Check if anonymous user
     const isAnonymous = authContext.isAnonymous === true;
 
-    // Check if user is practice member (skip for anonymous sessions)
-    if (!isAnonymous) {
-      const membershipCheck = await checkPracticeMembership(request, env, practiceId);
-      if (membershipCheck.isMember) {
-        // Practice member: Redirect to inbox endpoint
-        const inboxUrl = new URL(request.url);
-        inboxUrl.pathname = '/api/inbox/conversations';
-        return Response.redirect(inboxUrl.toString(), 302);
-      }
-    }
-    
     if (isAnonymous) {
       // Anonymous user: Return single conversation (get-or-create)
       const conversation = await conversationService.getOrCreateCurrentConversation(
         userId,
         practiceId,
         request,
-        isAnonymous
+        isAnonymous,
+        { skipPracticeValidation: !practiceContext.isMember }
       );
       return createJsonResponse({ conversation }); // Single object
+    }
+
+    if (practiceContext.isMember) {
+      await requirePracticeMember(request, env, practiceId, 'paralegal');
+
+      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+      const validSortBy = ['last_message_at', 'created_at', 'priority'] as const;
+      const validSortOrder = ['asc', 'desc'] as const;
+      const sortByParam = url.searchParams.get('sortBy') || 'last_message_at';
+      const sortOrderParam = url.searchParams.get('sortOrder') || 'desc';
+      const sortBy = validSortBy.includes(sortByParam as typeof validSortBy[number])
+        ? (sortByParam as typeof validSortBy[number])
+        : 'last_message_at';
+      const sortOrder = validSortOrder.includes(sortOrderParam as typeof validSortOrder[number])
+        ? (sortOrderParam as typeof validSortOrder[number])
+        : 'desc';
+
+      const conversations = await conversationService.getPracticeConversations({
+        practiceId,
+        userId,
+        status: status || undefined,
+        limit,
+        offset,
+        sortBy,
+        sortOrder
+      });
+
+      return createJsonResponse({ conversations });
     }
     
     // Signed-in client: Return list of their conversations with this practice
@@ -199,18 +418,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations/(active|current) - Get or create current conversation
   if (segments.length === 3 && (segments[2] === 'active' || segments[2] === 'current') && request.method === 'GET') {
-    const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
-    });
-    const practiceId = getPracticeId(requestWithContext);
+    const practiceContext = await resolvePracticeContext({ request, env, authContext });
+    const practiceId = practiceContext.practiceId;
     const isLegacyPath = segments[2] === 'current';
     const isAnonymous = authContext.isAnonymous === true;
     const conversation = await conversationService.getOrCreateCurrentConversation(
       userId,
       practiceId,
       request,
-      isAnonymous
+      isAnonymous,
+      { skipPracticeValidation: !practiceContext.isMember }
     );
     const response = createJsonResponse({ conversation });
     if (isLegacyPath) {
@@ -226,14 +443,28 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       allowUrlOverride: true
     });
     const conversationId = segments[2];
-    const practiceId = await resolvePracticeIdForConversation(
+    const rawPracticeId = getPracticeId(requestWithContext);
+    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+    const { practiceId } = await resolvePracticeIdForConversation(
       conversationService,
       conversationId,
-      getPracticeId(requestWithContext)
+      rawPracticeId,
+      env,
+      request,
+      practiceSlugParam
     );
 
     // Validate user has access
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    } else {
+      const membership = await checkPracticeMembership(request, env, practiceId);
+      if (membership.isMember) {
+        await requirePracticeMember(request, env, practiceId, 'paralegal');
+      } else {
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      }
+    }
 
     const conversation = await conversationService.getConversation(conversationId, practiceId);
     return createJsonResponse(conversation);
@@ -250,10 +481,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       allowUrlOverride: true
     });
     const conversationId = segments[2];
-    const practiceId = await resolvePracticeIdForConversation(
+    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+    const { practiceId } = await resolvePracticeIdForConversation(
       conversationService,
       conversationId,
-      getPracticeId(requestWithContext)
+      getPracticeId(requestWithContext),
+      env,
+      request,
+      practiceSlugParam
     );
     const body = await parseJsonBody(request) as { userId?: string | null };
 
@@ -285,10 +520,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       allowUrlOverride: true
     });
     const conversationId = segments[2];
-    const practiceId = await resolvePracticeIdForConversation(
+    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+    const { practiceId } = await resolvePracticeIdForConversation(
       conversationService,
       conversationId,
-      getPracticeId(requestWithContext)
+      getPracticeId(requestWithContext),
+      env,
+      request,
+      practiceSlugParam
     );
     const body = await parseJsonBody(request) as {
       status?: 'active' | 'archived' | 'closed';
@@ -317,10 +556,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       allowUrlOverride: true
     });
     const conversationId = segments[2];
-    const practiceId = await resolvePracticeIdForConversation(
+    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+    const { practiceId } = await resolvePracticeIdForConversation(
       conversationService,
       conversationId,
-      getPracticeId(requestWithContext)
+      getPracticeId(requestWithContext),
+      env,
+      request,
+      practiceSlugParam
     );
     const body = await parseJsonBody(request) as {
       eventType?: string;
@@ -353,10 +596,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       allowUrlOverride: true
     });
     const conversationId = segments[2];
-    const practiceId = await resolvePracticeIdForConversation(
+    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+    const { practiceId } = await resolvePracticeIdForConversation(
       conversationService,
       conversationId,
-      getPracticeId(requestWithContext)
+      getPracticeId(requestWithContext),
+      env,
+      request,
+      practiceSlugParam
     );
     const body = await parseJsonBody(request) as {
       participantUserIds: string[];

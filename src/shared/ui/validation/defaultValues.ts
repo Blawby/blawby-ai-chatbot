@@ -1,6 +1,8 @@
 // Default value utilities for atomic design system
 // Ensures consistent default behavior across all form components
 
+import type { InAppNotificationFrequency } from '@/shared/types/notifications';
+
 export interface DefaultValueConfig {
   enabled?: boolean;
   required?: boolean;
@@ -56,6 +58,8 @@ export const NOTIFICATION_DEFAULTS: NotificationDefaults = {
 
 export const DEFAULT_DESKTOP_PUSH_ENABLED = false;
 export const DEFAULT_MESSAGES_MENTIONS_ONLY = false;
+export const DEFAULT_IN_APP_ENABLED = true;
+export const DEFAULT_IN_APP_FREQUENCY: InAppNotificationFrequency = 'all';
 
 // Helper function to get display text for notification channels
 export function getNotificationDisplayText(

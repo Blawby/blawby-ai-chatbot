@@ -259,6 +259,24 @@ test.describe('Notification settings', () => {
         { timeout: 15000 }
       ).toBeTruthy();
 
+      const inAppPaymentsRow = getSettingRow(page, 'Payments (in-app)');
+      await inAppPaymentsRow.locator('button[aria-pressed]').click();
+      await expect.poll(
+        () => preferencePayloads
+          .slice(initialPreferenceCount)
+          .some((payload) => Boolean(payload && 'in_app_payments' in payload)),
+        { timeout: 15000 }
+      ).toBeTruthy();
+
+      const summariesRow = getSettingRow(page, 'System summaries only');
+      await summariesRow.locator('button[aria-pressed]').click();
+      await expect.poll(
+        () => preferencePayloads
+          .slice(initialPreferenceCount)
+          .some((payload) => Boolean(payload && 'in_app_frequency' in payload)),
+        { timeout: 15000 }
+      ).toBeTruthy();
+
       await expect.poll(
         () => preferenceStatuses.length > initialPreferenceStatusCount
           && preferenceStatuses.some((status) => status >= 200 && status < 300),

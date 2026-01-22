@@ -131,6 +131,14 @@ export interface NotificationSettings {
     email: boolean;
   };
   desktopPushEnabled: boolean;
+  inApp: {
+    messages: boolean;
+    system: boolean;
+    payments: boolean;
+    intakes: boolean;
+    matters: boolean;
+  };
+  inAppFrequency: 'all' | 'summaries_only';
 }
 
 export interface SecuritySettings {

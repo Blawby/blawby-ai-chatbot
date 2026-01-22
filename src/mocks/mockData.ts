@@ -210,58 +210,6 @@ const mockPractice: MockPractice = {
   }
 };
 
-// Mock practice for inbox testing
-const inboxPracticeId = 'inbox-mock-practice';
-const inboxPractice: MockPractice = {
-  id: inboxPracticeId,
-  slug: 'inbox-mock-practice',
-  name: 'Inbox Mock Practice',
-  description: 'A mock practice for testing inbox functionality.',
-  kind: 'business',
-  subscriptionStatus: 'active',
-  subscriptionTier: 'business',
-  seats: 5,
-  businessEmail: null,
-  businessPhone: null,
-  consultationFee: null,
-  paymentUrl: null,
-  calendlyUrl: null,
-  config: {
-    ownerEmail: 'inbox@mock-law.test',
-    profileImage: null,
-    introMessage: 'Welcome to the Inbox Mock Practice. How can we assist you today?',
-    description: 'Practice for testing inbox and conversation features.',
-    availableServices: ['Consultation', 'Document Review', 'Case Evaluation'],
-    serviceQuestions: {},
-    brandColor: '#4f46e5',
-    accentColor: '#7c3aed',
-    metadata: {
-      subscriptionPlan: 'business',
-      planStatus: 'active',
-      features: ['inbox', 'analytics', 'team']
-    }
-  },
-  metadata: {
-    conversationConfig: {
-      autoReply: true,
-      businessHours: {
-        enabled: true,
-        timezone: 'America/New_York',
-        hours: {
-          monday: [{ start: '09:00', end: '17:00' }],
-          tuesday: [{ start: '09:00', end: '17:00' }],
-          wednesday: [{ start: '09:00', end: '17:00' }],
-          thursday: [{ start: '09:00', end: '17:00' }],
-          friday: [{ start: '09:00', end: '17:00' }]
-        }
-      },
-      autoCloseAfter: 7, // days
-      maxParticipants: 10,
-      allowAttachments: true,
-      allowVoiceMessages: true
-    }
-  }
-};
 
 const defaultMembers: Record<string, MockMember[]> = {
   [personalPracticeId]: [
@@ -290,40 +238,6 @@ const defaultMembers: Record<string, MockMember[]> = {
       name: 'Sam Associate',
       image: null,
       createdAt: now - 1000 * 60 * 60 * 10
-    }
-  ],
-  [inboxPracticeId]: [
-    {
-      userId: 'user-inbox-1',
-      role: 'owner',
-      email: 'inbox-owner@mock-law.test',
-      name: 'Taylor Inbox',
-      image: 'https://i.pravatar.cc/150?img=32',
-      createdAt: now - 1000 * 60 * 60 * 6
-    },
-    {
-      userId: 'user-inbox-2',
-      role: 'attorney',
-      email: 'attorney@mock-law.test',
-      name: 'Jordan Attorney',
-      image: 'https://i.pravatar.cc/150?img=45',
-      createdAt: now - 1000 * 60 * 60 * 3
-    },
-    {
-      userId: 'user-inbox-3',
-      role: 'paralegal',
-      email: 'paralegal@mock-law.test',
-      name: 'Casey Paralegal',
-      image: 'https://i.pravatar.cc/150?img=22',
-      createdAt: now - 1000 * 60 * 60 * 2
-    },
-    {
-      userId: 'user-inbox-4',
-      role: 'admin',
-      email: 'admin@mock-law.test',
-      name: 'Morgan Admin',
-      image: 'https://i.pravatar.cc/150?img=60',
-      createdAt: now - 1000 * 60 * 30
     }
   ]
 };
@@ -380,7 +294,13 @@ const defaultPreferences: PreferencesResponse['data'] = {
     intakes_email: true,
     matters_push: true,
     matters_email: true,
-    desktop_push_enabled: false
+    desktop_push_enabled: false,
+    in_app_messages: true,
+    in_app_system: true,
+    in_app_payments: true,
+    in_app_intakes: true,
+    in_app_matters: true,
+    in_app_frequency: 'all'
   },
   security: {
     two_factor_enabled: false,
@@ -424,7 +344,7 @@ const conversations = new Map<string, MockConversation>();
 // Storage for messages (keyed by conversation ID, array of messages)
 const messages = new Map<string, MockMessage[]>();
 
-export const MOCK_PRACTICES = [personalPractice, businessPractice, mockPractice, inboxPractice];
+export const MOCK_PRACTICES = [personalPractice, businessPractice, mockPractice];
 
 export const mockDb = {
   practices: MOCK_PRACTICES,
@@ -434,7 +354,6 @@ export const mockDb = {
     [businessPracticeId]: { ...defaultOnboarding },
     [personalPracticeId]: { ...defaultOnboarding },
     [mockPracticeId]: { ...defaultOnboarding },
-    [inboxPracticeId]: { ...defaultOnboarding }
   } as Record<string, OnboardingState>,
   preferences: { ...defaultPreferences },
   subscription: { ...defaultSubscription },

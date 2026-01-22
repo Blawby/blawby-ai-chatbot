@@ -8,12 +8,10 @@
 import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
-import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, ChatBubbleLeftRightIcon, ShieldCheckIcon, CreditCardIcon, ClipboardDocumentCheckIcon, DocumentTextIcon, InboxIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, InboxIcon } from '@heroicons/react/24/outline';
 import UserProfile from '@/shared/components/UserProfile';
 import type { ComponentChildren } from 'preact';
 import type { SubscriptionTier } from '@/shared/types/user';
-import { useNotificationCounts } from '@/features/notifications/hooks/useNotificationCounts';
-import type { NotificationCategory } from '@/features/notifications/types';
 
 interface SidebarContentProps {
   practiceConfig?: {
@@ -25,12 +23,10 @@ interface SidebarContentProps {
   onGoToDashboard?: () => void;
   onGoToChats?: () => void;
   onGoToLeads?: () => void;
-  onSelectNotificationCategory?: (category: NotificationCategory) => void;
   onClose?: () => void;
   showDashboardTab?: boolean;
   showChatsTab?: boolean;
   showLeadsTab?: boolean;
-  notificationCategory?: NotificationCategory;
   chatSidebarContent?: ComponentChildren;
   currentPractice?: {
     id: string;
@@ -46,27 +42,15 @@ export const SidebarContent = ({
   onGoToDashboard,
   onGoToChats,
   onGoToLeads,
-  onSelectNotificationCategory,
   onClose,
   showDashboardTab = true,
   showChatsTab = true,
   showLeadsTab = false,
-  notificationCategory = 'message',
   chatSidebarContent,
   currentPractice,
   isCollapsed,
   onToggleCollapse
 }: SidebarContentProps) => {
-  const { unreadByCategory } = useNotificationCounts();
-  const isNotificationsActive = currentRoute === 'notifications';
-
-  const notificationTabs: Array<{ key: NotificationCategory; label: string; icon: ComponentChildren }> = [
-    { key: 'message', label: 'Messages', icon: <ChatBubbleLeftRightIcon /> },
-    { key: 'system', label: 'System', icon: <ShieldCheckIcon /> },
-    { key: 'payment', label: 'Payments', icon: <CreditCardIcon /> },
-    { key: 'intake', label: 'Intakes', icon: <ClipboardDocumentCheckIcon /> },
-    { key: 'matter', label: 'Matters', icon: <DocumentTextIcon /> }
-  ];
 
   return (
     <div className={`flex flex-col h-full bg-light-card-bg dark:bg-dark-card-bg transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-60'}`}>
@@ -125,29 +109,7 @@ export const SidebarContent = ({
           </NavigationList>
         </div>
 
-        <div className="px-3 pt-2">
-          {!isCollapsed && (
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-              Notifications
-            </div>
-          )}
-          <NavigationList className="mt-2">
-            {notificationTabs.map((tab) => (
-              <NavigationItem
-                key={tab.key}
-                icon={tab.icon}
-                label={tab.label}
-                isActive={isNotificationsActive && notificationCategory === tab.key}
-                onClick={() => onSelectNotificationCategory?.(tab.key)}
-                isCollapsed={isCollapsed}
-                hasUnread={unreadByCategory[tab.key] > 0}
-                showUnreadDot={unreadByCategory[tab.key] > 0}
-              />
-            ))}
-          </NavigationList>
-        </div>
-
-        {!isCollapsed && currentRoute === 'chats' && chatSidebarContent && (
+        {!isCollapsed && chatSidebarContent && (
           <div className="flex-1 overflow-y-auto px-1 pb-2">
             {chatSidebarContent}
           </div>

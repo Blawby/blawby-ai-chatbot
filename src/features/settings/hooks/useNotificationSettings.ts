@@ -8,9 +8,11 @@ import {
   NOTIFICATION_DEFAULTS,
   DEFAULT_DESKTOP_PUSH_ENABLED,
   DEFAULT_MESSAGES_MENTIONS_ONLY,
+  DEFAULT_IN_APP_ENABLED,
+  DEFAULT_IN_APP_FREQUENCY,
   type NotificationDefaults
 } from '@/shared/ui/validation/defaultValues';
-import type { NotificationCategory } from '@/features/notifications/types';
+import type { NotificationCategory, InAppNotificationFrequency } from '@/shared/types/notifications';
 
 interface NotificationSettingsState {
   preferences: NotificationPreferences | null;
@@ -30,6 +32,14 @@ const categoryPreferenceKey: Record<NotificationCategory, { push: keyof Notifica
   payment: { push: 'payments_push', email: 'payments_email' },
   intake: { push: 'intakes_push', email: 'intakes_email' },
   matter: { push: 'matters_push', email: 'matters_email' }
+};
+
+const inAppPreferenceKey: Record<NotificationCategory, keyof NotificationPreferences> = {
+  message: 'in_app_messages',
+  system: 'in_app_system',
+  payment: 'in_app_payments',
+  intake: 'in_app_intakes',
+  matter: 'in_app_matters'
 };
 
 const buildSettings = (
@@ -57,7 +67,17 @@ const buildSettings = (
     push: prefs?.matters_push ?? defaults.matters.push,
     email: prefs?.matters_email ?? defaults.matters.email
   },
-  desktopPushEnabled: prefs?.desktop_push_enabled ?? DEFAULT_DESKTOP_PUSH_ENABLED
+  desktopPushEnabled: prefs?.desktop_push_enabled ?? DEFAULT_DESKTOP_PUSH_ENABLED,
+  inApp: {
+    messages: prefs?.in_app_messages ?? DEFAULT_IN_APP_ENABLED,
+    system: true,
+    payments: prefs?.in_app_payments ?? DEFAULT_IN_APP_ENABLED,
+    intakes: prefs?.in_app_intakes ?? DEFAULT_IN_APP_ENABLED,
+    matters: prefs?.in_app_matters ?? DEFAULT_IN_APP_ENABLED
+  },
+  inAppFrequency: prefs?.in_app_frequency === 'summaries_only'
+    ? 'summaries_only'
+    : DEFAULT_IN_APP_FREQUENCY
 });
 
 const setState = (next: Partial<NotificationSettingsState>) => {
@@ -93,8 +113,10 @@ const updateSettings = async (
       : previousPreferences;
 
     if (rolledBackPreferences && previousPreferences) {
+      const rolledBack = rolledBackPreferences as Record<keyof NotificationPreferences, NotificationPreferences[keyof NotificationPreferences]>;
+      const previous = previousPreferences as Record<keyof NotificationPreferences, NotificationPreferences[keyof NotificationPreferences]>;
       for (const key of Object.keys(updateData) as (keyof NotificationPreferences)[]) {
-        rolledBackPreferences[key] = previousPreferences[key];
+        rolledBack[key] = previous[key];
       }
     }
 
@@ -152,6 +174,45 @@ export const updateMessagesMentionsOnly = async (value: boolean) => {
   };
 
   await updateSettings(nextPreferences, { messages_mentions_only: value });
+};
+
+export const updateInAppCategory = async (
+  category: NotificationCategory,
+  value: boolean
+) => {
+  if (category === 'system') {
+    return;
+  }
+  const current = notificationSettingsStore.get();
+  if (!current.preferences) {
+    throw new Error('Notification settings not loaded');
+  }
+  const key = inAppPreferenceKey[category];
+  const currentPrefs = current.preferences;
+  const nextPreferences: NotificationPreferences = {
+    ...currentPrefs,
+    [key]: value
+  };
+
+  const updateData: Partial<NotificationPreferences> = {
+    [key]: value
+  };
+
+  await updateSettings(nextPreferences, updateData);
+};
+
+export const updateInAppFrequency = async (value: InAppNotificationFrequency) => {
+  const current = notificationSettingsStore.get();
+  if (!current.preferences) {
+    throw new Error('Notification settings not loaded');
+  }
+  const currentPrefs = current.preferences;
+  const nextPreferences: NotificationPreferences = {
+    ...currentPrefs,
+    in_app_frequency: value
+  };
+
+  await updateSettings(nextPreferences, { in_app_frequency: value });
 };
 
 onMount(notificationSettingsStore, () => {

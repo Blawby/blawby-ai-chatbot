@@ -11,7 +11,8 @@ const BACKEND_API_URL = process.env.E2E_BACKEND_API_URL || 'https://staging-api.
 if (!process.env.E2E_BACKEND_API_URL) {
   console.warn('E2E_BACKEND_API_URL is not set; defaulting to https://staging-api.blawby.com.');
 }
-const PAYMENT_MODE = (process.env.E2E_PAYMENT_MODE || 'auto').toLowerCase();
+const PAYMENT_MODE = (process.env.E2E_PAYMENT_MODE || 'paid').toLowerCase();
+const PAYMENT_MODE_EXPLICIT = Boolean(process.env.E2E_PAYMENT_MODE && process.env.E2E_PAYMENT_MODE.trim());
 const normalizeWorkerBaseUrl = (value: string): string => value.replace(/\/api\/?$/, '');
 const WORKER_API_URL = normalizeWorkerBaseUrl(
   process.env.E2E_WORKER_URL || process.env.VITE_WORKER_API_URL || 'http://localhost:8787'
@@ -137,7 +138,7 @@ const logMessageFetchDiagnostics = async (options: {
     const slugConversationPath = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceSlug)}`;
     conversationSlugCheck = await fetchDebugResponse(options.request, slugConversationPath, headers);
 
-    const slugMessagesPath = `${WORKER_API_URL}/api/chat/messages?practiceId=${encodeURIComponent(options.practiceSlug)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
+    const slugMessagesPath = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}/messages?practiceId=${encodeURIComponent(options.practiceSlug)}&limit=50`;
     messagesSlugCheck = await fetchDebugResponse(options.request, slugMessagesPath, headers);
   }
 
@@ -322,11 +323,14 @@ const waitForLeadCard = async (options: {
   }
 };
 
-const getIntakeSettings = async (
-  slug: string,
-  request?: APIRequestContext
-): Promise<IntakeSettingsResult> => {
-  const normalizedSlug = normalizePracticeSlug(slug);
+const getIntakeSettings = async (options: {
+  slug: string;
+  request?: APIRequestContext;
+  context?: BrowserContext;
+  baseURL?: string;
+  storagePath?: string;
+}): Promise<IntakeSettingsResult> => {
+  const normalizedSlug = normalizePracticeSlug(options.slug);
   const cached = intakeSettingsCache.get(normalizedSlug);
   if (cached) return cached;
 
@@ -334,13 +338,20 @@ const getIntakeSettings = async (
   const maxAttempts = 3;
   let lastStatus = 0;
   let lastErrorText = '';
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (options.context && options.baseURL) {
+    const cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
+    if (cookieHeader) {
+      headers.Cookie = cookieHeader;
+    }
+  }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const response = request
-      ? await request.get(url, { headers: { Accept: 'application/json' } })
+    const response = options.request
+      ? await options.request.get(url, { headers })
       : await fetch(url, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' }
+        headers
       });
 
     const ok = typeof response.ok === 'function' ? response.ok() : response.ok;
@@ -374,10 +385,14 @@ const getIntakeSettings = async (
     }
 
     const connectedAccount: ConnectedAccountPayload | undefined = data.connectedAccount ?? data.connected_account ?? undefined;
+    const settingsRecord = data.settings as Record<string, unknown>;
+    const paymentLinkEnabled = settingsRecord.paymentLinkEnabled ?? settingsRecord.payment_link_enabled;
+    const prefillAmount = settingsRecord.prefillAmount ?? settingsRecord.prefill_amount;
     const result = {
       status,
       settings: {
-        ...data.settings,
+        paymentLinkEnabled: typeof paymentLinkEnabled === 'boolean' ? paymentLinkEnabled : undefined,
+        prefillAmount: typeof prefillAmount === 'number' ? prefillAmount : undefined,
         connectedAccount: connectedAccount
           ? {
               id: connectedAccount.id,
@@ -532,6 +547,18 @@ const confirmIntakeLead = async (options: {
       : undefined
   }));
   if (initial.status !== 404) {
+    if (initial.status !== 200) {
+      console.warn('[E2E] Intake confirm returned non-200', {
+        status: initial.status,
+        url: initial.url,
+        error: initial.error,
+        body: initial.rawText?.slice(0, 500) ?? '',
+        practiceId: options.practiceId,
+        practiceSlug: options.practiceSlug,
+        conversationId: options.conversationId,
+        intakeUuid: options.intakeUuid
+      });
+    }
     return { status: initial.status, data: initial.data };
   }
 
@@ -593,6 +620,7 @@ const getOrCreateConversation = async (options: {
   context: BrowserContext;
   baseURL: string;
   practiceId: string;
+  practiceSlug?: string;
   storagePath?: string;
 }) => {
   const ensureCookieHeader = async (): Promise<string> => {
@@ -615,8 +643,12 @@ const getOrCreateConversation = async (options: {
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const cookieHeader = await ensureCookieHeader();
+    const params = new URLSearchParams({ practiceId: options.practiceId });
+    if (options.practiceSlug) {
+      params.set('practiceSlug', options.practiceSlug);
+    }
     const response = await options.request.get(
-      `/api/conversations/active?practiceId=${encodeURIComponent(options.practiceId)}`,
+      `/api/conversations/active?${params.toString()}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -662,7 +694,7 @@ const getConversationMessages = async (options: {
   conversationId: string;
   storagePath?: string;
 }) => {
-  const url = `${WORKER_API_URL}/api/chat/messages?practiceId=${encodeURIComponent(options.practiceId)}&conversationId=${encodeURIComponent(options.conversationId)}&limit=50`;
+  const url = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}/messages?practiceId=${encodeURIComponent(options.practiceId)}&limit=50`;
   const maxAttempts = 3;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -761,6 +793,7 @@ const waitForDecisionMessage = async (options: {
 };
 
 const shouldRunPaymentMode = (required: boolean): boolean => {
+  if (!PAYMENT_MODE_EXPLICIT) return true;
   if (PAYMENT_MODE === 'paid') return required;
   if (PAYMENT_MODE === 'free') return !required;
   return true;
@@ -790,7 +823,13 @@ test.describe('Lead intake workflow', () => {
       test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
-    const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, ownerContext.request);
+    const intakeSettingsResult = await getIntakeSettings({
+      slug: e2eConfig.practice.slug,
+      request: ownerContext.request,
+      context: ownerContext,
+      baseURL,
+      storagePath: AUTH_STATE_PATHS.owner
+    });
     if (!intakeSettingsResult.settings) {
       const message = formatIntakeSettingsSkip(intakeSettingsResult);
       console.warn(message);
@@ -804,12 +843,14 @@ test.describe('Lead intake workflow', () => {
 
     await clientPage.goto('/');
 
+    const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
     const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
     const conversationId = await getOrCreateConversation({
       request: clientContext.request,
       context: clientContext,
       baseURL,
       practiceId,
+      practiceSlug,
       storagePath: AUTH_STATE_PATHS.client
     });
     const clientName = `E2E Client ${randomUUID().slice(0, 6)}`;
@@ -911,7 +952,13 @@ test.describe('Lead intake workflow', () => {
       test.skip(true, `Skipping free intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
-    const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, ownerContext.request);
+    const intakeSettingsResult = await getIntakeSettings({
+      slug: e2eConfig.practice.slug,
+      request: ownerContext.request,
+      context: ownerContext,
+      baseURL,
+      storagePath: AUTH_STATE_PATHS.owner
+    });
     if (!intakeSettingsResult.settings) {
       const message = formatIntakeSettingsSkip(intakeSettingsResult);
       console.warn(message);
@@ -923,7 +970,8 @@ test.describe('Lead intake workflow', () => {
       test.skip(true, 'Skipping free intake test: practice requires payment.');
     }
 
-    await anonPage.goto(`/p/${encodeURIComponent(e2eConfig.practice.slug)}`);
+    const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
+    await anonPage.goto(`/p/${encodeURIComponent(practiceSlug)}`);
     await waitForSession(anonPage, { timeoutMs: 30000, skipIfCookiePresent: false, cookieUrl: baseURL });
 
     const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
@@ -932,6 +980,7 @@ test.describe('Lead intake workflow', () => {
       context: anonContext,
       baseURL,
       practiceId,
+      practiceSlug,
       storagePath: AUTH_STATE_PATHS.anonymous
     });
     const intakeUuid = randomUUID();
@@ -1037,10 +1086,16 @@ test.describe('Lead intake workflow', () => {
       test.skip(true, `Skipping paid intake test for E2E_PAYMENT_MODE=${PAYMENT_MODE}.`);
     }
 
-    const intakeSettingsResult = await getIntakeSettings(e2eConfig.practice.slug, clientContext.request);
+    const intakeSettingsResult = await getIntakeSettings({
+      slug: e2eConfig.practice.slug,
+      request: clientContext.request,
+      context: clientContext,
+      baseURL,
+      storagePath: AUTH_STATE_PATHS.client
+    });
     if (!intakeSettingsResult.settings) {
       const message = formatIntakeSettingsSkip(intakeSettingsResult);
-      if (PAYMENT_MODE === 'paid') {
+      if (PAYMENT_MODE_EXPLICIT && PAYMENT_MODE === 'paid') {
         throw new Error(message);
       }
       console.warn(message);
@@ -1049,13 +1104,13 @@ test.describe('Lead intake workflow', () => {
     const intakeSettings = intakeSettingsResult.settings;
     const paymentRequired = intakeSettings?.paymentLinkEnabled === true;
     if (!paymentRequired) {
-      if (PAYMENT_MODE === 'paid') {
+      if (PAYMENT_MODE_EXPLICIT && PAYMENT_MODE === 'paid') {
         throw new Error('Paid intake test requires a practice with payment enabled.');
       }
       test.skip(true, 'Skipping paid intake test: practice does not require payment.');
     }
     if (!intakeSettings?.connectedAccount?.id) {
-      if (PAYMENT_MODE === 'paid') {
+      if (PAYMENT_MODE_EXPLICIT && PAYMENT_MODE === 'paid') {
         throw new Error('Paid intake test requires a connected Stripe account on the practice.');
       }
       test.skip(true, 'Skipping paid intake test: practice has no connected Stripe account.');
@@ -1063,12 +1118,14 @@ test.describe('Lead intake workflow', () => {
 
     await clientPage.goto('/');
 
+    const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
     const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
     const conversationId = await getOrCreateConversation({
       request: clientContext.request,
       context: clientContext,
       baseURL,
       practiceId,
+      practiceSlug,
       storagePath: AUTH_STATE_PATHS.client
     });
     const intake = await createIntake({

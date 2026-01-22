@@ -9,7 +9,7 @@
  * This application uses TWO separate backends:
  * 
  * 1. WORKER API (Cloudflare Worker)
- *    - Handles: /api/chat, /api/conversations, /api/inbox, /api/files
+ *    - Handles: /api/conversations, /api/files
  *    - Dev: http://localhost:8787
  *    - Prod: Same origin as frontend (ai.blawby.com)
  * 
@@ -20,9 +20,8 @@
  * ENDPOINT ROUTING GUIDE:
  * 
  * WORKER API (use getWorkerApiUrl()):
- *   /api/chat/*                    - AI chat conversations
- *   /api/conversations/*           - Conversation management
- *   /api/inbox/*                   - Inbox messages
+ *   /api/conversations/*           - Conversation management + messages
+ *   /api/ai/chat                   - AI chat responses
  *   /api/files/*                   - File uploads/downloads
  *   /api/status                    - Status check
  *   /api/health                    - Health check
@@ -42,7 +41,7 @@ import { isDevelopment } from '@/shared/utils/environment';
 /**
  * Get URL for Cloudflare Worker API
  * 
- * This is the Worker that handles chat, conversations, inbox, files, etc.
+ * This is the Worker that handles chat, conversations, files, etc.
  * In production, it's deployed on the same domain as the frontend.
  * 
  * Priority:

@@ -1,14 +1,23 @@
-import { useCallback, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { Textarea } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/input/Select';
+import { TagInput } from '@/shared/ui/tag';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useLeadQueueAutoLoad } from '@/features/settings/hooks/usePracticePageEffects';
 import { useNavigation } from '@/shared/utils/navigation';
-import type { MatterWorkflowStatus, MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeManagement, type MatterWorkflowStatus, type MatterTransitionResult } from '@/shared/hooks/usePracticeManagement';
+
+const PRIORITY_OPTIONS = [
+  { value: 'low', label: 'Low' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'high', label: 'High' },
+  { value: 'urgent', label: 'Urgent' }
+];
 
 export interface LeadSummary {
   id: string;
@@ -16,6 +25,9 @@ export interface LeadSummary {
   matterType: string;
   status: MatterWorkflowStatus;
   priority: string;
+  assignedTo?: string | null;
+  tags?: string[];
+  internalNotes?: string | null;
   clientName?: string | null;
   clientEmail?: string | null;
   clientPhone?: string | null;
@@ -51,6 +63,11 @@ export const LeadReviewQueue = ({
 }: LeadReviewQueueProps) => {
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
+  const { fetchMembers, getMembers } = usePracticeManagement({
+    autoFetchPractices: false,
+    fetchInvitations: false,
+    fetchPracticeDetails: false
+  });
   const [leadQueue, setLeadQueue] = useState<LeadSummary[]>([]);
   const [leadLoading, setLeadLoading] = useState(false);
   const [leadError, setLeadError] = useState<string | null>(null);
@@ -58,6 +75,17 @@ export const LeadReviewQueue = ({
   const [decisionAction, setDecisionAction] = useState<'accept' | 'reject' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
   const [decisionSubmitting, setDecisionSubmitting] = useState(false);
+  const [savingLeadIds, setSavingLeadIds] = useState<Set<string>>(new Set());
+
+  const members = useMemo(() => (practiceId ? getMembers(practiceId) : []), [getMembers, practiceId]);
+  const memberOptions = useMemo(() => {
+    const options = members.map((member) => ({
+      value: member.userId,
+      label: member.name || member.email || member.userId
+    }));
+    options.sort((a, b) => a.label.localeCompare(b.label));
+    return [{ value: '', label: 'Unassigned' }, ...options];
+  }, [members]);
 
   const loadLeadQueue = useCallback(async () => {
     if (!practiceId || !canReviewLeads) {
@@ -85,7 +113,7 @@ export const LeadReviewQueue = ({
       const payload = await response.json() as {
         success?: boolean;
         error?: string;
-        data?: { items?: LeadSummary[]; matters?: LeadSummary[] };
+        data?: { items?: Array<Record<string, unknown>>; matters?: Array<Record<string, unknown>> };
       };
 
       if (payload.success === false) {
@@ -93,7 +121,31 @@ export const LeadReviewQueue = ({
       }
 
       const items = payload.data?.items || payload.data?.matters || [];
-      setLeadQueue(items);
+      const normalized = items.map((item: Record<string, unknown>, index: number): LeadSummary => {
+        const id = typeof item.id === 'string' ? item.id : String(item.id ?? `lead-${index}`);
+        const tags = Array.isArray(item.tags)
+          ? item.tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
+          : [];
+        return {
+          id,
+          title: typeof item.title === 'string' ? item.title : 'Lead',
+          matterType: typeof item.matterType === 'string' ? item.matterType : 'General',
+          status: (typeof item.status === 'string' ? item.status : 'lead') as MatterWorkflowStatus,
+          priority: typeof item.priority === 'string' ? item.priority : 'normal',
+          assignedTo: typeof item.assignedTo === 'string' ? item.assignedTo : null,
+          tags,
+          internalNotes: typeof item.internalNotes === 'string' ? item.internalNotes : null,
+          clientName: typeof item.clientName === 'string' ? item.clientName : null,
+          clientEmail: typeof item.clientEmail === 'string' ? item.clientEmail : null,
+          clientPhone: typeof item.clientPhone === 'string' ? item.clientPhone : null,
+          leadSource: typeof item.leadSource === 'string' ? item.leadSource : null,
+          conversationId: typeof item.conversationId === 'string' ? item.conversationId : null,
+          intakeUuid: typeof item.intakeUuid === 'string' ? item.intakeUuid : null,
+          createdAt: typeof item.createdAt === 'string' ? item.createdAt : '',
+          updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : ''
+        };
+      });
+      setLeadQueue(normalized);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load leads';
       setLeadError(message);
@@ -103,6 +155,30 @@ export const LeadReviewQueue = ({
   }, [practiceId, canReviewLeads]);
 
   useLeadQueueAutoLoad(loadLeadQueue);
+
+  useEffect(() => {
+    if (!practiceId || !canReviewLeads) return;
+    void fetchMembers(practiceId).catch((err) => {
+      const message = err instanceof Error ? err.message : 'Failed to load practice members';
+      showError('Members unavailable', message);
+    });
+  }, [practiceId, canReviewLeads, fetchMembers, showError]);
+
+  const setLeadSaving = useCallback((leadId: string, isSaving: boolean) => {
+    setSavingLeadIds((prev) => {
+      const next = new Set(prev);
+      if (isSaving) {
+        next.add(leadId);
+      } else {
+        next.delete(leadId);
+      }
+      return next;
+    });
+  }, []);
+
+  const updateLead = useCallback((leadId: string, updates: Partial<LeadSummary>) => {
+    setLeadQueue((prev) => prev.map((lead) => (lead.id === leadId ? { ...lead, ...updates } : lead)));
+  }, []);
 
   const openDecisionModal = (lead: LeadSummary, action: 'accept' | 'reject') => {
     setDecisionLead(lead);
@@ -137,6 +213,62 @@ export const LeadReviewQueue = ({
       setDecisionSubmitting(false);
     }
   };
+
+  const handleTriageSave = useCallback(async (lead: LeadSummary) => {
+    if (!practiceId) return;
+    setLeadSaving(lead.id, true);
+    try {
+      const endpoint = `${getPracticeWorkspaceEndpoint(practiceId, 'matters')}/${encodeURIComponent(lead.id)}`;
+      const payload = {
+        assignedTo: lead.assignedTo ?? null,
+        priority: lead.priority || 'normal',
+        tags: lead.tags ?? [],
+        internalNotes: lead.internalNotes ?? null
+      };
+      const response = await fetch(endpoint, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update lead (${response.status})`);
+      }
+
+      const data = await response.json() as {
+        success?: boolean;
+        error?: string;
+        data?: { matter?: Record<string, unknown> };
+      };
+
+      if (data.success === false) {
+        throw new Error(data.error || 'Failed to update lead');
+      }
+
+      const updated = data.data?.matter;
+      if (updated && typeof updated === 'object') {
+        updateLead(lead.id, {
+          priority: typeof updated.priority === 'string' ? updated.priority : lead.priority,
+          assignedTo: typeof updated.assignedTo === 'string' ? updated.assignedTo : lead.assignedTo ?? null,
+          tags: Array.isArray(updated.tags)
+            ? updated.tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
+            : lead.tags ?? [],
+          internalNotes: typeof updated.internalNotes === 'string' ? updated.internalNotes : lead.internalNotes ?? null
+        });
+      }
+
+      showSuccess('Triage updated', 'Lead details saved.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update lead';
+      showError('Triage update failed', message);
+    } finally {
+      setLeadSaving(lead.id, false);
+    }
+  }, [practiceId, setLeadSaving, showSuccess, showError, updateLead]);
 
   const handleOpenConversation = useCallback((conversationId: string) => {
     if (onOpenConversation) {
@@ -185,62 +317,123 @@ export const LeadReviewQueue = ({
 
       {canReviewLeads && leadQueue.length > 0 && (
         <div className="space-y-3">
-          {leadQueue.map((lead) => (
-            <div
-              key={lead.id}
-              className="rounded-lg border border-gray-200 dark:border-dark-border p-4 bg-white dark:bg-dark-card-bg"
-              data-testid={`lead-card-${lead.id}`}
-            >
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {lead.clientName || lead.title}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {lead.matterType}
-                      {lead.leadSource ? ` · ${lead.leadSource}` : ''}
-                    </p>
-                    {(lead.clientEmail || lead.clientPhone) && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {lead.clientEmail ?? '—'}
-                        {lead.clientPhone ? ` · ${lead.clientPhone}` : ''}
+          {leadQueue.map((lead) => {
+            const isSaving = savingLeadIds.has(lead.id);
+            return (
+              <div
+                key={lead.id}
+                className="rounded-lg border border-gray-200 dark:border-dark-border p-4 bg-white dark:bg-dark-card-bg"
+                data-testid={`lead-card-${lead.id}`}
+              >
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {lead.clientName || lead.title}
                       </p>
-                    )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {lead.matterType}
+                        {lead.leadSource ? ` · ${lead.leadSource}` : ''}
+                      </p>
+                      {(lead.clientEmail || lead.clientPhone) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {lead.clientEmail ?? '—'}
+                          {lead.clientPhone ? ` · ${lead.clientPhone}` : ''}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {formatDate(lead.createdAt)}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {formatDate(lead.createdAt)}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => openDecisionModal(lead, 'accept')}
-                    data-testid={`lead-accept-${lead.id}`}
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => openDecisionModal(lead, 'reject')}
-                    data-testid={`lead-reject-${lead.id}`}
-                  >
-                    Reject
-                  </Button>
-                  {lead.conversationId && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => openDecisionModal(lead, 'accept')}
+                      data-testid={`lead-accept-${lead.id}`}
+                    >
+                      Accept
+                    </Button>
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => handleOpenConversation(lead.conversationId as string)}
+                      onClick={() => openDecisionModal(lead, 'reject')}
+                      data-testid={`lead-reject-${lead.id}`}
                     >
-                      Open chat
+                      Reject
                     </Button>
-                  )}
+                    {lead.conversationId && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleOpenConversation(lead.conversationId as string)}
+                      >
+                        Open chat
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <FormLabel>Assignee</FormLabel>
+                        <Select
+                          value={lead.assignedTo ?? ''}
+                          options={memberOptions}
+                          onChange={(value) => updateLead(lead.id, { assignedTo: value || null })}
+                          className="w-full"
+                          placeholder="Unassigned"
+                          disabled={memberOptions.length <= 1}
+                        />
+                      </div>
+                      <div>
+                        <FormLabel>Priority</FormLabel>
+                        <Select
+                          value={lead.priority || 'normal'}
+                          options={PRIORITY_OPTIONS}
+                          onChange={(value) => updateLead(lead.id, { priority: value })}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <FormLabel htmlFor={`lead-tags-${lead.id}`}>Tags</FormLabel>
+                      <TagInput
+                        id={`lead-tags-${lead.id}`}
+                        value={lead.tags ?? []}
+                        onChange={(tags) => updateLead(lead.id, { tags })}
+                        placeholder="Add tags"
+                        size="sm"
+                      />
+                    </div>
+
+                    <div>
+                      <FormLabel htmlFor={`lead-notes-${lead.id}`}>Internal notes</FormLabel>
+                      <Textarea
+                        id={`lead-notes-${lead.id}`}
+                        value={lead.internalNotes ?? ''}
+                        onChange={(value) => updateLead(lead.id, { internalNotes: value })}
+                        placeholder="Add internal notes for the team"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void handleTriageSave(lead)}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? 'Saving…' : 'Save triage'}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
