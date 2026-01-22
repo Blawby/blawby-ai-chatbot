@@ -244,6 +244,15 @@ Better Auth anonymous sessions do not automatically link conversations to a real
    - Check: Can you access `http://localhost:3000/api/auth/get-session`?
    - Fix: Start backend server
 
+### "Forbidden" (403) on Practice Endpoints
+
+**Symptoms**: `/api/practice/:id` returns 403 for signed-in users
+
+**Possible Causes**:
+1. **Member-gated endpoint**: The user is not a member of the practice
+   - Check: Confirm the user is a member of the organization
+   - Fix: Use public endpoints (e.g., `/api/practice/details/:slug`) for unauthenticated/public data, or ensure membership before calling member-only endpoints
+
 ### "Auth validation timeout" Error
 
 **Symptoms**: Worker logs show timeout after 3 seconds

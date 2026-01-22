@@ -225,7 +225,6 @@ const getExistingConversationId = async (options: {
   const fetchConversationList = async (
     status?: 'active' | 'archived' | 'closed'
   ): Promise<ConversationSummary[]> => {
-    const statusParam = status ? `&status=${encodeURIComponent(status)}` : '';
     const params = new URLSearchParams({
       practiceId: options.practiceId,
       limit: '20'

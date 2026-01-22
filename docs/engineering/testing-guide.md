@@ -43,6 +43,12 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 - Use `waitForSessionState` helper to poll for async session changes
 - For session cookie tests, verify cookies via Playwright context and request headers
 
+### E2E Environment Flags
+
+- `E2E_BACKEND_API_URL`: backend base used by lead-flow tests (defaults to `https://staging-api.blawby.com`); must match the backend that issued the session cookie when hitting remote endpoints directly.
+- `E2E_PAYMENT_MODE`: optional, set to `paid` or `free` to force which lead-flow tests run. If unset, lead-flow tests auto-detect based on intake settings and skip mismatched flows.
+- When tests call `E2E_BACKEND_API_URL` directly (intake settings/create/status), they must forward the Better Auth session cookie from Playwright storage state.
+
 ### Testing Better Auth Client & Session Configuration
 
 **Purpose**: Test session cookie authentication and API client setup
