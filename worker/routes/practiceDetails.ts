@@ -42,7 +42,7 @@ export async function handlePracticeDetails(request: Request, env: Env): Promise
     });
   }
 
-  if (!payload || typeof payload !== 'object') {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return new Response(rawText, {
       status: response.status,
       headers: normalizedHeaders
