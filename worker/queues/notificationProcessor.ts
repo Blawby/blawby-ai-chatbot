@@ -220,11 +220,28 @@ async function loadRateLimitState(
     return createRateLimitState(windowStart, windowEnd);
   }
   try {
-    const parsed = JSON.parse(raw) as RateLimitState;
-    if (parsed.windowStart !== windowStart) {
+    const parsed = JSON.parse(raw) as Partial<RateLimitState> | null;
+    if (!parsed || typeof parsed !== 'object' || parsed.windowStart !== windowStart) {
       return createRateLimitState(windowStart, windowEnd);
     }
-    return parsed;
+    const summary = parsed.summary && typeof parsed.summary === 'object'
+      ? {
+          totalCount: Number.isFinite(parsed.summary.totalCount) ? parsed.summary.totalCount : 0,
+          byType: parsed.summary.byType && typeof parsed.summary.byType === 'object'
+            ? parsed.summary.byType
+            : {},
+          sampleLinks: Array.isArray(parsed.summary.sampleLinks) ? parsed.summary.sampleLinks : [],
+          lastLink: typeof parsed.summary.lastLink === 'string' ? parsed.summary.lastLink : null
+        }
+      : createEmptySummary();
+
+    return {
+      windowStart,
+      windowEnd,
+      messageCount: Number.isFinite(parsed.messageCount) ? parsed.messageCount : 0,
+      summarySent: parsed.summarySent === true,
+      summary
+    };
   } catch {
     return createRateLimitState(windowStart, windowEnd);
   }
