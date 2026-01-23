@@ -155,6 +155,7 @@ export function useConversation({
   practiceSlug,
   onError,
 }: UseConversationOptions): UseConversationReturn {
+  const { session } = useSessionContext();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ConversationMessageUI[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -162,6 +163,7 @@ export function useConversation({
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const currentUserId = session?.user?.id ?? null;
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const isDisposedRef = useRef(false);
@@ -185,9 +187,15 @@ export function useConversation({
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ConversationMessageUI => {
+    const senderId = typeof msg.user_id === 'string' && msg.user_id.trim().length > 0
+      ? msg.user_id
+      : null;
+    const isUser = msg.role === 'user'
+      && Boolean(senderId && currentUserId && senderId === currentUserId);
+
     return {
       ...msg,
-      isUser: msg.role === 'user',
+      isUser,
       timestamp: new Date(msg.created_at).getTime(),
       files: msg.metadata?.attachments ? (msg.metadata.attachments as string[]).map((fileId: string) => ({
         id: fileId,
@@ -197,7 +205,7 @@ export function useConversation({
         url: '', // TODO: Generate file URL from file ID
       })) : undefined,
     };
-  }, []);
+  }, [currentUserId]);
 
   const initSocketReadyPromise = useCallback(() => {
     wsReadyRef.current = new Promise((resolve, reject) => {
@@ -512,6 +520,9 @@ export function useConversation({
       return;
     }
 
+    const replyToMessageId = typeof data.reply_to_message_id === 'string'
+      ? data.reply_to_message_id
+      : null;
     const metadata = typeof data.metadata === 'object' && data.metadata !== null && !Array.isArray(data.metadata)
       ? data.metadata as Record<string, unknown>
       : null;
@@ -526,6 +537,7 @@ export function useConversation({
       user_id: typeof data.user_id === 'string' ? data.user_id : '',
       role: role === 'assistant' ? 'assistant' : role === 'system' ? 'system' : 'user',
       content,
+      reply_to_message_id: replyToMessageId,
       metadata: metadata ?? (attachments.length > 0 ? { attachments } : null),
       client_id: clientId,
       seq: seqValue,
@@ -737,7 +749,7 @@ export function useConversation({
       id: tempId,
       conversation_id: conversationId,
       practice_id: practiceId,
-      user_id: '',
+      user_id: currentUserId ?? '',
       role: 'user',
       content,
       metadata: attachments?.length ? { attachments } : null,
@@ -802,7 +814,7 @@ export function useConversation({
       setMessages(prev => prev.filter(message => message.id !== tempId));
       throw error;
     });
-  }, [connectChatRoom, conversationId, practiceId, initSocketReadyPromise, sendFrame, waitForSocketReady]);
+  }, [connectChatRoom, conversationId, currentUserId, initSocketReadyPromise, practiceId, sendFrame, waitForSocketReady]);
 
   // Fetch conversation details
   const fetchConversation = useCallback(async () => {

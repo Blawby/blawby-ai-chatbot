@@ -79,6 +79,7 @@ export interface ConversationMessage {
   user_id: string; // Sender of the message
   role: MessageRole;
   content: string;
+  reply_to_message_id?: string | null;
   metadata: Record<string, unknown> | null;
   client_id: string;
   seq: number;
@@ -87,11 +88,17 @@ export interface ConversationMessage {
   created_at: string; // ISO timestamp
 }
 
+export interface MessageReactionSummary {
+  emoji: string;
+  count: number;
+  reacted_by_me: boolean;
+}
+
 /**
  * UI-friendly message type that extends ConversationMessage
  */
 export interface ConversationMessageUI extends ConversationMessage {
-  isUser: boolean; // Derived from role === 'user'
+  isUser: boolean; // Derived from sender user_id matching the current session user
   timestamp: number; // Converted from created_at ISO string to milliseconds
   files?: Array<{
     id: string;
@@ -135,6 +142,7 @@ export interface SendMessageRequest {
   content: string;
   attachments?: string[]; // Array of file IDs
   metadata?: Record<string, unknown>;
+  reply_to_message_id?: string | null;
 }
 
 /**

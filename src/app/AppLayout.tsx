@@ -230,7 +230,6 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
               profileImage={practiceConfig.profileImage}
               practiceSlug={practiceSlug}
               description={practiceDescription}
-              variant="sidebar"
               showVerified={true}
             />
 

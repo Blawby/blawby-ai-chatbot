@@ -236,6 +236,7 @@ describe('PracticePage', () => {
     vi.mocked(usePracticeManagement).mockReturnValue(usePracticeMgmtMock);
     vi.mocked(usePracticeDetails).mockReturnValue({
       details: null,
+      hasDetails: false,
       fetchDetails: mockFetchDetails,
       updateDetails: mockUpdateDetails,
       setDetails: vi.fn()

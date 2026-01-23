@@ -9,6 +9,7 @@ BACKEND_API_URL=your_backend_api_url_here
 # API Keys and Tokens (SENSITIVE)
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
 CF_AIG_TOKEN=your_cloudflare_ai_gateway_token_here
+CF_AIG_GATEWAY_NAME=your_gateway_name_here
 OPENAI_TOKEN=your_openai_api_token_here
 ONESIGNAL_APP_ID=your_onesignal_app_id_here
 ONESIGNAL_REST_API_KEY=your_onesignal_rest_api_key_here

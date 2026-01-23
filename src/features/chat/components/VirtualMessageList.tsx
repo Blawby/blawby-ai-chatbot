@@ -9,9 +9,11 @@ import { ChatMessageUI } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import type { ReplyTarget } from '@/features/chat/types';
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
+    conversationTitle?: string | null;
     practiceConfig?: {
         name: string;
         profileImage: string | null;
@@ -19,10 +21,14 @@ interface VirtualMessageListProps {
         description?: string | null;
         slug?: string | null;
     };
+    isPublicWorkspace?: boolean;
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
     onOpenPayment?: (request: IntakePaymentRequest) => void;
     practiceId?: string;
+    onReply?: (target: ReplyTarget) => void;
+    onToggleReaction?: (messageId: string, emoji: string) => void;
+    onRequestReactions?: (messageId: string) => void;
     intakeStatus?: {
         step: string;
     };
@@ -42,11 +48,16 @@ const DEBOUNCE_DELAY = 50;
 
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
+    conversationTitle,
     practiceConfig,
+    isPublicWorkspace = false,
     onOpenSidebar,
     onContactFormSubmit,
     onOpenPayment,
     practiceId,
+    onReply,
+    onToggleReaction,
+    onRequestReactions,
     intakeStatus: _intakeStatus,
     modeSelectorActions,
     hasMoreMessages,
@@ -54,39 +65,65 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onLoadMoreMessages,
     showSkeleton = false
 }) => {
-    const { session } = useSessionContext();
+    const { session, activeMemberRole } = useSessionContext();
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(messages.length);
-    const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+    const isScrolledToBottomRef = useRef(true);
+    const isUserScrollingRef = useRef(false);
     const isLoadingRef = useRef(false);
     const currentUserName = session?.user?.name || session?.user?.email || 'You';
-    const currentUserAvatar = session?.user?.image ?? null;
+    const currentUserAvatar = session?.user?.image || null;
+    const currentUserProfile = {
+        src: currentUserAvatar,
+        name: currentUserName
+    };
+    const practiceProfile = practiceConfig ? {
+        src: practiceConfig.profileImage,
+        name: practiceConfig.name
+    } : {
+        src: null,
+        name: 'Practice'
+    };
+    const clientProfile = {
+        src: null,
+        name: conversationTitle?.trim() || 'Client'
+    };
+    const blawbyProfile = {
+        src: '/blawby-favicon-iframe.png',
+        name: 'Blawby'
+    };
+    const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
+
+    const resolveAvatar = (message: ChatMessageUI) => {
+        const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
+        const isSystemMessage = message.role === 'system';
+        const isAssistantMessage = message.role === 'assistant';
+        const isBotNotification = isSystemMessage
+            && typeof message.metadata?.notificationType === 'string';
+        const isBotMessage = isSystemMessage || isAssistantMessage || isBotNotification;
+
+        if (mockAvatar) {
+            return mockAvatar;
+        }
+        if (isBotMessage) {
+            return blawbyProfile;
+        }
+        if (message.isUser) {
+            return currentUserProfile;
+        }
+        return isPracticeViewer ? clientProfile : practiceProfile;
+    };
 
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
         const { scrollTop, scrollHeight, clientHeight } = element;
         return Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
     }, []);
 
-    const handleScroll = useCallback(() => {
+    const handleScrollLoadMore = useCallback(() => {
         if (!listRef.current) return;
 
         const element = listRef.current;
-        const isBottom = checkIfScrolledToBottom(element);
-        setIsScrolledToBottom(isBottom);
-
-        // Dispatch scroll event for navbar visibility
-        const currentScrollTop = element.scrollTop;
-        const lastScrollTop = (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop || 0;
-        const scrollDelta = Math.abs(currentScrollTop - lastScrollTop);
-        
-        if (scrollDelta > 0) {
-            window.dispatchEvent(new CustomEvent('chat-scroll', {
-                detail: { scrollTop: currentScrollTop, scrollDelta }
-            }));
-        }
-        
-        (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop = currentScrollTop;
 
         // Load more messages when scrolling up (client-side)
         if (element.scrollTop < SCROLL_THRESHOLD && startIndex > 0) {
@@ -134,68 +171,127 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
     }, [
         startIndex,
-        checkIfScrolledToBottom,
         hasMoreMessages,
         isLoadingMoreMessages,
         onLoadMoreMessages
     ]);
 
     const debouncedHandleScroll = useMemo(() => {
-        return debounce(handleScroll, DEBOUNCE_DELAY);
-    }, [handleScroll]);
+        return debounce(handleScrollLoadMore, DEBOUNCE_DELAY);
+    }, [handleScrollLoadMore]);
+
+    const handleScrollImmediate = useCallback(() => {
+        if (!listRef.current) return;
+
+        const element = listRef.current;
+        const isBottom = checkIfScrolledToBottom(element);
+        isScrolledToBottomRef.current = isBottom;
+        isUserScrollingRef.current = !isBottom;
+
+        // Dispatch scroll event for navbar visibility
+        const currentScrollTop = element.scrollTop;
+        const lastScrollTop = (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop || 0;
+        const scrollDelta = Math.abs(currentScrollTop - lastScrollTop);
+        
+        if (scrollDelta > 0) {
+            window.dispatchEvent(new CustomEvent('chat-scroll', {
+                detail: { scrollTop: currentScrollTop, scrollDelta }
+            }));
+        }
+        
+        (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop = currentScrollTop;
+
+        debouncedHandleScroll();
+    }, [checkIfScrolledToBottom, debouncedHandleScroll]);
 
     useEffect(() => {
         const list = listRef.current;
         if (list) {
-            list.addEventListener('scroll', debouncedHandleScroll, { passive: true });
+            list.addEventListener('scroll', handleScrollImmediate, { passive: true });
         }
         return () => {
             if (list) {
-                list.removeEventListener('scroll', debouncedHandleScroll);
+                list.removeEventListener('scroll', handleScrollImmediate);
             }
             // Cancel any pending debounced calls to prevent delayed state updates after unmount
             debouncedHandleScroll.cancel();
         };
-    }, [debouncedHandleScroll]);
-
-    // Compute last message's isUser property to ensure effects re-run when it changes
-    const lastIsUser = useMemo(() => {
-        return messages[messages.length - 1]?.isUser;
-    }, [messages]);
+    }, [debouncedHandleScroll, handleScrollImmediate]);
 
     useEffect(() => {
         // Update indices when new messages are added
-        if (isScrolledToBottom || lastIsUser) {
+        if (isScrolledToBottomRef.current) {
             setEndIndex(messages.length);
             setStartIndex(Math.max(0, messages.length - BATCH_SIZE));
         }
-    }, [messages.length, isScrolledToBottom, lastIsUser]);
+    }, [messages.length]);
 
     useLayoutEffect(() => {
         // Scroll to bottom when new messages are added and we're at the bottom
-        // Also scroll when new messages are added (for button clicks, etc.)
-        if (listRef.current && (isScrolledToBottom || lastIsUser)) {
+        if (listRef.current && isScrolledToBottomRef.current && !isUserScrollingRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
         }
-    }, [messages, endIndex, isScrolledToBottom, lastIsUser]);
+    }, [messages, endIndex]);
 
 
-    const visibleMessages = messages.slice(startIndex, endIndex);
+    const visibleMessages = useMemo(
+        () => messages.slice(startIndex, endIndex),
+        [messages, startIndex, endIndex]
+    );
+    const messageMap = useMemo(() => {
+        return new Map(messages.map((message) => [message.id, message]));
+    }, [messages]);
+
+    const scrollToMessage = useCallback((messageId: string) => {
+        if (!messageId) {
+            return;
+        }
+        const targetIndex = messages.findIndex((message) => message.id === messageId);
+        if (targetIndex === -1) {
+            return;
+        }
+
+        const nextStart = Math.max(0, targetIndex - Math.floor(BATCH_SIZE / 2));
+        const nextEnd = Math.min(messages.length, nextStart + BATCH_SIZE);
+        setStartIndex(nextStart);
+        setEndIndex(nextEnd);
+        isScrolledToBottomRef.current = false;
+        isUserScrollingRef.current = true;
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const element = document.getElementById(`message-${messageId}`);
+                if (element) {
+                    element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+            });
+        });
+    }, [messages]);
+
+    useEffect(() => {
+        if (!onRequestReactions || visibleMessages.length === 0) {
+            return;
+        }
+        visibleMessages.forEach((message) => {
+            if (!message.id) return;
+            if (message.reactions !== undefined) return;
+            void onRequestReactions(message.id);
+        });
+    }, [onRequestReactions, visibleMessages]);
 
     return (
         <div
-            className="flex-1 overflow-y-auto p-4 pt-16 lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
+            className={`flex-1 overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
         >
             {/* Practice Profile Header - Fixed at top of scrollable area */}
             {practiceConfig && (
-                <div className="flex flex-col items-center py-8 px-4 pb-6 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg mb-4">
+                <div className="flex flex-col items-center py-3 px-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg mb-2">
                     <PracticeProfile
                         name={practiceConfig.name}
                         profileImage={practiceConfig.profileImage}
                         practiceSlug={practiceConfig.slug ?? practiceConfig.practiceId}
                         description={practiceConfig.description}
-                        variant="welcome"
                         showVerified={true}
                     />
                 </div>
@@ -245,30 +341,20 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             )}
             <ErrorBoundary>
                 {visibleMessages.map((message, _index) => {
-                    // Determine avatar for message
-                    // Check if message has avatar in metadata (for mock data)
-                    const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
-                    const isBotNotification = message.role === 'system'
-                        && typeof message.metadata?.notificationType === 'string';
-                    
-                    const avatar = mockAvatar
-                        ? mockAvatar
-                        : isBotNotification
-                            ? {
-                                src: '/blawby-favicon-iframe.png',
-                                name: 'Blawby'
-                            }
-                            : message.isUser 
-                                ? {
-                                    src: currentUserAvatar,
-                                    name: currentUserName
-                                }
-                                : practiceConfig 
-                                    ? {
-                                        src: practiceConfig.profileImage,
-                                        name: practiceConfig.name
-                                    }
-                                    : undefined;
+                    const avatar = resolveAvatar(message);
+                    const replyId = typeof message.reply_to_message_id === 'string'
+                        ? message.reply_to_message_id
+                        : null;
+                    const replySource = replyId ? messageMap.get(replyId) : null;
+                    const replyAvatar = replySource ? resolveAvatar(replySource) : undefined;
+                    const replyPreview: ReplyTarget | null = replyId ? {
+                        messageId: replyId,
+                        authorName: replyAvatar?.name ?? 'Original message',
+                        content: replySource?.content ?? '',
+                        avatar: replyAvatar,
+                        isMissing: !replySource
+                    } : null;
+                    const canReply = Boolean(onReply && message.id);
 
                     return (
                         <Message
@@ -277,6 +363,24 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             isUser={message.isUser}
                             files={message.files}
                             avatar={avatar}
+                            authorName={avatar?.name}
+                            timestamp={message.timestamp}
+                            replyPreview={replyPreview ?? undefined}
+                            onReplyPreviewClick={replyPreview ? () => scrollToMessage(replyPreview.messageId) : undefined}
+                            reactions={message.reactions}
+                            onReply={canReply ? () => {
+                                if (!onReply) return;
+                                onReply({
+                                    messageId: message.id,
+                                    authorName: avatar?.name || 'Unknown',
+                                    content: message.content,
+                                    avatar
+                                });
+                            } : undefined}
+                            onToggleReaction={onToggleReaction ? (emoji: string) => {
+                                if (!message.id) return;
+                                onToggleReaction(message.id, emoji);
+                            } : undefined}
                             matterCanvas={message.matterCanvas}
                             contactForm={message.contactForm}
                             generatedPDF={message.generatedPDF}

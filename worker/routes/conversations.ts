@@ -271,6 +271,89 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(result, responseHeaders);
   }
 
+  // GET/POST/DELETE /api/conversations/:id/messages/:messageId/reactions
+  if (segments.length === 6 && segments[3] === 'messages' && segments[5] === 'reactions') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const conversationId = segments[2];
+    const messageId = segments[4];
+    if (!messageId) {
+      throw HttpErrors.badRequest('messageId is required');
+    }
+
+    const rawPracticeId = getPracticeId(requestWithContext);
+    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+    const { practiceId: conversationPracticeId } = await resolvePracticeIdForConversation(
+      conversationService,
+      conversationId,
+      rawPracticeId,
+      env,
+      request,
+      practiceSlugParam
+    );
+
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+    } else {
+      const membership = await checkPracticeMembership(request, env, conversationPracticeId);
+      if (!membership.isMember) {
+        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
+      }
+    }
+
+    if (request.method === 'GET') {
+      const reactions = await conversationService.getMessageReactions({
+        conversationId,
+        practiceId: conversationPracticeId,
+        messageId,
+        viewerId: userId
+      });
+      return createJsonResponse(reactions);
+    }
+
+    if (request.method === 'POST') {
+      const body = await parseJsonBody(request) as { emoji?: string };
+      if (!body?.emoji || typeof body.emoji !== 'string') {
+        throw HttpErrors.badRequest('emoji is required');
+      }
+      const reactions = await conversationService.addMessageReaction({
+        conversationId,
+        practiceId: conversationPracticeId,
+        messageId,
+        userId,
+        emoji: body.emoji
+      });
+      return createJsonResponse(reactions);
+    }
+
+    if (request.method === 'DELETE') {
+      const emojiParam = url.searchParams.get('emoji');
+      let emoji = typeof emojiParam === 'string' && emojiParam.trim().length > 0 ? emojiParam : null;
+      if (!emoji) {
+        const contentLength = request.headers.get('content-length');
+        if (contentLength && Number(contentLength) > 0) {
+          const body = await parseJsonBody(request) as { emoji?: string };
+          emoji = typeof body?.emoji === 'string' ? body.emoji : null;
+        }
+      }
+      if (!emoji) {
+        throw HttpErrors.badRequest('emoji is required');
+      }
+      const reactions = await conversationService.removeMessageReaction({
+        conversationId,
+        practiceId: conversationPracticeId,
+        messageId,
+        userId,
+        emoji
+      });
+      return createJsonResponse(reactions);
+    }
+
+    throw HttpErrors.methodNotAllowed('Unsupported method for message reactions endpoint');
+  }
+
   // POST /api/conversations - Create new conversation
   if (segments.length === 2 && request.method === 'POST') {
     const practiceContext = await resolvePracticeContext({ request, env, authContext });

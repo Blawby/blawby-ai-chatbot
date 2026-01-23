@@ -1,4 +1,21 @@
-import type { Conversation, ConversationMetadata } from '@/shared/types/conversation';
+import type { Conversation, ConversationMetadata, MessageReactionSummary } from '@/shared/types/conversation';
+import type { MessageReaction } from '../../../worker/types';
+import { getConversationMessageReactionsEndpoint } from '@/config/api';
+
+const buildPracticeParams = (practiceId: string, practiceSlug?: string) => {
+  const params = new URLSearchParams({ practiceId });
+  const slug = practiceSlug?.trim();
+  if (slug && slug !== practiceId) {
+    params.set('practiceSlug', slug);
+  }
+  return params;
+};
+
+const toMessageReaction = (reaction: MessageReactionSummary): MessageReaction => ({
+  emoji: reaction.emoji,
+  count: reaction.count,
+  reactedByMe: reaction.reacted_by_me
+});
 
 export const updateConversationMetadata = async (
   conversationId: string,
@@ -52,4 +69,124 @@ export const logConversationEvent = async (
     const errorData = await response.json().catch(() => ({})) as { error?: string };
     throw new Error(errorData.error || `HTTP ${response.status}`);
   }
+};
+
+export const fetchMessageReactions = async (
+  conversationId: string,
+  messageId: string,
+  practiceId: string,
+  practiceSlug?: string
+): Promise<MessageReaction[]> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+
+  const params = buildPracticeParams(practiceId, practiceSlug);
+  const response = await fetch(
+    `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,
+    {
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as {
+    success: boolean;
+    data?: {
+      messageId?: string;
+      reactions?: MessageReactionSummary[];
+    };
+  };
+
+  if (!data.success) {
+    throw new Error('Failed to fetch reactions');
+  }
+
+  return (data.data?.reactions ?? []).map(toMessageReaction);
+};
+
+export const addMessageReaction = async (
+  conversationId: string,
+  messageId: string,
+  practiceId: string,
+  emoji: string,
+  practiceSlug?: string
+): Promise<MessageReaction[]> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  const params = buildPracticeParams(practiceId, practiceSlug);
+  const response = await fetch(
+    `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,
+    {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ emoji })
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as {
+    success: boolean;
+    data?: {
+      reactions?: MessageReactionSummary[];
+    };
+  };
+
+  if (!data.success) {
+    throw new Error('Failed to add reaction');
+  }
+
+  return (data.data?.reactions ?? []).map(toMessageReaction);
+};
+
+export const removeMessageReaction = async (
+  conversationId: string,
+  messageId: string,
+  practiceId: string,
+  emoji: string,
+  practiceSlug?: string
+): Promise<MessageReaction[]> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  const params = buildPracticeParams(practiceId, practiceSlug);
+  params.set('emoji', emoji);
+  const response = await fetch(
+    `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,
+    {
+      method: 'DELETE',
+      headers,
+      credentials: 'include'
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as {
+    success: boolean;
+    data?: {
+      reactions?: MessageReactionSummary[];
+    };
+  };
+
+  if (!data.success) {
+    throw new Error('Failed to remove reaction');
+  }
+
+  return (data.data?.reactions ?? []).map(toMessageReaction);
 };

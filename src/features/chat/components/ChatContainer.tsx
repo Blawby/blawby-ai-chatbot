@@ -12,15 +12,20 @@ import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import AuthPromptModal from './AuthPromptModal';
 import type { ConversationMode } from '@/shared/types/conversation';
+import type { ReplyTarget } from '@/features/chat/types';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
-  onSendMessage: (message: string, attachments: FileAttachment[]) => void;
+  conversationTitle?: string | null;
+  onSendMessage: (message: string, attachments: FileAttachment[], replyToMessageId?: string | null) => void;
   onContactFormSubmit?: (data: ContactData) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
   onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
+  onToggleReaction?: (messageId: string, emoji: string) => void;
+  onRequestReactions?: (messageId: string) => void;
   conversationMode?: ConversationMode | null;
   composerDisabled?: boolean;
+  isPublicWorkspace?: boolean;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
@@ -62,12 +67,16 @@ interface ChatContainerProps {
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   messages,
+  conversationTitle,
   onSendMessage,
   onContactFormSubmit,
   onAddMessage,
+  isPublicWorkspace = false,
   practiceConfig,
   onOpenSidebar,
   practiceId,
+  onToggleReaction,
+  onRequestReactions,
   previewFiles,
   uploadingFiles,
   removePreviewFile,
@@ -101,6 +110,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [hasDismissedAuthPrompt, setHasDismissedAuthPrompt] = useState(false);
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
   // Simple resize handler for window size changes
   useEffect(() => {
@@ -163,15 +173,17 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
     const message = inputValue.trim();
     const attachments = [...previewFiles];
+    const replyToMessageId = replyTarget?.messageId ?? null;
 
     // Send message to API
-    onSendMessage(message, attachments);
+    onSendMessage(message, attachments, replyToMessageId);
 
     // Clear preview files after sending
     clearPreviewFiles();
 
     // Reset input
     setInputValue('');
+    setReplyTarget(null);
 
     // Only blur on mobile devices to collapse virtual keyboard
     if (textareaRef.current && isMobile) {
@@ -236,6 +248,15 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     handleClosePayment();
   };
 
+  const handleReply = (target: ReplyTarget) => {
+    setReplyTarget(target);
+    textareaRef.current?.focus();
+  };
+
+  const handleCancelReply = () => {
+    setReplyTarget(null);
+  };
+
   return (
     <div className="flex flex-col h-screen md:h-screen w-full m-0 p-0 relative overflow-hidden bg-white dark:bg-dark-bg" data-testid="chat-container">
       <main className="flex flex-col h-full w-full overflow-hidden relative bg-white dark:bg-dark-bg">
@@ -243,11 +264,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           <>
             <VirtualMessageList
               messages={messagesReady ? messages : []}
+              conversationTitle={conversationTitle}
               practiceConfig={practiceConfig}
+              isPublicWorkspace={isPublicWorkspace}
               onOpenSidebar={onOpenSidebar}
               onContactFormSubmit={onContactFormSubmit}
               onOpenPayment={handleOpenPayment}
               practiceId={practiceId}
+              onReply={handleReply}
+              onToggleReaction={onToggleReaction}
+              onRequestReactions={onRequestReactions}
               intakeStatus={intakeStatus}
               modeSelectorActions={onSelectMode ? {
                 onAskQuestion: () => onSelectMode('ASK_QUESTION', 'intro_gate'),
@@ -281,6 +307,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               disabled={composerDisabled}
               conversationMode={conversationMode}
               onRequestConsultation={() => onSelectMode?.('REQUEST_CONSULTATION', 'composer_footer')}
+              replyTo={replyTarget}
+              onCancelReply={handleCancelReply}
             />
           </>
         ) : null}

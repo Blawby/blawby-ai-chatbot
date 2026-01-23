@@ -239,6 +239,7 @@ describe('SettingsPage Integration Tests', () => {
     vi.mocked(usePracticeManagement).mockReturnValue(usePracticeMgmtMock);
     vi.mocked(usePracticeDetails).mockReturnValue({
       details: null,
+      hasDetails: false,
       fetchDetails: vi.fn(),
       updateDetails: vi.fn(),
       setDetails: vi.fn()

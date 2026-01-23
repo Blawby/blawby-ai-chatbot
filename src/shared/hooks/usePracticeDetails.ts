@@ -1,12 +1,15 @@
 import { useCallback } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
-import { getPracticeDetails, getPublicPracticeDetails } from '@/shared/lib/apiClient';
+import { getPracticeDetails } from '@/shared/lib/apiClient';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 
 export const usePracticeDetails = (practiceId?: string | null) => {
   const detailsMap = useStore(practiceDetailsStore);
-  const details = practiceId ? detailsMap[practiceId] ?? null : null;
+  const hasCachedDetails = practiceId
+    ? Object.prototype.hasOwnProperty.call(detailsMap, practiceId)
+    : false;
+  const details = practiceId && hasCachedDetails ? detailsMap[practiceId] ?? null : null;
   const { updatePracticeDetails } = usePracticeManagement({
     autoFetchPractices: false,
     fetchInvitations: false
@@ -18,17 +21,17 @@ export const usePracticeDetails = (practiceId?: string | null) => {
     if (!practiceId) {
       return null;
     }
+    if (hasCachedDetails) {
+      return detailsMap[practiceId] ?? null;
+    }
     if (isLikelyUuid(practiceId)) {
       const details = await getPracticeDetails(practiceId);
       setPracticeDetailsEntry(practiceId, details);
       return details;
     }
 
-    const result = await getPublicPracticeDetails(practiceId);
-    const publicDetails = result?.details ?? null;
-    setPracticeDetailsEntry(practiceId, publicDetails);
-    return publicDetails;
-  }, [practiceId]);
+    return null;
+  }, [detailsMap, hasCachedDetails, practiceId]);
 
   const updateDetails = useCallback(async (payload: Parameters<typeof updatePracticeDetails>[1]) => {
     if (!practiceId) {
@@ -48,6 +51,7 @@ export const usePracticeDetails = (practiceId?: string | null) => {
 
   return {
     details,
+    hasDetails: hasCachedDetails,
     fetchDetails,
     updateDetails,
     setDetails
