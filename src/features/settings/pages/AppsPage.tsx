@@ -54,6 +54,11 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                         {t('settings:apps.clio.connected')}
                       </span>
                     )}
+                    {app.comingSoon && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+                        {t('settings:apps.comingSoon')}
+                      </span>
+                    )}
                   </div>
                 </div>
 

@@ -17,6 +17,7 @@ export interface App {
   connectedAt?: string;
   logo?: string;
   actions?: AppAction[];
+  comingSoon?: boolean;
 }
 
 export const mockApps: App[] = [
@@ -30,6 +31,7 @@ export const mockApps: App[] = [
     privacyPolicy: 'https://www.clio.com/privacy',
     logo: 'https://imagedelivery.net/Frxyb2_d_vGyiaXhS5xqCg/be24ae2a-0286-4946-abf1-2250f6cc5800/public',
     connected: false,
+    comingSoon: true,
     actions: [
       {
         name: 'GET /api/v4/matters',

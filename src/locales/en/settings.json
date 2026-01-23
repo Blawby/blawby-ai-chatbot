@@ -58,6 +58,7 @@
   "apps": {
     "title": "Apps",
     "description": "Connect third-party services to enhance your workflow",
+    "comingSoon": "Coming soon",
     "clio": {
       "name": "Clio",
       "description": "Connect your Clio account to sync matters, contacts, and calendar events.",
