@@ -91,7 +91,7 @@ export interface ConversationMessage {
  * UI-friendly message type that extends ConversationMessage
  */
 export interface ConversationMessageUI extends ConversationMessage {
-  isUser: boolean; // Derived from role === 'user'
+  isUser: boolean; // Derived from sender user_id matching the current session user
   timestamp: number; // Converted from created_at ISO string to milliseconds
   files?: Array<{
     id: string;

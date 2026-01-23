@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { PracticeConfig } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
+import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 import { PLATFORM_SETTINGS } from '@/config/platform';
 import { isPlatformPractice } from '@/shared/utils/practice';
 
@@ -143,6 +144,9 @@ export const usePracticeConfig = ({
 
         if (publicDetails) {
           const details = publicDetails.details;
+          if (details) {
+            setPracticeDetailsEntry(currentPracticeId, details);
+          }
           const config = buildDefaultPracticeConfig({
             id: publicDetails.practiceId,
             slug: publicDetails.slug ?? currentPracticeId,
@@ -154,6 +158,9 @@ export const usePracticeConfig = ({
           });
 
           setPracticeConfig(config);
+          if (details && publicDetails.practiceId && publicDetails.practiceId !== currentPracticeId) {
+            setPracticeDetailsEntry(publicDetails.practiceId, details);
+          }
           if (publicDetails.practiceId && publicDetails.practiceId !== currentPracticeId) {
             fetchedPracticeIds.current.add(publicDetails.practiceId);
             setPracticeId(publicDetails.practiceId);

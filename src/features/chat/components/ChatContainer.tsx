@@ -15,12 +15,14 @@ import type { ConversationMode } from '@/shared/types/conversation';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
+  conversationTitle?: string | null;
   onSendMessage: (message: string, attachments: FileAttachment[]) => void;
   onContactFormSubmit?: (data: ContactData) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
   onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
   conversationMode?: ConversationMode | null;
   composerDisabled?: boolean;
+  isPublicWorkspace?: boolean;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
@@ -62,9 +64,11 @@ interface ChatContainerProps {
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   messages,
+  conversationTitle,
   onSendMessage,
   onContactFormSubmit,
   onAddMessage,
+  isPublicWorkspace = false,
   practiceConfig,
   onOpenSidebar,
   practiceId,
@@ -243,7 +247,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           <>
             <VirtualMessageList
               messages={messagesReady ? messages : []}
+              conversationTitle={conversationTitle}
               practiceConfig={practiceConfig}
+              isPublicWorkspace={isPublicWorkspace}
               onOpenSidebar={onOpenSidebar}
               onContactFormSubmit={onContactFormSubmit}
               onOpenPayment={handleOpenPayment}

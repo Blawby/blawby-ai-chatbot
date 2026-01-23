@@ -468,6 +468,8 @@ export interface AnalysisResult {
 
 // Shared UI fields that can be attached to chat messages
 export interface UIMessageExtras {
+  // Sender ID for alignment and avatar selection in the UI.
+  userId?: string | null;
   files?: FileAttachment[];
 
   matterCreation?: MatterCreationData;
@@ -523,18 +525,8 @@ export interface UIMessageExtras {
   };
 }
 
-// UI-specific ChatMessage interface that extends the base ChatMessage
-export type ChatMessageUI =
-  | (ChatMessage & UIMessageExtras & {
-    role: 'user'; // Explicitly constrain role to 'user' for user messages
-    isUser: true;
-  })
-  | (ChatMessage & UIMessageExtras & {
-    role: 'assistant'; // Explicitly constrain role to 'assistant' for assistant messages
-    isUser: false;
-  })
-  | (ChatMessage & UIMessageExtras & {
-    role: 'system'; // Explicitly constrain role to 'system' for system messages
-    isUser: false;
-    // System messages can have UI extras but typically don't use most of them
-  });
+// UI-specific ChatMessage interface that extends the base ChatMessage.
+// isUser reflects the current session user, not the message role alone.
+export interface ChatMessageUI extends ChatMessage, UIMessageExtras {
+  isUser: boolean;
+}

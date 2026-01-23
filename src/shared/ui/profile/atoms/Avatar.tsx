@@ -58,7 +58,7 @@ export const Avatar = ({ src, name, size = 'md', className = '' }: AvatarProps) 
   const sanitizedImageUrl = sanitizeUserImageUrl(src);
 
   return (
-    <div className={`${sizeClasses[size]} rounded-full bg-gray-600 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden ${className}`}>
+    <div className={`${sizeClasses[size]} rounded-full bg-gray-600 dark:bg-gray-700 ring-2 ring-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden ${className}`}>
       {sanitizedImageUrl && !hasImgError ? (
         <img 
           src={sanitizedImageUrl} 
@@ -72,5 +72,3 @@ export const Avatar = ({ src, name, size = 'md', className = '' }: AvatarProps) 
     </div>
   );
 };
-
-

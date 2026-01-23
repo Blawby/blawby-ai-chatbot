@@ -15,7 +15,7 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 	className = '',
 	children
 }) => {
-	const baseClasses = 'flex flex-col max-w-full px-3 py-2 rounded-xl break-words relative';
+	const baseClasses = 'flex flex-col max-w-full break-words relative';
 	
 	const variantClasses = {
 		default: '',
@@ -24,8 +24,8 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 	};
 
 	const userClasses = isUser
-		? 'ml-auto mr-0 bg-light-message-bg-user dark:bg-dark-message-bg-user text-light-text dark:text-dark-text w-fit'
-		: 'mr-0 ml-0 w-full min-h-12 min-w-30';
+		? 'mr-0 ml-0 text-light-text dark:text-dark-text w-full'
+		: 'mr-0 ml-0 w-full';
 
 	const mediaOnlyClasses = hasOnlyMedia ? 'p-0 m-0 bg-transparent' : '';
 
@@ -43,4 +43,3 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 		</div>
 	);
 };
-

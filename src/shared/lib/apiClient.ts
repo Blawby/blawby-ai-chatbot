@@ -755,9 +755,16 @@ function extractPublicPracticeDisplayDetails(
     return {};
   }
 
+  const detailsContainer = (() => {
+    if (isRecord(payload.details) && 'data' in payload.details && isRecord(payload.details.data)) {
+      return payload.details.data;
+    }
+    return payload.details;
+  })();
+
   return {
-    name: toNullableString(payload.details.name),
-    logo: toNullableString(payload.details.logo)
+    name: toNullableString(detailsContainer.name),
+    logo: toNullableString(detailsContainer.logo)
   };
 }
 
@@ -860,10 +867,53 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
 }
 
 function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | null {
-  if (!isRecord(payload) || !('details' in payload) || !isRecord(payload.details)) {
+  if (!isRecord(payload)) {
     return null;
   }
-  const container = payload.details;
+  const container = (() => {
+    if ('details' in payload && isRecord(payload.details)) {
+      if ('data' in payload.details && isRecord(payload.details.data)) {
+        return payload.details.data;
+      }
+      return payload.details;
+    }
+    if ('data' in payload && isRecord(payload.data)) {
+      if ('details' in payload.data && isRecord(payload.data.details)) {
+        return payload.data.details;
+      }
+      return payload.data;
+    }
+    const hasDetailShape = [
+      'overview',
+      'description',
+      'intro_message',
+      'introMessage',
+      'business_phone',
+      'businessPhone',
+      'business_email',
+      'businessEmail',
+      'consultation_fee',
+      'consultationFee',
+      'payment_url',
+      'paymentUrl',
+      'calendly_url',
+      'calendlyUrl',
+      'website',
+      'is_public',
+      'isPublic',
+      'services',
+      'address',
+      'name',
+      'logo'
+    ].some((key) => key in payload);
+    if (hasDetailShape) {
+      return payload;
+    }
+    return null;
+  })();
+  if (!container) {
+    return null;
+  }
 
   const address = isRecord(container.address) ? container.address : {};
   const getOptionalNullableString = (

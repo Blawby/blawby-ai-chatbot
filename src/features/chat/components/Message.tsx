@@ -19,6 +19,8 @@ interface MessageProps {
 		src?: string | null;
 		name: string;
 	};
+	authorName?: string;
+	timestamp?: number;
 	// Variant and size
 	variant?: 'default' | 'compact' | 'detailed';
 	size?: 'sm' | 'md' | 'lg';
@@ -92,6 +94,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isUser, 
 	files = [],
 	avatar,
+	authorName,
+	timestamp,
 	variant = 'default',
 	size = 'md',
 	matterCanvas,
@@ -121,17 +125,19 @@ const Message: FunctionComponent<MessageProps> = memo(({
 		file.type.startsWith('audio/')
 	);
 
-	// Determine avatar - use provided avatar, or fall back to practiceConfig for assistant messages
-	const messageAvatar = avatar || (!isUser && _practiceConfig ? {
-		src: _practiceConfig.profileImage,
-		name: _practiceConfig.name
-	} : undefined);
+	// Avatar is resolved by the message list to keep sender rules in one place.
+	const messageAvatar = avatar;
+	const showHeader = Boolean(authorName || timestamp);
+	const contentClassName = showHeader ? 'mt-1' : '';
+	const formattedTime = timestamp
+		? new Date(timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+		: null;
 
 	// Avatar size based on message size
-	const avatarSize = size === 'sm' ? 'sm' : size === 'lg' ? 'lg' : 'md';
+	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 
 	return (
-		<div className={`flex items-start gap-3 mb-4 last:mb-0 ${isUser ? 'flex-row-reverse' : 'flex-row'} ${className}`}>
+		<div className={`flex items-start gap-3 px-3 py-2 mb-2 last:mb-0 rounded-md transition-colors duration-150 hover:bg-white/5 ${className}`}>
 			{/* Avatar */}
 			{messageAvatar && (
 				<MessageAvatar
@@ -148,6 +154,14 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				variant={variant}
 				hasOnlyMedia={hasOnlyMedia}
 			>
+				{showHeader && (
+					<div className="flex items-baseline gap-2 justify-start text-left">
+						<span className="text-base font-semibold text-gray-100 leading-none">
+							{authorName || messageAvatar?.name}
+						</span>
+						{formattedTime && <span className="text-xs font-normal text-gray-500">{formattedTime}</span>}
+					</div>
+				)}
 				{/* Content */}
 				{hasContent && (
 					<MessageContent
@@ -156,6 +170,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						isUser={isUser}
 						variant={variant}
 						size={size}
+						className={contentClassName}
 					/>
 				)}
 				

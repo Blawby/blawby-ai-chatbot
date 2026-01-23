@@ -394,9 +394,10 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     return undefined;
   })();
 
-  const topLevelDescription = typeof raw.description === 'string' && raw.description.trim().length > 0
-    ? raw.description
-    : undefined;
+  const topLevelDescription = (() => {
+    const candidate = raw.description ?? raw.overview;
+    return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate : undefined;
+  })();
   const configDescription = (() => {
     const desc = cfg && (cfg as Record<string, unknown>).description;
     return typeof desc === 'string' && desc.trim().length > 0 ? desc : undefined;

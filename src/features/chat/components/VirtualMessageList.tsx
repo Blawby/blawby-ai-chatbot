@@ -12,6 +12,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
+    conversationTitle?: string | null;
     practiceConfig?: {
         name: string;
         profileImage: string | null;
@@ -19,6 +20,7 @@ interface VirtualMessageListProps {
         description?: string | null;
         slug?: string | null;
     };
+    isPublicWorkspace?: boolean;
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
     onOpenPayment?: (request: IntakePaymentRequest) => void;
@@ -42,7 +44,9 @@ const DEBOUNCE_DELAY = 50;
 
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
+    conversationTitle,
     practiceConfig,
+    isPublicWorkspace = false,
     onOpenSidebar,
     onContactFormSubmit,
     onOpenPayment,
@@ -54,14 +58,34 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onLoadMoreMessages,
     showSkeleton = false
 }) => {
-    const { session } = useSessionContext();
+    const { session, activeMemberRole } = useSessionContext();
     const listRef = useRef<HTMLDivElement>(null);
     const [startIndex, setStartIndex] = useState(Math.max(0, messages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(messages.length);
     const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
     const isLoadingRef = useRef(false);
     const currentUserName = session?.user?.name || session?.user?.email || 'You';
-    const currentUserAvatar = session?.user?.image ?? null;
+    const currentUserAvatar = session?.user?.image || null;
+    const currentUserProfile = {
+        src: currentUserAvatar,
+        name: currentUserName
+    };
+    const practiceProfile = practiceConfig ? {
+        src: practiceConfig.profileImage,
+        name: practiceConfig.name
+    } : {
+        src: null,
+        name: 'Practice'
+    };
+    const clientProfile = {
+        src: null,
+        name: conversationTitle?.trim() || 'Client'
+    };
+    const blawbyProfile = {
+        src: '/blawby-favicon-iframe.png',
+        name: 'Blawby'
+    };
+    const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
 
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
         const { scrollTop, scrollHeight, clientHeight } = element;
@@ -184,18 +208,17 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
     return (
         <div
-            className="flex-1 overflow-y-auto p-4 pt-16 lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
+            className={`flex-1 overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 pb-20 scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
         >
             {/* Practice Profile Header - Fixed at top of scrollable area */}
             {practiceConfig && (
-                <div className="flex flex-col items-center py-8 px-4 pb-6 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg mb-4">
+                <div className="flex flex-col items-center py-3 px-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg mb-2">
                     <PracticeProfile
                         name={practiceConfig.name}
                         profileImage={practiceConfig.profileImage}
                         practiceSlug={practiceConfig.slug ?? practiceConfig.practiceId}
                         description={practiceConfig.description}
-                        variant="welcome"
                         showVerified={true}
                     />
                 </div>
@@ -248,27 +271,24 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     // Determine avatar for message
                     // Check if message has avatar in metadata (for mock data)
                     const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
-                    const isBotNotification = message.role === 'system'
+                    const isSystemMessage = message.role === 'system';
+                    const isAssistantMessage = message.role === 'assistant';
+                    const isBotNotification = isSystemMessage
                         && typeof message.metadata?.notificationType === 'string';
-                    
-                    const avatar = mockAvatar
-                        ? mockAvatar
-                        : isBotNotification
-                            ? {
-                                src: '/blawby-favicon-iframe.png',
-                                name: 'Blawby'
-                            }
-                            : message.isUser 
-                                ? {
-                                    src: currentUserAvatar,
-                                    name: currentUserName
-                                }
-                                : practiceConfig 
-                                    ? {
-                                        src: practiceConfig.profileImage,
-                                        name: practiceConfig.name
-                                    }
-                                    : undefined;
+                    const isBotMessage = isSystemMessage || isAssistantMessage || isBotNotification;
+
+                    const avatar = (() => {
+                        if (mockAvatar) {
+                            return mockAvatar;
+                        }
+                        if (isBotMessage) {
+                            return blawbyProfile;
+                        }
+                        if (message.isUser) {
+                            return currentUserProfile;
+                        }
+                        return isPracticeViewer ? clientProfile : practiceProfile;
+                    })();
 
                     return (
                         <Message
@@ -277,6 +297,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             isUser={message.isUser}
                             files={message.files}
                             avatar={avatar}
+                            authorName={avatar?.name}
+                            timestamp={message.timestamp}
                             matterCanvas={message.matterCanvas}
                             contactForm={message.contactForm}
                             generatedPDF={message.generatedPDF}

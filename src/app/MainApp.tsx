@@ -348,7 +348,19 @@ export function MainApp({
     autoFetchPractices: workspace !== 'public',
     fetchInvitations: workspace !== 'public'
   });
-  const { details: practiceDetails } = usePracticeDetails(isPracticeWorkspace ? practiceId : null);
+  const practiceDetailsId = workspace === 'public'
+    ? (publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
+    : practiceId;
+  const {
+    details: practiceDetails,
+    fetchDetails: fetchPracticeDetails,
+    hasDetails: hasPracticeDetails
+  } = usePracticeDetails(practiceDetailsId);
+
+  useEffect(() => {
+    if (!practiceDetailsId || hasPracticeDetails) return;
+    void fetchPracticeDetails();
+  }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
 
   const handleMessageError = useCallback((error: string | Error) => {
     console.error('Message handling error:', error);
@@ -373,6 +385,7 @@ export function MainApp({
   const messages = realMessageHandling.messages;
   const addMessage = realMessageHandling.addMessage;
   const updateMessage = realMessageHandling.updateMessage;
+  const conversationMetadata = realMessageHandling.conversationMetadata;
   const intakeStatus = realMessageHandling.intakeStatus;
   const startConsultFlow = realMessageHandling.startConsultFlow;
   const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
@@ -807,6 +820,10 @@ export function MainApp({
   const resolvedPracticeLogo = currentPractice?.logo ?? practiceConfig?.profileImage ?? null;
   const resolvedPracticeName = currentPractice?.name ?? practiceConfig.name ?? '';
   const resolvedPracticeSlug = currentPractice?.slug ?? practiceConfig?.slug ?? practiceId;
+  const resolvedPracticeDescription = practiceDetails?.description
+    ?? currentPractice?.description
+    ?? practiceConfig?.description
+    ?? '';
 
   // Handle navigation to chats - removed since bottom nav is disabled
   const shouldShowChatPlaceholder = workspace !== 'public' && !conversationId;
@@ -833,18 +850,20 @@ export function MainApp({
           <div className="flex-1 min-h-0">
             <ChatContainer
               messages={messages}
+              conversationTitle={conversationMetadata?.title ?? null}
               onSendMessage={handleSendMessage}
               onContactFormSubmit={handleContactFormSubmit}
               onAddMessage={addMessage}
               onSelectMode={handleModeSelection}
               conversationMode={conversationMode}
               composerDisabled={isComposerDisabled}
+              isPublicWorkspace={workspace === 'public'}
               messagesReady={messagesReady}
               practiceConfig={{
                 name: resolvedPracticeName,
                 profileImage: resolvedPracticeLogo,
                 practiceId,
-                description: practiceConfig?.description ?? '',
+                description: resolvedPracticeDescription,
                 slug: resolvedPracticeSlug
               }}
               onOpenSidebar={() => setIsMobileSidebarOpen(true)}
@@ -962,7 +981,7 @@ export function MainApp({
         practiceConfig={{
           name: resolvedPracticeName,
           profileImage: resolvedPracticeLogo,
-          description: practiceConfig?.description ?? '',
+          description: resolvedPracticeDescription,
           slug: resolvedPracticeSlug
         }}
         currentPractice={currentPractice}

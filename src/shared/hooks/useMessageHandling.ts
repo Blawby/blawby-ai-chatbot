@@ -65,7 +65,9 @@ export const useMessageHandling = ({
 }: UseMessageHandlingOptions) => {
   const { session, isPending: sessionIsPending } = useSessionContext();
   const sessionReady = Boolean(session?.user) && !sessionIsPending;
+  const currentUserId = session?.user?.id ?? null;
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
+  const [conversationMetadata, setConversationMetadata] = useState<ConversationMetadata | null>(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
@@ -250,6 +252,7 @@ export const useMessageHandling = ({
   const applyConversationMetadata = useCallback((metadata: ConversationMetadata | null) => {
     conversationMetadataRef.current = metadata;
     hasLoggedIntentRef.current = Boolean(metadata?.first_message_intent);
+    setConversationMetadata(metadata);
     onConversationMetadataUpdated?.(metadata);
   }, [onConversationMetadataUpdated]);
 
@@ -309,12 +312,24 @@ export const useMessageHandling = ({
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
-    const baseMessage = {
+    const senderId = typeof msg.user_id === 'string' && msg.user_id.trim().length > 0
+      ? msg.user_id
+      : null;
+    const normalizedRole = msg.role === 'assistant'
+      ? 'assistant'
+      : msg.role === 'system'
+        ? 'system'
+        : 'user';
+    const isUser = normalizedRole === 'user'
+      && Boolean(senderId && currentUserId && senderId === currentUserId);
+
+    return {
       id: msg.id,
-      role: msg.role,
+      role: normalizedRole,
       content: msg.content,
       timestamp: new Date(msg.created_at).getTime(),
       metadata: msg.metadata || undefined,
+      userId: senderId,
       files: msg.metadata?.attachments ? (msg.metadata.attachments as string[]).map((fileId: string) => ({
         id: fileId,
         name: 'File',
@@ -322,17 +337,9 @@ export const useMessageHandling = ({
         type: 'application/octet-stream',
         url: '', // TODO: Generate file URL from file ID
       })) : undefined,
+      isUser
     };
-
-    // Return properly typed variant based on role
-    if (msg.role === 'user') {
-      return { ...baseMessage, role: 'user', isUser: true } as ChatMessageUI;
-    } else if (msg.role === 'system') {
-      return { ...baseMessage, role: 'system', isUser: false } as ChatMessageUI;
-    } else {
-      return { ...baseMessage, role: 'assistant', isUser: false } as ChatMessageUI;
-    }
-  }, []);
+  }, [currentUserId]);
 
   const applyServerMessages = useCallback((incoming: ConversationMessage[]) => {
     if (incoming.length === 0 || isDisposedRef.current) {
@@ -785,6 +792,7 @@ export const useMessageHandling = ({
       isUser: true,
       role: 'user',
       timestamp: Date.now(),
+      userId: currentUserId,
       metadata: metadata ?? undefined,
       files: attachments
     };
@@ -827,7 +835,7 @@ export const useMessageHandling = ({
       setMessages(prev => prev.filter(message => message.id !== tempId));
       throw error;
     });
-  }, [sendFrame, waitForSessionReady, waitForSocketReady]);
+  }, [currentUserId, sendFrame, waitForSessionReady, waitForSocketReady]);
 
   // Main message sending function
   const sendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
@@ -1697,6 +1705,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   // The intake flow is now conversational and non-blocking
   return {
     messages,
+    conversationMetadata,
     sendMessage,
     handleContactFormSubmit,
     startConsultFlow,

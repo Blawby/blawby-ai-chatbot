@@ -6,7 +6,10 @@ import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/p
 
 export const usePracticeDetails = (practiceId?: string | null) => {
   const detailsMap = useStore(practiceDetailsStore);
-  const details = practiceId ? detailsMap[practiceId] ?? null : null;
+  const hasCachedDetails = practiceId
+    ? Object.prototype.hasOwnProperty.call(detailsMap, practiceId)
+    : false;
+  const details = practiceId && hasCachedDetails ? detailsMap[practiceId] ?? null : null;
   const { updatePracticeDetails } = usePracticeManagement({
     autoFetchPractices: false,
     fetchInvitations: false
@@ -18,6 +21,9 @@ export const usePracticeDetails = (practiceId?: string | null) => {
     if (!practiceId) {
       return null;
     }
+    if (hasCachedDetails) {
+      return detailsMap[practiceId] ?? null;
+    }
     if (isLikelyUuid(practiceId)) {
       const details = await getPracticeDetails(practiceId);
       setPracticeDetailsEntry(practiceId, details);
@@ -27,8 +33,11 @@ export const usePracticeDetails = (practiceId?: string | null) => {
     const result = await getPublicPracticeDetails(practiceId);
     const publicDetails = result?.details ?? null;
     setPracticeDetailsEntry(practiceId, publicDetails);
+    if (result?.practiceId && result.practiceId !== practiceId) {
+      setPracticeDetailsEntry(result.practiceId, publicDetails);
+    }
     return publicDetails;
-  }, [practiceId]);
+  }, [detailsMap, hasCachedDetails, practiceId]);
 
   const updateDetails = useCallback(async (payload: Parameters<typeof updatePracticeDetails>[1]) => {
     if (!practiceId) {
@@ -48,6 +57,7 @@ export const usePracticeDetails = (practiceId?: string | null) => {
 
   return {
     details,
+    hasDetails: hasCachedDetails,
     fetchDetails,
     updateDetails,
     setDetails
