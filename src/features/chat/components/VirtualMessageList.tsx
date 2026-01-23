@@ -234,7 +234,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     }, [messages, endIndex]);
 
 
-    const visibleMessages = messages.slice(startIndex, endIndex);
+    const visibleMessages = useMemo(
+        () => messages.slice(startIndex, endIndex),
+        [messages, startIndex, endIndex]
+    );
     const messageMap = useMemo(() => {
         return new Map(messages.map((message) => [message.id, message]));
     }, [messages]);

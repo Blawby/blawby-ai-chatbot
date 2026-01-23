@@ -367,6 +367,15 @@ BEGIN
   SELECT RAISE(ABORT, 'seq and client_id cannot be set to null or empty');
 END;
 
+CREATE TRIGGER IF NOT EXISTS trg_chat_message_reactions_updated_at
+AFTER UPDATE ON chat_message_reactions
+FOR EACH ROW
+BEGIN
+  UPDATE chat_message_reactions
+  SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE message_id = NEW.message_id AND user_id = NEW.user_id AND emoji = NEW.emoji;
+END;
+
 -- Auth views removed - user management is handled by remote API
 
 -- ========================================

@@ -790,12 +790,19 @@ export function MainApp({
     }
 
     (async () => {
-      const restored = await restoreConversationFromCache();
-      if (restored) {
-        return;
-      }
-      if (isPublicWorkspace) {
-        void ensurePublicConversation();
+      try {
+        const restored = await restoreConversationFromCache();
+        if (restored) {
+          return;
+        }
+        if (isPublicWorkspace) {
+          const created = await ensurePublicConversation();
+          if (!created) {
+            conversationRestoreAttemptedRef.current = false;
+          }
+        }
+      } catch {
+        conversationRestoreAttemptedRef.current = false;
       }
     })();
   }, [

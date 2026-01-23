@@ -142,7 +142,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	const showHeader = Boolean(authorName || timestamp);
 	const contentClassName = showHeader ? 'mt-1' : '';
 	const formattedTime = timestamp
-		? new Date(timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+		? new Date(timestamp).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 		: null;
 
 	// Avatar size based on message size
@@ -169,7 +169,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 			)}
 
 			{showActions && (
-				<div className="absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100">
+				<div className="absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100">
 					{onToggleReaction && quickReactions.map((emoji) => (
 						<button
 							key={emoji}
@@ -203,8 +203,9 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{replyPreview && (
 					<button
 						type="button"
-						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-gray-400 ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-gray-300' : 'cursor-default'}`}
+						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-gray-400 ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-gray-300' : 'cursor-default pointer-events-none'}`}
 						onClick={onReplyPreviewClick}
+						disabled={!onReplyPreviewClick}
 						aria-label="Jump to replied message"
 					>
 						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t-2 border-gray-600/70" />
@@ -224,9 +225,11 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				)}
 				{showHeader && (
 					<div className="mt-1 flex items-baseline gap-2 justify-start text-left">
-						<span className="text-base font-semibold text-gray-100 leading-none">
-							{authorName || messageAvatar?.name}
-						</span>
+						{(authorName || messageAvatar?.name) && (
+							<span className="text-base font-semibold text-gray-100 leading-none">
+								{authorName || messageAvatar?.name}
+							</span>
+						)}
 						{formattedTime && <span className="text-xs font-normal text-gray-500">{formattedTime}</span>}
 					</div>
 				)}

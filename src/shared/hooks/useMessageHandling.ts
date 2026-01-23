@@ -1636,6 +1636,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       if (!Array.isArray(parsed) || parsed.length === 0) {
         return;
       }
+      const isValid = parsed.every(
+        (msg) => typeof msg.id === 'string' && typeof msg.content === 'string' && typeof msg.timestamp === 'number'
+      );
+      if (!isValid) {
+        window.localStorage.removeItem(cacheKey);
+        return;
+      }
       messageIdSetRef.current = new Set(parsed.map((message) => message.id));
       setMessages(parsed);
       setMessagesReady(true);

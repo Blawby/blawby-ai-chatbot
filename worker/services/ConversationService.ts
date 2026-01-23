@@ -1103,6 +1103,7 @@ export class ConversationService {
   }): Promise<{ messageId: string; reactions: Array<{ emoji: string; count: number; reacted_by_me: boolean }> }> {
     const emoji = this.normalizeReactionEmoji(options.emoji);
     await this.ensureMessageBelongsToConversation(options.conversationId, options.practiceId, options.messageId);
+    await this.validateParticipantAccess(options.conversationId, options.practiceId, options.userId);
 
     const now = new Date().toISOString();
     await this.env.DB.prepare(`
@@ -1135,6 +1136,7 @@ export class ConversationService {
   }): Promise<{ messageId: string; reactions: Array<{ emoji: string; count: number; reacted_by_me: boolean }> }> {
     const emoji = this.normalizeReactionEmoji(options.emoji);
     await this.ensureMessageBelongsToConversation(options.conversationId, options.practiceId, options.messageId);
+    await this.validateParticipantAccess(options.conversationId, options.practiceId, options.userId);
 
     await this.env.DB.prepare(`
       DELETE FROM chat_message_reactions

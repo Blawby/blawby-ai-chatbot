@@ -141,7 +141,7 @@ const MessageComposer = ({
               type="button"
               className="flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition hover:text-gray-200"
               aria-label="Cancel reply"
-              onClick={onCancelReply}
+              onClick={() => onCancelReply?.()}
             >
               <XMarkIcon className="h-4 w-4" />
             </button>
