@@ -51,6 +51,9 @@
       "description": "为了获得最佳效果，请选择您主要使用的语言。如果未列出，自动检测仍可能有效。"
     }
   },
+  "apps": {
+    "comingSoon": "即将推出"
+  },
   "account": {
     "title": "账户",
     "loadingError": "加载账户数据失败",
@@ -112,7 +115,6 @@
       "description": "在 Stripe 中管理账单信息和发票。",
       "manage": "管理"
     },
-
     "links": {
       "title": "链接",
       "domainLabel": "选择域名",

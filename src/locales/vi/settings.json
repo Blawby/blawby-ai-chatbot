@@ -51,6 +51,9 @@
       "description": "Để có kết quả tốt nhất, hãy chọn ngôn ngữ bạn chủ yếu nói. Nếu nó không có trong danh sách, tự động phát hiện vẫn có thể hoạt động."
     }
   },
+  "apps": {
+    "comingSoon": "Sắp ra mắt"
+  },
   "account": {
     "title": "Tài khoản",
     "loadingError": "Không thể tải dữ liệu tài khoản",
@@ -112,7 +115,6 @@
       "description": "Quản lý thông tin thanh toán và hóa đơn trong Stripe.",
       "manage": "Quản lý"
     },
-
     "links": {
       "title": "Liên kết",
       "domainLabel": "Chọn một tên miền",

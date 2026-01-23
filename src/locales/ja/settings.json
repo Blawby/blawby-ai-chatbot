@@ -51,6 +51,9 @@
       "description": "最良の結果を得るために、主に話す言語を選択してください。リストにない場合でも、自動検出が機能する可能性があります。"
     }
   },
+  "apps": {
+    "comingSoon": "近日公開"
+  },
   "account": {
     "title": "アカウント",
     "loadingError": "アカウントデータの読み込みに失敗しました",
@@ -112,7 +115,6 @@
       "description": "Stripeで請求情報と請求書を管理します。",
       "manage": "管理"
     },
-
     "links": {
       "title": "リンク",
       "domainLabel": "ドメインを選択",

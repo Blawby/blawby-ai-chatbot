@@ -51,6 +51,9 @@
       "description": "[NEEDS TRANSLATION] For best results, select the language you mainly speak. If it's not listed, auto-detection may still work."
     }
   },
+  "apps": {
+    "comingSoon": "Yakında"
+  },
   "account": {
     "title": "[NEEDS TRANSLATION] Account",
     "loadingError": "[NEEDS TRANSLATION] Failed to load account data",
@@ -100,7 +103,6 @@
       "description": "Stripe'ta faturalandırma ayrıntılarını ve faturaları yönetin.",
       "manage": "Yönet"
     },
-
     "links": {
       "title": "[NEEDS TRANSLATION] Links",
       "domainLabel": "[NEEDS TRANSLATION] Select a domain",

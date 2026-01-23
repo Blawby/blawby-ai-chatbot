@@ -115,7 +115,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 variant={app.connected ? 'secondary' : 'primary'}
                 size="sm"
                 onClick={app.connected ? handleDisconnect : handleConnectClick}
-                disabled={isConnecting || isDisconnecting || isComingSoon}
+                disabled={isConnecting || isDisconnecting || (!app.connected && isComingSoon)}
               >
                 {isConnecting
                   ? t('common:actions.loading')
