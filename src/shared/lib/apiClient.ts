@@ -870,6 +870,27 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
   if (!isRecord(payload)) {
     return null;
   }
+  const hasMappedDetailKey = (value: Record<string, unknown>): boolean => ([
+    'overview',
+    'description',
+    'intro_message',
+    'introMessage',
+    'business_phone',
+    'businessPhone',
+    'business_email',
+    'businessEmail',
+    'consultation_fee',
+    'consultationFee',
+    'payment_url',
+    'paymentUrl',
+    'calendly_url',
+    'calendlyUrl',
+    'website',
+    'is_public',
+    'isPublic',
+    'services',
+    'address'
+  ].some((key) => key in value));
   const container = (() => {
     if ('details' in payload && isRecord(payload.details)) {
       if ('data' in payload.details && isRecord(payload.details.data)) {
@@ -883,35 +904,12 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
       }
       return payload.data;
     }
-    const hasDetailShape = [
-      'overview',
-      'description',
-      'intro_message',
-      'introMessage',
-      'business_phone',
-      'businessPhone',
-      'business_email',
-      'businessEmail',
-      'consultation_fee',
-      'consultationFee',
-      'payment_url',
-      'paymentUrl',
-      'calendly_url',
-      'calendlyUrl',
-      'website',
-      'is_public',
-      'isPublic',
-      'services',
-      'address',
-      'name',
-      'logo'
-    ].some((key) => key in payload);
-    if (hasDetailShape) {
+    if (hasMappedDetailKey(payload)) {
       return payload;
     }
     return null;
   })();
-  if (!container) {
+  if (!container || !hasMappedDetailKey(container)) {
     return null;
   }
 

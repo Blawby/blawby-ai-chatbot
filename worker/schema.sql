@@ -370,6 +370,7 @@ END;
 CREATE TRIGGER IF NOT EXISTS trg_chat_message_reactions_updated_at
 AFTER UPDATE ON chat_message_reactions
 FOR EACH ROW
+WHEN OLD.updated_at = NEW.updated_at
 BEGIN
   UPDATE chat_message_reactions
   SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
