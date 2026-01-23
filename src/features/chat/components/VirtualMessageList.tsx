@@ -33,6 +33,7 @@ interface VirtualMessageListProps {
     hasMoreMessages?: boolean;
     isLoadingMoreMessages?: boolean;
     onLoadMoreMessages?: () => void | Promise<void>;
+    showSkeleton?: boolean;
 }
 
 const BATCH_SIZE = 20;
@@ -50,7 +51,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     modeSelectorActions,
     hasMoreMessages,
     isLoadingMoreMessages,
-    onLoadMoreMessages
+    onLoadMoreMessages,
+    showSkeleton = false
 }) => {
     const { session } = useSessionContext();
     const listRef = useRef<HTMLDivElement>(null);
@@ -214,6 +216,31 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     >
                         {isLoadingMoreMessages ? 'Loading older messages...' : 'Load older messages'}
                     </button>
+                </div>
+            )}
+            {showSkeleton && (
+                <div className="mt-4 space-y-5">
+                    <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
+                        <div className="space-y-2">
+                            <div className="h-3 w-36 rounded bg-gray-200 dark:bg-white/10" />
+                            <div className="h-3 w-60 rounded bg-gray-200 dark:bg-white/10" />
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
+                        <div className="space-y-2">
+                            <div className="h-3 w-44 rounded bg-gray-200 dark:bg-white/10" />
+                            <div className="h-3 w-72 rounded bg-gray-200 dark:bg-white/10" />
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-white/10" />
+                        <div className="space-y-2">
+                            <div className="h-3 w-32 rounded bg-gray-200 dark:bg-white/10" />
+                            <div className="h-3 w-56 rounded bg-gray-200 dark:bg-white/10" />
+                        </div>
+                    </div>
                 </div>
             )}
             <ErrorBoundary>

@@ -377,6 +377,7 @@ export function MainApp({
   const startConsultFlow = realMessageHandling.startConsultFlow;
   const updateConversationMetadata = realMessageHandling.updateConversationMetadata;
   const isConsultFlowActive = realMessageHandling.isConsultFlowActive;
+  const messagesReady = realMessageHandling.messagesReady;
   const hasMoreMessages = realMessageHandling.hasMoreMessages;
   const isLoadingMoreMessages = realMessageHandling.isLoadingMoreMessages;
   const loadMoreMessages = realMessageHandling.loadMoreMessages;
@@ -654,7 +655,7 @@ export function MainApp({
 
   // Add intro message when practice config is loaded and no messages exist
   useEffect(() => {
-    if (!practiceConfig || !practiceConfig.introMessage || !addMessage || !updateMessage) {
+    if (!messagesReady || !practiceConfig || !practiceConfig.introMessage || !addMessage || !updateMessage) {
       return;
     }
     const introMessageId = 'system-intro';
@@ -688,6 +689,7 @@ export function MainApp({
     conversationMode,
     isConsultFlowActive,
     messages,
+    messagesReady,
     practiceConfig,
     shouldRequireModeSelection,
     updateMessage
@@ -837,6 +839,7 @@ export function MainApp({
               onSelectMode={handleModeSelection}
               conversationMode={conversationMode}
               composerDisabled={isComposerDisabled}
+              messagesReady={messagesReady}
               practiceConfig={{
                 name: resolvedPracticeName,
                 profileImage: resolvedPracticeLogo,

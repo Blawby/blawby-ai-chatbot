@@ -1,4 +1,3 @@
--- Backfill missing notifications columns introduced after initial rollout
-
-ALTER TABLE notifications ADD COLUMN payload TEXT;
-ALTER TABLE notifications ADD COLUMN source_event_id TEXT;
+-- No-op: payload/source_event_id were added in 20260201_add_notifications.sql.
+-- D1/SQLite in production does not support ADD COLUMN IF NOT EXISTS.
+SELECT 1;

@@ -120,6 +120,18 @@ async function fetchIntakeSettings(
   }
 }
 
+const resolveIntakeCreateData = (
+  response: IntakeCreateResponse
+): IntakeCreateResponse['data'] | undefined => {
+  if (!response || typeof response !== 'object') return undefined;
+  if (response.data) return response.data;
+  const candidate = response as IntakeCreateResponse['data'];
+  if (candidate?.uuid || candidate?.payment_link_url || candidate?.paymentLinkUrl) {
+    return candidate;
+  }
+  return undefined;
+};
+
 // Submit contact form to API
 export async function submitContactForm(
   formData: Record<string, unknown>, 
@@ -173,6 +185,7 @@ export async function submitContactForm(
       if (result.success === false) {
         throw new Error(result.error || 'Form submission failed');
       }
+      const intakeData = resolveIntakeCreateData(result);
       console.log('Form submitted successfully:', result);
       
       // Create confirmation message for matter vs lead first
@@ -193,19 +206,19 @@ export async function submitContactForm(
         }, 300);
       }
       
-      const paymentLinkUrl = result.data?.payment_link_url ?? result.data?.paymentLinkUrl;
+      const paymentLinkUrl = intakeData?.payment_link_url ?? intakeData?.paymentLinkUrl;
 
       return {
         ...result,
         intake: {
-          uuid: result.data?.uuid,
-          clientSecret: result.data?.client_secret,
+          uuid: intakeData?.uuid,
+          clientSecret: intakeData?.client_secret,
           paymentLinkUrl,
-          amount: typeof result.data?.amount === 'number' ? result.data?.amount : amount,
-          currency: result.data?.currency ?? 'usd',
+          amount: typeof intakeData?.amount === 'number' ? intakeData?.amount : amount,
+          currency: intakeData?.currency ?? 'usd',
           paymentLinkEnabled,
-          organizationName: result.data?.organization?.name ?? settings?.data?.organization?.name,
-          organizationLogo: result.data?.organization?.logo ?? settings?.data?.organization?.logo
+          organizationName: intakeData?.organization?.name ?? settings?.data?.organization?.name,
+          organizationLogo: intakeData?.organization?.logo ?? settings?.data?.organization?.logo
         }
       };
     } else {

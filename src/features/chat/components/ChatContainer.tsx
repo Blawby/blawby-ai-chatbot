@@ -54,6 +54,7 @@ interface ChatContainerProps {
   hasMoreMessages?: boolean;
   isLoadingMoreMessages?: boolean;
   onLoadMoreMessages?: () => void | Promise<void>;
+  messagesReady?: boolean;
 
   // Input control prop
   clearInput?: number;
@@ -90,7 +91,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   composerDisabled,
   hasMoreMessages,
   isLoadingMoreMessages,
-  onLoadMoreMessages
+  onLoadMoreMessages,
+  messagesReady = true
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -240,7 +242,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         {canChat ? (
           <>
             <VirtualMessageList
-              messages={messages}
+              messages={messagesReady ? messages : []}
               practiceConfig={practiceConfig}
               onOpenSidebar={onOpenSidebar}
               onContactFormSubmit={onContactFormSubmit}
@@ -254,6 +256,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               hasMoreMessages={hasMoreMessages}
               isLoadingMoreMessages={isLoadingMoreMessages}
               onLoadMoreMessages={onLoadMoreMessages}
+              showSkeleton={!messagesReady}
             />
             
             <MessageComposer

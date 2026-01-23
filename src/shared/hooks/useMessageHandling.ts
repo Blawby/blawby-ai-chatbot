@@ -69,6 +69,7 @@ export const useMessageHandling = ({
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
+  const [messagesReady, setMessagesReady] = useState(false);
   const isLoadingMoreRef = useRef(false);
   const abortControllerRef = useRef<globalThis.AbortController | null>(null);
   const consultFlowAbortRef = useRef<globalThis.AbortController | null>(null);
@@ -260,14 +261,15 @@ export const useMessageHandling = ({
       return null;
     }
     const activeConversationId = targetConversationId ?? conversationId;
-    if (!activeConversationId || !practiceId) {
+    const practiceKey = practiceId ?? practiceSlug;
+    if (!activeConversationId || !practiceKey) {
       return null;
     }
     const runUpdate = async () => {
       const current = conversationMetadataRef.current ?? {};
       const nextMetadata = { ...current, ...patch };
       applyConversationMetadata(nextMetadata);
-      const updated = await patchConversationMetadata(activeConversationId, practiceId, nextMetadata);
+      const updated = await patchConversationMetadata(activeConversationId, practiceKey, nextMetadata);
       applyConversationMetadata(updated?.user_info ?? nextMetadata);
       return updated;
     };
@@ -275,7 +277,7 @@ export const useMessageHandling = ({
     const queued = metadataUpdateQueueRef.current.then(runUpdate, runUpdate);
     metadataUpdateQueueRef.current = queued.catch(() => null);
     return queued;
-  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
+  }, [applyConversationMetadata, conversationId, practiceId, practiceSlug, sessionReady]);
 
   const fetchConversationMetadata = useCallback(async (
     signal?: AbortSignal,
@@ -283,10 +285,11 @@ export const useMessageHandling = ({
   ) => {
     if (!sessionReady) return;
     const activeConversationId = targetConversationId ?? conversationId;
-    if (!activeConversationId || !practiceId) return;
+    const practiceKey = practiceId ?? practiceSlug;
+    if (!activeConversationId || !practiceKey) return;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const response = await fetch(
-      `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
+      `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceKey)}`,
       {
         method: 'GET',
         headers,
@@ -302,7 +305,7 @@ export const useMessageHandling = ({
     if (signal?.aborted || isDisposedRef.current) return;
     if (activeConversationId !== conversationIdRef.current) return;
     applyConversationMetadata(data.data?.user_info ?? null);
-  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
+  }, [applyConversationMetadata, conversationId, practiceId, practiceSlug, sessionReady]);
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
@@ -1066,6 +1069,18 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         resolvedPracticeSlug
       );
 
+      const existingTitle = typeof conversationMetadataRef.current?.title === 'string'
+        ? conversationMetadataRef.current.title.trim()
+        : '';
+      if (!existingTitle) {
+        const nextTitle = contactData.name?.trim() || 'New Lead';
+        try {
+          await updateConversationMetadata({ title: nextTitle }, conversationId);
+        } catch (error) {
+          console.warn('[ContactForm] Failed to set conversation title', error);
+        }
+      }
+
       await sendMessageOverWs(contactMessage, [], {
         // Mark this as a contact form submission without storing PII in metadata
         isContactFormSubmission: true
@@ -1159,7 +1174,17 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       onError?.(error instanceof Error ? error.message : 'Failed to submit contact information');
       throw error; // Re-throw so form can handle the error state
     }
-  }, [conversationId, practiceId, practiceSlug, onError, logDev, messages, confirmIntakeLead, sendMessageOverWs]);
+  }, [
+    conversationId,
+    practiceId,
+    practiceSlug,
+    onError,
+    logDev,
+    messages,
+    confirmIntakeLead,
+    sendMessageOverWs,
+    updateConversationMetadata
+  ]);
 
   // Add message to the list
   const addMessage = useCallback((message: ChatMessageUI) => {
@@ -1180,6 +1205,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     setHasMoreMessages(false);
     setNextCursor(null);
     setIsLoadingMoreMessages(false);
+    setMessagesReady(false);
     isLoadingMoreRef.current = false;
   }, [resetRealtimeState]);
 
@@ -1259,6 +1285,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             }
             return uiMessages;
           });
+          setMessagesReady(true);
           sendReadUpdate(lastSeqRef.current);
         }
         setHasMoreMessages(Boolean(data.data.hasMore));
@@ -1679,6 +1706,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     updateConversationMetadata,
     isSocketReady,
     isConsultFlowActive,
+    messagesReady,
     hasMoreMessages,
     isLoadingMoreMessages,
     loadMoreMessages,

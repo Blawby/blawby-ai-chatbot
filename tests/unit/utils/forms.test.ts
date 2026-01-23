@@ -86,4 +86,54 @@ describe('submitContactForm', () => {
 
     expect(result.intake?.uuid).toBe('uuid-123');
   });
+
+  it('handles bare intake create responses without data wrapper', async () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : String(input);
+      if (url.includes('/api/practice/client-intakes/') && url.includes('/intake')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              organization: { name: 'Acme Law', logo: 'logo.png' },
+              settings: { paymentLinkEnabled: false, prefillAmount: 50 }
+            }
+          })
+        });
+      }
+      if (url.includes('/api/practice/client-intakes/create')) {
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: async () => ({
+            uuid: 'uuid-456',
+            amount: 50,
+            currency: 'usd',
+            status: 'open',
+            organization: { name: 'Acme Law', logo: 'logo.png' }
+          })
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: 'Not Found' })
+      });
+    });
+
+    const result = await submitContactForm(
+      { name: 'Test User', email: 'test@example.com' },
+      'acme-law'
+    );
+
+    expect(result.intake?.uuid).toBe('uuid-456');
+  });
 });
