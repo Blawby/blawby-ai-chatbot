@@ -8,10 +8,21 @@
 import { SidebarHeader } from '../molecules/SidebarHeader';
 import { NavigationList } from '../molecules/NavigationList';
 import { NavigationItem } from '../molecules/NavigationItem';
-import { ChatBubbleOvalLeftEllipsisIcon, HomeIcon, InboxIcon } from '@heroicons/react/24/outline';
 import UserProfile from '@/shared/components/UserProfile';
 import type { ComponentChildren } from 'preact';
 import type { SubscriptionTier } from '@/shared/types/user';
+import type { MatterStatus } from '@/shared/types/matter';
+
+export interface SidebarNavItem {
+  id: string;
+  label: string;
+  icon: ComponentChildren;
+  isActive: boolean;
+  onClick: () => void;
+  matterStatus?: MatterStatus;
+  hasUnread?: boolean;
+  showUnreadDot?: boolean;
+}
 
 interface SidebarContentProps {
   practiceConfig?: {
@@ -19,15 +30,9 @@ interface SidebarContentProps {
     profileImage: string | null;
     practiceId: string;
   };
-  currentRoute: string;
-  onGoToDashboard?: () => void;
-  onGoToChats?: () => void;
-  onGoToLeads?: () => void;
+  navItems: SidebarNavItem[];
   onClose?: () => void;
-  showDashboardTab?: boolean;
-  showChatsTab?: boolean;
-  showLeadsTab?: boolean;
-  chatSidebarContent?: ComponentChildren;
+  conversationContent?: ComponentChildren;
   currentPractice?: {
     id: string;
     subscriptionTier?: SubscriptionTier;
@@ -38,15 +43,9 @@ interface SidebarContentProps {
 
 export const SidebarContent = ({
   practiceConfig,
-  currentRoute,
-  onGoToDashboard,
-  onGoToChats,
-  onGoToLeads,
+  navItems,
   onClose,
-  showDashboardTab = true,
-  showChatsTab = true,
-  showLeadsTab = false,
-  chatSidebarContent,
+  conversationContent,
   currentPractice,
   isCollapsed,
   onToggleCollapse
@@ -66,52 +65,25 @@ export const SidebarContent = ({
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-2">
           <NavigationList>
-            {showDashboardTab && onGoToDashboard && (
+            {navItems.map((item) => (
               <NavigationItem
-                icon={<HomeIcon />}
-                label="Dashboard"
-                isActive={currentRoute === 'dashboard'}
-                onClick={onGoToDashboard}
+                key={item.id}
+                icon={item.icon}
+                label={item.label}
+                isActive={item.isActive}
+                onClick={item.onClick}
                 isCollapsed={isCollapsed}
+                matterStatus={item.matterStatus}
+                hasUnread={item.hasUnread}
+                showUnreadDot={item.showUnreadDot}
               />
-            )}
-
-            {showChatsTab && onGoToChats && (
-              <NavigationItem
-                icon={<ChatBubbleOvalLeftEllipsisIcon />}
-                label="Chats"
-                isActive={currentRoute === 'chats'}
-                onClick={onGoToChats}
-                isCollapsed={isCollapsed}
-              />
-            )}
-
-            {showLeadsTab && onGoToLeads && (
-              <NavigationItem
-                icon={<InboxIcon />}
-                label="Leads"
-                isActive={currentRoute === 'leads'}
-                onClick={onGoToLeads}
-                isCollapsed={isCollapsed}
-              />
-            )}
-
-            {/* Matter navigation temporarily hidden */}
-            {/* <NavigationItem
-              icon={<DocumentIcon />}
-              label="Matter"
-              isActive={currentRoute === 'matter'}
-              onClick={onGoToMatter || (() => {})}
-              isCollapsed={isCollapsed}
-              matterStatus={matterStatus}
-            /> */}
-
+            ))}
           </NavigationList>
         </div>
 
-        {!isCollapsed && chatSidebarContent && (
-          <div className="flex-1 overflow-y-auto px-1 pb-2">
-            {chatSidebarContent}
+        {!isCollapsed && conversationContent && (
+          <div className="mt-auto flex-1 overflow-y-auto border-t border-gray-200 dark:border-dark-border px-1 pb-2">
+            {conversationContent}
           </div>
         )}
       </div>

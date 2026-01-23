@@ -18,7 +18,6 @@ import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { getSettingsReturnPath, getWorkspaceDashboardPath, resolveWorkspaceFromPath, setSettingsReturnPath } from '@/shared/utils/workspace';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import ClientHomePage from '@/pages/ClientHomePage';
-import { PracticeDashboardPage } from '@/features/dashboard/pages/PracticeDashboardPage';
 import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import './index.css';
@@ -129,11 +128,11 @@ function AppShell() {
 
   const handleCloseSettings = useCallback(() => {
     const returnPath = getSettingsReturnPath();
-    const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/dashboard';
+    const fallback = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/conversations';
     navigate(returnPath ?? fallback, true);
   }, [defaultWorkspace, navigate]);
 
-  const fallbackSettingsBackground = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/dashboard';
+  const fallbackSettingsBackground = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/conversations';
   const backgroundUrl = isSettingsOpen
     ? (lastNonSettingsUrlRef.current ?? fallbackSettingsBackground)
     : location.url;
@@ -159,14 +158,12 @@ function AppShell() {
           <Route path="/intake/pay" component={IntakePaymentPage} />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
-          <Route path="/p/:practiceSlug" component={PublicPracticeRoute} />
-          <Route path="/p/:practiceSlug/chats/:conversationId" component={PublicPracticeRoute} />
+          <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} />
+          <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} />
           <Route path="/practice" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} />
           <Route path="/practice/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} />
           <Route path="/client" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
           <Route path="/client/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
-          <Route path="/dashboard" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
-          <Route path="/dashboard/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
           <Route default component={RootRoute} />
         </Router>
       </LocationProvider.ctx.Provider>
@@ -250,7 +247,7 @@ function RootRoute() {
     }
 
     if (isMountedRef.current) {
-      const destination = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/dashboard';
+      const destination = getWorkspaceDashboardPath(defaultWorkspace) ?? '/client/conversations';
       navigate(destination, true);
     }
   }, [
@@ -330,7 +327,6 @@ function ClientAppRoute({
       isPracticeView={false}
       workspace="client"
       settingsOverlayOpen={settingsOverlayOpen}
-      dashboardContent={<ClientHomePage />}
     />
   );
 }
@@ -411,7 +407,7 @@ function PracticeAppRoute({
     if (!session?.user) return;
     if (shouldDelayPracticeConfig) return;
     if (!isPracticeEnabled || (!canAccessPractice && !hasPracticeCandidate)) {
-      navigate('/client/dashboard', true);
+      navigate('/client/conversations', true);
     }
   }, [
     canAccessPractice,
@@ -453,7 +449,6 @@ function PracticeAppRoute({
       isPracticeView={true}
       workspace="practice"
       settingsOverlayOpen={settingsOverlayOpen}
-      dashboardContent={<PracticeDashboardPage />}
     />
   );
 }

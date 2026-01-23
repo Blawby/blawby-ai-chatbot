@@ -221,7 +221,7 @@ const createAnonymousState = async (options: {
   const page = await context.newPage();
 
   try {
-    await page.goto(`/p/${encodeURIComponent(practiceSlug)}`);
+    await page.goto(`/embed/${encodeURIComponent(practiceSlug)}`);
     await page.waitForLoadState('domcontentloaded');
 
     await page.evaluate(async () => {

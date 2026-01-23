@@ -617,7 +617,7 @@ const openConversationPage = async (options: {
   conversationId: string;
 }): Promise<void> => {
   await options.page.goto(
-    `/p/${encodeURIComponent(options.practiceSlug)}/chats/${encodeURIComponent(options.conversationId)}`,
+    `/embed/${encodeURIComponent(options.practiceSlug)}/conversations/${encodeURIComponent(options.conversationId)}`,
     { waitUntil: 'domcontentloaded' }
   );
   await waitForSession(options.page, { timeoutMs: 60000 });
@@ -660,7 +660,7 @@ test.describe('Chat messaging', () => {
   test('anonymous guest can send a chat message', async ({ anonContext, anonPage, baseURL }) => {
     if (!e2eConfig) return;
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
-    await anonPage.goto(`/p/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
+    await anonPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(anonPage, { timeoutMs: 60000 });
     const conversationId = await getOrCreateConversation({
       request: anonContext.request,
@@ -694,7 +694,7 @@ test.describe('Chat messaging', () => {
   test('signed-in client can send a chat message', async ({ clientContext, clientPage, baseURL }) => {
     if (!e2eConfig) return;
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
-    await clientPage.goto(`/p/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
+    await clientPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(clientPage, { timeoutMs: 60000 });
     const conversationId = await getOrCreateConversation({
       request: clientContext.request,
@@ -768,7 +768,7 @@ test.describe('Chat messaging', () => {
   }) => {
     if (!e2eConfig) return;
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
-    await clientPage.goto(`/p/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
+    await clientPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(clientPage, { timeoutMs: 60000 });
     await ownerPage.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForSession(ownerPage, { timeoutMs: 60000 });
@@ -816,7 +816,7 @@ test.describe('Chat messaging', () => {
   test('chat UI syncs across tabs and preserves history', async ({ clientContext, clientPage }) => {
     if (!e2eConfig) return;
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
-    await clientPage.goto(`/p/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
+    await clientPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(clientPage, { timeoutMs: 60000 });
     const conversationId = await createConversationForPage({
       page: clientPage,

@@ -200,8 +200,15 @@ const setupNotificationPage = async (options: {
   await waitForSession(page);
 
   const prefsResponse = await prefsResponsePromise;
-  const prefsPayload = await prefsResponse.json() as { data?: Record<string, unknown> };
-  const prefs = prefsPayload?.data ?? {};
+  const prefsPayload = await prefsResponse.json() as Record<string, unknown> | { data?: Record<string, unknown> };
+  const toRecord = (value: unknown): Record<string, unknown> => (
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {}
+  );
+  const prefs = (prefsPayload && typeof prefsPayload === 'object' && 'data' in prefsPayload && prefsPayload.data)
+    ? toRecord(prefsPayload.data)
+    : toRecord(prefsPayload);
 
   return {
     baseURL,

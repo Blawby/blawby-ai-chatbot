@@ -244,7 +244,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       return '';
     }
   }, []);
-  const practicePath = `/p/${practice?.slug ?? 'your-practice'}`;
+  const practicePath = `/embed/${practice?.slug ?? 'your-practice'}`;
   const practiceUrlValue = practiceHost
     ? `${practiceHost}${practicePath}`
     : practicePath;

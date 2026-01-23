@@ -20,25 +20,25 @@ export const LeadsPage = ({
   header
 }: LeadsPageProps) => {
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      <div className="px-6 py-6 border-b border-gray-200 dark:border-gray-800">
+    <div className={`h-full overflow-y-auto p-6 ${className}`}>
+      <div className="max-w-5xl mx-auto space-y-6">
         {header ?? (
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Leads</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Leads</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Review paid intakes and decide who to bring into the conversation.
             </p>
           </div>
         )}
-      </div>
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <LeadReviewQueue
-          practiceId={practiceId}
-          canReviewLeads={canReviewLeads}
-          acceptMatter={acceptMatter}
-          rejectMatter={rejectMatter}
-          showHeader={false}
-        />
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-card-bg p-5">
+          <LeadReviewQueue
+            practiceId={practiceId}
+            canReviewLeads={canReviewLeads}
+            acceptMatter={acceptMatter}
+            rejectMatter={rejectMatter}
+            showHeader={false}
+          />
+        </div>
       </div>
     </div>
   );

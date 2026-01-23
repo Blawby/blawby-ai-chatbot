@@ -222,7 +222,7 @@ Better Auth anonymous sessions do not automatically link conversations to a real
 - Repeat calls are safe; the service is idempotent for the same user.
 
 **Relevant code paths**
-- Frontend: `src/index.tsx` (ClientAppRoute -> `linkConversationToUser`), `src/shared/components/AuthForm.tsx`, `src/features/dashboard/pages/PracticeDashboardPage.tsx` (older flows may be outdated)
+- Frontend: `src/index.tsx`, `src/app/MainApp.tsx` (linking on authenticated routes), `src/shared/components/AuthForm.tsx`
 - Worker: `worker/routes/conversations.ts`, `worker/services/ConversationService.ts`
 
 ### Internal Durable Object Endpoints

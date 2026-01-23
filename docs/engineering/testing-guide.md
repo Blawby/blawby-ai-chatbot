@@ -36,6 +36,11 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 - Worker must be running on `http://localhost:8787`
 - Frontend must be running on `http://localhost:5173`
 
+**Route Baselines**:
+- Practice workspace routes live under `/practice/*` (home: `/practice/home`, leads: `/practice/leads`).
+- Client workspace routes live under `/client/*` (default: `/client/conversations`).
+- Public widget routes live under `/embed/:practiceSlug`.
+
 **Key Patterns**:
 - Use relative URLs (`/api/*`) to leverage Vite proxy (maintains cookies/session state)
 - Use `credentials: 'include'` in fetch calls to ensure cookies are sent

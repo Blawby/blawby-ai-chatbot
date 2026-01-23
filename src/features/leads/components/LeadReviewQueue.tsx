@@ -275,7 +275,7 @@ export const LeadReviewQueue = ({
       onOpenConversation(conversationId);
       return;
     }
-    navigate(`/practice/chats/${encodeURIComponent(conversationId)}`);
+    navigate(`/practice/conversations/${encodeURIComponent(conversationId)}`);
   }, [navigate, onOpenConversation]);
 
   return (

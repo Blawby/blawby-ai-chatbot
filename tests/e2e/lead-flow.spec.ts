@@ -971,7 +971,7 @@ test.describe('Lead intake workflow', () => {
     }
 
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
-    await anonPage.goto(`/p/${encodeURIComponent(practiceSlug)}`);
+    await anonPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`);
     await waitForSession(anonPage, { timeoutMs: 30000, skipIfCookiePresent: false, cookieUrl: baseURL });
 
     const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
