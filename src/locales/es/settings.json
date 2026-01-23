@@ -51,6 +51,9 @@
       "description": "Para mejores resultados, elige el idioma que hablas principalmente. Si no aparece, la detección automática puede funcionar."
     }
   },
+  "apps": {
+    "comingSoon": "Próximamente"
+  },
   "account": {
     "title": "Cuenta",
     "loadingError": "No se pudieron cargar los datos de la cuenta",
@@ -112,7 +115,6 @@
       "description": "Administra los detalles de facturación y las facturas en Stripe.",
       "manage": "Administrar"
     },
-
     "links": {
       "title": "Enlaces",
       "domainLabel": "Selecciona un dominio",

@@ -51,6 +51,9 @@
       "description": "Pour de meilleurs résultats, sélectionnez la langue que vous parlez principalement. Si elle n'est pas répertoriée, la détection automatique peut toujours fonctionner."
     }
   },
+  "apps": {
+    "comingSoon": "Bientôt"
+  },
   "account": {
     "title": "Compte",
     "loadingError": "Échec du chargement des données du compte",
@@ -112,7 +115,6 @@
       "description": "Gérez les détails de facturation et les factures dans Stripe.",
       "manage": "Gérer"
     },
-
     "links": {
       "title": "Liens",
       "domainLabel": "Sélectionner un domaine",

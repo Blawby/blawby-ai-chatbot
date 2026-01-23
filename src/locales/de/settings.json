@@ -51,6 +51,9 @@
       "description": "Für beste Ergebnisse wählen Sie die Sprache aus, die Sie hauptsächlich sprechen. Wenn sie nicht aufgeführt ist, kann die automatische Erkennung trotzdem funktionieren."
     }
   },
+  "apps": {
+    "comingSoon": "Demnächst verfügbar"
+  },
   "account": {
     "title": "Konto",
     "loadingError": "Fehler beim Laden der Kontodaten",
@@ -112,7 +115,6 @@
       "description": "Verwalten Sie Abrechnungsdetails und Rechnungen in Stripe.",
       "manage": "Verwalten"
     },
-
     "links": {
       "title": "Links",
       "domainLabel": "Wählen Sie eine Domain aus",

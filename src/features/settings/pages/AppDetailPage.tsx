@@ -22,6 +22,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  const isComingSoon = Boolean(app.comingSoon);
 
   const handleConnectClick = () => {
     setShowConnectModal(true);
@@ -102,6 +103,11 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 )}
               </div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{app.name}</h2>
+              {isComingSoon && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+                  {t('settings:apps.comingSoon')}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -109,7 +115,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 variant={app.connected ? 'secondary' : 'primary'}
                 size="sm"
                 onClick={app.connected ? handleDisconnect : handleConnectClick}
-                disabled={isConnecting || isDisconnecting}
+                disabled={isConnecting || isDisconnecting || (!app.connected && isComingSoon)}
               >
                 {isConnecting
                   ? t('common:actions.loading')
@@ -117,7 +123,9 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                     ? t('common:actions.loading')
                     : app.connected
                       ? t('settings:apps.clio.disconnect')
-                      : t('settings:apps.clio.connect')}
+                      : isComingSoon
+                        ? t('settings:apps.comingSoon')
+                        : t('settings:apps.clio.connect')}
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
