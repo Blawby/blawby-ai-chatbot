@@ -150,8 +150,17 @@ export class RemoteApiService {
         }
       }
 
-      const data = await response.json() as { data?: Practice; practice?: Practice };
-      const practice = data.data || data.practice;
+      const data = await response.json() as Practice | { data?: Practice; practice?: Practice };
+      let practice: Practice | undefined;
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        if ('data' in data && data.data) {
+          practice = data.data;
+        } else if ('practice' in data && data.practice) {
+          practice = data.practice;
+        } else if ('id' in data) {
+          practice = data as Practice;
+        }
+      }
 
       if (!practice) {
         return null;

@@ -10,6 +10,7 @@ import { NotificationService } from '../services/NotificationService.js';
 import { enqueueNotification, getAdminRecipients } from '../services/NotificationPublisher.js';
 
 const PAID_STATUSES = new Set(['succeeded', 'paid', 'complete', 'completed']);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -29,6 +30,58 @@ const normalizeStatus = (value: unknown): string | null => {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed.toLowerCase() : null;
+};
+
+const resolvePracticeId = async (
+  env: Env,
+  request: Request,
+  practiceId: string,
+  practiceSlug: string | null
+): Promise<{ practiceId: string; practiceSlug: string | null }> => {
+  const trimmedPracticeId = practiceId.trim();
+  if (UUID_PATTERN.test(trimmedPracticeId)) {
+    return { practiceId: trimmedPracticeId, practiceSlug };
+  }
+
+  const slug = practiceSlug || trimmedPracticeId;
+  const response = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
+  const rawText = await response.text().catch(() => '');
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw HttpErrors.notFound(`Practice not found: ${slug}`);
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw HttpErrors.unauthorized('Authentication required');
+    }
+    throw HttpErrors.badGateway(`Failed to load practice details (${response.status})`);
+  }
+
+  let payload: Record<string, unknown> | null = null;
+  if (rawText) {
+    try {
+      payload = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      payload = null;
+    }
+  }
+
+  let resolvedPracticeId = typeof payload?.practiceId === 'string'
+    ? payload.practiceId
+    : typeof payload?.practice_id === 'string'
+      ? payload.practice_id
+      : undefined;
+
+  if (!resolvedPracticeId) {
+    const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request);
+    resolvedPracticeId = intakeSettings?.organization?.id;
+  }
+
+  if (!resolvedPracticeId) {
+    throw HttpErrors.notFound(`Practice not found: ${slug}`);
+  }
+
+  return { practiceId: resolvedPracticeId, practiceSlug: slug };
 };
 
 const generateMatterNumber = async (env: Env, practiceId: string): Promise<string> => {
@@ -76,6 +129,9 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     });
     const practiceId = getPracticeId(requestWithContext);
     const practiceSlug = url.searchParams.get('practiceSlug')?.trim() || null;
+    const resolvedPractice = await resolvePracticeId(env, request, practiceId, practiceSlug);
+    const resolvedPracticeId = resolvedPractice.practiceId;
+    const resolvedPracticeSlug = resolvedPractice.practiceSlug;
 
     const body = await parseJsonBody(request) as Record<string, unknown>;
     const intakeUuid = typeof body.intakeUuid === 'string' ? body.intakeUuid.trim() : '';
@@ -86,7 +142,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     }
 
     const conversationService = new ConversationService(env);
-    await conversationService.validateParticipantAccess(conversationId, practiceId, authContext.user.id);
+    await conversationService.validateParticipantAccess(conversationId, resolvedPracticeId, authContext.user.id);
 
     const intakeStatus = await RemoteApiService.getPracticeClientIntakeStatus(env, intakeUuid, request);
     if (!intakeStatus) {
@@ -95,11 +151,11 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
 
     let practice = null;
     try {
-      practice = await RemoteApiService.getPractice(env, practiceId, request);
+      practice = await RemoteApiService.getPractice(env, resolvedPracticeId, request);
     } catch (error) {
       if (error instanceof HttpError) {
         console.warn('[Intake] Practice lookup failed; continuing with intake settings only', {
-          practiceId,
+          practiceId: resolvedPracticeId,
           status: error.status,
           message: error.message
         });
@@ -108,7 +164,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       }
     }
 
-    const settingsSlug = practiceSlug ?? practice?.slug ?? null;
+    const settingsSlug = resolvedPracticeSlug ?? practice?.slug ?? null;
     const settings = settingsSlug
       ? await RemoteApiService.getPracticeClientIntakeSettings(env, settingsSlug, request)
       : null;
@@ -129,7 +185,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
         WHERE practice_id = ?
           AND json_extract(custom_fields, '$.intakeUuid') = ?
         LIMIT 1`
-    ).bind(practiceId, intakeUuid).first<{ id: string } | null>();
+    ).bind(resolvedPracticeId, intakeUuid).first<{ id: string } | null>();
 
     if (existing?.id) {
       return createSuccessResponse({ matterId: existing.id, reused: true });
@@ -143,11 +199,27 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     const matterType = 'Consultation';
     const title = clientName ? `Intake from ${clientName}` : 'New Intake';
 
+    try {
+      const conversation = await conversationService.getConversation(conversationId, resolvedPracticeId);
+      const existingMetadata = conversation.user_info ?? {};
+      const existingTitle = typeof existingMetadata.title === 'string' ? existingMetadata.title.trim() : '';
+      if (!existingTitle) {
+        await conversationService.updateConversation(conversationId, resolvedPracticeId, {
+          metadata: {
+            ...existingMetadata,
+            title: clientName || 'New Lead'
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('[Intake] Failed to set conversation title from intake metadata', error);
+    }
+
     const amount = typeof intakeStatus.amount === 'number' ? intakeStatus.amount : null;
     const currency = typeof intakeStatus.currency === 'string' ? intakeStatus.currency : null;
 
     const matterId = crypto.randomUUID();
-    const matterNumber = await generateMatterNumber(env, practiceId);
+    const matterNumber = await generateMatterNumber(env, resolvedPracticeId);
     const now = new Date().toISOString();
 
     const customFields = {
@@ -182,7 +254,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'lead', ?, ?, ?, ?, ?, ?)
     `).bind(
       matterId,
-      practiceId,
+      resolvedPracticeId,
       null,
       clientName,
       clientEmail ?? null,
@@ -199,7 +271,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     ).run();
 
     try {
-      await conversationService.attachMatter(conversationId, practiceId, matterId);
+      await conversationService.attachMatter(conversationId, resolvedPracticeId, matterId);
     } catch (error) {
       console.warn('[Intake] Failed to attach matter to conversation', error);
     }
@@ -208,7 +280,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     try {
       await conversationService.sendSystemMessage({
         conversationId,
-        practiceId,
+        practiceId: resolvedPracticeId,
         content: createSystemMessage({ practiceName, paymentRequired }),
         role: 'system',
         metadata: {
@@ -244,7 +316,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
 
     if (practice) {
       try {
-        const recipients = await getAdminRecipients(env, practiceId, request, {
+        const recipients = await getAdminRecipients(env, resolvedPracticeId, request, {
           actorUserId: authContext.user.id,
           category: 'intake'
         });
@@ -253,7 +325,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
             eventId: crypto.randomUUID(),
             dedupeKey: `intake:${intakeUuid}`,
             dedupeWindow: 'permanent',
-            practiceId,
+            practiceId: resolvedPracticeId,
             conversationId,
             category: 'intake',
             entityType: 'matter',
