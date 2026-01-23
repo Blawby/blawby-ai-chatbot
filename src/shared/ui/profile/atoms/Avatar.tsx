@@ -9,7 +9,7 @@ import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
 interface AvatarProps {
   src?: string | null;
   name: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }
 
@@ -22,12 +22,14 @@ export const Avatar = ({ src, name, size = 'md', className = '' }: AvatarProps) 
   }, [src]);
 
   const sizeClasses = {
+    xs: 'w-4 h-4',
     sm: 'w-6 h-6',
     md: 'w-9 h-9', // 36px to match original main look
     lg: 'w-10 h-10'
   } as const;
 
   const textSizeClasses = {
+    xs: 'text-[10px]',
     sm: 'text-xs',
     md: 'text-sm',
     lg: 'text-base'

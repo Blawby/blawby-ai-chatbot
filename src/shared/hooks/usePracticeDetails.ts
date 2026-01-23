@@ -1,6 +1,6 @@
 import { useCallback } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
-import { getPracticeDetails, getPublicPracticeDetails } from '@/shared/lib/apiClient';
+import { getPracticeDetails } from '@/shared/lib/apiClient';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 
@@ -30,13 +30,7 @@ export const usePracticeDetails = (practiceId?: string | null) => {
       return details;
     }
 
-    const result = await getPublicPracticeDetails(practiceId);
-    const publicDetails = result?.details ?? null;
-    setPracticeDetailsEntry(practiceId, publicDetails);
-    if (result?.practiceId && result.practiceId !== practiceId) {
-      setPracticeDetailsEntry(result.practiceId, publicDetails);
-    }
-    return publicDetails;
+    return null;
   }, [detailsMap, hasCachedDetails, practiceId]);
 
   const updateDetails = useCallback(async (payload: Parameters<typeof updatePracticeDetails>[1]) => {

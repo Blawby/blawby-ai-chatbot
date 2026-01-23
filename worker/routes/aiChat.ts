@@ -99,13 +99,17 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
 
   const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, body.practiceSlug);
   let reply: string;
+  let model = env.AI_MODEL || DEFAULT_AI_MODEL;
 
   if (!details || !isPublic) {
     reply = 'I don’t have access to this practice’s details right now. Please click “Request consultation” to connect with the practice.';
   } else {
     const aiClient = createAiClient(env);
+    if (!env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
+      model = 'openai/gpt-4o-mini';
+    }
     const response = await aiClient.requestChatCompletions({
-      model: env.AI_MODEL || DEFAULT_AI_MODEL,
+      model,
       temperature: 0.2,
       messages: [
         {
@@ -174,7 +178,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
     content: reply,
     metadata: {
       source: 'ai',
-      model: env.AI_MODEL || DEFAULT_AI_MODEL
+      model
     },
     recipientUserId: authContext.user.id,
     request

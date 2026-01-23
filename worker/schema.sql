@@ -217,6 +217,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   user_id TEXT,
   role TEXT NOT NULL,
   content TEXT NOT NULL,
+  reply_to_message_id TEXT,
   metadata TEXT,
   token_count INTEGER,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -257,8 +258,21 @@ CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(pract
 CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_practice ON chat_messages(practice_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_reply_to ON chat_messages(reply_to_message_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_client ON chat_messages(conversation_id, client_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_messages_conv_seq ON chat_messages(conversation_id, seq);
+
+-- Message reactions table for emoji reactions
+CREATE TABLE IF NOT EXISTS chat_message_reactions (
+  message_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (message_id, user_id, emoji)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_message_reactions_message ON chat_message_reactions(message_id);
 
 -- Session audit events table (now uses conversation_id instead of session_id)
 -- Note: Table name kept as session_audit_events for backward compatibility

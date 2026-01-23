@@ -14,7 +14,7 @@ import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
-import { getConversationsEndpoint } from '@/config/api';
+import { getConversationEndpoint, getConversationsEndpoint, getCurrentConversationEndpoint } from '@/config/api';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { useNavigation } from '@/shared/utils/navigation';
 import {
@@ -83,6 +83,8 @@ export function MainApp({
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const postAuthLinkHandledRef = useRef(false);
+  const publicConversationInitRef = useRef<string | null>(null);
+  const conversationRestoreAttemptedRef = useRef(false);
   const isPublicWorkspace = workspace === 'public';
   const publicPracticeSlug = useMemo(() => {
     if (!isPublicWorkspace) return null;
@@ -114,6 +116,8 @@ export function MainApp({
   useEffect(() => {
     setConversationId(null);
     setConversationMode(null);
+    conversationRestoreAttemptedRef.current = false;
+    publicConversationInitRef.current = null;
   }, [conversationResetKey]);
 
   const basePath = useMemo(() => {
@@ -313,6 +317,12 @@ export function MainApp({
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
+  const conversationCacheKey = useMemo(() => {
+    if (!practiceId || !session?.user?.id) {
+      return null;
+    }
+    return `chat:lastConversation:${workspace}:${practiceId}:${session.user.id}`;
+  }, [practiceId, session?.user?.id, workspace]);
   const effectivePracticeId = useMemo(() => {
     if (isPublicWorkspace) {
       if (
@@ -385,6 +395,8 @@ export function MainApp({
   const messages = realMessageHandling.messages;
   const addMessage = realMessageHandling.addMessage;
   const updateMessage = realMessageHandling.updateMessage;
+  const requestMessageReactions = realMessageHandling.requestMessageReactions;
+  const toggleMessageReaction = realMessageHandling.toggleMessageReaction;
   const conversationMetadata = realMessageHandling.conversationMetadata;
   const intakeStatus = realMessageHandling.intakeStatus;
   const startConsultFlow = realMessageHandling.startConsultFlow;
@@ -449,6 +461,101 @@ export function MainApp({
     }
   }, [isPracticeWorkspace, practiceId, practiceConfig.slug, publicPracticeSlug, session?.user, isCreatingConversation]);
 
+  const ensurePublicConversation = useCallback(async () => {
+    if (!practiceId || !session?.user) {
+      return null;
+    }
+
+    try {
+      setIsCreatingConversation(true);
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      const practiceSlugParam = (publicPracticeSlug ?? practiceConfig.slug ?? '').trim();
+      const params = new URLSearchParams({ practiceId });
+      if (practiceSlugParam && practiceSlugParam !== practiceId) {
+        params.set('practiceSlug', practiceSlugParam);
+      }
+      const url = `${getCurrentConversationEndpoint()}?${params.toString()}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as {
+        success: boolean;
+        error?: string;
+        data?: { conversation?: { id: string } };
+      };
+      const nextId = data.data?.conversation?.id;
+      if (!data.success || !nextId) {
+        throw new Error(data.error || 'Failed to load conversation');
+      }
+
+      setConversationId(nextId);
+      return nextId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load conversation';
+      showErrorRef.current?.(message);
+      return null;
+    } finally {
+      setIsCreatingConversation(false);
+    }
+  }, [practiceId, practiceConfig.slug, publicPracticeSlug, session?.user]);
+
+  const restoreConversationFromCache = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    if (!conversationCacheKey || !practiceId || !session?.user) {
+      return null;
+    }
+    const cached = window.localStorage.getItem(conversationCacheKey);
+    if (!cached) {
+      return null;
+    }
+    if (conversationId === cached) {
+      return cached;
+    }
+
+    try {
+      const practiceSlugParam = (publicPracticeSlug ?? practiceConfig.slug ?? '').trim();
+      const params = new URLSearchParams({ practiceId });
+      if (practiceSlugParam && practiceSlugParam !== practiceId) {
+        params.set('practiceSlug', practiceSlugParam);
+      }
+      const response = await fetch(
+        `${getConversationEndpoint(cached)}?${params.toString()}`,
+        {
+          method: 'GET',
+          credentials: 'include'
+        }
+      );
+      if (!response.ok) {
+        window.localStorage.removeItem(conversationCacheKey);
+        return null;
+      }
+      setConversationId(cached);
+      return cached;
+    } catch (error) {
+      console.warn('[MainApp] Failed to restore cached conversation', error);
+      return null;
+    }
+  }, [
+    conversationCacheKey,
+    conversationId,
+    practiceConfig.slug,
+    practiceId,
+    publicPracticeSlug,
+    session?.user
+  ]);
+
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
     source: 'intro_gate' | 'composer_footer'
@@ -491,7 +598,11 @@ export function MainApp({
     updateConversationMetadata
   ]);
 
-  const handleSendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
+  const handleSendMessage = useCallback(async (
+    message: string,
+    attachments: FileAttachment[] = [],
+    replyToMessageId?: string | null
+  ) => {
     if (!conversationId) {
       showErrorRef.current?.('Setting up your conversation. Please try again momentarily.');
       if (!isCreatingConversation) {
@@ -500,7 +611,7 @@ export function MainApp({
       return;
     }
 
-    await realMessageHandling.sendMessage(message, attachments);
+    await realMessageHandling.sendMessage(message, attachments, replyToMessageId ?? null);
   }, [conversationId, isCreatingConversation, createConversation, realMessageHandling]);
   const handleContactFormSubmit = realMessageHandling.handleContactFormSubmit;
 
@@ -661,6 +772,48 @@ export function MainApp({
   const isComposerDisabled = (shouldRequireModeSelection && !conversationMode) || isConsultFlowActive;
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(conversationId));
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
+
+  useEffect(() => {
+    if (!isAuthReady) return;
+    if (!practiceId) return;
+    if (conversationId) return;
+    if (isCreatingConversation) return;
+    if (conversationRestoreAttemptedRef.current) return;
+    conversationRestoreAttemptedRef.current = true;
+
+    if (isPublicWorkspace) {
+      const initKey = `${practiceId}:${session?.user?.id ?? 'anon'}`;
+      if (publicConversationInitRef.current === initKey) {
+        return;
+      }
+      publicConversationInitRef.current = initKey;
+    }
+
+    (async () => {
+      const restored = await restoreConversationFromCache();
+      if (restored) {
+        return;
+      }
+      if (isPublicWorkspace) {
+        void ensurePublicConversation();
+      }
+    })();
+  }, [
+    conversationId,
+    ensurePublicConversation,
+    isAuthReady,
+    isCreatingConversation,
+    isPublicWorkspace,
+    practiceId,
+    restoreConversationFromCache,
+    session?.user?.id
+  ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!conversationCacheKey || !conversationId) return;
+    window.localStorage.setItem(conversationCacheKey, conversationId);
+  }, [conversationCacheKey, conversationId]);
 
   const currentUserRole = activeMemberRole ?? 'paralegal';
   const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
@@ -855,6 +1008,8 @@ export function MainApp({
               onContactFormSubmit={handleContactFormSubmit}
               onAddMessage={addMessage}
               onSelectMode={handleModeSelection}
+              onToggleReaction={toggleMessageReaction}
+              onRequestReactions={requestMessageReactions}
               conversationMode={conversationMode}
               composerDisabled={isComposerDisabled}
               isPublicWorkspace={workspace === 'public'}

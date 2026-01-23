@@ -34,6 +34,7 @@ interface ClientFrame {
 interface PendingRecord {
   content_hash: string;
   attachments_hash: string;
+  reply_hash: string;
   allocated_seq: number;
   allocated_at: string;
 }
@@ -57,6 +58,7 @@ interface MessageBroadcast extends Record<string, unknown> {
   user_id: string | null;
   role: 'user' | 'system';
   content: string;
+  reply_to_message_id?: string | null;
   attachments?: string[];
   metadata?: Record<string, unknown>;
 }
@@ -73,6 +75,7 @@ interface PersistOptions {
   content: string;
   attachments: string[];
   metadata: Record<string, unknown> | null;
+  replyToMessageId?: string | null;
   userId: string | null;
   role: 'user' | 'system';
 }
@@ -114,6 +117,13 @@ export class ChatRoom {
         return new Response('Method not allowed', { status: 405 });
       }
       return this.handleInternalMessage(request);
+    }
+
+    if (url.pathname === '/internal/reaction') {
+      if (request.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405 });
+      }
+      return this.handleInternalReaction(request);
     }
 
     const conversationId = this.extractConversationId(url);
@@ -334,6 +344,8 @@ export class ChatRoom {
       return;
     }
 
+    const replyToMessageId = this.readString(frame.data.reply_to_message_id);
+
     const payloadMetadata = this.withAttachments(metadata, attachments);
     if (payloadMetadata) {
       const metadataBytes = this.encoder.encode(JSON.stringify(payloadMetadata)).length;
@@ -349,6 +361,7 @@ export class ChatRoom {
       content,
       attachments,
       metadata: payloadMetadata,
+      replyToMessageId,
       userId: attachment.userId,
       role: 'user'
     });
@@ -540,6 +553,8 @@ export class ChatRoom {
       return new Response('metadata invalid', { status: 400 });
     }
 
+    const replyToMessageId = this.readString(payload.reply_to_message_id);
+
     const payloadMetadata = this.withAttachments(metadata, attachments);
     if (payloadMetadata) {
       const metadataBytes = this.encoder.encode(JSON.stringify(payloadMetadata)).length;
@@ -557,6 +572,7 @@ export class ChatRoom {
       content,
       attachments,
       metadata: payloadMetadata,
+      replyToMessageId,
       userId,
       role: roleValue
     });
@@ -582,20 +598,31 @@ export class ChatRoom {
     });
   }
 
-  private async persistMessage(options: PersistOptions): Promise<PersistResult> {
-    const { conversationId, clientId, content, attachments, metadata, userId, role } = options;
+  private async persistMessage(options: PersistOptions, attempt = 0): Promise<PersistResult> {
+    const {
+      conversationId,
+      clientId,
+      content,
+      attachments,
+      metadata,
+      replyToMessageId,
+      userId,
+      role
+    } = options;
 
     await this.sweepPending(conversationId);
 
     const contentHash = await this.hashString(content);
     const attachmentsHash = await this.hashString(JSON.stringify([...attachments].sort()));
+    const replyHash = await this.hashString(replyToMessageId ?? '');
     const pendingKey = this.pendingKey(conversationId, clientId);
 
     const pending = await this.ensurePendingRecord(
       conversationId,
       pendingKey,
       contentHash,
-      attachmentsHash
+      attachmentsHash,
+      replyHash
     );
     if (!pending) {
       return {
@@ -606,7 +633,14 @@ export class ChatRoom {
       };
     }
 
-    if (pending.content_hash !== contentHash || pending.attachments_hash !== attachmentsHash) {
+    const pendingReplyHash = typeof pending.reply_hash === 'string'
+      ? pending.reply_hash
+      : await this.hashString('');
+    if (
+      pending.content_hash !== contentHash ||
+      pending.attachments_hash !== attachmentsHash ||
+      pendingReplyHash !== replyHash
+    ) {
       return {
         kind: 'error',
         code: 'invalid_payload',
@@ -625,6 +659,23 @@ export class ChatRoom {
       };
     }
 
+    if (replyToMessageId) {
+      const replyRecord = await this.env.DB.prepare(`
+        SELECT 1
+        FROM chat_messages
+        WHERE id = ? AND conversation_id = ?
+      `).bind(replyToMessageId, conversationId).first();
+
+      if (!replyRecord) {
+        return {
+          kind: 'error',
+          code: 'invalid_payload',
+          message: 'reply_to_message_id invalid',
+          closeCode: 4400
+        };
+      }
+    }
+
     const serverTs = new Date().toISOString();
     const messageId = crypto.randomUUID();
     const metadataJson = metadata ? JSON.stringify(metadata) : null;
@@ -639,13 +690,14 @@ export class ChatRoom {
             user_id,
             role,
             content,
+            reply_to_message_id,
             metadata,
             token_count,
             created_at,
             seq,
             client_id,
             server_ts
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           messageId,
           conversationId,
@@ -653,6 +705,7 @@ export class ChatRoom {
           userId,
           role,
           content,
+          replyToMessageId ?? null,
           metadataJson,
           null,
           serverTs,
@@ -688,6 +741,20 @@ export class ChatRoom {
         };
       }
 
+      if (this.isSeqConstraintError(error) && attempt < 1) {
+        const latestSeq = await this.fetchLatestSeq(conversationId);
+        if (latestSeq !== null) {
+          await this.state.storage.put('seq', latestSeq);
+        }
+        await this.state.storage.delete(pendingKey);
+        return this.persistMessage(options, attempt + 1);
+      }
+
+      console.error('[ChatRoom] Message persistence failed', {
+        conversationId,
+        clientId,
+        error
+      });
       return {
         kind: 'error',
         code: 'internal_error',
@@ -706,6 +773,7 @@ export class ChatRoom {
       user_id: userId,
       role,
       content,
+      ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
       ...(attachments.length > 0 ? { attachments } : {}),
       ...(metadata ? { metadata } : {})
     };
@@ -1094,7 +1162,8 @@ export class ChatRoom {
     conversationId: string,
     key: string,
     contentHash: string,
-    attachmentsHash: string
+    attachmentsHash: string,
+    replyHash: string
   ): Promise<PendingRecord | null> {
     const initialized = await this.ensureSeqInitialized(conversationId);
     if (!initialized) {
@@ -1117,6 +1186,7 @@ export class ChatRoom {
       pending = {
         content_hash: contentHash,
         attachments_hash: attachmentsHash,
+        reply_hash: replyHash,
         allocated_seq: next,
         allocated_at: new Date().toISOString()
       };
@@ -1229,6 +1299,16 @@ export class ChatRoom {
       error.message.includes('client_id');
   }
 
+  private isSeqConstraintError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+    return error.message.includes('UNIQUE') &&
+      error.message.includes('chat_messages') &&
+      (error.message.includes('conversation_id') || error.message.includes('conversation')) &&
+      (error.message.includes('seq') || error.message.includes('uq_chat_messages_conv_seq'));
+  }
+
   private async fetchExistingMessage(
     conversationId: string,
     clientId: string
@@ -1240,6 +1320,62 @@ export class ChatRoom {
     `).bind(conversationId, clientId).first<ExistingMessageRecord | null>();
 
     return record ?? null;
+  }
+
+  private async handleInternalReaction(request: Request): Promise<Response> {
+    let payload: Record<string, unknown>;
+    try {
+      payload = await request.json() as Record<string, unknown>;
+    } catch {
+      return new Response('Invalid JSON', { status: 400 });
+    }
+
+    const conversationId = this.readString(payload.conversation_id) ?? this.conversationId;
+    if (!conversationId) {
+      return new Response('conversation_id required', { status: 400 });
+    }
+    if (this.conversationId && conversationId !== this.conversationId) {
+      return new Response('conversation_id mismatch', { status: 400 });
+    }
+
+    const messageId = this.readString(payload.message_id);
+    if (!messageId) {
+      return new Response('message_id required', { status: 400 });
+    }
+
+    const emoji = this.readString(payload.emoji);
+    if (!emoji) {
+      return new Response('emoji required', { status: 400 });
+    }
+
+    const action = this.readString(payload.action);
+    if (action !== 'add' && action !== 'remove') {
+      return new Response('action must be add or remove', { status: 400 });
+    }
+
+    const userId = this.readString(payload.user_id);
+    if (!userId) {
+      return new Response('user_id required', { status: 400 });
+    }
+
+    const count = this.readNumber(payload.count);
+
+    const data: Record<string, unknown> = {
+      conversation_id: conversationId,
+      message_id: messageId,
+      emoji,
+      user_id: userId,
+      action
+    };
+    if (count !== null) {
+      data.count = count;
+    }
+
+    this.broadcastFrame('reaction.update', data);
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   private broadcastFrame(type: string, data: Record<string, unknown>): void {

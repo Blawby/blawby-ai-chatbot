@@ -79,12 +79,19 @@ export interface ConversationMessage {
   user_id: string; // Sender of the message
   role: MessageRole;
   content: string;
+  reply_to_message_id?: string | null;
   metadata: Record<string, unknown> | null;
   client_id: string;
   seq: number;
   server_ts: string;
   token_count: number | null;
   created_at: string; // ISO timestamp
+}
+
+export interface MessageReactionSummary {
+  emoji: string;
+  count: number;
+  reacted_by_me: boolean;
 }
 
 /**
@@ -135,6 +142,7 @@ export interface SendMessageRequest {
   content: string;
   attachments?: string[]; // Array of file IDs
   metadata?: Record<string, unknown>;
+  reply_to_message_id?: string | null;
 }
 
 /**

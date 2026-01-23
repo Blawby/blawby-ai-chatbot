@@ -1,12 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { ChatMessageUI, FileAttachment } from '../../../worker/types';
+import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl, fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
-import { updateConversationMetadata as patchConversationMetadata } from '@/shared/lib/conversationApi';
+import {
+  updateConversationMetadata as patchConversationMetadata,
+  fetchMessageReactions,
+  addMessageReaction,
+  removeMessageReaction
+} from '@/shared/lib/conversationApi';
 
 // Global interface for window API base override and debug properties
 declare global {
@@ -31,6 +36,7 @@ const CHAT_PROTOCOL_VERSION = 1;
 const SOCKET_READY_TIMEOUT_MS = 8000;
 const SESSION_READY_TIMEOUT_MS = 8000;
 const GAP_FETCH_LIMIT = 50;
+const MESSAGE_CACHE_LIMIT = 200;
 
 const createClientId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -38,6 +44,12 @@ const createClientId = (): string => {
   }
   return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
+
+const isTempMessageId = (messageId: string): boolean => messageId.startsWith('temp-');
+
+const getMessageCacheKey = (practiceId: string, conversationId: string): string => (
+  `chat:messages:${practiceId}:${conversationId}`
+);
 
 /**
  * Hook that uses blawby-ai practice for all message handling
@@ -95,6 +107,8 @@ export const useMessageHandling = ({
   const lastSeqRef = useRef(0);
   const lastReadSeqRef = useRef(0);
   const messageIdSetRef = useRef(new Set<string>());
+  const reactionFetchRef = useRef(new Map<string, Promise<MessageReaction[]>>());
+  const reactionLoadedRef = useRef(new Set<string>());
   const pendingAckRef = useRef(new Map<string, {
     resolve: (ack: { messageId: string; seq: number; serverTs: string; clientId: string }) => void;
     reject: (error: Error) => void;
@@ -176,6 +190,8 @@ export const useMessageHandling = ({
     pendingClientMessageRef.current.clear();
     lastSeqRef.current = 0;
     lastReadSeqRef.current = 0;
+    reactionLoadedRef.current.clear();
+    reactionFetchRef.current.clear();
   }, []);
 
   const waitForSocketReady = useCallback(async () => {
@@ -327,6 +343,7 @@ export const useMessageHandling = ({
       id: msg.id,
       role: normalizedRole,
       content: msg.content,
+      reply_to_message_id: msg.reply_to_message_id ?? null,
       timestamp: new Date(msg.created_at).getTime(),
       metadata: msg.metadata || undefined,
       userId: senderId,
@@ -394,7 +411,8 @@ export const useMessageHandling = ({
           }
           return {
             ...replacement,
-            files: replacement.files ?? message.files
+            files: replacement.files ?? message.files,
+            reactions: replacement.reactions ?? message.reactions
           } as ChatMessageUI;
         });
       } else {
@@ -466,6 +484,9 @@ export const useMessageHandling = ({
       return;
     }
 
+    const replyToMessageId = typeof data.reply_to_message_id === 'string'
+      ? data.reply_to_message_id
+      : null;
     const practiceIdValue = practiceIdRef.current ?? '';
     const metadata = typeof data.metadata === 'object' && data.metadata !== null && !Array.isArray(data.metadata)
       ? data.metadata as Record<string, unknown>
@@ -481,6 +502,7 @@ export const useMessageHandling = ({
       user_id: typeof data.user_id === 'string' ? data.user_id : '',
       role: role === 'assistant' ? 'assistant' : role === 'system' ? 'system' : 'user',
       content,
+      reply_to_message_id: replyToMessageId,
       metadata: metadata ?? (attachments.length > 0 ? { attachments } : null),
       client_id: clientId,
       seq: seqValue,
@@ -491,6 +513,114 @@ export const useMessageHandling = ({
 
     applyServerMessages([message]);
   }, [applyServerMessages]);
+
+  const updateMessageReactions = useCallback((messageId: string, reactions: MessageReaction[]) => {
+    setMessages(prev => prev.map(message => (
+      message.id === messageId
+        ? { ...message, reactions } as ChatMessageUI
+        : message
+    )));
+  }, []);
+
+  const getOptimisticReactions = useCallback((
+    reactions: MessageReaction[],
+    emoji: string,
+    shouldAdd: boolean
+  ): MessageReaction[] => {
+    const next = [...reactions];
+    const index = next.findIndex((reaction) => reaction.emoji === emoji);
+    if (index === -1 && shouldAdd) {
+      next.push({ emoji, count: 1, reactedByMe: true });
+      return next;
+    }
+    if (index === -1) {
+      return next;
+    }
+    const current = next[index];
+    const nextCount = Math.max(0, (current.count ?? 0) + (shouldAdd ? 1 : -1));
+    if (!shouldAdd && nextCount === 0) {
+      next.splice(index, 1);
+      return next;
+    }
+    next[index] = {
+      ...current,
+      count: nextCount,
+      reactedByMe: shouldAdd
+    };
+    return next;
+  }, []);
+
+  const handleReactionUpdate = useCallback((data: Record<string, unknown>) => {
+    const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
+    const activeConversationId = conversationIdRef.current;
+    if (!conversationIdValue || conversationIdValue !== activeConversationId) {
+      return;
+    }
+
+    const messageId = typeof data.message_id === 'string' ? data.message_id : null;
+    const emoji = typeof data.emoji === 'string' ? data.emoji : null;
+    const action = typeof data.action === 'string' ? data.action : null;
+    const actorId = typeof data.user_id === 'string' ? data.user_id : null;
+    const countValue = typeof data.count === 'number' ? data.count : Number(data.count);
+    const count = Number.isFinite(countValue) ? countValue : null;
+
+    if (!messageId || !emoji || (action !== 'add' && action !== 'remove')) {
+      return;
+    }
+
+    reactionLoadedRef.current.add(messageId);
+
+    setMessages(prev => {
+      let changed = false;
+      const next = prev.map(message => {
+        if (message.id !== messageId) {
+          return message;
+        }
+        const existing = message.reactions ?? [];
+        const index = existing.findIndex(reaction => reaction.emoji === emoji);
+        const current = index >= 0 ? existing[index] : null;
+        const shouldReact = action === 'add';
+        const reactedByMe = actorId && currentUserId
+          ? actorId === currentUserId
+            ? shouldReact
+            : current?.reactedByMe ?? false
+          : current?.reactedByMe ?? false;
+
+        const nextCount = count !== null
+          ? Math.max(0, count)
+          : Math.max(0, (current?.count ?? 0) + (shouldReact ? 1 : -1));
+
+        if (!current && !shouldReact) {
+          return message;
+        }
+
+        let updated = existing;
+        if (nextCount <= 0) {
+          if (index === -1) {
+            return message;
+          }
+          updated = existing.filter((reaction) => reaction.emoji !== emoji);
+        } else if (index === -1) {
+          updated = [...existing, { emoji, count: nextCount, reactedByMe }];
+        } else {
+          updated = existing.map((reaction, reactionIndex) => (
+            reactionIndex === index
+              ? { ...reaction, count: nextCount, reactedByMe }
+              : reaction
+          ));
+        }
+
+        if (updated === existing) {
+          return message;
+        }
+
+        changed = true;
+        return { ...message, reactions: updated } as ChatMessageUI;
+      });
+
+      return changed ? next : prev;
+    });
+  }, [currentUserId]);
 
   const fetchGapMessages = useCallback(async (fromSeq: number, latestSeq: number) => {
     const activeConversationId = conversationIdRef.current;
@@ -697,6 +827,9 @@ export const useMessageHandling = ({
         case 'message.ack':
           handleMessageAck(frame.data);
           return;
+        case 'reaction.update':
+          handleReactionUpdate(frame.data);
+          return;
         case 'error': {
           const message = typeof frame.data.message === 'string' ? frame.data.message : 'Chat error';
           const requestId = typeof frame.request_id === 'string' ? frame.request_id : null;
@@ -742,6 +875,7 @@ export const useMessageHandling = ({
     flushPendingAcks,
     handleMessageAck,
     handleMessageNew,
+    handleReactionUpdate,
     initSocketReadyPromise,
     onError,
     rejectSocketReady,
@@ -770,7 +904,8 @@ export const useMessageHandling = ({
   const sendMessageOverWs = useCallback(async (
     content: string,
     attachments: FileAttachment[],
-    metadata?: Record<string, unknown> | null
+    metadata?: Record<string, unknown> | null,
+    replyToMessageId?: string | null
   ) => {
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
     const activeConversationId = conversationIdRef.current;
@@ -793,6 +928,7 @@ export const useMessageHandling = ({
       role: 'user',
       timestamp: Date.now(),
       userId: currentUserId,
+      reply_to_message_id: replyToMessageId ?? null,
       metadata: metadata ?? undefined,
       files: attachments
     };
@@ -818,6 +954,7 @@ export const useMessageHandling = ({
           conversation_id: activeConversationId,
           client_id: clientId,
           content,
+          ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
           ...(attachmentIds.length > 0 ? { attachments: attachmentIds } : {}),
           ...(metadata ? { metadata } : {})
         },
@@ -838,7 +975,11 @@ export const useMessageHandling = ({
   }, [currentUserId, sendFrame, waitForSessionReady, waitForSocketReady]);
 
   // Main message sending function
-  const sendMessage = useCallback(async (message: string, attachments: FileAttachment[] = []) => {
+  const sendMessage = useCallback(async (
+    message: string,
+    attachments: FileAttachment[] = [],
+    replyToMessageId?: string | null
+  ) => {
     // Debug hook for test environment (development only)
     if (import.meta.env.MODE !== 'production' && typeof window !== 'undefined' && window.__DEBUG_SEND_MESSAGE__) {
       window.__DEBUG_SEND_MESSAGE__(message, attachments);
@@ -849,7 +990,7 @@ export const useMessageHandling = ({
     const trimmedMessage = message.trim();
 
     try {
-      await sendMessageOverWs(message, attachments);
+      await sendMessageOverWs(message, attachments, undefined, replyToMessageId ?? null);
 
       if (!shouldUseAi || trimmedMessage.length === 0) {
         return;
@@ -1092,7 +1233,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       await sendMessageOverWs(contactMessage, [], {
         // Mark this as a contact form submission without storing PII in metadata
         isContactFormSubmission: true
-      });
+      }, null);
 
       // Show success feedback
       if (import.meta.env.DEV) {
@@ -1209,6 +1350,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   // Clear all messages
   const clearMessages = useCallback(() => {
     resetRealtimeState();
+    reactionFetchRef.current.clear();
+    reactionLoadedRef.current.clear();
     setMessages([]);
     setHasMoreMessages(false);
     setNextCursor(null);
@@ -1323,6 +1466,96 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     }
   }, [fetchMessages, isLoadingMoreMessages, nextCursor]);
 
+  const requestMessageReactions = useCallback(async (messageId: string) => {
+    const conversationIdValue = conversationIdRef.current;
+    const practiceContextId = (practiceIdRef.current ?? '').trim();
+    const practiceSlugValue = (practiceSlug ?? '').trim();
+    const effectivePracticeId = practiceContextId || practiceSlugValue;
+    if (!conversationIdValue || !effectivePracticeId) {
+      return null;
+    }
+    if (isTempMessageId(messageId)) {
+      return null;
+    }
+    if (reactionLoadedRef.current.has(messageId)) {
+      return null;
+    }
+
+    const existingRequest = reactionFetchRef.current.get(messageId);
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const requestPromise = fetchMessageReactions(
+      conversationIdValue,
+      messageId,
+      effectivePracticeId,
+      practiceSlugValue
+    ).then((reactions) => {
+      updateMessageReactions(messageId, reactions);
+      reactionLoadedRef.current.add(messageId);
+      return reactions;
+    }).catch((error) => {
+      if (import.meta.env.DEV) {
+        console.warn('[useMessageHandling] Failed to fetch reactions', error);
+      }
+      reactionLoadedRef.current.delete(messageId);
+      return null;
+    }).finally(() => {
+      reactionFetchRef.current.delete(messageId);
+    });
+
+    reactionFetchRef.current.set(messageId, requestPromise);
+    return requestPromise;
+  }, [practiceSlug, updateMessageReactions]);
+
+  const toggleMessageReaction = useCallback(async (messageId: string, emoji: string) => {
+    const conversationIdValue = conversationIdRef.current;
+    const practiceContextId = (practiceIdRef.current ?? '').trim();
+    const practiceSlugValue = (practiceSlug ?? '').trim();
+    const effectivePracticeId = practiceContextId || practiceSlugValue;
+    if (!conversationIdValue || !effectivePracticeId) {
+      return;
+    }
+    if (isTempMessageId(messageId)) {
+      return;
+    }
+
+    const currentMessage = messages.find((message) => message.id === messageId);
+    const existingReactions = currentMessage?.reactions ?? [];
+    const existingReaction = existingReactions.find((reaction) => reaction.emoji === emoji);
+    const hasReacted = existingReaction?.reactedByMe ?? false;
+    const optimisticReactions = getOptimisticReactions(existingReactions, emoji, !hasReacted);
+    updateMessageReactions(messageId, optimisticReactions);
+    reactionLoadedRef.current.add(messageId);
+
+    try {
+      const nextReactions = hasReacted
+        ? await removeMessageReaction(
+          conversationIdValue,
+          messageId,
+          effectivePracticeId,
+          emoji,
+          practiceSlugValue
+        )
+        : await addMessageReaction(
+          conversationIdValue,
+          messageId,
+          effectivePracticeId,
+          emoji,
+          practiceSlugValue
+        );
+      updateMessageReactions(messageId, nextReactions);
+      reactionLoadedRef.current.add(messageId);
+    } catch (error) {
+      updateMessageReactions(messageId, existingReactions);
+      if (import.meta.env.DEV) {
+        console.warn('[useMessageHandling] Failed to update reaction', error);
+      }
+      onError?.('Failed to update reaction.');
+    }
+  }, [getOptimisticReactions, messages, onError, practiceSlug, updateMessageReactions]);
+
   const startConsultFlow = useCallback((targetConversationId?: string) => {
     if (!sessionReady) {
       return;
@@ -1385,6 +1618,54 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   useEffect(() => {
     intentAbortRef.current?.abort();
   }, [conversationId, practiceId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (!conversationId || !practiceId) {
+      return;
+    }
+    const cacheKey = getMessageCacheKey(practiceId, conversationId);
+    try {
+      const raw = window.localStorage.getItem(cacheKey);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as ChatMessageUI[];
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return;
+      }
+      messageIdSetRef.current = new Set(parsed.map((message) => message.id));
+      setMessages(parsed);
+      setMessagesReady(true);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[useMessageHandling] Failed to load cached messages', error);
+      }
+    }
+  }, [conversationId, practiceId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (!conversationId || !practiceId) {
+      return;
+    }
+    if (messages.length === 0) {
+      return;
+    }
+    const cacheKey = getMessageCacheKey(practiceId, conversationId);
+    const trimmed = messages.slice(-MESSAGE_CACHE_LIMIT);
+    try {
+      window.localStorage.setItem(cacheKey, JSON.stringify(trimmed));
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[useMessageHandling] Failed to cache messages', error);
+      }
+    }
+  }, [conversationId, messages, practiceId]);
 
   // Clear UI state when switching to a different conversation to avoid showing stale messages
   useEffect(() => {
@@ -1719,6 +2000,8 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     hasMoreMessages,
     isLoadingMoreMessages,
     loadMoreMessages,
+    requestMessageReactions,
+    toggleMessageReaction,
     intakeStatus: {
       step: currentStep,
       decision: intakeDecision

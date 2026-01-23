@@ -4,7 +4,7 @@ import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 interface MessageAvatarProps {
 	src?: string | null;
 	name: string;
-	size?: 'sm' | 'md' | 'lg';
+	size?: 'xs' | 'sm' | 'md' | 'lg';
 	className?: string;
 }
 

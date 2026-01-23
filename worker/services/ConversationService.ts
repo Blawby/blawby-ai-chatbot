@@ -39,6 +39,7 @@ export interface ConversationMessage {
   user_id: string | null;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  reply_to_message_id?: string | null;
   metadata: Record<string, unknown> | null;
   client_id: string;
   seq: number;
@@ -77,6 +78,7 @@ export class ConversationService {
 
   private static readonly MAX_SYSTEM_MESSAGE_LENGTH = 4000;
   private static readonly MAX_METADATA_BYTES = 8 * 1024;
+  private static readonly MAX_REACTION_EMOJI_LENGTH = 64;
 
   /**
    * Create a new conversation
@@ -801,6 +803,7 @@ export class ConversationService {
     content: string;
     role?: 'user' | 'assistant' | 'system';
     metadata?: Record<string, unknown>;
+    replyToMessageId?: string | null;
     request?: Request;
   }): Promise<ConversationMessage> {
     // Validate practice exists in remote API to prevent orphaned records
@@ -838,6 +841,7 @@ export class ConversationService {
       role,
       content: options.content,
       metadata: options.metadata,
+      replyToMessageId: options.replyToMessageId ?? null,
       clientId: crypto.randomUUID()
     });
 
@@ -853,6 +857,7 @@ export class ConversationService {
     content: string;
     role?: 'system';
     metadata?: Record<string, unknown>;
+    replyToMessageId?: string | null;
     recipientUserId?: string;
     auditEventType?: string;
     auditActorType?: 'user' | 'lawyer' | 'system';
@@ -919,6 +924,7 @@ export class ConversationService {
       role,
       content: trimmedContent,
       metadata: metadata ?? undefined,
+      replyToMessageId: options.replyToMessageId ?? null,
       clientId: crypto.randomUUID()
     });
 
@@ -973,21 +979,26 @@ export class ConversationService {
     role: 'user' | 'system';
     content: string;
     metadata?: Record<string, unknown>;
+    replyToMessageId?: string | null;
     clientId: string;
   }): Promise<{ messageId: string; seq: number; serverTs: string }> {
     const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(options.conversationId));
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const payload: Record<string, unknown> = {
+      conversation_id: options.conversationId,
+      user_id: options.userId,
+      role: options.role,
+      content: options.content,
+      metadata: options.metadata ?? null,
+      client_id: options.clientId
+    };
+    if (options.replyToMessageId) {
+      payload.reply_to_message_id = options.replyToMessageId;
+    }
     const response = await stub.fetch('https://chat-room/internal/message', {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        conversation_id: options.conversationId,
-        user_id: options.userId,
-        role: options.role,
-        content: options.content,
-        metadata: options.metadata ?? null,
-        client_id: options.clientId
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -995,7 +1006,7 @@ export class ConversationService {
       throw HttpErrors.internalServerError(`ChatRoom message failed: ${text}`);
     }
 
-    const payload = await response.json().catch(() => null) as {
+    const responsePayload = await response.json().catch(() => null) as {
       data?: {
         message_id?: string;
         seq?: number;
@@ -1003,14 +1014,14 @@ export class ConversationService {
       };
     } | null;
 
-    if (!payload?.data?.message_id || payload.data.seq === undefined || !payload.data.server_ts) {
+    if (!responsePayload?.data?.message_id || responsePayload.data.seq === undefined || !responsePayload.data.server_ts) {
       throw HttpErrors.internalServerError('ChatRoom message response invalid');
     }
 
     return {
-      messageId: payload.data.message_id,
-      seq: payload.data.seq,
-      serverTs: payload.data.server_ts
+      messageId: responsePayload.data.message_id,
+      seq: responsePayload.data.seq,
+      serverTs: responsePayload.data.server_ts
     };
   }
 
@@ -1026,6 +1037,7 @@ export class ConversationService {
         user_id,
         role,
         content,
+        reply_to_message_id,
         metadata,
         client_id,
         seq,
@@ -1041,6 +1053,7 @@ export class ConversationService {
       user_id: string | null;
       role: string;
       content: string;
+      reply_to_message_id: string | null;
       metadata: string | null;
       client_id: string;
       seq: number;
@@ -1060,6 +1073,7 @@ export class ConversationService {
       user_id: record.user_id,
       role: record.role as ConversationMessage['role'],
       content: record.content,
+      reply_to_message_id: record.reply_to_message_id ?? null,
       metadata: record.metadata ? JSON.parse(record.metadata) : null,
       client_id: record.client_id,
       seq: record.seq,
@@ -1067,6 +1081,78 @@ export class ConversationService {
       token_count: record.token_count,
       created_at: record.created_at
     };
+  }
+
+  async getMessageReactions(options: {
+    conversationId: string;
+    practiceId: string;
+    messageId: string;
+    viewerId?: string | null;
+  }): Promise<{ messageId: string; reactions: Array<{ emoji: string; count: number; reacted_by_me: boolean }> }> {
+    await this.ensureMessageBelongsToConversation(options.conversationId, options.practiceId, options.messageId);
+    const reactions = await this.fetchReactionSummary(options.messageId, options.viewerId ?? null);
+    return { messageId: options.messageId, reactions };
+  }
+
+  async addMessageReaction(options: {
+    conversationId: string;
+    practiceId: string;
+    messageId: string;
+    userId: string;
+    emoji: string;
+  }): Promise<{ messageId: string; reactions: Array<{ emoji: string; count: number; reacted_by_me: boolean }> }> {
+    const emoji = this.normalizeReactionEmoji(options.emoji);
+    await this.ensureMessageBelongsToConversation(options.conversationId, options.practiceId, options.messageId);
+
+    const now = new Date().toISOString();
+    await this.env.DB.prepare(`
+      INSERT INTO chat_message_reactions (message_id, user_id, emoji, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(message_id, user_id, emoji)
+      DO UPDATE SET updated_at = excluded.updated_at
+    `).bind(options.messageId, options.userId, emoji, now, now).run();
+
+    const reactions = await this.fetchReactionSummary(options.messageId, options.userId);
+    const emojiCount = reactions.find((reaction) => reaction.emoji === emoji)?.count ?? 0;
+    await this.notifyReactionChanged({
+      conversationId: options.conversationId,
+      messageId: options.messageId,
+      emoji,
+      userId: options.userId,
+      action: 'add',
+      count: emojiCount
+    });
+
+    return { messageId: options.messageId, reactions };
+  }
+
+  async removeMessageReaction(options: {
+    conversationId: string;
+    practiceId: string;
+    messageId: string;
+    userId: string;
+    emoji: string;
+  }): Promise<{ messageId: string; reactions: Array<{ emoji: string; count: number; reacted_by_me: boolean }> }> {
+    const emoji = this.normalizeReactionEmoji(options.emoji);
+    await this.ensureMessageBelongsToConversation(options.conversationId, options.practiceId, options.messageId);
+
+    await this.env.DB.prepare(`
+      DELETE FROM chat_message_reactions
+      WHERE message_id = ? AND user_id = ? AND emoji = ?
+    `).bind(options.messageId, options.userId, emoji).run();
+
+    const reactions = await this.fetchReactionSummary(options.messageId, options.userId);
+    const emojiCount = reactions.find((reaction) => reaction.emoji === emoji)?.count ?? 0;
+    await this.notifyReactionChanged({
+      conversationId: options.conversationId,
+      messageId: options.messageId,
+      emoji,
+      userId: options.userId,
+      action: 'remove',
+      count: emojiCount
+    });
+
+    return { messageId: options.messageId, reactions };
   }
 
   /**
@@ -1106,6 +1192,7 @@ export class ConversationService {
           user_id,
           role,
           content,
+          reply_to_message_id,
           metadata,
           client_id,
           seq,
@@ -1128,6 +1215,7 @@ export class ConversationService {
         user_id: string | null;
         role: string;
         content: string;
+        reply_to_message_id: string | null;
         metadata: string | null;
         client_id: string;
         seq: number;
@@ -1143,6 +1231,7 @@ export class ConversationService {
         user_id: record.user_id,
         role: record.role as ConversationMessage['role'],
         content: record.content,
+        reply_to_message_id: record.reply_to_message_id ?? null,
         metadata: record.metadata ? JSON.parse(record.metadata) : null,
         client_id: record.client_id,
         seq: record.seq,
@@ -1175,6 +1264,7 @@ export class ConversationService {
         user_id,
         role,
         content,
+        reply_to_message_id,
         metadata,
         client_id,
         seq,
@@ -1202,6 +1292,7 @@ export class ConversationService {
       user_id: string | null;
       role: string;
       content: string;
+      reply_to_message_id: string | null;
       metadata: string | null;
       client_id: string;
       seq: number;
@@ -1218,6 +1309,7 @@ export class ConversationService {
       user_id: record.user_id,
       role: record.role as ConversationMessage['role'],
       content: record.content,
+      reply_to_message_id: record.reply_to_message_id ?? null,
       metadata: record.metadata ? JSON.parse(record.metadata) : null,
       client_id: record.client_id,
       seq: record.seq,
@@ -1443,6 +1535,99 @@ export class ConversationService {
       SET last_message_at = ?, updated_at = ?
       WHERE id = ? AND practice_id = ?
     `).bind(now, now, conversationId, practiceId).run();
+  }
+
+  private normalizeReactionEmoji(raw: string): string {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      throw HttpErrors.badRequest('emoji is required');
+    }
+    if (trimmed.length > ConversationService.MAX_REACTION_EMOJI_LENGTH) {
+      throw HttpErrors.badRequest('emoji is too long');
+    }
+    return trimmed;
+  }
+
+  private async ensureMessageBelongsToConversation(
+    conversationId: string,
+    practiceId: string,
+    messageId: string
+  ): Promise<void> {
+    const record = await this.env.DB.prepare(`
+      SELECT 1
+      FROM chat_messages
+      WHERE id = ? AND conversation_id = ? AND practice_id = ?
+    `).bind(messageId, conversationId, practiceId).first();
+
+    if (!record) {
+      throw HttpErrors.notFound('Message not found');
+    }
+  }
+
+  private async fetchReactionSummary(
+    messageId: string,
+    viewerId: string | null
+  ): Promise<Array<{ emoji: string; count: number; reacted_by_me: boolean }>> {
+    const viewer = viewerId ?? '';
+    const records = await this.env.DB.prepare(`
+      SELECT
+        emoji,
+        COUNT(*) as count,
+        SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) as reacted_by_me
+      FROM chat_message_reactions
+      WHERE message_id = ?
+      GROUP BY emoji
+      ORDER BY emoji COLLATE NOCASE
+    `).bind(viewer, messageId).all<{
+      emoji: string;
+      count: number;
+      reacted_by_me: number;
+    }>();
+
+    return records.results.map((record) => ({
+      emoji: record.emoji,
+      count: Number(record.count) || 0,
+      reacted_by_me: Number(record.reacted_by_me) > 0
+    }));
+  }
+
+  private async notifyReactionChanged(options: {
+    conversationId: string;
+    messageId: string;
+    emoji: string;
+    userId: string;
+    action: 'add' | 'remove';
+    count: number;
+  }): Promise<void> {
+    if (!this.env.CHAT_ROOM) {
+      return;
+    }
+
+    try {
+      const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(options.conversationId));
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      await stub.fetch('https://chat-room/internal/reaction', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          conversation_id: options.conversationId,
+          message_id: options.messageId,
+          emoji: options.emoji,
+          user_id: options.userId,
+          action: options.action,
+          count: options.count
+        })
+      });
+    } catch (error) {
+      Logger.warn('Failed to notify ChatRoom reaction change', {
+        conversationId: options.conversationId,
+        messageId: options.messageId,
+        emoji: options.emoji,
+        userId: options.userId,
+        action: options.action,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 
   /**

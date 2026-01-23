@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
-import { FileAttachment } from '../../../../worker/types';
+import { FileAttachment, MessageReaction } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
@@ -9,6 +9,8 @@ import { MessageAvatar } from './MessageAvatar';
 import { MessageContent } from './MessageContent';
 import { MessageAttachments } from './MessageAttachments';
 import { MessageActions } from './MessageActions';
+import type { ReplyTarget } from '@/features/chat/types';
+import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 
 interface MessageProps {
 	content: string;
@@ -73,6 +75,11 @@ interface MessageProps {
 		status?: 'error' | 'retrying';
 		onRetry?: () => void;
 	};
+	replyPreview?: ReplyTarget;
+	reactions?: MessageReaction[];
+	onReplyPreviewClick?: () => void;
+	onReply?: () => void;
+	onToggleReaction?: (emoji: string) => void;
 	practiceConfig?: {
 		name: string;
 		profileImage: string | null;
@@ -109,6 +116,11 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onOpenPayment,
 	modeSelector,
 	assistantRetry,
+	replyPreview,
+	reactions = [],
+	onReplyPreviewClick,
+	onReply,
+	onToggleReaction,
 	isLoading,
 	toolMessage,
 	id: _id,
@@ -135,17 +147,51 @@ const Message: FunctionComponent<MessageProps> = memo(({
 
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
+	const quickReactions = ['👍', '👀', '😂', '❤️'];
+	const showActions = Boolean(onReply || onToggleReaction);
+	const hasReactions = reactions.length > 0;
+	const hasReplyPreview = Boolean(replyPreview);
 
 	return (
-		<div className={`flex items-start gap-3 px-3 py-2 mb-2 last:mb-0 rounded-md transition-colors duration-150 hover:bg-white/5 ${className}`}>
+		<div
+			id={_id ? `message-${_id}` : undefined}
+			data-message-id={_id}
+			className={`group relative flex items-start gap-3 px-3 py-2 mb-2 last:mb-0 rounded-md transition-colors duration-150 hover:bg-white/5 ${className}`}
+		>
 			{/* Avatar */}
 			{messageAvatar && (
 				<MessageAvatar
 					src={messageAvatar.src}
 					name={messageAvatar.name}
 					size={avatarSize}
-					className="flex-shrink-0"
+					className={`flex-shrink-0 ${hasReplyPreview ? 'mt-4' : ''}`}
 				/>
+			)}
+
+			{showActions && (
+				<div className="absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100">
+					{onToggleReaction && quickReactions.map((emoji) => (
+						<button
+							key={emoji}
+							type="button"
+							className="flex h-6 w-6 items-center justify-center rounded text-sm text-gray-200 transition hover:bg-white/10"
+							aria-label={`React with ${emoji}`}
+							onClick={() => onToggleReaction(emoji)}
+						>
+							{emoji}
+						</button>
+					))}
+					{onReply && (
+						<button
+							type="button"
+							className="flex h-6 w-6 items-center justify-center rounded text-gray-200 transition hover:bg-white/10"
+							aria-label="Reply to message"
+							onClick={onReply}
+						>
+							<ArrowUturnLeftIcon className="h-4 w-4" />
+						</button>
+					)}
+				</div>
 			)}
 			
 			{/* Message Bubble */}
@@ -154,14 +200,37 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				variant={variant}
 				hasOnlyMedia={hasOnlyMedia}
 			>
+				{replyPreview && (
+					<button
+						type="button"
+						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-gray-400 ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-gray-300' : 'cursor-default'}`}
+						onClick={onReplyPreviewClick}
+						aria-label="Jump to replied message"
+					>
+						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t-2 border-gray-600/70" />
+						{replyPreview.avatar && (
+							<MessageAvatar
+								src={replyPreview.avatar.src}
+								name={replyPreview.avatar.name}
+								size="xs"
+								className="flex-shrink-0 mt-0.5 relative z-10"
+							/>
+						)}
+						<span className="font-semibold text-gray-200">{replyPreview.authorName}</span>
+						<span className="truncate text-gray-500">
+							{replyPreview.isMissing ? 'Original message unavailable' : replyPreview.content}
+						</span>
+					</button>
+				)}
 				{showHeader && (
-					<div className="flex items-baseline gap-2 justify-start text-left">
+					<div className="mt-1 flex items-baseline gap-2 justify-start text-left">
 						<span className="text-base font-semibold text-gray-100 leading-none">
 							{authorName || messageAvatar?.name}
 						</span>
 						{formattedTime && <span className="text-xs font-normal text-gray-500">{formattedTime}</span>}
 					</div>
 				)}
+
 				{/* Content */}
 				{hasContent && (
 					<MessageContent
@@ -200,6 +269,27 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					<MessageAttachments
 						files={files}
 					/>
+				)}
+
+				{hasReactions && (
+					<div className="mt-2 flex flex-wrap gap-2">
+						{reactions.map((reaction) => (
+							<button
+								key={reaction.emoji}
+								type="button"
+								className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
+									reaction.reactedByMe
+										? 'border-blue-400/40 bg-blue-500/20 text-blue-100'
+										: 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
+								}`}
+								aria-label={`React with ${reaction.emoji}`}
+								onClick={() => onToggleReaction?.(reaction.emoji)}
+							>
+								<span className="text-sm">{reaction.emoji}</span>
+								<span className="text-xs text-gray-300">{reaction.count}</span>
+							</button>
+						))}
+					</div>
 				)}
 			</MessageBubble>
 		</div>

@@ -376,7 +376,7 @@ function PracticeAppRoute({
     practiceConfig,
     practiceNotFound,
     handleRetryPracticeConfig,
-    isLoading
+    isLoading: _isLoading
   } = usePracticeConfig({
     onError: handlePracticeError,
     practiceId: shouldDelayPracticeConfig ? '' : resolvedPracticeId,
@@ -421,7 +421,7 @@ function PracticeAppRoute({
     shouldDelayPracticeConfig
   ]);
 
-  if (isPending || practicesLoading || isLoading || shouldDelayPracticeConfig) {
+  if (isPending || practicesLoading || shouldDelayPracticeConfig) {
     return <LoadingScreen />;
   }
 
@@ -581,7 +581,7 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
     }
   }, [session?.user, practiceId, sessionIsPending]);
 
-  if (isLoading) {
+  if (isLoading && !practiceId) {
     return <LoadingScreen />;
   }
 

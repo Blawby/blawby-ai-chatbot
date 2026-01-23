@@ -5,12 +5,13 @@ import FileMenu from '@/features/media/components/FileMenu';
 import MediaControls from '@/features/media/components/MediaControls';
 import { FileDisplay } from '@/shared/ui/upload/organisms/FileDisplay';
 import { FileUploadStatus } from '@/shared/ui/upload/molecules/FileUploadStatus';
-import { ArrowUpIcon } from "@heroicons/react/24/outline";
+import { ArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { ConversationMode } from '@/shared/types/conversation';
+import type { ReplyTarget } from '@/features/chat/types';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -36,6 +37,8 @@ interface MessageComposerProps {
   disabled?: boolean;
   conversationMode?: ConversationMode | null;
   onRequestConsultation?: () => void;
+  replyTo?: ReplyTarget | null;
+  onCancelReply?: () => void;
 }
 
 const MessageComposer = ({
@@ -59,7 +62,9 @@ const MessageComposer = ({
   intakeStatus,
   disabled,
   conversationMode,
-  onRequestConsultation
+  onRequestConsultation,
+  replyTo,
+  onCancelReply
 }: MessageComposerProps) => {
   const { t } = useTranslation('auth');
   const intakeStep = intakeStatus?.step;
@@ -126,6 +131,22 @@ const MessageComposer = ({
       }}
     >
       <div className="message-composer-container">
+        {replyTo && (
+          <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-gray-100/80 px-4 py-1.5 text-sm text-gray-700 backdrop-blur-sm dark:bg-gray-800/70 dark:text-gray-200 -mx-2 -mt-1 border-b border-gray-300/60 dark:border-gray-700/60">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="text-gray-500 dark:text-gray-400">Replying to</span>
+              <span className="truncate font-semibold text-yellow-400">{replyTo.authorName}</span>
+            </div>
+            <button
+              type="button"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition hover:text-gray-200"
+              aria-label="Cancel reply"
+              onClick={onCancelReply}
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {/* Show all files (uploading + preview) in one horizontal container */}
         {(uploadingFiles.length > 0 || previewFiles.length > 0) && (
           <div className="message-composer-preview-container" role="list" aria-label="File attachments">

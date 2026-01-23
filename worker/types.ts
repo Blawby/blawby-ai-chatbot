@@ -201,7 +201,14 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  reply_to_message_id?: string | null;
   metadata?: Record<string, unknown>;
+}
+
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
 }
 
 export interface ChatSession {
@@ -471,6 +478,7 @@ export interface UIMessageExtras {
   // Sender ID for alignment and avatar selection in the UI.
   userId?: string | null;
   files?: FileAttachment[];
+  reactions?: MessageReaction[];
 
   matterCreation?: MatterCreationData;
   welcomeMessage?: WelcomeMessageData;

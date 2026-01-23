@@ -47,7 +47,7 @@ const getCloudflareGatewayBaseUrl = (env: AiClientEnv): string => {
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
-  return `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.CF_AIG_GATEWAY_NAME}/openai`;
+  return `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.CF_AIG_GATEWAY_NAME}/compat/v1`;
 };
 
 const getOpenAiHeaders = (env: AiClientEnv, includeGatewayAuth: boolean): Headers => {

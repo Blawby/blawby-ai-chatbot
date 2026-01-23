@@ -520,6 +520,9 @@ export function useConversation({
       return;
     }
 
+    const replyToMessageId = typeof data.reply_to_message_id === 'string'
+      ? data.reply_to_message_id
+      : null;
     const metadata = typeof data.metadata === 'object' && data.metadata !== null && !Array.isArray(data.metadata)
       ? data.metadata as Record<string, unknown>
       : null;
@@ -534,6 +537,7 @@ export function useConversation({
       user_id: typeof data.user_id === 'string' ? data.user_id : '',
       role: role === 'assistant' ? 'assistant' : role === 'system' ? 'system' : 'user',
       content,
+      reply_to_message_id: replyToMessageId,
       metadata: metadata ?? (attachments.length > 0 ? { attachments } : null),
       client_id: clientId,
       seq: seqValue,
