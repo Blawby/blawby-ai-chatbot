@@ -62,6 +62,7 @@ export const MatterListItem = ({ matter, onSelect }: MatterListItemProps) => {
           type="button"
           onClick={() => onSelect?.(matter)}
           className={sharedClassName}
+          aria-label={`Select matter ${matter.title} for ${matter.clientName} (${matter.status})`}
         >
           {content}
         </button>
