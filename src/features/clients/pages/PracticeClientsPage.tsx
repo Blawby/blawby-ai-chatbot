@@ -465,23 +465,6 @@ export const PracticeClientsPage = () => {
                 ref={listRef}
                 className="h-full overflow-y-auto"
               >
-                <div className="absolute right-2 top-1/2 z-20 -translate-y-1/2 flex flex-col items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                  {letters.map((letter) => (
-                    <button
-                      key={letter}
-                      type="button"
-                      onClick={() => scrollToLetter(letter)}
-                      className={cn(
-                        'h-4 w-4 rounded-full transition-colors',
-                        currentLetter === letter
-                          ? 'text-gray-900 dark:text-white font-semibold'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                      )}
-                    >
-                      {letter}
-                    </button>
-                  ))}
-                </div>
                 <ul className="divide-y divide-gray-100 dark:divide-white/10">
                   {letters.map((letter) => (
                     <Fragment key={letter}>
@@ -533,6 +516,23 @@ export const PracticeClientsPage = () => {
                     </Fragment>
                   ))}
                 </ul>
+              </div>
+              <div className="absolute right-2 top-1/2 z-20 -translate-y-1/2 flex flex-col items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                {letters.map((letter) => (
+                  <button
+                    key={letter}
+                    type="button"
+                    onClick={() => scrollToLetter(letter)}
+                    className={cn(
+                      'h-4 w-4 rounded-full transition-colors',
+                      currentLetter === letter
+                        ? 'text-gray-900 dark:text-white font-semibold'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    )}
+                  >
+                    {letter}
+                  </button>
+                ))}
               </div>
             </div>
             <div className="hidden lg:block flex-1">
