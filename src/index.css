@@ -11,6 +11,19 @@
     @apply min-h-screen m-0;
   }
 
+  /* Hide scrollbars globally to prevent overlay on content */
+  * {
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* Internet Explorer 10+ */
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
   /* Global link styles */
   a {
     @apply text-accent-500 hover:text-accent-600 transition-colors duration-200;
