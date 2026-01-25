@@ -44,7 +44,7 @@ import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 import { PracticeHomePage } from '@/features/home/pages/PracticeHomePage';
 import { PracticePaymentsPage } from '@/features/payments/pages/PracticePaymentsPage';
 import { PracticePayoutsPage } from '@/features/payouts/pages/PracticePayoutsPage';
-import { PracticeProductsPage } from '@/features/products/pages/PracticeProductsPage';
+import { PracticePricingPage } from '@/features/pricing/pages/PracticePricingPage';
 import { PracticeClientsPage } from '@/features/clients/pages/PracticeClientsPage';
 import { PracticeMattersPage } from '@/features/matters/pages/PracticeMattersPage';
 import { ClientPaymentsPage } from '@/features/payments/pages/ClientPaymentsPage';
@@ -136,7 +136,7 @@ export function MainApp({
     if (workspace === 'practice') {
       if (location.path.startsWith(`${basePath}/payments`)) return 'payments';
       if (location.path.startsWith(`${basePath}/payouts`)) return 'payouts';
-      if (location.path.startsWith(`${basePath}/products`)) return 'products';
+      if (location.path.startsWith(`${basePath}/pricing`)) return 'pricing';
       if (location.path.startsWith(`${basePath}/clients`)) return 'clients';
       if (location.path.startsWith(`${basePath}/leads`)) return 'leads';
       if (location.path.startsWith(`${basePath}/matters`)) return 'matters';
@@ -175,11 +175,11 @@ export function MainApp({
       onClick: () => navigate('/practice/payouts')
     },
     {
-      id: 'products',
-      label: 'Products',
+      id: 'pricing',
+      label: 'Pricing',
       icon: <Squares2X2Icon />,
-      isActive: routeKey === 'products',
-      onClick: () => navigate('/practice/products')
+      isActive: routeKey === 'pricing',
+      onClick: () => navigate('/practice/pricing')
     },
     {
       id: 'clients',
@@ -1086,8 +1086,8 @@ export function MainApp({
         return <PracticePaymentsPage />;
       case 'payouts':
         return <PracticePayoutsPage />;
-      case 'products':
-        return <PracticeProductsPage />;
+      case 'pricing':
+        return <PracticePricingPage />;
       case 'clients':
         return <PracticeClientsPage />;
       case 'leads':

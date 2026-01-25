@@ -380,6 +380,9 @@ function unwrapPracticeListResponse(data: unknown): Practice[] {
     if (Array.isArray(data.practices)) {
       return data.practices.map(normalizePracticePayload);
     }
+    if (Array.isArray(data.organizations)) {
+      return data.organizations.map(normalizePracticePayload);
+    }
     if (Array.isArray(data.data)) {
       return data.data.map(normalizePracticePayload);
     }
@@ -387,6 +390,9 @@ function unwrapPracticeListResponse(data: unknown): Practice[] {
       const nested = data.data as Record<string, unknown>;
       if (Array.isArray(nested.practices)) {
         return nested.practices.map(normalizePracticePayload);
+      }
+      if (Array.isArray(nested.organizations)) {
+        return nested.organizations.map(normalizePracticePayload);
       }
       if (Array.isArray(nested.items)) {
         return nested.items.map(normalizePracticePayload);

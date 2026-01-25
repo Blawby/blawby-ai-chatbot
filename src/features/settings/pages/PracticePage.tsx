@@ -9,7 +9,7 @@ import {
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import { Button } from '@/shared/ui/Button';
 import Modal from '@/shared/components/Modal';
-import { CurrencyInput, EmailInput, FileInput, Input, Switch } from '@/shared/ui/input';
+import { EmailInput, FileInput, Input, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -150,7 +150,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     name: '',
     slug: '',
     businessEmail: '',
-    consultationFee: undefined,
     logo: ''
   });
   
@@ -348,9 +347,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const openEditPracticeModal = () => {
     if (!practice) return;
     const detailsEmail = practiceDetails?.businessEmail ?? practice.businessEmail ?? '';
-    const detailsFee = practiceDetails && practiceDetails.consultationFee !== undefined
-      ? practiceDetails.consultationFee
-      : practice.consultationFee;
     setLogoFiles([]);
     setLogoUploadProgress(null);
     setLogoUploading(false);
@@ -359,9 +355,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       name: practice.name,
       slug: practice.slug || '',
       businessEmail: detailsEmail,
-      consultationFee: typeof detailsFee === 'number'
-        ? detailsFee
-        : undefined,
       logo: practice.logo || ''
     });
     setDescriptionDraft(descriptionValue);
@@ -418,7 +411,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         slug: practice.slug ?? null,
         logo: practice.logo ?? null,
         businessEmail: practiceDetails?.businessEmail ?? practice.businessEmail ?? null,
-        consultationFee: practiceDetails?.consultationFee ?? practice.consultationFee ?? null,
         description: practiceDetails?.description ?? practice.description ?? null
       };
       const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
@@ -426,7 +418,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
         slug: editPracticeForm.slug,
         logo: trimmedLogo ? trimmedLogo : undefined,
         businessEmail,
-        consultationFee: editPracticeForm.consultationFee,
         description: trimmedDescription ? trimmedDescription : undefined
       }, { compareTo: comparison });
 
@@ -943,17 +934,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               placeholder="contact@yourfirm.com"
               disabled={isSettingsSaving}
               showValidation
-            />
-          </div>
-
-          <div>
-            <CurrencyInput
-              label="Consultation fee (optional)"
-              value={editPracticeForm.consultationFee}
-              onChange={(value) => setEditPracticeForm(prev => ({ ...prev, consultationFee: value }))}
-              placeholder="150.00"
-              disabled={isSettingsSaving}
-              step={0.01}
             />
           </div>
 
