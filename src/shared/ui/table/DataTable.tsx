@@ -75,7 +75,7 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
   const stackedHideAt = resolveStackedHideAt(mobileColumns);
   const paddedRows = (() => {
     if (!minRows || rows.length === 0 || rows.length >= minRows) return rows;
-    const placeholders = Array.from({ length: minRows - rows.length }, (_, index) => ({
+    const placeholders: DataTableRow[] = Array.from({ length: minRows - rows.length }, (_, index) => ({
       id: `__empty-${index}`,
       cells: {},
       isPlaceholder: true

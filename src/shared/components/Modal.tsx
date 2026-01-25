@@ -85,7 +85,7 @@ const Modal: FunctionComponent<ModalProps> = ({
                     <motion.div 
                         className={`shadow-2xl bg-white dark:bg-dark-bg text-gray-900 dark:text-white border border-gray-200 dark:border-dark-border ${
                             shouldUseDrawer 
-                                ? 'fixed bottom-0 left-0 right-0 rounded-t-2xl flex flex-col overflow-hidden'
+                                ? 'fixed bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-2xl flex flex-col overflow-hidden'
                                 : shouldUseFullscreen
                                 ? 'fixed inset-0 w-full h-full overflow-y-auto'
                                 : 'relative rounded-xl max-w-4xl w-full flex flex-col overflow-hidden'

@@ -27,3 +27,6 @@ export * from './tabs';
 
 // Table components
 export * from './table';
+
+// Activity components
+export * from './activity';
