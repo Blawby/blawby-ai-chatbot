@@ -176,7 +176,7 @@ export const MatterCreateModal = ({
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 dark:bg-white/5 px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
           <p>UI-only preview. Submission is disabled until the backend is ready.</p>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onClose}>
+            <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit}>

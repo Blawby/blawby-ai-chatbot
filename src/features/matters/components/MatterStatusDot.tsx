@@ -16,8 +16,8 @@ interface MatterStatusDotProps {
 
 export const MatterStatusDot = ({ status, className = '' }: MatterStatusDotProps) => (
   <div className={cn(STATUS_DOT_STYLES[status], 'flex-none rounded-full p-1', className)}>
-    <div className="h-2 w-2 rounded-full bg-current">
-      <div className="h-2 w-2 rounded-full bg-current opacity-25" />
+    <div className="h-3 w-3 rounded-full bg-current opacity-25">
+      <div className="h-2 w-2 rounded-full bg-current" />
     </div>
   </div>
 );
