@@ -18,13 +18,16 @@ interface TabsProps {
 export const Tabs = ({ items, activeId, onChange, className = '', actions }: TabsProps) => (
   <div className={cn('flex flex-col gap-3', className)}>
     <div className="flex flex-wrap items-center gap-3">
-      <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 dark:border-gray-700" role="tablist">
         {items.map((item) => {
           const isActive = item.id === activeId;
           return (
             <button
               key={item.id}
+              id={`tab-${item.id}`}
               type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => onChange?.(item.id)}
               className={cn(
                 'pb-2 text-sm font-medium transition-colors',

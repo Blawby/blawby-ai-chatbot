@@ -149,7 +149,7 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
                         )}
                       >
                         {isClickable && !column.isAction ? (
-                          <button type="button" onClick={row.onClick} className="w-full text-left">
+                          <button type="button" onClick={row.onClick} className={cn('w-full', ALIGN_CLASS[column.align ?? 'left'])}>
                             {cellContent}
                             {isPrimary && mobileColumns.length > 0 && (
                               <dl
