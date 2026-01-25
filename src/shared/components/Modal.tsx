@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { THEME } from '@/shared/utils/constants';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { lockBodyScroll, unlockBodyScroll } from '@/shared/utils/modalStack';
+import { cn } from '@/shared/utils/cn';
 
 interface ModalProps {
     isOpen: boolean;
@@ -16,6 +17,8 @@ interface ModalProps {
     showCloseButton?: boolean;
     mobileBehavior?: 'modal' | 'drawer';
     disableBackdropClick?: boolean;
+    contentClassName?: string;
+    headerClassName?: string;
 }
 
 const Modal: FunctionComponent<ModalProps> = ({ 
@@ -26,7 +29,9 @@ const Modal: FunctionComponent<ModalProps> = ({
     type = 'modal',
     showCloseButton = true,
     mobileBehavior = 'drawer',
-    disableBackdropClick = false
+    disableBackdropClick = false,
+    contentClassName,
+    headerClassName
 }) => {
     // Add state to track if we're in browser environment
     const [isBrowser, setIsBrowser] = useState(false);
@@ -83,13 +88,16 @@ const Modal: FunctionComponent<ModalProps> = ({
                     
                     {/* Content */}
                     <motion.div 
-                        className={`shadow-2xl bg-white dark:bg-dark-bg text-gray-900 dark:text-white border border-gray-200 dark:border-dark-border ${
+                        className={cn(
+                            `shadow-2xl bg-white dark:bg-dark-bg text-gray-900 dark:text-white border border-gray-200 dark:border-dark-border ${
                             shouldUseDrawer 
                                 ? 'fixed bottom-0 left-0 right-0 max-h-[90dvh] rounded-t-2xl flex flex-col overflow-hidden'
                                 : shouldUseFullscreen
                                 ? 'fixed inset-0 w-full h-full overflow-y-auto'
                                 : 'relative rounded-xl max-w-4xl w-full flex flex-col overflow-hidden'
-                        }`}
+                        }`,
+                            contentClassName
+                        )}
                         initial={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
                         animate={shouldUseDrawer ? { y: 0 } : { scale: 1 }}
                         exit={shouldUseDrawer ? { y: "100%" } : { scale: 0.95 }}
@@ -112,7 +120,10 @@ const Modal: FunctionComponent<ModalProps> = ({
                         
                         {/* Header */}
                         {(title || showCloseButton) && !shouldUseFullscreen && (
-                            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg">
+                            <div className={cn(
+                                'flex justify-between items-center p-4 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg',
+                                headerClassName
+                            )}>
                                 {title && <h3 className="text-base sm:text-lg lg:text-xl font-semibold m-0 text-gray-900 dark:text-white">{title}</h3>}
                                 {showCloseButton && (
                                     <button

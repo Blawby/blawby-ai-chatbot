@@ -40,6 +40,21 @@ jobs:
         run: |
           cat worker/wrangler.toml || true
 
+      - name: Validate deployment secrets
+        run: |
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+            echo "❌ CLOUDFLARE_API_TOKEN is not set" >&2
+            exit 1
+          fi
+          if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            echo "❌ CLOUDFLARE_ACCOUNT_ID is not set" >&2
+            exit 1
+          fi
+          echo "✅ Deployment secrets are set"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         env:
@@ -49,6 +64,22 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: '.'
           command: deploy --env production --config worker/wrangler.toml
+
+      - name: Check wrangler logs
+        if: always()
+        run: |
+          echo "📋 Wrangler logs:"
+          cat ~/.config/.wrangler/logs/*.log 2>/dev/null | tail -100 || echo "No wrangler logs found"
+
+      - name: Deployment summary
+        if: success()
+        run: echo "✅ Worker deployed successfully to production"
+
+      - name: Deployment failed
+        if: failure()
+        run: |
+          echo "❌ Worker deployment failed"
+          exit 1
 
   deploy-frontend:
     name: Deploy Cloudflare Pages
