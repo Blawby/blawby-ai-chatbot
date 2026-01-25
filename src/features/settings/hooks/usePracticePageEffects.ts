@@ -5,7 +5,6 @@ export type EditPracticeFormState = {
   name: string;
   slug: string;
   businessEmail: string;
-  consultationFee: number | undefined;
   logo: string;
 };
 
@@ -34,9 +33,6 @@ export const usePracticeMembersSync = ({
       name: practice.name,
       slug: practice.slug || '',
       businessEmail: practice.businessEmail ?? '',
-      consultationFee: typeof practice.consultationFee === 'number'
-        ? practice.consultationFee
-        : undefined,
       logo: practice.logo || ''
     });
 

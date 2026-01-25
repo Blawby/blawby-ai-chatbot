@@ -1,0 +1,47 @@
+import type { ComponentChildren } from 'preact';
+import { cn } from '@/shared/utils/cn';
+
+export type TabItem = {
+  id: string;
+  label: string;
+  count?: number;
+};
+
+interface TabsProps {
+  items: TabItem[];
+  activeId: string;
+  onChange?: (id: string) => void;
+  className?: string;
+  actions?: ComponentChildren;
+}
+
+export const Tabs = ({ items, activeId, onChange, className = '', actions }: TabsProps) => (
+  <div className={cn('flex flex-col gap-3', className)}>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-4 border-b border-gray-200 dark:border-gray-700">
+        {items.map((item) => {
+          const isActive = item.id === activeId;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onChange?.(item.id)}
+              className={cn(
+                'pb-2 text-sm font-medium transition-colors',
+                isActive
+                  ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+              )}
+            >
+              {item.label}
+              {typeof item.count === 'number' && (
+                <span className="ml-2 text-xs text-gray-400">{item.count}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+    </div>
+  </div>
+);

@@ -124,6 +124,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
   }, [currentPractice, navigate, workspace]);
 
   const shouldShowSidebar = features.enableLeftSidebar && workspace !== 'public' && !(isMobile && isSettingsModalOpen);
+  const shouldOffsetForMobileNav = features.enableLeftSidebar && workspace !== 'public';
 
   if (practiceNotFound) {
     return <PracticeNotFound practiceId={practiceId} onRetry={onRetryPracticeConfig} />;
@@ -214,7 +215,7 @@ const AppLayout: FunctionComponent<AppLayoutProps> = ({
             />
           </div>
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className={`flex-1 min-h-0 overflow-y-auto ${shouldOffsetForMobileNav ? 'pt-16 lg:pt-0' : ''}`}>
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

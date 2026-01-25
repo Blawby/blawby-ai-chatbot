@@ -634,9 +634,7 @@ describe('PracticePage', () => {
     fireEvent.click(editButton);
 
     const emailInput = screen.getByLabelText('Business email');
-    const feeInput = screen.getByLabelText('Consultation fee (optional)');
     fireEvent.input(emailInput, { target: { value: 'updated@example.com' } });
-    fireEvent.input(feeInput, { target: { value: '200' } });
 
     const saveButton = screen.getByText('Save Changes');
     fireEvent.click(saveButton);
@@ -644,8 +642,7 @@ describe('PracticePage', () => {
     await waitFor(() => {
       expect(mockUpdateDetails).toHaveBeenCalled();
       expect(mockUpdateDetails).toHaveBeenCalledWith({
-        businessEmail: 'updated@example.com',
-        consultationFee: 200
+        businessEmail: 'updated@example.com'
       });
     });
   });
