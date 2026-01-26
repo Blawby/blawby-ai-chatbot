@@ -28,6 +28,7 @@ import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
+import { MatterNotesPanel } from '@/features/matters/components/notes/MatterNotesPanel';
 import { getUtcStartOfToday, parseDateOnlyUtc } from '@/shared/utils/dateOnly';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
@@ -74,6 +75,14 @@ const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'edit', label: 'Edit Matter' },
   { id: 'invoice', label: 'Generate Invoice' }
 ];
+
+const DETAIL_TAB_DESCRIPTIONS: Record<DetailTabId, string> = {
+  overview: 'Key details for the selected matter.',
+  time: 'Track recorded hours and reimbursable expenses.',
+  notes: 'Add internal notes and decisions tied to this matter.',
+  edit: 'Adjust matter details, billing, and team assignments.',
+  invoice: 'Generate invoices from time entries and expenses.'
+};
 
 const basePath = '/practice/matters';
 
@@ -311,9 +320,7 @@ export const PracticeMattersPage = () => {
                 {DETAIL_TABS.find((tab) => tab.id === detailTab)?.label ?? 'Overview'}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {detailTab === 'overview'
-                  ? 'Key details for the selected matter.'
-                  : 'Content coming soon for this tab.'}
+                {DETAIL_TAB_DESCRIPTIONS[detailTab] ?? 'Content coming soon for this tab.'}
               </p>
             </header>
             {detailTab === 'overview' ? (
@@ -342,6 +349,10 @@ export const PracticeMattersPage = () => {
               <div className="px-6 py-6 space-y-6">
                 <TimeEntriesPanel key={`time-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
                 <MatterExpensesPanel key={`expenses-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+              </div>
+            ) : detailTab === 'notes' && selectedMatterDetail ? (
+              <div className="px-6 py-6">
+                <MatterNotesPanel key={`notes-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
               </div>
             ) : (
               <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">

@@ -25,6 +25,18 @@ export type MatterTask = {
   timeEstimateHours?: number;
 };
 
+export type MatterNote = {
+  id: string;
+  author: {
+    name: string;
+    role?: string;
+    avatarUrl?: string;
+  };
+  content: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
 export type MatterDetail = MatterSummary & {
   clientId: string;
   practiceAreaId: string;
@@ -40,6 +52,7 @@ export type MatterDetail = MatterSummary & {
   contingencyPercent?: number;
   timeEntries?: TimeEntry[];
   expenses?: MatterExpense[];
+  notes?: MatterNote[];
 };
 
 export type TimeEntry = {
@@ -113,6 +126,18 @@ const buildExpense = (
   amount,
   date: daysAgoDate(daysOffset),
   billable
+});
+
+const buildNote = (
+  id: string,
+  hoursOffset: number,
+  content: string,
+  author: MatterNote['author']
+): MatterNote => ({
+  id,
+  author,
+  content,
+  createdAt: hoursAgo(hoursOffset)
 });
 
 export const mockClients: MatterOption[] = [
@@ -292,6 +317,28 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
       buildExpense('expense-1', 1, 'State filing fee', 35000, true),
       buildExpense('expense-2', 2, 'Registered agent renewal', 12500, true),
       buildExpense('expense-3', 4, 'Courier delivery', 4200, false)
+    ],
+    notes: [
+      buildNote(
+        'note-redwood-1',
+        6,
+        'Client approved the entity name and requested we expedite the filing. Follow up with state if expedited queue is available.',
+        {
+          name: 'Chelsea Hagon',
+          role: 'Paralegal',
+          avatarUrl:
+            'https://images.unsplash.com/photo-1550525811-e5869dd03032?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80'
+        }
+      ),
+      buildNote(
+        'note-redwood-2',
+        2,
+        'Need to confirm operating agreement signature order. Awaiting response from client team.',
+        {
+          name: 'Alex Curren',
+          role: 'Associate Attorney'
+        }
+      )
     ]
   },
   'matter-estate': {
