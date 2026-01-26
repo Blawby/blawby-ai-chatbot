@@ -27,9 +27,6 @@ export const CartPage = () => {
   const seatsQuery = location.query?.seats;
   const seatsFromQuery = Array.isArray(seatsQuery) ? seatsQuery[0] : seatsQuery;
   const initialSeats = Math.max(1, Number.parseInt(seatsFromQuery || '1', 10) || 1);
-  
-  const tierQuery = location.query?.tier;
-  const tierFromQuery = Array.isArray(tierQuery) ? tierQuery[0] : tierQuery;
 
   const [selectedPriceId, setSelectedPriceId] = useState<string>('');
   const [quantity, setQuantity] = useState(initialSeats);
@@ -44,6 +41,14 @@ export const CartPage = () => {
     try {
       setLoadError(null);
       const availablePlans = await fetchPlans();
+      
+      if (import.meta.env.DEV) {
+        console.debug('[CART][PLANS] Fetched plans:', {
+          total: availablePlans.length,
+          plans: availablePlans.map(p => ({ name: p.name, isActive: p.isActive, isPublic: p.isPublic }))
+        });
+      }
+      
       // Filter to only show active, public plans
       const publicPlans = availablePlans.filter(
         (plan) => plan.isActive && plan.isPublic
@@ -56,19 +61,28 @@ export const CartPage = () => {
         return;
       }
       
-      // Select the first plan (or business plan if available)
-      const businessPlan = publicPlans.find(p => p.name.toLowerCase().includes('business')) || publicPlans[0];
-      if (businessPlan) {
-        setSelectedPlan(businessPlan);
+      // Select the first available plan (backend only has one plan, displayed as "Business" in UI)
+      const selectedPlan = publicPlans[0];
+      if (selectedPlan) {
+        setSelectedPlan(selectedPlan);
         // Set initial price ID to monthly (will be updated when user selects annual)
-        setSelectedPriceId(businessPlan.stripeMonthlyPriceId);
+        setSelectedPriceId(selectedPlan.stripeMonthlyPriceId);
+        
+        if (import.meta.env.DEV) {
+          console.debug('[CART][PLANS] Selected plan:', {
+            name: selectedPlan.name,
+            displayName: selectedPlan.displayName,
+            monthlyPriceId: selectedPlan.stripeMonthlyPriceId,
+            yearlyPriceId: selectedPlan.stripeYearlyPriceId
+          });
+        }
       } else {
         const errorMsg = 'No suitable plan found';
         setLoadError(errorMsg);
         showError('Plan Selection Error', errorMsg);
       }
     } catch (error) {
-      console.error('Failed to load plans:', error);
+      console.error('[CART][PLANS] Failed to load plans:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to load pricing information';
       setLoadError(errorMsg);
       showError('Failed to load pricing', errorMsg);
@@ -143,30 +157,16 @@ export const CartPage = () => {
     try {
       const stored = localStorage.getItem('cartPreferences');
       if (stored) {
-        const parsed = JSON.parse(stored) as { seats?: number | null; tier?: string } | null;
+        const parsed = JSON.parse(stored) as { seats?: number | null } | null;
         if (parsed?.seats && Number.isFinite(parsed.seats)) {
           const newQuantity = Math.max(1, Math.floor(parsed.seats));
           setQuantity(newQuantity);
         }
       }
-      
-      // Handle tier from URL parameters
-      if (tierFromQuery) {
-        // Store tier preference for future reference
-        try {
-          const currentPrefs = stored ? JSON.parse(stored) : {};
-          localStorage.setItem('cartPreferences', JSON.stringify({
-            ...currentPrefs,
-            tier: tierFromQuery
-          }));
-        } catch (error) {
-          console.warn('❌ Cart Page - Unable to store tier preference:', error);
-        }
-      }
     } catch (error) {
       console.warn('❌ Cart Page - Unable to read stored cart preferences:', error);
     }
-  }, [tierFromQuery, setQuantity]);
+  }, [setQuantity]);
 
   // If practice is already on paid tier, define paid UI state and return early (after all hooks)
   const paidState = isPaidTier ? (

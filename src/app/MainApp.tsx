@@ -650,6 +650,13 @@ export function MainApp({
 
   useEffect(() => {
     if (sessionIsPending || isAnonymous || !session?.user?.id) {
+      if (import.meta.env.DEV) {
+        console.debug('[ONBOARDING][SKIP] session pending or anonymous', {
+          sessionIsPending,
+          isAnonymous,
+          hasUser: Boolean(session?.user?.id)
+        });
+      }
       return;
     }
     if (onboardingCheckRef.current) return;
@@ -657,18 +664,27 @@ export function MainApp({
 
     const checkOnboarding = async () => {
       try {
+        if (import.meta.env.DEV) {
+          console.debug('[ONBOARDING][CHECK] fetching preferences');
+        }
         const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
         const needsOnboarding = prefs?.completed !== true;
 
         if (import.meta.env.DEV) {
           console.debug('[ONBOARDING][CHECK] preferences', {
-            completed: prefs?.completed
+            completed: prefs?.completed ?? null,
+            birthday: prefs?.birthday ? '[REDACTED]' : null,
+            primary_use_case: prefs?.primary_use_case ?? null,
+            use_case_additional_info: prefs?.use_case_additional_info ? '[REDACTED]' : null
           });
         }
 
         if (needsOnboarding) {
           if (import.meta.env.DEV) {
-            console.debug('[ONBOARDING][REDIRECT] redirecting to /auth?mode=signin&onboarding=true');
+            console.debug('[ONBOARDING][REDIRECT] redirecting to /auth?mode=signin&onboarding=true', {
+              reason: 'completed flag not true',
+              userId: session?.user?.id ?? null
+            });
           }
           window.location.href = '/auth?mode=signin&onboarding=true';
         }

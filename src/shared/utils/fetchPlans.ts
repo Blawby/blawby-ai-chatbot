@@ -60,6 +60,11 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
 
 export const fetchPlans = async (): Promise<SubscriptionPlan[]> => {
   const response = await apiClient.get('/api/subscriptions/plans');
-  const rawPlans = (response.data?.plans || []) as unknown[];
-  return normalizePlans(rawPlans);
+  
+  // Backend API returns a direct array of plans, not wrapped in {plans: [...]}
+  const rawPlans = Array.isArray(response.data) 
+    ? response.data 
+    : (response.data?.plans || []);
+    
+  return normalizePlans(rawPlans as unknown[]);
 };

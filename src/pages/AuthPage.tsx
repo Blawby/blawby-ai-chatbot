@@ -63,6 +63,14 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
     // Only open onboarding when explicitly requested via URL param
     if (needsOnboarding) {
+      if (import.meta.env.DEV) {
+        console.debug('[AUTH][ONBOARDING] opening onboarding modal from URL flag', {
+          mode: urlMode ?? null,
+          redirect,
+          practiceId,
+          conversationId
+        });
+      }
       setShowOnboarding(true);
       // Strip the param to avoid re-triggering on rebuilds
       try {

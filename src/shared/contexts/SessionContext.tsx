@@ -140,7 +140,9 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     }
   }, [sessionKey]);
 
-  if (isAnonymous) {
+  const activeOrganizationId = getActiveOrganizationId(sessionData);
+
+  if (isAnonymous || !activeOrganizationId) {
     const value = buildSessionContextValue({ sessionData, isPending, error });
 
     return (
