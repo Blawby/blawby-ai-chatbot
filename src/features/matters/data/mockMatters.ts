@@ -39,6 +39,7 @@ export type MatterDetail = MatterSummary & {
   tasks?: MatterTask[];
   contingencyPercent?: number;
   timeEntries?: TimeEntry[];
+  expenses?: MatterExpense[];
 };
 
 export type TimeEntry = {
@@ -46,6 +47,14 @@ export type TimeEntry = {
   startTime: string;
   endTime: string;
   description: string;
+};
+
+export type MatterExpense = {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  billable: boolean;
 };
 
 export type MatterOption = {
@@ -60,6 +69,9 @@ const hoursAgo = (hours: number) =>
 
 const daysAgo = (days: number, hours = 0) =>
   new Date(Date.now() - (days * 24 + hours) * 60 * 60 * 1000).toISOString();
+
+const daysAgoDate = (days: number) =>
+  new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 const daysFromNow = (days: number) =>
   new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -88,6 +100,20 @@ const buildTimeEntry = (
     description
   };
 };
+
+const buildExpense = (
+  id: string,
+  daysOffset: number,
+  description: string,
+  amount: number,
+  billable: boolean
+): MatterExpense => ({
+  id,
+  description,
+  amount,
+  date: daysAgoDate(daysOffset),
+  billable
+});
 
 export const mockClients: MatterOption[] = [
   { id: 'client-avery-chen', name: 'Avery Chen', email: 'avery.chen@blawby.com' },
@@ -261,6 +287,11 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
       buildTimeEntry('time-entry-4', 3, '15:00', '16:15', 'Coordinated with secretary of state office.'),
       buildTimeEntry('time-entry-5', 4, '08:45', '10:00', 'Compiled entity name availability report.'),
       buildTimeEntry('time-entry-6', 6, '11:30', '13:00', 'Drafted engagement letter revisions.')
+    ],
+    expenses: [
+      buildExpense('expense-1', 1, 'State filing fee', 35000, true),
+      buildExpense('expense-2', 2, 'Registered agent renewal', 12500, true),
+      buildExpense('expense-3', 4, 'Courier delivery', 4200, false)
     ]
   },
   'matter-estate': {

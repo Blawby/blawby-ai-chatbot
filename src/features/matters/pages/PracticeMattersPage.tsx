@@ -27,6 +27,7 @@ import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
+import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
 import { getUtcStartOfToday, parseDateOnlyUtc } from '@/shared/utils/dateOnly';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
@@ -38,7 +39,7 @@ const statusOrder: Record<MattersSidebarStatus, number> = {
 };
 
 type MatterTabId = 'all' | MattersSidebarStatus;
-type DetailTabId = 'overview' | 'time' | 'expenses' | 'notes' | 'edit' | 'invoice';
+type DetailTabId = 'overview' | 'time' | 'notes' | 'edit' | 'invoice';
 
 type SortOption = 'updated' | 'title' | 'status';
 
@@ -69,7 +70,6 @@ const TAB_HEADINGS: Record<MatterTabId, string> = {
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'time', label: 'Time' },
-  { id: 'expenses', label: 'Expenses' },
   { id: 'notes', label: 'Notes' },
   { id: 'edit', label: 'Edit Matter' },
   { id: 'invoice', label: 'Generate Invoice' }
@@ -339,8 +339,9 @@ export const PracticeMattersPage = () => {
                 </div>
               </div>
             ) : detailTab === 'time' && selectedMatterDetail ? (
-              <div className="px-6 py-6">
-                <TimeEntriesPanel key={selectedMatterDetail.id} matter={selectedMatterDetail} />
+              <div className="px-6 py-6 space-y-6">
+                <TimeEntriesPanel key={`time-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                <MatterExpensesPanel key={`expenses-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
               </div>
             ) : (
               <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
