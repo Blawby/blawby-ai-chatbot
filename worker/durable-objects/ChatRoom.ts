@@ -800,14 +800,18 @@ export class ChatRoom {
 
   private isOriginAllowed(origin: string | null): boolean {
     const rawList = this.env.ALLOWED_WS_ORIGINS;
+    const isDevMode = parseEnvBool(this.env.DEBUG);
     if (!rawList) {
-      // If no allowlist is configured, allow all origins (permissive for development)
-      return true;
+      // Require explicit DEBUG mode to skip origin checks
+      if (!isDevMode) {
+        console.warn('[ChatRoom] ALLOWED_WS_ORIGINS not configured and DEBUG is off - denying request');
+      }
+      return isDevMode;
     }
 
     if (!origin) {
       // Missing origin header - allow in development mode, deny otherwise
-      return parseEnvBool(this.env.DEBUG);
+      return isDevMode;
     }
 
     const allowlist = rawList
