@@ -216,7 +216,7 @@ export const MatterFormModal = ({
     const nextFiles = Array.isArray(incoming) ? incoming : Array.from(incoming);
     const merged = [...formState.files, ...nextFiles];
     const limited = merged.slice(0, 6);
-    const totalSize = merged.reduce((sum, file) => sum + file.size, 0);
+    const totalSize = limited.reduce((sum, file) => sum + file.size, 0);
     const maxTotalSize = 25 * 1024 * 1024;
     const tooManyFiles = merged.length > 6;
 
@@ -425,13 +425,7 @@ export const MatterFormModal = ({
                   )}
 
                   {isMilestoneFormVisible ? (
-                    <form
-                      className="space-y-2"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        addMilestone();
-                      }}
-                    >
+                    <div className="space-y-2">
                       <div>
                         <Textarea
                           label="Milestone description"
@@ -480,7 +474,7 @@ export const MatterFormModal = ({
                           Add
                         </Button>
                       </div>
-                    </form>
+                    </div>
                   ) : (
                     <button
                       type="button"

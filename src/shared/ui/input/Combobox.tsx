@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { CheckIcon, ChevronUpDownIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { cn } from '@/shared/utils/cn';
@@ -32,8 +32,14 @@ export const Combobox = ({
 }: ComboboxProps) => {
   const selectedOption = options.find((option) => option.value === value);
   const resolvedDisplayValue = displayValue?.(selectedOption) ?? selectedOption?.label ?? '';
-  const [query, setQuery] = useState(() => resolvedDisplayValue);
+  const [query, setQuery] = useState(resolvedDisplayValue);
   const [isOpen, setIsOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const inputId = useMemo(
+    () => `combobox-${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).slice(2, 8)}`,
+    [label]
+  );
+  const listboxId = `${inputId}-listbox`;
 
   const filteredOptions = useMemo(() => {
     const normalize = (input: string) =>
@@ -51,9 +57,16 @@ export const Combobox = ({
   const showOptions = isOpen && filteredOptions.length > 0;
   const resolvedLeading = typeof leading === 'function' ? leading(selectedOption) : leading;
 
+  useEffect(() => {
+    if (!isOpen) {
+      setQuery(resolvedDisplayValue);
+      setFocusedIndex(-1);
+    }
+  }, [resolvedDisplayValue, isOpen]);
+
   return (
     <div className={cn('relative', className)}>
-      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+      <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
         {label}
       </label>
       <div className="relative mt-1">
@@ -63,14 +76,60 @@ export const Combobox = ({
           </div>
           <input
             type="text"
+            id={inputId}
+            role="combobox"
+            aria-expanded={isOpen}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              focusedIndex >= 0 ? `${inputId}-option-${filteredOptions[focusedIndex]?.value}` : undefined
+            }
             value={query}
             onInput={(event) => {
               const nextValue = (event.target as HTMLInputElement).value;
               setQuery(nextValue);
               setIsOpen(true);
+              setFocusedIndex(0);
             }}
             onFocus={() => setIsOpen(true)}
             onBlur={() => setIsOpen(false)}
+            onKeyDown={(event) => {
+              if (!isOpen) {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
+                  event.preventDefault();
+                  setIsOpen(true);
+                  setFocusedIndex(0);
+                }
+                return;
+              }
+
+              if (filteredOptions.length === 0) return;
+
+              switch (event.key) {
+                case 'ArrowDown':
+                  event.preventDefault();
+                  setFocusedIndex((prev) => (prev + 1) % filteredOptions.length);
+                  break;
+                case 'ArrowUp':
+                  event.preventDefault();
+                  setFocusedIndex((prev) => (prev <= 0 ? filteredOptions.length - 1 : prev - 1));
+                  break;
+                case 'Enter': {
+                  event.preventDefault();
+                  const option = filteredOptions[focusedIndex];
+                  if (option) {
+                    onChange(option.value);
+                    setQuery(displayValue?.(option) ?? option.label);
+                    setIsOpen(false);
+                  }
+                  break;
+                }
+                case 'Escape':
+                  event.preventDefault();
+                  setIsOpen(false);
+                  break;
+              }
+            }}
             placeholder={placeholder}
             className="w-full rounded-md border border-gray-300 dark:border-white/10 bg-white dark:bg-dark-input-bg py-3 pl-12 pr-10 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm"
           />
@@ -96,13 +155,17 @@ export const Combobox = ({
         </div>
 
         {showOptions && (
-          <ul className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
-            {filteredOptions.map((option) => {
+          <ul
+            id={listboxId}
+            className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
+          >
+            {filteredOptions.map((option, index) => {
               const isSelected = option.value === value;
+              const isFocused = index === focusedIndex;
               const optionLead = optionLeading?.(option);
               const optionMetaContent = optionMeta?.(option) ?? option.meta;
               return (
-                <li key={option.value}>
+                <li key={option.value} id={`${inputId}-option-${option.value}`}>
                   <button
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
@@ -113,7 +176,7 @@ export const Combobox = ({
                     }}
                     className={cn(
                       'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
-                      isSelected
+                      (isSelected || isFocused)
                         ? 'bg-accent-50 text-gray-900 dark:bg-accent-500/10 dark:text-white'
                         : 'text-gray-900 dark:text-gray-100 hover:bg-accent-50/70 dark:hover:bg-white/5'
                     )}

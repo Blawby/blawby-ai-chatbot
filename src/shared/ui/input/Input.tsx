@@ -25,8 +25,8 @@ export interface InputProps {
   errorKey?: string;
   namespace?: string;
   pattern?: string;
-  min?: number;
-  max?: number;
+  min?: string | number;
+  max?: string | number;
   step?: number;
   inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
   // ARIA props
