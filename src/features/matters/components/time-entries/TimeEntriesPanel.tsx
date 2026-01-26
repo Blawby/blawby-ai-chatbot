@@ -7,27 +7,28 @@ import type { MatterDetail, TimeEntry } from '@/features/matters/data/mockMatter
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
 
 const buildDateString = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
 const getStartOfWeek = (date: Date) => {
   const start = new Date(date);
-  const dayIndex = start.getDay();
-  start.setDate(start.getDate() - dayIndex);
-  start.setHours(0, 0, 0, 0);
+  const dayIndex = start.getUTCDay();
+  start.setUTCDate(start.getUTCDate() - dayIndex);
+  start.setUTCHours(0, 0, 0, 0);
   return start;
 };
 
 const addDays = (date: Date, amount: number) => {
   const next = new Date(date);
-  next.setDate(next.getDate() + amount);
+  next.setUTCDate(next.getUTCDate() + amount);
   return next;
 };
 
 const formatDateLabel = (date: Date) => date.toLocaleDateString('en-US', {
+  timeZone: 'UTC',
   weekday: 'short',
   month: 'short',
   day: 'numeric',
@@ -35,6 +36,7 @@ const formatDateLabel = (date: Date) => date.toLocaleDateString('en-US', {
 });
 
 const formatTimeLabel = (date: Date) => date.toLocaleTimeString('en-US', {
+  timeZone: 'UTC',
   hour: 'numeric',
   minute: '2-digit'
 });
@@ -65,8 +67,8 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
     const start = weekDays[0];
     const end = weekDays[6];
     if (!start || !end) return '';
-    const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const startLabel = start.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+    const endLabel = end.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
     return `${startLabel} - ${endLabel}`;
   }, [weekDays]);
 
