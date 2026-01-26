@@ -28,6 +28,14 @@ export type MatterDetail = MatterSummary & {
   totalFixedPrice?: number;
   milestones?: MatterMilestone[];
   contingencyPercent?: number;
+  timeEntries?: TimeEntry[];
+};
+
+export type TimeEntry = {
+  id: string;
+  startTime: string;
+  endTime: string;
+  description: string;
 };
 
 export type MatterOption = {
@@ -45,6 +53,31 @@ const daysAgo = (days: number, hours = 0) =>
 
 const daysFromNow = (days: number) =>
   new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+const buildTimeEntry = (
+  id: string,
+  daysOffset: number,
+  startTime: string,
+  endTime: string,
+  description: string
+): TimeEntry => {
+  const base = new Date();
+  base.setDate(base.getDate() - daysOffset);
+
+  const buildDateTime = (timeValue: string) => {
+    const [hours, minutes] = timeValue.split(':').map(Number);
+    const date = new Date(base);
+    date.setHours(hours, minutes, 0, 0);
+    return date.toISOString();
+  };
+
+  return {
+    id,
+    startTime: buildDateTime(startTime),
+    endTime: buildDateTime(endTime),
+    description
+  };
+};
 
 export const mockClients: MatterOption[] = [
   { id: 'client-avery-chen', name: 'Avery Chen', email: 'avery.chen@blawby.com' },
@@ -184,6 +217,14 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     milestones: [
       { description: 'Name availability + formation filing', dueDate: daysFromNow(10), amount: 1200 },
       { description: 'Operating agreement + EIN', dueDate: daysFromNow(24), amount: 1800 }
+    ],
+    timeEntries: [
+      buildTimeEntry('time-entry-1', 1, '09:00', '11:15', 'Drafted operating agreement provisions.'),
+      buildTimeEntry('time-entry-2', 1, '13:00', '14:30', 'Reviewed client intake notes and follow-up.'),
+      buildTimeEntry('time-entry-3', 2, '10:00', '12:00', 'Prepared filing checklist and timeline.'),
+      buildTimeEntry('time-entry-4', 3, '15:00', '16:15', 'Coordinated with secretary of state office.'),
+      buildTimeEntry('time-entry-5', 4, '08:45', '10:00', 'Compiled entity name availability report.'),
+      buildTimeEntry('time-entry-6', 6, '11:30', '13:00', 'Drafted engagement letter revisions.')
     ]
   },
   'matter-estate': {
