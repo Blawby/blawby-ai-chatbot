@@ -1,95 +1,75 @@
 import type { Page } from 'playwright';
 
-const SESSION_COOKIE_PATTERN = /better-auth\.session_token/i;
-
-const hasSessionCookie = async (page: Page, cookieUrl?: string): Promise<boolean> => {
-  const cookies = cookieUrl
-    ? await page.context().cookies(cookieUrl)
-    : await page.context().cookies();
-  const nowSeconds = Date.now() / 1000;
-  return cookies.some((cookie) => (
-    SESSION_COOKIE_PATTERN.test(cookie.name)
-    && (cookie.expires <= 0 || cookie.expires > nowSeconds + 1)
-  ));
-};
-
 export const waitForSession = async (
   page: Page,
   options: {
     timeoutMs?: number;
-    intervalMs?: number;
-    maxIntervalMs?: number;
-    skipIfCookiePresent?: boolean;
-    cookieUrl?: string;
   } = {}
-): Promise<void> => {
+): Promise<string | null> => {
   const timeoutMs = options.timeoutMs ?? 30000;
-  const skipIfCookiePresent = options.skipIfCookiePresent ?? true;
-  const cookieUrl = options.cookieUrl ?? (page.url() && page.url() !== 'about:blank' ? page.url() : undefined);
+  const deadline = Date.now() + timeoutMs;
+  let lastResult: {
+    ok: boolean;
+    status: number;
+    hasSession: boolean;
+    userId: string | null;
+    body: string;
+  } | null = null;
 
-  if (skipIfCookiePresent) {
+  while (Date.now() < deadline) {
+    const cookieHeader = (await page.context().cookies(page.url()))
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join('; ');
     try {
-      if (await hasSessionCookie(page, cookieUrl)) {
-        return;
-      }
-    } catch {
-      // fall through to network validation
-    }
-  }
-
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const timeoutPromise = new Promise<{ ok: false; status: 0; hasSession: false; body: string }>((resolve) => {
-    timeoutId = setTimeout(() => resolve({
-      ok: false,
-      status: 0,
-      hasSession: false,
-      body: `Timed out after ${timeoutMs}ms`
-    }), timeoutMs);
-  });
-
-  const result = await (async () => {
-    try {
-      return await Promise.race([
-        page.evaluate(async () => {
+      const response = await page.context().request.get('/api/auth/get-session', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cookieHeader ? { Cookie: cookieHeader } : {})
+        }
+      });
+      const rawText = await response.text().catch(() => '');
+      let data: any = null;
+      if (rawText) {
         try {
-          const response = await fetch('/api/auth/get-session', { credentials: 'include' });
-          const rawText = await response.text().catch(() => '');
-          let data: any = null;
-        if (rawText) {
-          try {
-            data = JSON.parse(rawText);
-          } catch {
-            data = null;
-          }
+          data = JSON.parse(rawText);
+        } catch {
+          data = null;
         }
-        const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
-        return {
-          ok: response.ok,
-          status: response.status,
-          hasSession,
-          body: rawText.slice(0, 300)
-        };
-        } catch (error) {
-          return { ok: false, status: 0, hasSession: false, body: String(error) };
-        }
-        }),
-        timeoutPromise
-      ]);
-    } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
       }
+      const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
+      const userId = data?.user?.id
+        ?? data?.data?.user?.id
+        ?? data?.session?.user?.id
+        ?? data?.data?.session?.user?.id
+        ?? null;
+      lastResult = {
+        ok: response.ok(),
+        status: response.status(),
+        hasSession,
+        userId: typeof userId === 'string' ? userId : null,
+        body: rawText.slice(0, 300)
+      };
+      if (lastResult.ok && lastResult.hasSession && lastResult.userId) {
+        return lastResult.userId;
+      }
+    } catch (error) {
+      lastResult = {
+        ok: false,
+        status: 0,
+        hasSession: false,
+        userId: null,
+        body: String(error)
+      };
     }
-  })();
-
-  if (result.ok && result.hasSession) {
-    return;
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
-  const reason = result.status === 0 && result.body.includes('Timed out')
+  const reason = lastResult?.status === 0 && lastResult.body.includes('Timed out')
     ? 'Timed out waiting for session'
-    : result.hasSession === false && result.ok
+    : lastResult?.hasSession === false && lastResult?.ok
       ? 'Session endpoint returned OK but no session data'
       : 'Session validation failed';
-  throw new Error(`${reason}: status ${result.status} ${result.body}`);
+  const status = lastResult?.status ?? 0;
+  const body = lastResult?.body ?? '';
+  throw new Error(`${reason}: status ${status} ${body}`);
 };

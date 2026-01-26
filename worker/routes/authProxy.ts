@@ -1,14 +1,11 @@
 import type { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { getDomain } from 'tldts';
+import { optionalAuth } from '../middleware/auth.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
-const GET_SESSION_PATH = `${AUTH_PATH_PREFIX}/get-session`;
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
-const SESSION_COOKIE_NAMES = ['__Secure-better-auth.session_token', 'better-auth.session_token'];
-const SESSION_CACHE_TTL_MS = 5000;
-const SESSION_CACHE_MAX_ENTRIES = 200;
 const BACKEND_PATH_PREFIXES = [
   '/api/onboarding',
   '/api/conversations',
@@ -18,19 +15,6 @@ const BACKEND_PATH_PREFIXES = [
   '/api/subscription',
   '/api/uploads'
 ];
-
-type SessionCacheEntry = {
-  body: ArrayBuffer;
-  status: number;
-  statusText: string;
-  headers: Array<[string, string]>;
-  expiresAt: number;
-};
-
-const sessionCache = new Map<string, SessionCacheEntry>();
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const getBaseDomain = (host: string): string | null => {
   const hostname = host.split(':')[0].toLowerCase();
@@ -90,87 +74,6 @@ const resolveRequestHost = (request: Request): string => {
   return new URL(request.url).host;
 };
 
-const resolveReferenceIdFromSession = async (env: Env, request: Request): Promise<string | null> => {
-  const cookie = request.headers.get('Cookie');
-  if (!cookie) return null;
-
-  const response = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
-    method: 'GET',
-    headers: { Cookie: cookie }
-  });
-
-  if (!response.ok) return null;
-  const payload = await response.json().catch(() => null);
-  if (!isRecord(payload)) return null;
-  const container = isRecord(payload.data) ? payload.data : payload;
-  if (!isRecord(container)) return null;
-  const session = isRecord(container.session) ? container.session : null;
-  if (!session) return null;
-
-  const raw = session.active_organization_id ?? session.activeOrganizationId ?? null;
-  if (typeof raw !== 'string') return null;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
-
-
-const extractSessionCookie = (cookieHeader: string): string | null => {
-  const cookies = cookieHeader.split(';');
-  for (const cookie of cookies) {
-    const trimmed = cookie.trim();
-    const eqIndex = trimmed.indexOf('=');
-    if (eqIndex === -1) continue;
-    const rawName = trimmed.slice(0, eqIndex);
-    const rawValue = trimmed.slice(eqIndex + 1);
-    if (!rawName || !rawValue) continue;
-    if (SESSION_COOKIE_NAMES.includes(rawName)) {
-      return `${rawName}=${rawValue}`;
-    }
-  }
-  return null;
-};
-
-const getSessionCacheKey = (cookieHeader: string | null, requestHost: string): string | null => {
-  if (!cookieHeader) return null;
-  const sessionCookie = extractSessionCookie(cookieHeader);
-  if (!sessionCookie) return null;
-  return `${requestHost}|${sessionCookie}`;
-};
-
-const pruneSessionCache = (): void => {
-  if (sessionCache.size <= SESSION_CACHE_MAX_ENTRIES) return;
-  const now = Date.now();
-  for (const [key, entry] of sessionCache) {
-    if (entry.expiresAt <= now) {
-      sessionCache.delete(key);
-    }
-    if (sessionCache.size <= SESSION_CACHE_MAX_ENTRIES) {
-      return;
-    }
-  }
-  while (sessionCache.size > SESSION_CACHE_MAX_ENTRIES) {
-    const firstKey = sessionCache.keys().next().value as string | undefined;
-    if (!firstKey) break;
-    sessionCache.delete(firstKey);
-  }
-};
-
-const getCachedSession = (cacheKey: string): SessionCacheEntry | null => {
-  const cached = sessionCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached;
-  }
-  if (cached) {
-    sessionCache.delete(cacheKey);
-  }
-  return null;
-};
-
-const storeSessionCache = (cacheKey: string, entry: SessionCacheEntry): void => {
-  sessionCache.set(cacheKey, entry);
-  pruneSessionCache();
-};
-
 const buildProxyHeaders = (
   response: Response,
   requestHost: string
@@ -213,21 +116,6 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
 
   const method = request.method.toUpperCase();
   const requestHost = resolveRequestHost(request);
-  const isGetSessionRequest = method === 'GET' && url.pathname === GET_SESSION_PATH;
-  const cacheKey = isGetSessionRequest
-    ? getSessionCacheKey(request.headers.get('Cookie'), requestHost)
-    : null;
-
-  if (cacheKey) {
-    const cached = getCachedSession(cacheKey);
-    if (cached) {
-      return new Response(cached.body.slice(0), {
-        status: cached.status,
-        statusText: cached.statusText,
-        headers: new Headers(cached.headers)
-      });
-    }
-  }
 
   const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
   const headers = new Headers(request.headers);
@@ -244,27 +132,7 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
 
   const response = await fetch(targetUrl.toString(), init);
 
-  const { headers: proxyHeaders, hasSetCookie } = buildProxyHeaders(response, requestHost);
-
-  if (isGetSessionRequest && cacheKey && response.ok && !hasSetCookie) {
-    const body = await response.arrayBuffer();
-    const cachedHeaders: Array<[string, string]> = [];
-    proxyHeaders.forEach((value, key) => {
-      cachedHeaders.push([key, value]);
-    });
-    storeSessionCache(cacheKey, {
-      body,
-      status: response.status,
-      statusText: response.statusText,
-      headers: cachedHeaders,
-      expiresAt: Date.now() + SESSION_CACHE_TTL_MS
-    });
-    return new Response(body.slice(0), {
-      status: response.status,
-      statusText: response.statusText,
-      headers: proxyHeaders
-    });
-  }
+  const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
 
   return new Response(response.body, {
     status: response.status,
@@ -293,7 +161,8 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     const hasReferenceId =
       url.searchParams.has('reference_id') || url.searchParams.has('referenceId');
     if (!hasReferenceId) {
-      resolvedReferenceId = await resolveReferenceIdFromSession(env, request);
+      const authContext = await optionalAuth(request, env);
+      resolvedReferenceId = authContext?.activeOrganizationId ?? null;
       if (resolvedReferenceId) {
         url.searchParams.set('reference_id', resolvedReferenceId);
         url.searchParams.set('referenceId', resolvedReferenceId);

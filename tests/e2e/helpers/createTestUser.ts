@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { waitForSession } from './auth';
 
 export interface TestUser {
   email: string;
@@ -55,29 +56,7 @@ export async function createTestUser(
   // Give the auth system a brief moment to finalize session cookies before polling
   await page.waitForTimeout(1200);
   
-  // Verify session is established
-  {
-    let authenticated = false;
-    const attempts = 30;
-    for (let i = 0; i < attempts; i++) {
-      const sessionCheck: any = await page.evaluate(async () => {
-        try {
-          const res = await fetch('/api/auth/get-session', { credentials: 'include' });
-          if (!res.ok) return null;
-          const data: any = await res.json();
-          return data?.session ?? null;
-        } catch {
-          return null;
-        }
-      });
-      if (sessionCheck) { authenticated = true; break; }
-      await page.waitForTimeout(500);
-    }
-    if (!authenticated) {
-      // Throw to fail fast if session wasn't established
-      throw new Error(`Authentication not established after ${attempts} attempts`);
-    }
-  }
+  await waitForSession(page, { timeoutMs: 15000 });
 
   await page.evaluate(async () => {
     try {

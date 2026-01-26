@@ -44,11 +44,7 @@ const getOrCreateConversation = async (options: {
   const ensureCookieHeader = async (): Promise<string> => {
     let cookieHeader = await buildCookieHeader(options.context, options.baseURL);
     if (!cookieHeader && options.page) {
-      await waitForSession(options.page, {
-        timeoutMs: 30000,
-        skipIfCookiePresent: false,
-        cookieUrl: options.baseURL
-      });
+      await waitForSession(options.page, { timeoutMs: 30000 });
       cookieHeader = await buildCookieHeader(options.context, options.baseURL);
     }
     return cookieHeader;
@@ -406,23 +402,11 @@ const createConversationForPage = async (options: {
   practiceId: string;
   practiceSlug?: string;
 }): Promise<string> => {
-  return options.page.evaluate(async ({ practiceId, practiceSlug }) => {
-    const sessionResponse = await fetch('/api/auth/get-session', { credentials: 'include' });
-    if (!sessionResponse.ok) {
-      throw new Error(`Failed to load session: ${sessionResponse.status}`);
-    }
-    const sessionData = await sessionResponse.json().catch(() => null) as {
-      user?: { id?: string };
-      session?: { user?: { id?: string } };
-      data?: { user?: { id?: string }; session?: { user?: { id?: string } } };
-    } | null;
-    const userId = sessionData?.user?.id
-      ?? sessionData?.data?.user?.id
-      ?? sessionData?.session?.user?.id
-      ?? sessionData?.data?.session?.user?.id;
-    if (!userId) {
-      throw new Error('Session user id missing');
-    }
+  const userId = await waitForSession(options.page, { timeoutMs: 30000 });
+  if (!userId) {
+    throw new Error('Session user id missing');
+  }
+  return options.page.evaluate(async ({ practiceId, practiceSlug, userId }) => {
     const params = new URLSearchParams({ practiceId });
     if (practiceSlug) {
       params.set('practiceSlug', practiceSlug);
@@ -453,7 +437,7 @@ const createConversationForPage = async (options: {
       throw new Error(`Failed to create conversation: ${response.status} ${message}`);
     }
     return conversationId;
-  }, { practiceId: options.practiceId, practiceSlug: options.practiceSlug });
+  }, { practiceId: options.practiceId, practiceSlug: options.practiceSlug, userId });
 };
 
 const openConversationPage = async (options: {
