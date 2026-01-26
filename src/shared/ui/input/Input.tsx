@@ -5,7 +5,7 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
 export interface InputProps {
-  type?: 'text' | 'password' | 'email' | 'tel' | 'url' | 'number' | 'search';
+  type?: 'text' | 'password' | 'email' | 'tel' | 'url' | 'number' | 'search' | 'date';
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;

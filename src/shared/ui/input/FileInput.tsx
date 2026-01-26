@@ -24,6 +24,7 @@ export interface FileInputProps {
   value?: FileList | File[];
   onChange?: (files: FileList | File[]) => void;
   accept?: string;
+  showAcceptText?: boolean;
   multiple?: boolean;
   disabled?: boolean;
   required?: boolean;
@@ -37,6 +38,8 @@ export interface FileInputProps {
   maxFileSize?: number; // in bytes - maximum size per individual file
   maxTotalSize?: number; // in bytes - maximum total size for all files
   maxFiles?: number;
+  showFileList?: boolean;
+  onRemove?: (index: number) => void;
   labelKey?: string;
   descriptionKey?: string;
   namespace?: string;
@@ -46,6 +49,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
   value,
   onChange,
   accept,
+  showAcceptText = true,
   multiple = false,
   disabled = false,
   required = false,
@@ -58,6 +62,8 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
   maxFileSize,
   maxTotalSize,
   maxFiles: _maxFiles,
+  showFileList = true,
+  onRemove,
   labelKey: _labelKey,
   descriptionKey: _descriptionKey,
   namespace: _namespace = 'common'
@@ -200,7 +206,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
               </span>
               {' '}or drag and drop
             </p>
-            {accept && (
+            {accept && showAcceptText && (
               <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                 {accept}
               </p>
@@ -209,7 +215,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         </div>
       </div>
       
-      {files.length > 0 && (
+      {showFileList && files.length > 0 && (
         <div className="mt-3 space-y-2">
           {files.map((file, index) => (
             <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
@@ -221,6 +227,15 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
                   {formatFileSize(file.size)}
                 </p>
               </div>
+              {onRemove && (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  onClick={() => onRemove(index)}
+                >
+                  Remove
+                </button>
+              )}
               {effectiveMaxFileSize && file.size > effectiveMaxFileSize && (
                 <span className="text-xs text-red-600 dark:text-red-400">
                   File too large (max {formatFileSize(effectiveMaxFileSize)})

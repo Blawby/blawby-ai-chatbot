@@ -17,10 +17,11 @@ import {
   mockAssignees,
   mockClients,
   mockMatterActivity,
+  mockMatterDetails,
   mockMatters,
   mockPracticeAreas
 } from '@/features/matters/data/mockMatters';
-import { MatterCreateModal } from '@/features/matters/components/MatterCreateModal';
+import { MatterCreateModal, MatterEditModal } from '@/features/matters/components/MatterCreateModal';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
@@ -107,10 +108,15 @@ export const PracticeMattersPage = () => {
     () => (selectedMatterId ? mockMatters.find((matter) => matter.id === selectedMatterId) ?? null : null),
     [selectedMatterId]
   );
+  const selectedMatterDetail = useMemo(
+    () => (selectedMatterId ? mockMatterDetails[selectedMatterId] ?? null : null),
+    [selectedMatterId]
+  );
 
   const [activeTab, setActiveTab] = useState<MatterTabId>('all');
   const [sortOption, setSortOption] = useState<SortOption>('updated');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
 
@@ -207,6 +213,15 @@ export const PracticeMattersPage = () => {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <MatterStatusPill status={selectedMatter.status} />
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setModalKey((prev) => prev + 1);
+                    setIsEditOpen(true);
+                  }}
+                >
+                  Edit Matter
+                </Button>
               </div>
             </div>
           </div>
@@ -292,6 +307,32 @@ export const PracticeMattersPage = () => {
             )}
           </section>
         </div>
+
+        {isEditOpen && selectedMatterDetail && (
+          <MatterEditModal
+            key={modalKey}
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            clients={mockClients}
+            practiceAreas={mockPracticeAreas}
+            assignees={mockAssignees}
+            initialValues={{
+              title: selectedMatterDetail.title,
+              clientId: selectedMatterDetail.clientId,
+              practiceAreaId: selectedMatterDetail.practiceAreaId,
+              assigneeIds: selectedMatterDetail.assigneeIds,
+              status: selectedMatterDetail.status,
+              billingType: selectedMatterDetail.billingType,
+              attorneyHourlyRate: selectedMatterDetail.attorneyHourlyRate,
+              adminHourlyRate: selectedMatterDetail.adminHourlyRate,
+              paymentFrequency: selectedMatterDetail.paymentFrequency,
+              totalFixedPrice: selectedMatterDetail.totalFixedPrice,
+              milestones: selectedMatterDetail.milestones ?? [],
+              contingencyPercent: selectedMatterDetail.contingencyPercent,
+              description: selectedMatterDetail.description
+            }}
+          />
+        )}
       </div>
     );
   }

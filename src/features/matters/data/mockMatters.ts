@@ -10,6 +10,26 @@ export type MatterSummary = {
   updatedAt: string;
 };
 
+export type MatterMilestone = {
+  description: string;
+  dueDate: string;
+  amount: number;
+};
+
+export type MatterDetail = MatterSummary & {
+  clientId: string;
+  practiceAreaId: string;
+  assigneeIds: string[];
+  description: string;
+  billingType: 'hourly' | 'fixed' | 'contingency';
+  attorneyHourlyRate?: number;
+  adminHourlyRate?: number;
+  paymentFrequency?: 'project' | 'milestone';
+  totalFixedPrice?: number;
+  milestones?: MatterMilestone[];
+  contingencyPercent?: number;
+};
+
 export type MatterOption = {
   id: string;
   name: string;
@@ -22,6 +42,9 @@ const hoursAgo = (hours: number) =>
 
 const daysAgo = (days: number, hours = 0) =>
   new Date(Date.now() - (days * 24 + hours) * 60 * 60 * 1000).toISOString();
+
+const daysFromNow = (days: number) =>
+  new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 export const mockClients: MatterOption[] = [
   { id: 'client-avery-chen', name: 'Avery Chen', email: 'avery.chen@blawby.com' },
@@ -148,6 +171,133 @@ export const mockMatters: MatterSummary[] = [
     updatedAt: daysAgo(18)
   }
 ];
+
+export const mockMatterDetails: Record<string, MatterDetail> = {
+  'matter-redwood-llc': {
+    ...mockMatters[0],
+    clientId: 'client-avery-chen',
+    practiceAreaId: 'practice-business',
+    assigneeIds: ['assignee-jo', 'assignee-fern'],
+    description: 'Form new entity, draft bylaws, and coordinate filing timeline.',
+    billingType: 'fixed',
+    paymentFrequency: 'milestone',
+    milestones: [
+      { description: 'Name availability + formation filing', dueDate: daysFromNow(10), amount: 1200 },
+      { description: 'Operating agreement + EIN', dueDate: daysFromNow(24), amount: 1800 }
+    ]
+  },
+  'matter-estate': {
+    ...mockMatters[1],
+    clientId: 'client-luna-martinez',
+    practiceAreaId: 'practice-estate',
+    assigneeIds: ['assignee-tess'],
+    description: 'Update estate plan and review beneficiary designations.',
+    billingType: 'hourly',
+    attorneyHourlyRate: 250,
+    adminHourlyRate: 95
+  },
+  'matter-ip-trademark': {
+    ...mockMatters[2],
+    clientId: 'client-miles-okafor',
+    practiceAreaId: 'practice-ip',
+    assigneeIds: ['assignee-river'],
+    description: 'Prepare trademark search and filing strategy.',
+    billingType: 'contingency',
+    contingencyPercent: 20
+  },
+  'matter-lease': {
+    ...mockMatters[3],
+    clientId: 'client-priya-desai',
+    practiceAreaId: 'practice-real-estate',
+    assigneeIds: ['assignee-jo'],
+    description: 'Negotiate lease terms and draft revisions.',
+    billingType: 'hourly',
+    attorneyHourlyRate: 300,
+    adminHourlyRate: 110
+  },
+  'matter-policy': {
+    ...mockMatters[4],
+    clientId: 'client-sawyer-brooks',
+    practiceAreaId: 'practice-employment',
+    assigneeIds: ['assignee-tess'],
+    description: 'Refresh employee handbook and compliance policies.',
+    billingType: 'fixed',
+    paymentFrequency: 'project',
+    totalFixedPrice: 4200
+  },
+  'matter-incorporation': {
+    ...mockMatters[5],
+    clientId: 'client-talia-nguyen',
+    practiceAreaId: 'practice-business',
+    assigneeIds: ['assignee-fern'],
+    description: 'Nonprofit incorporation and initial filings.',
+    billingType: 'fixed',
+    paymentFrequency: 'milestone',
+    milestones: [
+      { description: 'Draft articles + bylaws', dueDate: daysFromNow(14), amount: 900 },
+      { description: 'State filing + EIN', dueDate: daysFromNow(30), amount: 1400 }
+    ]
+  },
+  'matter-immigration': {
+    ...mockMatters[6],
+    clientId: 'client-zane-howard',
+    practiceAreaId: 'practice-immigration',
+    assigneeIds: ['assignee-river'],
+    description: 'Prepare O-1 petition and evidence packet.',
+    billingType: 'hourly',
+    attorneyHourlyRate: 275,
+    adminHourlyRate: 105
+  },
+  'matter-family': {
+    ...mockMatters[7],
+    clientId: 'client-priya-desai',
+    practiceAreaId: 'practice-family',
+    assigneeIds: ['assignee-fern'],
+    description: 'Review and revise postnuptial agreement.',
+    billingType: 'fixed',
+    paymentFrequency: 'project',
+    totalFixedPrice: 1800
+  },
+  'matter-compliance': {
+    ...mockMatters[8],
+    clientId: 'client-avery-chen',
+    practiceAreaId: 'practice-business',
+    assigneeIds: ['assignee-tess'],
+    description: 'Audit privacy policy and data handling procedures.',
+    billingType: 'contingency',
+    contingencyPercent: 15
+  },
+  'matter-investor': {
+    ...mockMatters[9],
+    clientId: 'client-luna-martinez',
+    practiceAreaId: 'practice-business',
+    assigneeIds: ['assignee-jo'],
+    description: 'Review SAFE terms and advise on revisions.',
+    billingType: 'hourly',
+    attorneyHourlyRate: 320,
+    adminHourlyRate: 120
+  },
+  'matter-contract': {
+    ...mockMatters[10],
+    clientId: 'client-sawyer-brooks',
+    practiceAreaId: 'practice-employment',
+    assigneeIds: ['assignee-river'],
+    description: 'Clean up vendor contracts and redlines.',
+    billingType: 'fixed',
+    paymentFrequency: 'project',
+    totalFixedPrice: 2600
+  },
+  'matter-property': {
+    ...mockMatters[11],
+    clientId: 'client-miles-okafor',
+    practiceAreaId: 'practice-real-estate',
+    assigneeIds: ['assignee-fern'],
+    description: 'Handle residential closing documents.',
+    billingType: 'hourly',
+    attorneyHourlyRate: 240,
+    adminHourlyRate: 90
+  }
+};
 
 export const mockMatterActivity: TimelineItem[] = [
   {
