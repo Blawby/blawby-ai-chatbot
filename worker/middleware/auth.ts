@@ -7,6 +7,7 @@ export interface AuthenticatedUser {
   name: string;
   emailVerified: boolean;
   image?: string;
+  isAnonymous?: boolean;
 }
 
 export interface AuthContext {
@@ -17,6 +18,7 @@ export interface AuthContext {
   };
   cookie: string;
   isAnonymous?: boolean; // Flag for anonymous users (Better Auth anonymous plugin)
+  activeOrganizationId?: string | null;
 }
 
 type CachedSession = {
@@ -83,9 +85,9 @@ function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
   return env.BACKEND_API_URL;
 }
 
-function parseAuthSessionPayload(
+export function parseAuthSessionPayload(
   rawResponse: unknown
-): { user: AuthenticatedUser; session: { id: string; expiresAt: Date } } {
+): { user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null } {
   if (!rawResponse || typeof rawResponse !== 'object') {
     console.error('[Auth] Invalid session payload from Better Auth API:', rawResponse);
     throw HttpErrors.unauthorized('Invalid session data - empty response');
@@ -112,7 +114,15 @@ function parseAuthSessionPayload(
     throw HttpErrors.unauthorized(responseRecord.message);
   }
 
-  let user: { id: string; email?: string | null; name: string; emailVerified?: boolean; image?: string | null } | undefined;
+  let user: {
+    id: string;
+    email?: string | null;
+    name: string;
+    emailVerified?: boolean;
+    image?: string | null;
+    isAnonymous?: boolean;
+    is_anonymous?: boolean;
+  } | undefined;
   let session: { id: string; expiresAt: Date | string } | undefined;
 
   if (responseRecord.data && typeof responseRecord.data === 'object') {
@@ -140,6 +150,15 @@ function parseAuthSessionPayload(
   }
 
   const sessionData = { user, session };
+  const sessionRecord = session && typeof session === 'object'
+    ? session as Record<string, unknown>
+    : null;
+  const activeOrganizationId =
+    typeof sessionRecord?.activeOrganizationId === 'string'
+      ? sessionRecord.activeOrganizationId
+      : typeof sessionRecord?.active_organization_id === 'string'
+        ? sessionRecord.active_organization_id
+        : null;
 
   return {
     user: {
@@ -148,6 +167,12 @@ function parseAuthSessionPayload(
       name: sessionData.user.name,
       emailVerified: sessionData.user.emailVerified ?? false,
       image: sessionData.user.image ?? undefined,
+      isAnonymous:
+        typeof sessionData.user.isAnonymous === 'boolean'
+          ? sessionData.user.isAnonymous
+          : typeof sessionData.user.is_anonymous === 'boolean'
+            ? sessionData.user.is_anonymous
+            : undefined,
     },
     session: {
       id: sessionData.session?.id || sessionData.user.id,
@@ -155,13 +180,16 @@ function parseAuthSessionPayload(
         ? new Date(sessionData.session.expiresAt)
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
+    activeOrganizationId: typeof activeOrganizationId === 'string' && activeOrganizationId.trim().length > 0
+      ? activeOrganizationId.trim()
+      : null
   };
 }
 
-async function validateSessionWithRemoteServer(
+export async function validateSessionWithRemoteServer(
   cookie: string,
   env: Env
-): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }> {
+): Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null }> {
   const cacheKey = getSessionCacheKey(cookie);
   const cached = sessionCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -280,11 +308,13 @@ export async function requireAuth(
   // - null/empty email
   // - name containing "Anonymous" or similar
   // - email starting with "anonymous-"
-  const isAnonymous = !authResult.user.email ||
-    authResult.user.email.trim() === '' ||
-    authResult.user.email.startsWith('anonymous-') ||
-    authResult.user.name?.toLowerCase().includes('anonymous') ||
-    authResult.user.name === 'Anonymous User';
+  const isAnonymous = typeof authResult.user.isAnonymous === 'boolean'
+    ? authResult.user.isAnonymous
+    : !authResult.user.email ||
+      authResult.user.email.trim() === '' ||
+      authResult.user.email.startsWith('anonymous-') ||
+      authResult.user.name?.toLowerCase().includes('anonymous') ||
+      authResult.user.name === 'Anonymous User';
 
   return {
     ...authResult,

@@ -49,7 +49,7 @@ const cookieMatchesHost = (cookieDomain: string | undefined, host: string): bool
   return normalized === target;
 };
 
-const hasValidSessionFromStorage = (baseURL: string, storagePath: string): boolean => {
+const hasValidSessionFromStorage = async (baseURL: string, storagePath: string): Promise<boolean> => {
   if (!existsSync(storagePath)) {
     return false;
   }
@@ -65,11 +65,54 @@ const hasValidSessionFromStorage = (baseURL: string, storagePath: string): boole
 
   const host = new URL(baseURL).hostname;
   const nowSeconds = Date.now() / 1000;
-  return state.cookies.some((cookie) => (
+  const matchingCookies = state.cookies.filter((cookie) => (
     cookieMatchesHost(cookie.domain, host) &&
     SESSION_COOKIE_PATTERN.test(cookie.name) &&
     (cookie.expires === undefined || cookie.expires <= 0 || cookie.expires > nowSeconds + 1)
   ));
+  if (!matchingCookies.length) {
+    return false;
+  }
+
+  const cookieHeader = matchingCookies
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join('; ');
+  if (!cookieHeader) {
+    return false;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(`${baseURL}/api/auth/get-session`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: cookieHeader
+      },
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
+    const container = payload && typeof payload === 'object'
+      ? ('data' in payload && payload.data && typeof payload.data === 'object'
+        ? payload.data as Record<string, unknown>
+        : payload)
+      : null;
+    if (!container || typeof container !== 'object') {
+      return false;
+    }
+    const user = (container as { user?: { id?: string } }).user;
+    const session = (container as { session?: { user?: { id?: string } } }).session;
+    return Boolean(user?.id || session?.user?.id);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(
@@ -141,6 +184,44 @@ const createSignedInState = async (options: {
   const authTimeoutMs = 60000;
   page.setDefaultTimeout(authTimeoutMs);
   page.setDefaultNavigationTimeout(authTimeoutMs);
+  const authNetworkLogs: string[] = [];
+  const consoleLogs: string[] = [];
+  const pageErrors: string[] = [];
+  const authResponseHandler = async (response: { url: () => string; status: () => number; request: () => { method: () => string } }) => {
+    const url = response.url();
+    if (!url.includes('/api/auth/')) return;
+    const status = response.status();
+    const method = response.request().method();
+    let bodyText = '';
+    try {
+      bodyText = await response.text();
+    } catch {
+      bodyText = '';
+    }
+    const trimmedBody = bodyText ? bodyText.slice(0, 500) : '';
+    authNetworkLogs.push(`[auth] ${method} ${status} ${url} ${trimmedBody}`);
+  };
+  const authRequestFailedHandler = (request: { url: () => string; method: () => string; failure: () => { errorText?: string } | null }) => {
+    const url = request.url();
+    if (!url.includes('/api/auth/')) return;
+    const method = request.method();
+    const failure = request.failure();
+    authNetworkLogs.push(`[auth] ${method} FAILED ${url} ${failure?.errorText ?? ''}`.trim());
+  };
+  const consoleHandler = (message: { type: () => string; text: () => string }) => {
+    const type = message.type();
+    if (type === 'error' || type === 'warning') {
+      consoleLogs.push(`[console:${type}] ${message.text()}`);
+    }
+  };
+  const pageErrorHandler = (error: Error) => {
+    pageErrors.push(`[pageerror] ${error.message}`);
+  };
+
+  page.on('response', authResponseHandler as never);
+  page.on('requestfailed', authRequestFailedHandler as never);
+  page.on('console', consoleHandler as never);
+  page.on('pageerror', pageErrorHandler as never);
 
   try {
     await page.goto('/auth?mode=signin', { waitUntil: 'domcontentloaded', timeout: authTimeoutMs });
@@ -161,20 +242,41 @@ const createSignedInState = async (options: {
 
     await page.fill('[data-testid="signin-email-input"]', email);
     await page.fill('[data-testid="signin-password-input"]', password);
+    const signInResponsePromise = page.waitForResponse(
+      (response) => response.url().includes('/api/auth/sign-in') && response.request().method() === 'POST',
+      { timeout: 20000 }
+    ).catch(() => null);
     await page.click('[data-testid="signin-submit-button"]');
+    const signInResponse = await signInResponsePromise;
+    if (signInResponse) {
+      const signInBody = await signInResponse.text().catch(() => '');
+      authNetworkLogs.push(
+        `[auth] POST ${signInResponse.status()} ${signInResponse.url()} ${signInBody.slice(0, 500)}`
+      );
+    } else {
+      authNetworkLogs.push('[auth] No sign-in response captured within 20s');
+    }
     await Promise.race([
       page.waitForURL(url => !url.pathname.startsWith('/auth'), { timeout: authTimeoutMs }),
       page.waitForLoadState('networkidle', { timeout: authTimeoutMs })
     ]).catch(() => undefined);
 
     try {
-      await waitForSession(page, { timeoutMs: authTimeoutMs, skipIfCookiePresent: false, cookieUrl: baseURL });
+      await waitForSession(page, { timeoutMs: authTimeoutMs });
     } catch (error) {
       const resultsDir = ensureResultsDir();
       const htmlPath = join(resultsDir, `signin-session-timeout-${label}.html`);
       const screenshotPath = join(resultsDir, `signin-session-timeout-${label}.png`);
+      const networkPath = join(resultsDir, `signin-session-network-${label}.txt`);
+      const consolePath = join(resultsDir, `signin-session-console-${label}.txt`);
       writeFileSync(htmlPath, await page.content());
       await page.screenshot({ path: screenshotPath, fullPage: true });
+      if (authNetworkLogs.length > 0) {
+        writeFileSync(networkPath, authNetworkLogs.join('\n'));
+      }
+      if (consoleLogs.length > 0 || pageErrors.length > 0) {
+        writeFileSync(consolePath, [...consoleLogs, ...pageErrors].join('\n'));
+      }
       throw error;
     }
 
@@ -204,6 +306,10 @@ const createSignedInState = async (options: {
     await context.storageState({ path: storagePath });
     console.log(`✅ ${label} storageState saved to ${storagePath}`);
   } finally {
+    page.off('response', authResponseHandler as never);
+    page.off('requestfailed', authRequestFailedHandler as never);
+    page.off('console', consoleHandler as never);
+    page.off('pageerror', pageErrorHandler as never);
     await context.close();
     await browser.close();
   }
@@ -225,26 +331,13 @@ const createAnonymousState = async (options: {
 
     await page.evaluate(async () => {
       try {
-        const response = await fetch('/api/auth/get-session', { credentials: 'include' });
-        if (!response.ok) {
-          return;
-        }
-        let data: any = null;
-        try {
-          data = await response.json();
-        } catch {
-          data = null;
-        }
-        const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
-        if (!hasSession) {
-          await fetch('/api/auth/sign-in/anonymous', { method: 'POST', credentials: 'include' });
-        }
+        await fetch('/api/auth/sign-in/anonymous', { method: 'POST', credentials: 'include' });
       } catch {
         // Ignore bootstrap failures; waitForSession will handle retries.
       }
     });
 
-    await waitForSession(page, { timeoutMs: 60000, skipIfCookiePresent: false, cookieUrl: baseURL });
+    await waitForSession(page, { timeoutMs: 60000 });
 
     await context.storageState({ path: storagePath });
     console.log(`✅ anonymous storageState saved to ${storagePath}`);

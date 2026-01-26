@@ -572,7 +572,7 @@ const getOrCreateConversation = async (options: {
       const page = await options.context.newPage();
       try {
         await page.goto('/', { waitUntil: 'domcontentloaded' });
-        await waitForSession(page, { timeoutMs: 30000, cookieUrl: options.baseURL });
+        await waitForSession(page, { timeoutMs: 30000 });
       } finally {
         await page.close();
       }
@@ -794,7 +794,7 @@ test.describe('Lead intake workflow', () => {
 
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
     await anonPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`);
-    await waitForSession(anonPage, { timeoutMs: 30000, skipIfCookiePresent: false, cookieUrl: baseURL });
+    await waitForSession(anonPage, { timeoutMs: 30000 });
 
     const practiceId = await resolvePracticeId(ownerContext.request, e2eConfig.practice.slug, e2eConfig.practice.id);
     const conversationId = await getOrCreateConversation({

@@ -1,34 +1,8 @@
 import { expect, test } from './fixtures';
-import type { APIRequestContext } from '@playwright/test';
 import { waitForSession } from './helpers/auth';
 import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
-
-const fetchSession = async (
-  request: APIRequestContext
-): Promise<{ status: number; hasSession: boolean; retryAfterMs: number | null }> => {
-  const response = await request.get('/api/auth/get-session', {
-    headers: { 'Content-Type': 'application/json' }
-  });
-  let data: any = null;
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
-  const retryAfter = response.headers()['retry-after'];
-  const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : null;
-  const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
-  return { status: response.status(), hasSession, retryAfterMs: Number.isFinite(retryAfterMs) ? retryAfterMs : null };
-};
-
-const fetchSessionWithRetry = async (
-  request: APIRequestContext
-): Promise<{ status: number; hasSession: boolean }> => {
-  const result = await fetchSession(request);
-  return { status: result.status, hasSession: result.hasSession };
-};
 
 test.describe('Auth modes', () => {
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
@@ -39,15 +13,25 @@ test.describe('Auth modes', () => {
 
     const page = await ownerContext.newPage();
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await waitForSession(page, { timeoutMs: 30000 });
+    const ownerUserId = await waitForSession(page, { timeoutMs: 30000 });
     await page.close();
+    expect(ownerUserId).toBeTruthy();
 
-    const sessionWithCookies = await fetchSessionWithRetry(ownerContext.request);
-    const sessionWithoutCookies = await fetchSessionWithRetry(unauthContext.request);
-
-    expect(sessionWithCookies.status).toBe(200);
-    expect(sessionWithCookies.hasSession).toBeTruthy();
-    expect(sessionWithoutCookies.hasSession).toBeFalsy();
+    const sessionWithoutCookiesResponse = await unauthContext.request.get('/api/auth/get-session', {
+      headers: { 'Content-Type': 'application/json', Cookie: '' }
+    });
+    const sessionWithoutCookiesPayload = await sessionWithoutCookiesResponse.json().catch(() => null) as {
+      data?: { user?: { id?: string } } | null;
+      user?: { id?: string } | null;
+      session?: { user?: { id?: string } } | null;
+    } | null;
+    const hasSessionWithoutCookies = Boolean(
+      sessionWithoutCookiesPayload?.user?.id ||
+      sessionWithoutCookiesPayload?.data?.user?.id ||
+      sessionWithoutCookiesPayload?.session?.user?.id
+    );
+    expect(sessionWithoutCookiesResponse.status()).toBe(200);
+    expect(hasSessionWithoutCookies).toBeFalsy();
 
     const unauthCookies = await unauthContext.cookies(baseURL);
     console.info('[Auth modes] Unauth context cookies:', unauthCookies);
