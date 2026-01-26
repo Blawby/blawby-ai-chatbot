@@ -4,6 +4,7 @@ import { ulid } from 'ulid';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import type { MatterDetail, MatterTask } from '@/features/matters/data/mockMatters';
+import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { MatterTaskForm, type MatterTaskFormValues } from './MatterTaskForm';
 
 const STATUS_STYLES: Record<MatterTask['status'], string> = {
@@ -11,16 +12,7 @@ const STATUS_STYLES: Record<MatterTask['status'], string> = {
   completed: 'text-emerald-700 bg-emerald-50 ring-emerald-600/20'
 };
 
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '';
-  const date = new Date(`${dateString}T00:00:00Z`);
-  return date.toLocaleDateString('en-US', {
-    timeZone: 'UTC',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
-};
+const formatDate = (dateString?: string) => (dateString ? formatDateOnlyUtc(dateString) : '');
 
 interface MatterTasksPanelProps {
   matter: MatterDetail;

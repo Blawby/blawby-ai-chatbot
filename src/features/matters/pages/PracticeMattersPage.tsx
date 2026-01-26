@@ -27,6 +27,7 @@ import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
+import { getUtcStartOfToday, parseDateOnlyUtc } from '@/shared/utils/dateOnly';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
   lead: 0,
@@ -173,11 +174,10 @@ export const PracticeMattersPage = () => {
     const tasks = selectedMatterDetail?.tasks ?? [];
     const openCount = tasks.filter((task) => task.status !== 'completed').length;
     const completedCount = tasks.filter((task) => task.status === 'completed').length;
-    const todayUtc = new Date();
-    todayUtc.setUTCHours(0, 0, 0, 0);
+    const todayUtc = getUtcStartOfToday();
     const overdueCount = tasks.filter((task) => {
       if (task.status === 'completed' || !task.dueDate) return false;
-      const dueDateUtc = new Date(`${task.dueDate}T00:00:00Z`);
+      const dueDateUtc = parseDateOnlyUtc(task.dueDate);
       return dueDateUtc.getTime() < todayUtc.getTime();
     }).length;
     const progress = tasks.length > 0
