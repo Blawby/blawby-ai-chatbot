@@ -20,6 +20,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import ClientHomePage from '@/pages/ClientHomePage';
 import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { AppGuard } from '@/app/AppGuard';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -52,7 +53,9 @@ export function App() {
   return (
     <LocationProvider>
       <SessionProvider>
-        <AppShell />
+        <AppGuard>
+          <AppShell />
+        </AppGuard>
       </SessionProvider>
     </LocationProvider>
   );
