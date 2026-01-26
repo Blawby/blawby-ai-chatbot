@@ -5,6 +5,7 @@ import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import type { MatterDetail, TimeEntry } from '@/features/matters/data/mockMatters';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
+import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 
 const buildDateString = (date: Date) => {
   const year = date.getUTCFullYear();
@@ -163,6 +164,8 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
 
   return (
     <div className="space-y-6">
+      <MatterTasksPanel matter={matter} />
+
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button

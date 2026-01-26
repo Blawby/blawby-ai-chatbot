@@ -16,6 +16,15 @@ export type MatterMilestone = {
   amount: number;
 };
 
+export type MatterTask = {
+  id: string;
+  title: string;
+  description?: string;
+  dueDate?: string;
+  status: 'pending' | 'completed';
+  timeEstimateHours?: number;
+};
+
 export type MatterDetail = MatterSummary & {
   clientId: string;
   practiceAreaId: string;
@@ -27,6 +36,7 @@ export type MatterDetail = MatterSummary & {
   paymentFrequency?: 'project' | 'milestone';
   totalFixedPrice?: number;
   milestones?: MatterMilestone[];
+  tasks?: MatterTask[];
   contingencyPercent?: number;
   timeEntries?: TimeEntry[];
 };
@@ -218,6 +228,32 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
       { description: 'Name availability + formation filing', dueDate: daysFromNow(10), amount: 1200 },
       { description: 'Operating agreement + EIN', dueDate: daysFromNow(24), amount: 1800 }
     ],
+    tasks: [
+      {
+        id: 'task-redwood-1',
+        title: 'Finalize entity name',
+        description: 'Confirm availability and secure name reservation if needed.',
+        dueDate: daysFromNow(4),
+        status: 'pending',
+        timeEstimateHours: 2
+      },
+      {
+        id: 'task-redwood-2',
+        title: 'Draft operating agreement outline',
+        description: 'Share initial outline with client stakeholders.',
+        dueDate: daysFromNow(12),
+        status: 'pending',
+        timeEstimateHours: 4
+      },
+      {
+        id: 'task-redwood-3',
+        title: 'Submit filing documents',
+        description: 'Prepare filing packet for state submission.',
+        dueDate: daysFromNow(16),
+        status: 'completed',
+        timeEstimateHours: 3
+      }
+    ],
     timeEntries: [
       buildTimeEntry('time-entry-1', 1, '09:00', '11:15', 'Drafted operating agreement provisions.'),
       buildTimeEntry('time-entry-2', 1, '13:00', '14:30', 'Reviewed client intake notes and follow-up.'),
@@ -234,6 +270,24 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     assigneeIds: ['assignee-tess'],
     description: 'Update estate plan and review beneficiary designations.',
     billingType: 'hourly',
+    tasks: [
+      {
+        id: 'task-estate-1',
+        title: 'Collect beneficiary updates',
+        description: 'Request updated beneficiary designations from client.',
+        dueDate: daysFromNow(7),
+        status: 'pending',
+        timeEstimateHours: 1
+      },
+      {
+        id: 'task-estate-2',
+        title: 'Revise trust documents',
+        description: 'Update trust provisions based on client feedback.',
+        dueDate: daysFromNow(14),
+        status: 'pending',
+        timeEstimateHours: 6
+      }
+    ],
     attorneyHourlyRate: 250,
     adminHourlyRate: 95
   },
