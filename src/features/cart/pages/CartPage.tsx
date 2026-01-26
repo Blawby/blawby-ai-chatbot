@@ -61,8 +61,12 @@ export const CartPage = () => {
         return;
       }
       
-      // Select the first available plan (backend only has one plan, displayed as "Business" in UI)
-      const selectedPlan = publicPlans[0];
+      // Select the configured business plan, or the first available plan
+      const configuredProductId = import.meta.env.VITE_STRIPE_BUSINESS_PRODUCT_ID;
+      const selectedPlan = (configuredProductId 
+        ? publicPlans.find(p => p.stripeProductId === configuredProductId) 
+        : null) || publicPlans[0];
+
       if (selectedPlan) {
         setSelectedPlan(selectedPlan);
         // Set initial price ID to monthly (will be updated when user selects annual)
@@ -72,6 +76,7 @@ export const CartPage = () => {
           console.debug('[CART][PLANS] Selected plan:', {
             name: selectedPlan.name,
             displayName: selectedPlan.displayName,
+            stripeProductId: selectedPlan.stripeProductId,
             monthlyPriceId: selectedPlan.stripeMonthlyPriceId,
             yearlyPriceId: selectedPlan.stripeYearlyPriceId
           });

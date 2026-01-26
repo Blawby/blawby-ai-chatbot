@@ -16,6 +16,7 @@ import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
 import { getConversationEndpoint, getConversationsEndpoint, getCurrentConversationEndpoint } from '@/config/api';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { getClient } from '@/shared/lib/authClient';
 import { useNavigation } from '@/shared/utils/navigation';
 import {
   BanknotesIcon,
@@ -353,7 +354,8 @@ export function MainApp({
     currentPractice,
     acceptMatter,
     rejectMatter,
-    updateMatterStatus
+    updateMatterStatus,
+    refetch: refetchPractices
   } = usePracticeManagement({
     autoFetchPractices: workspace !== 'public',
     fetchInvitations: workspace !== 'public'
@@ -371,6 +373,32 @@ export function MainApp({
     if (!practiceDetailsId || hasPracticeDetails) return;
     void fetchPracticeDetails();
   }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
+
+  // Handle subscription success - refresh session and practice list after Stripe checkout
+  const subscriptionSuccessHandledRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (subscriptionSuccessHandledRef.current) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('subscription') !== 'success') return;
+    
+    subscriptionSuccessHandledRef.current = true;
+    
+    if (import.meta.env.DEV) {
+      console.debug('[SUBSCRIPTION][SUCCESS] Refreshing session and practice list after checkout');
+    }
+    
+    // Refetch practices to get the newly created practice
+    // The session should already be refreshed by Better Auth after the Stripe redirect
+    void refetchPractices().then(() => {
+      if (import.meta.env.DEV) {
+        console.debug('[SUBSCRIPTION][SUCCESS] Practices refetched successfully');
+      }
+    }).catch((error) => {
+      console.error('[SUBSCRIPTION][SUCCESS] Failed to refetch practices:', error);
+    });
+  }, [refetchPractices]);
 
   const handleMessageError = useCallback((error: string | Error) => {
     console.error('Message handling error:', error);
@@ -648,6 +676,7 @@ export function MainApp({
   // Practice members (lawyers) will create practices through onboarding/upgrade flow.
   // Clients chat with practices via widget (practiceId from URL), not their own practice.
 
+
   useEffect(() => {
     if (sessionIsPending || isAnonymous || !session?.user?.id) {
       if (import.meta.env.DEV) {
@@ -659,6 +688,21 @@ export function MainApp({
       }
       return;
     }
+    
+    // Skip onboarding check if user is returning from successful subscription
+    // Check this BEFORE the onboardingCheckRef guard so it's evaluated on every URL change
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('subscription') === 'success') {
+        if (import.meta.env.DEV) {
+          console.debug('[ONBOARDING][SKIP] returning from successful subscription', {
+            url: window.location.href
+          });
+        }
+        return;
+      }
+    }
+    
     if (onboardingCheckRef.current) return;
     onboardingCheckRef.current = true;
 
