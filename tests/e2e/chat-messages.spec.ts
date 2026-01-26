@@ -95,22 +95,27 @@ const waitForMessageViaWebSocket = async (options: {
   conversationId: string;
   content: string;
   timeoutMs?: number;
-}): Promise<void> => {
+}): Promise<{ ready: Promise<void>; wait: Promise<void> }> => {
+  if (!options.baseURL) {
+    throw new Error('baseURL is required for WebSocket connection');
+  }
   const wsUrl = new URL(`/api/conversations/${encodeURIComponent(options.conversationId)}/ws`, options.baseURL);
   wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
 
-  return options.page.evaluate(async ({ wsUrl: wsUrlString, content, timeoutMs: timeout }) => {
+  const listenerKey = `e2e-ws-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  const ready = options.page.evaluate(async ({ wsUrl: wsUrlString, key }) => {
     return await new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(wsUrlString);
-      let settled = false;
-      const timeoutId = setTimeout(() => {
-        settled = true;
-        ws.close();
-        reject(new Error(`Timed out waiting for message in WebSocket after ${timeout}ms`));
-      }, timeout ?? 5000);
+      const windowWithE2E = window as Window & {
+        __e2eWsListeners?: Record<string, { ws: WebSocket; ready: boolean }>;
+      };
+      if (!windowWithE2E.__e2eWsListeners) {
+        windowWithE2E.__e2eWsListeners = {};
+      }
+      windowWithE2E.__e2eWsListeners[key] = { ws, ready: false };
 
       const cleanup = () => {
-        clearTimeout(timeoutId);
         try {
           ws.close();
         } catch {
@@ -140,6 +145,77 @@ const waitForMessageViaWebSocket = async (options: {
         }
 
         if (frame.type === 'auth.error' || frame.type === 'error') {
+          cleanup();
+          const message = typeof frame.data?.message === 'string' ? frame.data.message : 'WebSocket error';
+          reject(new Error(message));
+          return;
+        }
+
+        if (frame.type === 'auth.ok') {
+          windowWithE2E.__e2eWsListeners[key].ready = true;
+          resolve();
+        }
+      });
+
+      ws.addEventListener('error', () => {
+        cleanup();
+        reject(new Error('WebSocket error'));
+      });
+
+      ws.addEventListener('close', (event) => {
+        cleanup();
+        reject(new Error(`WebSocket closed (${event.code}) ${event.reason || 'closed'}`));
+      });
+    });
+  }, { wsUrl: wsUrl.toString(), key: listenerKey });
+
+  const wait = options.page.evaluate(async ({ key, content, timeoutMs: timeout }) => {
+    return await new Promise<void>((resolve, reject) => {
+      const windowWithE2E = window as Window & {
+        __e2eWsListeners?: Record<string, { ws: WebSocket; ready: boolean }>;
+      };
+      const state = windowWithE2E.__e2eWsListeners?.[key];
+      if (!state) {
+        reject(new Error('WebSocket listener not initialized'));
+        return;
+      }
+
+      const ws = state.ws;
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        settled = true;
+        try {
+          ws.close();
+        } catch {
+          // ignore
+        }
+        reject(new Error(`Timed out waiting for message in WebSocket after ${timeout}ms`));
+      }, timeout ?? 5000);
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        try {
+          ws.close();
+        } catch {
+          // ignore
+        }
+        if (windowWithE2E.__e2eWsListeners) {
+          delete windowWithE2E.__e2eWsListeners[key];
+        }
+      };
+
+      const handleMessage = (event: MessageEvent) => {
+        if (typeof event.data !== 'string') {
+          return;
+        }
+        let frame: { type?: string; data?: Record<string, unknown> };
+        try {
+          frame = JSON.parse(event.data) as { type?: string; data?: Record<string, unknown> };
+        } catch {
+          return;
+        }
+
+        if (frame.type === 'auth.error' || frame.type === 'error') {
           settled = true;
           cleanup();
           const message = typeof frame.data?.message === 'string' ? frame.data.message : 'WebSocket error';
@@ -156,22 +232,28 @@ const waitForMessageViaWebSocket = async (options: {
             return;
           }
         }
-      });
+      };
 
-      ws.addEventListener('error', () => {
+      const handleError = () => {
         settled = true;
         cleanup();
         reject(new Error('WebSocket error'));
-      });
+      };
 
-      ws.addEventListener('close', (event) => {
+      const handleClose = (event: CloseEvent) => {
         if (!settled) {
           cleanup();
           reject(new Error(`WebSocket closed (${event.code}) ${event.reason || 'closed'}`));
         }
-      });
+      };
+
+      ws.addEventListener('message', handleMessage);
+      ws.addEventListener('error', handleError);
+      ws.addEventListener('close', handleClose);
     });
-  }, { wsUrl: wsUrl.toString(), content: options.content, timeoutMs: options.timeoutMs ?? 5000 });
+  }, { key: listenerKey, content: options.content, timeoutMs: options.timeoutMs ?? 5000 });
+
+  return { ready, wait };
 };
 
 const sendChatMessageOverWs = async (options: {
@@ -492,13 +574,14 @@ test.describe('Chat messaging', () => {
     sharedClientConversationId = conversationId;
 
     const content = `E2E existing ${Date.now()}`;
-    const ownerWait = waitForMessageViaWebSocket({
+    const ownerListener = await waitForMessageViaWebSocket({
       page: ownerPage,
       baseURL,
       conversationId,
       content,
       timeoutMs: 10000
     });
+    await ownerListener.ready;
     await sendChatMessage({
       page: clientPage,
       baseURL,
@@ -506,11 +589,14 @@ test.describe('Chat messaging', () => {
       content
     });
 
-    await ownerWait;
+    await ownerListener.wait;
   });
 
   test('chat UI syncs across tabs and preserves history', async ({ clientContext, clientPage, baseURL }) => {
     if (!e2eConfig) return;
+    if (!baseURL) {
+      throw new Error('baseURL is required for WebSocket connection');
+    }
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
     await clientPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(clientPage, { timeoutMs: 60000 });
@@ -540,7 +626,7 @@ test.describe('Chat messaging', () => {
 
       await sendChatMessage({
         page: clientPage,
-        baseURL: baseURL ?? '',
+        baseURL,
         conversationId,
         content: firstMessage
       });
@@ -549,7 +635,7 @@ test.describe('Chat messaging', () => {
 
       await sendChatMessage({
         page: secondaryPage,
-        baseURL: baseURL ?? '',
+        baseURL,
         conversationId,
         content: secondMessage
       });

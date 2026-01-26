@@ -22,10 +22,10 @@ describe('Retry Utility Tests', () => {
     expect(mockFn).toHaveBeenCalledTimes(1);
   });
 
-  it('should still only call once with retry options provided', async () => {
+  it('should retry when options are provided', async () => {
     const mockFn = vi.fn().mockRejectedValue(new Error('Any error'));
 
     await expect(withRetry(mockFn, { attempts: 3, baseDelay: 100 })).rejects.toThrow('Any error');
-    expect(mockFn).toHaveBeenCalledTimes(1);
+    expect(mockFn).toHaveBeenCalledTimes(3);
   });
 });

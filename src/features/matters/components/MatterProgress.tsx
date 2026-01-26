@@ -66,6 +66,7 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
     });
 
     ws.addEventListener('message', (event) => {
+      if (settled) return;
       if (typeof event.data !== 'string') return;
       try {
         const parsed = JSON.parse(event.data) as Record<string, unknown>;
@@ -81,9 +82,11 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
       setLoading(false);
     });
 
-    ws.addEventListener('close', () => {
+    ws.addEventListener('close', (event) => {
       if (settled) return;
-      setError('Matter progress connection closed.');
+      if (event.code !== 1000 && event.code !== 1001) {
+        setError('Matter progress connection closed unexpectedly.');
+      }
       setLoading(false);
     });
 

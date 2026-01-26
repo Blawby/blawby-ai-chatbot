@@ -36,6 +36,8 @@ const CHAT_PROTOCOL_VERSION = 1;
 const SOCKET_READY_TIMEOUT_MS = 8000;
 const SESSION_READY_TIMEOUT_MS = 8000;
 const GAP_FETCH_LIMIT = 50;
+const MAX_GAP_FETCH_ATTEMPTS = 3;
+const GAP_FETCH_RETRY_DELAY_MS = 1000;
 const MESSAGE_CACHE_LIMIT = 200;
 
 const createClientId = (): string => {
@@ -622,6 +624,7 @@ export const useMessageHandling = ({
 
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
+    let attempts = 0;
 
     while (nextSeq !== null && nextSeq <= targetLatest) {
       if (
@@ -675,11 +678,15 @@ export const useMessageHandling = ({
           targetLatest = data.data.latest_seq;
         }
         nextSeq = data.data.next_from_seq ?? null;
+        attempts = 0;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to recover message gap';
+        attempts += 1;
+        if (attempts < MAX_GAP_FETCH_ATTEMPTS) {
+          await new Promise(resolve => setTimeout(resolve, GAP_FETCH_RETRY_DELAY_MS * attempts));
+          continue;
+        }
         onError?.(message);
-        isClosingSocketRef.current = true;
-        wsRef.current?.close();
         return;
       }
     }

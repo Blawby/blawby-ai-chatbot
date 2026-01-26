@@ -95,7 +95,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleBackendProxy(request, env);
     } else if (path.startsWith('/api/practices')) {
       response = await handlePractices(request, env);
-    } else if (path.startsWith('/api/paralegal/')) {
+    } else if (path.startsWith('/api/paralegal')) {
       response = await handleParalegal(request, env);
     } else if (path.startsWith('/api/activity')) {
       response = await handleActivity(request, env);

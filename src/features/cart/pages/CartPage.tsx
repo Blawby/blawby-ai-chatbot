@@ -63,28 +63,22 @@ export const CartPage = () => {
       
       // Select the configured business plan, or the first available plan
       const configuredProductId = import.meta.env.VITE_STRIPE_BUSINESS_PRODUCT_ID;
-      const selectedPlan = (configuredProductId 
-        ? publicPlans.find(p => p.stripeProductId === configuredProductId) 
+      const planToSelect = (configuredProductId
+        ? publicPlans.find(p => p.stripeProductId === configuredProductId)
         : null) || publicPlans[0];
 
-      if (selectedPlan) {
-        setSelectedPlan(selectedPlan);
-        // Set initial price ID to monthly (will be updated when user selects annual)
-        setSelectedPriceId(selectedPlan.stripeMonthlyPriceId);
-        
-        if (import.meta.env.DEV) {
-          console.debug('[CART][PLANS] Selected plan:', {
-            name: selectedPlan.name,
-            displayName: selectedPlan.displayName,
-            stripeProductId: selectedPlan.stripeProductId,
-            monthlyPriceId: selectedPlan.stripeMonthlyPriceId,
-            yearlyPriceId: selectedPlan.stripeYearlyPriceId
-          });
-        }
-      } else {
-        const errorMsg = 'No suitable plan found';
-        setLoadError(errorMsg);
-        showError('Plan Selection Error', errorMsg);
+      setSelectedPlan(planToSelect);
+      // Set initial price ID to monthly (will be updated when user selects annual)
+      setSelectedPriceId(planToSelect.stripeMonthlyPriceId);
+      
+      if (import.meta.env.DEV) {
+        console.debug('[CART][PLANS] Selected plan:', {
+          name: planToSelect.name,
+          displayName: planToSelect.displayName,
+          stripeProductId: planToSelect.stripeProductId,
+          monthlyPriceId: planToSelect.stripeMonthlyPriceId,
+          yearlyPriceId: planToSelect.stripeYearlyPriceId
+        });
       }
     } catch (error) {
       console.error('[CART][PLANS] Failed to load plans:', error);

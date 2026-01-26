@@ -64,6 +64,10 @@ export function AppGuard({ children }: AppGuardProps) {
     if (sessionIsPending || isAnonymous || !session?.user?.id || isAuthPage || isPublicPage) {
       return;
     }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
     
     // Skip onboarding check if user is in the middle of a successful subscription flow
     const urlParams = new URLSearchParams(window.location.search);

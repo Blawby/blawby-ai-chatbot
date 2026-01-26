@@ -133,9 +133,9 @@ export class MatterProgressRoom {
       }
 
       const updatedAt = new Date().toISOString();
+      await this.state.storage.put('progress', { data: normalized, updatedAt });
       this.progress = normalized;
       this.updatedAt = updatedAt;
-      await this.state.storage.put('progress', { data: normalized, updatedAt });
       this.broadcast({ type: 'progress.update', data: normalized, updated_at: updatedAt });
 
       return new Response(JSON.stringify({ success: true, data: { updatedAt } }), {

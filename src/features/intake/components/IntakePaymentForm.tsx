@@ -54,6 +54,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const isMountedRef = useRef(true);
+  const paymentWaitControllerRef = useRef<AbortController | null>(null);
 
   const TERMINAL_FAILURE_STATUSES = useMemo(
     () => new Set(['failed', 'canceled', 'cancelled', 'expired']),
@@ -63,6 +64,8 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+      paymentWaitControllerRef.current?.abort();
+      paymentWaitControllerRef.current = null;
     };
   }, []);
 
@@ -101,20 +104,35 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
     }
   }, [conversationId, intakeUuid, practiceId]);
 
-  const waitForPaymentConfirmation = useCallback(async (timeoutMs = 20000): Promise<string | null> => {
+  const waitForPaymentConfirmation = useCallback(async (timeoutMs = 20000, signal?: AbortSignal): Promise<string | null> => {
     if (!conversationId || !intakeUuid) {
       return null;
     }
 
     const wsUrl = getConversationWsEndpoint(conversationId);
 
+    if (signal?.aborted) {
+      return null;
+    }
+
     return await new Promise<string | null>((resolve) => {
       const ws = new WebSocket(wsUrl);
       let settled = false;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+      const onAbort = () => {
+        cleanup();
+        resolve(null);
+      };
 
       const cleanup = () => {
         if (settled) return;
         settled = true;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        signal?.removeEventListener('abort', onAbort);
         try {
           ws.close();
         } catch {
@@ -122,7 +140,9 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         }
       };
 
-      const timeoutId = setTimeout(() => {
+      signal?.addEventListener('abort', onAbort, { once: true });
+
+      timeoutId = setTimeout(() => {
         console.warn('[IntakePayment] Timed out waiting for payment confirmation');
         cleanup();
         resolve(null);
@@ -139,6 +159,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       });
 
       ws.addEventListener('message', (event) => {
+        if (settled) return;
         if (typeof event.data !== 'string') return;
         let frame: { type?: string; data?: Record<string, unknown> };
         try {
@@ -149,7 +170,6 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
 
         if (frame.type === 'auth.error' || frame.type === 'error') {
           console.warn('[IntakePayment] WebSocket auth error', frame.data);
-          clearTimeout(timeoutId);
           cleanup();
           resolve(null);
           return;
@@ -178,19 +198,18 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         if (!paymentStatus || !isPaidIntakeStatus(paymentStatus)) {
           return;
         }
-        clearTimeout(timeoutId);
         cleanup();
         resolve(paymentStatus);
       });
 
       ws.addEventListener('error', () => {
-        clearTimeout(timeoutId);
+        if (settled) return;
         cleanup();
         resolve(null);
       });
 
       ws.addEventListener('close', () => {
-        clearTimeout(timeoutId);
+        if (settled) return;
         cleanup();
         resolve(null);
       });
@@ -258,7 +277,13 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         });
       }
 
-      const wsStatus = await waitForPaymentConfirmation();
+      const waitController = new AbortController();
+      paymentWaitControllerRef.current?.abort();
+      paymentWaitControllerRef.current = waitController;
+      const wsStatus = await waitForPaymentConfirmation(20000, waitController.signal);
+      if (paymentWaitControllerRef.current === waitController) {
+        paymentWaitControllerRef.current = null;
+      }
       if (!isMountedRef.current) return;
       if (wsStatus && isPaidIntakeStatus(wsStatus)) {
         setStatus('succeeded');

@@ -483,9 +483,9 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
 
     if (!session?.user && practiceId) {
       const key = `anonymous_signin_attempted_${practiceId}`;
-      const attempted = sessionStorage.getItem(key);
+      const attemptStatus = sessionStorage.getItem(key);
 
-      if (!attempted) {
+      if (!attemptStatus || attemptStatus === 'failed') {
         sessionStorage.setItem(key, '1');
         console.log('[Auth] Attempting anonymous sign-in', { practiceId });
         (async () => {

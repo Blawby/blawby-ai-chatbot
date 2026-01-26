@@ -75,5 +75,10 @@ export const waitForSession = async (
     return;
   }
 
-  throw new Error(`Timed out waiting for session: status ${result.status} ${result.body}`);
+  const reason = result.status === 0 && result.body.includes('Timed out')
+    ? 'Timed out waiting for session'
+    : result.hasSession === false && result.ok
+      ? 'Session endpoint returned OK but no session data'
+      : 'Session validation failed';
+  throw new Error(`${reason}: status ${result.status} ${result.body}`);
 };
