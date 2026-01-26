@@ -42,10 +42,9 @@ export const Combobox = ({
   );
   const listboxId = `${inputId}-listbox`;
 
-  const filteredOptions = useMemo(() => {
-    const normalize = (input: string) =>
-      input.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const normalize = (input: string) => input.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+  const filteredOptions = useMemo(() => {
     const normalizedQuery = normalize(query);
     if (!normalizedQuery) return options;
 
@@ -54,6 +53,9 @@ export const Combobox = ({
       return normalizedOption.includes(normalizedQuery);
     });
   }, [options, query]);
+
+  const resolvedFocusedIndex =
+    focusedIndex >= 0 && focusedIndex < filteredOptions.length ? focusedIndex : -1;
 
   const showOptions = isOpen && filteredOptions.length > 0;
   const resolvedLeading = typeof leading === 'function' ? leading(selectedOption) : leading;
@@ -83,14 +85,21 @@ export const Combobox = ({
             aria-controls={listboxId}
             aria-autocomplete="list"
             aria-activedescendant={
-              focusedIndex >= 0 ? `${inputId}-option-${focusedIndex}` : undefined
+              resolvedFocusedIndex >= 0 ? `${inputId}-option-${resolvedFocusedIndex}` : undefined
             }
             value={query}
             onInput={(event) => {
               const nextValue = (event.target as HTMLInputElement).value;
+              const normalizedQuery = normalize(nextValue);
+              const nextFilteredOptions = normalizedQuery
+                ? options.filter((option) => {
+                    const normalizedOption = normalize(`${option.label} ${option.meta ?? ''}`);
+                    return normalizedOption.includes(normalizedQuery);
+                  })
+                : options;
               setQuery(nextValue);
               setIsOpen(true);
-              setFocusedIndex(0);
+              setFocusedIndex(nextFilteredOptions.length > 0 ? 0 : -1);
             }}
             onFocus={() => setIsOpen(true)}
             onBlur={() => setIsOpen(false)}
@@ -104,20 +113,31 @@ export const Combobox = ({
                 return;
               }
 
-              if (filteredOptions.length === 0) return;
+              if (filteredOptions.length === 0) {
+                setFocusedIndex(-1);
+                return;
+              }
 
               switch (event.key) {
                 case 'ArrowDown':
                   event.preventDefault();
-                  setFocusedIndex((prev) => (prev + 1) % filteredOptions.length);
+                  setFocusedIndex((prev) => {
+                    const currentIndex =
+                      prev >= 0 && prev < filteredOptions.length ? prev : 0;
+                    return (currentIndex + 1) % filteredOptions.length;
+                  });
                   break;
                 case 'ArrowUp':
                   event.preventDefault();
-                  setFocusedIndex((prev) => (prev <= 0 ? filteredOptions.length - 1 : prev - 1));
+                  setFocusedIndex((prev) => {
+                    const currentIndex =
+                      prev >= 0 && prev < filteredOptions.length ? prev : 0;
+                    return currentIndex <= 0 ? filteredOptions.length - 1 : currentIndex - 1;
+                  });
                   break;
                 case 'Enter': {
                   event.preventDefault();
-                  const option = filteredOptions[focusedIndex];
+                  const option = filteredOptions[resolvedFocusedIndex];
                   if (option) {
                     onChange(option.value);
                     setQuery(displayValue?.(option) ?? option.label);
@@ -163,7 +183,7 @@ export const Combobox = ({
           >
             {filteredOptions.map((option, index) => {
               const isSelected = option.value === value;
-              const isFocused = index === focusedIndex;
+              const isFocused = index === resolvedFocusedIndex;
               const optionLead = optionLeading?.(option);
               const optionMetaContent = optionMeta?.(option) ?? option.meta;
               return (

@@ -166,7 +166,7 @@ const StatusPillGroup = ({
   </fieldset>
 );
 
-export const MatterFormModal = ({
+const MatterFormModalInner = ({
   isOpen,
   onClose,
   clients,
@@ -236,6 +236,7 @@ export const MatterFormModal = ({
 
   const removeFile = (index: number) => {
     updateForm('files', formState.files.filter((_, fileIndex) => fileIndex !== index));
+    setFileError(null);
   };
 
   const canAddMilestone =
@@ -543,6 +544,16 @@ export const MatterFormModal = ({
       </form>
     </Modal>
   );
+};
+
+export const MatterFormModal = (props: MatterFormModalProps) => {
+  const { mode = 'create', initialValues } = props;
+  const resetKey = useMemo(
+    () => `${mode}-${JSON.stringify(initialValues ?? {})}`,
+    [mode, initialValues]
+  );
+
+  return <MatterFormModalInner key={resetKey} {...props} />;
 };
 
 export const MatterCreateModal = (props: MatterCreateModalProps) => (
