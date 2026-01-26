@@ -214,18 +214,23 @@ export const MatterFormModal = ({
 
   const handleFilesChange = (incoming: FileList | File[]) => {
     const nextFiles = Array.isArray(incoming) ? incoming : Array.from(incoming);
-    const merged = [...formState.files, ...nextFiles];
-    const limited = merged.slice(0, 6);
-    const totalSize = limited.reduce((sum, file) => sum + file.size, 0);
     const maxTotalSize = 25 * 1024 * 1024;
-    const tooManyFiles = merged.length > 6;
-
-    if (totalSize > maxTotalSize) {
-      setFileError('Total file size exceeds 25 MB limit.');
-      return;
+    const limited = [...formState.files];
+    let totalSize = limited.reduce((sum, file) => sum + file.size, 0);
+    let droppedAny = false;
+    for (const file of nextFiles) {
+      if (limited.length >= 6 || totalSize + file.size > maxTotalSize) {
+        droppedAny = true;
+        continue;
+      }
+      limited.push(file);
+      totalSize += file.size;
     }
-
-    setFileError(tooManyFiles ? 'Maximum 6 files allowed.' : null);
+    if (droppedAny) {
+      setFileError('Some files were not added: exceeds count or size limits.');
+    } else {
+      setFileError(null);
+    }
     updateForm('files', limited);
   };
 

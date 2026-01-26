@@ -3,6 +3,7 @@ import type { DurableObjectState, WebSocket as WorkerWebSocket } from '@cloudfla
 import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
 import { checkPracticeMembership, requireAuth } from '../middleware/auth.js';
+import { parseEnvBool } from '../utils/safeStringUtils.js';
 
 const PROTOCOL_VERSION = 1;
 const NEGOTIATION_TIMEOUT_MS = 5000;
@@ -798,13 +799,15 @@ export class ChatRoom {
   }
 
   private isOriginAllowed(origin: string | null): boolean {
-    if (!origin) {
-      return false;
-    }
-
     const rawList = this.env.ALLOWED_WS_ORIGINS;
     if (!rawList) {
-      return false;
+      // If no allowlist is configured, allow all origins (permissive for development)
+      return true;
+    }
+
+    if (!origin) {
+      // Missing origin header - allow in development mode, deny otherwise
+      return parseEnvBool(this.env.DEBUG);
     }
 
     const allowlist = rawList

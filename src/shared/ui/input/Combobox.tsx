@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/no-noninteractive-element-to-interactive-role */
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { CheckIcon, ChevronUpDownIcon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -166,37 +167,46 @@ export const Combobox = ({
               const optionLead = optionLeading?.(option);
               const optionMetaContent = optionMeta?.(option) ?? option.meta;
               return (
-                <li key={option.value} id={`${inputId}-option-${index}`}>
-                  <button
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
+                <li
+                  key={option.value}
+                  id={`${inputId}-option-${index}`}
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    onChange(option.value);
+                    setQuery(displayValue?.(option) ?? option.label);
+                    setIsOpen(false);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
                       onChange(option.value);
                       setQuery(displayValue?.(option) ?? option.label);
                       setIsOpen(false);
-                    }}
-                    className={cn(
-                      'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
-                      (isSelected || isFocused)
-                        ? 'bg-accent-50 text-gray-900 dark:bg-accent-500/10 dark:text-white'
-                        : 'text-gray-900 dark:text-gray-100 hover:bg-accent-50/70 dark:hover:bg-white/5'
-                    )}
-                  >
-                    <span className="flex min-w-0 items-center gap-3">
-                      {optionLead && <span className="flex h-6 w-6 items-center justify-center">{optionLead}</span>}
-                      <span className={cn('block truncate', isSelected && 'font-semibold')}>{option.label}</span>
+                    }
+                  }}
+                  className={cn(
+                    'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
+                    (isSelected || isFocused)
+                      ? 'bg-accent-50 text-gray-900 dark:bg-accent-500/10 dark:text-white'
+                      : 'text-gray-900 dark:text-gray-100 hover:bg-accent-50/70 dark:hover:bg-white/5'
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    {optionLead && <span className="flex h-6 w-6 items-center justify-center">{optionLead}</span>}
+                    <span className={cn('block truncate', isSelected && 'font-semibold')}>{option.label}</span>
+                  </span>
+                  {optionMetaContent && (
+                    <span className="ml-3 max-w-[45%] truncate text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200">
+                      {optionMetaContent}
                     </span>
-                    {optionMetaContent && (
-                      <span className="ml-3 max-w-[45%] truncate text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200">
-                        {optionMetaContent}
-                      </span>
-                    )}
-                    {isSelected && (
-                      <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-accent-600 dark:text-accent-300">
-                        <CheckIcon className="h-4 w-4" aria-hidden="true" />
-                      </span>
-                    )}
-                  </button>
+                  )}
+                  {isSelected && (
+                    <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-accent-600 dark:text-accent-300">
+                      <CheckIcon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                  )}
                 </li>
               );
             })}

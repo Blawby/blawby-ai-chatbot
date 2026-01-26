@@ -332,6 +332,27 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   }
 
   const response = await fetch(targetUrl.toString(), init);
+  
+  // Log errors for debugging
+  if (!response.ok && response.status >= 400) {
+    const errorBody = await response.clone().text().catch(() => '(unable to read body)');
+    const requestBodyText = init.body 
+      ? (typeof init.body === 'string' ? init.body : new TextDecoder().decode(init.body as ArrayBuffer)).slice(0, 200)
+      : '(no body)';
+    
+    console.error(`[Backend Proxy Error] ${method} ${url.pathname}`, {
+      targetUrl: targetUrl.toString(),
+      status: response.status,
+      statusText: response.statusText,
+      requestBody: requestBodyText,
+      responseBody: errorBody.slice(0, 500),
+      headers: {
+        'Content-Type': headers.get('Content-Type'),
+        'Authorization': headers.get('Authorization') ? '(present)' : '(missing)'
+      }
+    });
+  }
+  
   const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
   return new Response(response.body, {
     status: response.status,

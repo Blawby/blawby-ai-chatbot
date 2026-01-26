@@ -45,7 +45,7 @@ const createClientId = (): string => {
   return `client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const isTempMessageId = (messageId: string): boolean => messageId.startsWith('temp-');
+const isTempMessageId = (messageId: string): boolean => messageId.startsWith('temp-') || messageId.startsWith('system-');
 
 const getMessageCacheKey = (practiceId: string, conversationId: string): string => (
   `chat:messages:${practiceId}:${conversationId}`
