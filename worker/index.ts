@@ -82,6 +82,7 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleBackendProxy(request, env);
     } else if (
       path.startsWith('/api/onboarding') ||
+      path.startsWith('/api/practice/client-intakes') ||
       ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
         !path.startsWith('/api/practice/details/') &&
         !path.startsWith('/api/practices')) ||

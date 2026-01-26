@@ -5,7 +5,7 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
 export interface InputProps {
-  type?: 'text' | 'password' | 'email' | 'tel' | 'url' | 'number' | 'search';
+  type?: 'text' | 'password' | 'email' | 'tel' | 'url' | 'number' | 'search' | 'date';
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -25,8 +25,8 @@ export interface InputProps {
   errorKey?: string;
   namespace?: string;
   pattern?: string;
-  min?: number;
-  max?: number;
+  min?: string | number;
+  max?: string | number;
   step?: number;
   inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
   // ARIA props

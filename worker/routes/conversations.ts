@@ -192,7 +192,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const stub = env.CHAT_ROOM.get(id);
     const wsUrl = new URL(request.url);
     wsUrl.pathname = `/ws/${conversationId}`;
-    const wsRequest = new Request(wsUrl.toString(), request);
+    const wsRequest = new Request(wsUrl.toString(), {
+      method: request.method,
+      headers: request.headers,
+      cf: request.cf
+    });
     return stub.fetch(wsRequest as unknown as WorkerRequest) as unknown as Response;
   }
 

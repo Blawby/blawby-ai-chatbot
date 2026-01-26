@@ -1,0 +1,565 @@
+import { useMemo, useState } from 'preact/hooks';
+import Modal from '@/shared/components/Modal';
+import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/input/Input';
+import { Textarea } from '@/shared/ui/input/Textarea';
+import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
+import { FileInput } from '@/shared/ui/input/FileInput';
+import { Combobox } from '@/shared/ui/input/Combobox';
+import { MultiSelect } from '@/shared/ui/input/MultiSelect';
+import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
+import type { MatterOption } from '@/features/matters/data/mockMatters';
+import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
+import type { ComponentChildren } from 'preact';
+import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
+import { ScaleIcon, ShieldCheckIcon, UserIcon } from '@heroicons/react/24/outline';
+import { PlusIcon } from '@heroicons/react/24/solid';
+import { cn } from '@/shared/utils/cn';
+
+type MatterFormMode = 'create' | 'edit';
+
+interface MatterFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  clients: MatterOption[];
+  practiceAreas: MatterOption[];
+  assignees: MatterOption[];
+  mode?: MatterFormMode;
+  initialValues?: Partial<MatterFormState>;
+}
+
+type MatterCreateModalProps = Omit<MatterFormModalProps, 'mode' | 'initialValues'>;
+
+interface MatterEditModalProps extends Omit<MatterFormModalProps, 'mode'> {
+  initialValues: Partial<MatterFormState>;
+}
+
+type BillingType = 'hourly' | 'fixed' | 'contingency';
+
+type PaymentFrequency = 'project' | 'milestone';
+
+type MatterMilestone = {
+  description: string;
+  dueDate: string;
+  amount?: number;
+};
+
+type MatterFormState = {
+  title: string;
+  clientId: string;
+  practiceAreaId: string;
+  assigneeIds: string[];
+  status: MattersSidebarStatus;
+  billingType: BillingType;
+  attorneyHourlyRate?: number;
+  adminHourlyRate?: number;
+  paymentFrequency?: PaymentFrequency;
+  totalFixedPrice?: number;
+  milestones: MatterMilestone[];
+  contingencyPercent?: number;
+  description: string;
+  files: File[];
+};
+
+const BILLING_OPTIONS = [
+  {
+    value: 'hourly',
+    label: 'Hourly',
+    description: 'Bill based on the time spent on the matter'
+  },
+  {
+    value: 'fixed',
+    label: 'Fixed Price',
+    description: 'Set a fixed price for the entire matter'
+  },
+  {
+    value: 'contingency',
+    label: 'Contingency',
+    description: 'Set a percentage fee based on the outcome'
+  }
+];
+
+const STATUS_OPTIONS: Array<{ value: MattersSidebarStatus; label: string }> = [
+  { value: 'lead', label: 'Lead' },
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'archived', label: 'Archived' }
+];
+
+const PAYMENT_FREQUENCY_OPTIONS: DescribedRadioOption[] = [
+  {
+    value: 'project',
+    label: 'Project',
+    description: 'Collect a single fixed payment for the project'
+  },
+  {
+    value: 'milestone',
+    label: 'Milestones',
+    description: 'Collect payments across project milestones'
+  }
+];
+
+const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterFormState>): MatterFormState => ({
+  title: initialValues?.title ?? '',
+  clientId: initialValues?.clientId ?? '',
+  practiceAreaId: initialValues?.practiceAreaId ?? '',
+  assigneeIds: initialValues?.assigneeIds ?? [],
+  status: initialValues?.status ?? 'open',
+  billingType: initialValues?.billingType ?? 'hourly',
+  attorneyHourlyRate: initialValues?.attorneyHourlyRate,
+  adminHourlyRate: initialValues?.adminHourlyRate,
+  paymentFrequency: initialValues?.paymentFrequency,
+  totalFixedPrice: initialValues?.totalFixedPrice,
+  milestones: initialValues?.milestones ?? [],
+  contingencyPercent: initialValues?.contingencyPercent,
+  description: initialValues?.description ?? '',
+  files: initialValues?.files ?? []
+});
+
+const buildLeadingIcon = (icon: ComponentChildren) => (
+  <div className="w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-white/10 flex items-center justify-center text-gray-400">
+    {icon}
+  </div>
+);
+
+const StatusPillGroup = ({
+  value,
+  onChange,
+  options
+}: {
+  value: MattersSidebarStatus;
+  onChange: (value: MattersSidebarStatus) => void;
+  options: Array<{ value: MattersSidebarStatus; label: string }>;
+}) => (
+  <fieldset>
+    <legend className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Matter Status</legend>
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => {
+        const inputId = `status-pill-${option.value}`;
+        const isSelected = option.value === value;
+        return (
+          <label
+            key={option.value}
+            htmlFor={inputId}
+            className={cn(
+              'cursor-pointer rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition-colors',
+              isSelected
+                ? 'bg-accent-500 text-gray-900 ring-accent-500'
+                : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50 dark:bg-dark-card-bg dark:text-gray-300 dark:ring-white/15'
+            )}
+          >
+            <input
+              id={inputId}
+              type="radio"
+              name="matter-status"
+              value={option.value}
+              checked={isSelected}
+              onChange={() => onChange(option.value)}
+              className="sr-only"
+            />
+            {option.label}
+          </label>
+        );
+      })}
+    </div>
+  </fieldset>
+);
+
+const MatterFormModalInner = ({
+  isOpen,
+  onClose,
+  clients,
+  practiceAreas,
+  assignees,
+  mode = 'create',
+  initialValues
+}: MatterFormModalProps) => {
+  const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
+
+  const clientOptions = useMemo(
+    () => clients.map((client) => ({ value: client.id, label: client.name })),
+    [clients]
+  );
+  const practiceAreaOptions = useMemo(
+    () => practiceAreas.map((area) => ({ value: area.id, label: area.name })),
+    [practiceAreas]
+  );
+  const assigneeOptions = useMemo(
+    () =>
+      assignees.map((assignee) => ({
+        value: assignee.id,
+        label: assignee.name,
+        meta: assignee.role
+      })),
+    [assignees]
+  );
+
+  const [isMilestoneFormVisible, setIsMilestoneFormVisible] = useState(false);
+  const [milestoneDraft, setMilestoneDraft] = useState({
+    description: '',
+    dueDate: '',
+    amount: undefined as number | undefined
+  });
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  const canSubmit = Boolean(formState.title && formState.clientId);
+
+  const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
+    setFormState((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const submitLabel = mode === 'edit' ? 'Save changes' : 'Create matter';
+  const modalTitle = mode === 'edit' ? 'Edit Matter' : 'Propose new matter';
+
+  const handleFilesChange = (incoming: FileList | File[]) => {
+    const nextFiles = Array.isArray(incoming) ? incoming : Array.from(incoming);
+    const maxTotalSize = 25 * 1024 * 1024;
+    const limited = [...formState.files];
+    let totalSize = limited.reduce((sum, file) => sum + file.size, 0);
+    let droppedAny = false;
+    for (const file of nextFiles) {
+      if (limited.length >= 6 || totalSize + file.size > maxTotalSize) {
+        droppedAny = true;
+        continue;
+      }
+      limited.push(file);
+      totalSize += file.size;
+    }
+    if (droppedAny) {
+      setFileError('Some files were not added: exceeds count or size limits.');
+    } else {
+      setFileError(null);
+    }
+    updateForm('files', limited);
+  };
+
+  const removeFile = (index: number) => {
+    updateForm('files', formState.files.filter((_, fileIndex) => fileIndex !== index));
+    setFileError(null);
+  };
+
+  const canAddMilestone =
+    milestoneDraft.description.trim().length > 0 &&
+    milestoneDraft.dueDate &&
+    typeof milestoneDraft.amount === 'number';
+
+  const addMilestone = () => {
+    if (!canAddMilestone) {
+      return;
+    }
+    updateForm('milestones', [
+      ...formState.milestones,
+      {
+        description: milestoneDraft.description.trim(),
+        dueDate: milestoneDraft.dueDate,
+        amount: milestoneDraft.amount
+      }
+    ]);
+    setMilestoneDraft({ description: '', dueDate: '', amount: undefined });
+    setIsMilestoneFormVisible(false);
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={modalTitle}
+      type="fullscreen"
+      contentClassName="bg-white dark:bg-dark-card-bg"
+      headerClassName="bg-white dark:bg-dark-card-bg"
+    >
+      <form
+        className="space-y-6 max-w-3xl mx-auto px-4 py-6 sm:px-6 lg:px-8"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!canSubmit) return;
+          onClose();
+        }}
+      >
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+          {mode === 'edit' ? 'Edit matter' : 'Propose new matter'}
+        </h1>
+
+        <Input
+          label="Matter Title"
+          placeholder="Enter matter title"
+          value={formState.title}
+          onChange={(value) => updateForm('title', value)}
+          required
+        />
+
+        <StatusPillGroup
+          value={formState.status}
+          options={STATUS_OPTIONS}
+          onChange={(value) => updateForm('status', value)}
+        />
+
+        <Combobox
+          label="Select customer"
+          placeholder="Select customer"
+          value={formState.clientId}
+          options={clientOptions}
+          leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+          onChange={(value) => updateForm('clientId', value)}
+        />
+
+        <hr className="h-px border-gray-200 dark:border-white/10" />
+
+        <div>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Provide matter details</h2>
+          <div className="space-y-2">
+            <Textarea
+              label="Description"
+              value={formState.description}
+              onChange={(value) => updateForm('description', value)}
+              placeholder="Let the client know how you'd approach the project or include a cover letter about your experience"
+              rows={4}
+              maxLength={5000}
+              enforceMaxLength="hard"
+            />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {formState.description.length}/5000 characters
+            </p>
+          </div>
+        </div>
+
+        <Combobox
+          label="Practice Area"
+          placeholder="Select practice area"
+          value={formState.practiceAreaId}
+          options={practiceAreaOptions}
+          leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
+          onChange={(value) => updateForm('practiceAreaId', value)}
+        />
+
+        <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Additional documents</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Attach up to 6 files with a max combined size of 25 MB. Use PNG, GIF, PDF, PPT, TXT, or DOC.
+            </p>
+          </div>
+
+          <div>
+            <FileInput
+              accept=".png,.gif,.pdf,.ppt,.pptx,.txt,.doc,.docx"
+              multiple
+              value={formState.files}
+              onChange={handleFilesChange}
+              maxTotalSize={25 * 1024 * 1024}
+              maxFiles={6}
+              showAcceptText={false}
+              onRemove={removeFile}
+            />
+            {fileError && (
+              <p className="mt-2 text-sm text-red-500">{fileError}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Team Members</h3>
+          <MultiSelect
+            label="Select Assignees"
+            placeholder="Select Assignees"
+            value={formState.assigneeIds}
+            options={assigneeOptions}
+            onChange={(value) => updateForm('assigneeIds', value)}
+          />
+        </div>
+
+        <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
+          <RadioGroupWithDescriptions
+            label="Billing type"
+            name="billing-type"
+            value={formState.billingType}
+            options={BILLING_OPTIONS}
+            onChange={(value) => updateForm('billingType', value as BillingType)}
+          />
+
+          {formState.billingType === 'hourly' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <CurrencyInput
+                label="Attorney hourly rate"
+                value={formState.attorneyHourlyRate}
+                onChange={(value) => updateForm('attorneyHourlyRate', value)}
+                placeholder="150"
+              />
+              <CurrencyInput
+                label="Admin hourly rate"
+                value={formState.adminHourlyRate}
+                onChange={(value) => updateForm('adminHourlyRate', value)}
+                placeholder="95"
+              />
+            </div>
+          )}
+
+          {formState.billingType === 'fixed' && (
+            <div className="space-y-6">
+              <RadioGroupWithDescriptions
+                label="Payment frequency"
+                name="payment-frequency"
+                value={formState.paymentFrequency ?? ''}
+                options={PAYMENT_FREQUENCY_OPTIONS}
+                onChange={(value) => updateForm('paymentFrequency', value as PaymentFrequency)}
+              />
+
+              {formState.paymentFrequency === 'project' && (
+                <CurrencyInput
+                  label="Total Fixed Price"
+                  value={formState.totalFixedPrice}
+                  onChange={(value) => updateForm('totalFixedPrice', value)}
+                  placeholder="2500"
+                />
+              )}
+
+              {formState.paymentFrequency === 'milestone' && (
+                <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
+                  <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">Enter project milestones</h4>
+
+                  {formState.milestones.length > 0 && (
+                    <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                      {formState.milestones.map((milestone, index) => (
+                        <li key={`${milestone.description}-${index}`} className="flex flex-wrap items-center justify-between gap-2">
+                          <span>{milestone.description}</span>
+                          <span>{milestone.amount ? `$${milestone.amount.toFixed(2)}` : '$0.00'}</span>
+                          <span>{milestone.dueDate}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+
+                  {isMilestoneFormVisible ? (
+                    <div className="space-y-2">
+                      <div>
+                        <Textarea
+                          label="Milestone description"
+                          value={milestoneDraft.description}
+                          onChange={(value) =>
+                            setMilestoneDraft((prev) => ({
+                              ...prev,
+                              description: value
+                            }))
+                          }
+                          rows={2}
+                          maxLength={100}
+                          enforceMaxLength="hard"
+                          placeholder="Enter a description of your deliverable"
+                        />
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          {milestoneDraft.description.length}/100
+                        </p>
+                      </div>
+
+                      <Input
+                        label="Due date"
+                        type="date"
+                        value={milestoneDraft.dueDate}
+                        onChange={(value) =>
+                          setMilestoneDraft((prev) => ({
+                            ...prev,
+                            dueDate: value
+                          }))
+                        }
+                      />
+
+                      <CurrencyInput
+                        label="Amount"
+                        value={milestoneDraft.amount}
+                        onChange={(value) =>
+                          setMilestoneDraft((prev) => ({
+                            ...prev,
+                            amount: value
+                          }))
+                        }
+                      />
+
+                      <div className="w-full flex justify-end">
+                        <Button type="button" onClick={addMilestone} disabled={!canAddMilestone}>
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-dark-input-bg px-2.5 py-1.5 text-sm shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-white/10"
+                      onClick={() => setIsMilestoneFormVisible(true)}
+                    >
+                      <PlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
+                      Add Milestone
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {formState.billingType === 'contingency' && (
+            <div className="max-w-sm">
+              <Input
+                label="Contingency percentage"
+                value={formState.contingencyPercent !== undefined ? String(formState.contingencyPercent) : ''}
+                onChange={(value) => {
+                  const parsed = value.trim() === '' ? undefined : Number(value);
+                  updateForm('contingencyPercent', Number.isFinite(parsed) ? parsed : undefined);
+                }}
+                placeholder="20"
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                inputMode="decimal"
+                icon={<span className="text-xs font-semibold text-gray-400">%</span>}
+                iconPosition="right"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="bg-gray-50 dark:bg-white/5 rounded-lg p-4 flex items-center space-x-3">
+          <div className="shrink-0">
+            <div className="p-2 bg-black rounded-full">
+              <ShieldCheckIcon className="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <p className="text-sm text-gray-700 dark:text-gray-200">
+            Payments are built for securing IOLTA compliance.{' '}
+            <span className="font-medium underline">Learn more</span>
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 dark:bg-white/5 px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+          <p>UI-only preview. Submission is disabled until the backend is ready.</p>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!canSubmit}>
+              {submitLabel}
+            </Button>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export const MatterFormModal = (props: MatterFormModalProps) => {
+  const { mode = 'create', initialValues } = props;
+  const resetKey = useMemo(
+    () => `${mode}-${JSON.stringify(initialValues ?? {})}`,
+    [mode, initialValues]
+  );
+
+  return <MatterFormModalInner key={resetKey} {...props} />;
+};
+
+export const MatterCreateModal = (props: MatterCreateModalProps) => (
+  <MatterFormModal {...props} mode="create" />
+);
+
+export const MatterEditModal = (props: MatterEditModalProps) => (
+  <MatterFormModal {...props} mode="edit" />
+);
