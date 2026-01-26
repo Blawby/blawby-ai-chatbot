@@ -79,8 +79,11 @@ const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(
 const verifyWorkerHealth = async (): Promise<void> => {
   const baseUrl = process.env.VITE_WORKER_API_URL || process.env.E2E_WORKER_URL || 'http://localhost:8787';
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
   try {
-    const response = await fetch(`${baseUrl}/api/health`);
+    const response = await fetch(`${baseUrl}/api/health`, { signal: controller.signal });
     if (response.ok) {
       console.log('✅ Worker is running and healthy');
       return;
@@ -88,17 +91,25 @@ const verifyWorkerHealth = async (): Promise<void> => {
     const body = await response.text().catch(() => '');
     throw new Error(`Worker health check failed: ${response.status} ${body.slice(0, 200)}`);
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Worker health check timed out after 8000ms.');
+    }
     throw new Error(
       `Worker health check failed. Make sure wrangler is running: npm run dev:worker:clean. ` +
       `${error instanceof Error ? error.message : String(error)}`
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
 
 const waitForBaseUrl = async (baseURL: string): Promise<void> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
   try {
-    const response = await fetch(baseURL, { method: 'GET' });
+    const response = await fetch(baseURL, { method: 'GET', signal: controller.signal });
     if (response.ok || (response.status >= 300 && response.status < 500)) {
       console.log(`✅ Base URL reachable: ${baseURL}`);
       return;
@@ -106,7 +117,12 @@ const waitForBaseUrl = async (baseURL: string): Promise<void> => {
     const body = await response.text().catch(() => '');
     throw new Error(`Base URL returned ${response.status}: ${body.slice(0, 200)}`);
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Base URL check timed out after 8000ms: ${baseURL}`);
+    }
     throw new Error(`Base URL not reachable: ${baseURL}. ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 

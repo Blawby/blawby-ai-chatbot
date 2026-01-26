@@ -61,10 +61,6 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
       setLoading(false);
     };
 
-    ws.addEventListener('open', () => {
-      setLoading(false);
-    });
-
     ws.addEventListener('message', (event) => {
       if (settled) return;
       if (typeof event.data !== 'string') return;

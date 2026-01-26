@@ -57,25 +57,29 @@ export function AppGuard({ children }: AppGuardProps) {
 
   // 2. Handle Onboarding Check
   useEffect(() => {
+    const resetOnboardingCheck = () => {
+      onboardingCheckRef.current = false;
+    };
+
     // Skip if session is loading, user is anonymous, or we're on public/auth routes
     const isAuthPage = location.path.startsWith('/auth');
     const isPublicPage = location.path.startsWith('/embed');
     
     if (sessionIsPending || isAnonymous || !session?.user?.id || isAuthPage || isPublicPage) {
-      return;
+      return resetOnboardingCheck;
     }
 
     if (typeof window === 'undefined') {
-      return;
+      return resetOnboardingCheck;
     }
     
     // Skip onboarding check if user is in the middle of a successful subscription flow
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('subscription') === 'success') {
-      return;
+      return resetOnboardingCheck;
     }
     
-    if (onboardingCheckRef.current) return;
+    if (onboardingCheckRef.current) return resetOnboardingCheck;
     onboardingCheckRef.current = true;
 
     const checkOnboarding = async () => {
@@ -97,6 +101,7 @@ export function AppGuard({ children }: AppGuardProps) {
     };
 
     void checkOnboarding();
+    return resetOnboardingCheck;
   }, [isAnonymous, session?.user?.id, sessionIsPending, location.path]);
 
   return <>{children}</>;

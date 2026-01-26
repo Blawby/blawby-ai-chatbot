@@ -8,6 +8,7 @@ export async function withRetry<T>(
     maxDelay?: number;
     multiplier?: number;
     operationName?: string;
+    retryOn?: (error: unknown) => boolean;
   } = {}
 ): Promise<T> {
   const {
@@ -15,19 +16,35 @@ export async function withRetry<T>(
     baseDelay = 0,
     maxDelay = 10_000,
     multiplier = 2,
-    operationName = 'operation'
+    operationName = 'operation',
+    retryOn
   } = options;
+
+  const maxAttempts = Math.max(1, attempts);
+  const shouldRetryDefault = (error: unknown): boolean => {
+    const status = typeof (error as { status?: number } | null)?.status === 'number'
+      ? (error as { status: number }).status
+      : null;
+    if (status && status >= 400 && status < 500 && status !== 429) {
+      return false;
+    }
+    return true;
+  };
+  const shouldRetry = retryOn ?? shouldRetryDefault;
 
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= Math.max(1, attempts); attempt += 1) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
-      const attemptInfo = `attempt ${attempt}/${Math.max(1, attempts)}`;
+      const attemptInfo = `attempt ${attempt}/${maxAttempts}`;
       Logger.error(`❌ ${operationName} failed (${attemptInfo}):`, error);
-      if (attempt >= Math.max(1, attempts)) {
+      if (!shouldRetry(error)) {
+        throw error;
+      }
+      if (attempt >= maxAttempts) {
         break;
       }
       const delay = Math.min(baseDelay * multiplier ** (attempt - 1), maxDelay);

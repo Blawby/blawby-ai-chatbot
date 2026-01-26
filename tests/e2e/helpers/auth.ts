@@ -37,12 +37,24 @@ export const waitForSession = async (
     }
   }
 
-  const result = await Promise.race([
-    page.evaluate(async () => {
-      try {
-        const response = await fetch('/api/auth/get-session', { credentials: 'include' });
-        const rawText = await response.text().catch(() => '');
-        let data: any = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<{ ok: false; status: 0; hasSession: false; body: string }>((resolve) => {
+    timeoutId = setTimeout(() => resolve({
+      ok: false,
+      status: 0,
+      hasSession: false,
+      body: `Timed out after ${timeoutMs}ms`
+    }), timeoutMs);
+  });
+
+  const result = await (async () => {
+    try {
+      return await Promise.race([
+        page.evaluate(async () => {
+        try {
+          const response = await fetch('/api/auth/get-session', { credentials: 'include' });
+          const rawText = await response.text().catch(() => '');
+          let data: any = null;
         if (rawText) {
           try {
             data = JSON.parse(rawText);
@@ -57,19 +69,18 @@ export const waitForSession = async (
           hasSession,
           body: rawText.slice(0, 300)
         };
-      } catch (error) {
-        return { ok: false, status: 0, hasSession: false, body: String(error) };
+        } catch (error) {
+          return { ok: false, status: 0, hasSession: false, body: String(error) };
+        }
+        }),
+        timeoutPromise
+      ]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-    }),
-    new Promise<{ ok: false; status: 0; hasSession: false; body: string }>((resolve) => {
-      setTimeout(() => resolve({
-        ok: false,
-        status: 0,
-        hasSession: false,
-        body: `Timed out after ${timeoutMs}ms`
-      }), timeoutMs);
-    })
-  ]);
+    }
+  })();
 
   if (result.ok && result.hasSession) {
     return;

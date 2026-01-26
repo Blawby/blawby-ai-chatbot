@@ -194,12 +194,17 @@ export const CartPage = () => {
     ) : null;
 
   // Determine if annual is selected based on selected price ID
-  const isAnnual = selectedPlan ? selectedPriceId === selectedPlan.stripeYearlyPriceId : false;
+  const isAnnual = Boolean(selectedPlan?.stripeYearlyPriceId)
+    && selectedPriceId === selectedPlan?.stripeYearlyPriceId;
 
   // Keyboard navigation for radiogroup (must be before early return)
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (!selectedPlan) return;
-    const priceIdList = [selectedPlan.stripeYearlyPriceId, selectedPlan.stripeMonthlyPriceId];
+    const priceIdList = [
+      selectedPlan.stripeYearlyPriceId,
+      selectedPlan.stripeMonthlyPriceId
+    ].filter((priceId): priceId is string => Boolean(priceId));
+    if (priceIdList.length < 2) return;
     const currentIndex = priceIdList.indexOf(selectedPriceId);
     
     switch (event.key) {
@@ -260,8 +265,11 @@ export const CartPage = () => {
   });
 
   const monthlySeatPrice = parseFloat(selectedPlan.monthlyPrice);
-  const annualSeatPricePerYear = parseFloat(selectedPlan.yearlyPrice);
-  const annualSeatPricePerMonth = annualSeatPricePerYear / 12;
+  const hasAnnualPlan = Boolean(selectedPlan.stripeYearlyPriceId && selectedPlan.yearlyPrice);
+  const annualSeatPricePerYear = hasAnnualPlan && selectedPlan.yearlyPrice
+    ? parseFloat(selectedPlan.yearlyPrice)
+    : 0;
+  const annualSeatPricePerMonth = hasAnnualPlan ? annualSeatPricePerYear / 12 : 0;
 
   const effectiveQuantity = quantity;
 
@@ -391,58 +399,60 @@ export const CartPage = () => {
               onKeyDown={handleKeyDown}
               tabIndex={0}
             >
-              <button
-                ref={annualRef}
-                onClick={() => {
-                  if (selectedPlan) {
-                    setSelectedPriceId(selectedPlan.stripeYearlyPriceId);
-                    queueMicrotask(() => annualRef.current?.focus());
-                  }
-                }}
-                role="radio"
-                aria-checked={selectedPlan ? selectedPriceId === selectedPlan.stripeYearlyPriceId : false}
-                aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per year. Features: Billed annually`}
-                tabIndex={selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId ? 0 : -1}
-                className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
-                  selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId 
-                    ? 'border-white bg-gray-800' 
-                    : 'border-gray-700 hover:border-gray-600'
-                }`}
-              >
-                {/* Floating discount badge */}
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-accent-500 text-white text-xs md:text-sm font-medium px-2 py-1 rounded">
-                    Save 12%
-                  </span>
-                </div>
-
-                {/* Header with radio indicator */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-base md:text-lg font-bold text-white">Annual</div>
-                  <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
-                    {selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId && (
-                      <div className="w-3 h-3 bg-accent-500 rounded-full" />
-                    )}
+              {hasAnnualPlan && (
+                <button
+                  ref={annualRef}
+                  onClick={() => {
+                    if (selectedPlan?.stripeYearlyPriceId) {
+                      setSelectedPriceId(selectedPlan.stripeYearlyPriceId);
+                      queueMicrotask(() => annualRef.current?.focus());
+                    }
+                  }}
+                  role="radio"
+                  aria-checked={selectedPlan ? selectedPriceId === selectedPlan.stripeYearlyPriceId : false}
+                  aria-label={`Annual plan - ${currencyFormatter.format(annualSeatPricePerYear)} per year. Features: Billed annually`}
+                  tabIndex={selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId ? 0 : -1}
+                  className={`p-4 md:p-6 border rounded-lg text-left transition-all relative ${
+                    selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId 
+                      ? 'border-white bg-gray-800' 
+                      : 'border-gray-700 hover:border-gray-600'
+                  }`}
+                >
+                  {/* Floating discount badge */}
+                  <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-accent-500 text-white text-xs md:text-sm font-medium px-2 py-1 rounded">
+                      Save 12%
+                    </span>
                   </div>
-                </div>
 
-                {/* Pricing with strikethrough for discounts */}
-                <div className="text-xs md:text-sm text-white mb-1">
-                  {currencyFormatter.format(annualSeatPricePerMonth)}
-                  <span className="text-xs md:text-sm text-gray-400 line-through ml-1">{currencyFormatter.format(monthlySeatPrice)}</span>
-                </div>
-                {/* TODO: Restore seats UI when Better Auth Stripe plugin supports seats/quantity */}
-                {/* <div className="text-xs md:text-sm text-gray-400 mb-3">per user/month</div> */}
-                <div className="text-xs md:text-sm text-gray-400 mb-3">per month</div>
+                  {/* Header with radio indicator */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-base md:text-lg font-bold text-white">Annual</div>
+                    <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center">
+                      {selectedPlan && selectedPriceId === selectedPlan.stripeYearlyPriceId && (
+                        <div className="w-3 h-3 bg-accent-500 rounded-full" />
+                      )}
+                    </div>
+                  </div>
 
-                {/* Feature list */}
-                <ul className="text-xs md:text-sm text-gray-400 space-y-1">
-                  <li>• Billed annually</li>
+                  {/* Pricing with strikethrough for discounts */}
+                  <div className="text-xs md:text-sm text-white mb-1">
+                    {currencyFormatter.format(annualSeatPricePerMonth)}
+                    <span className="text-xs md:text-sm text-gray-400 line-through ml-1">{currencyFormatter.format(monthlySeatPrice)}</span>
+                  </div>
                   {/* TODO: Restore seats UI when Better Auth Stripe plugin supports seats/quantity */}
-                  {/* <li>• Minimum 1 user</li>
-                  <li>• Add and reassign users</li> */}
-                </ul>
-              </button>
+                  {/* <div className="text-xs md:text-sm text-gray-400 mb-3">per user/month</div> */}
+                  <div className="text-xs md:text-sm text-gray-400 mb-3">per month</div>
+
+                  {/* Feature list */}
+                  <ul className="text-xs md:text-sm text-gray-400 space-y-1">
+                    <li>• Billed annually</li>
+                    {/* TODO: Restore seats UI when Better Auth Stripe plugin supports seats/quantity */}
+                    {/* <li>• Minimum 1 user</li>
+                    <li>• Add and reassign users</li> */}
+                  </ul>
+                </button>
+              )}
               
               <button
                 ref={monthlyRef}

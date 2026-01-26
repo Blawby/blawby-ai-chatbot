@@ -256,6 +256,20 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         setStatusDetail(paymentIntentStatus);
       }
 
+      if (paymentIntentStatus === 'requires_action') {
+        setPaymentSubmitted(false);
+        setStatus('failed');
+        setErrorMessage('Payment requires additional authentication. Please complete the verification and try again.');
+        return;
+      }
+
+      if (paymentIntentStatus === 'requires_payment_method') {
+        setPaymentSubmitted(false);
+        setStatus('failed');
+        setErrorMessage('Payment failed. Please try another payment method.');
+        return;
+      }
+
       if (paymentIntentStatus && TERMINAL_FAILURE_STATUSES.has(paymentIntentStatus)) {
         setPaymentSubmitted(false);
         setStatus('failed');
@@ -286,6 +300,21 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       }
       if (!isMountedRef.current) return;
       if (wsStatus && isPaidIntakeStatus(wsStatus)) {
+        const confirmed = await confirmIntakeLead();
+        if (!isMountedRef.current) return;
+        if (!confirmed) {
+          const retryConfirmed = await confirmIntakeLead();
+          if (!isMountedRef.current) return;
+          if (!retryConfirmed) {
+            setPaymentSubmitted(false);
+            setStatus('failed');
+            setStatusDetail(wsStatus);
+            setErrorMessage(
+              'Payment was received, but we could not confirm your intake. Please refresh or contact support.'
+            );
+            return;
+          }
+        }
         setStatus('succeeded');
         setStatusDetail(wsStatus);
         onSuccess?.();
