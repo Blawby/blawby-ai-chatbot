@@ -480,30 +480,10 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
 
     if (!session?.user && practiceId) {
       const key = `anonymous_signin_attempted_${practiceId}`;
-      const retryCountKey = `anonymous_signin_retries_${practiceId}`;
-      let attempted = sessionStorage.getItem(key);
-      const retryCount = parseInt(sessionStorage.getItem(retryCountKey) || '0', 10);
-
-      if (retryCount >= 3) {
-        console.error('[Auth] Max anonymous sign-in retries reached', { practiceId, retryCount });
-        return;
-      }
-
-      if (attempted === '1' && !session?.user) {
-        console.log('[Auth] Session invalid despite successful sign-in, clearing flag and retrying');
-        sessionStorage.removeItem(key);
-        sessionStorage.setItem(retryCountKey, String(retryCount + 1));
-        attempted = null;
-      }
-
-      if (import.meta.env.DEV && attempted === 'failed') {
-        console.log('[Auth] Clearing failed anonymous sign-in attempt for retry in dev mode');
-        sessionStorage.removeItem(key);
-        sessionStorage.setItem(retryCountKey, String(retryCount + 1));
-        attempted = null;
-      }
+      const attempted = sessionStorage.getItem(key);
 
       if (!attempted) {
+        sessionStorage.setItem(key, '1');
         console.log('[Auth] Attempting anonymous sign-in', { practiceId });
         (async () => {
           try {
@@ -551,7 +531,6 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
               sessionStorage.setItem(key, 'failed');
             } else {
               sessionStorage.setItem(key, '1');
-              sessionStorage.removeItem(retryCountKey);
               console.log('[Auth] Anonymous sign-in successful for widget user', {
                 practiceId,
                 hasData: !!result?.data

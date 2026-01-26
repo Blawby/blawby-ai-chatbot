@@ -15,6 +15,7 @@ import {
   handleAuthProxy,
   handleBackendProxy,
   handleIntakes,
+  handleParalegal,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
@@ -94,6 +95,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleBackendProxy(request, env);
     } else if (path.startsWith('/api/practices')) {
       response = await handlePractices(request, env);
+    } else if (path.startsWith('/api/paralegal/')) {
+      response = await handleParalegal(request, env);
     } else if (path.startsWith('/api/activity')) {
       response = await handleActivity(request, env);
     } else if (path.startsWith('/api/files')) {
@@ -171,3 +174,4 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 
 // Export Durable Object classes
 export { ChatRoom } from './durable-objects/ChatRoom';
+export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';

@@ -49,7 +49,125 @@ interface IntakeCreateResult {
   status?: string;
 }
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const waitForConversationMessage = async (options: {
+  page: Page;
+  baseURL: string;
+  conversationId: string;
+  match: {
+    intakeUuid?: string;
+    intakeDecision?: 'accepted' | 'rejected';
+    reason?: string;
+  };
+  timeoutMs?: number;
+}): Promise<ConversationMessage> => {
+  const wsUrl = new URL(
+    `/api/conversations/${encodeURIComponent(options.conversationId)}/ws`,
+    options.baseURL
+  );
+  wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+
+  return options.page.evaluate(async ({ wsUrl: wsUrlString, match, timeoutMs }) => {
+    return await new Promise<ConversationMessage>((resolve, reject) => {
+      const ws = new WebSocket(wsUrlString);
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        settled = true;
+        ws.close();
+        reject(new Error(`Timed out waiting for conversation message after ${timeoutMs ?? 10000}ms`));
+      }, timeoutMs ?? 10000);
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        try {
+          ws.close();
+        } catch {
+          // ignore
+        }
+      };
+
+      ws.addEventListener('open', () => {
+        ws.send(JSON.stringify({
+          type: 'auth',
+          data: {
+            protocol_version: 1,
+            client_info: { platform: 'e2e' }
+          }
+        }));
+      });
+
+      ws.addEventListener('message', (event) => {
+        if (typeof event.data !== 'string') {
+          return;
+        }
+        let frame: { type?: string; data?: Record<string, unknown> };
+        try {
+          frame = JSON.parse(event.data) as { type?: string; data?: Record<string, unknown> };
+        } catch {
+          return;
+        }
+
+        if (frame.type === 'auth.error' || frame.type === 'error') {
+          settled = true;
+          cleanup();
+          const message = typeof frame.data?.message === 'string' ? frame.data.message : 'WebSocket error';
+          reject(new Error(message));
+          return;
+        }
+
+        if (frame.type !== 'message.new' || !frame.data) {
+          return;
+        }
+
+        const metadata = typeof frame.data.metadata === 'object' && frame.data.metadata !== null
+          ? frame.data.metadata as Record<string, unknown>
+          : null;
+        const intakeUuid = typeof metadata?.intakeUuid === 'string'
+          ? metadata.intakeUuid
+          : typeof metadata?.intakePaymentUuid === 'string'
+            ? metadata.intakePaymentUuid
+            : null;
+        if (match.intakeUuid && intakeUuid !== match.intakeUuid) {
+          return;
+        }
+        if (match.intakeDecision) {
+          const decision = typeof metadata?.intakeDecision === 'string' ? metadata.intakeDecision : null;
+          if (decision !== match.intakeDecision) {
+            return;
+          }
+        }
+        if (typeof match.reason === 'string') {
+          const reason = typeof metadata?.reason === 'string' ? metadata.reason : null;
+          if (reason !== match.reason) {
+            return;
+          }
+        }
+
+        settled = true;
+        cleanup();
+        resolve({
+          id: typeof frame.data.message_id === 'string' ? frame.data.message_id : '',
+          role: typeof frame.data.role === 'string' ? frame.data.role : 'system',
+          content: typeof frame.data.content === 'string' ? frame.data.content : '',
+          metadata: metadata ?? null
+        });
+      });
+
+      ws.addEventListener('error', () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error('WebSocket error'));
+      });
+
+      ws.addEventListener('close', () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error('WebSocket closed'));
+      });
+    });
+  }, { wsUrl: wsUrl.toString(), match: options.match, timeoutMs: options.timeoutMs ?? 10000 });
+};
 
 const buildCookieHeader = async (
   context: BrowserContext,
@@ -81,80 +199,6 @@ const buildCookieHeader = async (
   }
   if (!cookiePairs.length) return '';
   return cookiePairs.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
-};
-
-const summarizeCookieHeader = (cookieHeader: string): string[] => (
-  cookieHeader
-    .split(';')
-    .map((segment) => segment.split('=')[0]?.trim())
-    .filter((name): name is string => Boolean(name))
-);
-
-const fetchDebugResponse = async (
-  request: APIRequestContext,
-  url: string,
-  headers: Record<string, string>
-): Promise<{ url: string; status: number; body: string }> => {
-  try {
-    const response = await request.get(url, { headers });
-    const body = await response.text().catch(() => '');
-    return {
-      url: response.url(),
-      status: response.status(),
-      body: body.slice(0, 500)
-    };
-  } catch (error) {
-    return {
-      url,
-      status: -1,
-      body: `request_error: ${error instanceof Error ? error.message : String(error)}`
-    };
-  }
-};
-
-const logMessageFetchDiagnostics = async (options: {
-  request: APIRequestContext;
-  baseURL: string;
-  practiceId: string;
-  practiceSlug?: string;
-  conversationId: string;
-  cookieHeader: string;
-  status: number;
-  url: string;
-  body: string;
-}): Promise<void> => {
-  const cookieNames = summarizeCookieHeader(options.cookieHeader);
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (options.cookieHeader) {
-    headers.Cookie = options.cookieHeader;
-  }
-
-  const conversationPath = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceId)}`;
-  const conversationCheck = await fetchDebugResponse(options.request, conversationPath, headers);
-
-  let conversationSlugCheck: { url: string; status: number; body: string } | undefined;
-  let messagesSlugCheck: { url: string; status: number; body: string } | undefined;
-  if (options.practiceSlug && options.practiceSlug !== options.practiceId) {
-    const slugConversationPath = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceSlug)}`;
-    conversationSlugCheck = await fetchDebugResponse(options.request, slugConversationPath, headers);
-
-    const slugMessagesPath = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}/messages?practiceId=${encodeURIComponent(options.practiceSlug)}&limit=50`;
-    messagesSlugCheck = await fetchDebugResponse(options.request, slugMessagesPath, headers);
-  }
-
-  console.warn('[E2E][lead-flow] Message fetch failed', {
-    baseURL: options.baseURL,
-    practiceId: options.practiceId,
-    practiceSlug: options.practiceSlug,
-    conversationId: options.conversationId,
-    status: options.status,
-    url: options.url,
-    cookieNames,
-    body: options.body.slice(0, 500),
-    conversationCheck,
-    conversationSlugCheck,
-    messagesSlugCheck
-  });
 };
 
 const normalizePracticeSlug = (value: string): string => {
@@ -247,57 +291,23 @@ const getLeadQueue = async (options: {
 }): Promise<LeadQueueItem[]> => {
   const cookieHeader = await buildCookieHeader(options.context, options.baseURL);
   const url = `${WORKER_API_URL}/api/practices/${encodeURIComponent(options.practiceId)}/workspace/matters?status=lead`;
-  const maxAttempts = 3;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const response = await options.request.get(url, {
-      headers: {
-        Accept: 'application/json',
-        Cookie: cookieHeader
-      }
-    });
-    if (response.ok()) {
-      const payload = await response.json().catch(() => null) as {
-        data?: { items?: LeadQueueItem[]; matters?: LeadQueueItem[] };
-      } | null;
-      const items = payload?.data?.items ?? payload?.data?.matters ?? [];
-      return items;
+  const response = await options.request.get(url, {
+    headers: {
+      Accept: 'application/json',
+      Cookie: cookieHeader
     }
-
-    const bodyText = await response.text().catch(() => '');
-    const status = response.status();
-    const isRateLimited = status === 429 || bodyText.includes('Failed to verify membership (status 429)');
-    if (isRateLimited && attempt < maxAttempts - 1) {
-      await sleep(1000 * (attempt + 1));
-      continue;
-    }
-
-    throw new Error(`Failed to fetch lead queue: ${status} ${bodyText}`);
+  });
+  if (response.ok()) {
+    const payload = await response.json().catch(() => null) as {
+      data?: { items?: LeadQueueItem[]; matters?: LeadQueueItem[] };
+    } | null;
+    const items = payload?.data?.items ?? payload?.data?.matters ?? [];
+    return items;
   }
 
-  throw new Error('Failed to fetch lead queue after retries');
-};
-
-const waitForLeadInQueue = async (options: {
-  request: APIRequestContext;
-  context: BrowserContext;
-  baseURL: string;
-  practiceId: string;
-  matterId: string;
-  timeoutMs?: number;
-}): Promise<void> => {
-  const { request, context, baseURL, practiceId, matterId, timeoutMs = 15000 } = options;
-  const start = Date.now();
-
-  while (Date.now() - start < timeoutMs) {
-    const items = await getLeadQueue({ request, context, baseURL, practiceId });
-    if (items.some((lead) => lead.id === matterId)) {
-      return;
-    }
-    await sleep(1000);
-  }
-
-  throw new Error(`Lead ${matterId} not found in queue after ${timeoutMs}ms`);
+  const bodyText = await response.text().catch(() => '');
+  const status = response.status();
+  throw new Error(`Failed to fetch lead queue: ${status} ${bodyText}`);
 };
 
 const waitForLeadCard = async (options: {
@@ -335,9 +345,6 @@ const getIntakeSettings = async (options: {
   if (cached) return cached;
 
   const url = `${BACKEND_API_URL}/api/practice/client-intakes/${encodeURIComponent(normalizedSlug)}/intake`;
-  const maxAttempts = 3;
-  let lastStatus = 0;
-  let lastErrorText = '';
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (options.context && options.baseURL) {
     const cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
@@ -346,66 +353,56 @@ const getIntakeSettings = async (options: {
     }
   }
 
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const response = options.request
-      ? await options.request.get(url, { headers })
-      : await fetch(url, {
-        method: 'GET',
-        headers
-      });
+  const response = options.request
+    ? await options.request.get(url, { headers })
+    : await fetch(url, {
+      method: 'GET',
+      headers
+    });
 
-    const ok = typeof response.ok === 'function' ? response.ok() : response.ok;
-    const status = typeof response.status === 'function' ? response.status() : response.status;
-    lastStatus = status;
-    if (!ok) {
-      const errorText = await response.text().catch(() => '');
-      lastErrorText = errorText;
-      if (status === 429 && attempt < maxAttempts - 1) {
-        await sleep(1000 * (attempt + 1));
-        continue;
-      }
-      return { settings: null, status, errorText };
-    }
+  const ok = typeof response.ok === 'function' ? response.ok() : response.ok;
+  const status = typeof response.status === 'function' ? response.status() : response.status;
+  if (!ok) {
+    const errorText = await response.text().catch(() => '');
+    return { settings: null, status, errorText };
+  }
 
-    const payload = await response.json().catch(() => null) as
-      | {
-          data?: {
-            settings?: IntakeSettings;
-            connectedAccount?: ConnectedAccountPayload;
-            connected_account?: ConnectedAccountPayload;
-          };
+  const payload = await response.json().catch(() => null) as
+    | {
+        data?: {
           settings?: IntakeSettings;
           connectedAccount?: ConnectedAccountPayload;
           connected_account?: ConnectedAccountPayload;
-        }
-      | null;
-    const data = payload?.data ?? payload ?? null;
-    if (!data?.settings) {
-      return { settings: null, status };
-    }
-
-    const connectedAccount: ConnectedAccountPayload | undefined = data.connectedAccount ?? data.connected_account ?? undefined;
-    const settingsRecord = data.settings as Record<string, unknown>;
-    const paymentLinkEnabled = settingsRecord.paymentLinkEnabled ?? settingsRecord.payment_link_enabled;
-    const prefillAmount = settingsRecord.prefillAmount ?? settingsRecord.prefill_amount;
-    const result = {
-      status,
-      settings: {
-        paymentLinkEnabled: typeof paymentLinkEnabled === 'boolean' ? paymentLinkEnabled : undefined,
-        prefillAmount: typeof prefillAmount === 'number' ? prefillAmount : undefined,
-        connectedAccount: connectedAccount
-          ? {
-              id: connectedAccount.id,
-              chargesEnabled: connectedAccount.chargesEnabled ?? connectedAccount.charges_enabled
-            }
-          : undefined
+        };
+        settings?: IntakeSettings;
+        connectedAccount?: ConnectedAccountPayload;
+        connected_account?: ConnectedAccountPayload;
       }
-    };
-    intakeSettingsCache.set(normalizedSlug, result);
-    return result;
+    | null;
+  const data = payload?.data ?? payload ?? null;
+  if (!data?.settings) {
+    return { settings: null, status };
   }
 
-  return { settings: null, status: lastStatus || 429, errorText: lastErrorText };
+  const connectedAccount: ConnectedAccountPayload | undefined = data.connectedAccount ?? data.connected_account ?? undefined;
+  const settingsRecord = data.settings as Record<string, unknown>;
+  const paymentLinkEnabled = settingsRecord.paymentLinkEnabled ?? settingsRecord.payment_link_enabled;
+  const prefillAmount = settingsRecord.prefillAmount ?? settingsRecord.prefill_amount;
+  const result = {
+    status,
+    settings: {
+      paymentLinkEnabled: typeof paymentLinkEnabled === 'boolean' ? paymentLinkEnabled : undefined,
+      prefillAmount: typeof prefillAmount === 'number' ? prefillAmount : undefined,
+      connectedAccount: connectedAccount
+        ? {
+            id: connectedAccount.id,
+            chargesEnabled: connectedAccount.chargesEnabled ?? connectedAccount.charges_enabled
+          }
+        : undefined
+    }
+  };
+  intakeSettingsCache.set(normalizedSlug, result);
+  return result;
 };
 
 const createIntake = async (options: {
@@ -546,73 +543,19 @@ const confirmIntakeLead = async (options: {
         }
       : undefined
   }));
-  if (initial.status !== 404) {
-    if (initial.status !== 200) {
-      console.warn('[E2E] Intake confirm returned non-200', {
-        status: initial.status,
-        url: initial.url,
-        error: initial.error,
-        body: initial.rawText?.slice(0, 500) ?? '',
-        practiceId: options.practiceId,
-        practiceSlug: options.practiceSlug,
-        conversationId: options.conversationId,
-        intakeUuid: options.intakeUuid
-      });
-    }
-    return { status: initial.status, data: initial.data };
-  }
-
-  if (!cookieHeader) {
-    console.warn('[E2E] Intake confirm returned 404 with empty cookie jar; skipping worker retry.');
-    return { status: initial.status, data: initial.data };
-  }
-
-  console.warn(
-    `[E2E] Intake confirm returned 404 from ${initial.url}; retrying via worker ${WORKER_API_URL}.`
-  );
-
-  let retry = await parseConfirmResponse(await options.request.post(`${WORKER_API_URL}${path}`, {
-    data: payload,
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: cookieHeader
-    }
-  }));
-
-  if (retry.status === 404 && retry.error?.toLowerCase().includes('intake not found')) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      await sleep(500 * (attempt + 1));
-      retry = await parseConfirmResponse(await options.request.post(`${WORKER_API_URL}${path}`, {
-        data: payload,
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: cookieHeader
-        }
-      }));
-      if (retry.status !== 404) {
-        break;
-      }
-    }
-  }
-
-  if (retry.status === 404) {
-    console.warn('[E2E] Intake confirm still returning 404:', retry.error || retry.rawText || 'no body');
-  }
-
-  if (retry.status !== 200) {
+  if (initial.status !== 200) {
     console.warn('[E2E] Intake confirm returned non-200', {
-      status: retry.status,
-      url: retry.url,
-      error: retry.error,
-      body: retry.rawText?.slice(0, 500) ?? '',
+      status: initial.status,
+      url: initial.url,
+      error: initial.error,
+      body: initial.rawText?.slice(0, 500) ?? '',
       practiceId: options.practiceId,
       practiceSlug: options.practiceSlug,
       conversationId: options.conversationId,
       intakeUuid: options.intakeUuid
     });
   }
-
-  return { status: retry.status, data: retry.data };
+  return { status: initial.status, data: initial.data };
 };
 
 const getOrCreateConversation = async (options: {
@@ -638,158 +581,38 @@ const getOrCreateConversation = async (options: {
     return cookieHeader;
   };
 
-  const maxAttempts = 2;
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const cookieHeader = await ensureCookieHeader();
-    const params = new URLSearchParams({ practiceId: options.practiceId });
-    if (options.practiceSlug) {
-      params.set('practiceSlug', options.practiceSlug);
-    }
-    const response = await options.request.get(
-      `/api/conversations/active?${params.toString()}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: cookieHeader
-        }
-      }
-    );
-
-    if ((response.status() === 401 || response.status() === 429) && attempt < maxAttempts - 1) {
-      await sleep(500 * (attempt + 1));
-      continue;
-    }
-
-    const rawText = await response.text().catch(() => '');
-    let data: { data?: { conversation?: { id?: string } } } | null = null;
-    if (rawText) {
-      try {
-        data = JSON.parse(rawText) as { data?: { conversation?: { id?: string } } };
-      } catch {
-        data = null;
-      }
-    }
-    if (!response.ok() || !data?.data?.conversation?.id) {
-      const fallbackText = data ? JSON.stringify(data) : rawText;
-      lastError = new Error(
-        `Failed to create conversation: ${response.status()} (${response.url()}) ${fallbackText.slice(0, 300)}`
-      );
-      break;
-    }
-
-    return data.data.conversation.id as string;
+  const cookieHeader = await ensureCookieHeader();
+  const params = new URLSearchParams({ practiceId: options.practiceId });
+  if (options.practiceSlug) {
+    params.set('practiceSlug', options.practiceSlug);
   }
-
-  throw lastError ?? new Error('Failed to create conversation: unknown error');
-};
-
-const getConversationMessages = async (options: {
-  request: APIRequestContext;
-  context: BrowserContext;
-  baseURL: string;
-  practiceId: string;
-  practiceSlug?: string;
-  conversationId: string;
-  storagePath?: string;
-}) => {
-  const url = `${WORKER_API_URL}/api/conversations/${encodeURIComponent(options.conversationId)}/messages?practiceId=${encodeURIComponent(options.practiceId)}&limit=50`;
-  const maxAttempts = 3;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const cookieHeader = await buildCookieHeader(options.context, options.baseURL, options.storagePath);
-    const response = await options.request.get(url, {
+  const response = await options.request.get(
+    `/api/conversations/active?${params.toString()}`,
+    {
       headers: {
         'Content-Type': 'application/json',
         Cookie: cookieHeader
       }
-    });
-
-    if ((response.status() === 401 || response.status() === 429) && attempt < maxAttempts - 1) {
-      await sleep(500 * (attempt + 1));
-      continue;
     }
+  );
 
-    const rawText = await response.text().catch(() => '');
-    let data: { data?: { messages?: ConversationMessage[] } } | null = null;
-    if (rawText) {
-      try {
-        data = JSON.parse(rawText) as { data?: { messages?: ConversationMessage[] } };
-      } catch {
-        data = null;
-      }
+  const rawText = await response.text().catch(() => '');
+  let data: { data?: { conversation?: { id?: string } } } | null = null;
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText) as { data?: { conversation?: { id?: string } } };
+    } catch {
+      data = null;
     }
-    if (!response.ok() || !data?.data?.messages) {
-      await logMessageFetchDiagnostics({
-        request: options.request,
-        baseURL: options.baseURL,
-        practiceId: options.practiceId,
-        practiceSlug: options.practiceSlug,
-        conversationId: options.conversationId,
-        cookieHeader,
-        status: response.status(),
-        url: response.url(),
-        body: rawText || JSON.stringify(data)
-      });
-      throw new Error(`Failed to fetch messages: ${response.status()}`);
-    }
-
-    return data.data.messages as ConversationMessage[];
+  }
+  if (!response.ok() || !data?.data?.conversation?.id) {
+    const fallbackText = data ? JSON.stringify(data) : rawText;
+    throw new Error(
+      `Failed to create conversation: ${response.status()} (${response.url()}) ${fallbackText.slice(0, 300)}`
+    );
   }
 
-  throw new Error('Failed to fetch messages after retries');
-};
-
-const waitForDecisionMessage = async (options: {
-  request: APIRequestContext;
-  context: BrowserContext;
-  baseURL: string;
-  practiceId: string;
-  practiceSlug?: string;
-  conversationId: string;
-  decision: 'accepted' | 'rejected';
-  intakeUuid?: string;
-  reason?: string;
-  storagePath?: string;
-  timeoutMs?: number;
-}) => {
-  const {
-    request,
-    context,
-    baseURL,
-    practiceId,
-    practiceSlug,
-    conversationId,
-    decision,
-    intakeUuid,
-    reason,
-    storagePath,
-    timeoutMs = 15000
-  } = options;
-  const start = Date.now();
-
-  while (Date.now() - start < timeoutMs) {
-    const messages = await getConversationMessages({
-      request,
-      context,
-      baseURL,
-      practiceId,
-      practiceSlug,
-      conversationId,
-      storagePath
-    });
-    const match = messages.find(message => {
-      if (message.metadata?.intakeDecision !== decision) return false;
-      if (intakeUuid && message.metadata?.intakeUuid !== intakeUuid) return false;
-      if (reason && message.metadata?.reason !== reason) return false;
-      return true;
-    });
-    if (match) return match;
-    await sleep(500);
-  }
-
-  throw new Error(`Timed out waiting for ${decision} intake decision message`);
+  return data.data.conversation.id as string;
 };
 
 const shouldRunPaymentMode = (required: boolean): boolean => {
@@ -889,12 +712,12 @@ test.describe('Lead intake workflow', () => {
       throw new Error('Intake confirm did not return matterId');
     }
 
-    await waitForLeadInQueue({
-      request: ownerContext.request,
-      context: ownerContext,
+    await waitForConversationMessage({
+      page: clientPage,
       baseURL,
-      practiceId,
-      matterId
+      conversationId,
+      match: { intakeUuid: intake.uuid },
+      timeoutMs: 15000
     });
 
     await ownerPage.goto('/practice/leads');
@@ -924,16 +747,15 @@ test.describe('Lead intake workflow', () => {
       throw new Error(`Lead ${matterId} still returned in API queue after accept.`);
     }
 
-    const decisionMessage = await waitForDecisionMessage({
-      request: clientContext.request,
-      context: clientContext,
+    const decisionMessage = await waitForConversationMessage({
+      page: clientPage,
       baseURL,
-      practiceId,
-      practiceSlug: e2eConfig.practice.slug,
       conversationId,
-      decision: 'accepted',
-      intakeUuid: intake.uuid,
-      storagePath: AUTH_STATE_PATHS.client
+      match: {
+        intakeDecision: 'accepted',
+        intakeUuid: intake.uuid
+      },
+      timeoutMs: 15000
     });
 
     expect(decisionMessage.content.toLowerCase()).toContain('accepted');
@@ -1021,12 +843,12 @@ test.describe('Lead intake workflow', () => {
       throw new Error('Intake confirm did not return matterId');
     }
 
-    await waitForLeadInQueue({
-      request: ownerContext.request,
-      context: ownerContext,
+    await waitForConversationMessage({
+      page: anonPage,
       baseURL,
-      practiceId,
-      matterId
+      conversationId,
+      match: { intakeUuid: intake.uuid },
+      timeoutMs: 15000
     });
 
     await ownerPage.goto('/practice/leads');
@@ -1057,17 +879,16 @@ test.describe('Lead intake workflow', () => {
       throw new Error(`Lead ${matterId} still returned in API queue after reject.`);
     }
 
-    const decisionMessage = await waitForDecisionMessage({
-      request: anonContext.request,
-      context: anonContext,
+    const decisionMessage = await waitForConversationMessage({
+      page: anonPage,
       baseURL,
-      practiceId,
-      practiceSlug: e2eConfig.practice.slug,
       conversationId,
-      decision: 'rejected',
-      intakeUuid: intake.uuid,
-      reason: rejectReason,
-      storagePath: AUTH_STATE_PATHS.anonymous
+      match: {
+        intakeDecision: 'rejected',
+        intakeUuid: intake.uuid,
+        reason: rejectReason
+      },
+      timeoutMs: 15000
     });
 
     expect(decisionMessage.content.toLowerCase()).toContain('declined');

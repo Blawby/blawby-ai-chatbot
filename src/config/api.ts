@@ -111,6 +111,18 @@ export const getConversationWsEndpoint = (conversationId: string) => {
   return url.toString();
 };
 
+export const getParalegalStatusEndpoint = (practiceId: string, matterId: string) => {
+  const baseUrl = getWorkerApiUrl();
+  return `${baseUrl}/api/paralegal/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/status`;
+};
+
+export const getParalegalStatusWsEndpoint = (practiceId: string, matterId: string) => {
+  const baseUrl = getWorkerApiUrl();
+  const url = new URL(`${baseUrl}/api/paralegal/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/ws`);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url.toString();
+};
+
 export const getCurrentConversationEndpoint = () => {
   const config = getApiConfig();
   return `${config.baseUrl}/api/conversations/active`;

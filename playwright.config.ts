@@ -11,7 +11,7 @@ const resolveWorkers = (): number => {
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
-  retries: 2,
+  retries: 0,
   workers: resolveWorkers(),
   outputDir: './playwright/results',
   use: {

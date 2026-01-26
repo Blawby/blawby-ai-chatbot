@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'preact/hooks';
 import { features } from '@/config/features';
+import { getParalegalStatusWsEndpoint } from '@/config/api';
 import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 interface ChecklistItem {
@@ -30,57 +31,67 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
   const [progressData, setProgressData] = useState<MatterProgressData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [connectionKey, setConnectionKey] = useState(0);
 
-  const fetchProgress = useCallback(async (signal?: AbortSignal) => {
-    if (!practiceId || !matterId) return;
+  const reconnect = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    setConnectionKey((prev) => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!features.enableParalegalAgent || !visible || !practiceId || !matterId) {
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch(`/api/paralegal/${practiceId}/${matterId}/status`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        signal
-      });
+    const ws = new WebSocket(getParalegalStatusWsEndpoint(practiceId, matterId));
+    let settled = false;
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch progress: ${response.statusText}`);
+    const handleProgressPayload = (payload: unknown) => {
+      if (!payload || typeof payload !== 'object') return;
+      const frame = payload as { type?: string; data?: MatterProgressData };
+      if (!frame.data || (frame.type !== 'progress.update' && frame.type !== 'progress.snapshot')) {
+        return;
       }
-
-      const data = await response.json() as MatterProgressData;
-      setProgressData(data);
-      setLastUpdated(new Date());
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return; // Don't set error for aborted requests
-      }
-      console.error('Failed to fetch matter progress:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch progress');
-    } finally {
+      setProgressData(frame.data);
+      setError(null);
       setLoading(false);
-    }
-  }, [practiceId, matterId]);
-
-  // Poll for updates every 10 seconds when visible and feature is enabled
-  useEffect(() => {
-    if (!features.enableParalegalAgent || !visible) return;
-
-    const controller = new AbortController();
-    const signal = controller.signal;
-
-    fetchProgress(signal); // Initial fetch
-
-    const interval = setInterval(() => fetchProgress(signal), 10000); // Poll every 10 seconds
-    
-    return () => {
-      controller.abort();
-      clearInterval(interval);
     };
-  }, [visible, fetchProgress]);
+
+    ws.addEventListener('open', () => {
+      setLoading(false);
+    });
+
+    ws.addEventListener('message', (event) => {
+      if (typeof event.data !== 'string') return;
+      try {
+        const parsed = JSON.parse(event.data) as Record<string, unknown>;
+        handleProgressPayload(parsed);
+      } catch (err) {
+        console.warn('Failed to parse matter progress payload:', err);
+      }
+    });
+
+    ws.addEventListener('error', () => {
+      if (settled) return;
+      setError('Matter progress connection failed.');
+      setLoading(false);
+    });
+
+    ws.addEventListener('close', () => {
+      if (settled) return;
+      setError('Matter progress connection closed.');
+      setLoading(false);
+    });
+
+    return () => {
+      settled = true;
+      ws.close();
+    };
+  }, [practiceId, matterId, visible, connectionKey]);
 
   // Don't render if paralegal agent is disabled
   if (!features.enableParalegalAgent || !visible) {
@@ -151,7 +162,7 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
                 <p className="text-red-700">{error}</p>
               </div>
               <button
-                onClick={() => fetchProgress()}
+                onClick={reconnect}
                 className="mt-2 text-red-600 hover:text-red-800 text-sm underline"
               >
                 Try again
@@ -246,13 +257,6 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
                 </div>
               )}
 
-              {/* Last Updated */}
-              {lastUpdated && (
-                <div className="text-sm text-gray-500 text-center border-t pt-4">
-                  Last updated: {lastUpdated.toLocaleString()}
-                  {loading && <span className="ml-2 text-blue-600">Updating...</span>}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -260,7 +264,7 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
         {/* Footer */}
         <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
           <button
-            onClick={() => fetchProgress()}
+            onClick={reconnect}
             disabled={loading}
             className="text-blue-600 hover:text-blue-800 text-sm font-medium disabled:opacity-50"
           >

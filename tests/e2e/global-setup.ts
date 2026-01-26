@@ -77,53 +77,36 @@ const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(
 );
 
 const verifyWorkerHealth = async (): Promise<void> => {
-  const maxRetries = 10;
-  const retryDelay = 2000;
   const baseUrl = process.env.VITE_WORKER_API_URL || process.env.E2E_WORKER_URL || 'http://localhost:8787';
 
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const response = await fetch(`${baseUrl}/api/health`);
-      if (response.ok) {
-        console.log('✅ Worker is running and healthy');
-        return;
-      }
-    } catch {
-      // retry below
+  try {
+    const response = await fetch(`${baseUrl}/api/health`);
+    if (response.ok) {
+      console.log('✅ Worker is running and healthy');
+      return;
     }
-
-    if (i === maxRetries - 1) {
-      throw new Error(
-        `Worker health check failed after ${maxRetries} attempts. ` +
-        `Make sure wrangler is running: npm run dev:worker:clean`
-      );
-    }
-    console.log(`⏳ Waiting for worker... (attempt ${i + 1}/${maxRetries})`);
-    await new Promise(resolve => setTimeout(resolve, retryDelay));
+    const body = await response.text().catch(() => '');
+    throw new Error(`Worker health check failed: ${response.status} ${body.slice(0, 200)}`);
+  } catch (error) {
+    throw new Error(
+      `Worker health check failed. Make sure wrangler is running: npm run dev:worker:clean. ` +
+      `${error instanceof Error ? error.message : String(error)}`
+    );
   }
 };
 
 
 const waitForBaseUrl = async (baseURL: string): Promise<void> => {
-  const maxRetries = 15;
-  const retryDelay = 2000;
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const response = await fetch(baseURL, { method: 'GET' });
-      if (response.ok || (response.status >= 300 && response.status < 500)) {
-        console.log(`✅ Base URL reachable: ${baseURL}`);
-        return;
-      }
-    } catch {
-      // retry below
+  try {
+    const response = await fetch(baseURL, { method: 'GET' });
+    if (response.ok || (response.status >= 300 && response.status < 500)) {
+      console.log(`✅ Base URL reachable: ${baseURL}`);
+      return;
     }
-
-    if (i === maxRetries - 1) {
-      throw new Error(`Base URL not reachable after ${maxRetries} attempts: ${baseURL}`);
-    }
-    console.log(`⏳ Waiting for base URL... (attempt ${i + 1}/${maxRetries})`);
-    await new Promise(resolve => setTimeout(resolve, retryDelay));
+    const body = await response.text().catch(() => '');
+    throw new Error(`Base URL returned ${response.status}: ${body.slice(0, 200)}`);
+  } catch (error) {
+    throw new Error(`Base URL not reachable: ${baseURL}. ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 

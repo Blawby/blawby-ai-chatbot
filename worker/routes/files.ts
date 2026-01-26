@@ -9,70 +9,39 @@ import { withPracticeContext, getPracticeId } from '../middleware/practiceContex
 import { RemoteApiService } from '../services/RemoteApiService.js';
 
 /**
- * Updates status with retry logic and exponential backoff
- * @param env - Environment object
- * @param statusUpdate - Status update data
- * @param maxRetries - Maximum number of retry attempts (default: 3)
- * @param baseDelayMs - Base delay in milliseconds for exponential backoff (default: 1000)
- * @returns Promise that resolves when status is updated or rejects after all retries fail
+ * Updates status once and logs failures for debugging.
  */
-async function updateStatusWithRetry(
+async function updateStatus(
   env: Env,
   statusUpdate: Omit<StatusUpdate, 'createdAt' | 'updatedAt' | 'expiresAt'>,
-  maxRetries: number = 3,
-  baseDelayMs: number = 1000,
   createdAt?: number
 ): Promise<void> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      await StatusService.setStatus(env, statusUpdate, createdAt);
-      Logger.info('Status update successful', {
-        statusId: statusUpdate.id,
-        attempt: attempt + 1,
-        status: statusUpdate.status
-      });
-      return; // Success, exit early
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      
-      if (attempt === maxRetries) {
-        // Final attempt failed, log to monitoring and throw
-        Logger.error('Status update failed after all retries', {
-          statusId: statusUpdate.id,
-          status: statusUpdate.status,
-          totalAttempts: maxRetries + 1,
-          finalError: lastError.message,
-          errorStack: lastError.stack
-        });
-        
-        // Emit alert for critical status update failures
-        Logger.error('ALERT: Critical status update failure', {
-          statusId: statusUpdate.id,
-          conversationId: statusUpdate.conversationId,
-          practiceId: statusUpdate.practiceId,
-          status: statusUpdate.status,
-          message: statusUpdate.message,
-          error: lastError.message
-        });
-        
-        throw lastError;
-      }
-      
-      // Calculate exponential backoff delay
-      const delayMs = baseDelayMs * Math.pow(2, attempt);
-      Logger.warn('Status update attempt failed, retrying', {
-        statusId: statusUpdate.id,
-        attempt: attempt + 1,
-        maxRetries: maxRetries + 1,
-        nextRetryInMs: delayMs,
-        error: lastError.message
-      });
-      
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-    }
+  try {
+    await StatusService.setStatus(env, statusUpdate, createdAt);
+    Logger.info('Status update successful', {
+      statusId: statusUpdate.id,
+      status: statusUpdate.status
+    });
+  } catch (error) {
+    const lastError = error instanceof Error ? error : new Error(String(error));
+
+    Logger.error('Status update failed', {
+      statusId: statusUpdate.id,
+      status: statusUpdate.status,
+      error: lastError.message,
+      errorStack: lastError.stack
+    });
+
+    Logger.error('ALERT: Critical status update failure', {
+      statusId: statusUpdate.id,
+      conversationId: statusUpdate.conversationId,
+      practiceId: statusUpdate.practiceId,
+      status: statusUpdate.status,
+      message: statusUpdate.message,
+      error: lastError.message
+    });
+
+    throw lastError;
   }
 }
 
@@ -489,7 +458,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
           // See: [TRACKING-ISSUE: StatusService sessionId->conversationId migration]
           // Migration date: 2025-01-XX
           // All status updates now use conversationId consistently
-          await updateStatusWithRetry(env, {
+          await updateStatus(env, {
             id: statusId,
             conversationId: resolvedConversationId,
             practiceId: resolvedPracticeId,
@@ -498,9 +467,9 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
             message: `File ${file.name} uploaded successfully, starting analysis...`,
             progress: 50,
             data: { fileName: file.name, fileId, url }
-          }, 3, 1000, statusCreatedAt ?? undefined);
+          }, statusCreatedAt ?? undefined);
         } catch (_statusUpdateError) {
-          // Error is already logged by updateStatusWithRetry, just continue
+          // Error is already logged by updateStatus, just continue
           Logger.warn('Continuing despite status update failure after file storage');
         }
       }

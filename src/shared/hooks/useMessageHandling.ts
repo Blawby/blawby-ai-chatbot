@@ -4,7 +4,7 @@ import { ChatMessageUI, FileAttachment, MessageReaction } from '../../../worker/
 import { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
-import { buildIntakePaymentUrl, fetchIntakePaymentStatus, isPaidIntakeStatus } from '@/shared/utils/intakePayments';
+import { buildIntakePaymentUrl } from '@/shared/utils/intakePayments';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
 import {
   updateConversationMetadata as patchConversationMetadata,
@@ -100,8 +100,6 @@ export const useMessageHandling = ({
   const wsReadyRef = useRef<Promise<void> | null>(null);
   const wsReadyResolveRef = useRef<(() => void) | null>(null);
   const wsReadyRejectRef = useRef<((error: Error) => void) | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectAttemptsRef = useRef(0);
   const socketSessionRef = useRef(0);
   const isSocketReadyRef = useRef(false);
   const lastSeqRef = useRef(0);
@@ -170,13 +168,6 @@ export const useMessageHandling = ({
     wsReadyResolveRef.current = null;
     wsReadyRejectRef.current = null;
   }, [updateSocketReady]);
-
-  const clearReconnectTimer = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-  }, []);
 
   const flushPendingAcks = useCallback((error: Error) => {
     for (const pending of pendingAckRef.current.values()) {
@@ -631,7 +622,6 @@ export const useMessageHandling = ({
 
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
-    let attempt = 0;
 
     while (nextSeq !== null && nextSeq <= targetLatest) {
       if (
@@ -685,36 +675,16 @@ export const useMessageHandling = ({
           targetLatest = data.data.latest_seq;
         }
         nextSeq = data.data.next_from_seq ?? null;
-        attempt = 0;
       } catch (error) {
-        attempt += 1;
-        if (attempt >= 3) {
-          const message = error instanceof Error ? error.message : 'Failed to recover message gap';
-          onError?.(message);
-          isClosingSocketRef.current = true;
-          wsRef.current?.close();
-          return;
-        }
-        await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+        const message = error instanceof Error ? error.message : 'Failed to recover message gap';
+        onError?.(message);
+        isClosingSocketRef.current = true;
+        wsRef.current?.close();
+        return;
       }
     }
   }, [applyServerMessages, onError]);
 
-  const scheduleReconnect = useCallback((targetConversationId: string) => {
-    if (reconnectTimeoutRef.current || isClosingSocketRef.current) {
-      return;
-    }
-    const attempt = reconnectAttemptsRef.current + 1;
-    reconnectAttemptsRef.current = attempt;
-    const delay = Math.min(1000 * attempt, 5000);
-    reconnectTimeoutRef.current = setTimeout(() => {
-      reconnectTimeoutRef.current = null;
-      if (isClosingSocketRef.current || conversationIdRef.current !== targetConversationId) {
-        return;
-      }
-      connectChatRoomRef.current(targetConversationId);
-    }, delay);
-  }, []);
 
   const connectChatRoom = useCallback((targetConversationId: string) => {
     if (!sessionReady) {
@@ -736,7 +706,6 @@ export const useMessageHandling = ({
       return;
     }
 
-    clearReconnectTimer();
     isClosingSocketRef.current = false;
     socketSessionRef.current += 1;
     const sessionId = socketSessionRef.current;
@@ -751,7 +720,6 @@ export const useMessageHandling = ({
     wsRef.current = ws;
 
     ws.addEventListener('open', () => {
-      reconnectAttemptsRef.current = 0;
       ws.send(JSON.stringify({
         type: 'auth',
         data: {
@@ -860,7 +828,7 @@ export const useMessageHandling = ({
         socketConversationIdRef.current = null;
       }
       if (!isClosingSocketRef.current && conversationIdRef.current === targetConversationId) {
-        scheduleReconnect(targetConversationId);
+        onError?.('Chat connection closed.');
       }
     });
 
@@ -870,7 +838,6 @@ export const useMessageHandling = ({
       }
     });
   }, [
-    clearReconnectTimer,
     fetchGapMessages,
     flushPendingAcks,
     handleMessageAck,
@@ -880,7 +847,6 @@ export const useMessageHandling = ({
     onError,
     rejectSocketReady,
     resolveSocketReady,
-    scheduleReconnect,
     sendFrame,
     sendReadUpdate,
     sessionReady
@@ -889,7 +855,6 @@ export const useMessageHandling = ({
   connectChatRoomRef.current = connectChatRoom;
 
   const closeChatSocket = useCallback(() => {
-    clearReconnectTimer();
     isClosingSocketRef.current = true;
     isSocketReadyRef.current = false;
     rejectSocketReady(new Error('Chat connection closed'));
@@ -899,7 +864,7 @@ export const useMessageHandling = ({
       wsRef.current = null;
     }
     socketConversationIdRef.current = null;
-  }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
+  }, [flushPendingAcks, rejectSocketReady]);
 
   const sendMessageOverWs = useCallback(async (
     content: string,
@@ -1255,21 +1220,6 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             ? `${window.location.pathname}${window.location.search}`
             : undefined;
           const practiceContextId = practiceId || resolvedPracticeSlug;
-          if (typeof window !== 'undefined' && paymentDetails?.uuid && hasPaymentLink) {
-            try {
-              const stored = {
-                practiceName: paymentDetails.organizationName ?? 'the practice',
-                practiceId: practiceContextId,
-                conversationId
-              };
-              window.sessionStorage.setItem(
-                `intakePaymentPending:${paymentDetails.uuid}`,
-                JSON.stringify(stored)
-              );
-            } catch {
-              // sessionStorage may be unavailable in private browsing.
-            }
-          }
           const paymentUrl = buildIntakePaymentUrl({
             intakeUuid: paymentDetails.uuid,
             clientSecret: hasClientSecret ? clientSecret : undefined,
@@ -1774,12 +1724,10 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     if (!isAnonymous) return;
 
     type PaymentFlag = { uuid: string; practiceName: string };
-    type PendingPaymentFlag = PaymentFlag & { practiceId?: string; conversationId?: string };
 
     let cancelled = false;
 
     const paymentFlags: PaymentFlag[] = [];
-    const pendingFlags: PendingPaymentFlag[] = [];
 
     const parseStoredFlag = (raw: string | null) => {
       if (!raw) return null;
@@ -1855,52 +1803,11 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       });
 
       pendingKeys.forEach((key) => {
-        const uuid = key.split(':')[1] || 'unknown';
-        let practiceName = 'the practice';
-        const parsed = parseStoredFlag(window.sessionStorage.getItem(key));
-        if (parsed?.practiceName && parsed.practiceName.trim().length > 0) {
-          practiceName = parsed.practiceName.trim();
-        }
-        pendingFlags.push({
-          uuid,
-          practiceName,
-          practiceId: parsed?.practiceId,
-          conversationId: parsed?.conversationId
-        });
+        window.sessionStorage.removeItem(key);
       });
     }
 
     paymentFlags.forEach(applyPaymentConfirmation);
-
-    const checkPendingPayments = async () => {
-      if (pendingFlags.length === 0) return;
-      const practiceContextId = (practiceId ?? practiceSlug ?? '').trim();
-      for (const pending of pendingFlags) {
-        if (cancelled) return;
-        if (pending.conversationId && conversationId && pending.conversationId !== conversationId) {
-          continue;
-        }
-        if (pending.practiceId && practiceContextId && pending.practiceId !== practiceContextId) {
-          continue;
-        }
-
-        try {
-          const status = await fetchIntakePaymentStatus(pending.uuid);
-          if (!isPaidIntakeStatus(status)) {
-            continue;
-          }
-        } catch (error) {
-          console.warn('[Intake] Failed to check payment status for', pending.uuid, error);
-          continue;
-        }
-        if (typeof window !== 'undefined') {
-          window.sessionStorage.removeItem(`intakePaymentPending:${pending.uuid}`);
-        }
-        applyPaymentConfirmation(pending);
-      }
-    };
-
-    void checkPendingPayments();
 
     setMessages(prev => {
       // Check for existence of local system messages

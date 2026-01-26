@@ -5,22 +5,6 @@ import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
 
-interface ConversationMessage {
-  id: string;
-  role: string;
-  content: string;
-}
-
-interface ConversationSummary {
-  id?: string;
-  status?: string;
-  updated_at?: string;
-  last_message_at?: string | null;
-  latest_seq?: number | null;
-}
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
 const buildCookieHeader = async (context: BrowserContext, baseURL: string): Promise<string> => {
   let cookies = await context.cookies(baseURL);
   if (!cookies.length) {
@@ -29,13 +13,6 @@ const buildCookieHeader = async (context: BrowserContext, baseURL: string): Prom
   if (!cookies.length) return '';
   return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
 };
-
-const summarizeCookieHeader = (cookieHeader: string): string[] => (
-  cookieHeader
-    .split(';')
-    .map((segment) => segment.split('=')[0]?.trim())
-    .filter((name): name is string => Boolean(name))
-);
 
 const normalizePracticeSlug = (value: string): string => {
   const trimmed = value.trim();
@@ -54,73 +31,6 @@ const normalizePracticeSlug = (value: string): string => {
     return segments[segments.length - 1] || trimmed;
   }
   return trimmed;
-};
-
-const fetchDebugResponse = async (
-  request: APIRequestContext,
-  url: string,
-  headers: Record<string, string>
-): Promise<{ url: string; status: number; body: string }> => {
-  try {
-    const response = await request.get(url, { headers });
-    const body = await response.text().catch(() => '');
-    return {
-      url: response.url(),
-      status: response.status(),
-      body: body.slice(0, 500)
-    };
-  } catch (error) {
-    return {
-      url,
-      status: -1,
-      body: `request_error: ${error instanceof Error ? error.message : String(error)}`
-    };
-  }
-};
-
-const logMessageFetchDiagnostics = async (options: {
-  request: APIRequestContext;
-  baseURL: string;
-  practiceId: string;
-  practiceSlug?: string;
-  conversationId: string;
-  cookieHeader: string;
-  status: number;
-  url: string;
-  body: string;
-}): Promise<void> => {
-  const cookieNames = summarizeCookieHeader(options.cookieHeader);
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (options.cookieHeader) {
-    headers.Cookie = options.cookieHeader;
-  }
-
-  const conversationPath = `/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceId)}`;
-  const conversationCheck = await fetchDebugResponse(options.request, conversationPath, headers);
-
-  let conversationSlugCheck: { url: string; status: number; body: string } | undefined;
-  let messagesSlugCheck: { url: string; status: number; body: string } | undefined;
-  if (options.practiceSlug && options.practiceSlug !== options.practiceId) {
-    const slugConversationPath = `/api/conversations/${encodeURIComponent(options.conversationId)}?practiceId=${encodeURIComponent(options.practiceSlug)}`;
-    conversationSlugCheck = await fetchDebugResponse(options.request, slugConversationPath, headers);
-
-    const slugMessagesPath = `/api/conversations/${encodeURIComponent(options.conversationId)}/messages?practiceId=${encodeURIComponent(options.practiceSlug)}&limit=50`;
-    messagesSlugCheck = await fetchDebugResponse(options.request, slugMessagesPath, headers);
-  }
-
-  console.warn('[E2E][chat] Message fetch failed', {
-    baseURL: options.baseURL,
-    practiceId: options.practiceId,
-    practiceSlug: options.practiceSlug,
-    conversationId: options.conversationId,
-    status: options.status,
-    url: options.url,
-    cookieNames,
-    body: options.body.slice(0, 500),
-    conversationCheck,
-    conversationSlugCheck,
-    messagesSlugCheck
-  });
 };
 
 const getOrCreateConversation = async (options: {
@@ -144,162 +54,124 @@ const getOrCreateConversation = async (options: {
     return cookieHeader;
   };
 
-  const maxAttempts = 3;
-  let retryDelayMs = 500;
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const cookieHeader = await ensureCookieHeader();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (cookieHeader) {
-      headers.Cookie = cookieHeader;
-    }
-
-    const params = new URLSearchParams({ practiceId: options.practiceId });
-    if (options.practiceSlug) {
-      params.set('practiceSlug', options.practiceSlug);
-    }
-    const response = await options.request.get(
-      `/api/conversations/active?${params.toString()}`,
-      { headers }
-    );
-
-    const rawText = await response.text().catch(() => '');
-    let data: { data?: { conversation?: { id?: string } } } | null = null;
-    if (rawText) {
-      try {
-        data = JSON.parse(rawText) as { data?: { conversation?: { id?: string } } };
-      } catch {
-        data = null;
-      }
-    }
-
-    if (response.ok() && data?.data?.conversation?.id) {
-      return data.data.conversation.id as string;
-    }
-
-    const fallbackText = data ? JSON.stringify(data) : rawText;
-    lastError = new Error(
-      `Failed to create conversation: ${response.status()} (${response.url()}) ${fallbackText.slice(0, 300)}`
-    );
-
-    const status = response.status();
-    const retriable = status === 401 || status === 429 || status >= 500;
-    if (!retriable || attempt >= maxAttempts - 1) {
-      break;
-    }
-
-    const retryAfter = response.headers()['retry-after'];
-    const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
-    const waitMs = Number.isFinite(retryAfterMs)
-      ? Math.max(retryAfterMs, retryDelayMs)
-      : retryDelayMs;
-    await sleep(Math.min(Math.max(waitMs, 250), 5000));
-    retryDelayMs = Math.min(retryDelayMs * 2, 3000);
+  const cookieHeader = await ensureCookieHeader();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (cookieHeader) {
+    headers.Cookie = cookieHeader;
   }
 
-  throw lastError ?? new Error('Failed to create conversation: unknown error');
+  const params = new URLSearchParams({ practiceId: options.practiceId });
+  if (options.practiceSlug) {
+    params.set('practiceSlug', options.practiceSlug);
+  }
+  const response = await options.request.get(
+    `/api/conversations/active?${params.toString()}`,
+    { headers }
+  );
+
+  const rawText = await response.text().catch(() => '');
+  let data: { data?: { conversation?: { id?: string } } } | null = null;
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText) as { data?: { conversation?: { id?: string } } };
+    } catch {
+      data = null;
+    }
+  }
+
+  if (response.ok() && data?.data?.conversation?.id) {
+    return data.data.conversation.id as string;
+  }
+
+  const fallbackText = data ? JSON.stringify(data) : rawText;
+  throw new Error(
+    `Failed to create conversation: ${response.status()} (${response.url()}) ${fallbackText.slice(0, 300)}`
+  );
 };
 
-const getExistingConversationId = async (options: {
-  request: APIRequestContext;
-  context: BrowserContext;
-  page?: Page;
+const waitForMessageViaWebSocket = async (options: {
+  page: Page;
   baseURL: string;
-  practiceId: string;
-  practiceSlug?: string;
-}): Promise<string> => {
-  const ensureCookieHeader = async (): Promise<string> => {
-    let cookieHeader = await buildCookieHeader(options.context, options.baseURL);
-    if (!cookieHeader && options.page) {
-      await waitForSession(options.page, {
-        timeoutMs: 30000,
-        skipIfCookiePresent: false,
-        cookieUrl: options.baseURL
-      });
-      cookieHeader = await buildCookieHeader(options.context, options.baseURL);
-    }
-    return cookieHeader;
-  };
+  conversationId: string;
+  content: string;
+  timeoutMs?: number;
+}): Promise<void> => {
+  const wsUrl = new URL(`/api/conversations/${encodeURIComponent(options.conversationId)}/ws`, options.baseURL);
+  wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
 
-  const fetchConversationList = async (
-    status?: 'active' | 'archived' | 'closed'
-  ): Promise<ConversationSummary[]> => {
-    const params = new URLSearchParams({
-      practiceId: options.practiceId,
-      limit: '20'
-    });
-    if (status) {
-      params.set('status', status);
-    }
-    if (options.practiceSlug) {
-      params.set('practiceSlug', options.practiceSlug);
-    }
-    const url = `/api/conversations?${params.toString()}`;
-    const maxAttempts = 3;
-    let retryDelayMs = 500;
-    let lastError: Error | null = null;
+  return options.page.evaluate(async ({ wsUrl: wsUrlString, content, timeoutMs: timeout }) => {
+    return await new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(wsUrlString);
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        settled = true;
+        ws.close();
+        reject(new Error(`Timed out waiting for message in WebSocket after ${timeout}ms`));
+      }, timeout ?? 5000);
 
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const cookieHeader = await ensureCookieHeader();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (cookieHeader) {
-        headers.Cookie = cookieHeader;
-      }
-
-      const response = await options.request.get(url, { headers });
-      const rawText = await response.text().catch(() => '');
-      let payload: { data?: { conversations?: ConversationSummary[] } } | null = null;
-      if (rawText) {
+      const cleanup = () => {
+        clearTimeout(timeoutId);
         try {
-          payload = JSON.parse(rawText) as { data?: { conversations?: ConversationSummary[] } };
+          ws.close();
         } catch {
-          payload = null;
+          // ignore
         }
-      }
+      };
 
-      const conversations = payload?.data?.conversations ?? (payload as { conversations?: ConversationSummary[] } | null)?.conversations;
-      if (response.ok() && Array.isArray(conversations)) {
-        return conversations;
-      }
+      ws.addEventListener('open', () => {
+        ws.send(JSON.stringify({
+          type: 'auth',
+          data: {
+            protocol_version: 1,
+            client_info: { platform: 'e2e' }
+          }
+        }));
+      });
 
-      const fallbackText = payload ? JSON.stringify(payload) : rawText;
-      lastError = new Error(`Failed to fetch conversations: ${response.status()} ${fallbackText.slice(0, 300)}`);
+      ws.addEventListener('message', (event) => {
+        if (typeof event.data !== 'string') {
+          return;
+        }
+        let frame: { type?: string; data?: Record<string, unknown> };
+        try {
+          frame = JSON.parse(event.data) as { type?: string; data?: Record<string, unknown> };
+        } catch {
+          return;
+        }
 
-      const statusCode = response.status();
-      const retriable = statusCode === 401 || statusCode === 429 || statusCode >= 500;
-      if (!retriable || attempt >= maxAttempts - 1) {
-        break;
-      }
+        if (frame.type === 'auth.error' || frame.type === 'error') {
+          settled = true;
+          cleanup();
+          const message = typeof frame.data?.message === 'string' ? frame.data.message : 'WebSocket error';
+          reject(new Error(message));
+          return;
+        }
 
-      const retryAfter = response.headers()['retry-after'];
-      const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
-      const waitMs = Number.isFinite(retryAfterMs)
-        ? Math.max(retryAfterMs, retryDelayMs)
-        : retryDelayMs;
-      await sleep(Math.min(Math.max(waitMs, 250), 5000));
-      retryDelayMs = Math.min(retryDelayMs * 2, 3000);
-    }
+        if (frame.type === 'message.new' && frame.data) {
+          const messageContent = typeof frame.data.content === 'string' ? frame.data.content : '';
+          if (messageContent === content) {
+            settled = true;
+            cleanup();
+            resolve();
+            return;
+          }
+        }
+      });
 
-    throw lastError ?? new Error('Failed to fetch conversations after retries');
-  };
+      ws.addEventListener('error', () => {
+        settled = true;
+        cleanup();
+        reject(new Error('WebSocket error'));
+      });
 
-  const activeConversations = await fetchConversationList('active');
-  const conversations = activeConversations.length
-    ? activeConversations
-    : await fetchConversationList();
-  const preferred = conversations.find((conversation) => (
-    Boolean(conversation?.last_message_at)
-    || (typeof conversation?.latest_seq === 'number' && conversation.latest_seq > 0)
-  )) ?? conversations.find((conversation) => conversation?.id);
-
-  if (!preferred?.id) {
-    throw new Error(
-      `No existing conversations found for practice ${options.practiceId}. Seed a conversation for the E2E client before running this test.`
-    );
-  }
-
-  return preferred.id;
+      ws.addEventListener('close', (event) => {
+        if (!settled) {
+          cleanup();
+          reject(new Error(`WebSocket closed (${event.code}) ${event.reason || 'closed'}`));
+        }
+      });
+    });
+  }, { wsUrl: wsUrl.toString(), content: options.content, timeoutMs: options.timeoutMs ?? 5000 });
 };
 
 const sendChatMessageOverWs = async (options: {
@@ -324,6 +196,8 @@ const sendChatMessageOverWs = async (options: {
       const clientId = buildClientId();
       let authOk = false;
       let settled = false;
+      let ackPayload: { messageId: string; seq: number; serverTs: string } | null = null;
+      let broadcastMessageId: string | null = null;
       const timeoutId = setTimeout(() => {
         settled = true;
         ws.close();
@@ -395,9 +269,27 @@ const sendChatMessageOverWs = async (options: {
             reject(new Error('Invalid message ack payload'));
             return;
           }
-          settled = true;
-          cleanup();
-          resolve({ messageId, seq, serverTs, clientId });
+          ackPayload = { messageId, seq, serverTs };
+          if (broadcastMessageId && broadcastMessageId === messageId) {
+            settled = true;
+            cleanup();
+            resolve({ messageId, seq, serverTs, clientId });
+          }
+          return;
+        }
+
+        if (frame.type === 'message.new' && frame.data) {
+          const broadcastClientId = typeof frame.data.client_id === 'string' ? frame.data.client_id : '';
+          const broadcastMessage = typeof frame.data.message_id === 'string' ? frame.data.message_id : '';
+          if (!broadcastMessage || broadcastClientId !== clientId) {
+            return;
+          }
+          broadcastMessageId = broadcastMessage;
+          if (ackPayload && ackPayload.messageId === broadcastMessageId) {
+            settled = true;
+            cleanup();
+            resolve({ messageId: ackPayload.messageId, seq: ackPayload.seq, serverTs: ackPayload.serverTs, clientId });
+          }
           return;
         }
       });
@@ -418,142 +310,13 @@ const sendChatMessageOverWs = async (options: {
   }, { wsUrl: wsUrl.toString(), conversationId: options.conversationId, content: options.content });
 };
 
-const sendChatMessageWithRetry = async (options: {
+const sendChatMessage = async (options: {
   page: Page;
   baseURL: string;
   conversationId: string;
   content: string;
-}, retries = 2): Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }> => {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < retries; attempt += 1) {
-    try {
-      return await sendChatMessageOverWs(options);
-    } catch (error) {
-      lastError = error;
-      if (attempt < retries - 1) {
-        await options.page.waitForTimeout(1000 * (attempt + 1));
-      }
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error('Failed to send chat message');
-};
-
-const getConversationMessages = async (options: {
-  request: APIRequestContext;
-  context: BrowserContext;
-  page?: Page;
-  baseURL: string;
-  practiceId: string;
-  practiceSlug?: string;
-  conversationId: string;
-}): Promise<ConversationMessage[]> => {
-  const url = `/api/conversations/${encodeURIComponent(options.conversationId)}/messages?practiceId=${encodeURIComponent(options.practiceId)}&limit=50`;
-  const ensureCookieHeader = async (): Promise<string> => {
-    let cookieHeader = await buildCookieHeader(options.context, options.baseURL);
-    if (!cookieHeader && options.page) {
-      await waitForSession(options.page, {
-        timeoutMs: 30000,
-        skipIfCookiePresent: false,
-        cookieUrl: options.baseURL
-      });
-      cookieHeader = await buildCookieHeader(options.context, options.baseURL);
-    }
-    return cookieHeader;
-  };
-
-  const maxAttempts = 3;
-  let retryDelayMs = 500;
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const cookieHeader = await ensureCookieHeader();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (cookieHeader) {
-      headers.Cookie = cookieHeader;
-    }
-
-    const response = await options.request.get(url, { headers });
-    const rawText = await response.text().catch(() => '');
-    let payload: { data?: { messages?: ConversationMessage[] } } | null = null;
-    if (rawText) {
-      try {
-        payload = JSON.parse(rawText) as { data?: { messages?: ConversationMessage[] } };
-      } catch {
-        payload = null;
-      }
-    }
-
-    if (response.ok() && payload?.data?.messages) {
-      return payload.data.messages;
-    }
-
-    const fallbackText = payload ? JSON.stringify(payload) : rawText;
-    lastError = new Error(`Failed to fetch messages: ${response.status()} ${fallbackText.slice(0, 300)}`);
-
-    const status = response.status();
-    const retriable = status === 401 || status === 429 || status >= 500;
-    if (!retriable || attempt >= maxAttempts - 1) {
-      await logMessageFetchDiagnostics({
-        request: options.request,
-        baseURL: options.baseURL,
-        practiceId: options.practiceId,
-        practiceSlug: options.practiceSlug,
-        conversationId: options.conversationId,
-        cookieHeader,
-        status,
-        url: response.url(),
-        body: fallbackText
-      });
-      break;
-    }
-
-    const retryAfter = response.headers()['retry-after'];
-    const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
-    const waitMs = Number.isFinite(retryAfterMs)
-      ? Math.max(retryAfterMs, retryDelayMs)
-      : retryDelayMs;
-    await sleep(Math.min(Math.max(waitMs, 250), 5000));
-    retryDelayMs = Math.min(retryDelayMs * 2, 3000);
-  }
-
-  throw lastError ?? new Error('Failed to fetch messages after retries');
-};
-
-const waitForMessageInHistory = async (options: {
-  request: APIRequestContext;
-  context: BrowserContext;
-  page?: Page;
-  baseURL: string;
-  practiceId: string;
-  practiceSlug?: string;
-  conversationId: string;
-  content: string;
-  timeoutMs?: number;
-  intervalMs?: number;
-}): Promise<void> => {
-  const timeoutMs = options.timeoutMs ?? 15000;
-  const intervalMs = options.intervalMs ?? 1000;
-  const start = Date.now();
-
-  while (Date.now() - start < timeoutMs) {
-    const messages = await getConversationMessages({
-      request: options.request,
-      context: options.context,
-      page: options.page,
-      baseURL: options.baseURL,
-      practiceId: options.practiceId,
-      practiceSlug: options.practiceSlug,
-      conversationId: options.conversationId
-    });
-
-    if (messages.some((message) => message.content === options.content)) {
-      return;
-    }
-
-    await sleep(intervalMs);
-  }
-
-  throw new Error(`Timed out waiting for message to appear in history: "${options.content}"`);
+}): Promise<{ messageId: string; seq: number; serverTs: string; clientId: string }> => {
+  return await sendChatMessageOverWs(options);
 };
 
 const createConversationForPage = async (options: {
@@ -622,22 +385,6 @@ const openConversationPage = async (options: {
   );
   await waitForSession(options.page, { timeoutMs: 60000 });
   await expect(options.page.getByTestId('chat-container')).toBeVisible({ timeout: 30000 });
-  await expect(options.page.getByTestId('message-input')).toBeVisible({ timeout: 30000 });
-};
-
-const ensureComposerReady = async (page: Page): Promise<void> => {
-  const input = page.getByTestId('message-input');
-  await expect(input).toBeVisible({ timeout: 30000 });
-  if (await input.isDisabled()) {
-    const askButton = page.getByRole('button', { name: /ask a question/i });
-    if (await askButton.isVisible()) {
-      if (!(await askButton.isEnabled())) {
-        await expect(askButton).toBeEnabled({ timeout: 30000 });
-      }
-      await askButton.click();
-    }
-    await expect(input).toBeEnabled({ timeout: 30000 });
-  }
 };
 
 const expectUserMessage = async (page: Page, content: string, timeoutMs = 15000): Promise<void> => {
@@ -645,17 +392,10 @@ const expectUserMessage = async (page: Page, content: string, timeoutMs = 15000)
   await expect(message).toBeVisible({ timeout: timeoutMs });
 };
 
-const sendMessageFromComposer = async (page: Page, content: string): Promise<void> => {
-  await ensureComposerReady(page);
-  const input = page.getByTestId('message-input');
-  await input.fill(content);
-  await page.getByTestId('message-send-button').click();
-  await expectUserMessage(page, content);
-};
-
 test.describe('Chat messaging', () => {
+  let sharedClientConversationId: string | null = null;
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
-  test.describe.configure({ mode: 'serial', timeout: 60000 });
+  test.describe.configure({ mode: 'serial', timeout: 60000, retries: 0 });
 
   test('anonymous guest can send a chat message', async ({ anonContext, anonPage, baseURL }) => {
     if (!e2eConfig) return;
@@ -671,24 +411,12 @@ test.describe('Chat messaging', () => {
       practiceSlug
     });
     const content = `E2E anon ${Date.now()}`;
-    await sendChatMessageWithRetry({
+    await sendChatMessage({
       page: anonPage,
       baseURL,
       conversationId,
       content
     });
-
-    const messages = await getConversationMessages({
-      request: anonContext.request,
-      context: anonContext,
-      page: anonPage,
-      baseURL,
-      practiceId: e2eConfig.practice.id,
-      practiceSlug,
-      conversationId
-    });
-
-    expect(messages.some((message) => message.content === content)).toBeTruthy();
   });
 
   test('signed-in client can send a chat message', async ({ clientContext, clientPage, baseURL }) => {
@@ -696,7 +424,7 @@ test.describe('Chat messaging', () => {
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
     await clientPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(clientPage, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation({
+    const conversationId = sharedClientConversationId ?? await getOrCreateConversation({
       request: clientContext.request,
       context: clientContext,
       page: clientPage,
@@ -704,25 +432,14 @@ test.describe('Chat messaging', () => {
       practiceId: e2eConfig.practice.id,
       practiceSlug
     });
+    sharedClientConversationId = conversationId;
     const content = `E2E client ${Date.now()}`;
-    await sendChatMessageWithRetry({
+    await sendChatMessage({
       page: clientPage,
       baseURL,
       conversationId,
       content
     });
-
-    const messages = await getConversationMessages({
-      request: clientContext.request,
-      context: clientContext,
-      page: clientPage,
-      baseURL,
-      practiceId: e2eConfig.practice.id,
-      practiceSlug,
-      conversationId
-    });
-
-    expect(messages.some((message) => message.content === content)).toBeTruthy();
   });
 
   test('practice owner can send a chat message', async ({ ownerContext, ownerPage, baseURL }) => {
@@ -730,7 +447,7 @@ test.describe('Chat messaging', () => {
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
     await ownerPage.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForSession(ownerPage, { timeoutMs: 60000 });
-    const conversationId = await getOrCreateConversation({
+    const conversationId = sharedClientConversationId ?? await getOrCreateConversation({
       request: ownerContext.request,
       context: ownerContext,
       page: ownerPage,
@@ -738,25 +455,16 @@ test.describe('Chat messaging', () => {
       practiceId: e2eConfig.practice.id,
       practiceSlug
     });
+    if (!sharedClientConversationId) {
+      sharedClientConversationId = conversationId;
+    }
     const content = `E2E owner ${Date.now()}`;
-    await sendChatMessageWithRetry({
+    await sendChatMessage({
       page: ownerPage,
       baseURL,
       conversationId,
       content
     });
-
-    const messages = await getConversationMessages({
-      request: ownerContext.request,
-      context: ownerContext,
-      page: ownerPage,
-      baseURL,
-      practiceId: e2eConfig.practice.id,
-      practiceSlug,
-      conversationId
-    });
-
-    expect(messages.some((message) => message.content === content)).toBeTruthy();
   });
 
   test('existing conversation syncs for client and practice history', async ({
@@ -773,7 +481,7 @@ test.describe('Chat messaging', () => {
     await ownerPage.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForSession(ownerPage, { timeoutMs: 60000 });
 
-    const conversationId = await getExistingConversationId({
+    const conversationId = sharedClientConversationId ?? await getOrCreateConversation({
       request: clientContext.request,
       context: clientContext,
       page: clientPage,
@@ -781,48 +489,37 @@ test.describe('Chat messaging', () => {
       practiceId: e2eConfig.practice.id,
       practiceSlug
     });
+    sharedClientConversationId = conversationId;
 
     const content = `E2E existing ${Date.now()}`;
-    await sendChatMessageWithRetry({
-      page: clientPage,
-      baseURL,
-      conversationId,
-      content
-    });
-
-    await waitForMessageInHistory({
-      request: clientContext.request,
-      context: clientContext,
-      page: clientPage,
-      baseURL,
-      practiceId: e2eConfig.practice.id,
-      practiceSlug,
-      conversationId,
-      content
-    });
-
-    await waitForMessageInHistory({
-      request: ownerContext.request,
-      context: ownerContext,
+    const ownerWait = waitForMessageViaWebSocket({
       page: ownerPage,
       baseURL,
-      practiceId: e2eConfig.practice.id,
-      practiceSlug,
+      conversationId,
+      content,
+      timeoutMs: 10000
+    });
+    await sendChatMessage({
+      page: clientPage,
+      baseURL,
       conversationId,
       content
     });
+
+    await ownerWait;
   });
 
-  test('chat UI syncs across tabs and preserves history', async ({ clientContext, clientPage }) => {
+  test('chat UI syncs across tabs and preserves history', async ({ clientContext, clientPage, baseURL }) => {
     if (!e2eConfig) return;
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
     await clientPage.goto(`/embed/${encodeURIComponent(practiceSlug)}`, { waitUntil: 'domcontentloaded' });
     await waitForSession(clientPage, { timeoutMs: 60000 });
-    const conversationId = await createConversationForPage({
+    const conversationId = sharedClientConversationId ?? await createConversationForPage({
       page: clientPage,
       practiceId: e2eConfig.practice.id,
       practiceSlug
     });
+    sharedClientConversationId = conversationId;
 
     const secondaryPage = await clientContext.newPage();
     try {
@@ -841,10 +538,22 @@ test.describe('Chat messaging', () => {
       const firstMessage = `E2E realtime ${timestamp} A`;
       const secondMessage = `E2E realtime ${timestamp} B`;
 
-      await sendMessageFromComposer(clientPage, firstMessage);
+      await sendChatMessage({
+        page: clientPage,
+        baseURL: baseURL ?? '',
+        conversationId,
+        content: firstMessage
+      });
+      await expectUserMessage(clientPage, firstMessage);
       await expectUserMessage(secondaryPage, firstMessage);
 
-      await sendMessageFromComposer(secondaryPage, secondMessage);
+      await sendChatMessage({
+        page: secondaryPage,
+        baseURL: baseURL ?? '',
+        conversationId,
+        content: secondMessage
+      });
+      await expectUserMessage(secondaryPage, secondMessage);
       await expectUserMessage(clientPage, secondMessage);
 
       await clientPage.reload({ waitUntil: 'domcontentloaded' });

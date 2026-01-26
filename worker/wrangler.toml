@@ -38,6 +38,19 @@ class_name = "ChatRoom"
 tag = "v2"
 new_classes = ["ChatRoom"]
 
+[[migrations]]
+tag = "v3"
+deleted_classes = ["NotificationHub"]
+
+[[durable_objects.bindings]]
+name = "MATTER_PROGRESS"
+class_name = "MatterProgressRoom"
+
+[[migrations]]
+tag = "v4"
+new_classes = ["MatterProgressRoom"]
+
+
 [env.dev]
 name = "blawby-ai-chatbot-dev"
 kv_namespaces = [
@@ -51,19 +64,31 @@ binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
 
 [[env.dev.queues.producers]]
-queue = "notification-events"
+queue = "notification-events-dev"
 binding = "NOTIFICATION_EVENTS"
 
 [[env.dev.queues.consumers]]
-queue = "notification-events"
+queue = "notification-events-dev"
 max_batch_size = 10
 max_batch_timeout = 30
 max_retries = 3
-dead_letter_queue = "notification-events-dlq"
+dead_letter_queue = "notification-events-dev-dlq"
 
 [[env.dev.durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
+
+[[env.dev.durable_objects.bindings]]
+name = "MATTER_PROGRESS"
+class_name = "MatterProgressRoom"
+
+[[env.dev.migrations]]
+tag = "v2"
+new_classes = ["ChatRoom"]
+
+[[env.dev.migrations]]
+tag = "v4"
+new_classes = ["MatterProgressRoom"]
 
 [env.dev.vars]
 NODE_ENV = "development"
@@ -95,6 +120,12 @@ kv_namespaces = [
 d1_databases = [
   { binding = "DB", database_name = "blawby-ai-chatbot", database_id = "e4ed51fa-4787-4222-afed-bcddfefd13bf", migrations_dir = "migrations" }
 ]
+[[env.production.migrations]]
+tag = "v3"
+deleted_classes = ["NotificationHub"]
+[[env.production.migrations]]
+tag = "v5"
+new_classes = ["MatterProgressRoom"]
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
@@ -113,6 +144,10 @@ dead_letter_queue = "notification-events-dlq"
 [[env.production.durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
+
+[[env.production.durable_objects.bindings]]
+name = "MATTER_PROGRESS"
+class_name = "MatterProgressRoom"
 
 [env.production.vars]
 NODE_ENV = "production"
