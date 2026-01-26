@@ -82,7 +82,7 @@ export const Combobox = ({
             aria-controls={listboxId}
             aria-autocomplete="list"
             aria-activedescendant={
-              focusedIndex >= 0 ? `${inputId}-option-${filteredOptions[focusedIndex]?.value}` : undefined
+              focusedIndex >= 0 ? `${inputId}-option-${focusedIndex}` : undefined
             }
             value={query}
             onInput={(event) => {
@@ -157,6 +157,7 @@ export const Combobox = ({
         {showOptions && (
           <ul
             id={listboxId}
+            role="listbox"
             className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
           >
             {filteredOptions.map((option, index) => {
@@ -165,7 +166,7 @@ export const Combobox = ({
               const optionLead = optionLeading?.(option);
               const optionMetaContent = optionMeta?.(option) ?? option.meta;
               return (
-                <li key={option.value} id={`${inputId}-option-${option.value}`}>
+                <li key={option.value} id={`${inputId}-option-${index}`}>
                   <button
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
