@@ -1,3 +1,7 @@
+import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
+
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export function formatDateForSelector(date: Date): string {
   const day = date.getDate();
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -80,16 +84,18 @@ export function formatTimeSlot(time: string | Date): string {
 }
 
 export function formatDate(date: string | Date): string {
+  if (typeof date === 'string' && DATE_ONLY_PATTERN.test(date)) {
+    return formatDateOnlyUtc(date);
+  }
+
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  
-  // Check if the date is valid
   if (isNaN(dateObj.getTime())) {
     return '';
   }
-  
+
   return dateObj.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   });
-} 
+}

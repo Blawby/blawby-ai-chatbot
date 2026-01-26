@@ -6,13 +6,9 @@ import { Button } from '@/shared/ui/Button';
 import type { MatterDetail, TimeEntry } from '@/features/matters/data/mockMatters';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
+import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 
-const buildDateString = (date: Date) => {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const buildDateString = (date: Date) => formatDateOnlyStringUtc(date);
 
 const getStartOfWeek = (date: Date) => {
   const start = new Date(date);
