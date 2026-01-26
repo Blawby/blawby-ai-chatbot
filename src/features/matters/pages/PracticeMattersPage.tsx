@@ -27,6 +27,7 @@ import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
+import { getUtcStartOfToday, parseDateOnlyUtc } from '@/shared/utils/dateOnly';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
   lead: 0,
@@ -37,7 +38,7 @@ const statusOrder: Record<MattersSidebarStatus, number> = {
 };
 
 type MatterTabId = 'all' | MattersSidebarStatus;
-type DetailTabId = 'overview' | 'time' | 'tasks' | 'expenses' | 'notes' | 'edit' | 'invoice';
+type DetailTabId = 'overview' | 'time' | 'expenses' | 'notes' | 'edit' | 'invoice';
 
 type SortOption = 'updated' | 'title' | 'status';
 
@@ -68,7 +69,6 @@ const TAB_HEADINGS: Record<MatterTabId, string> = {
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'time', label: 'Time' },
-  { id: 'tasks', label: 'Tasks' },
   { id: 'expenses', label: 'Expenses' },
   { id: 'notes', label: 'Notes' },
   { id: 'edit', label: 'Edit Matter' },
@@ -170,6 +170,25 @@ export const PracticeMattersPage = () => {
       return total + Math.max(0, Math.floor((end - start) / 1000));
     }, 0);
   }, [selectedMatterDetail]);
+  const taskSummary = useMemo(() => {
+    const tasks = selectedMatterDetail?.tasks ?? [];
+    const openCount = tasks.filter((task) => task.status !== 'completed').length;
+    const completedCount = tasks.filter((task) => task.status === 'completed').length;
+    const todayUtc = getUtcStartOfToday();
+    const overdueCount = tasks.filter((task) => {
+      if (task.status === 'completed' || !task.dueDate) return false;
+      const dueDateUtc = parseDateOnlyUtc(task.dueDate);
+      return dueDateUtc.getTime() < todayUtc.getTime();
+    }).length;
+    const progress = tasks.length > 0
+      ? Math.round((completedCount / tasks.length) * 100)
+      : 0;
+    return {
+      openCount,
+      overdueCount,
+      progress
+    };
+  }, [selectedMatterDetail]);
 
   if (selectedMatterId) {
     if (!selectedMatter) {
@@ -268,8 +287,12 @@ export const PracticeMattersPage = () => {
             {[
               { label: 'Total time', value: formatDuration(totalTimeSeconds), helper: 'Estimated 18h' },
               { label: 'Billable amount', value: '$18,400', helper: 'Collected $9,200' },
-              { label: 'Tasks', value: '5 open', helper: '2 overdue' },
-              { label: 'Progress', value: '68%', helper: 'In progress' }
+              {
+                label: 'Tasks',
+                value: `${taskSummary.openCount} open`,
+                helper: `${taskSummary.overdueCount} overdue`
+              },
+              { label: 'Progress', value: `${taskSummary.progress}%`, helper: 'In progress' }
             ].map((card) => (
               <div
                 key={card.label}

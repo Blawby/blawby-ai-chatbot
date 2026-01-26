@@ -4,13 +4,9 @@ import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Select } from '@/shared/ui/input/Select';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import type { TimeEntry } from '@/features/matters/data/mockMatters';
+import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 
-const buildDateString = (date: Date) => {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const buildDateString = (date: Date) => formatDateOnlyStringUtc(date);
 
 const buildTimeString = (date: Date) => {
   const hours = String(date.getUTCHours()).padStart(2, '0');
