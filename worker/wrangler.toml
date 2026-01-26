@@ -87,10 +87,6 @@ tag = "v2"
 new_classes = ["ChatRoom"]
 
 [[env.dev.migrations]]
-tag = "v3"
-deleted_classes = ["NotificationHub"]
-
-[[env.dev.migrations]]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
 
