@@ -519,11 +519,11 @@ export class ConversationService {
     const bindings: unknown[] = [options.userId, options.userId];
 
     if (options.status) {
-      query += ' AND status = ?';
+      query += ' AND conversations.status = ?';
       bindings.push(options.status);
     }
 
-    query += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY conversations.updated_at DESC LIMIT ? OFFSET ?';
     bindings.push(limit, offset);
 
     const records = await this.env.DB.prepare(query).bind(...bindings).all<{

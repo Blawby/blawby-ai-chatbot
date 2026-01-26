@@ -343,7 +343,6 @@ export function MainApp({
   // Removed unused submitUpgrade
   const { showError } = useToastContext();
   const showErrorRef = useRef(showError);
-  const onboardingCheckRef = useRef(false);
   const practiceWelcomeCheckRef = useRef(false);
   const isSelectingRef = useRef(false);
   useEffect(() => {
@@ -371,6 +370,8 @@ export function MainApp({
     if (!practiceDetailsId || hasPracticeDetails) return;
     void fetchPracticeDetails();
   }, [fetchPracticeDetails, hasPracticeDetails, practiceDetailsId]);
+
+
 
   const handleMessageError = useCallback((error: string | Error) => {
     console.error('Message handling error:', error);
@@ -648,38 +649,8 @@ export function MainApp({
   // Practice members (lawyers) will create practices through onboarding/upgrade flow.
   // Clients chat with practices via widget (practiceId from URL), not their own practice.
 
-  useEffect(() => {
-    if (sessionIsPending || isAnonymous || !session?.user?.id) {
-      return;
-    }
-    if (onboardingCheckRef.current) return;
-    onboardingCheckRef.current = true;
 
-    const checkOnboarding = async () => {
-      try {
-        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        const needsOnboarding = prefs?.completed !== true;
 
-        if (import.meta.env.DEV) {
-          console.debug('[ONBOARDING][CHECK] preferences', {
-            completed: prefs?.completed
-          });
-        }
-
-        if (needsOnboarding) {
-          if (import.meta.env.DEV) {
-            console.debug('[ONBOARDING][REDIRECT] redirecting to /auth?mode=signin&onboarding=true');
-          }
-          window.location.href = '/auth?mode=signin&onboarding=true';
-        }
-      } catch (error) {
-        console.warn('[ONBOARDING][CHECK] preferences fetch failed:', error);
-        onboardingCheckRef.current = false;
-      }
-    };
-
-    void checkOnboarding();
-  }, [isAnonymous, session?.user?.id, sessionIsPending]);
 
   // Check if we should show practice welcome modal
   useEffect(() => {

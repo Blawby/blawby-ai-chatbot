@@ -88,6 +88,9 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
     const sourceData = data || onboardingData;
 
     try {
+      if (import.meta.env.DEV) {
+        console.debug('[ONBOARDING][SAVE] updating onboarding preferences');
+      }
       await updatePreferencesCategory('onboarding', {
         birthday: sourceData.personalInfo.birthday,
         primary_use_case: sourceData.useCase.primaryUseCase,
@@ -109,7 +112,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
       // Log the error for debugging in development
       if (import.meta.env.DEV) {
          
-        console.error('Failed to save onboarding data:', error);
+        console.error('[ONBOARDING][SAVE] failed to save onboarding data', error);
       }
       
       // Show error notification to user

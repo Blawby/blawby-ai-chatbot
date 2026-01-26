@@ -87,7 +87,7 @@ const IMS_TOKEN_RETRY_ATTEMPTS = 3;
 const IMS_TOKEN_RETRY_BASE_DELAY = 500; // 500ms base delay
 
 const PDF_API_TIMEOUT_MS = 15000; // 15 seconds timeout for PDF API requests
-const PDF_API_RETRY_ATTEMPTS = 3;
+const _PDF_API_RETRY_ATTEMPTS = 3;
 const PDF_API_RETRY_BASE_DELAY = 1000; // 1 second base delay
 
 const _DEFAULT_EXTRACT_PARAMS = {
@@ -265,7 +265,9 @@ export class AdobeDocumentService implements IAdobeExtractor {
 
       if (!response.ok) {
         const payload = await response.text();
-        throw new Error(`Failed to obtain Adobe token (${response.status}): ${payload}`);
+        const error = new Error(`Failed to obtain Adobe token (${response.status}): ${payload}`);
+        (error as { status?: number }).status = response.status;
+        throw error;
       }
 
       const data = await response.json() as { access_token: string; expires_in?: number };
@@ -333,7 +335,9 @@ export class AdobeDocumentService implements IAdobeExtractor {
 
       if (!response.ok) {
         const errorPayload = await response.text();
-        throw new Error(`Failed to create Adobe asset (${response.status}): ${errorPayload}`);
+        const error = new Error(`Failed to create Adobe asset (${response.status}): ${errorPayload}`);
+        (error as { status?: number }).status = response.status;
+        throw error;
       }
 
       const data = await response.json() as { id?: string; assetID?: string; uploadUri?: string };
@@ -350,7 +354,7 @@ export class AdobeDocumentService implements IAdobeExtractor {
 
       return { assetID, uploadUri: data.uploadUri };
     }, {
-      attempts: PDF_API_RETRY_ATTEMPTS,
+      attempts: 1,
       baseDelay: PDF_API_RETRY_BASE_DELAY,
       operationName: 'Adobe asset creation'
     });
@@ -413,7 +417,9 @@ export class AdobeDocumentService implements IAdobeExtractor {
 
       if (response.status !== 201 && response.status !== 202) {
         const responseText = await response.text();
-        throw new Error(`Failed to start Adobe extract job (${response.status}): ${responseText}`);
+        const error = new Error(`Failed to start Adobe extract job (${response.status}): ${responseText}`);
+        (error as { status?: number }).status = response.status;
+        throw error;
       }
 
       const location = response.headers.get('location');
@@ -424,7 +430,7 @@ export class AdobeDocumentService implements IAdobeExtractor {
       Logger.debug('Adobe extract job started successfully', { assetId, location });
       return location;
     }, {
-      attempts: PDF_API_RETRY_ATTEMPTS,
+      attempts: 1,
       baseDelay: PDF_API_RETRY_BASE_DELAY,
       operationName: 'Adobe extract job start'
     });

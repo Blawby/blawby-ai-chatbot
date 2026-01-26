@@ -26,21 +26,8 @@ const fetchSession = async (
 const fetchSessionWithRetry = async (
   request: APIRequestContext
 ): Promise<{ status: number; hasSession: boolean }> => {
-  const maxAttempts = 3;
-  let retryDelayMs = 500;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const result = await fetchSession(request);
-    if (result.status !== 429 || attempt >= maxAttempts - 1) {
-      return { status: result.status, hasSession: result.hasSession };
-    }
-
-    const waitMs = result.retryAfterMs ?? retryDelayMs;
-    await new Promise((resolve) => setTimeout(resolve, Math.min(Math.max(waitMs, 250), 3000)));
-    retryDelayMs = Math.min(retryDelayMs * 2, 3000);
-  }
-
-  return { status: 429, hasSession: false };
+  const result = await fetchSession(request);
+  return { status: result.status, hasSession: result.hasSession };
 };
 
 test.describe('Auth modes', () => {

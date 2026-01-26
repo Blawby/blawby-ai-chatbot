@@ -242,24 +242,7 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
     init.body = await request.arrayBuffer();
   }
 
-  let response: Response;
-  if (isGetSessionRequest) {
-    const maxAttempts = 3;
-    let retryDelayMs = 500;
-    response = await fetch(targetUrl.toString(), init);
-    for (let attempt = 1; attempt < maxAttempts && response.status === 429; attempt += 1) {
-      const retryAfter = response.headers.get('Retry-After');
-      const retryAfterMs = retryAfter ? Number(retryAfter) * 1000 : NaN;
-      const waitMs = Number.isFinite(retryAfterMs)
-        ? Math.max(retryAfterMs, retryDelayMs)
-        : retryDelayMs;
-      await new Promise(resolve => setTimeout(resolve, waitMs));
-      retryDelayMs = Math.min(retryDelayMs * 2, 3000);
-      response = await fetch(targetUrl.toString(), init);
-    }
-  } else {
-    response = await fetch(targetUrl.toString(), init);
-  }
+  const response = await fetch(targetUrl.toString(), init);
 
   const { headers: proxyHeaders, hasSetCookie } = buildProxyHeaders(response, requestHost);
 

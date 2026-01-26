@@ -26,6 +26,8 @@ interface UseConversationReturn {
 const CHAT_PROTOCOL_VERSION = 1;
 const SOCKET_READY_TIMEOUT_MS = 8000;
 const GAP_FETCH_LIMIT = 50;
+const MAX_GAP_FETCH_ATTEMPTS = 3;
+const GAP_FETCH_RETRY_DELAY_MS = 1000;
 
 const createClientId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -171,10 +173,8 @@ export function useConversation({
   const wsReadyRef = useRef<Promise<void> | null>(null);
   const wsReadyResolveRef = useRef<(() => void) | null>(null);
   const wsReadyRejectRef = useRef<((error: Error) => void) | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const socketSessionRef = useRef(0);
   const isSocketReadyRef = useRef(false);
-  const shouldReconnectRef = useRef(true);
   const lastSeqRef = useRef(0);
   const lastReadSeqRef = useRef(0);
   const messageIdSetRef = useRef(new Set<string>());
@@ -229,13 +229,6 @@ export function useConversation({
     wsReadyRejectRef.current = null;
   }, []);
 
-  const clearReconnectTimer = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-  }, []);
-
   const flushPendingAcks = useCallback((error: Error) => {
     for (const pending of pendingAckRef.current.values()) {
       clearTimeout(pending.timeoutId);
@@ -249,10 +242,6 @@ export function useConversation({
       isDisposedRef.current = true;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
       }
       flushPendingAcks(new Error('Chat connection closed'));
       if (wsRef.current) {
@@ -394,7 +383,7 @@ export function useConversation({
 
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
-    let attempt = 0;
+    let attempts = 0;
 
     while (nextSeq !== null && nextSeq <= targetLatest && !signal?.aborted) {
       try {
@@ -438,21 +427,20 @@ export function useConversation({
           targetLatest = data.data.latest_seq;
         }
         nextSeq = data.data.next_from_seq ?? null;
-        attempt = 0;
+        attempts = 0;
       } catch (error) {
         if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
           return;
         }
-        attempt += 1;
-        if (attempt >= 3) {
-          const message = error instanceof Error ? error.message : 'Failed to recover message gap';
-          setError(message);
-          onError?.(message);
-          shouldReconnectRef.current = false;
-          wsRef.current?.close();
-          return;
+        attempts += 1;
+        if (attempts < MAX_GAP_FETCH_ATTEMPTS) {
+          await new Promise(resolve => setTimeout(resolve, GAP_FETCH_RETRY_DELAY_MS * attempts));
+          continue;
         }
-        await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+        const message = error instanceof Error ? error.message : 'Failed to recover message gap';
+        setError(message);
+        onError?.(message);
+        return;
       }
     }
   }, [applyServerMessages, conversationId, practiceId, practiceSlug, onError]);
@@ -567,8 +555,6 @@ export function useConversation({
       return;
     }
 
-    shouldReconnectRef.current = true;
-    clearReconnectTimer();
     socketSessionRef.current += 1;
     const sessionId = socketSessionRef.current;
     if (wsRef.current) {
@@ -627,7 +613,6 @@ export function useConversation({
           setError(message);
           onError?.(message);
           rejectSocketReady(new Error(message));
-          shouldReconnectRef.current = false;
           ws.close();
           return;
         }
@@ -687,15 +672,12 @@ export function useConversation({
       if (wsRef.current === ws) {
         wsRef.current = null;
       }
-      if (!conversationId || !shouldReconnectRef.current) {
+      if (!conversationId) {
         return;
       }
-      if (!reconnectTimeoutRef.current) {
-        reconnectTimeoutRef.current = setTimeout(() => {
-          reconnectTimeoutRef.current = null;
-          connectChatRoom();
-        }, 2000);
-      }
+      const message = 'Chat connection closed.';
+      setError(message);
+      onError?.(message);
     });
 
     ws.addEventListener('error', (error) => {
@@ -704,7 +686,6 @@ export function useConversation({
       }
     });
   }, [
-    clearReconnectTimer,
     conversationId,
     fetchGapMessages,
     flushPendingAcks,
@@ -719,16 +700,14 @@ export function useConversation({
   ]);
 
   const closeChatSocket = useCallback(() => {
-    clearReconnectTimer();
     isSocketReadyRef.current = false;
-    shouldReconnectRef.current = false;
     rejectSocketReady(new Error('Chat connection closed'));
     flushPendingAcks(new Error('Chat connection closed'));
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
-  }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
+  }, [flushPendingAcks, rejectSocketReady]);
 
   const sendMessageOverWs = useCallback(async (
     content: string,

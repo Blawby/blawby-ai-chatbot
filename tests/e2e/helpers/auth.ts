@@ -24,12 +24,8 @@ export const waitForSession = async (
   } = {}
 ): Promise<void> => {
   const timeoutMs = options.timeoutMs ?? 30000;
-  const intervalMs = options.intervalMs ?? 800;
-  const maxIntervalMs = options.maxIntervalMs ?? 5000;
   const skipIfCookiePresent = options.skipIfCookiePresent ?? true;
   const cookieUrl = options.cookieUrl ?? (page.url() && page.url() !== 'about:blank' ? page.url() : undefined);
-  const start = Date.now();
-  let nextIntervalMs = intervalMs;
 
   if (skipIfCookiePresent) {
     try {
@@ -41,68 +37,59 @@ export const waitForSession = async (
     }
   }
 
-  while (Date.now() - start < timeoutMs) {
-    try {
-      if (!(await hasSessionCookie(page, cookieUrl))) {
-        nextIntervalMs = Math.min(Math.max(Math.round(nextIntervalMs * 1.5), intervalMs), maxIntervalMs);
-        await page.waitForTimeout(nextIntervalMs);
-        continue;
-      }
-    } catch {
-      // Ignore cookie lookup failures and proceed with network validation.
-    }
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<{ ok: false; status: 0; hasSession: false; body: string }>((resolve) => {
+    timeoutId = setTimeout(() => resolve({
+      ok: false,
+      status: 0,
+      hasSession: false,
+      body: `Timed out after ${timeoutMs}ms`
+    }), timeoutMs);
+  });
 
-    let hasSession = false;
-    let status = 0;
-    let retryAfterMs: number | null = null;
+  const result = await (async () => {
     try {
-      const result = await page.evaluate(async () => {
+      return await Promise.race([
+        page.evaluate(async () => {
         try {
           const response = await fetch('/api/auth/get-session', { credentials: 'include' });
-          const retryAfter = response.headers.get('Retry-After');
-          let retryAfterMs: number | null = null;
-          if (retryAfter) {
-            const parsed = Number(retryAfter);
-            if (Number.isFinite(parsed)) {
-              retryAfterMs = parsed * 1000;
-            }
+          const rawText = await response.text().catch(() => '');
+          let data: any = null;
+        if (rawText) {
+          try {
+            data = JSON.parse(rawText);
+          } catch {
+            data = null;
           }
-          if (!response.ok) {
-            return { hasSession: false, status: response.status, retryAfterMs };
-          }
-          const data: any = await response.json().catch(() => null);
-          return {
-            hasSession: Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user),
-            status: response.status,
-            retryAfterMs
-          };
-        } catch {
-          return { hasSession: false, status: 0, retryAfterMs: null };
         }
-      });
-      hasSession = result.hasSession;
-      status = result.status;
-      retryAfterMs = result.retryAfterMs;
-    } catch {
-      hasSession = false;
-    }
-
-    if (hasSession) return;
-
-    if (status === 429) {
-      if (retryAfterMs) {
-        nextIntervalMs = Math.min(Math.max(retryAfterMs, intervalMs), maxIntervalMs);
-      } else {
-        nextIntervalMs = Math.min(Math.max(nextIntervalMs * 2, intervalMs), maxIntervalMs);
+        const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
+        return {
+          ok: response.ok,
+          status: response.status,
+          hasSession,
+          body: rawText.slice(0, 300)
+        };
+        } catch (error) {
+          return { ok: false, status: 0, hasSession: false, body: String(error) };
+        }
+        }),
+        timeoutPromise
+      ]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-    } else if (status === 0 || status >= 500) {
-      nextIntervalMs = Math.min(Math.max(Math.round(nextIntervalMs * 1.5), intervalMs), maxIntervalMs);
-    } else {
-      nextIntervalMs = intervalMs;
     }
+  })();
 
-    await page.waitForTimeout(nextIntervalMs);
+  if (result.ok && result.hasSession) {
+    return;
   }
 
-  throw new Error('Timed out waiting for session');
+  const reason = result.status === 0 && result.body.includes('Timed out')
+    ? 'Timed out waiting for session'
+    : result.hasSession === false && result.ok
+      ? 'Session endpoint returned OK but no session data'
+      : 'Session validation failed';
+  throw new Error(`${reason}: status ${result.status} ${result.body}`);
 };

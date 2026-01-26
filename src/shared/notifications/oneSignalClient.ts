@@ -217,19 +217,12 @@ async function waitForOneSignalId(
   OneSignal: OneSignalSDK,
   options: OneSignalIdOptions = {}
 ): Promise<string | null> {
-  const attempts = 10;
-  const delayMs = 1000;
   const requireOptedIn = options.requireOptedIn ?? false;
-
-  for (let i = 0; i < attempts; i += 1) {
-    const id = await resolveOneSignalId(OneSignal, requireOptedIn);
-    if (id) {
-      return id;
-    }
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  const id = await resolveOneSignalId(OneSignal, requireOptedIn);
+  if (!id && import.meta.env.DEV) {
+    console.warn('[OneSignal] User id not available after initial check; registration skipped.');
   }
-
-  return null;
+  return id;
 }
 
 async function resolveOneSignalId(
