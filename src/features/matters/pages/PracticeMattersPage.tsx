@@ -183,8 +183,8 @@ export const PracticeMattersPage = () => {
     }
 
     return (
-      <div className="h-full p-6">
-        <div className="max-w-5xl mx-auto flex h-full min-h-0 flex-col gap-6">
+      <div className="min-h-full p-6">
+        <div className="max-w-6xl mx-auto flex flex-col gap-6">
           <div className="space-y-4">
             <Breadcrumbs
               items={[
