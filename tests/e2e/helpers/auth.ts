@@ -5,7 +5,7 @@ export const waitForSession = async (
   options: {
     timeoutMs?: number;
   } = {}
-): Promise<string | null> => {
+): Promise<string> => {
   const timeoutMs = options.timeoutMs ?? 30000;
   const deadline = Date.now() + timeoutMs;
   let lastResult: {
