@@ -26,6 +26,7 @@ import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
   lead: 0,
@@ -75,6 +76,12 @@ const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
 ];
 
 const basePath = '/practice/matters';
+
+const formatDuration = (totalSeconds: number) => {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.round((totalSeconds % 3600) / 60);
+  return `${hours}:${String(minutes).padStart(2, '0')} hrs`;
+};
 
 const EmptyState = () => (
   <div className="flex h-full items-center justify-center p-8">
@@ -155,6 +162,14 @@ export const PracticeMattersPage = () => {
   }, [filteredMatters, sortOption]);
 
   const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
+  const totalTimeSeconds = useMemo(() => {
+    const entries = selectedMatterDetail?.timeEntries ?? [];
+    return entries.reduce((total, entry) => {
+      const start = new Date(entry.startTime).getTime();
+      const end = new Date(entry.endTime).getTime();
+      return total + Math.max(0, Math.floor((end - start) / 1000));
+    }, 0);
+  }, [selectedMatterDetail]);
 
   if (selectedMatterId) {
     if (!selectedMatter) {
@@ -251,7 +266,7 @@ export const PracticeMattersPage = () => {
 
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: 'Total time', value: '12.4h', helper: 'Estimated 18h' },
+              { label: 'Total time', value: formatDuration(totalTimeSeconds), helper: 'Estimated 18h' },
               { label: 'Billable amount', value: '$18,400', helper: 'Collected $9,200' },
               { label: 'Tasks', value: '5 open', helper: '2 overdue' },
               { label: 'Progress', value: '68%', helper: 'In progress' }
@@ -299,6 +314,10 @@ export const PracticeMattersPage = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            ) : detailTab === 'time' && selectedMatterDetail ? (
+              <div className="px-6 py-6">
+                <TimeEntriesPanel key={selectedMatterDetail.id} matter={selectedMatterDetail} />
               </div>
             ) : (
               <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
