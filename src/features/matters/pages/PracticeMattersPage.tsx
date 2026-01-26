@@ -173,11 +173,12 @@ export const PracticeMattersPage = () => {
     const tasks = selectedMatterDetail?.tasks ?? [];
     const openCount = tasks.filter((task) => task.status !== 'completed').length;
     const completedCount = tasks.filter((task) => task.status === 'completed').length;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayUtc = new Date();
+    todayUtc.setUTCHours(0, 0, 0, 0);
     const overdueCount = tasks.filter((task) => {
       if (task.status === 'completed' || !task.dueDate) return false;
-      return new Date(task.dueDate).getTime() < today.getTime();
+      const dueDateUtc = new Date(`${task.dueDate}T00:00:00Z`);
+      return dueDateUtc.getTime() < todayUtc.getTime();
     }).length;
     const progress = tasks.length > 0
       ? Math.round((completedCount / tasks.length) * 100)
