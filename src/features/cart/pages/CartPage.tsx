@@ -270,6 +270,9 @@ export const CartPage = () => {
     ? parseFloat(selectedPlan.yearlyPrice)
     : 0;
   const annualSeatPricePerMonth = hasAnnualPlan ? annualSeatPricePerYear / 12 : 0;
+  const savingsPercent = hasAnnualPlan && monthlySeatPrice > 0
+    ? Math.round(((monthlySeatPrice - annualSeatPricePerMonth) / monthlySeatPrice) * 100)
+    : 0;
 
   const effectiveQuantity = quantity;
 
@@ -419,11 +422,13 @@ export const CartPage = () => {
                   }`}
                 >
                   {/* Floating discount badge */}
-                  <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-accent-500 text-white text-xs md:text-sm font-medium px-2 py-1 rounded">
-                      Save 12%
-                    </span>
-                  </div>
+                  {savingsPercent > 0 && (
+                    <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-accent-500 text-white text-xs md:text-sm font-medium px-2 py-1 rounded">
+                        Save {savingsPercent}%
+                      </span>
+                    </div>
+                  )}
 
                   {/* Header with radio indicator */}
                   <div className="flex items-center justify-between mb-2">

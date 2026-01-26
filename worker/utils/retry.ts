@@ -42,7 +42,7 @@ export async function withRetry<T>(
       const attemptInfo = `attempt ${attempt}/${maxAttempts}`;
       Logger.error(`❌ ${operationName} failed (${attemptInfo}):`, error);
       if (!shouldRetry(error)) {
-        throw error;
+        throw error instanceof Error ? error : new Error(`${operationName} failed`);
       }
       if (attempt >= maxAttempts) {
         break;
