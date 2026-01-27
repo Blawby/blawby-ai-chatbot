@@ -15,6 +15,7 @@ import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescr
 import { ScaleIcon, ShieldCheckIcon, UserIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { cn } from '@/shared/utils/cn';
+import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 
 type MatterFormMode = 'create' | 'edit';
 
@@ -421,10 +422,17 @@ const MatterFormModalInner = ({
                   {formState.milestones.length > 0 && (
                     <ol className="list-decimal pl-4 space-y-2 text-sm text-gray-700 dark:text-gray-200">
                       {formState.milestones.map((milestone, index) => (
-                        <li key={`${milestone.description}-${index}`} className="flex flex-wrap items-center justify-between gap-2">
-                          <span>{milestone.description}</span>
-                          <span>{milestone.amount ? `$${milestone.amount.toFixed(2)}` : '$0.00'}</span>
-                          <span>{milestone.dueDate}</span>
+                        <li
+                          key={`${milestone.description}-${index}`}
+                          className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_140px] sm:items-center"
+                        >
+                          <span className="min-w-0">{milestone.description}</span>
+                          <span className="text-left sm:text-right tabular-nums">
+                            {milestone.amount ? `$${milestone.amount.toFixed(2)}` : '$0.00'}
+                          </span>
+                          <span className="text-left sm:text-right tabular-nums text-gray-500 dark:text-gray-400">
+                            {milestone.dueDate ? formatDateOnlyUtc(milestone.dueDate) : ''}
+                          </span>
                         </li>
                       ))}
                     </ol>
@@ -485,6 +493,7 @@ const MatterFormModalInner = ({
                     <Button
                       variant="outline"
                       size="sm"
+                      type="button"
                       onClick={() => setIsMilestoneFormVisible(true)}
                       icon={
                         <PlusIcon className="h-4 w-4" aria-hidden="true" />

@@ -106,8 +106,15 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
       ) : (
         <ul className="divide-y divide-gray-200 dark:divide-white/10">
           {sortedNotes.map((note) => (
-            <li key={note.id} className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 gap-3">
+            <li
+              key={note.id}
+              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <button
+                type="button"
+                className="flex min-w-0 gap-3 text-left flex-1"
+                onClick={() => openEditNote(note)}
+              >
                 <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -130,7 +137,7 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
                     {note.content}
                   </p>
                 </div>
-              </div>
+              </button>
               <div className="flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -196,7 +203,7 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
               <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
-              <Button onClick={handleDelete}>Delete note</Button>
+              <Button variant="danger" onClick={handleDelete}>Delete note</Button>
             </div>
           </div>
         </Modal>

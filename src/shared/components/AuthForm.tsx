@@ -489,6 +489,10 @@ const AuthForm = ({
               disabled={loading}
               data-testid={resolvedMode === 'signup' ? 'signup-submit-button' : 'signin-submit-button'}
               className="w-full justify-center"
+              aria-busy={loading}
+              aria-label={loading
+                ? (resolvedMode === 'signup' ? t('signup.submitting') : t('signin.submitting'))
+                : undefined}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

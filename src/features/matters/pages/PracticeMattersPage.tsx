@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { ActivityTimeline } from '@/shared/ui/activity/ActivityTimeline';
+import Modal from '@/shared/components/Modal';
 import { ChevronUpDownIcon, FolderIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import {
@@ -27,10 +28,11 @@ import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
+import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
-import { MatterNotesPanel } from '@/features/matters/components/notes/MatterNotesPanel';
+import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
-import { getUtcStartOfToday, parseDateOnlyUtc } from '@/shared/utils/dateOnly';
+import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { Avatar } from '@/shared/ui/profile';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
@@ -42,14 +44,17 @@ const statusOrder: Record<MattersSidebarStatus, number> = {
 };
 
 type MatterTabId = 'all' | MattersSidebarStatus;
-type DetailTabId = 'overview' | 'tasks' | 'time' | 'expenses' | 'notes';
+type DetailTabId = 'overview' | 'time' | 'messages';
 
-type SortOption = 'updated' | 'title' | 'status';
+type SortOption = 'updated' | 'title' | 'status' | 'client' | 'assigned' | 'practice_area';
 
 const SORT_LABELS: Record<SortOption, string> = {
   updated: 'Date updated',
   title: 'Title',
-  status: 'Status'
+  status: 'Status',
+  client: 'Client',
+  assigned: 'Assigned',
+  practice_area: 'Practice area'
 };
 
 const buildTabs = (counts: Record<MattersSidebarStatus, number>): TabItem[] => [
@@ -72,20 +77,12 @@ const TAB_HEADINGS: Record<MatterTabId, string> = {
 
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'time', label: 'Time' },
-  { id: 'expenses', label: 'Expenses' },
-  { id: 'notes', label: 'Notes' }
+  { id: 'time', label: 'Billing' },
+  { id: 'messages', label: 'Messages' }
 ];
 
 type PracticeMattersPageProps = {
   basePath?: string;
-};
-
-const formatDuration = (totalSeconds: number) => {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.round((totalSeconds % 3600) / 60);
-  return `${hours}:${String(minutes).padStart(2, '0')} hrs`;
 };
 
 const formatLongDate = (value?: string | null) => {
@@ -142,6 +139,17 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
+  const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
+  const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
+
+  const openQuickTimeEntry = () => {
+    setQuickTimeEntryKey((prev) => prev + 1);
+    setIsQuickTimeEntryOpen(true);
+  };
+
+  const handleQuickTimeSubmit = (_values: TimeEntryFormValues) => {
+    setIsQuickTimeEntryOpen(false);
+  };
 
   const counts = useMemo(() => {
     return mockMatters.reduce<Record<MattersSidebarStatus, number>>(
@@ -174,37 +182,29 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     if (sortOption === 'status') {
       return matters.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
     }
+    if (sortOption === 'client') {
+      return matters.sort((a, b) => a.clientName.localeCompare(b.clientName));
+    }
+    if (sortOption === 'practice_area') {
+      return matters.sort((a, b) => (a.practiceArea ?? '').localeCompare(b.practiceArea ?? ''));
+    }
+    if (sortOption === 'assigned') {
+      return matters.sort((a, b) => {
+        const aAssigneeId = mockMatterDetails[a.id]?.assigneeIds?.[0] ?? '';
+        const bAssigneeId = mockMatterDetails[b.id]?.assigneeIds?.[0] ?? '';
+        const aAssignee = aAssigneeId
+          ? mockAssignees.find((assignee) => assignee.id === aAssigneeId)?.name ?? ''
+          : '';
+        const bAssignee = bAssigneeId
+          ? mockAssignees.find((assignee) => assignee.id === bAssigneeId)?.name ?? ''
+          : '';
+        return aAssignee.localeCompare(bAssignee);
+      });
+    }
     return matters.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [filteredMatters, sortOption]);
 
   const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
-  const totalTimeSeconds = useMemo(() => {
-    const entries = selectedMatterDetail?.timeEntries ?? [];
-    return entries.reduce((total, entry) => {
-      const start = new Date(entry.startTime).getTime();
-      const end = new Date(entry.endTime).getTime();
-      return total + Math.max(0, Math.floor((end - start) / 1000));
-    }, 0);
-  }, [selectedMatterDetail]);
-  const taskSummary = useMemo(() => {
-    const tasks = selectedMatterDetail?.tasks ?? [];
-    const openCount = tasks.filter((task) => task.status !== 'completed').length;
-    const completedCount = tasks.filter((task) => task.status === 'completed').length;
-    const todayUtc = getUtcStartOfToday();
-    const overdueCount = tasks.filter((task) => {
-      if (task.status === 'completed' || !task.dueDate) return false;
-      const dueDateUtc = parseDateOnlyUtc(task.dueDate);
-      return dueDateUtc.getTime() < todayUtc.getTime();
-    }).length;
-    const progress = tasks.length > 0
-      ? Math.round((completedCount / tasks.length) * 100)
-      : 0;
-    return {
-      openCount,
-      overdueCount,
-      progress
-    };
-  }, [selectedMatterDetail]);
   const overviewDetails = useMemo(() => {
     if (!selectedMatterDetail || !selectedMatter) return [];
     const clientIds = [
@@ -256,7 +256,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         )
       },
       {
-        label: 'Assigned lawyer',
+        label: 'Assigned',
         value: assigneeNames.length > 0 ? assigneeNames.join(', ') : 'No assignee',
         render: () => (
           assigneeNames.length > 0 ? (
@@ -322,7 +322,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   <h1 className="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-7 text-gray-900 dark:text-white">
                     <span>{selectedMatter.title}</span>
                     <span className="text-gray-400">/</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{selectedMatter.clientName}</span>
+                    <span className="flex items-center gap-x-2 font-semibold text-gray-900 dark:text-white">
+                      <Avatar
+                        name={selectedMatter.clientName}
+                        size="xs"
+                        className="bg-gray-200 text-gray-700 dark:bg-gray-700"
+                      />
+                      {selectedMatter.clientName}
+                    </span>
                   </h1>
                   <div className="mt-2 flex items-center gap-x-2.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
                     <p className="truncate">Practice Area: {selectedMatter.practiceArea || 'Not Assigned'}</p>
@@ -372,31 +379,19 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           </nav>
           </div>
 
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { label: 'Total time', value: formatDuration(totalTimeSeconds), helper: 'Estimated 18h' },
-              { label: 'Billable amount', value: '$18,400', helper: 'Collected $9,200' },
-              {
-                label: 'Tasks',
-                value: `${taskSummary.openCount} open`,
-                helper: `${taskSummary.overdueCount} overdue`
-              },
-              { label: 'Progress', value: `${taskSummary.progress}%`, helper: 'In progress' }
-            ].map((card) => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4"
-              >
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
-                <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{card.helper}</p>
-              </div>
-            ))}
-          </section>
+          <MatterSummaryCards
+            activeTab={detailTab}
+            onAddTime={() => {
+              if (detailTab !== 'overview') return;
+              openQuickTimeEntry();
+            }}
+            onViewTimesheet={() => setDetailTab('time')}
+            onChangeRate={() => {}}
+          />
 
           <section>
             {detailTab === 'overview' ? (
-              <div className="px-0">
+              <div className="px-0 space-y-6">
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                   <div className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-6">
                     <div className="space-y-5">
@@ -423,22 +418,43 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     </div>
                   </div>
                 </div>
-              </div>
-            ) : detailTab === 'tasks' && selectedMatterDetail ? (
-              <div className="px-0">
-                <MatterTasksPanel key={`tasks-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                {selectedMatterDetail && (
+                  <MatterTasksPanel key={`tasks-overview-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                )}
               </div>
             ) : detailTab === 'time' && selectedMatterDetail ? (
               <div className="px-0 space-y-6">
                 <TimeEntriesPanel key={`time-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
-              </div>
-            ) : detailTab === 'expenses' && selectedMatterDetail ? (
-              <div className="px-0">
                 <MatterExpensesPanel key={`expenses-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
+                  <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent transactions</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Summary of billed time across recent periods.
+                      </p>
+                    </div>
+                  </header>
+                  <div className="grid gap-4 p-6 sm:grid-cols-3">
+                    {[
+                      { label: 'Last 7 days', value: '$0.00' },
+                      { label: 'Last 30 days', value: '$0.00' },
+                      { label: 'Since start', value: '$1,237.50' }
+                    ].map((card) => (
+                      <div
+                        key={card.label}
+                        className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4"
+                      >
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
+                        <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               </div>
-            ) : detailTab === 'notes' && selectedMatterDetail ? (
+            ) : detailTab === 'messages' && selectedMatterDetail ? (
               <div className="px-0">
-                <MatterNotesPanel key={`notes-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                <MatterMessagesPanel key={`messages-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
               </div>
             ) : (
               <div className="px-0 text-sm text-gray-500 dark:text-gray-400">
@@ -472,6 +488,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               description: selectedMatterDetail.description
             }}
           />
+        )}
+
+        {isQuickTimeEntryOpen && (
+          <Modal
+            isOpen={isQuickTimeEntryOpen}
+            onClose={() => setIsQuickTimeEntryOpen(false)}
+            title="Add time entry"
+            contentClassName="max-w-2xl"
+          >
+            <TimeEntryForm
+              key={`quick-time-${quickTimeEntryKey}`}
+              onSubmit={handleQuickTimeSubmit}
+              onCancel={() => setIsQuickTimeEntryOpen(false)}
+            />
+          </Modal>
         )}
       </div>
     );

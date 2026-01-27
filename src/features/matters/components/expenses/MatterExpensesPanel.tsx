@@ -116,8 +116,16 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
           {sortedExpenses.map((expense) => {
             const statusClass = expense.billable ? statusStyles.billable : statusStyles.nonbillable;
             return (
-              <li key={expense.id} className="flex flex-wrap items-start justify-between gap-4 px-6 py-4">
-                <div className="min-w-0">
+              <li
+                key={expense.id}
+                className="flex flex-wrap items-start justify-between gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              >
+                <button
+                  type="button"
+                  className="min-w-0 text-left flex-1"
+                  onClick={() => openEditExpense(expense)}
+                >
+                  <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">
                       {expense.description}
@@ -141,6 +149,7 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
                     <span className="truncate">Amount: {formatCurrency(expense.amount / 100)}</span>
                   </div>
                 </div>
+                </button>
                 <div className="flex items-center gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -207,7 +216,7 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
               <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
-              <Button onClick={handleDelete}>Delete expense</Button>
+              <Button variant="danger" onClick={handleDelete}>Delete expense</Button>
             </div>
           </div>
         </Modal>

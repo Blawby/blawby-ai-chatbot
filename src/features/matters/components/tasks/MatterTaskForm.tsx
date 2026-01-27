@@ -92,12 +92,15 @@ export const MatterTaskForm = ({ initialTask, onSubmit, onCancel, onDelete }: Ma
           onChange={(value) => setFormState((prev) => ({ ...prev, dueDate: value }))}
           format="date"
         />
-        <Select
-          label="Status"
-          value={formState.status}
-          options={STATUS_OPTIONS}
-          onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MatterTask['status'] }))}
-        />
+        <div className="w-full">
+          <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Status</span>
+          <Select
+            value={formState.status}
+            options={STATUS_OPTIONS}
+            onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MatterTask['status'] }))}
+            className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+          />
+        </div>
       </div>
 
       <NumberInput
@@ -113,7 +116,7 @@ export const MatterTaskForm = ({ initialTask, onSubmit, onCancel, onDelete }: Ma
 
       <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
         {initialTask && onDelete ? (
-          <Button variant="secondary" size="sm" onClick={onDelete} className="mr-auto">
+          <Button variant="danger" onClick={onDelete} className="mr-auto">
             Delete
           </Button>
         ) : null}
