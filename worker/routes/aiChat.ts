@@ -16,6 +16,7 @@ const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
 const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consultation\b/i;
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
+const LEGAL_INTENT_REGEX = /\b(legal advice|should I|can I sue|lawsuit|sue|liable|liability|contract dispute|criminal|charged|settlement|custody|divorce|immigration)\b/i;
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -42,9 +43,7 @@ const normalizeApostrophes = (text: string): string => text.replace(/[’']/g, '
 const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; content: string }>): boolean => {
   const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
   if (!lastUserMessage) return false;
-  return /\b(legal advice|should I|can I sue|lawsuit|sue|liable|liability|contract dispute|criminal|charged|settlement|custody|divorce|immigration)\b/i.test(
-    lastUserMessage.content
-  );
+  return LEGAL_INTENT_REGEX.test(lastUserMessage.content);
 };
 
 const countQuestions = (text: string): number => (text.match(/\?/g) || []).length;
@@ -126,9 +125,12 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
 
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
   const serviceNames = extractServiceNames(details);
+  const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
 
   if (!details || !isPublic) {
     reply = 'I don’t have access to this practice’s details right now. Please click “Request consultation” to connect with the practice.';
+  } else if (hasLegalIntent) {
+    reply = LEGAL_DISCLAIMER;
   } else if (lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
     const normalizedQuestion = normalizeText(lastUserMessage.content);
     const matchedService = serviceNames.find((service) => normalizedQuestion.includes(normalizeText(service)));

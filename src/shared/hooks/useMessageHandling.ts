@@ -43,6 +43,19 @@ const RECONNECT_BASE_DELAY_MS = 800;
 const RECONNECT_MAX_DELAY_MS = 12000;
 const RECONNECT_MAX_ATTEMPTS = 5;
 
+type ContactFormMetadata = {
+  fields: string[];
+  required: string[];
+  message?: string;
+  initialValues?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    opposingParty?: string;
+  };
+};
+
 const createClientId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
@@ -55,6 +68,55 @@ const isTempMessageId = (messageId: string): boolean => messageId.startsWith('te
 const getMessageCacheKey = (practiceId: string, conversationId: string): string => (
   `chat:messages:${practiceId}:${conversationId}`
 );
+
+const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | undefined => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return undefined;
+  }
+  const contactForm = (metadata as { contactForm?: unknown }).contactForm;
+  if (!contactForm || typeof contactForm !== 'object' || Array.isArray(contactForm)) {
+    return undefined;
+  }
+  const { fields, required, message, initialValues } = contactForm as Record<string, unknown>;
+  if (!Array.isArray(fields) || !fields.every((field) => typeof field === 'string')) {
+    return undefined;
+  }
+  if (!Array.isArray(required) || !required.every((field) => typeof field === 'string')) {
+    return undefined;
+  }
+  if (message !== undefined && typeof message !== 'string') {
+    return undefined;
+  }
+  const normalizedMessage = typeof message === 'string' ? message : undefined;
+  let normalizedInitialValues: ContactFormMetadata['initialValues'] | undefined;
+  if (initialValues !== undefined) {
+    if (!initialValues || typeof initialValues !== 'object' || Array.isArray(initialValues)) {
+      return undefined;
+    }
+    const rawInitialValues = initialValues as Record<string, unknown>;
+    const allowedKeys = ['name', 'email', 'phone', 'location', 'opposingParty'] as const;
+    normalizedInitialValues = {};
+    for (const key of allowedKeys) {
+      const value = rawInitialValues[key];
+      if (value === undefined) {
+        continue;
+      }
+      if (typeof value !== 'string') {
+        return undefined;
+      }
+      normalizedInitialValues[key] = value;
+    }
+    if (Object.keys(normalizedInitialValues).length === 0) {
+      normalizedInitialValues = undefined;
+    }
+  }
+  return {
+    fields,
+    required,
+    message: normalizedMessage,
+    initialValues: normalizedInitialValues
+  };
+};
 
 /**
  * Hook that uses blawby-ai practice for all message handling
@@ -346,18 +408,7 @@ export const useMessageHandling = ({
         : 'user';
     const isUser = normalizedRole === 'user'
       && Boolean(senderId && currentUserId && senderId === currentUserId);
-    const contactForm = msg.metadata?.contactForm as {
-      fields: string[];
-      required: string[];
-      message?: string;
-      initialValues?: {
-        name?: string;
-        email?: string;
-        phone?: string;
-        location?: string;
-        opposingParty?: string;
-      };
-    } | undefined;
+    const contactForm = parseContactFormMetadata(msg.metadata);
 
     return {
       id: msg.id,
