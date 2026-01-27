@@ -735,7 +735,7 @@ export const useMessageHandling = ({
     if (isDisposedRef.current || isClosingSocketRef.current) {
       return;
     }
-    if (!sessionReady || !targetConversationId) {
+    if (!sessionReadyRef.current || !targetConversationId) {
       return;
     }
     if (conversationIdRef.current !== targetConversationId) {

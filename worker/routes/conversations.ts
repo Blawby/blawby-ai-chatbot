@@ -436,6 +436,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       content,
       metadata,
       clientId: rawClientId,
+      allowEmptyContent: rawClientId === 'system-contact-form',
       skipPracticeValidation: !isMember,
       request
     });

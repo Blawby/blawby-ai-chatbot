@@ -15,7 +15,7 @@ const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
 const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consultation\b/i;
-const SERVICE_QUESTION_REGEX = /\b(services?|do you (handle|do|cover|offer)|specializ(e|es) in|practice (area|areas)|personal injury)\b/i;
+const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();

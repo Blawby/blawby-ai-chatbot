@@ -161,7 +161,7 @@ export function useConversation({
   onError,
 }: UseConversationOptions): UseConversationReturn {
   const { session } = useSessionContext();
-  const sessionReady = Boolean(session?.user);
+  const sessionReady = session !== null;
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ConversationMessageUI[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);

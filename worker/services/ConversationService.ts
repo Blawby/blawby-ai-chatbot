@@ -865,10 +865,14 @@ export class ConversationService {
     auditPayload?: Record<string, unknown>;
     skipPracticeValidation?: boolean;
     clientId?: string;
+    /**
+     * Allow sending an empty system message (used for form-driven system messages).
+     */
+    allowEmptyContent?: boolean;
     request?: Request;
   }): Promise<ConversationMessage> {
     const trimmedContent = typeof options.content === 'string' ? options.content.trim() : '';
-    if (!trimmedContent && options.clientId !== 'system-contact-form') {
+    if (!trimmedContent && !options.allowEmptyContent) {
       throw HttpErrors.badRequest('System message content is required');
     }
     if (trimmedContent.length > ConversationService.MAX_SYSTEM_MESSAGE_LENGTH) {
