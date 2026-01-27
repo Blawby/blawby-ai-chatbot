@@ -222,7 +222,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						disabled={!onReplyPreviewClick}
 						aria-label="Jump to replied message"
 					>
-						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t-1 border-gray-600/70" />
+						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t border-gray-600/70" />
 						{replyPreview.avatar && (
 							<MessageAvatar
 								src={replyPreview.avatar.src}

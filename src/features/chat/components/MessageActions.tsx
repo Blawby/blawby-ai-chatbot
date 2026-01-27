@@ -101,7 +101,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					</Button>
 				</div>
 			)}
-			{modeSelector && (
+			{modeSelector && (modeSelector.showAskQuestion !== false || modeSelector.showRequestConsultation !== false) && (
 				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
 					{modeSelector.showAskQuestion !== false && (
 						<Button variant="secondary" size="sm" onClick={modeSelector.onAskQuestion}>

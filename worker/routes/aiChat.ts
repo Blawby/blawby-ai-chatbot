@@ -33,7 +33,8 @@ const formatServiceList = (names: string[]): string => {
   if (names.length === 0) return '';
   if (names.length === 1) return names[0];
   if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  return `${names.slice(0, 3).join(', ')}${names.length > 3 ? `, and ${names.length - 3} more` : ''}`;
+  if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
+  return `${names.slice(0, 3).join(', ')}, and ${names.length - 3} more`;
 };
 
 const normalizeApostrophes = (text: string): string => text.replace(/[’']/g, '\'');

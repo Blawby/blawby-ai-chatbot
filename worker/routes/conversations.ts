@@ -535,6 +535,9 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       if (listRequested) {
         const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
         const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        if (Number.isNaN(limit) || limit < 1) {
+          throw HttpErrors.badRequest('limit must be a positive integer');
+        }
         const conversations = await conversationService.getConversations({
           practiceId,
           userId,

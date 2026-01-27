@@ -756,12 +756,12 @@ export const useMessageHandling = ({
       if (isDisposedRef.current || isClosingSocketRef.current) {
         return;
       }
-      if (!sessionReady || conversationIdRef.current !== targetConversationId) {
+      if (!sessionReadyRef.current || conversationIdRef.current !== targetConversationId) {
         return;
       }
       connectChatRoomRef.current(targetConversationId);
     }, backoff + jitter);
-  }, [sessionReady]);
+  }, []);
 
 
   const connectChatRoom = useCallback((targetConversationId: string) => {
