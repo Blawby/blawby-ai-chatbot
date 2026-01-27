@@ -150,8 +150,8 @@ export const usePracticeConfig = ({
           const config = buildDefaultPracticeConfig({
             id: publicDetails.practiceId,
             slug: publicDetails.slug ?? currentPracticeId,
-            name: publicDetails.name ?? '',
-            profileImage: publicDetails.logo ?? null,
+            name: publicDetails.name ?? PLATFORM_SETTINGS.name,
+            profileImage: publicDetails.logo ?? PLATFORM_SETTINGS.profileImage ?? null,
             introMessage: details?.introMessage ?? '',
             description: details?.description ?? '',
             isPublic: details?.isPublic

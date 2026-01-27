@@ -1475,9 +1475,14 @@ export class ChatRoom {
         WHERE id = ?
       `).bind(conversationId).first<{ user_info: string | null } | null>();
 
-      const metadata = conversationRecord?.user_info
-        ? JSON.parse(conversationRecord.user_info) as Record<string, unknown>
-        : {};
+      let metadata: Record<string, unknown> = {};
+      if (conversationRecord?.user_info) {
+        try {
+          metadata = JSON.parse(conversationRecord.user_info) as Record<string, unknown>;
+        } catch {
+          metadata = {};
+        }
+      }
       const existingTitle = typeof metadata.title === 'string'
         ? metadata.title.trim()
         : '';

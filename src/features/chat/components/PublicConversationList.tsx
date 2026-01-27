@@ -42,8 +42,8 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
 }) => {
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
   const sorted = [...conversations].sort((a, b) => {
-    const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime();
-    const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime();
+    const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
+    const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
     return bTime - aTime;
   });
 

@@ -31,6 +31,7 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
     : '';
   const canSendMessage = Boolean(onSendMessage);
   const canRequestConsultation = Boolean(onRequestConsultation);
+  const canOpenRecentMessage = Boolean(onOpenRecentMessage);
   const poweredByLink = (
     <a
       href="https://blawby.com"
@@ -72,7 +73,8 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
           <button
             type="button"
             onClick={onOpenRecentMessage}
-            className="rounded-2xl border border-light-border bg-light-card-bg px-4 py-4 text-left shadow-[0_16px_32px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 dark:border-dark-border dark:bg-dark-card-bg"
+            disabled={!canOpenRecentMessage}
+            className="rounded-2xl border border-light-border bg-light-card-bg px-4 py-4 text-left shadow-[0_16px_32px_rgba(15,23,42,0.12)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 dark:border-dark-border dark:bg-dark-card-bg"
             aria-label="Open recent message"
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">

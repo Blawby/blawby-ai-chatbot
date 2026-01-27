@@ -158,6 +158,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     role: string;
     createdAt: string;
   }>>({});
+  const fetchedPreviewIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isPublicWorkspace || publicConversations.length === 0 || !practiceId) {
@@ -166,15 +167,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     let isMounted = true;
     const loadPreviews = async () => {
       const updates: Record<string, { content: string; role: string; createdAt: string }> = {};
-      await Promise.all(publicConversations.slice(0, 10).map(async (conversation) => {
-        if (publicConversationPreviews[conversation.id]) {
-          return;
-        }
+      const toFetch = publicConversations.slice(0, 10).filter(
+        (conversation) => !fetchedPreviewIds.current.has(conversation.id)
+      );
+      await Promise.all(toFetch.map(async (conversation) => {
+        fetchedPreviewIds.current.add(conversation.id);
         const message = await fetchLatestConversationMessage(
           conversation.id,
           practiceId,
           practiceConfig?.slug ?? undefined
-        );
+        ).catch(() => null);
         if (message?.content) {
           updates[conversation.id] = {
             content: message.content,
@@ -191,7 +193,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isPublicWorkspace, practiceConfig?.slug, practiceId, publicConversations, publicConversationPreviews]);
+  }, [isPublicWorkspace, practiceConfig?.slug, practiceId, publicConversations]);
 
   const recentMessage = useMemo(() => {
     if (!isPublicWorkspace) {
@@ -203,8 +205,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const practiceAvatar = practiceConfig?.profileImage ?? null;
     if (publicConversations.length > 0) {
       const sorted = [...publicConversations].sort((a, b) => {
-        const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime();
-        const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime();
+        const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
+        const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
         return bTime - aTime;
       });
       const top = sorted[0];

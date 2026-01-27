@@ -517,14 +517,14 @@ export function MainApp({
     source: 'intro_gate' | 'composer_footer' | 'home_cta'
   ) => {
     if (!practiceId) return;
-    setConversationMode(nextMode);
     await updateConversationMetadata({
       mode: nextMode
     }, activeConversationId);
-    await logConversationEvent(activeConversationId, practiceId, 'mode_selected', { mode: nextMode, source });
+    setConversationMode(nextMode);
+    void logConversationEvent(activeConversationId, practiceId, 'mode_selected', { mode: nextMode, source });
     if (nextMode === 'REQUEST_CONSULTATION') {
       startConsultFlow(activeConversationId);
-      await logConversationEvent(activeConversationId, practiceId, 'consult_flow_started', { source });
+      void logConversationEvent(activeConversationId, practiceId, 'consult_flow_started', { source });
     }
   }, [
     practiceId,

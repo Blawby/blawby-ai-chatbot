@@ -79,10 +79,10 @@ export const useConversationSystemMessages = ({
         },
         practiceSlug
       );
+      completedRef.current.add(key);
       if (message) {
         ingestServerMessages([message]);
       }
-      completedRef.current.add(key);
     } catch (error) {
       if (import.meta.env.DEV) {
         console.warn('[useConversationSystemMessages] Failed to persist system message', error);
