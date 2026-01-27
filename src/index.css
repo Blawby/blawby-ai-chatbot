@@ -591,3 +591,20 @@
     left: 3rem;
   }
 }
+
+@layer utilities {
+  @keyframes float-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-float-in {
+    animation: float-in 600ms ease-out both;
+  }
+}

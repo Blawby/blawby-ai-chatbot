@@ -14,7 +14,7 @@ import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
-import { getConversationEndpoint, getConversationsEndpoint, getCurrentConversationEndpoint } from '@/config/api';
+import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { useNavigation } from '@/shared/utils/navigation';
 import {
@@ -84,7 +84,6 @@ export function MainApp({
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const postAuthLinkHandledRef = useRef(false);
-  const publicConversationInitRef = useRef<string | null>(null);
   const conversationRestoreAttemptedRef = useRef(false);
   const isPublicWorkspace = workspace === 'public';
   const publicPracticeSlug = useMemo(() => {
@@ -118,7 +117,6 @@ export function MainApp({
     setConversationId(null);
     setConversationMode(null);
     conversationRestoreAttemptedRef.current = false;
-    publicConversationInitRef.current = null;
   }, [conversationResetKey]);
 
   const basePath = useMemo(() => {
@@ -305,6 +303,7 @@ export function MainApp({
   }, [navigate]);
 
   useEffect(() => {
+    if (isPublicWorkspace) return;
     if (!resolvedConversationsBasePath) return;
     if (routeKey !== 'conversations') return;
     if (!conversationId) return;
@@ -312,18 +311,21 @@ export function MainApp({
     if (location.path !== targetPath) {
       navigate(targetPath, true);
     }
-  }, [resolvedConversationsBasePath, conversationId, routeKey, location.path, navigate]);
+  }, [isPublicWorkspace, resolvedConversationsBasePath, conversationId, routeKey, location.path, navigate]);
 
   // Use session from Better Auth
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
   const isAnonymousUser = isAnonymous;
   const isPracticeWorkspace = workspace === 'practice';
   const conversationCacheKey = useMemo(() => {
+    if (isPublicWorkspace) {
+      return null;
+    }
     if (!practiceId || !session?.user?.id) {
       return null;
     }
     return `chat:lastConversation:${workspace}:${practiceId}:${session.user.id}`;
-  }, [practiceId, session?.user?.id, workspace]);
+  }, [isPublicWorkspace, practiceId, session?.user?.id, workspace]);
   const effectivePracticeId = useMemo(() => {
     if (isPublicWorkspace) {
       if (
@@ -462,54 +464,6 @@ export function MainApp({
     }
   }, [isPracticeWorkspace, practiceId, practiceConfig.slug, publicPracticeSlug, session?.user, isCreatingConversation]);
 
-  const ensurePublicConversation = useCallback(async () => {
-    if (!practiceId || !session?.user) {
-      return null;
-    }
-
-    try {
-      setIsCreatingConversation(true);
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      const practiceSlugParam = (publicPracticeSlug ?? practiceConfig.slug ?? '').trim();
-      const params = new URLSearchParams({ practiceId });
-      if (practiceSlugParam && practiceSlugParam !== practiceId) {
-        params.set('practiceSlug', practiceSlugParam);
-      }
-      const url = `${getCurrentConversationEndpoint()}?${params.toString()}`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json() as {
-        success: boolean;
-        error?: string;
-        data?: { conversation?: { id: string } };
-      };
-      const nextId = data.data?.conversation?.id;
-      if (!data.success || !nextId) {
-        throw new Error(data.error || 'Failed to load conversation');
-      }
-
-      setConversationId(nextId);
-      return nextId;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load conversation';
-      showErrorRef.current?.(message);
-      return null;
-    } finally {
-      setIsCreatingConversation(false);
-    }
-  }, [practiceId, practiceConfig.slug, publicPracticeSlug, session?.user]);
-
   const restoreConversationFromCache = useCallback(async () => {
     if (typeof window === 'undefined') {
       return null;
@@ -557,6 +511,27 @@ export function MainApp({
     session?.user
   ]);
 
+  const applyConversationMode = useCallback(async (
+    nextMode: ConversationMode,
+    activeConversationId: string,
+    source: 'intro_gate' | 'composer_footer' | 'home_cta'
+  ) => {
+    if (!practiceId) return;
+    setConversationMode(nextMode);
+    await updateConversationMetadata({
+      mode: nextMode
+    }, activeConversationId);
+    await logConversationEvent(activeConversationId, practiceId, 'mode_selected', { mode: nextMode, source });
+    if (nextMode === 'REQUEST_CONSULTATION') {
+      startConsultFlow(activeConversationId);
+      await logConversationEvent(activeConversationId, practiceId, 'consult_flow_started', { source });
+    }
+  }, [
+    practiceId,
+    startConsultFlow,
+    updateConversationMetadata
+  ]);
+
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
     source: 'intro_gate' | 'composer_footer'
@@ -575,15 +550,7 @@ export function MainApp({
         return;
       }
 
-      setConversationMode(nextMode);
-      await updateConversationMetadata({
-        mode: nextMode
-      }, activeConversationId);
-      await logConversationEvent(activeConversationId, practiceId, 'mode_selected', { mode: nextMode });
-      if (nextMode === 'REQUEST_CONSULTATION') {
-        startConsultFlow(activeConversationId);
-        await logConversationEvent(activeConversationId, practiceId, 'consult_flow_started', { source });
-      }
+      await applyConversationMode(nextMode, activeConversationId, source);
     } catch (error) {
       setConversationMode(null);
       console.warn('[MainApp] Failed to persist conversation mode selection', error);
@@ -591,13 +558,34 @@ export function MainApp({
       isSelectingRef.current = false;
     }
   }, [
+    applyConversationMode,
     conversationId,
     createConversation,
     isCreatingConversation,
-    practiceId,
-    startConsultFlow,
-    updateConversationMetadata
+    practiceId
   ]);
+
+  const handleStartNewConversation = useCallback(async (nextMode: ConversationMode) => {
+    try {
+      if (isSelectingRef.current) {
+        return;
+      }
+      isSelectingRef.current = true;
+      if (!practiceId) {
+        return;
+      }
+      const newConversationId = await createConversation();
+      if (!newConversationId) {
+        return;
+      }
+      await applyConversationMode(nextMode, newConversationId, 'home_cta');
+    } catch (error) {
+      setConversationMode(null);
+      console.warn('[MainApp] Failed to start new conversation', error);
+    } finally {
+      isSelectingRef.current = false;
+    }
+  }, [applyConversationMode, createConversation, practiceId]);
 
   const handleSendMessage = useCallback(async (
     message: string,
@@ -745,6 +733,7 @@ export function MainApp({
   const showMatterControls = currentPractice?.id === practiceId && workspace !== 'client';
 
   useEffect(() => {
+    if (isPublicWorkspace) return;
     if (!isAuthReady) return;
     if (!practiceId) return;
     if (conversationId) return;
@@ -752,25 +741,11 @@ export function MainApp({
     if (conversationRestoreAttemptedRef.current) return;
     conversationRestoreAttemptedRef.current = true;
 
-    if (isPublicWorkspace) {
-      const initKey = `${practiceId}:${session?.user?.id ?? 'anon'}`;
-      if (publicConversationInitRef.current === initKey) {
-        return;
-      }
-      publicConversationInitRef.current = initKey;
-    }
-
     (async () => {
       try {
         const restored = await restoreConversationFromCache();
         if (restored) {
           return;
-        }
-        if (isPublicWorkspace) {
-          const created = await ensurePublicConversation();
-          if (!created) {
-            conversationRestoreAttemptedRef.current = false;
-          }
         }
       } catch {
         conversationRestoreAttemptedRef.current = false;
@@ -778,7 +753,6 @@ export function MainApp({
     })();
   }, [
     conversationId,
-    ensurePublicConversation,
     isAuthReady,
     isCreatingConversation,
     isPublicWorkspace,
@@ -919,8 +893,12 @@ export function MainApp({
     }
   };
 
-  const resolvedPracticeLogo = currentPractice?.logo ?? practiceConfig?.profileImage ?? null;
-  const resolvedPracticeName = currentPractice?.name ?? practiceConfig.name ?? '';
+  const resolvedPracticeLogo = isPublicWorkspace
+    ? (practiceConfig.profileImage ?? null)
+    : (currentPractice?.logo ?? practiceConfig?.profileImage ?? null);
+  const resolvedPracticeName = isPublicWorkspace
+    ? (practiceConfig.name ?? '')
+    : (currentPractice?.name ?? practiceConfig.name ?? '');
   const resolvedPracticeSlug = currentPractice?.slug ?? practiceConfig?.slug ?? practiceId;
   const resolvedPracticeDescription = practiceDetails?.description
     ?? currentPractice?.description
@@ -929,6 +907,23 @@ export function MainApp({
 
   // Handle navigation to chats - removed since bottom nav is disabled
   const shouldShowChatPlaceholder = workspace !== 'public' && !conversationId;
+  const handleSelectConversation = useCallback((id: string) => {
+    setConversationId(id);
+    if (resolvedConversationsBasePath) {
+      navigate(`${resolvedConversationsBasePath}/${encodeURIComponent(id)}`);
+    }
+  }, [navigate, resolvedConversationsBasePath]);
+
+  const handlePublicSelectConversation = useCallback((id: string) => {
+    setConversationId(id);
+    setConversationMode(null);
+  }, []);
+
+  const handlePublicBack = useCallback(() => {
+    if (!publicPracticeSlug) return;
+    navigate(`/embed/${encodeURIComponent(publicPracticeSlug)}`, true);
+  }, [navigate, publicPracticeSlug]);
+
   const chatPanel = chatContent ?? (
     <div className="relative h-full flex flex-col">
       {shouldShowChatPlaceholder ? (
@@ -957,18 +952,22 @@ export function MainApp({
               onContactFormSubmit={handleContactFormSubmit}
               onAddMessage={addMessage}
               onSelectMode={handleModeSelection}
+              onStartNewConversation={handleStartNewConversation}
+              onSelectConversation={workspace === 'public' ? handlePublicSelectConversation : undefined}
               onToggleReaction={toggleMessageReaction}
               onRequestReactions={requestMessageReactions}
               conversationMode={conversationMode}
               composerDisabled={isComposerDisabled}
               isPublicWorkspace={workspace === 'public'}
               messagesReady={messagesReady}
+              onNavigateHome={workspace === 'public' ? handlePublicBack : undefined}
               practiceConfig={{
                 name: resolvedPracticeName,
                 profileImage: resolvedPracticeLogo,
                 practiceId,
                 description: resolvedPracticeDescription,
-                slug: resolvedPracticeSlug
+                slug: resolvedPracticeSlug,
+                introMessage: practiceConfig.introMessage
               }}
               onOpenSidebar={() => setIsMobileSidebarOpen(true)}
               practiceId={practiceId}
@@ -1001,13 +1000,6 @@ export function MainApp({
       )}
     </div>
   );
-
-  const handleSelectConversation = useCallback((id: string) => {
-    setConversationId(id);
-    if (resolvedConversationsBasePath) {
-      navigate(`${resolvedConversationsBasePath}/${encodeURIComponent(id)}`);
-    }
-  }, [navigate, resolvedConversationsBasePath]);
 
   const conversationSidebarContent = useMemo(() => {
     if (workspace === 'public') return null;

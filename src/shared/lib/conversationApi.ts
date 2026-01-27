@@ -104,6 +104,41 @@ export const postSystemMessage = async (
   return data.data?.message ?? null;
 };
 
+export const fetchLatestConversationMessage = async (
+  conversationId: string,
+  practiceId: string,
+  practiceSlug?: string
+): Promise<ConversationMessage | null> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  const params = buildPracticeParams(practiceId, practiceSlug);
+  params.set('limit', '1');
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
+    {
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await response.json().catch(() => null) as {
+    success?: boolean;
+    data?: { messages?: ConversationMessage[] };
+  } | null;
+
+  if (!data?.success) {
+    return null;
+  }
+
+  return data.data?.messages?.[0] ?? null;
+};
+
 export const fetchMessageReactions = async (
   conversationId: string,
   messageId: string,

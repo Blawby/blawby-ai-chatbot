@@ -19,18 +19,6 @@ const buildIntroMessage = (
   return 'Hi! How can we help?';
 };
 
-const buildAskQuestionHelpMessage = (availableServices: string[] | undefined): string => {
-  const services = Array.isArray(availableServices)
-    ? availableServices.map((service) => service.trim()).filter(Boolean)
-    : [];
-  const topServices = services.slice(0, 4);
-  const extraCount = Math.max(0, services.length - topServices.length);
-  if (topServices.length > 0) {
-    return `I can help with ${topServices.join(', ')}${extraCount > 0 ? `, and ${extraCount} more` : ''}. Ask your question and I'll do my best to help.`;
-  }
-  return "I can help answer questions about services, pricing, scheduling, and next steps. Ask your question and I'll do my best to help.";
-};
-
 const hasSystemMessage = (messages: ChatMessageUI[], key: string): boolean => (
   messages.some((message) => message.metadata?.systemMessageKey === key)
 );
@@ -133,35 +121,6 @@ export const useConversationSystemMessages = ({
     messagesReady,
     practiceConfig.introMessage,
     practiceConfig.name,
-    practiceId,
-    persistSystemMessage,
-    shouldRequireModeSelection
-  ]);
-
-  useEffect(() => {
-    if (!messagesReady || !conversationId || !practiceId) {
-      return;
-    }
-    if (!shouldRequireModeSelection) {
-      return;
-    }
-    if (conversationMode !== 'ASK_QUESTION') {
-      return;
-    }
-    if (hasSystemMessage(messages, 'ask_question_help')) {
-      return;
-    }
-    void persistSystemMessage(
-      'system-ask-question-help',
-      buildAskQuestionHelpMessage(practiceConfig.availableServices),
-      { systemMessageKey: 'ask_question_help' }
-    );
-  }, [
-    conversationId,
-    conversationMode,
-    messages,
-    messagesReady,
-    practiceConfig.availableServices,
     practiceId,
     persistSystemMessage,
     shouldRequireModeSelection

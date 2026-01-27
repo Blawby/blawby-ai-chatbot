@@ -757,21 +757,42 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
 function extractPublicPracticeDisplayDetails(
   payload: unknown
 ): { name?: string | null; logo?: string | null } {
-  if (!isRecord(payload) || !('details' in payload) || !isRecord(payload.details)) {
+  if (!isRecord(payload)) {
     return {};
   }
 
-  const detailsContainer = (() => {
-    if (isRecord(payload.details) && 'data' in payload.details && isRecord(payload.details.data)) {
-      return payload.details.data;
+  const candidates: Record<string, unknown>[] = [];
+  const pushCandidate = (value: unknown) => {
+    if (isRecord(value)) {
+      candidates.push(value);
     }
-    return payload.details;
-  })();
-
-  return {
-    name: toNullableString(detailsContainer.name),
-    logo: toNullableString(detailsContainer.logo)
   };
+
+  if ('details' in payload && isRecord(payload.details)) {
+    if ('data' in payload.details && isRecord(payload.details.data)) {
+      pushCandidate(payload.details.data);
+    }
+    pushCandidate(payload.details);
+  }
+
+  if ('data' in payload && isRecord(payload.data)) {
+    if ('details' in payload.data && isRecord(payload.data.details)) {
+      pushCandidate(payload.data.details);
+    }
+    pushCandidate(payload.data);
+  }
+
+  pushCandidate(payload);
+
+  for (const candidate of candidates) {
+    const name = toNullableString(candidate.name ?? candidate.practiceName ?? candidate.practice_name);
+    const logo = toNullableString(candidate.logo ?? candidate.practiceLogo ?? candidate.practice_logo);
+    if (name || logo) {
+      return { name, logo };
+    }
+  }
+
+  return {};
 }
 
 function extractPublicPracticeId(payload: unknown): string | null {

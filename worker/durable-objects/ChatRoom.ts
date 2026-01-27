@@ -4,6 +4,7 @@ import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
 import { checkPracticeMembership, requireAuth } from '../middleware/auth.js';
 import { parseEnvBool } from '../utils/safeStringUtils.js';
+import { createAiClient } from '../utils/aiClient.js';
 
 const PROTOCOL_VERSION = 1;
 const NEGOTIATION_TIMEOUT_MS = 5000;
@@ -11,6 +12,9 @@ const MAX_CONTENT_LENGTH = 4000;
 const MAX_ATTACHMENTS = 10;
 const MAX_METADATA_BYTES = 8 * 1024;
 const MAX_FRAME_BYTES = 64 * 1024;
+const TITLE_MAX_LENGTH = 80;
+const TITLE_MAX_TOKENS = 24;
+const DEFAULT_TITLE_MODEL = 'gpt-4o-mini';
 const PENDING_TTL_MS = 2 * 60 * 1000;
 const PENDING_SWEEP_LIMIT = 20;
 const MEMBERSHIP_TTL_MS = 5 * 60 * 1000;
@@ -765,6 +769,10 @@ export class ChatRoom {
 
     await this.state.storage.delete(pendingKey);
 
+    if (role === 'user') {
+      void this.maybeUpdateConversationTitle(conversationId, content);
+    }
+
     const broadcast: MessageBroadcast = {
       conversation_id: conversationId,
       message_id: messageId,
@@ -1425,6 +1433,127 @@ export class ChatRoom {
     attachment.negotiationDeadline = null;
     ws.serializeAttachment(attachment);
     void this.scheduleIdleAlarm();
+  }
+
+  private normalizeTitle(raw: string): string {
+    const cleaned = raw.replace(/^["'`]+|["'`]+$/g, '').replace(/\s+/g, ' ').trim();
+    if (!cleaned) {
+      return '';
+    }
+    if (cleaned.length <= TITLE_MAX_LENGTH) {
+      return cleaned;
+    }
+    return cleaned.slice(0, TITLE_MAX_LENGTH).trim();
+  }
+
+  private buildFallbackTitle(content: string): string {
+    const words = content.split(/\s+/).filter(Boolean).slice(0, 6);
+    const fallback = words.join(' ');
+    return fallback || 'New Conversation';
+  }
+
+  private async maybeUpdateConversationTitle(conversationId: string, content: string): Promise<void> {
+    const trimmedContent = content.trim();
+    if (!trimmedContent) {
+      return;
+    }
+
+    try {
+      const countRecord = await this.env.DB.prepare(`
+        SELECT COUNT(1) as count
+        FROM chat_messages
+        WHERE conversation_id = ? AND role = 'user'
+      `).bind(conversationId).first<{ count: number } | null>();
+
+      if (!countRecord || countRecord.count !== 1) {
+        return;
+      }
+
+      const conversationRecord = await this.env.DB.prepare(`
+        SELECT user_info
+        FROM conversations
+        WHERE id = ?
+      `).bind(conversationId).first<{ user_info: string | null } | null>();
+
+      const metadata = conversationRecord?.user_info
+        ? JSON.parse(conversationRecord.user_info) as Record<string, unknown>
+        : {};
+      const existingTitle = typeof metadata.title === 'string'
+        ? metadata.title.trim()
+        : '';
+      if (existingTitle) {
+        return;
+      }
+
+      const aiTitle = await this.generateTitleFromMessage(trimmedContent);
+      const resolvedTitle = this.normalizeTitle(aiTitle || this.buildFallbackTitle(trimmedContent));
+      if (!resolvedTitle) {
+        return;
+      }
+
+      const nextMetadata = { ...metadata, title: resolvedTitle };
+      await this.env.DB.prepare(`
+        UPDATE conversations
+        SET user_info = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(
+        JSON.stringify(nextMetadata),
+        new Date().toISOString(),
+        conversationId
+      ).run();
+    } catch (error) {
+      console.warn('[ChatRoom] Failed to set conversation title', error);
+    }
+  }
+
+  private async generateTitleFromMessage(content: string): Promise<string | null> {
+    let aiClient;
+    try {
+      aiClient = createAiClient(this.env);
+    } catch (error) {
+      console.warn('[ChatRoom] AI client unavailable for title generation', error);
+      return null;
+    }
+
+    let model = this.env.AI_MODEL || DEFAULT_TITLE_MODEL;
+    if (!this.env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
+      model = 'openai/gpt-4o-mini';
+    }
+
+    const response = await aiClient.requestChatCompletions({
+      model,
+      temperature: 0.2,
+      max_tokens: TITLE_MAX_TOKENS,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'Create a short, descriptive conversation title (3-6 words).',
+            'Use plain text only. No quotes. No punctuation at the end.',
+            'Summarize the user message without legal advice.'
+          ].join(' ')
+        },
+        {
+          role: 'user',
+          content
+        }
+      ]
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json().catch(() => null) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    } | null;
+
+    const raw = payload?.choices?.[0]?.message?.content;
+    if (typeof raw !== 'string') {
+      return null;
+    }
+    const normalized = this.normalizeTitle(raw);
+    return normalized || null;
   }
 
   private closeSocket(ws: WorkerWebSocket, code: number, reason?: string): void {
