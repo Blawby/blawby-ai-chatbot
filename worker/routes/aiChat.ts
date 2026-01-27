@@ -16,7 +16,7 @@ const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
 const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consultation\b/i;
 const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
-const LEGAL_INTENT_REGEX = /\b(legal advice|should I|can I sue|lawsuit|sue|liable|liability|contract dispute|criminal|charged|settlement|custody|divorce|immigration)\b/i;
+const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
