@@ -69,12 +69,13 @@ export type TimeEntryFormValues = {
 interface TimeEntryFormProps {
   initialEntry?: TimeEntry | null;
   initialDate?: string;
+  lockDate?: boolean;
   onSubmit: (values: TimeEntryFormValues) => void;
   onCancel: () => void;
   onDelete?: () => void;
 }
 
-export const TimeEntryForm = ({ initialEntry, initialDate, onSubmit, onCancel, onDelete }: TimeEntryFormProps) => {
+export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onSubmit, onCancel, onDelete }: TimeEntryFormProps) => {
   const [formState, setFormState] = useState(() => buildInitialFormState(initialEntry, initialDate));
   const [errors, setErrors] = useState<{ endTime?: string }>({});
 
@@ -109,23 +110,13 @@ export const TimeEntryForm = ({ initialEntry, initialDate, onSubmit, onCancel, o
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-          {initialEntry ? 'Edit Time Entry' : 'Add Time Entry'}
-        </h3>
-        {initialEntry && onDelete ? (
-          <Button variant="secondary" size="sm" onClick={onDelete}>
-            Delete
-          </Button>
-        ) : null}
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-2">
         <Select
           label="Date"
           value={formState.date}
           options={dateOptions}
           onChange={(value) => setFormState((prev) => ({ ...prev, date: value }))}
+          disabled={lockDate}
         />
         <div>
           <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Timezone</span>
@@ -158,7 +149,12 @@ export const TimeEntryForm = ({ initialEntry, initialDate, onSubmit, onCancel, o
         rows={3}
       />
 
-      <div className="flex items-center justify-end gap-3 pt-2">
+      <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+        {initialEntry && onDelete ? (
+          <Button variant="secondary" size="sm" onClick={onDelete} className="mr-auto">
+            Delete
+          </Button>
+        ) : null}
         <Button variant="secondary" onClick={onCancel}>
           Cancel
         </Button>

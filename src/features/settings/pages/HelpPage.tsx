@@ -1,5 +1,6 @@
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
+import { Button } from '@/shared/ui/Button';
 
 export interface HelpPageProps {
   className?: string;
@@ -42,16 +43,21 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {t('help.sections.helpCenter.title')}
               </div>
-              <button
+              <Button
                 onClick={() => handleExternalLink('https://help.blawby.com')}
-                className="flex items-center gap-2 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                variant="ghost"
+                size="sm"
+                className="text-gray-900 dark:text-gray-100"
                 aria-label={t('help.sections.helpCenter.ariaLabel')}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                }
+                iconPosition="right"
               >
-                <span>{t('help.sections.helpCenter.cta')}</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </button>
+                {t('help.sections.helpCenter.cta')}
+              </Button>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {t('help.sections.helpCenter.description')}
@@ -66,16 +72,21 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {t('help.sections.releaseNotes.title')}
               </div>
-              <button
+              <Button
                 onClick={() => handleExternalLink('https://blawby.com/release-notes')}
-                className="flex items-center gap-2 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                variant="ghost"
+                size="sm"
+                className="text-gray-900 dark:text-gray-100"
                 aria-label={t('help.sections.releaseNotes.ariaLabel')}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                }
+                iconPosition="right"
               >
-                <span>{t('help.sections.releaseNotes.cta')}</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </button>
+                {t('help.sections.releaseNotes.cta')}
+              </Button>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {t('help.sections.releaseNotes.description')}
@@ -90,16 +101,21 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {t('help.sections.terms.title')}
               </div>
-              <button
+              <Button
                 onClick={() => handleExternalLink('https://blawby.com/terms')}
-                className="flex items-center gap-2 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                variant="ghost"
+                size="sm"
+                className="text-gray-900 dark:text-gray-100"
                 aria-label={t('help.sections.terms.ariaLabel')}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                }
+                iconPosition="right"
               >
-                <span>{t('help.sections.terms.cta')}</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </button>
+                {t('help.sections.terms.cta')}
+              </Button>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {t('help.sections.terms.description')}
@@ -114,12 +130,14 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {t('help.sections.bug.title')}
               </div>
-              <button
+              <Button
                 onClick={handleReportBug}
-                className="flex items-center gap-2 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                variant="ghost"
+                size="sm"
+                className="text-gray-900 dark:text-gray-100"
               >
-                <span>{t('help.sections.bug.cta')}</span>
-              </button>
+                {t('help.sections.bug.cta')}
+              </Button>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {t('help.sections.bug.description')}
@@ -134,16 +152,21 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {t('help.sections.downloads.title')}
               </div>
-              <button
+              <Button
                 onClick={() => handleExternalLink('https://blawby.com/download')}
-                className="flex items-center gap-2 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                variant="ghost"
+                size="sm"
+                className="text-gray-900 dark:text-gray-100"
                 aria-label={t('help.sections.downloads.ariaLabel')}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                }
+                iconPosition="right"
               >
-                <span>{t('help.sections.downloads.cta')}</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </button>
+                {t('help.sections.downloads.cta')}
+              </Button>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {t('help.sections.downloads.description')}
@@ -158,12 +181,14 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {t('help.sections.shortcuts.title')}
               </div>
-              <button
+              <Button
                 onClick={handleKeyboardShortcuts}
-                className="flex items-center gap-2 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                variant="ghost"
+                size="sm"
+                className="text-gray-900 dark:text-gray-100"
               >
-                <span>{t('help.sections.shortcuts.cta')}</span>
-              </button>
+                {t('help.sections.shortcuts.cta')}
+              </Button>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {t('help.sections.shortcuts.description')}

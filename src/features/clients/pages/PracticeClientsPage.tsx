@@ -241,10 +241,10 @@ const EmptyState = () => (
         Get started by creating a new client or importing your existing clients.
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <Button icon={<PlusIcon className="h-4 w-4" />} disabled>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} disabled>
           Add Client
         </Button>
-        <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} disabled>
+        <Button size="sm" variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} disabled>
           Import Clients
         </Button>
       </div>
@@ -280,11 +280,12 @@ const ClientDetailPanel = ({
           <p className="text-sm text-gray-500 dark:text-gray-400">{client.email}</p>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Button icon={<DocumentTextOutlineIcon className="h-4 w-4" />}>
+          <Button size="sm" icon={<DocumentTextOutlineIcon className="h-4 w-4" />}>
             Generate Invoice
           </Button>
           <Button
             variant="secondary"
+            size="sm"
             icon={<ChatBubbleLeftRightIcon className="h-4 w-4" />}
             disabled={!client.phone}
           >
@@ -294,7 +295,7 @@ const ClientDetailPanel = ({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="secondary"
-                size="sm"
+                size="icon"
                 icon={<EllipsisVerticalIcon className="h-5 w-5" />}
                 aria-label="Open client actions"
               />
@@ -426,10 +427,10 @@ export const PracticeClientsPage = () => {
             subtitle="A unified list of client relationships tied to conversations and matters."
             actions={(
               <div className="flex items-center gap-2">
-                <Button icon={<PlusIcon className="h-4 w-4" />} disabled>
+                <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} disabled>
                   Add Client
                 </Button>
-                <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} disabled>
+                <Button size="sm" variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} disabled>
                   Import
                 </Button>
               </div>
@@ -451,8 +452,8 @@ export const PracticeClientsPage = () => {
           subtitle="A unified list of client relationships tied to conversations and matters."
           actions={(
             <div className="flex items-center gap-2">
-              <Button icon={<PlusIcon className="h-4 w-4" />}>Add Client</Button>
-              <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />}>
+              <Button size="sm" icon={<PlusIcon className="h-4 w-4" />}>Add Client</Button>
+              <Button size="sm" variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />}>
                 Import
               </Button>
             </div>
@@ -479,24 +480,24 @@ export const PracticeClientsPage = () => {
                         const nameParts = splitName(client.name);
                         return (
                           <li key={client.id}>
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
                               onClick={() => handleSelectClient(client.id)}
                               aria-current={isActive ? 'true' : undefined}
                               className={cn(
-                                'w-full text-left px-4 py-3 transition-colors',
+                                'w-full justify-start px-4 py-3 h-auto',
                                 isActive
                                   ? 'bg-light-hover dark:bg-dark-hover border-l-2 border-accent-500'
                                   : 'hover:bg-gray-50 dark:hover:bg-dark-hover border-l-2 border-transparent'
                               )}
                             >
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-4 w-full">
                                 <Avatar
                                   name={client.name}
                                   size="sm"
                                   className="bg-gray-200 text-gray-700 dark:bg-gray-700"
                                 />
-                                <div className="min-w-0 flex-1">
+                                <div className="min-w-0 flex-1 text-left">
                                   <p className="text-sm text-gray-900 dark:text-white truncate">
                                     {nameParts.first ? (
                                       <>
@@ -509,7 +510,7 @@ export const PracticeClientsPage = () => {
                                   </p>
                                 </div>
                               </div>
-                            </button>
+                            </Button>
                           </li>
                         );
                       })}
@@ -519,19 +520,20 @@ export const PracticeClientsPage = () => {
               </div>
               <div className="absolute right-2 top-1/2 z-20 -translate-y-1/2 flex flex-col items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
                 {letters.map((letter) => (
-                  <button
+                  <Button
                     key={letter}
-                    type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => scrollToLetter(letter)}
                     className={cn(
-                      'h-4 w-4 rounded-full transition-colors',
+                      'h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center',
                       currentLetter === letter
                         ? 'text-gray-900 dark:text-white font-semibold'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                     )}
                   >
                     {letter}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

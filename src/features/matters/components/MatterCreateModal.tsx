@@ -482,14 +482,16 @@ const MatterFormModalInner = ({
                       </div>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-dark-input-bg px-2.5 py-1.5 text-sm shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-white/10"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setIsMilestoneFormVisible(true)}
+                      icon={
+                        <PlusIcon className="h-4 w-4" aria-hidden="true" />
+                      }
                     >
-                      <PlusIcon className="-ml-0.5 h-5 w-5" aria-hidden="true" />
                       Add Milestone
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}

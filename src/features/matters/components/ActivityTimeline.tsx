@@ -1,4 +1,5 @@
 import { FunctionComponent, ComponentType } from 'preact';
+import { Button } from '@/shared/ui/Button';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/shared/ui/Accordion';
 import {
   ChatBubbleOvalLeftEllipsisIcon,
@@ -100,12 +101,14 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                   <div className="flex items-center">
                     <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
                   </div>
-                  <button
+                  <Button
+                    variant="link"
+                    size="xs"
                     onClick={refresh}
-                    className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline"
+                    className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                   >
                     Retry
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -158,12 +161,14 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
 
               {/* Load more button */}
               {hasMore && (
-                <button
+                <Button
+                  variant="link"
+                  size="xs"
                   onClick={loadMore}
-                  className="mt-3 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+                  className="mt-3 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                 >
                   Load more events
-                </button>
+                </Button>
               )}
             </div>
           </AccordionContent>

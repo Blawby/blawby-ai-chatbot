@@ -102,7 +102,7 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
             {sortedExpenses.length} recorded · {formatCurrency(totalExpenses / 100)} total · {formatCurrency(billableTotal / 100)} billable
           </p>
         </div>
-        <Button icon={<PlusIcon className="h-4 w-4" />} onClick={openNewExpense}>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewExpense}>
           Add expense
         </Button>
       </header>
@@ -142,14 +142,6 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="hidden sm:inline-flex"
-                    onClick={() => openEditExpense(expense)}
-                  >
-                    Edit
-                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button

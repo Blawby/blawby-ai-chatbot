@@ -5,7 +5,6 @@ import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import type { MatterDetail, TimeEntry } from '@/features/matters/data/mockMatters';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
-import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 
 const buildDateString = (date: Date) => formatDateOnlyStringUtc(date);
@@ -54,6 +53,7 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [draftDate, setDraftDate] = useState<string | null>(null);
+  const [isDateLocked, setIsDateLocked] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TimeEntry | null>(null);
 
   const weekDays = useMemo(() => {
@@ -103,12 +103,14 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
   const openNewEntry = (dateKey?: string) => {
     setEditingEntry(null);
     setDraftDate(dateKey ?? buildDateString(new Date()));
+    setIsDateLocked(Boolean(dateKey));
     setIsFormOpen(true);
   };
 
   const openEditEntry = (entry: TimeEntry) => {
     setEditingEntry(entry);
     setDraftDate(null);
+    setIsDateLocked(false);
     setIsFormOpen(true);
   };
 
@@ -160,9 +162,8 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
 
   return (
     <div className="space-y-6">
-      <MatterTasksPanel matter={matter} />
-
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-white/10 px-6 py-4">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -171,10 +172,10 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
             icon={<ChevronLeftIcon className="h-4 w-4" />}
             onClick={() => setSelectedWeekStart((prev) => addDays(prev, -7))}
           />
-          <div>
+          <div className="min-w-[220px] text-center">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">{weekRangeLabel}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {weekEntries.length} entries · {formatDuration(totalWeekSeconds)}
+              {weekEntries.length === 1 ? '1 entry' : `${weekEntries.length} entries`} · {formatDuration(totalWeekSeconds)}
             </p>
           </div>
           <Button
@@ -192,45 +193,44 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
             This week
           </Button>
         </div>
-        <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => openNewEntry()}>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => openNewEntry()}>
           Add time entry
         </Button>
-      </header>
+        </header>
 
-      <div className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">
         <div className="divide-y divide-gray-200 dark:divide-white/10">
-          {dailyEntries.map((day) => (
-            <button
-              key={day.dateKey}
-              type="button"
-              onClick={() => openNewEntry(day.dateKey)}
-              className="w-full text-left px-4 py-3 sm:px-6 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-            >
-              <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-300 sm:col-span-3">
-                  {formatDateLabel(day.date)}
-                </div>
-                <div className="sm:col-span-9">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-2 rounded-full bg-gray-200 dark:bg-white/10">
-                      <div
-                        className="h-2 rounded-full bg-accent-500"
-                        style={{ width: `${day.progressPercentage}%` }}
-                      />
-                    </div>
-                    <div className="text-sm font-semibold text-gray-900 dark:text-white min-w-[96px] text-right">
-                      {formatDuration(day.totalSeconds)}
-                    </div>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    {day.entries.length} entry{day.entries.length === 1 ? '' : 'ies'}
-                  </p>
-                </div>
+        {dailyEntries.map((day) => (
+          <button
+            key={day.dateKey}
+            type="button"
+            onClick={() => openNewEntry(day.dateKey)}
+            className="w-full text-left px-4 py-3 sm:px-6 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+          >
+            <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-300 sm:col-span-3">
+                {formatDateLabel(day.date)}
               </div>
-            </button>
-          ))}
+              <div className="sm:col-span-9">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-2 rounded-full bg-gray-200 dark:bg-white/10">
+                    <div
+                      className="h-2 rounded-full bg-accent-500"
+                      style={{ width: `${day.progressPercentage}%` }}
+                    />
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white min-w-[96px] text-right">
+                    {formatDuration(day.totalSeconds)}
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {day.entries.length === 1 ? '1 entry' : `${day.entries.length} entries`}
+                </p>
+              </div>
+            </div>
+          </button>
+        ))}
         </div>
-      </div>
+      </section>
 
       <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
         <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
@@ -300,6 +300,7 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
             key={editingEntry?.id ?? `new-${draftDate ?? 'today'}`}
             initialEntry={editingEntry ?? undefined}
             initialDate={draftDate ?? undefined}
+            lockDate={isDateLocked}
             onSubmit={handleSave}
             onCancel={closeForm}
             onDelete={editingEntry ? () => confirmDelete(editingEntry) : undefined}

@@ -1,8 +1,14 @@
 import { useState } from 'preact/hooks';
-import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { ulid } from 'ulid';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/shared/ui/dropdown';
 import type { MatterDetail, MatterTask } from '@/features/matters/data/mockMatters';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { MatterTaskForm, type MatterTaskFormValues } from './MatterTaskForm';
@@ -123,20 +129,32 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Edit task"
-                    icon={<PencilIcon className="h-4 w-4" />}
-                    onClick={() => openEditTask(task)}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Delete task"
-                    icon={<TrashIcon className="h-4 w-4" />}
-                    onClick={() => confirmDelete(task)}
-                  />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Open task actions"
+                        icon={<EllipsisVerticalIcon className="h-4 w-4" />}
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-32">
+                      <div className="py-1">
+                        <DropdownMenuItem onSelect={() => openEditTask(task)}>
+                          <span className="flex items-center gap-2">
+                            <PencilIcon className="h-4 w-4" />
+                            Edit
+                          </span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => confirmDelete(task)}>
+                          <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                            <TrashIcon className="h-4 w-4" />
+                            Delete
+                          </span>
+                        </DropdownMenuItem>
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </li>

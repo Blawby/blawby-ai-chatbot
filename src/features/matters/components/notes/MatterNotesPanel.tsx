@@ -94,7 +94,7 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
             {sortedNotes.length} notes recorded
           </p>
         </div>
-        <Button icon={<PlusIcon className="h-4 w-4" />} onClick={openNewNote}>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewNote}>
           Add note
         </Button>
       </header>
@@ -132,14 +132,6 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="hidden sm:inline-flex"
-                  onClick={() => openEditNote(note)}
-                >
-                  Edit
-                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button

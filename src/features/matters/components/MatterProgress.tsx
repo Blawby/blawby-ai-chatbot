@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import { features } from '@/config/features';
 import { getParalegalStatusWsEndpoint } from '@/config/api';
 import { XMarkIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { Button } from '@/shared/ui/Button';
 
 interface ChecklistItem {
   id: string;
@@ -136,13 +137,16 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
             <h2 className="text-xl font-semibold">Matter Formation Progress</h2>
             <p className="text-blue-100 text-sm">Matter ID: {matterId}</p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="text-white hover:text-blue-200 transition-colors"
+            className="text-white hover:text-blue-200 p-2"
             aria-label="Close"
-          >
-            <XMarkIcon className="w-6 h-6" />
-          </button>
+            icon={
+              <XMarkIcon className="w-5 h-5" />
+            }
+          />
         </div>
 
         {/* Content */}
@@ -160,12 +164,14 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
                 <ExclamationTriangleIcon className="w-5 h-5 text-red-400 mr-2" />
                 <p className="text-red-700">{error}</p>
               </div>
-              <button
+              <Button
+                variant="link"
+                size="sm"
                 onClick={reconnect}
-                className="mt-2 text-red-600 hover:text-red-800 text-sm underline"
+                className="mt-2 text-red-600 hover:text-red-800"
               >
                 Try again
-              </button>
+              </Button>
             </div>
           )}
 
@@ -262,19 +268,22 @@ export function MatterProgress({ practiceId, matterId, visible = false, onClose 
 
         {/* Footer */}
         <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={reconnect}
             disabled={loading}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium disabled:opacity-50"
+            className="text-blue-600 hover:text-blue-800"
           >
             {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onClose}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             Close
-          </button>
+          </Button>
         </div>
       </div>
     </div>

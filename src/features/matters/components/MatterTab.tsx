@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useRef } from 'preact/hooks';
+import { Button } from '@/shared/ui/Button';
 import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
 import {
   DocumentIcon,
@@ -122,9 +123,9 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
         <DocumentIcon />
         <h3>No Matter Yet</h3>
         <p>Start a chat to create your matter</p>
-        <button onClick={onStartChat}>
+        <Button onClick={onStartChat} variant="primary" size="sm">
           Start Chat
-        </button>
+        </Button>
       </div>
     );
   }
@@ -196,9 +197,9 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
               <li>• +{missingInfo.length - 3} more items</li>
             )}
           </ul>
-          <button onClick={onViewInChat}>
+          <Button onClick={onViewInChat} variant="secondary" size="sm" className="mt-2">
             Continue in Chat
-          </button>
+          </Button>
         </div>
       )}
 
@@ -225,7 +226,13 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
                 </div>
               </div>
               {doc.status === 'missing' && (
-                <button onClick={() => triggerDocumentIconUpload(doc.id)}>Upload</button>
+                <Button 
+                  onClick={() => triggerDocumentIconUpload(doc.id)} 
+                  variant="outline" 
+                  size="sm"
+                >
+                  Upload
+                </Button>
               )}
             </div>
           ))}
@@ -244,26 +251,28 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
           </div>
           <p>All required information has been provided</p>
           <div>
-            {onPayNow && (
-              <button onClick={onPayNow}>
-                Pay Now
-              </button>
-            )}
-            <button onClick={onViewPDF}>
-              View PDF
-            </button>
-            <button onClick={onShareMatter}>
-              Share Matter
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 mt-4">
+              {onPayNow && (
+                <Button onClick={onPayNow} variant="primary" size="sm" className="flex-1">
+                  Pay Now
+                </Button>
+              )}
+              <Button onClick={onViewPDF} variant="secondary" size="sm" className="flex-1">
+                View PDF
+              </Button>
+              <Button onClick={onShareMatter} variant="outline" size="sm" className="flex-1">
+                Share Matter
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
       {/* View in Chat Link */}
-      <div>
-        <button onClick={onViewInChat}>
+      <div className="mt-4">
+        <Button onClick={onViewInChat} variant="ghost" size="sm" className="w-full">
           View in Chat
-        </button>
+        </Button>
       </div>
 
       {/* Hidden file input for document uploads */}

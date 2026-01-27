@@ -3,6 +3,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import OnboardingModal from '@/features/onboarding/components/OnboardingModal';
 import type { OnboardingFormData } from '@/shared/types/onboarding';
 import { Logo } from '@/shared/ui/Logo';
+import { Button } from '@/shared/ui/Button';
 import { handleError } from '@/shared/utils/errorHandler';
 import AuthForm from '@/shared/components/AuthForm';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -169,13 +170,16 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       {/* Header with back button */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex items-center justify-center mb-6">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleBackToHome}
-            className="inline-flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            icon={<ArrowLeftIcon className="h-4 w-4" />}
+            iconPosition="left"
           >
-            <ArrowLeftIcon className="h-4 w-4 mr-1" />
-{t('navigation.backToHome')}
-          </button>
+            {t('navigation.backToHome')}
+          </Button>
         </div>
         
         <div className="flex justify-center mb-6">
