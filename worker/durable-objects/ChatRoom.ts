@@ -540,11 +540,6 @@ export class ChatRoom {
       return new Response('role must be user or system', { status: 400 });
     }
 
-    const content = this.readString(payload.content);
-    if (!content || content.length > MAX_CONTENT_LENGTH) {
-      return new Response('content invalid', { status: 400 });
-    }
-
     const attachments = this.normalizeAttachments(payload.attachments);
     if (!attachments) {
       return new Response('attachments invalid', { status: 400 });
@@ -556,6 +551,23 @@ export class ChatRoom {
     const metadata = this.normalizeMetadata(payload.metadata);
     if (metadata === undefined) {
       return new Response('metadata invalid', { status: 400 });
+    }
+    const allowEmptyContent = (() => {
+      if (roleValue !== 'system') return false;
+      if (!metadata || typeof metadata !== 'object') return false;
+      const systemKey = (metadata as Record<string, unknown>).systemMessageKey;
+      const contactForm = (metadata as Record<string, unknown>).contactForm;
+      return systemKey === 'contact_form' || typeof contactForm === 'object';
+    })();
+
+    const rawContent = typeof payload.content === 'string' ? payload.content : '';
+    const trimmedContent = rawContent.trim();
+    const content = trimmedContent.length > 0 ? trimmedContent : (allowEmptyContent ? '' : null);
+    if (content === null) {
+      return new Response('content invalid', { status: 400 });
+    }
+    if (content.length > MAX_CONTENT_LENGTH) {
+      return new Response('content invalid', { status: 400 });
     }
 
     const replyToMessageId = this.readString(payload.reply_to_message_id);

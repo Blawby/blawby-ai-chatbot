@@ -45,6 +45,7 @@ export const ConversationSidebar = ({
     practiceId,
     practiceSlug,
     scope: 'practice',
+    list: isPublicWorkspace,
     enabled: isPublicWorkspace && hasSession && Boolean(practiceId),
     onError: (message) => showError(message)
   });

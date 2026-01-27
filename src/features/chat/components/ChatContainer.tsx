@@ -20,6 +20,8 @@ import PublicConversationHeader from './PublicConversationHeader';
 import PublicConversationList from './PublicConversationList';
 import { useConversations } from '@/shared/hooks/useConversations';
 import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
+import { Button } from '@/shared/ui/Button';
+import { useTranslation } from '@/shared/i18n/hooks';
 
 interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -121,6 +123,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onLoadMoreMessages,
   messagesReady = true
 }) => {
+  const { t } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobileDetection();
@@ -132,11 +135,29 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [publicActiveTab, setPublicActiveTab] = useState<'home' | 'messages' | null>(null);
   const [publicChatOpen, setPublicChatOpen] = useState(false);
   const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
-  const filteredMessages = isPublicWorkspace
+  const baseMessages = isPublicWorkspace
     ? messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help'
       && message.metadata?.systemMessageKey !== 'intro')
     : messages;
+  const hasNonSystemMessages = baseMessages.some((message) => message.role !== 'system');
+  const filteredMessages = hasNonSystemMessages
+    ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
+    : baseMessages;
   const hasUserMessages = filteredMessages.some((message) => message.isUser);
+  const contactFormMessage = filteredMessages.find((message) => Boolean(message.contactForm));
+  const contactFormId = useMemo(() => (
+    conversationId ? `contact-form-${conversationId}` : 'contact-form'
+  ), [conversationId]);
+  const contactFormVariant = isPublicWorkspace ? 'plain' : 'card';
+  const presenceStatus = typeof isSocketReady === 'boolean'
+    ? (isSocketReady ? 'active' : 'inactive')
+    : undefined;
+  const showContactFormFooter = Boolean(
+    isPublicWorkspace
+    && contactFormMessage
+    && intakeStatus?.step === 'contact_form'
+    && onContactFormSubmit
+  );
   const publicIntroText = useMemo(() => {
     const intro = typeof practiceConfig?.introMessage === 'string'
       ? practiceConfig.introMessage.trim()
@@ -151,6 +172,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     practiceId,
     practiceSlug: practiceConfig?.slug ?? undefined,
     scope: 'practice',
+    list: isPublicWorkspace,
     enabled: isPublicWorkspace && Boolean(practiceId)
   });
   const [publicConversationPreviews, setPublicConversationPreviews] = useState<Record<string, {
@@ -171,13 +193,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         (conversation) => !fetchedPreviewIds.current.has(conversation.id)
       );
       await Promise.all(toFetch.map(async (conversation) => {
-        fetchedPreviewIds.current.add(conversation.id);
         const message = await fetchLatestConversationMessage(
           conversation.id,
           practiceId,
           practiceConfig?.slug ?? undefined
         ).catch(() => null);
         if (message?.content) {
+          fetchedPreviewIds.current.add(conversation.id);
           updates[conversation.id] = {
             content: message.content,
             role: message.role,
@@ -209,7 +231,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
         return bTime - aTime;
       });
-      const top = sorted[0];
+      const top = sorted.find((conversation) => {
+        const preview = publicConversationPreviews[conversation.id];
+        return typeof preview?.content === 'string' && preview.content.trim().length > 0;
+      });
       if (top) {
         const preview = publicConversationPreviews[top.id];
         const previewText = typeof preview?.content === 'string' ? preview.content.trim() : '';
@@ -267,15 +292,18 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   ]);
   const activeTimeLabel = useMemo(() => {
     if (!isPublicWorkspace) return '';
+    if (presenceStatus === 'active') {
+      return 'Active';
+    }
     const lastTimestamp = [...filteredMessages]
       .reverse()
       .find((message) => typeof message.timestamp === 'number')?.timestamp;
     if (!lastTimestamp) {
-      return 'Active now';
+      return 'Inactive';
     }
     const relative = formatRelativeTime(new Date(lastTimestamp).toISOString());
-    return relative ? `Active ${relative}` : 'Active now';
-  }, [filteredMessages, isPublicWorkspace]);
+    return relative ? `Active ${relative}` : 'Inactive';
+  }, [filteredMessages, isPublicWorkspace, presenceStatus]);
   const defaultPublicTab = (conversationMode || hasUserMessages) ? 'messages' : 'home';
   const activePublicTab = publicActiveTab ?? defaultPublicTab;
   const showPublicHome = isPublicWorkspace && activePublicTab === 'home';
@@ -455,7 +483,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const containerClassName = `flex flex-col ${heightClassName ?? 'h-screen md:h-screen'} w-full m-0 p-0 relative overflow-hidden ${isPublicWorkspace ? 'bg-light-bg dark:bg-dark-bg' : 'bg-white dark:bg-dark-bg'}`;
   const mainClassName = `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'items-center px-3 py-4' : 'bg-white dark:bg-dark-bg'}`;
   const frameClassName = isPublicWorkspace
-    ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden'
+    ? 'flex flex-col flex-1 min-h-0 w-full max-w-[420px] mx-auto rounded-[32px] bg-light-bg dark:bg-dark-bg shadow-[0_32px_80px_rgba(15,23,42,0.18)] border border-light-border dark:border-white/20 overflow-hidden'
     : 'flex flex-col flex-1 min-h-0 w-full';
 
   const handleReply = (target: ReplyTarget) => {
@@ -515,6 +543,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                         practiceName={practiceConfig?.name}
                         practiceLogo={practiceConfig?.profileImage ?? null}
                         activeLabel={activeTimeLabel}
+                        presenceStatus={presenceStatus}
                         onBack={() => {
                           onNavigateHome?.();
                           setPublicActiveTab('home');
@@ -550,34 +579,52 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                           isLoadingMoreMessages={isLoadingMoreMessages}
                           onLoadMoreMessages={onLoadMoreMessages}
                           showSkeleton={!messagesReady}
+                          contactFormVariant={contactFormVariant}
+                          contactFormFormId={contactFormId}
+                          showContactFormSubmit={!showContactFormFooter}
                         />
                       )}
                     </div>
-                    
-                    <MessageComposer
-                      inputValue={inputValue}
-                      setInputValue={setInputValue}
-                      previewFiles={previewFiles}
-                      uploadingFiles={uploadingFiles}
-                      removePreviewFile={removePreviewFile}
-                      handleFileSelect={handleFileSelect}
-                      handleCameraCapture={handleCameraCapture}
-                      cancelUpload={cancelUpload}
-                      isRecording={isRecording}
-                      handleMediaCapture={handleMediaCapture}
-                      setIsRecording={setIsRecording}
-                      onSubmit={handleSubmit}
-                      onKeyDown={handleKeyDown}
-                      textareaRef={textareaRef}
-                      isReadyToUpload={isReadyToUpload}
-                      isSessionReady={isSessionReady}
-                      isSocketReady={isSocketReady}
-                      intakeStatus={intakeStatus}
-                      disabled={composerDisabled}
-                      showStatusMessage={!isPublicWorkspace}
-                      replyTo={replyTarget}
-                      onCancelReply={handleCancelReply}
-                    />
+
+                    {showContactFormFooter ? (
+                      <div className="pl-4 pr-4 pb-3 bg-white dark:bg-dark-bg h-auto flex flex-col w-full sticky bottom-0 z-[1000] backdrop-blur-md">
+                        <Button
+                          type="submit"
+                          form={contactFormId}
+                          variant="primary"
+                          className="w-full"
+                          disabled={!onContactFormSubmit}
+                          data-testid="contact-form-submit-footer"
+                        >
+                          {t('forms.contactForm.submit')}
+                        </Button>
+                      </div>
+                    ) : (
+                      <MessageComposer
+                        inputValue={inputValue}
+                        setInputValue={setInputValue}
+                        previewFiles={previewFiles}
+                        uploadingFiles={uploadingFiles}
+                        removePreviewFile={removePreviewFile}
+                        handleFileSelect={handleFileSelect}
+                        handleCameraCapture={handleCameraCapture}
+                        cancelUpload={cancelUpload}
+                        isRecording={isRecording}
+                        handleMediaCapture={handleMediaCapture}
+                        setIsRecording={setIsRecording}
+                        onSubmit={handleSubmit}
+                        onKeyDown={handleKeyDown}
+                        textareaRef={textareaRef}
+                        isReadyToUpload={isReadyToUpload}
+                        isSessionReady={isSessionReady}
+                        isSocketReady={isSocketReady}
+                        intakeStatus={intakeStatus}
+                        disabled={composerDisabled}
+                        showStatusMessage={!isPublicWorkspace}
+                        replyTo={replyTarget}
+                        onCancelReply={handleCancelReply}
+                      />
+                    )}
                   </>
                 )}
               </>

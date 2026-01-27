@@ -31,6 +31,9 @@ interface MessageActionsProps {
 			opposingParty?: string;
 		};
 	};
+	contactFormVariant?: 'card' | 'plain';
+	contactFormFormId?: string;
+	showContactFormSubmit?: boolean;
 	paymentRequest?: IntakePaymentRequest;
 	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	documentChecklist?: {
@@ -54,6 +57,8 @@ interface MessageActionsProps {
 	modeSelector?: {
 		onAskQuestion: () => void;
 		onRequestConsultation: () => void;
+		showAskQuestion?: boolean;
+		showRequestConsultation?: boolean;
 	};
 	assistantRetry?: {
 		label?: string;
@@ -67,6 +72,9 @@ interface MessageActionsProps {
 export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	matterCanvas,
 	contactForm,
+	contactFormVariant,
+	contactFormFormId,
+	showContactFormSubmit,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -95,12 +103,16 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			)}
 			{modeSelector && (
 				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
-					<Button variant="secondary" size="sm" onClick={modeSelector.onAskQuestion}>
-						{t('chat.askQuestion')}
-					</Button>
-					<Button variant="secondary" size="sm" onClick={modeSelector.onRequestConsultation}>
-						{t('chat.requestConsultation')}
-					</Button>
+					{modeSelector.showAskQuestion !== false && (
+						<Button variant="secondary" size="sm" onClick={modeSelector.onAskQuestion}>
+							{t('chat.askQuestion')}
+						</Button>
+					)}
+					{modeSelector.showRequestConsultation !== false && (
+						<Button variant="secondary" size="sm" onClick={modeSelector.onRequestConsultation}>
+							{t('chat.requestConsultation')}
+						</Button>
+					)}
 				</div>
 			)}
 			{/* Display matter canvas */}
@@ -122,6 +134,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					message={contactForm.message}
 					initialValues={contactForm.initialValues}
 					onSubmit={onContactFormSubmit}
+					variant={contactFormVariant}
+					formId={contactFormFormId}
+					showSubmitButton={showContactFormSubmit}
 				/>
 			)}
 

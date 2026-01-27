@@ -43,13 +43,13 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
   );
 
   return (
-    <div className="relative flex flex-1 flex-col overflow-y-auto bg-light-bg dark:bg-dark-bg">
+    <div className="relative flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-light-bg dark:bg-dark-bg">
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-[340px] bg-gradient-to-b from-primary-700 via-primary-800/90 to-transparent dark:from-primary-900 dark:via-primary-950/90"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-gradient-to-b from-primary-700/95 via-primary-800/80 to-transparent dark:from-primary-800/95 dark:via-primary-900/70"
         aria-hidden="true"
       />
-      <div className="pointer-events-none absolute -left-12 top-10 h-40 w-40 rounded-full bg-accent-500/20 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-12 top-24 h-32 w-32 rounded-full bg-white/10 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-16 top-8 h-48 w-48 rounded-full bg-accent-500/30 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -right-10 top-24 h-36 w-36 rounded-full bg-white/12 blur-3xl" aria-hidden="true" />
 
       <section className="relative z-10 px-6 pb-12 pt-8 text-white">
         <div className="flex items-center gap-3">
@@ -62,7 +62,7 @@ const PublicEmbedHome: FunctionComponent<PublicEmbedHomeProps> = ({
           <div className="text-lg font-semibold tracking-wide text-white">{resolvedName}</div>
         </div>
 
-        <div className="mt-16 mb-6 space-y-1 text-3xl font-semibold leading-tight">
+        <div className="mt-20 mb-8 space-y-1 text-3xl font-semibold leading-tight">
           <div className="animate-float-in">Hi there 👋</div>
           <div className="animate-float-in [animation-delay:120ms]">How can we help?</div>
         </div>

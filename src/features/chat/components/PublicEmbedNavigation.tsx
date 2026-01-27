@@ -18,7 +18,7 @@ const PublicEmbedNavigation: FunctionComponent<PublicEmbedNavigationProps> = ({
   const inactiveClasses = 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200';
 
   return (
-    <div className="border-t-2 border-light-border bg-white/95 px-4 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.12)] dark:border-white/20 dark:bg-dark-bg/95 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.55)]">
+    <div className="border-t border-light-border bg-white/95 px-4 py-2 shadow-[0_-6px_20px_rgba(15,23,42,0.12)] dark:border-white/20 dark:bg-dark-bg/95 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.55)]">
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"

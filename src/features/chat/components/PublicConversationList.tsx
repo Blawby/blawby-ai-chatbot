@@ -111,7 +111,7 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
         )}
       </div>
 
-      <div className="border-t-2 border-light-border px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.06)] dark:border-dark-border">
+      <div className="border-t-1 border-light-border px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.06)] dark:border-dark-border">
         <Button
           variant="primary"
           size="lg"

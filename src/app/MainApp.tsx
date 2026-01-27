@@ -377,8 +377,13 @@ export function MainApp({
 
 
   const handleMessageError = useCallback((error: string | Error) => {
+    const message = typeof error === 'string' ? error : error.message;
+    const normalized = message.toLowerCase();
+    if (normalized.includes('chat connection closed')) {
+      return;
+    }
     console.error('Message handling error:', error);
-    showErrorRef.current?.(typeof error === 'string' ? error : 'We hit a snag sending that message.');
+    showErrorRef.current?.(message || 'We hit a snag sending that message.');
   }, []);
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {

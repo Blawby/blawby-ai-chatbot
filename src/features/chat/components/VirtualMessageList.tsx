@@ -26,6 +26,9 @@ interface VirtualMessageListProps {
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
     onOpenPayment?: (request: IntakePaymentRequest) => void;
+    contactFormVariant?: 'card' | 'plain';
+    contactFormFormId?: string;
+    showContactFormSubmit?: boolean;
     practiceId?: string;
     onReply?: (target: ReplyTarget) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;
@@ -56,6 +59,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onOpenSidebar,
     onContactFormSubmit,
     onOpenPayment,
+    contactFormVariant,
+    contactFormFormId,
+    showContactFormSubmit,
     practiceId,
     onReply,
     onToggleReaction,
@@ -109,12 +115,40 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             return mockAvatar;
         }
         if (isBotMessage) {
-            return blawbyProfile;
+            return practiceProfile.src || practiceProfile.name !== 'Practice'
+                ? practiceProfile
+                : blawbyProfile;
         }
         if (message.isUser) {
             return currentUserProfile;
         }
         return isPracticeViewer ? clientProfile : practiceProfile;
+    };
+
+    const resolveModeSelector = (message: ChatMessageUI) => {
+        if (!modeSelectorActions) {
+            return undefined;
+        }
+        const meta = message.metadata?.modeSelector;
+        if (!meta) {
+            return undefined;
+        }
+        if (meta === true) {
+            return {
+                onAskQuestion: modeSelectorActions.onAskQuestion,
+                onRequestConsultation: modeSelectorActions.onRequestConsultation
+            };
+        }
+        if (typeof meta === 'object') {
+            const metaConfig = meta as { showAskQuestion?: boolean; showRequestConsultation?: boolean };
+            return {
+                onAskQuestion: modeSelectorActions.onAskQuestion,
+                onRequestConsultation: modeSelectorActions.onRequestConsultation,
+                showAskQuestion: metaConfig.showAskQuestion,
+                showRequestConsultation: metaConfig.showRequestConsultation
+            };
+        }
+        return undefined;
     };
 
     const checkIfScrolledToBottom = useCallback((element: HTMLElement) => {
@@ -358,6 +392,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     } : null;
                     const canReply = Boolean(onReply && message.id);
 
+                    const modeSelector = resolveModeSelector(message);
+
                     return (
                         <Message
                             key={message.id}
@@ -385,6 +421,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             } : undefined}
                             matterCanvas={message.matterCanvas}
                             contactForm={message.contactForm}
+                            contactFormVariant={contactFormVariant}
+                            contactFormFormId={contactFormFormId}
+                            showContactFormSubmit={showContactFormSubmit}
                             generatedPDF={message.generatedPDF}
                             paymentRequest={message.paymentRequest}
                             practiceConfig={practiceConfig}
@@ -397,12 +436,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             id={message.id}
                             practiceId={practiceId}
                             assistantRetry={message.assistantRetry}
-                            modeSelector={message.metadata?.modeSelector && modeSelectorActions
-                                ? {
-                                    onAskQuestion: modeSelectorActions.onAskQuestion,
-                                    onRequestConsultation: modeSelectorActions.onRequestConsultation
-                                }
-                                : undefined}
+                            modeSelector={modeSelector}
                         />
                     );
                 })}

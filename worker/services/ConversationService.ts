@@ -868,7 +868,7 @@ export class ConversationService {
     request?: Request;
   }): Promise<ConversationMessage> {
     const trimmedContent = typeof options.content === 'string' ? options.content.trim() : '';
-    if (!trimmedContent) {
+    if (!trimmedContent && options.clientId !== 'system-contact-form') {
       throw HttpErrors.badRequest('System message content is required');
     }
     if (trimmedContent.length > ConversationService.MAX_SYSTEM_MESSAGE_LENGTH) {

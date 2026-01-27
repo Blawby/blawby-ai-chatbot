@@ -39,6 +39,9 @@ const GAP_FETCH_LIMIT = 50;
 const MAX_GAP_FETCH_ATTEMPTS = 3;
 const GAP_FETCH_RETRY_DELAY_MS = 1000;
 const MESSAGE_CACHE_LIMIT = 200;
+const RECONNECT_BASE_DELAY_MS = 800;
+const RECONNECT_MAX_DELAY_MS = 12000;
+const RECONNECT_MAX_ATTEMPTS = 5;
 
 const createClientId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -117,6 +120,8 @@ export const useMessageHandling = ({
   const socketConversationIdRef = useRef<string | null>(null);
   const connectChatRoomRef = useRef<(conversationId: string) => void>(() => {});
   const isClosingSocketRef = useRef(false);
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSocketReady, setIsSocketReady] = useState(false);
   conversationIdRef.current = conversationId;
   practiceIdRef.current = practiceId;
@@ -719,6 +724,45 @@ export const useMessageHandling = ({
     }
   }, [applyServerMessages, onError]);
 
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleReconnect = useCallback((targetConversationId: string) => {
+    if (isDisposedRef.current || isClosingSocketRef.current) {
+      return;
+    }
+    if (!sessionReady || !targetConversationId) {
+      return;
+    }
+    if (conversationIdRef.current !== targetConversationId) {
+      return;
+    }
+    if (reconnectTimerRef.current) {
+      return;
+    }
+    const nextAttempt = reconnectAttemptRef.current + 1;
+    if (nextAttempt > RECONNECT_MAX_ATTEMPTS) {
+      return;
+    }
+    reconnectAttemptRef.current = nextAttempt;
+    const backoff = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_DELAY_MS);
+    const jitter = Math.floor(Math.random() * 250);
+    reconnectTimerRef.current = globalThis.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (isDisposedRef.current || isClosingSocketRef.current) {
+        return;
+      }
+      if (!sessionReady || conversationIdRef.current !== targetConversationId) {
+        return;
+      }
+      connectChatRoomRef.current(targetConversationId);
+    }, backoff + jitter);
+  }, [sessionReady]);
+
 
   const connectChatRoom = useCallback((targetConversationId: string) => {
     if (!sessionReady) {
@@ -727,6 +771,7 @@ export const useMessageHandling = ({
     if (!targetConversationId) {
       return;
     }
+    clearReconnectTimer();
     if (typeof WebSocket === 'undefined') {
       onError?.('WebSocket is not available in this environment.');
       return;
@@ -754,6 +799,8 @@ export const useMessageHandling = ({
     wsRef.current = ws;
 
     ws.addEventListener('open', () => {
+      reconnectAttemptRef.current = 0;
+      clearReconnectTimer();
       ws.send(JSON.stringify({
         type: 'auth',
         data: {
@@ -862,7 +909,10 @@ export const useMessageHandling = ({
         socketConversationIdRef.current = null;
       }
       if (!isClosingSocketRef.current && conversationIdRef.current === targetConversationId) {
-        onError?.('Chat connection closed.');
+        if (import.meta.env.DEV) {
+          console.info('[ChatRoom] WebSocket closed; will reconnect on next action.');
+        }
+        scheduleReconnect(targetConversationId);
       }
     });
 
@@ -872,6 +922,7 @@ export const useMessageHandling = ({
       }
     });
   }, [
+    clearReconnectTimer,
     fetchGapMessages,
     flushPendingAcks,
     handleMessageAck,
@@ -881,6 +932,7 @@ export const useMessageHandling = ({
     onError,
     rejectSocketReady,
     resolveSocketReady,
+    scheduleReconnect,
     sendFrame,
     sendReadUpdate,
     sessionReady
@@ -893,12 +945,14 @@ export const useMessageHandling = ({
     isSocketReadyRef.current = false;
     rejectSocketReady(new Error('Chat connection closed'));
     flushPendingAcks(new Error('Chat connection closed'));
+    clearReconnectTimer();
+    reconnectAttemptRef.current = 0;
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
     socketConversationIdRef.current = null;
-  }, [flushPendingAcks, rejectSocketReady]);
+  }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
 
   const sendMessageOverWs = useCallback(async (
     content: string,

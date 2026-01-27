@@ -419,15 +419,15 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     }
 
     const content = typeof body.content === 'string' ? body.content.trim() : '';
-    if (!content) {
-      throw HttpErrors.badRequest('content is required');
-    }
 
     const metadata = (body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata))
       ? body.metadata as Record<string, unknown>
       : undefined;
     if (rawClientId === 'system-contact-form' && !isValidContactFormMetadata(metadata)) {
       throw HttpErrors.badRequest('contactForm metadata is required');
+    }
+    if (!content && rawClientId !== 'system-contact-form') {
+      throw HttpErrors.badRequest('content is required');
     }
 
     const storedMessage = await conversationService.sendSystemMessage({
@@ -531,6 +531,18 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const isAnonymous = authContext.isAnonymous === true;
 
     if (isAnonymous) {
+      const listRequested = ['1', 'true'].includes(url.searchParams.get('list') || '');
+      if (listRequested) {
+        const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const conversations = await conversationService.getConversations({
+          practiceId,
+          userId,
+          status: status || undefined,
+          limit
+        });
+        return createJsonResponse({ conversations });
+      }
       // Anonymous user: Return single conversation (get-or-create)
       const conversation = await conversationService.getOrCreateCurrentConversation(
         userId,

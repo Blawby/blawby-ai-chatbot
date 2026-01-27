@@ -6,6 +6,7 @@ interface PublicConversationHeaderProps {
   practiceName?: string | null;
   practiceLogo?: string | null;
   activeLabel?: string;
+  presenceStatus?: 'active' | 'inactive';
   onBack?: () => void;
 }
 
@@ -13,6 +14,7 @@ const PublicConversationHeader: FunctionComponent<PublicConversationHeaderProps>
   practiceName,
   practiceLogo,
   activeLabel,
+  presenceStatus,
   onBack
 }) => {
   const resolvedName = typeof practiceName === 'string'
@@ -37,6 +39,7 @@ const PublicConversationHeader: FunctionComponent<PublicConversationHeaderProps>
         name={resolvedName}
         size="sm"
         className="ring-2 ring-white/10"
+        status={presenceStatus}
       />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">

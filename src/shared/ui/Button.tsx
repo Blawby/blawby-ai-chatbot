@@ -12,6 +12,7 @@ interface ButtonProps extends JSX.HTMLAttributes<HTMLButtonElement> {
   children?: ComponentChildren;
   className?: string;
   type?: 'button' | 'submit' | 'reset';
+  form?: string;
   style?: JSX.CSSProperties;
   icon?: ComponentChildren;
   iconPosition?: 'left' | 'right';

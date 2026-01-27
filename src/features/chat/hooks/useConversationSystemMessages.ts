@@ -62,7 +62,8 @@ export const useConversationSystemMessages = ({
   ) => {
     if (!conversationId || !practiceId) return;
     const trimmedContent = content.trim();
-    if (!trimmedContent) return;
+    const shouldAllowEmpty = clientId === 'system-contact-form';
+    if (!trimmedContent && !shouldAllowEmpty) return;
     const key = `${conversationId}:${clientId}`;
     if (completedRef.current.has(key) || inFlightRef.current.has(key)) {
       return;
@@ -74,7 +75,7 @@ export const useConversationSystemMessages = ({
         practiceId,
         {
           clientId,
-          content: trimmedContent,
+          content: shouldAllowEmpty ? '' : trimmedContent,
           metadata
         },
         practiceSlug
@@ -141,7 +142,7 @@ export const useConversationSystemMessages = ({
     }
     void persistSystemMessage(
       'system-contact-form',
-      'Could you share your contact details? It will help us find the best lawyer for your case.',
+      '',
       {
         systemMessageKey: 'contact_form',
         contactForm: {

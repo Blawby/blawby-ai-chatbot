@@ -20,6 +20,9 @@ export interface ContactFormProps {
   required?: string[];
   message?: string;
   initialValues?: Partial<ContactData>;
+  variant?: 'card' | 'plain';
+  formId?: string;
+  showSubmitButton?: boolean;
 }
 
 export interface ContactData {
@@ -125,7 +128,10 @@ export function ContactForm({
   fields = [...ALLOWED_FIELDS], // Copy readonly array to mutable
   required = ['name', 'email'],
   message,
-  initialValues
+  initialValues,
+  variant = 'card',
+  formId,
+  showSubmitButton = true
 }: ContactFormProps): JSX.Element {
   // Validate props without mutation
   const validatedProps = validateContactFormProps(fields, required, message);
@@ -159,8 +165,12 @@ export function ContactForm({
     description: normalizedInitialValues.description ?? ''
   };
 
+  const containerClasses = variant === 'plain'
+    ? 'w-full'
+    : 'bg-white dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg p-6 shadow-sm';
+
   return (
-    <div className="bg-white dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg p-6 shadow-sm" data-testid="contact-form">
+    <div className={containerClasses} data-testid="contact-form">
       {validMessage && (
         <div className="mb-4 text-gray-700 dark:text-gray-300">
           {validMessage}
@@ -168,6 +178,7 @@ export function ContactForm({
       )}
       
       <Form
+        id={formId}
         initialData={initialData}
         onSubmit={async (formData: FormDataType) => {
           if (import.meta.env.DEV) {
@@ -320,15 +331,17 @@ export function ContactForm({
           </FormItem>
         )}
 
-        <div className="pt-4">
-          <Button
-            type="submit"
-            data-testid="contact-form-submit"
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {t('forms.contactForm.submit')}
-          </Button>
-        </div>
+        {showSubmitButton && (
+          <div className="pt-4">
+            <Button
+              type="submit"
+              data-testid="contact-form-submit"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {t('forms.contactForm.submit')}
+            </Button>
+          </div>
+        )}
       </Form>
     </div>
   );
