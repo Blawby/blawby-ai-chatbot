@@ -864,10 +864,15 @@ export class ConversationService {
     auditActorId?: string | null;
     auditPayload?: Record<string, unknown>;
     skipPracticeValidation?: boolean;
+    clientId?: string;
+    /**
+     * Allow sending an empty system message (used for form-driven system messages).
+     */
+    allowEmptyContent?: boolean;
     request?: Request;
   }): Promise<ConversationMessage> {
     const trimmedContent = typeof options.content === 'string' ? options.content.trim() : '';
-    if (!trimmedContent) {
+    if (!trimmedContent && !options.allowEmptyContent) {
       throw HttpErrors.badRequest('System message content is required');
     }
     if (trimmedContent.length > ConversationService.MAX_SYSTEM_MESSAGE_LENGTH) {
@@ -925,7 +930,7 @@ export class ConversationService {
       content: trimmedContent,
       metadata: metadata ?? undefined,
       replyToMessageId: options.replyToMessageId ?? null,
-      clientId: crypto.randomUUID()
+      clientId: options.clientId ?? crypto.randomUUID()
     });
 
     const message = await this.getMessage(ack.messageId);

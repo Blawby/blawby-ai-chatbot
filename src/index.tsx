@@ -22,6 +22,7 @@ import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { AppGuard } from '@/app/AppGuard';
 import { MattersPreviewPage } from '@/pages/MattersPreviewPage';
+import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 
@@ -568,7 +569,20 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
     }
   }, [session?.user, practiceId, sessionIsPending]);
 
-  if (isLoading && !practiceId) {
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (practiceNotFound) {
+    return (
+      <PracticeNotFound
+        practiceId={slug || practiceId}
+        onRetry={handleRetryPracticeConfig}
+      />
+    );
+  }
+
+  if (!practiceId) {
     return <LoadingScreen />;
   }
 

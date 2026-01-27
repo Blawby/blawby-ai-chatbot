@@ -14,15 +14,36 @@ const EMPTY_REPLY_FALLBACK = 'I wasn\'t able to generate a response. Please try 
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TOTAL_LENGTH = 12000;
+const CONSULTATION_CTA_REGEX = /\b(request(?:ing)?|schedule|book)\s+(a\s+)?consultation\b/i;
+const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b|\b(services?|practice (?:area|areas)|specializ(?:e|es) in|personal injury)\b.*\?)/i;
+const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
+
+const normalizeText = (text: string): string =>
+  text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+const extractServiceNames = (details: Record<string, unknown> | null): string[] => {
+  if (!details) return [];
+  const services = details.services;
+  if (!Array.isArray(services)) return [];
+  return services
+    .map((service) => (typeof service?.name === 'string' ? service.name.trim() : ''))
+    .filter((name) => name.length > 0);
+};
+
+const formatServiceList = (names: string[]): string => {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
+  return `${names.slice(0, 3).join(', ')}, and ${names.length - 3} more`;
+};
 
 const normalizeApostrophes = (text: string): string => text.replace(/[’']/g, '\'');
 
 const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; content: string }>): boolean => {
   const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
   if (!lastUserMessage) return false;
-  return /\b(legal advice|should I|can I sue|lawsuit|sue|liable|liability|contract dispute|criminal|charged|settlement|custody|divorce|immigration)\b/i.test(
-    lastUserMessage.content
-  );
+  return LEGAL_INTENT_REGEX.test(lastUserMessage.content);
 };
 
 const countQuestions = (text: string): number => (text.match(/\?/g) || []).length;
@@ -98,11 +119,26 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
   });
 
   const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, body.practiceSlug);
+  const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
   let reply: string;
   let model = env.AI_MODEL || DEFAULT_AI_MODEL;
 
+  const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
+  const serviceNames = extractServiceNames(details);
+  const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
+
   if (!details || !isPublic) {
     reply = 'I don’t have access to this practice’s details right now. Please click “Request consultation” to connect with the practice.';
+  } else if (hasLegalIntent) {
+    reply = LEGAL_DISCLAIMER;
+  } else if (lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
+    const normalizedQuestion = normalizeText(lastUserMessage.content);
+    const matchedService = serviceNames.find((service) => normalizedQuestion.includes(normalizeText(service)));
+    if (matchedService) {
+      reply = `Yes — we handle ${matchedService}. Would you like to request a consultation?`;
+    } else {
+      reply = `We currently handle ${formatServiceList(serviceNames)}. Would you like to request a consultation?`;
+    }
   } else {
     const aiClient = createAiClient(env);
     if (!env.AI_MODEL && aiClient.provider === 'cloudflare_gateway') {
@@ -172,15 +208,23 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
     }
   }
 
+  const shouldPromptConsultation =
+    shouldRequireDisclaimer(body.messages)
+    || CONSULTATION_CTA_REGEX.test(reply);
+
   const storedMessage = await conversationService.sendSystemMessage({
     conversationId: body.conversationId,
     practiceId: conversation.practice_id,
     content: reply,
     metadata: {
       source: 'ai',
-      model
+      model,
+      ...(shouldPromptConsultation
+        ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
+        : {})
     },
     recipientUserId: authContext.user.id,
+    skipPracticeValidation: shouldSkipPracticeValidation,
     request
   });
 

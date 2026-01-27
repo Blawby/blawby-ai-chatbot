@@ -10,7 +10,6 @@ import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
 import { useTranslation } from '@/shared/i18n/hooks';
-import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
 
 interface MessageComposerProps {
@@ -35,8 +34,7 @@ interface MessageComposerProps {
     step: string;
   };
   disabled?: boolean;
-  conversationMode?: ConversationMode | null;
-  onRequestConsultation?: () => void;
+  showStatusMessage?: boolean;
   replyTo?: ReplyTarget | null;
   onCancelReply?: () => void;
 }
@@ -61,8 +59,7 @@ const MessageComposer = ({
   isSocketReady,
   intakeStatus,
   disabled,
-  conversationMode,
-  onRequestConsultation,
+  showStatusMessage = true,
   replyTo,
   onCancelReply
 }: MessageComposerProps) => {
@@ -181,20 +178,7 @@ const MessageComposer = ({
               />
             </div>
           )}
-          {conversationMode === 'ASK_QUESTION' && onRequestConsultation && (
-            <div className="flex-shrink-0">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={onRequestConsultation}
-                disabled={isComposerDisabled}
-              >
-                {t('chat.requestConsultation')}
-              </Button>
-            </div>
-          )}
-          
+
           <div className="flex-1 flex items-center">
             <textarea
               ref={textareaRef}
@@ -235,9 +219,11 @@ const MessageComposer = ({
         </div>
       </div>
 
-      <div className="text-xs text-gray-600 dark:text-gray-400 text-center py-1 opacity-80">
-        {statusMessage}
-      </div>
+      {showStatusMessage && (
+        <div className="text-xs text-gray-600 dark:text-gray-400 text-center py-1 opacity-80">
+          {statusMessage}
+        </div>
+      )}
     </form>
   );
 };

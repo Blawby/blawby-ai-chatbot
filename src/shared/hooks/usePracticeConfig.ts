@@ -152,8 +152,8 @@ export const usePracticeConfig = ({
             slug: publicDetails.slug ?? currentPracticeId,
             name: publicDetails.name ?? PLATFORM_SETTINGS.name,
             profileImage: publicDetails.logo ?? PLATFORM_SETTINGS.profileImage ?? null,
-            introMessage: details?.introMessage ?? PLATFORM_SETTINGS.introMessage ?? '',
-            description: details?.description ?? PLATFORM_SETTINGS.description ?? '',
+            introMessage: details?.introMessage ?? '',
+            description: details?.description ?? '',
             isPublic: details?.isPublic
           });
 

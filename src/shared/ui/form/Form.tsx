@@ -44,6 +44,7 @@ export const useFormContext = () => {
 
 export interface FormProps<T extends FormData = FormData> {
   children: ComponentChildren;
+  id?: string;
   initialData?: T;
   onSubmit?: (data: T) => void | Promise<void>;
   /**
@@ -62,6 +63,7 @@ export interface FormProps<T extends FormData = FormData> {
 
 export function Form<T extends FormData = FormData>({
   children,
+  id,
   initialData,
   onSubmit,
   onSubmitError,
@@ -266,6 +268,7 @@ export function Form<T extends FormData = FormData>({
   return (
     <FormContext.Provider value={contextValue}>
       <form
+        id={id}
         onSubmit={handleSubmit}
         className={cn('space-y-4', className)}
         noValidate

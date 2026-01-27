@@ -28,6 +28,9 @@ const SOCKET_READY_TIMEOUT_MS = 8000;
 const GAP_FETCH_LIMIT = 50;
 const MAX_GAP_FETCH_ATTEMPTS = 3;
 const GAP_FETCH_RETRY_DELAY_MS = 1000;
+const RECONNECT_BASE_DELAY_MS = 800;
+const RECONNECT_MAX_DELAY_MS = 12000;
+const RECONNECT_MAX_ATTEMPTS = 5;
 
 const createClientId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -158,6 +161,7 @@ export function useConversation({
   onError,
 }: UseConversationOptions): UseConversationReturn {
   const { session } = useSessionContext();
+  const sessionReady = session !== null;
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ConversationMessageUI[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -184,6 +188,10 @@ export function useConversation({
     timeoutId: ReturnType<typeof setTimeout>;
   }>());
   const pendingClientMessageRef = useRef(new Map<string, string>());
+  const connectChatRoomRef = useRef<() => void>(() => {});
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isClosingSocketRef = useRef(false);
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ConversationMessageUI => {
@@ -445,6 +453,42 @@ export function useConversation({
     }
   }, [applyServerMessages, conversationId, practiceId, practiceSlug, onError]);
 
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleReconnect = useCallback(() => {
+    if (isDisposedRef.current || isClosingSocketRef.current) {
+      return;
+    }
+    if (!sessionReady || !conversationId) {
+      return;
+    }
+    if (reconnectTimerRef.current) {
+      return;
+    }
+    const nextAttempt = reconnectAttemptRef.current + 1;
+    if (nextAttempt > RECONNECT_MAX_ATTEMPTS) {
+      return;
+    }
+    reconnectAttemptRef.current = nextAttempt;
+    const backoff = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_DELAY_MS);
+    const jitter = Math.floor(Math.random() * 250);
+    reconnectTimerRef.current = globalThis.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (isDisposedRef.current || isClosingSocketRef.current) {
+        return;
+      }
+      if (!sessionReady || !conversationId) {
+        return;
+      }
+      connectChatRoomRef.current();
+    }, backoff + jitter);
+  }, [conversationId, sessionReady]);
+
   const handleMessageAck = useCallback((data: Record<string, unknown>) => {
     const clientId = typeof data.client_id === 'string' ? data.client_id : null;
     const messageId = typeof data.message_id === 'string' ? data.message_id : null;
@@ -547,6 +591,8 @@ export function useConversation({
       onError?.(message);
       return;
     }
+    clearReconnectTimer();
+    isClosingSocketRef.current = false;
     if (
       wsRef.current &&
       wsRef.current.readyState === WebSocket.OPEN &&
@@ -567,6 +613,8 @@ export function useConversation({
     wsRef.current = ws;
 
     ws.addEventListener('open', () => {
+      reconnectAttemptRef.current = 0;
+      clearReconnectTimer();
       ws.send(JSON.stringify({
         type: 'auth',
         data: {
@@ -675,9 +723,10 @@ export function useConversation({
       if (!conversationId) {
         return;
       }
-      const message = 'Chat connection closed.';
-      setError(message);
-      onError?.(message);
+      if (import.meta.env.DEV) {
+        console.info('[ChatRoom] WebSocket closed; will reconnect on next action.');
+      }
+      scheduleReconnect();
     });
 
     ws.addEventListener('error', (error) => {
@@ -686,6 +735,7 @@ export function useConversation({
       }
     });
   }, [
+    clearReconnectTimer,
     conversationId,
     fetchGapMessages,
     flushPendingAcks,
@@ -695,19 +745,25 @@ export function useConversation({
     onError,
     rejectSocketReady,
     resolveSocketReady,
+    scheduleReconnect,
     sendFrame,
     sendReadUpdate
   ]);
 
+  connectChatRoomRef.current = connectChatRoom;
+
   const closeChatSocket = useCallback(() => {
+    isClosingSocketRef.current = true;
     isSocketReadyRef.current = false;
     rejectSocketReady(new Error('Chat connection closed'));
     flushPendingAcks(new Error('Chat connection closed'));
+    clearReconnectTimer();
+    reconnectAttemptRef.current = 0;
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
-  }, [flushPendingAcks, rejectSocketReady]);
+  }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
 
   const sendMessageOverWs = useCallback(async (
     content: string,

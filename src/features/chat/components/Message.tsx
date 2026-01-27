@@ -47,6 +47,9 @@ interface MessageProps {
 			opposingParty?: string;
 		};
 	};
+	contactFormVariant?: 'card' | 'plain';
+	contactFormFormId?: string;
+	showContactFormSubmit?: boolean;
 	paymentRequest?: IntakePaymentRequest;
 	documentChecklist?: {
 		matterType: string;
@@ -69,6 +72,8 @@ interface MessageProps {
 	modeSelector?: {
 		onAskQuestion: () => void;
 		onRequestConsultation: () => void;
+		showAskQuestion?: boolean;
+		showRequestConsultation?: boolean;
 	};
 	assistantRetry?: {
 		label?: string;
@@ -107,6 +112,9 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	size = 'md',
 	matterCanvas,
 	contactForm,
+	contactFormVariant,
+	contactFormFormId,
+	showContactFormSubmit,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -137,9 +145,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 		file.type.startsWith('audio/')
 	);
 
+	const isContactFormMessage = Boolean(contactForm);
 	// Avatar is resolved by the message list to keep sender rules in one place.
-	const messageAvatar = avatar;
-	const showHeader = Boolean(authorName || timestamp);
+	const messageAvatar = isContactFormMessage ? undefined : avatar;
+	const showHeader = !isContactFormMessage && Boolean(authorName || timestamp);
 	const contentClassName = showHeader ? 'mt-1' : '';
 	const formattedTime = timestamp
 		? new Date(timestamp).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
@@ -148,15 +157,20 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
-	const showActions = Boolean(onReply || onToggleReaction);
-	const hasReactions = reactions.length > 0;
-	const hasReplyPreview = Boolean(replyPreview);
+	const showActions = !isContactFormMessage && Boolean(onReply || onToggleReaction);
+	const hasReactions = !isContactFormMessage && reactions.length > 0;
+	const hasReplyPreview = !isContactFormMessage && Boolean(replyPreview);
+	const wrapperClassName = [
+		'relative flex items-start gap-3 mb-2 last:mb-0',
+		isContactFormMessage ? 'px-0 py-0' : 'px-3 py-2 rounded-md group transition-colors duration-150 hover:bg-white/5',
+		className
+	].filter(Boolean).join(' ');
 
 	return (
 		<div
 			id={_id ? `message-${_id}` : undefined}
 			data-message-id={_id}
-			className={`group relative flex items-start gap-3 px-3 py-2 mb-2 last:mb-0 rounded-md transition-colors duration-150 hover:bg-white/5 ${className}`}
+			className={wrapperClassName}
 		>
 			{/* Avatar */}
 			{messageAvatar && (
@@ -200,7 +214,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				variant={variant}
 				hasOnlyMedia={hasOnlyMedia}
 			>
-				{replyPreview && (
+				{hasReplyPreview && replyPreview && (
 					<button
 						type="button"
 						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-gray-400 ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-gray-300' : 'cursor-default pointer-events-none'}`}
@@ -208,7 +222,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						disabled={!onReplyPreviewClick}
 						aria-label="Jump to replied message"
 					>
-						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t-2 border-gray-600/70" />
+						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t border-gray-600/70" />
 						{replyPreview.avatar && (
 							<MessageAvatar
 								src={replyPreview.avatar.src}
@@ -258,6 +272,9 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				<MessageActions
 					matterCanvas={matterCanvas}
 					contactForm={contactForm}
+					contactFormVariant={contactFormVariant}
+					contactFormFormId={contactFormFormId}
+					showContactFormSubmit={showContactFormSubmit}
 					documentChecklist={documentChecklist}
 					generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}

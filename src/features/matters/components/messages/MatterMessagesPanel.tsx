@@ -192,7 +192,8 @@ export const MatterMessagesPanel = ({ matter }: MatterMessagesPanelProps) => {
             profileImage: null,
             practiceId: 'preview',
             description: 'Matter conversation',
-            slug: 'blawby'
+            slug: 'blawby',
+            introMessage: null
           }}
           practiceId="preview"
           conversationId={matter.id}

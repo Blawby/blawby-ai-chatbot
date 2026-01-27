@@ -12,6 +12,7 @@ interface UseConversationsOptions {
   scope?: 'practice' | 'all';
   limit?: number;
   offset?: number;
+  list?: boolean;
   enabled?: boolean;
   onError?: (error: string) => void;
 }
@@ -46,6 +47,7 @@ export function useConversations({
   scope = 'practice',
   limit,
   offset,
+  list = false,
   enabled = true,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
@@ -115,6 +117,9 @@ export function useConversations({
       if (offset !== undefined && offset !== null) {
         params.set('offset', offset.toString());
       }
+      if (list) {
+        params.set('list', 'true');
+      }
 
       const queryString = params.toString();
       const response = await fetch(`${getConversationsEndpoint()}${queryString ? `?${queryString}` : ''}`, {
@@ -182,7 +187,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, practiceSlug, matterId, status, scope, limit, offset, enabled]);
+  }, [practiceId, practiceSlug, matterId, status, scope, limit, offset, list, enabled]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {

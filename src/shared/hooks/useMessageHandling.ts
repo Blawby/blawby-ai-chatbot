@@ -39,6 +39,22 @@ const GAP_FETCH_LIMIT = 50;
 const MAX_GAP_FETCH_ATTEMPTS = 3;
 const GAP_FETCH_RETRY_DELAY_MS = 1000;
 const MESSAGE_CACHE_LIMIT = 200;
+const RECONNECT_BASE_DELAY_MS = 800;
+const RECONNECT_MAX_DELAY_MS = 12000;
+const RECONNECT_MAX_ATTEMPTS = 5;
+
+type ContactFormMetadata = {
+  fields: string[];
+  required: string[];
+  message?: string;
+  initialValues?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    opposingParty?: string;
+  };
+};
 
 const createClientId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -52,6 +68,55 @@ const isTempMessageId = (messageId: string): boolean => messageId.startsWith('te
 const getMessageCacheKey = (practiceId: string, conversationId: string): string => (
   `chat:messages:${practiceId}:${conversationId}`
 );
+
+const parseContactFormMetadata = (metadata: unknown): ContactFormMetadata | undefined => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return undefined;
+  }
+  const contactForm = (metadata as { contactForm?: unknown }).contactForm;
+  if (!contactForm || typeof contactForm !== 'object' || Array.isArray(contactForm)) {
+    return undefined;
+  }
+  const { fields, required, message, initialValues } = contactForm as Record<string, unknown>;
+  if (!Array.isArray(fields) || !fields.every((field) => typeof field === 'string')) {
+    return undefined;
+  }
+  if (!Array.isArray(required) || !required.every((field) => typeof field === 'string')) {
+    return undefined;
+  }
+  if (message !== undefined && typeof message !== 'string') {
+    return undefined;
+  }
+  const normalizedMessage = typeof message === 'string' ? message : undefined;
+  let normalizedInitialValues: ContactFormMetadata['initialValues'] | undefined;
+  if (initialValues !== undefined) {
+    if (!initialValues || typeof initialValues !== 'object' || Array.isArray(initialValues)) {
+      return undefined;
+    }
+    const rawInitialValues = initialValues as Record<string, unknown>;
+    const allowedKeys = ['name', 'email', 'phone', 'location', 'opposingParty'] as const;
+    normalizedInitialValues = {};
+    for (const key of allowedKeys) {
+      const value = rawInitialValues[key];
+      if (value === undefined) {
+        continue;
+      }
+      if (typeof value !== 'string') {
+        return undefined;
+      }
+      normalizedInitialValues[key] = value;
+    }
+    if (Object.keys(normalizedInitialValues).length === 0) {
+      normalizedInitialValues = undefined;
+    }
+  }
+  return {
+    fields,
+    required,
+    message: normalizedMessage,
+    initialValues: normalizedInitialValues
+  };
+};
 
 /**
  * Hook that uses blawby-ai practice for all message handling
@@ -117,6 +182,8 @@ export const useMessageHandling = ({
   const socketConversationIdRef = useRef<string | null>(null);
   const connectChatRoomRef = useRef<(conversationId: string) => void>(() => {});
   const isClosingSocketRef = useRef(false);
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSocketReady, setIsSocketReady] = useState(false);
   conversationIdRef.current = conversationId;
   practiceIdRef.current = practiceId;
@@ -132,6 +199,16 @@ export const useMessageHandling = ({
       window.__DEBUG_AI_MESSAGES__?.(messages);
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (mode === 'REQUEST_CONSULTATION') {
+      setIsConsultFlowActive(true);
+      return;
+    }
+    if (mode === 'ASK_QUESTION' || mode === null) {
+      setIsConsultFlowActive(false);
+    }
+  }, [mode]);
 
   const logDev = useCallback((message: string, data?: unknown) => {
     if (import.meta.env.DEV) {
@@ -331,6 +408,7 @@ export const useMessageHandling = ({
         : 'user';
     const isUser = normalizedRole === 'user'
       && Boolean(senderId && currentUserId && senderId === currentUserId);
+    const contactForm = parseContactFormMetadata(msg.metadata);
 
     return {
       id: msg.id,
@@ -347,6 +425,7 @@ export const useMessageHandling = ({
         type: 'application/octet-stream',
         url: '', // TODO: Generate file URL from file ID
       })) : undefined,
+      contactForm,
       isUser
     };
   }, [currentUserId]);
@@ -421,6 +500,10 @@ export const useMessageHandling = ({
 
     sendReadUpdate(nextLatestSeq);
   }, [sendReadUpdate, toUIMessage]);
+
+  const ingestServerMessages = useCallback((incoming: ConversationMessage[]) => {
+    applyServerMessages(incoming);
+  }, [applyServerMessages]);
 
   const handleMessageAck = useCallback((data: Record<string, unknown>) => {
     const clientId = typeof data.client_id === 'string' ? data.client_id : null;
@@ -692,6 +775,45 @@ export const useMessageHandling = ({
     }
   }, [applyServerMessages, onError]);
 
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleReconnect = useCallback((targetConversationId: string) => {
+    if (isDisposedRef.current || isClosingSocketRef.current) {
+      return;
+    }
+    if (!sessionReadyRef.current || !targetConversationId) {
+      return;
+    }
+    if (conversationIdRef.current !== targetConversationId) {
+      return;
+    }
+    if (reconnectTimerRef.current) {
+      return;
+    }
+    const nextAttempt = reconnectAttemptRef.current + 1;
+    if (nextAttempt > RECONNECT_MAX_ATTEMPTS) {
+      return;
+    }
+    reconnectAttemptRef.current = nextAttempt;
+    const backoff = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_DELAY_MS);
+    const jitter = Math.floor(Math.random() * 250);
+    reconnectTimerRef.current = globalThis.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (isDisposedRef.current || isClosingSocketRef.current) {
+        return;
+      }
+      if (!sessionReadyRef.current || conversationIdRef.current !== targetConversationId) {
+        return;
+      }
+      connectChatRoomRef.current(targetConversationId);
+    }, backoff + jitter);
+  }, []);
+
 
   const connectChatRoom = useCallback((targetConversationId: string) => {
     if (!sessionReady) {
@@ -700,6 +822,7 @@ export const useMessageHandling = ({
     if (!targetConversationId) {
       return;
     }
+    clearReconnectTimer();
     if (typeof WebSocket === 'undefined') {
       onError?.('WebSocket is not available in this environment.');
       return;
@@ -727,6 +850,8 @@ export const useMessageHandling = ({
     wsRef.current = ws;
 
     ws.addEventListener('open', () => {
+      reconnectAttemptRef.current = 0;
+      clearReconnectTimer();
       ws.send(JSON.stringify({
         type: 'auth',
         data: {
@@ -835,7 +960,10 @@ export const useMessageHandling = ({
         socketConversationIdRef.current = null;
       }
       if (!isClosingSocketRef.current && conversationIdRef.current === targetConversationId) {
-        onError?.('Chat connection closed.');
+        if (import.meta.env.DEV) {
+          console.info('[ChatRoom] WebSocket closed; will reconnect on next action.');
+        }
+        scheduleReconnect(targetConversationId);
       }
     });
 
@@ -845,6 +973,7 @@ export const useMessageHandling = ({
       }
     });
   }, [
+    clearReconnectTimer,
     fetchGapMessages,
     flushPendingAcks,
     handleMessageAck,
@@ -854,6 +983,7 @@ export const useMessageHandling = ({
     onError,
     rejectSocketReady,
     resolveSocketReady,
+    scheduleReconnect,
     sendFrame,
     sendReadUpdate,
     sessionReady
@@ -866,12 +996,14 @@ export const useMessageHandling = ({
     isSocketReadyRef.current = false;
     rejectSocketReady(new Error('Chat connection closed'));
     flushPendingAcks(new Error('Chat connection closed'));
+    clearReconnectTimer();
+    reconnectAttemptRef.current = 0;
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
     socketConversationIdRef.current = null;
-  }, [flushPendingAcks, rejectSocketReady]);
+  }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
 
   const sendMessageOverWs = useCallback(async (
     content: string,
@@ -1815,93 +1947,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     }
 
     paymentFlags.forEach(applyPaymentConfirmation);
-
-    setMessages(prev => {
-      // Check for existence of local system messages
-      const hasContactForm = prev.some(m => m.id === 'system-contact-form');
-      const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
-
-      const newMessages = [...prev];
-      let changed = false;
-
-      // Use monotonically increasing timestamps to ensure stable ordering
-      const maxTimestamp = newMessages.length > 0
-        ? Math.max(...newMessages.map(m => m.timestamp))
-        : Date.now();
-      let nextTimestamp = maxTimestamp + 1;
-
-      // Helper to add message if missing
-      const addMsg = (id: string, content: string, metadata?: Record<string, unknown>) => {
-        // Extract contactForm from metadata if present (for proper typing)
-        const contactForm = metadata?.contactForm as {
-          fields: string[];
-          required: string[];
-          message?: string;
-          initialValues?: {
-            name?: string;
-            email?: string;
-            phone?: string;
-            location?: string;
-            opposingParty?: string;
-          };
-        } | undefined;
-        
-        // Construct a message that strictly matches ChatMessageUI (specifically the assistant variant)
-        const msg: ChatMessageUI = {
-          id,
-          role: 'assistant',
-          content,
-          timestamp: nextTimestamp++,
-          isUser: false,
-          metadata,
-          files: undefined,
-          contactForm // Set contactForm directly (not just in metadata)
-        };
-        newMessages.push(msg);
-        changed = true;
-      };
-
-      // Contact form (present the form conversationally after first message)
-      // We collect case details in the form itself, so no need for separate "issue" step
-      if (isConsultFlowActive && (currentStep === 'contact_form' || currentStep === 'pending_review')) {
-        if (!hasContactForm) {
-          // Present the contact form with a conversational message
-          addMsg('system-contact-form', 'Could you share your contact details? It will help us find the best lawyer for your case.', {
-            contactForm: {
-              fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
-              required: ['name', 'email'],
-              message: undefined // Remove message from form - it's now in the main message text
-            }
-          });
-        }
-      }
-
-      // Submission confirmation (after contact form submitted - conversational)
-      if (isConsultFlowActive && currentStep === 'pending_review') {
-        if (!hasSubmissionConfirm) {
-          addMsg('system-submission-confirm', "Thanks! I've sent your intake to the practice. A legal professional will review it and reply here. You'll receive in-app updates as soon as there's a decision.");
-        }
-      }
-
-      if (changed) {
-        // Sort by timestamp - monotonic timestamps ensure stable ordering
-        return newMessages.sort((a, b) => a.timestamp - b.timestamp);
-      }
-      
-      return prev;
-    });
     return () => {
       cancelled = true;
     };
   }, [
-    currentStep,
     isAnonymous,
-    isConsultFlowActive,
     confirmIntakeLead,
-    conversationId,
-    messages,
-    practiceId,
-    practiceSlug
+    conversationId
   ]);
 
   // The intake flow is now conversational and non-blocking
@@ -1913,6 +1965,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     startConsultFlow,
     addMessage,
     updateMessage,
+    ingestServerMessages,
     clearMessages,
     updateConversationMetadata,
     isSocketReady,
