@@ -13,8 +13,7 @@ export const useTimeEntries = ({ initialEntries = [], resetKey }: UseTimeEntries
 
   useEffect(() => {
     setEntries(initialEntries);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey]);
+  }, [initialEntries, resetKey]);
 
   const saveEntry = useCallback((values: TimeEntryFormValues, existing?: TimeEntry | null) => {
     setEntries((prev) => {

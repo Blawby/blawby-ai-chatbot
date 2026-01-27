@@ -4,6 +4,7 @@ import { getBusinessPrices, PRICES } from '@/shared/utils/stripe-products';
 import { buildPriceDisplay } from '@/shared/utils/currencyFormatter';
 import { type SubscriptionTier } from '@/shared/types/user';
 import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
 import { 
   ChatBubbleLeftRightIcon, 
   DocumentTextIcon, 
@@ -181,7 +182,7 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
           <div className="space-y-3">
             {plan.features.map((feature, index) => (
               <div key={index} className="flex items-start gap-3">
-                <feature.icon className="w-5 h-5 mt-0.5 flex-shrink-0 text-gray-400" />
+                <Icon icon={feature.icon} className="w-5 h-5 mt-0.5 text-gray-400" />
                 <div>
                   <span className="text-sm text-gray-300">{feature.text}</span>
                   {feature.description && (

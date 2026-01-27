@@ -1,9 +1,10 @@
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, ComponentType, JSX } from 'preact';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 
 export interface PlanFeature {
   // Allow either a JSX node or a component that accepts className
-  icon: ComponentChildren | preact.ComponentType<{ className?: string }>;
+  icon: ComponentChildren | ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
   text: string;
 }
 
@@ -22,10 +23,7 @@ export const PlanFeaturesList = ({
         <div key={index} className="flex items-center gap-3">
           <div className="text-gray-500 dark:text-gray-400">
             {typeof feature.icon === 'function'
-              ? (() => {
-                  const Icon = feature.icon as preact.ComponentType<{ className?: string }>;
-                  return <Icon className="w-5 h-5 flex-shrink-0" />;
-                })()
+              ? <Icon icon={feature.icon as ComponentType<JSX.SVGAttributes<SVGSVGElement>>} className="w-5 h-5" />
               : feature.icon}
           </div>
           <span className="text-sm text-gray-900 dark:text-gray-100">

@@ -34,7 +34,7 @@ export type ProductId = keyof typeof PRODUCTS;
 // ----------------------------------------
 // UI helpers for tiers and features
 // ----------------------------------------
-import { ComponentType } from 'preact';
+import type { ComponentType, JSX } from 'preact';
 import { 
   BoltIcon,
   DocumentIcon,
@@ -43,8 +43,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 export interface TierFeature {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  icon: ComponentType<any>; // heroicons accept className; relax typing for Preact/React interop
+  icon: ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
   text: string;
 }
 
