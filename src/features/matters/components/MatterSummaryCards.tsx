@@ -7,6 +7,7 @@ interface MatterSummaryCardsProps {
   onAddTime?: () => void;
   onViewTimesheet?: () => void;
   onChangeRate?: () => void;
+  onLearnMore?: () => void;
 }
 
 const cardBase = 'rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4';
@@ -15,7 +16,8 @@ export const MatterSummaryCards = ({
   activeTab,
   onAddTime,
   onViewTimesheet,
-  onChangeRate
+  onChangeRate,
+  onLearnMore
 }: MatterSummaryCardsProps) => {
   if (activeTab === 'overview') {
     return (
@@ -28,9 +30,19 @@ export const MatterSummaryCards = ({
             {' '}
             <span className="text-gray-400">(Blawby&apos;s billing timezone)</span>
           </p>
-          <button type="button" className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400">
-            Learn more
-          </button>
+          {onLearnMore ? (
+            <button
+              type="button"
+              className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400"
+              onClick={onLearnMore}
+            >
+              Learn more
+            </button>
+          ) : (
+            <span className="mt-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+              Learn more (coming soon)
+            </span>
+          )}
         </div>
         <div className={cardBase}>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Contract&apos;s rate</p>

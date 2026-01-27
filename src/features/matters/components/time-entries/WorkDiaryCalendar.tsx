@@ -47,17 +47,19 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
   const monthEnd = endOfMonthUtc(selectedWeekStart);
   const calendarStart = startOfWeekUtc(monthStart);
   const calendarEnd = endOfWeekUtc(monthEnd);
+  const calendarStartTime = calendarStart.getTime();
+  const calendarEndTime = calendarEnd.getTime();
   const selectedWeekEnd = endOfWeekUtc(selectedWeekStart);
 
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
-    let current = calendarStart;
-    while (current <= calendarEnd) {
+    let current = new Date(calendarStartTime);
+    while (current.getTime() <= calendarEndTime) {
       days.push(new Date(current));
       current = addDays(current, 1);
     }
     return days;
-  }, [calendarStart, calendarEnd]);
+  }, [calendarStartTime, calendarEndTime]);
 
   const monthLabel = monthStart.toLocaleDateString('en-US', {
     month: 'long',
@@ -69,14 +71,20 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
   const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
 
   const handlePrevMonth = () => {
-    const prev = new Date(selectedWeekStart);
-    prev.setUTCMonth(prev.getUTCMonth() - 1);
+    const prev = new Date(Date.UTC(
+      selectedWeekStart.getUTCFullYear(),
+      selectedWeekStart.getUTCMonth() - 1,
+      1
+    ));
     onSelectWeek(prev);
   };
 
   const handleNextMonth = () => {
-    const next = new Date(selectedWeekStart);
-    next.setUTCMonth(next.getUTCMonth() + 1);
+    const next = new Date(Date.UTC(
+      selectedWeekStart.getUTCFullYear(),
+      selectedWeekStart.getUTCMonth() + 1,
+      1
+    ));
     onSelectWeek(next);
   };
 
