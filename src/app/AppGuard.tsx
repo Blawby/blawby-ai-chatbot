@@ -63,7 +63,7 @@ export function AppGuard({ children }: AppGuardProps) {
 
     // Skip if session is loading, user is anonymous, or we're on public/auth routes
     const isAuthPage = location.path.startsWith('/auth');
-    const isPublicPage = location.path.startsWith('/embed');
+    const isPublicPage = location.path.startsWith('/embed') || location.path.startsWith('/preview');
     
     if (sessionIsPending || isAnonymous || !session?.user?.id || isAuthPage || isPublicPage) {
       return resetOnboardingCheck;

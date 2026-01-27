@@ -1,11 +1,19 @@
-import { useState } from 'preact/hooks';
-import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useMemo, useState } from 'preact/hooks';
+import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { ulid } from 'ulid';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/shared/ui/dropdown';
 import type { MatterDetail, MatterTask } from '@/features/matters/data/mockMatters';
+import { mockAssignees } from '@/features/matters/data/mockMatters';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { MatterTaskForm, type MatterTaskFormValues } from './MatterTaskForm';
+import { Avatar } from '@/shared/ui/profile';
 
 const STATUS_STYLES: Record<MatterTask['status'], string> = {
   pending: 'text-amber-800 bg-amber-50 ring-amber-600/20',
@@ -14,12 +22,14 @@ const STATUS_STYLES: Record<MatterTask['status'], string> = {
 
 const formatDate = (dateString?: string) => (dateString ? formatDateOnlyUtc(dateString) : '');
 
+type MatterTaskWithAssignee = MatterTask & { assigneeId?: string | null };
+
 interface MatterTasksPanelProps {
   matter: MatterDetail;
 }
 
 export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
-  const [tasks, setTasks] = useState<MatterTask[]>(() => matter.tasks ?? []);
+  const [tasks, setTasks] = useState<MatterTaskWithAssignee[]>(() => matter.tasks ?? []);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<MatterTask | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MatterTask | null>(null);
@@ -69,6 +79,15 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
     }
   };
 
+  const handleAssign = (taskId: string, assigneeId: string | null) => {
+    setTasks((prev) => prev.map((task) => (
+      task.id === taskId ? { ...task, assigneeId } : task
+    )));
+  };
+
+  const activeTasks = useMemo(() => tasks.filter((task) => task.status !== 'completed'), [tasks]);
+  const completedTasks = useMemo(() => tasks.filter((task) => task.status === 'completed'), [tasks]);
+
   return (
     <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
       <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
@@ -88,60 +107,250 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
           No tasks yet. Add a task to track milestone progress.
         </div>
       ) : (
-        <ul className="divide-y divide-gray-200 dark:divide-white/10">
-          {tasks.map((task) => (
-            <li key={task.id} className="px-6 py-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-sm font-semibold leading-6 text-gray-900 dark:text-white">
-                      {task.title}
-                    </p>
-                    <span
-                      className={[
-                        STATUS_STYLES[task.status],
-                        'mt-0.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset'
-                      ].join(' ')}
-                    >
-                      {task.status}
-                    </span>
-                  </div>
-                  <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                    {task.dueDate && (
-                      <p>
-                        Due on <time dateTime={task.dueDate}>{formatDate(task.dueDate)}</time>
-                      </p>
-                    )}
-                    {typeof task.timeEstimateHours === 'number' && (
-                      <p>Time estimate: {task.timeEstimateHours} hours</p>
-                    )}
-                  </div>
-                  {task.description && (
-                    <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
-                      {task.description}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Edit task"
-                    icon={<PencilIcon className="h-4 w-4" />}
+        <div className="divide-y divide-gray-200 dark:divide-white/10">
+          {activeTasks.map((task) => {
+            const assignee = task.assigneeId
+              ? mockAssignees.find((candidate) => candidate.id === task.assigneeId) ?? null
+              : null;
+            return (
+              <div
+                key={task.id}
+                className="px-6 py-5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <button
+                    type="button"
+                    className="min-w-0 text-left flex-1"
                     onClick={() => openEditTask(task)}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Delete task"
-                    icon={<TrashIcon className="h-4 w-4" />}
-                    onClick={() => confirmDelete(task)}
-                  />
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-sm font-semibold leading-6 text-gray-900 dark:text-white">
+                          {task.title}
+                        </p>
+                        <span
+                          className={[
+                            STATUS_STYLES[task.status],
+                            'mt-0.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset'
+                          ].join(' ')}
+                        >
+                          {task.status}
+                        </span>
+                      </div>
+                      <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                        {task.dueDate && (
+                          <p>
+                            Due on <time dateTime={task.dueDate}>{formatDate(task.dueDate)}</time>
+                          </p>
+                        )}
+                        {typeof task.timeEstimateHours === 'number' && (
+                          <p>Time estimate: {task.timeEstimateHours} hours</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>Assigned:</span>
+                          {assignee ? (
+                            <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200">
+                              <Avatar name={assignee.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                              {assignee.name}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">Unassigned</span>
+                          )}
+                        </div>
+                      </div>
+                      {task.description && (
+                        <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
+                          {task.description}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Assign task"
+                          icon={<PlusIcon className="h-4 w-4" />}
+                        />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <div className="py-1">
+                          <DropdownMenuItem onSelect={() => handleAssign(task.id, null)}>
+                            Unassigned
+                          </DropdownMenuItem>
+                          {mockAssignees.map((assigneeOption) => (
+                            <DropdownMenuItem
+                              key={assigneeOption.id}
+                              onSelect={() => handleAssign(task.id, assigneeOption.id)}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Avatar name={assigneeOption.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                                {assigneeOption.name}
+                              </span>
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Open task actions"
+                          icon={<EllipsisVerticalIcon className="h-4 w-4" />}
+                        />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-32">
+                        <div className="py-1">
+                          <DropdownMenuItem onSelect={() => openEditTask(task)}>
+                            <span className="flex items-center gap-2">
+                              <PencilIcon className="h-4 w-4" />
+                              Edit
+                            </span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => confirmDelete(task)}>
+                            <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                              <TrashIcon className="h-4 w-4" />
+                              Delete
+                            </span>
+                          </DropdownMenuItem>
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
-            </li>
-          ))}
-        </ul>
+            );
+          })}
+
+          {completedTasks.length > 0 && (
+            <div className="border-t border-gray-200 dark:border-white/10">
+              <div className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                Completed
+              </div>
+              {completedTasks.map((task) => {
+                const assignee = task.assigneeId
+                  ? mockAssignees.find((candidate) => candidate.id === task.assigneeId) ?? null
+                  : null;
+                return (
+                  <div
+                    key={task.id}
+                    className="px-6 py-5 opacity-60 hover:opacity-80 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <button
+                        type="button"
+                        className="min-w-0 text-left flex-1"
+                        onClick={() => openEditTask(task)}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <p className="text-sm font-semibold leading-6 text-gray-900 dark:text-white line-through">
+                              {task.title}
+                            </p>
+                            <span
+                              className={[
+                                STATUS_STYLES[task.status],
+                                'mt-0.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset'
+                              ].join(' ')}
+                            >
+                              {task.status}
+                            </span>
+                          </div>
+                          <div className="mt-2 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                            {task.dueDate && (
+                              <p>
+                                Due on <time dateTime={task.dueDate}>{formatDate(task.dueDate)}</time>
+                              </p>
+                            )}
+                            {typeof task.timeEstimateHours === 'number' && (
+                              <p>Time estimate: {task.timeEstimateHours} hours</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span>Assigned:</span>
+                              {assignee ? (
+                                <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200">
+                                  <Avatar name={assignee.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                                  {assignee.name}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">Unassigned</span>
+                              )}
+                            </div>
+                          </div>
+                          {task.description && (
+                            <p className="mt-3 text-sm text-gray-700 dark:text-gray-200">
+                              {task.description}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Assign task"
+                              icon={<PlusIcon className="h-4 w-4" />}
+                            />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <div className="py-1">
+                              <DropdownMenuItem onSelect={() => handleAssign(task.id, null)}>
+                                Unassigned
+                              </DropdownMenuItem>
+                              {mockAssignees.map((assigneeOption) => (
+                                <DropdownMenuItem
+                                  key={assigneeOption.id}
+                                  onSelect={() => handleAssign(task.id, assigneeOption.id)}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <Avatar name={assigneeOption.name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                                    {assigneeOption.name}
+                                  </span>
+                                </DropdownMenuItem>
+                              ))}
+                            </div>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Open task actions"
+                              icon={<EllipsisVerticalIcon className="h-4 w-4" />}
+                            />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-32">
+                            <div className="py-1">
+                              <DropdownMenuItem onSelect={() => openEditTask(task)}>
+                                <span className="flex items-center gap-2">
+                                  <PencilIcon className="h-4 w-4" />
+                                  Edit
+                                </span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => confirmDelete(task)}>
+                                <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                                  <TrashIcon className="h-4 w-4" />
+                                  Delete
+                                </span>
+                              </DropdownMenuItem>
+                            </div>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       {isFormOpen && (
@@ -176,7 +385,7 @@ export const MatterTasksPanel = ({ matter }: MatterTasksPanelProps) => {
               <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
-              <Button onClick={handleDelete}>
+              <Button variant="danger" onClick={handleDelete}>
                 Delete task
               </Button>
             </div>

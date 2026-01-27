@@ -70,17 +70,6 @@ export const MatterTaskForm = ({ initialTask, onSubmit, onCancel, onDelete }: Ma
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-          {initialTask ? 'Edit Task' : 'Add Task'}
-        </h3>
-        {initialTask && onDelete ? (
-          <Button variant="secondary" size="sm" onClick={onDelete}>
-            Delete
-          </Button>
-        ) : null}
-      </div>
-
       <Input
         label="Title"
         value={formState.title}
@@ -103,12 +92,21 @@ export const MatterTaskForm = ({ initialTask, onSubmit, onCancel, onDelete }: Ma
           onChange={(value) => setFormState((prev) => ({ ...prev, dueDate: value }))}
           format="date"
         />
-        <Select
-          label="Status"
-          value={formState.status}
-          options={STATUS_OPTIONS}
-          onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MatterTask['status'] }))}
-        />
+        <div className="w-full">
+          <span
+            id="matter-task-status-label"
+            className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1"
+          >
+            Status
+          </span>
+          <Select
+            value={formState.status}
+            options={STATUS_OPTIONS}
+            onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MatterTask['status'] }))}
+            aria-labelledby="matter-task-status-label"
+            className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+          />
+        </div>
       </div>
 
       <NumberInput
@@ -122,7 +120,12 @@ export const MatterTaskForm = ({ initialTask, onSubmit, onCancel, onDelete }: Ma
         placeholder="e.g. 3.5"
       />
 
-      <div className="flex items-center justify-end gap-3 pt-2">
+      <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+        {initialTask && onDelete ? (
+          <Button variant="danger" onClick={onDelete} className="mr-auto">
+            Delete
+          </Button>
+        ) : null}
         <Button variant="secondary" onClick={onCancel}>
           Cancel
         </Button>

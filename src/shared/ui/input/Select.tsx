@@ -49,6 +49,7 @@ export const Select = ({
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Generate stable unique IDs for accessibility
   const dropdownId = useMemo(() => `select-${Math.random().toString(36).slice(2, 11)}`, []);
@@ -80,6 +81,13 @@ export const Select = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen || !searchable) return;
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+  }, [isOpen, searchable]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -194,7 +202,7 @@ export const Select = ({
                     onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                     placeholder="Search..."
                     className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
-                    autoFocus // eslint-disable-line jsx-a11y/no-autofocus
+                    ref={searchInputRef}
                   />
                 </div>
               )}
@@ -284,7 +292,7 @@ export const Select = ({
                   onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
                   placeholder="Search..."
                   className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
-                  autoFocus // eslint-disable-line jsx-a11y/no-autofocus
+                  ref={searchInputRef}
                 />
               </div>
             )}

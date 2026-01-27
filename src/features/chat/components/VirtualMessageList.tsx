@@ -21,6 +21,7 @@ interface VirtualMessageListProps {
         description?: string | null;
         slug?: string | null;
     };
+    showPracticeHeader?: boolean;
     isPublicWorkspace?: boolean;
     onOpenSidebar?: () => void;
     onContactFormSubmit?: (data: ContactData) => void;
@@ -50,6 +51,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
     conversationTitle,
     practiceConfig,
+    showPracticeHeader = true,
     isPublicWorkspace = false,
     onOpenSidebar,
     onContactFormSubmit,
@@ -285,7 +287,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             ref={listRef}
         >
             {/* Practice Profile Header - Fixed at top of scrollable area */}
-            {practiceConfig && (
+            {practiceConfig && showPracticeHeader && (
                 <div className="flex flex-col items-center py-3 px-3 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg mb-2">
                     <PracticeProfile
                         name={practiceConfig.name}

@@ -7,6 +7,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { PricingSummary } from '@/shared/ui/cards/PricingSummary';
+import { Button } from '@/shared/ui/Button';
 import {
   describeSubscriptionPlan,
   hasManagedSubscription,
@@ -185,8 +186,12 @@ export const CartPage = () => {
             <h2 className="text-2xl font-bold mb-2">You&apos;re Already on {displayPlanLabel} Plan</h2>
             <p className="text-gray-300 mb-6">Your practice &quot;{currentPractice?.name}&quot; is currently subscribed{typeof currentPractice?.seats === 'number' ? ` with ${currentPractice?.seats} seat(s)` : ''}.</p>
             <div className="flex gap-3 justify-center">
-              <button onClick={handleManageBilling} className="px-6 py-3 bg-accent-500 text-gray-900 rounded-lg hover:bg-accent-400 transition-colors font-medium">{t('settings:account.plan.manage')}</button>
-              <button onClick={() => navigate('/')} className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium">Go to Dashboard</button>
+              <Button size="md" onClick={handleManageBilling}>
+                {t('settings:account.plan.manage')}
+              </Button>
+              <Button size="md" variant="secondary" onClick={() => navigate('/')}>
+                Go to Dashboard
+              </Button>
             </div>
           </div>
         </main>
@@ -340,12 +345,9 @@ export const CartPage = () => {
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 mb-4">{loadError}</p>
-          <button 
-            onClick={loadPlans}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
+          <Button size="md" onClick={loadPlans}>
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );

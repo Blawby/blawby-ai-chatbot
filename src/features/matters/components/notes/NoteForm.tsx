@@ -48,7 +48,7 @@ export const NoteForm = ({ initialNote, onSubmit, onCancel, onDelete }: NoteForm
       />
       <div className="flex flex-wrap items-center justify-end gap-3">
         {onDelete && (
-          <Button type="button" variant="secondary" onClick={onDelete}>
+          <Button type="button" variant="danger" size="sm" onClick={onDelete} className="mr-auto">
             Delete note
           </Button>
         )}

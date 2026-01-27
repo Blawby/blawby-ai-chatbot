@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { ActivityTimeline } from '@/shared/ui/activity/ActivityTimeline';
+import Modal from '@/shared/components/Modal';
 import { ChevronUpDownIcon, FolderIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import {
@@ -27,9 +28,13 @@ import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
+import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
-import { MatterNotesPanel } from '@/features/matters/components/notes/MatterNotesPanel';
-import { getUtcStartOfToday, parseDateOnlyUtc } from '@/shared/utils/dateOnly';
+import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
+import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
+import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
+import { useTimeEntries } from '@/features/matters/hooks/useTimeEntries';
+import { Avatar } from '@/shared/ui/profile';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
   lead: 0,
@@ -40,14 +45,17 @@ const statusOrder: Record<MattersSidebarStatus, number> = {
 };
 
 type MatterTabId = 'all' | MattersSidebarStatus;
-type DetailTabId = 'overview' | 'time' | 'notes' | 'edit' | 'invoice';
+type DetailTabId = 'overview' | 'time' | 'messages';
 
-type SortOption = 'updated' | 'title' | 'status';
+type SortOption = 'updated' | 'title' | 'status' | 'client' | 'assigned' | 'practice_area';
 
 const SORT_LABELS: Record<SortOption, string> = {
   updated: 'Date updated',
   title: 'Title',
-  status: 'Status'
+  status: 'Status',
+  client: 'Client',
+  assigned: 'Assigned',
+  practice_area: 'Practice area'
 };
 
 const buildTabs = (counts: Record<MattersSidebarStatus, number>): TabItem[] => [
@@ -70,26 +78,23 @@ const TAB_HEADINGS: Record<MatterTabId, string> = {
 
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
-  { id: 'time', label: 'Time' },
-  { id: 'notes', label: 'Notes' },
-  { id: 'edit', label: 'Edit Matter' },
-  { id: 'invoice', label: 'Generate Invoice' }
+  { id: 'time', label: 'Billing' },
+  { id: 'messages', label: 'Messages' }
 ];
 
-const DETAIL_TAB_DESCRIPTIONS: Record<DetailTabId, string> = {
-  overview: 'Key details for the selected matter.',
-  time: 'Track recorded hours and reimbursable expenses.',
-  notes: 'Add internal notes and decisions tied to this matter.',
-  edit: 'Adjust matter details, billing, and team assignments.',
-  invoice: 'Generate invoices from time entries and expenses.'
+type PracticeMattersPageProps = {
+  basePath?: string;
 };
 
-const basePath = '/practice/matters';
-
-const formatDuration = (totalSeconds: number) => {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.round((totalSeconds % 3600) / 60);
-  return `${hours}:${String(minutes).padStart(2, '0')} hrs`;
+const formatLongDate = (value?: string | null) => {
+  if (!value) return 'Not available';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Not available';
+  return parsed.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 };
 
 const EmptyState = () => (
@@ -103,7 +108,7 @@ const EmptyState = () => (
         Create your first matter to start tracking progress and milestones.
       </p>
       <div className="mt-6 flex justify-center">
-        <Button icon={<PlusIcon className="h-4 w-4" />} disabled>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} disabled>
           Add Matter
         </Button>
       </div>
@@ -111,7 +116,7 @@ const EmptyState = () => (
   </div>
 );
 
-export const PracticeMattersPage = () => {
+export const PracticeMattersPage = ({ basePath = '/practice/matters' }: PracticeMattersPageProps) => {
   const location = useLocation();
   const pathSuffix = location.path.startsWith(basePath)
     ? location.path.slice(basePath.length)
@@ -135,6 +140,31 @@ export const PracticeMattersPage = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [detailTab, setDetailTab] = useState<DetailTabId>('overview');
+  const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
+  const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
+
+  const openQuickTimeEntry = () => {
+    setQuickTimeEntryKey((prev) => prev + 1);
+    setIsQuickTimeEntryOpen(true);
+  };
+
+  const {
+    entries: timeEntries,
+    saveEntry: saveTimeEntry,
+    deleteEntry: deleteTimeEntry
+  } = useTimeEntries({
+    initialEntries: selectedMatterDetail?.timeEntries ?? [],
+    resetKey: selectedMatterDetail?.id
+  });
+
+  const handleQuickTimeSubmit = (values: TimeEntryFormValues) => {
+    try {
+      saveTimeEntry(values, null);
+      setIsQuickTimeEntryOpen(false);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to save quick time entry', error);
+    }
+  };
 
   const counts = useMemo(() => {
     return mockMatters.reduce<Record<MattersSidebarStatus, number>>(
@@ -167,37 +197,101 @@ export const PracticeMattersPage = () => {
     if (sortOption === 'status') {
       return matters.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
     }
+    if (sortOption === 'client') {
+      return matters.sort((a, b) => a.clientName.localeCompare(b.clientName));
+    }
+    if (sortOption === 'practice_area') {
+      return matters.sort((a, b) => (a.practiceArea ?? '').localeCompare(b.practiceArea ?? ''));
+    }
+    if (sortOption === 'assigned') {
+      return matters.sort((a, b) => {
+        const aAssigneeId = mockMatterDetails[a.id]?.assigneeIds?.[0] ?? '';
+        const bAssigneeId = mockMatterDetails[b.id]?.assigneeIds?.[0] ?? '';
+        const aAssignee = aAssigneeId
+          ? mockAssignees.find((assignee) => assignee.id === aAssigneeId)?.name ?? ''
+          : '';
+        const bAssignee = bAssigneeId
+          ? mockAssignees.find((assignee) => assignee.id === bAssigneeId)?.name ?? ''
+          : '';
+        return aAssignee.localeCompare(bAssignee);
+      });
+    }
     return matters.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [filteredMatters, sortOption]);
 
   const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
-  const totalTimeSeconds = useMemo(() => {
-    const entries = selectedMatterDetail?.timeEntries ?? [];
-    return entries.reduce((total, entry) => {
-      const start = new Date(entry.startTime).getTime();
-      const end = new Date(entry.endTime).getTime();
-      return total + Math.max(0, Math.floor((end - start) / 1000));
-    }, 0);
-  }, [selectedMatterDetail]);
-  const taskSummary = useMemo(() => {
-    const tasks = selectedMatterDetail?.tasks ?? [];
-    const openCount = tasks.filter((task) => task.status !== 'completed').length;
-    const completedCount = tasks.filter((task) => task.status === 'completed').length;
-    const todayUtc = getUtcStartOfToday();
-    const overdueCount = tasks.filter((task) => {
-      if (task.status === 'completed' || !task.dueDate) return false;
-      const dueDateUtc = parseDateOnlyUtc(task.dueDate);
-      return dueDateUtc.getTime() < todayUtc.getTime();
-    }).length;
-    const progress = tasks.length > 0
-      ? Math.round((completedCount / tasks.length) * 100)
-      : 0;
-    return {
-      openCount,
-      overdueCount,
-      progress
-    };
-  }, [selectedMatterDetail]);
+  const overviewDetails = useMemo(() => {
+    if (!selectedMatterDetail || !selectedMatter) return [];
+    const clientIds = [
+      selectedMatterDetail.clientId,
+      ...((selectedMatterDetail as { clientIds?: string[] }).clientIds ?? [])
+    ].filter(Boolean) as string[];
+    const clientOptions = clientIds.length > 0
+      ? clientIds.map((id) => mockClients.find((client) => client.id === id)).filter(Boolean)
+      : [];
+    const clientNames = clientOptions.map((client) => client?.name).filter(Boolean) as string[];
+    if (clientNames.length === 0 && selectedMatter.clientName) {
+      clientNames.push(selectedMatter.clientName);
+    }
+
+    const assigneeOptions = selectedMatterDetail.assigneeIds
+      .map((id) => mockAssignees.find((assignee) => assignee.id === id))
+      .filter(Boolean);
+    const assigneeNames = assigneeOptions.map((assignee) => assignee?.name).filter(Boolean) as string[];
+
+    const practiceAreaLabel = selectedMatterDetail.practiceArea
+      ?? mockPracticeAreas.find((area) => area.id === selectedMatterDetail.practiceAreaId)?.name
+      ?? 'Not specified';
+    const billingLabel = selectedMatterDetail.billingType
+      ? selectedMatterDetail.billingType.replace(/_/g, ' ').replace(/^\w/, (char) => char.toUpperCase())
+      : 'Not specified';
+    const statusLabel = selectedMatter.status.replace(/_/g, ' ');
+    const createdLabel = formatLongDate((selectedMatterDetail as { createdAt?: string }).createdAt ?? selectedMatter.updatedAt);
+
+    return [
+      { label: 'Description', value: selectedMatterDetail.description || 'No description provided' },
+      { label: 'Practice Area', value: practiceAreaLabel },
+      { label: 'Billing Type', value: billingLabel },
+      {
+        label: 'Client',
+        value: clientNames.length > 0 ? clientNames.join(', ') : 'No client assigned',
+        render: () => (
+          clientNames.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {clientNames.map((name) => (
+                <div key={name} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
+                  <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                  <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">No client assigned</p>
+          )
+        )
+      },
+      {
+        label: 'Assigned',
+        value: assigneeNames.length > 0 ? assigneeNames.join(', ') : 'No assignee',
+        render: () => (
+          assigneeNames.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {assigneeNames.map((name) => (
+                <div key={name} className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 px-2 py-1">
+                  <Avatar name={name} size="xs" className="bg-gray-100 dark:bg-white/10" />
+                  <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">No assignee</p>
+          )
+        )
+      },
+      { label: 'Status', value: statusLabel },
+      { label: 'Created', value: createdLabel }
+    ];
+  }, [selectedMatter, selectedMatterDetail]);
 
   if (selectedMatterId) {
     if (!selectedMatter) {
@@ -208,7 +302,7 @@ export const PracticeMattersPage = () => {
               title="Matter not found"
               subtitle="This matter may have been removed or is no longer available."
               actions={(
-                <Button variant="secondary" onClick={() => location.route(basePath)}>
+                <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
                   Back to matters
                 </Button>
               )}
@@ -243,7 +337,14 @@ export const PracticeMattersPage = () => {
                   <h1 className="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-7 text-gray-900 dark:text-white">
                     <span>{selectedMatter.title}</span>
                     <span className="text-gray-400">/</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{selectedMatter.clientName}</span>
+                    <span className="flex items-center gap-x-2 font-semibold text-gray-900 dark:text-white">
+                      <Avatar
+                        name={selectedMatter.clientName}
+                        size="xs"
+                        className="bg-gray-200 text-gray-700 dark:bg-gray-700"
+                      />
+                      {selectedMatter.clientName}
+                    </span>
                   </h1>
                   <div className="mt-2 flex items-center gap-x-2.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
                     <p className="truncate">Practice Area: {selectedMatter.practiceArea || 'Not Assigned'}</p>
@@ -258,6 +359,7 @@ export const PracticeMattersPage = () => {
                 <MatterStatusPill status={selectedMatter.status} />
                 <Button
                   variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setModalKey((prev) => prev + 1);
                     setIsEditOpen(true);
@@ -274,67 +376,54 @@ export const PracticeMattersPage = () => {
               {DETAIL_TABS.map((tab) => {
                 const isActive = detailTab === tab.id;
                 return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setDetailTab(tab.id)}
-                    className={[
-                      'whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'border-gray-900 text-gray-900 dark:border-white dark:text-white'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                    ].join(' ')}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setDetailTab(tab.id)}
+                  className={[
+                    'whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors rounded-none',
+                    isActive
+                      ? 'border-gray-900 text-gray-900 dark:border-white dark:text-white'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  ].join(' ')}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
           </div>
 
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { label: 'Total time', value: formatDuration(totalTimeSeconds), helper: 'Estimated 18h' },
-              { label: 'Billable amount', value: '$18,400', helper: 'Collected $9,200' },
-              {
-                label: 'Tasks',
-                value: `${taskSummary.openCount} open`,
-                helper: `${taskSummary.overdueCount} overdue`
-              },
-              { label: 'Progress', value: `${taskSummary.progress}%`, helper: 'In progress' }
-            ].map((card) => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4"
-              >
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
-                <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{card.helper}</p>
-              </div>
-            ))}
-          </section>
+          <MatterSummaryCards
+            activeTab={detailTab}
+            onAddTime={() => {
+              if (detailTab !== 'overview') return;
+              openQuickTimeEntry();
+            }}
+            onViewTimesheet={() => setDetailTab('time')}
+            onChangeRate={() => {}}
+          />
 
-          <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
-            <header className="border-b border-gray-200 dark:border-white/10 px-6 py-4">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-                {DETAIL_TABS.find((tab) => tab.id === detailTab)?.label ?? 'Overview'}
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {DETAIL_TAB_DESCRIPTIONS[detailTab] ?? 'Content coming soon for this tab.'}
-              </p>
-            </header>
+          <section>
             {detailTab === 'overview' ? (
-              <div className="px-6 py-6">
+              <div className="px-0 space-y-6">
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                   <div className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-6">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Tasks</h3>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Milestones and to-dos tied to this matter.
-                    </p>
-                    <div className="mt-5 rounded-xl border border-dashed border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-4">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Task items will appear here once the backend is ready.
-                      </p>
+                    <div className="space-y-5">
+                      {overviewDetails.map((detail) => (
+                        <div key={detail.label}>
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{detail.label}</h3>
+                          {detail.label === 'Status' ? (
+                            <p className="mt-2">
+                              <MatterStatusPill status={selectedMatter.status} />
+                            </p>
+                          ) : detail.render ? (
+                            detail.render()
+                          ) : (
+                            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{detail.value}</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <div>
@@ -344,18 +433,51 @@ export const PracticeMattersPage = () => {
                     </div>
                   </div>
                 </div>
+                {selectedMatterDetail && (
+                  <MatterTasksPanel key={`tasks-overview-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                )}
               </div>
             ) : detailTab === 'time' && selectedMatterDetail ? (
-              <div className="px-6 py-6 space-y-6">
-                <TimeEntriesPanel key={`time-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+              <div className="px-0 space-y-6">
+                <TimeEntriesPanel
+                  key={`time-${selectedMatterDetail.id}`}
+                  entries={timeEntries}
+                  onSaveEntry={saveTimeEntry}
+                  onDeleteEntry={deleteTimeEntry}
+                />
                 <MatterExpensesPanel key={`expenses-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
+                  <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent transactions</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Summary of billed time across recent periods.
+                      </p>
+                    </div>
+                  </header>
+                  <div className="grid gap-4 p-6 sm:grid-cols-3">
+                    {[
+                      { label: 'Last 7 days', value: '$0.00' },
+                      { label: 'Last 30 days', value: '$0.00' },
+                      { label: 'Since start', value: '$1,237.50' }
+                    ].map((card) => (
+                      <div
+                        key={card.label}
+                        className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4"
+                      >
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{card.label}</p>
+                        <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{card.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               </div>
-            ) : detailTab === 'notes' && selectedMatterDetail ? (
-              <div className="px-6 py-6">
-                <MatterNotesPanel key={`notes-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+            ) : detailTab === 'messages' && selectedMatterDetail ? (
+              <div className="px-0">
+                <MatterMessagesPanel key={`messages-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
               </div>
             ) : (
-              <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
+              <div className="px-0 text-sm text-gray-500 dark:text-gray-400">
                 We will add the {DETAIL_TABS.find((tab) => tab.id === detailTab)?.label ?? 'tab'} details next.
               </div>
             )}
@@ -387,6 +509,21 @@ export const PracticeMattersPage = () => {
             }}
           />
         )}
+
+        {isQuickTimeEntryOpen && (
+          <Modal
+            isOpen={isQuickTimeEntryOpen}
+            onClose={() => setIsQuickTimeEntryOpen(false)}
+            title="Add time entry"
+            contentClassName="max-w-2xl"
+          >
+            <TimeEntryForm
+              key={`quick-time-${quickTimeEntryKey}`}
+              onSubmit={handleQuickTimeSubmit}
+              onCancel={() => setIsQuickTimeEntryOpen(false)}
+            />
+          </Modal>
+        )}
       </div>
     );
   }
@@ -399,7 +536,7 @@ export const PracticeMattersPage = () => {
           subtitle="Track matter progress, client updates, and case milestones."
           actions={(
             <div className="flex items-center gap-2">
-              <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => {
+              <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => {
                 setModalKey((prev) => prev + 1);
                 setIsCreateOpen(true);
               }}>

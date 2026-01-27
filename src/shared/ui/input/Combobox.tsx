@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/no-noninteractive-element-to-interactive-role */
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { CheckIcon, ChevronUpDownIcon, XMarkIcon } from '@heroicons/react/24/outline';
@@ -176,7 +175,7 @@ export const Combobox = ({
         </div>
 
         {showOptions && (
-          <ul
+          <div
             id={listboxId}
             role="listbox"
             className="absolute z-40 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-dark-card-bg py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
@@ -187,8 +186,9 @@ export const Combobox = ({
               const optionLead = optionLeading?.(option);
               const optionMetaContent = optionMeta?.(option) ?? option.meta;
               return (
-                <li
+                <button
                   key={option.value}
+                  type="button"
                   id={`${inputId}-option-${index}`}
                   role="option"
                   aria-selected={isSelected}
@@ -197,14 +197,6 @@ export const Combobox = ({
                     onChange(option.value);
                     setQuery(displayValue?.(option) ?? option.label);
                     setIsOpen(false);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      onChange(option.value);
-                      setQuery(displayValue?.(option) ?? option.label);
-                      setIsOpen(false);
-                    }
                   }}
                   className={cn(
                     'group relative flex w-full items-center justify-between py-2 pl-3 pr-9 text-left transition-colors',
@@ -227,10 +219,10 @@ export const Combobox = ({
                       <CheckIcon className="h-4 w-4" aria-hidden="true" />
                     </span>
                   )}
-                </li>
+                </button>
               );
             })}
-          </ul>
+          </div>
         )}
       </div>
     </div>

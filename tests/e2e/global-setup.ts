@@ -187,7 +187,12 @@ const createSignedInState = async (options: {
   const authNetworkLogs: string[] = [];
   const consoleLogs: string[] = [];
   const pageErrors: string[] = [];
-  const authResponseHandler = async (response: { url: () => string; status: () => number; request: () => { method: () => string } }) => {
+  const authResponseHandler = async (response: {
+    url: () => string;
+    status: () => number;
+    request: () => { method: () => string };
+    text: () => Promise<string>;
+  }) => {
     const url = response.url();
     if (!url.includes('/api/auth/')) return;
     const status = response.status();

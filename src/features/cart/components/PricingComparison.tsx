@@ -3,6 +3,8 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { getBusinessPrices, PRICES } from '@/shared/utils/stripe-products';
 import { buildPriceDisplay } from '@/shared/utils/currencyFormatter';
 import { type SubscriptionTier } from '@/shared/types/user';
+import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
 import { 
   ChatBubbleLeftRightIcon, 
   DocumentTextIcon, 
@@ -165,25 +167,22 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
           </div>
 
           {/* Action Button */}
-          <button
+          <Button
             onClick={() => onUpgrade?.(plan.id as SubscriptionTier)}
             disabled={plan.id === currentTier}
-            className={`w-full py-3 px-4 rounded-lg font-medium transition-colors mb-6 ${
-              plan.id === currentTier
-                ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                : plan.isRecommended
-                ? 'bg-accent-500 text-gray-900 hover:bg-accent-600'
-                : 'bg-transparent border border-dark-border text-white hover:bg-dark-hover'
-            }`}
+            variant={plan.id === currentTier ? 'ghost' : plan.isRecommended ? 'primary' : 'secondary'}
+            className={`w-full mb-6 ${
+              plan.id === currentTier ? 'cursor-not-allowed' : ''
+            } ${plan.isRecommended ? 'hover:bg-accent-600' : ''}`}
           >
             {plan.id === currentTier ? t('modal.currentPlan') : plan.buttonText}
-          </button>
+          </Button>
 
           {/* Features List */}
           <div className="space-y-3">
             {plan.features.map((feature, index) => (
               <div key={index} className="flex items-start gap-3">
-                <feature.icon className="w-5 h-5 mt-0.5 flex-shrink-0 text-gray-400" />
+                <Icon icon={feature.icon} className="w-5 h-5 mt-0.5 text-gray-400" />
                 <div>
                   <span className="text-sm text-gray-300">{feature.text}</span>
                   {feature.description && (

@@ -205,13 +205,15 @@ export const PracticePricingPage = () => {
       action: (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               className="rounded-full p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-200 dark:hover:bg-white/5"
               aria-label="Open consultation fee actions"
-            >
-              <EllipsisHorizontalIcon className="h-5 w-5" />
-            </button>
+              icon={
+                <EllipsisHorizontalIcon className="h-5 w-5" />
+              }
+            />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[9rem]">
             <DropdownMenuItem onSelect={() => navigate('/practice/pricing/consultation-fee')}>
@@ -553,13 +555,14 @@ export const PracticePricingPage = () => {
                         description: 'Consultation intake payment',
                         created: createdAt,
                         action: (
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={openFeeModal}
-                            className="text-accent-600 hover:text-accent-700 dark:text-accent-400 dark:hover:text-accent-300"
+                            className="px-0"
                           >
                             Edit<span className="sr-only">, Consultation fee</span>
-                          </button>
+                          </Button>
                         )
                       }
                     }

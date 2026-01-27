@@ -33,6 +33,8 @@ interface ChatContainerProps {
     description?: string | null;
     slug?: string | null;
   };
+  showPracticeHeader?: boolean;
+  heightClassName?: string;
   onOpenSidebar?: () => void;
   practiceId?: string;
 
@@ -73,6 +75,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onAddMessage,
   isPublicWorkspace = false,
   practiceConfig,
+  showPracticeHeader = true,
+  heightClassName,
   onOpenSidebar,
   practiceId,
   onToggleReaction,
@@ -258,7 +262,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen md:h-screen w-full m-0 p-0 relative overflow-hidden bg-white dark:bg-dark-bg" data-testid="chat-container">
+    <div
+      className={`flex flex-col ${heightClassName ?? 'h-screen md:h-screen'} w-full m-0 p-0 relative overflow-hidden bg-white dark:bg-dark-bg`}
+      data-testid="chat-container"
+    >
       <main className="flex flex-col h-full w-full overflow-hidden relative bg-white dark:bg-dark-bg">
         {canChat ? (
           <>
@@ -266,6 +273,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               messages={messagesReady ? messages : []}
               conversationTitle={conversationTitle}
               practiceConfig={practiceConfig}
+              showPracticeHeader={showPracticeHeader}
               isPublicWorkspace={isPublicWorkspace}
               onOpenSidebar={onOpenSidebar}
               onContactFormSubmit={onContactFormSubmit}

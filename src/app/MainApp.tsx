@@ -396,6 +396,7 @@ export function MainApp({
   const messages = realMessageHandling.messages;
   const addMessage = realMessageHandling.addMessage;
   const updateMessage = realMessageHandling.updateMessage;
+  const clearMessages = realMessageHandling.clearMessages;
   const requestMessageReactions = realMessageHandling.requestMessageReactions;
   const toggleMessageReaction = realMessageHandling.toggleMessageReaction;
   const conversationMetadata = realMessageHandling.conversationMetadata;
@@ -409,9 +410,8 @@ export function MainApp({
   const loadMoreMessages = realMessageHandling.loadMoreMessages;
 
   useEffect(() => {
-    realMessageHandling.clearMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- clearMessages should be stable; re-run only on practiceId change
-  }, [practiceId]);
+    clearMessages();
+  }, [practiceId, clearMessages]);
 
   const createConversation = useCallback(async () => {
     if (isPracticeWorkspace) return null;

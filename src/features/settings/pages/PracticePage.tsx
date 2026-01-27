@@ -694,14 +694,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     >
                       Manage
                     </Button>
-                    <button
-                      type="button"
+                    <Button
+                      variant="icon"
+                      size="icon"
                       onClick={openContactModal}
-                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      className="sm:hidden"
                       aria-label="Manage contact details"
-                    >
-                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
-                    </button>
+                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    />
                   </div>
                 </div>
               </div>
@@ -726,14 +726,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     >
                       Manage
                     </Button>
-                    <button
-                      type="button"
+                    <Button
+                      variant="icon"
+                      size="icon"
                       onClick={openIntroModal}
-                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      className="sm:hidden"
                       aria-label="Manage intro message"
-                    >
-                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
-                    </button>
+                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    />
                   </div>
                 </div>
               </div>
@@ -766,14 +766,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     >
                       Manage
                     </Button>
-                    <button
-                      type="button"
+                    <Button
+                      variant="icon"
+                      size="icon"
                       onClick={() => navigateTo('/settings/practice/services')}
-                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      className="sm:hidden"
                       aria-label="Manage services"
-                    >
-                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
-                    </button>
+                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    />
                   </div>
                 </div>
               </div>
@@ -808,16 +808,16 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     >
                       {members.length === 0 ? 'Invite' : 'Manage'}
                     </Button>
-                    <button
-                      type="button"
+                    <Button
+                      variant="icon"
+                      size="icon"
                       onClick={() => navigateTo(members.length === 0
                         ? '/settings/practice/team?invite=1'
                         : '/settings/practice/team')}
-                      className="sm:hidden p-2 text-gray-500 dark:text-gray-400"
+                      className="sm:hidden"
                       aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
-                    >
-                      <ChevronRightIcon className="w-5 h-5" aria-hidden="true" />
-                    </button>
+                      icon={<ChevronRightIcon className="w-5 h-5" aria-hidden="true" />}
+                    />
                   </div>
                 </div>
               </div>

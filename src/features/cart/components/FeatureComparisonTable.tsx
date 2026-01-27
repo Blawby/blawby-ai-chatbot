@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { Icon } from '@/shared/ui/Icon';
 import { getBusinessPrices, TIER_FEATURES } from '@/shared/utils/stripe-products';
 // import { type SubscriptionTier } from '@/shared/types/user'; // Unused
 
@@ -48,7 +49,7 @@ const FeatureComparisonTable: FunctionComponent<FeatureComparisonTableProps> = (
               <tr key={`feature-${idx}`} className="border-b border-dark-border">
                 <td className="py-4 px-6">
                   <div className="flex items-center gap-3">
-                    <feature.icon className="w-5 h-5 text-gray-400" />
+                    <Icon icon={feature.icon} className="w-5 h-5 text-gray-400" />
                     <div>
                       <div className="text-white font-medium">{feature.text}</div>
                     </div>

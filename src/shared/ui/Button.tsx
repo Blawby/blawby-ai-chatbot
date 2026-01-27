@@ -2,11 +2,12 @@ import { ComponentChildren, toChildArray, cloneElement } from 'preact';
 import type { JSX } from 'preact';
 import { forwardRef } from 'preact/compat';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'icon';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'icon' | 'inverted' | 'danger' | 'outline' | 'link';
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'icon';
 
 interface ButtonProps extends JSX.HTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
-  size?: 'sm' | 'md' | 'lg';
+  size?: ButtonSize;
   disabled?: boolean;
   children?: ComponentChildren;
   className?: string;
@@ -58,19 +59,25 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     }
   }
   
-  const baseClasses = 'inline-flex items-center justify-center font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border transition-shadow';
+  const baseClasses = 'inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed border';
   
   const variantClasses: Record<ButtonVariant, string> = {
     primary: 'bg-accent-500 text-gray-900 hover:bg-accent-600 active:bg-accent-700 focus:ring-accent-500 border-accent-500 shadow-sm hover:shadow',
     secondary: 'bg-transparent text-gray-900 dark:text-white border-gray-300 dark:border-white/15 hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
     ghost: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
     icon: 'bg-transparent text-gray-900 dark:text-white border-transparent hover:bg-gray-100 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
+    inverted: 'bg-white text-gray-900 border-white hover:bg-gray-100 active:bg-gray-200 focus:ring-gray-300 shadow-sm hover:shadow',
+    danger: 'bg-transparent text-red-600 dark:text-red-400 border-red-500/70 dark:border-red-400/70 hover:bg-red-50 dark:hover:bg-red-900/20 focus:ring-red-500',
+    outline: 'bg-transparent text-gray-900 dark:text-white border-gray-300 dark:border-white/15 hover:bg-gray-50 dark:hover:bg-white/5 focus:ring-gray-500 dark:focus:ring-white/60',
+    link: 'bg-transparent text-accent-600 dark:text-accent-400 border-transparent shadow-none hover:text-accent-700 dark:hover:text-accent-300 focus:ring-accent-500'
   };
   
-  const sizeClasses = {
-    sm: isIconOnly ? 'w-11 h-11 p-0 leading-none rounded-full' : 'px-3 py-1.5 text-xs rounded-lg',
-    md: isIconOnly ? 'w-11 h-11 p-0 leading-none rounded-full' : 'px-4 py-2 text-sm rounded-lg',
-    lg: isIconOnly ? 'w-12 h-12 p-0 leading-none rounded-full' : 'px-6 py-3 text-base rounded-lg',
+  const sizeClasses: Record<ButtonSize, string> = {
+    xs: isIconOnly ? 'w-9 h-9 p-0 leading-none text-xs' : 'px-2.5 py-1 text-xs',
+    sm: isIconOnly ? 'w-11 h-11 p-0 leading-none text-xs' : 'px-3 py-1.5 text-xs',
+    md: isIconOnly ? 'w-11 h-11 p-0 leading-none text-sm' : 'px-4 py-2 text-sm',
+    lg: isIconOnly ? 'w-12 h-12 p-0 leading-none text-base' : 'px-6 py-3 text-base',
+    icon: isIconOnly ? 'w-10 h-10 p-0 leading-none text-sm' : 'px-3 py-2 text-sm'
   };
   
   const classes = [
