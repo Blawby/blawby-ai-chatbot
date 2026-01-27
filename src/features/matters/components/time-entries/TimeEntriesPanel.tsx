@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'preact/hooks';
 import { PlusIcon } from '@heroicons/react/24/outline';
-import { ulid } from 'ulid';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
-import type { MatterDetail, TimeEntry } from '@/features/matters/data/mockMatters';
+import type { TimeEntry } from '@/features/matters/data/mockMatters';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 import { WorkDiaryCalendar } from './WorkDiaryCalendar';
@@ -40,11 +39,12 @@ const formatDuration = (totalSeconds: number) => {
 };
 
 interface TimeEntriesPanelProps {
-  matter: MatterDetail;
+  entries: TimeEntry[];
+  onSaveEntry: (values: TimeEntryFormValues, existing?: TimeEntry | null) => void;
+  onDeleteEntry: (entry: TimeEntry) => void;
 }
 
-export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
-  const [entries, setEntries] = useState<TimeEntry[]>(() => matter.timeEntries ?? []);
+export const TimeEntriesPanel = ({ entries, onSaveEntry, onDeleteEntry }: TimeEntriesPanelProps) => {
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => getStartOfWeek(new Date()));
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
@@ -111,21 +111,7 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
   };
 
   const handleSave = (values: TimeEntryFormValues) => {
-    if (editingEntry) {
-      setEntries((prev) => prev.map((entry) => (
-        entry.id === editingEntry.id
-          ? { ...entry, startTime: values.startTime, endTime: values.endTime, description: values.description }
-          : entry
-      )));
-    } else {
-      const newEntry: TimeEntry = {
-        id: ulid(),
-        startTime: values.startTime,
-        endTime: values.endTime,
-        description: values.description
-      };
-      setEntries((prev) => [newEntry, ...prev]);
-    }
+    onSaveEntry(values, editingEntry);
     closeForm();
   };
 
@@ -135,7 +121,7 @@ export const TimeEntriesPanel = ({ matter }: TimeEntriesPanelProps) => {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    setEntries((prev) => prev.filter((entry) => entry.id !== deleteTarget.id));
+    onDeleteEntry(deleteTarget);
     setDeleteTarget(null);
     if (editingEntry?.id === deleteTarget.id) {
       closeForm();

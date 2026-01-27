@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ulid } from 'ulid';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import type { MatterDetail } from '@/features/matters/data/mockMatters';
@@ -54,6 +54,7 @@ export const MatterMessagesPanel = ({ matter }: MatterMessagesPanelProps) => {
   const [previewFiles, setPreviewFiles] = useState<FileAttachment[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const previewUrlsRef = useRef<string[]>([]);
 
   const participants = useMemo(() => {
     const names = new Map<string, { name: string; role?: string }>();
@@ -109,16 +110,41 @@ export const MatterMessagesPanel = ({ matter }: MatterMessagesPanelProps) => {
   const handleMediaCapture = (_blob: Blob, _type: 'audio' | 'video') => {};
 
   const removePreviewFile = (index: number) => {
-    setPreviewFiles((prev) => prev.filter((_, idx) => idx !== index));
+    setPreviewFiles((prev) => {
+      const target = prev[index];
+      if (target?.url) {
+        URL.revokeObjectURL(target.url);
+      }
+      return prev.filter((_, idx) => idx !== index);
+    });
   };
 
   const clearPreviewFiles = () => {
-    setPreviewFiles([]);
+    setPreviewFiles((prev) => {
+      prev.forEach((file) => {
+        if (file.url) {
+          URL.revokeObjectURL(file.url);
+        }
+      });
+      return [];
+    });
   };
 
   const cancelUpload = (fileId: string) => {
     setUploadingFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
+
+  useEffect(() => {
+    previewUrlsRef.current = previewFiles.map((file) => file.url).filter(Boolean);
+  }, [previewFiles]);
+
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
 
   return (
     <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">

@@ -93,11 +93,17 @@ export const MatterTaskForm = ({ initialTask, onSubmit, onCancel, onDelete }: Ma
           format="date"
         />
         <div className="w-full">
-          <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Status</span>
+          <span
+            id="matter-task-status-label"
+            className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1"
+          >
+            Status
+          </span>
           <Select
             value={formState.status}
             options={STATUS_OPTIONS}
             onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MatterTask['status'] }))}
+            aria-labelledby="matter-task-status-label"
             className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
           />
         </div>

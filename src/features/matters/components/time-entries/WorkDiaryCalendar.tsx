@@ -67,8 +67,12 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
     timeZone: 'UTC'
   });
 
-  const today = new Date();
-  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const nowUtc = new Date();
+  const todayUtc = new Date(Date.UTC(
+    nowUtc.getUTCFullYear(),
+    nowUtc.getUTCMonth(),
+    nowUtc.getUTCDate()
+  ));
 
   const handlePrevMonth = () => {
     const prev = new Date(Date.UTC(

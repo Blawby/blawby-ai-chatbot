@@ -33,6 +33,7 @@ import { MatterExpensesPanel } from '@/features/matters/components/expenses/Matt
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
+import { useTimeEntries } from '@/features/matters/hooks/useTimeEntries';
 import { Avatar } from '@/shared/ui/profile';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
@@ -147,8 +148,22 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     setIsQuickTimeEntryOpen(true);
   };
 
-  const handleQuickTimeSubmit = (_values: TimeEntryFormValues) => {
-    setIsQuickTimeEntryOpen(false);
+  const {
+    entries: timeEntries,
+    saveEntry: saveTimeEntry,
+    deleteEntry: deleteTimeEntry
+  } = useTimeEntries({
+    initialEntries: selectedMatterDetail?.timeEntries ?? [],
+    resetKey: selectedMatterDetail?.id
+  });
+
+  const handleQuickTimeSubmit = (values: TimeEntryFormValues) => {
+    try {
+      saveTimeEntry(values, null);
+      setIsQuickTimeEntryOpen(false);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to save quick time entry', error);
+    }
   };
 
   const counts = useMemo(() => {
@@ -424,7 +439,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               </div>
             ) : detailTab === 'time' && selectedMatterDetail ? (
               <div className="px-0 space-y-6">
-                <TimeEntriesPanel key={`time-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                <TimeEntriesPanel
+                  key={`time-${selectedMatterDetail.id}`}
+                  entries={timeEntries}
+                  onSaveEntry={saveTimeEntry}
+                  onDeleteEntry={deleteTimeEntry}
+                />
                 <MatterExpensesPanel key={`expenses-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
                 <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
                   <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">

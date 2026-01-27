@@ -49,8 +49,9 @@ export const MatterSummaryCards = ({
           <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">$125.00 /hr</p>
           <button
             type="button"
-            className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400"
-            onClick={onChangeRate}
+            className="mt-2 text-xs font-medium text-accent-600 hover:text-accent-700 dark:text-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => onChangeRate?.()}
+            disabled={!onChangeRate}
           >
             Change rate
           </button>
@@ -67,10 +68,10 @@ export const MatterSummaryCards = ({
             Add new entries or open the full timesheet.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="xs" onClick={onAddTime}>
+            <Button size="xs" onClick={() => onAddTime?.()} disabled={!onAddTime}>
               Add time
             </Button>
-            <Button variant="secondary" size="xs" onClick={onViewTimesheet}>
+            <Button variant="secondary" size="xs" onClick={() => onViewTimesheet?.()} disabled={!onViewTimesheet}>
               View timesheet
             </Button>
           </div>
