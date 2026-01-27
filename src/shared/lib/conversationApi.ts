@@ -1,4 +1,4 @@
-import type { Conversation, ConversationMetadata, MessageReactionSummary } from '@/shared/types/conversation';
+import type { Conversation, ConversationMessage, ConversationMetadata, MessageReactionSummary } from '@/shared/types/conversation';
 import type { MessageReaction } from '../../../worker/types';
 import { getConversationMessageReactionsEndpoint } from '@/config/api';
 
@@ -69,6 +69,39 @@ export const logConversationEvent = async (
     const errorData = await response.json().catch(() => ({})) as { error?: string };
     throw new Error(errorData.error || `HTTP ${response.status}`);
   }
+};
+
+export const postSystemMessage = async (
+  conversationId: string,
+  practiceId: string,
+  payload: {
+    clientId: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+  },
+  practiceSlug?: string
+): Promise<ConversationMessage | null> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  const params = buildPracticeParams(practiceId, practiceSlug);
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/system-messages?${params.toString()}`,
+    {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as { success: boolean; data?: { message?: ConversationMessage } };
+  return data.data?.message ?? null;
 };
 
 export const fetchMessageReactions = async (

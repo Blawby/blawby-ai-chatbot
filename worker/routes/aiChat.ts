@@ -98,6 +98,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
   });
 
   const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, body.practiceSlug);
+  const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
   let reply: string;
   let model = env.AI_MODEL || DEFAULT_AI_MODEL;
 
@@ -181,6 +182,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
       model
     },
     recipientUserId: authContext.user.id,
+    skipPracticeValidation: shouldSkipPracticeValidation,
     request
   });
 

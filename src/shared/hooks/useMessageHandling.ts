@@ -133,6 +133,16 @@ export const useMessageHandling = ({
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (mode === 'REQUEST_CONSULTATION') {
+      setIsConsultFlowActive(true);
+      return;
+    }
+    if (mode === 'ASK_QUESTION' || mode === null) {
+      setIsConsultFlowActive(false);
+    }
+  }, [mode]);
+
   const logDev = useCallback((message: string, data?: unknown) => {
     if (import.meta.env.DEV) {
       console.log(message, data);
@@ -331,6 +341,18 @@ export const useMessageHandling = ({
         : 'user';
     const isUser = normalizedRole === 'user'
       && Boolean(senderId && currentUserId && senderId === currentUserId);
+    const contactForm = msg.metadata?.contactForm as {
+      fields: string[];
+      required: string[];
+      message?: string;
+      initialValues?: {
+        name?: string;
+        email?: string;
+        phone?: string;
+        location?: string;
+        opposingParty?: string;
+      };
+    } | undefined;
 
     return {
       id: msg.id,
@@ -347,6 +369,7 @@ export const useMessageHandling = ({
         type: 'application/octet-stream',
         url: '', // TODO: Generate file URL from file ID
       })) : undefined,
+      contactForm,
       isUser
     };
   }, [currentUserId]);
@@ -421,6 +444,10 @@ export const useMessageHandling = ({
 
     sendReadUpdate(nextLatestSeq);
   }, [sendReadUpdate, toUIMessage]);
+
+  const ingestServerMessages = useCallback((incoming: ConversationMessage[]) => {
+    applyServerMessages(incoming);
+  }, [applyServerMessages]);
 
   const handleMessageAck = useCallback((data: Record<string, unknown>) => {
     const clientId = typeof data.client_id === 'string' ? data.client_id : null;
@@ -1815,93 +1842,13 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     }
 
     paymentFlags.forEach(applyPaymentConfirmation);
-
-    setMessages(prev => {
-      // Check for existence of local system messages
-      const hasContactForm = prev.some(m => m.id === 'system-contact-form');
-      const hasSubmissionConfirm = prev.some(m => m.id === 'system-submission-confirm');
-
-      const newMessages = [...prev];
-      let changed = false;
-
-      // Use monotonically increasing timestamps to ensure stable ordering
-      const maxTimestamp = newMessages.length > 0
-        ? Math.max(...newMessages.map(m => m.timestamp))
-        : Date.now();
-      let nextTimestamp = maxTimestamp + 1;
-
-      // Helper to add message if missing
-      const addMsg = (id: string, content: string, metadata?: Record<string, unknown>) => {
-        // Extract contactForm from metadata if present (for proper typing)
-        const contactForm = metadata?.contactForm as {
-          fields: string[];
-          required: string[];
-          message?: string;
-          initialValues?: {
-            name?: string;
-            email?: string;
-            phone?: string;
-            location?: string;
-            opposingParty?: string;
-          };
-        } | undefined;
-        
-        // Construct a message that strictly matches ChatMessageUI (specifically the assistant variant)
-        const msg: ChatMessageUI = {
-          id,
-          role: 'assistant',
-          content,
-          timestamp: nextTimestamp++,
-          isUser: false,
-          metadata,
-          files: undefined,
-          contactForm // Set contactForm directly (not just in metadata)
-        };
-        newMessages.push(msg);
-        changed = true;
-      };
-
-      // Contact form (present the form conversationally after first message)
-      // We collect case details in the form itself, so no need for separate "issue" step
-      if (isConsultFlowActive && (currentStep === 'contact_form' || currentStep === 'pending_review')) {
-        if (!hasContactForm) {
-          // Present the contact form with a conversational message
-          addMsg('system-contact-form', 'Could you share your contact details? It will help us find the best lawyer for your case.', {
-            contactForm: {
-              fields: ['name', 'email', 'phone', 'location', 'opposingParty', 'description'],
-              required: ['name', 'email'],
-              message: undefined // Remove message from form - it's now in the main message text
-            }
-          });
-        }
-      }
-
-      // Submission confirmation (after contact form submitted - conversational)
-      if (isConsultFlowActive && currentStep === 'pending_review') {
-        if (!hasSubmissionConfirm) {
-          addMsg('system-submission-confirm', "Thanks! I've sent your intake to the practice. A legal professional will review it and reply here. You'll receive in-app updates as soon as there's a decision.");
-        }
-      }
-
-      if (changed) {
-        // Sort by timestamp - monotonic timestamps ensure stable ordering
-        return newMessages.sort((a, b) => a.timestamp - b.timestamp);
-      }
-      
-      return prev;
-    });
     return () => {
       cancelled = true;
     };
   }, [
-    currentStep,
     isAnonymous,
-    isConsultFlowActive,
     confirmIntakeLead,
-    conversationId,
-    messages,
-    practiceId,
-    practiceSlug
+    conversationId
   ]);
 
   // The intake flow is now conversational and non-blocking
@@ -1913,6 +1860,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     startConsultFlow,
     addMessage,
     updateMessage,
+    ingestServerMessages,
     clearMessages,
     updateConversationMetadata,
     isSocketReady,

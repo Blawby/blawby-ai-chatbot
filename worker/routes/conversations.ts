@@ -19,6 +19,22 @@ const normalizePracticeSlug = (value: string | null | undefined): string | null 
   return trimmed ? trimmed : null;
 };
 
+const SYSTEM_MESSAGE_ALLOWLIST = new Set([
+  'system-intro',
+  'system-ask-question-help',
+  'system-contact-form',
+  'system-submission-confirm'
+]);
+
+const isValidContactFormMetadata = (metadata: Record<string, unknown> | null | undefined): boolean => {
+  if (!metadata) return false;
+  const contactForm = metadata.contactForm as { fields?: unknown; required?: unknown } | undefined;
+  if (!contactForm || typeof contactForm !== 'object') return false;
+  if (!Array.isArray(contactForm.fields) || !Array.isArray(contactForm.required)) return false;
+  return contactForm.fields.every((field) => typeof field === 'string')
+    && contactForm.required.every((field) => typeof field === 'string');
+};
+
 const resolvePublicPracticeId = async (
   env: Env,
   practiceSlug: string,
@@ -356,6 +372,75 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     }
 
     throw HttpErrors.methodNotAllowed('Unsupported method for message reactions endpoint');
+  }
+
+  // POST /api/conversations/:id/system-messages - Persist system messages (intro/help/forms)
+  if (segments.length === 4 && segments[3] === 'system-messages' && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      allowUrlOverride: true
+    });
+    const conversationId = segments[2];
+    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
+    const { practiceId } = await resolvePracticeIdForConversation(
+      conversationService,
+      conversationId,
+      getPracticeId(requestWithContext),
+      env,
+      request,
+      practiceSlugParam
+    );
+
+    let isMember = false;
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+    } else {
+      const membership = await checkPracticeMembership(request, env, practiceId);
+      isMember = membership.isMember;
+      if (membership.isMember) {
+        await requirePracticeMember(request, env, practiceId, 'paralegal');
+      } else {
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId);
+      }
+    }
+
+    const body = await parseJsonBody(request) as {
+      clientId?: string;
+      content?: string;
+      metadata?: Record<string, unknown>;
+    };
+
+    const rawClientId = typeof body.clientId === 'string' ? body.clientId.trim() : '';
+    if (!rawClientId) {
+      throw HttpErrors.badRequest('clientId is required');
+    }
+    if (!SYSTEM_MESSAGE_ALLOWLIST.has(rawClientId)) {
+      throw HttpErrors.badRequest('Unsupported system message id');
+    }
+
+    const content = typeof body.content === 'string' ? body.content.trim() : '';
+    if (!content) {
+      throw HttpErrors.badRequest('content is required');
+    }
+
+    const metadata = (body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata))
+      ? body.metadata as Record<string, unknown>
+      : undefined;
+    if (rawClientId === 'system-contact-form' && !isValidContactFormMetadata(metadata)) {
+      throw HttpErrors.badRequest('contactForm metadata is required');
+    }
+
+    const storedMessage = await conversationService.sendSystemMessage({
+      conversationId,
+      practiceId,
+      content,
+      metadata,
+      clientId: rawClientId,
+      skipPracticeValidation: !isMember,
+      request
+    });
+
+    return createJsonResponse({ message: storedMessage });
   }
 
   // POST /api/conversations - Create new conversation

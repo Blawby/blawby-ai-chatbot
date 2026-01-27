@@ -50,6 +50,7 @@ import { PracticeMattersPage } from '@/features/matters/pages/PracticeMattersPag
 import { ClientPaymentsPage } from '@/features/payments/pages/ClientPaymentsPage';
 import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import type { SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
+import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 
 // Main application component (non-auth pages)
 export function MainApp({
@@ -395,7 +396,6 @@ export function MainApp({
 
   const messages = realMessageHandling.messages;
   const addMessage = realMessageHandling.addMessage;
-  const updateMessage = realMessageHandling.updateMessage;
   const clearMessages = realMessageHandling.clearMessages;
   const requestMessageReactions = realMessageHandling.requestMessageReactions;
   const toggleMessageReaction = realMessageHandling.toggleMessageReaction;
@@ -797,47 +797,18 @@ export function MainApp({
   const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
 
 
-  // Add intro message when practice config is loaded and no messages exist
-  useEffect(() => {
-    if (!messagesReady || !practiceConfig || !practiceConfig.introMessage || !addMessage || !updateMessage) {
-      return;
-    }
-    const introMessageId = 'system-intro';
-    const introMessage = messages.find(m => m.id === introMessageId);
-    const shouldShowModeSelector =
-      shouldRequireModeSelection && !conversationMode && !isConsultFlowActive;
-
-    if (!introMessage && messages.length === 0) {
-      const now = Date.now();
-      addMessage({
-        id: introMessageId,
-        content: practiceConfig.introMessage,
-        isUser: false,
-        role: 'assistant',
-        timestamp: now,
-        metadata: shouldShowModeSelector ? { modeSelector: true } : undefined
-      });
-      return;
-    }
-
-    if (shouldShowModeSelector && introMessage && !introMessage.metadata?.modeSelector) {
-      updateMessage(introMessageId, {
-        metadata: {
-          ...(introMessage.metadata ?? {}),
-          modeSelector: true
-        }
-      });
-    }
-  }, [
-    addMessage,
+  useConversationSystemMessages({
+    conversationId,
+    practiceId: effectivePracticeId,
+    practiceSlug: (publicPracticeSlug ?? practiceConfig.slug) ?? undefined,
+    practiceConfig,
+    messagesReady,
+    messages,
     conversationMode,
     isConsultFlowActive,
-    messages,
-    messagesReady,
-    practiceConfig,
     shouldRequireModeSelection,
-    updateMessage
-  ]);
+    ingestServerMessages: realMessageHandling.ingestServerMessages
+  });
 
   // Create stable callback references for keyboard handlers
   const handleEscape = useCallback(() => {

@@ -864,6 +864,7 @@ export class ConversationService {
     auditActorId?: string | null;
     auditPayload?: Record<string, unknown>;
     skipPracticeValidation?: boolean;
+    clientId?: string;
     request?: Request;
   }): Promise<ConversationMessage> {
     const trimmedContent = typeof options.content === 'string' ? options.content.trim() : '';
@@ -925,7 +926,7 @@ export class ConversationService {
       content: trimmedContent,
       metadata: metadata ?? undefined,
       replyToMessageId: options.replyToMessageId ?? null,
-      clientId: crypto.randomUUID()
+      clientId: options.clientId ?? crypto.randomUUID()
     });
 
     const message = await this.getMessage(ack.messageId);
