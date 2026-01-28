@@ -101,8 +101,10 @@ const resolvePracticeContext = async (options: {
   const rawPracticeId = getPracticeId(requestWithContext);
   const isPublicRequest = !authContext || authContext.isAnonymous === true || !authContext.activeOrganizationId;
 
+  const isAnonymous = authContext?.isAnonymous === true;
+
   if (looksLikeUuid(rawPracticeId)) {
-    const membership = isPublicRequest
+    const membership = isAnonymous
       ? { isMember: false }
       : await checkPracticeMembership(request, env, rawPracticeId);
 
@@ -124,7 +126,7 @@ const resolvePracticeContext = async (options: {
     throw HttpErrors.badRequest('practiceSlug is required for public conversation access');
   }
   const mappedPracticeId = await resolvePublicPracticeId(env, slugToResolve, request);
-  const membership = authContext?.isAnonymous
+  const membership = isAnonymous
     ? { isMember: false }
     : await checkPracticeMembership(request, env, mappedPracticeId);
 

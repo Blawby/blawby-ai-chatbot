@@ -27,7 +27,7 @@ export function useWorkspace(): UseWorkspaceResult {
   );
 
   const preferredWorkspace = primaryWorkspace ?? null;
-  const hasActivePractice = Boolean(activeOrganizationId ?? activePracticeId);
+  const hasActivePractice = Boolean(activeOrganizationId || activePracticeId);
   const isPracticeEnabled = hasActivePractice;
   const isPracticeLoading = false;
   const canAccessPractice = hasActivePractice;
