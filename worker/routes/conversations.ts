@@ -96,7 +96,7 @@ const resolvePracticeContext = async (options: {
   const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
   const requestWithContext = await withPracticeContext(request, env, {
     requirePractice: true,
-    allowUrlOverride: true
+    allowUrlOverride: Boolean(practiceSlugParam)
   });
   const rawPracticeId = getPracticeId(requestWithContext);
   const isPublicRequest = !authContext || authContext.isAnonymous === true || !authContext.activeOrganizationId;
