@@ -430,11 +430,7 @@ export function MainApp({
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      const practiceSlugParam = (publicPracticeSlug ?? practiceConfig.slug ?? '').trim();
       const params = new URLSearchParams({ practiceId });
-      if (practiceSlugParam && practiceSlugParam !== practiceId) {
-        params.set('practiceSlug', practiceSlugParam);
-      }
       const url = `${getConversationsEndpoint()}?${params.toString()}`;
 
       const response = await fetch(url, {
@@ -467,7 +463,7 @@ export function MainApp({
     } finally {
       setIsCreatingConversation(false);
     }
-  }, [isPracticeWorkspace, practiceId, practiceConfig.slug, publicPracticeSlug, session?.user, isCreatingConversation]);
+  }, [isPracticeWorkspace, practiceId, session?.user, isCreatingConversation]);
 
   const restoreConversationFromCache = useCallback(async () => {
     if (typeof window === 'undefined') {
@@ -485,11 +481,7 @@ export function MainApp({
     }
 
     try {
-      const practiceSlugParam = (publicPracticeSlug ?? practiceConfig.slug ?? '').trim();
       const params = new URLSearchParams({ practiceId });
-      if (practiceSlugParam && practiceSlugParam !== practiceId) {
-        params.set('practiceSlug', practiceSlugParam);
-      }
       const response = await fetch(
         `${getConversationEndpoint(cached)}?${params.toString()}`,
         {
@@ -510,9 +502,7 @@ export function MainApp({
   }, [
     conversationCacheKey,
     conversationId,
-    practiceConfig.slug,
     practiceId,
-    publicPracticeSlug,
     session?.user
   ]);
 
@@ -779,7 +769,6 @@ export function MainApp({
   useConversationSystemMessages({
     conversationId,
     practiceId: effectivePracticeId,
-    practiceSlug: (publicPracticeSlug ?? practiceConfig.slug) ?? undefined,
     practiceConfig,
     messagesReady,
     messages,
@@ -1012,12 +1001,11 @@ export function MainApp({
       <ConversationSidebar
         workspace={workspace}
         practiceId={practiceId}
-        practiceSlug={resolvedPracticeSlug}
         selectedConversationId={conversationId}
         onSelectConversation={handleSelectConversation}
       />
     );
-  }, [conversationId, handleSelectConversation, practiceId, resolvedPracticeSlug, workspace]);
+  }, [conversationId, handleSelectConversation, practiceId, workspace]);
 
   const practiceContent = (() => {
     switch (routeKey) {

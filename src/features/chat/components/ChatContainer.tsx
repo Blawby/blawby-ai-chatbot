@@ -170,7 +170,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     refresh: refreshPublicConversations
   } = useConversations({
     practiceId,
-    practiceSlug: practiceConfig?.slug ?? undefined,
     scope: 'practice',
     list: isPublicWorkspace,
     enabled: isPublicWorkspace && Boolean(practiceId)
@@ -195,8 +194,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       await Promise.all(toFetch.map(async (conversation) => {
         const message = await fetchLatestConversationMessage(
           conversation.id,
-          practiceId,
-          practiceConfig?.slug ?? undefined
+          practiceId
         ).catch(() => null);
         if (message?.content) {
           fetchedPreviewIds.current.add(conversation.id);

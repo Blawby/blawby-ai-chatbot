@@ -799,7 +799,12 @@ function extractPublicPracticeId(payload: unknown): string | null {
   if (!isRecord(payload)) {
     return null;
   }
-  const direct = toNullableString(payload.practiceId ?? payload.practice_id);
+  const direct = toNullableString(
+    payload.practiceId ??
+    payload.practice_id ??
+    payload.organizationId ??
+    payload.organization_id
+  );
   if (direct) {
     return direct;
   }

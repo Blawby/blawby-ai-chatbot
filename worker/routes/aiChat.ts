@@ -66,15 +66,11 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
 
   const body = await parseJsonBody(request) as {
     conversationId?: string;
-    practiceSlug?: string;
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
   };
 
   if (!body.conversationId || typeof body.conversationId !== 'string') {
     throw HttpErrors.badRequest('conversationId is required');
-  }
-  if (!body.practiceSlug || typeof body.practiceSlug !== 'string') {
-    throw HttpErrors.badRequest('practiceSlug is required');
   }
   if (!Array.isArray(body.messages)) {
     throw HttpErrors.badRequest('messages must be an array');
@@ -108,17 +104,24 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
     throw HttpErrors.forbidden('User is not a participant in this conversation');
   }
 
+  const practiceId = conversation.practice_id;
+  if (!practiceId) {
+    throw HttpErrors.badRequest('Conversation is missing practice context');
+  }
+
   const auditService = new SessionAuditService(env);
   await auditService.createEvent({
     conversationId: body.conversationId,
-    practiceId: conversation.practice_id,
+    practiceId,
     eventType: 'ai_message_sent',
     actorType: 'user',
     actorId: authContext.user.id,
     payload: { conversationId: body.conversationId }
   });
 
-  const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, body.practiceSlug);
+  const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, {
+    practiceId
+  });
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
   let reply: string;
   let model = env.AI_MODEL || DEFAULT_AI_MODEL;

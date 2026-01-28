@@ -2,13 +2,8 @@ import type { Conversation, ConversationMessage, ConversationMetadata, MessageRe
 import type { MessageReaction } from '../../../worker/types';
 import { getConversationMessageReactionsEndpoint } from '@/config/api';
 
-const buildPracticeParams = (practiceId: string, practiceSlug?: string) => {
-  const params = new URLSearchParams({ practiceId });
-  const slug = practiceSlug?.trim();
-  if (slug && slug !== practiceId) {
-    params.set('practiceSlug', slug);
-  }
-  return params;
+const buildPracticeParams = (practiceId: string) => {
+  return new URLSearchParams({ practiceId });
 };
 
 const toMessageReaction = (reaction: MessageReactionSummary): MessageReaction => ({
@@ -78,13 +73,12 @@ export const postSystemMessage = async (
     clientId: string;
     content: string;
     metadata?: Record<string, unknown>;
-  },
-  practiceSlug?: string
+  }
 ): Promise<ConversationMessage | null> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
-  const params = buildPracticeParams(practiceId, practiceSlug);
+  const params = buildPracticeParams(practiceId);
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/system-messages?${params.toString()}`,
     {
@@ -106,13 +100,12 @@ export const postSystemMessage = async (
 
 export const fetchLatestConversationMessage = async (
   conversationId: string,
-  practiceId: string,
-  practiceSlug?: string
+  practiceId: string
 ): Promise<ConversationMessage | null> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
-  const params = buildPracticeParams(practiceId, practiceSlug);
+  const params = buildPracticeParams(practiceId);
   params.set('limit', '1');
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
@@ -142,14 +135,13 @@ export const fetchLatestConversationMessage = async (
 export const fetchMessageReactions = async (
   conversationId: string,
   messageId: string,
-  practiceId: string,
-  practiceSlug?: string
+  practiceId: string
 ): Promise<MessageReaction[]> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
 
-  const params = buildPracticeParams(practiceId, practiceSlug);
+  const params = buildPracticeParams(practiceId);
   const response = await fetch(
     `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,
     {
@@ -183,13 +175,12 @@ export const addMessageReaction = async (
   conversationId: string,
   messageId: string,
   practiceId: string,
-  emoji: string,
-  practiceSlug?: string
+  emoji: string
 ): Promise<MessageReaction[]> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
-  const params = buildPracticeParams(practiceId, practiceSlug);
+  const params = buildPracticeParams(practiceId);
   const response = await fetch(
     `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,
     {
@@ -223,13 +214,12 @@ export const removeMessageReaction = async (
   conversationId: string,
   messageId: string,
   practiceId: string,
-  emoji: string,
-  practiceSlug?: string
+  emoji: string
 ): Promise<MessageReaction[]> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
-  const params = buildPracticeParams(practiceId, practiceSlug);
+  const params = buildPracticeParams(practiceId);
   params.set('emoji', emoji);
   const response = await fetch(
     `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,

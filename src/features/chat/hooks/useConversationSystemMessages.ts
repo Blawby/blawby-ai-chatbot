@@ -30,7 +30,6 @@ const hasContactFormMessage = (messages: ChatMessageUI[]): boolean => (
 interface ConversationSystemMessagesOptions {
   conversationId?: string | null;
   practiceId?: string;
-  practiceSlug?: string;
   practiceConfig: UIPracticeConfig;
   messagesReady: boolean;
   messages: ChatMessageUI[];
@@ -43,7 +42,6 @@ interface ConversationSystemMessagesOptions {
 export const useConversationSystemMessages = ({
   conversationId,
   practiceId,
-  practiceSlug,
   practiceConfig,
   messagesReady,
   messages,
@@ -77,8 +75,7 @@ export const useConversationSystemMessages = ({
           clientId,
           content: shouldAllowEmpty ? '' : trimmedContent,
           metadata
-        },
-        practiceSlug
+        }
       );
       completedRef.current.add(key);
       if (message) {
@@ -91,7 +88,7 @@ export const useConversationSystemMessages = ({
     } finally {
       inFlightRef.current.delete(key);
     }
-  }, [conversationId, ingestServerMessages, practiceId, practiceSlug]);
+  }, [conversationId, ingestServerMessages, practiceId]);
 
   useEffect(() => {
     if (!messagesReady || !conversationId || !practiceId) {
