@@ -524,9 +524,6 @@ const confirmIntakeLead = async (options: {
   storagePath?: string;
 }): Promise<{ status: number; data?: { matterId?: string } } > => {
   const params = new URLSearchParams({ practiceId: options.practiceId });
-  if (options.practiceSlug) {
-    params.set('practiceSlug', options.practiceSlug);
-  }
   const path = `/api/intakes/confirm?${params.toString()}`;
   const payload = {
     intakeUuid: options.intakeUuid,
@@ -583,9 +580,6 @@ const getOrCreateConversation = async (options: {
 
   const cookieHeader = await ensureCookieHeader();
   const params = new URLSearchParams({ practiceId: options.practiceId });
-  if (options.practiceSlug) {
-    params.set('practiceSlug', options.practiceSlug);
-  }
   const response = await options.request.get(
     `/api/conversations/active?${params.toString()}`,
     {

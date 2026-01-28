@@ -57,9 +57,6 @@ const getOrCreateConversation = async (options: {
   }
 
   const params = new URLSearchParams({ practiceId: options.practiceId });
-  if (options.practiceSlug) {
-    params.set('practiceSlug', options.practiceSlug);
-  }
   const response = await options.request.get(
     `/api/conversations/active?${params.toString()}`,
     { headers }
@@ -406,11 +403,8 @@ const createConversationForPage = async (options: {
   if (!userId) {
     throw new Error('Session user id missing');
   }
-  return options.page.evaluate(async ({ practiceId, practiceSlug, userId }) => {
+  return options.page.evaluate(async ({ practiceId, userId }) => {
     const params = new URLSearchParams({ practiceId });
-    if (practiceSlug) {
-      params.set('practiceSlug', practiceSlug);
-    }
     const response = await fetch(
       `/api/conversations?${params.toString()}`,
       {
@@ -437,7 +431,7 @@ const createConversationForPage = async (options: {
       throw new Error(`Failed to create conversation: ${response.status} ${message}`);
     }
     return conversationId;
-  }, { practiceId: options.practiceId, practiceSlug: options.practiceSlug, userId });
+  }, { practiceId: options.practiceId, userId });
 };
 
 const openConversationPage = async (options: {

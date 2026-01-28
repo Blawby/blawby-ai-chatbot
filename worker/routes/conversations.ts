@@ -9,16 +9,6 @@ import { withPracticeContext, getPracticeId } from '../middleware/practiceContex
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 
-const looksLikeUuid = (value: string): boolean => (
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
-);
-
-const normalizePracticeSlug = (value: string | null | undefined): string | null => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-};
-
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
   'system-ask-question-help',
@@ -35,136 +25,30 @@ const isValidContactFormMetadata = (metadata: Record<string, unknown> | null | u
     && contactForm.required.every((field) => typeof field === 'string');
 };
 
-const resolvePublicPracticeId = async (
-  env: Env,
-  practiceSlug: string,
-  request: Request
-): Promise<string> => {
-  const response = await RemoteApiService.getPublicPracticeDetails(env, practiceSlug, request);
-  const rawText = await response.text().catch(() => '');
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw HttpErrors.notFound(`Practice not found: ${practiceSlug}`);
-    }
-    if (response.status === 401 || response.status === 403) {
-      throw HttpErrors.unauthorized('Authentication required');
-    }
-    throw HttpErrors.badGateway(`Failed to load practice details (${response.status})`);
-  }
-
-  let payload: Record<string, unknown> | null = null;
-  if (rawText) {
-    try {
-      payload = JSON.parse(rawText) as Record<string, unknown>;
-    } catch {
-      payload = null;
-    }
-  }
-
-  let practiceId = typeof payload?.practiceId === 'string'
-    ? payload.practiceId
-    : typeof payload?.practice_id === 'string'
-      ? payload.practice_id
-      : undefined;
-
-  if (!practiceId) {
-    const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, practiceSlug, request);
-    practiceId = intakeSettings?.organization?.id;
-  }
-
-  if (!practiceId) {
-    throw HttpErrors.notFound(`Practice not found: ${practiceSlug}`);
-  }
-
-  return practiceId;
-};
-
 type PracticeContextResolution = {
-  rawPracticeId: string;
   practiceId: string;
-  practiceSlug?: string;
   isMember: boolean;
 };
 
 const resolvePracticeContext = async (options: {
   request: Request;
   env: Env;
-  authContext: { isAnonymous?: boolean; activeOrganizationId?: string | null } | null;
+  authContext: { isAnonymous?: boolean } | null;
 }): Promise<PracticeContextResolution> => {
   const { request, env, authContext } = options;
-  const url = new URL(request.url);
-  const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
   const requestWithContext = await withPracticeContext(request, env, {
     requirePractice: true
   });
-  const rawPracticeId = getPracticeId(requestWithContext);
-  const isPublicRequest = !authContext || authContext.isAnonymous === true || !authContext.activeOrganizationId;
-
+  const practiceId = getPracticeId(requestWithContext);
   const isAnonymous = authContext?.isAnonymous === true;
-
-  if (looksLikeUuid(rawPracticeId)) {
-    const membership = isAnonymous
-      ? { isMember: false }
-      : await checkPracticeMembership(request, env, rawPracticeId);
-
-    return {
-      rawPracticeId,
-      practiceId: rawPracticeId,
-      practiceSlug: isPublicRequest ? practiceSlugParam ?? undefined : undefined,
-      isMember: membership.isMember
-    };
-  }
-
-  if (!isPublicRequest) {
-    throw HttpErrors.badRequest('Authenticated requests must include a valid practice ID');
-  }
-
-  const practiceSlug = rawPracticeId;
-  const slugToResolve = practiceSlugParam ?? practiceSlug;
-  if (!slugToResolve) {
-    throw HttpErrors.badRequest('practiceSlug is required for public conversation access');
-  }
-  const mappedPracticeId = await resolvePublicPracticeId(env, slugToResolve, request);
   const membership = isAnonymous
     ? { isMember: false }
-    : await checkPracticeMembership(request, env, mappedPracticeId);
+    : await checkPracticeMembership(request, env, practiceId);
 
   return {
-    rawPracticeId,
-    practiceId: mappedPracticeId,
-    practiceSlug: slugToResolve,
+    practiceId,
     isMember: membership.isMember
   };
-};
-
-const resolvePracticeIdForConversation = async (
-  conversationService: ConversationService,
-  conversationId: string,
-  rawPracticeId: string,
-  env: Env,
-  request: Request,
-  practiceSlugParam: string | null
-): Promise<{ practiceId: string; practiceSlug?: string }> => {
-  const conversation = await conversationService.getConversationById(conversationId);
-  const conversationPracticeId = conversation.practice_id;
-  const practiceSlug = practiceSlugParam ?? (looksLikeUuid(rawPracticeId) ? null : rawPracticeId);
-
-  if (practiceSlug) {
-    const mappedPracticeId = await resolvePublicPracticeId(env, practiceSlug, request);
-    if (mappedPracticeId !== conversationPracticeId) {
-      throw HttpErrors.notFound('Conversation not found');
-    }
-    return { practiceId: conversationPracticeId, practiceSlug };
-  }
-
-  if (looksLikeUuid(rawPracticeId)) {
-    if (rawPracticeId !== conversationPracticeId) {
-      throw HttpErrors.notFound('Conversation not found');
-    }
-    return { practiceId: conversationPracticeId };
-  }
-
-  throw HttpErrors.badRequest('practiceSlug is required for public conversation access');
 };
 
 function createJsonResponse(data: unknown, headers?: Record<string, string>): Response {
@@ -226,16 +110,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true
     });
     const conversationId = segments[2];
-    const rawPracticeId = getPracticeId(requestWithContext);
-    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
-    const { practiceId: conversationPracticeId } = await resolvePracticeIdForConversation(
-      conversationService,
-      conversationId,
-      rawPracticeId,
-      env,
-      request,
-      practiceSlugParam
-    );
+    const conversationPracticeId = getPracticeId(requestWithContext);
 
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
@@ -278,8 +153,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     } catch (error) {
       Logger.warn('[Conversations] Failed to fetch messages', {
         conversationId,
-        practiceId: rawPracticeId,
-        resolvedPracticeId: conversationPracticeId,
+        practiceId: conversationPracticeId,
         isAnonymous: authContext.isAnonymous,
         error: error instanceof Error ? error.message : String(error)
       });
@@ -301,16 +175,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.badRequest('messageId is required');
     }
 
-    const rawPracticeId = getPracticeId(requestWithContext);
-    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
-    const { practiceId: conversationPracticeId } = await resolvePracticeIdForConversation(
-      conversationService,
-      conversationId,
-      rawPracticeId,
-      env,
-      request,
-      practiceSlugParam
-    );
+    const conversationPracticeId = getPracticeId(requestWithContext);
 
     if (authContext.isAnonymous) {
       await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId);
@@ -378,15 +243,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true
     });
     const conversationId = segments[2];
-    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
-    const { practiceId } = await resolvePracticeIdForConversation(
-      conversationService,
-      conversationId,
-      getPracticeId(requestWithContext),
-      env,
-      request,
-      practiceSlugParam
-    );
+    const practiceId = getPracticeId(requestWithContext);
 
     let isMember = false;
     if (authContext.isAnonymous) {
@@ -627,16 +484,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true
     });
     const conversationId = segments[2];
-    const rawPracticeId = getPracticeId(requestWithContext);
-    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
-    const { practiceId } = await resolvePracticeIdForConversation(
-      conversationService,
-      conversationId,
-      rawPracticeId,
-      env,
-      request,
-      practiceSlugParam
-    );
+    const practiceId = getPracticeId(requestWithContext);
 
     // Validate user has access
     if (authContext.isAnonymous) {
@@ -664,15 +512,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true
     });
     const conversationId = segments[2];
-    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
-    const { practiceId } = await resolvePracticeIdForConversation(
-      conversationService,
-      conversationId,
-      getPracticeId(requestWithContext),
-      env,
-      request,
-      practiceSlugParam
-    );
+    const practiceId = getPracticeId(requestWithContext);
     const body = await parseJsonBody(request) as { userId?: string | null };
 
     if (authContext.isAnonymous) {
@@ -702,15 +542,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       requirePractice: true
     });
     const conversationId = segments[2];
-    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
-    const { practiceId } = await resolvePracticeIdForConversation(
-      conversationService,
-      conversationId,
-      getPracticeId(requestWithContext),
-      env,
-      request,
-      practiceSlugParam
-    );
+    const practiceId = getPracticeId(requestWithContext);
     const body = await parseJsonBody(request) as {
       status?: 'active' | 'archived' | 'closed';
       metadata?: Record<string, unknown>;
@@ -734,19 +566,10 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // POST /api/conversations/:id/audit - Log conversation audit events
   if (segments.length === 4 && segments[3] === 'audit' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const conversationId = segments[2];
-    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
-    const { practiceId } = await resolvePracticeIdForConversation(
-      conversationService,
-      conversationId,
-      getPracticeId(requestWithContext),
-      env,
-      request,
-      practiceSlugParam
-    );
+    const practiceId = getPracticeId(requestWithContext);
     const body = await parseJsonBody(request) as {
       eventType?: string;
       payload?: Record<string, unknown>;
@@ -774,19 +597,10 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // POST /api/conversations/:id/participants - Add participants to a conversation
   if (segments.length === 4 && segments[3] === 'participants' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const conversationId = segments[2];
-    const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
-    const { practiceId } = await resolvePracticeIdForConversation(
-      conversationService,
-      conversationId,
-      getPracticeId(requestWithContext),
-      env,
-      request,
-      practiceSlugParam
-    );
+    const practiceId = getPracticeId(requestWithContext);
     const body = await parseJsonBody(request) as {
       participantUserIds: string[];
     };

@@ -4,13 +4,8 @@ import { getConversationsEndpoint, getConversationParticipantsEndpoint } from '@
 import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
 import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const looksLikeUuid = (value: string | null | undefined): boolean =>
-  typeof value === 'string' && UUID_REGEX.test(value);
-
 interface UseConversationsOptions {
   practiceId?: string;
-  practiceSlug?: string;
   matterId?: string | null;
   status?: ConversationStatus | null;
   scope?: 'practice' | 'all';
@@ -45,7 +40,6 @@ export function useConversationsWithContext(options?: Omit<UseConversationsOptio
  */
 export function useConversations({
   practiceId,
-  practiceSlug,
   matterId,
   status,
   scope = 'practice',
@@ -112,13 +106,6 @@ export function useConversations({
         params.set('scope', 'all');
       } else if (effectivePracticeId) {
         params.set('practiceId', effectivePracticeId);
-        const normalizedPracticeSlug = practiceSlug?.trim();
-        if (
-          normalizedPracticeSlug &&
-          (!looksLikeUuid(effectivePracticeId) || scope !== 'practice')
-        ) {
-          params.set('practiceSlug', normalizedPracticeSlug);
-        }
       }
 
       if (matterId && scope !== 'all') {
@@ -203,7 +190,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, practiceSlug, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId]);
+  }, [practiceId, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {

@@ -350,7 +350,7 @@ export const useMessageHandling = ({
       return null;
     }
     const activeConversationId = targetConversationId ?? conversationId;
-    const practiceKey = practiceId ?? practiceSlug;
+    const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) {
       return null;
     }
@@ -366,7 +366,7 @@ export const useMessageHandling = ({
     const queued = metadataUpdateQueueRef.current.then(runUpdate, runUpdate);
     metadataUpdateQueueRef.current = queued.catch(() => null);
     return queued;
-  }, [applyConversationMetadata, conversationId, practiceId, practiceSlug, sessionReady]);
+  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
   const fetchConversationMetadata = useCallback(async (
     signal?: AbortSignal,
@@ -374,7 +374,7 @@ export const useMessageHandling = ({
   ) => {
     if (!sessionReady) return;
     const activeConversationId = targetConversationId ?? conversationId;
-    const practiceKey = practiceId ?? practiceSlug;
+    const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const response = await fetch(
@@ -394,7 +394,7 @@ export const useMessageHandling = ({
     if (signal?.aborted || isDisposedRef.current) return;
     if (activeConversationId !== conversationIdRef.current) return;
     applyConversationMetadata(data.data?.user_info ?? null);
-  }, [applyConversationMetadata, conversationId, practiceId, practiceSlug, sessionReady]);
+  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
   // Convert API message to UI message
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
@@ -1100,9 +1100,9 @@ export const useMessageHandling = ({
         return;
       }
 
-      const resolvedPracticeSlug = (practiceSlug ?? practiceId ?? '').trim();
-      if (!resolvedPracticeSlug) {
-        throw new Error('Practice slug is required for AI responses');
+      const resolvedPracticeId = (practiceId ?? '').trim();
+      if (!resolvedPracticeId) {
+        throw new Error('Practice ID is required for AI responses');
       }
 
       if (!hasLoggedIntentRef.current && !hasUserMessages) {
@@ -1110,7 +1110,7 @@ export const useMessageHandling = ({
         const intentController = new AbortController();
         intentAbortRef.current = intentController;
         const intentConversationId = conversationId;
-        const intentPracticeSlug = resolvedPracticeSlug;
+        const intentPracticeId = resolvedPracticeId;
         let intentResponse: Response | null = null;
         try {
           intentResponse = await fetch('/api/ai/intent', {
@@ -1122,7 +1122,7 @@ export const useMessageHandling = ({
             signal: intentController.signal,
             body: JSON.stringify({
               conversationId,
-              practiceSlug: resolvedPracticeSlug,
+              practiceId: resolvedPracticeId,
               message: trimmedMessage
             })
           });
@@ -1139,7 +1139,7 @@ export const useMessageHandling = ({
           if (intentController.signal.aborted) {
             return;
           }
-          if (conversationIdRef.current !== intentConversationId || resolvedPracticeSlug !== intentPracticeSlug) {
+          if (conversationIdRef.current !== intentConversationId || resolvedPracticeId !== intentPracticeId) {
             return;
           }
           if (hasLoggedIntentRef.current) {
@@ -1182,7 +1182,7 @@ export const useMessageHandling = ({
         credentials: 'include',
         body: JSON.stringify({
           conversationId,
-          practiceSlug: resolvedPracticeSlug,
+          practiceId: resolvedPracticeId,
           messages: aiMessages
         })
       });
@@ -1224,7 +1224,6 @@ export const useMessageHandling = ({
     messages,
     mode,
     practiceId,
-    practiceSlug,
     onError,
     sendMessageOverWs,
     updateConversationMetadata
@@ -1233,15 +1232,10 @@ export const useMessageHandling = ({
   const confirmIntakeLead = useCallback(async (intakeUuid: string) => {
     if (!intakeUuid || !conversationId) return;
     const practiceContextId = (practiceId ?? '').trim();
-    const practiceSlugValue = (practiceSlug ?? '').trim();
-    const effectivePracticeId = practiceContextId || practiceSlugValue;
-    if (!effectivePracticeId) return;
+    if (!practiceContextId) return;
 
     try {
-      const params = new URLSearchParams({ practiceId: effectivePracticeId });
-      if (practiceSlugValue && practiceSlugValue !== practiceContextId) {
-        params.set('practiceSlug', practiceSlugValue);
-      }
+      const params = new URLSearchParams({ practiceId: practiceContextId });
       const response = await fetch(`${getIntakeConfirmEndpoint()}?${params.toString()}`, {
         method: 'POST',
         headers: {
@@ -1261,7 +1255,7 @@ export const useMessageHandling = ({
     } catch (error) {
       console.warn('[Intake] Lead confirmation failed', error);
     }
-  }, [conversationId, practiceId, practiceSlug]);
+  }, [conversationId, practiceId]);
 
   // Handle contact form submission
   const handleContactFormSubmit = useCallback(async (contactData: ContactData) => {
@@ -1558,9 +1552,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
   const requestMessageReactions = useCallback(async (messageId: string) => {
     const conversationIdValue = conversationIdRef.current;
     const practiceContextId = (practiceIdRef.current ?? '').trim();
-    const practiceSlugValue = (practiceSlug ?? '').trim();
-    const effectivePracticeId = practiceContextId || practiceSlugValue;
-    if (!conversationIdValue || !effectivePracticeId) {
+    if (!conversationIdValue || !practiceContextId) {
       return null;
     }
     if (isTempMessageId(messageId)) {
@@ -1578,8 +1570,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
     const requestPromise = fetchMessageReactions(
       conversationIdValue,
       messageId,
-      effectivePracticeId,
-      practiceSlugValue
+      practiceContextId
     ).then((reactions) => {
       updateMessageReactions(messageId, reactions);
       reactionLoadedRef.current.add(messageId);
@@ -1596,14 +1587,12 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
 
     reactionFetchRef.current.set(messageId, requestPromise);
     return requestPromise;
-  }, [practiceSlug, updateMessageReactions]);
+  }, [updateMessageReactions]);
 
   const toggleMessageReaction = useCallback(async (messageId: string, emoji: string) => {
     const conversationIdValue = conversationIdRef.current;
     const practiceContextId = (practiceIdRef.current ?? '').trim();
-    const practiceSlugValue = (practiceSlug ?? '').trim();
-    const effectivePracticeId = practiceContextId || practiceSlugValue;
-    if (!conversationIdValue || !effectivePracticeId) {
+    if (!conversationIdValue || !practiceContextId) {
       return;
     }
     if (isTempMessageId(messageId)) {
@@ -1623,16 +1612,14 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
         ? await removeMessageReaction(
           conversationIdValue,
           messageId,
-          effectivePracticeId,
-          emoji,
-          practiceSlugValue
+          practiceContextId,
+          emoji
         )
         : await addMessageReaction(
           conversationIdValue,
           messageId,
-          effectivePracticeId,
-          emoji,
-          practiceSlugValue
+          practiceContextId,
+          emoji
         );
       updateMessageReactions(messageId, nextReactions);
       reactionLoadedRef.current.add(messageId);
@@ -1643,7 +1630,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
       }
       onError?.('Failed to update reaction.');
     }
-  }, [getOptimisticReactions, messages, onError, practiceSlug, updateMessageReactions]);
+  }, [getOptimisticReactions, messages, onError, updateMessageReactions]);
 
   const startConsultFlow = useCallback((targetConversationId?: string) => {
     if (!sessionReady) {

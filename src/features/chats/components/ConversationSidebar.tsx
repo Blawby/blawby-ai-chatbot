@@ -15,7 +15,6 @@ const REFRESH_DEBOUNCE_MS = 250;
 interface ConversationSidebarProps {
   workspace: WorkspaceType;
   practiceId?: string;
-  practiceSlug?: string;
   selectedConversationId?: string | null;
   onSelectConversation?: (conversationId: string) => void;
 }
@@ -23,7 +22,6 @@ interface ConversationSidebarProps {
 export const ConversationSidebar = ({
   workspace,
   practiceId,
-  practiceSlug,
   selectedConversationId,
   onSelectConversation
 }: ConversationSidebarProps) => {
@@ -35,7 +33,6 @@ export const ConversationSidebar = ({
   const allowAllScope = hasSession && !isAnonymous;
   const practiceConversationsData = useConversations({
     practiceId,
-    practiceSlug,
     scope: 'practice',
     enabled: isPracticeWorkspace && hasSession && Boolean(practiceId),
     onError: (message) => showError(message)
@@ -43,7 +40,6 @@ export const ConversationSidebar = ({
 
   const publicConversationsData = useConversations({
     practiceId,
-    practiceSlug,
     scope: 'practice',
     list: isPublicWorkspace,
     enabled: isPublicWorkspace && hasSession && Boolean(practiceId),

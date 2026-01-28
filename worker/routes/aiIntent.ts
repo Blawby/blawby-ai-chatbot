@@ -57,15 +57,11 @@ export async function handleAiIntent(request: Request, env: Env): Promise<Respon
 
   const body = await parseJsonBody(request) as {
     conversationId?: string;
-    practiceSlug?: string;
     message?: string;
   };
 
   if (!body.conversationId || typeof body.conversationId !== 'string') {
     throw HttpErrors.badRequest('conversationId is required');
-  }
-  if (!body.practiceSlug || typeof body.practiceSlug !== 'string') {
-    throw HttpErrors.badRequest('practiceSlug is required');
   }
   if (!body.message || typeof body.message !== 'string') {
     throw HttpErrors.badRequest('message is required');
