@@ -19,7 +19,13 @@ interface UseWorkspaceResult {
 
 export function useWorkspace(): UseWorkspaceResult {
   const location = useLocation();
-  const { primaryWorkspace, preferredPracticeId, activePracticeId, activeOrganizationId } = useSessionContext();
+  const {
+    primaryWorkspace,
+    preferredPracticeId,
+    activePracticeId,
+    activeOrganizationId,
+    isPending
+  } = useSessionContext();
 
   const workspaceFromPath = useMemo(
     () => resolveWorkspaceFromPath(location.path),
@@ -28,9 +34,9 @@ export function useWorkspace(): UseWorkspaceResult {
 
   const preferredWorkspace = primaryWorkspace ?? null;
   const hasActivePractice = Boolean(activeOrganizationId || activePracticeId);
+  const isPracticeLoading = isPending;
+  const canAccessPractice = isPending ? true : hasActivePractice;
   const isPracticeEnabled = hasActivePractice;
-  const isPracticeLoading = false;
-  const canAccessPractice = hasActivePractice;
   const defaultWorkspace: WorkspacePreference = useMemo(() => {
     if (!canAccessPractice) return 'client';
     if (preferredWorkspace === 'client') return 'client';

@@ -81,7 +81,10 @@ export const usePracticeConfig = ({
   const parseUrlParams = useCallback(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const practiceIdParam = urlParams.get('practiceId');
+      const rawPracticeIdParam = urlParams.get('practiceId');
+      const practiceIdParam = rawPracticeIdParam && rawPracticeIdParam.trim().length > 0
+        ? rawPracticeIdParam
+        : null;
       const shouldUseQueryParam = allowUnauthenticated || !session?.user;
 
       // Priority: explicit param (slug from path) > URL param (only for unauth/public) > active org
