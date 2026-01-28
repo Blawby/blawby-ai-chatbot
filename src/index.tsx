@@ -354,7 +354,8 @@ function PracticeAppRoute({
   const [autoActivationState, setAutoActivationState] = useState<'idle' | 'pending' | 'done' | 'failed'>('idle');
   const autoActivationKeyRef = useRef<string | null>(null);
   const autoActivationCandidateId = practices[0]?.id ?? currentPractice?.id ?? '';
-  const hasPracticeCandidate = Boolean(activeOrganizationId || autoActivationCandidateId);
+  const resolvedPracticeId = activeOrganizationId ?? '';
+  const hasPracticeCandidate = Boolean(resolvedPracticeId || autoActivationCandidateId);
   const practiceRefreshKey = useMemo(() => {
     if (!currentPractice) return null;
     return [
@@ -371,7 +372,6 @@ function PracticeAppRoute({
     console.error('Practice config error:', error);
   }, []);
 
-  const resolvedPracticeId = activeOrganizationId ?? '';
   const canAutoActivatePractice = Boolean(
     !practicesLoading &&
     session?.user &&
@@ -381,7 +381,6 @@ function PracticeAppRoute({
   const shouldDelayPracticeConfig = canAutoActivatePractice && autoActivationState !== 'done' && autoActivationState !== 'failed';
 
   const {
-    practiceId,
     practiceConfig,
     practiceNotFound,
     handleRetryPracticeConfig,
@@ -392,6 +391,8 @@ function PracticeAppRoute({
     allowUnauthenticated: false,
     refreshKey: practiceRefreshKey
   });
+
+  const practiceId = resolvedPracticeId;
 
   useEffect(() => {
     if (!canAutoActivatePractice) return;

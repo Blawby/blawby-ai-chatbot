@@ -82,13 +82,18 @@ export const usePracticeConfig = ({
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const practiceIdParam = urlParams.get('practiceId');
+      const shouldUseQueryParam = allowUnauthenticated || !session?.user;
 
-      // Priority: explicit param (slug from path) > URL query param > active organization
-      // explicitPracticeId takes priority because it comes from path-based routing (guest routes)
-      const resolved = (explicitPracticeId ?? practiceIdParam ?? activeOrganizationId ?? '');
+      // Priority: explicit param (slug from path) > URL param (only for unauth/public) > active org
+      const resolved = (
+        explicitPracticeId ??
+        (shouldUseQueryParam ? practiceIdParam : null) ??
+        activeOrganizationId ??
+        ''
+      );
       setPracticeId(resolved);
     }
-  }, [explicitPracticeId, activeOrganizationId]);
+  }, [explicitPracticeId, activeOrganizationId, allowUnauthenticated, session?.user]);
 
   // Fetch practice configuration
   const fetchPracticeConfig = useCallback(async (currentPracticeId: string) => {

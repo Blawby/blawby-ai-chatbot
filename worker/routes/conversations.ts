@@ -89,7 +89,7 @@ type PracticeContextResolution = {
 const resolvePracticeContext = async (options: {
   request: Request;
   env: Env;
-  authContext: { isAnonymous?: boolean };
+  authContext: { isAnonymous?: boolean; activeOrganizationId?: string | null } | null;
 }): Promise<PracticeContextResolution> => {
   const { request, env, authContext } = options;
   const url = new URL(request.url);
@@ -99,40 +99,39 @@ const resolvePracticeContext = async (options: {
     allowUrlOverride: true
   });
   const rawPracticeId = getPracticeId(requestWithContext);
+  const isPublicRequest = !authContext || authContext.isAnonymous === true || !authContext.activeOrganizationId;
 
   if (looksLikeUuid(rawPracticeId)) {
-    const membership = authContext.isAnonymous
+    const membership = isPublicRequest
       ? { isMember: false }
       : await checkPracticeMembership(request, env, rawPracticeId);
-
-    if (!membership.isMember) {
-      if (!practiceSlugParam) {
-        throw HttpErrors.badRequest('practiceSlug is required for public conversation access');
-      }
-      const mappedPracticeId = await resolvePublicPracticeId(env, practiceSlugParam, request);
-      if (mappedPracticeId !== rawPracticeId) {
-        throw HttpErrors.notFound('Practice not found');
-      }
-    }
 
     return {
       rawPracticeId,
       practiceId: rawPracticeId,
-      practiceSlug: practiceSlugParam ?? undefined,
+      practiceSlug: isPublicRequest ? practiceSlugParam ?? undefined : undefined,
       isMember: membership.isMember
     };
   }
 
+  if (!isPublicRequest) {
+    throw HttpErrors.badRequest('Authenticated requests must include a valid practice ID');
+  }
+
   const practiceSlug = rawPracticeId;
-  const mappedPracticeId = await resolvePublicPracticeId(env, practiceSlug, request);
-  const membership = authContext.isAnonymous
+  const slugToResolve = practiceSlugParam ?? practiceSlug;
+  if (!slugToResolve) {
+    throw HttpErrors.badRequest('practiceSlug is required for public conversation access');
+  }
+  const mappedPracticeId = await resolvePublicPracticeId(env, slugToResolve, request);
+  const membership = authContext?.isAnonymous
     ? { isMember: false }
     : await checkPracticeMembership(request, env, mappedPracticeId);
 
   return {
     rawPracticeId,
     practiceId: mappedPracticeId,
-    practiceSlug,
+    practiceSlug: slugToResolve,
     isMember: membership.isMember
   };
 };

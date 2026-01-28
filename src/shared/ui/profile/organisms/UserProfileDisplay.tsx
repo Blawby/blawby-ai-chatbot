@@ -17,6 +17,7 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { type SubscriptionTier } from '@/shared/types/user';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { getCurrentSubscription } from '@/shared/lib/apiClient';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
@@ -40,9 +41,40 @@ export const UserProfileDisplay = ({
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
   const practiceForTier = currentPractice ?? managedPractice ?? null;
-  const hasActiveOrganization = Boolean(activeOrganizationId);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState<boolean>(false);
+  const sessionUserId = session?.user?.id ?? null;
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    if (!sessionUserId || !activeOrganizationId) {
+      setHasActiveSubscription(false);
+      return () => {
+        isMounted = false;
+        controller.abort();
+      };
+    }
+
+    (async () => {
+      try {
+        const subscription = await getCurrentSubscription({ signal: controller.signal });
+        if (!isMounted) return;
+        setHasActiveSubscription(Boolean(subscription));
+      } catch (fetchError) {
+        if (!isMounted) return;
+        console.warn('[Profile] Failed to fetch current subscription', fetchError);
+        setHasActiveSubscription(false);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [activeOrganizationId, sessionUserId]);
+
   const resolvedSubscriptionTier: SubscriptionTier =
-    practiceForTier?.subscriptionTier ?? (hasActiveOrganization ? 'business' : 'free');
+    practiceForTier?.subscriptionTier ?? (hasActiveSubscription ? 'business' : 'free');
 
   // Derive user data from session and practice
   const user = session?.user ? {

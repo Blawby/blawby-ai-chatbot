@@ -94,44 +94,59 @@ export async function extractPracticeContext(
   const urlPracticeId = url.searchParams.get('practiceId');
 
   // Try to get auth context (works for both authenticated and anonymous users via Better Auth)
+  let authContext: Awaited<ReturnType<typeof optionalAuth>> = null;
   try {
-    const authContext = await optionalAuth(request, env);
-    if (authContext) {
-      // Both authenticated and anonymous users have a user.id from Better Auth
-      // Use URL param or default for practice context
-      if (urlPracticeId) {
-        return {
-          practiceId: urlPracticeId,
-          source: 'url',
-          isAuthenticated: !authContext.isAnonymous,
-          userId: authContext.user.id
-        };
-      }
-      
-      // If no URL param, try default
-      if (defaultPracticeId) {
-        return {
-          practiceId: defaultPracticeId,
-          source: 'default',
-          isAuthenticated: !authContext.isAnonymous,
-          userId: authContext.user.id
-        };
-      }
-      
-      // No practice ID available
-      if (requirePractice) {
-        throw HttpErrors.badRequest('Practice context is required but could not be determined');
-      }
+    authContext = await optionalAuth(request, env);
+  } catch (authError) {
+    console.debug('Auth check failed, continuing with fallback flow:', authError);
+    authContext = null;
+  }
+
+  if (authContext) {
+    const isAnonymous = authContext.isAnonymous === true;
+    const authPracticeId =
+      typeof authContext.activeOrganizationId === 'string' && authContext.activeOrganizationId.trim().length > 0
+        ? authContext.activeOrganizationId.trim()
+        : null;
+
+    if (!isAnonymous && authPracticeId) {
       return {
-        practiceId: null,
-        source: 'none',
-        isAuthenticated: !authContext.isAnonymous,
+        practiceId: authPracticeId,
+        source: 'auth',
+        isAuthenticated: true,
         userId: authContext.user.id
       };
     }
-  } catch (authError) {
-    // Auth failed, continue with fallback flow
-    console.debug('Auth check failed, continuing with fallback flow:', authError);
+
+    // Authenticated but no active org (e.g., client workspace) falls through to URL/default logic
+    if (urlPracticeId && allowUrlOverride) {
+      return {
+        practiceId: urlPracticeId,
+        source: 'url',
+        isAuthenticated: !isAnonymous,
+        userId: authContext.user.id
+      };
+    }
+
+    if (defaultPracticeId) {
+      return {
+        practiceId: defaultPracticeId,
+        source: 'default',
+        isAuthenticated: !isAnonymous,
+        userId: authContext.user.id
+      };
+    }
+
+    if (requirePractice) {
+      throw HttpErrors.badRequest('Practice context is required but could not be determined');
+    }
+
+    return {
+      practiceId: null,
+      source: 'none',
+      isAuthenticated: !isAnonymous,
+      userId: authContext.user.id
+    };
   }
 
   // Fall back to URL parameter

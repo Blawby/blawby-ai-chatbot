@@ -432,7 +432,7 @@ export function MainApp({
       };
       const practiceSlugParam = (publicPracticeSlug ?? practiceConfig.slug ?? '').trim();
       const params = new URLSearchParams({ practiceId });
-      if (practiceSlugParam && practiceSlugParam !== practiceId) {
+      if (isPublicWorkspace && practiceSlugParam && practiceSlugParam !== practiceId) {
         params.set('practiceSlug', practiceSlugParam);
       }
       const url = `${getConversationsEndpoint()}?${params.toString()}`;
@@ -467,7 +467,7 @@ export function MainApp({
     } finally {
       setIsCreatingConversation(false);
     }
-  }, [isPracticeWorkspace, practiceId, practiceConfig.slug, publicPracticeSlug, session?.user, isCreatingConversation]);
+  }, [isPracticeWorkspace, isPublicWorkspace, practiceId, practiceConfig.slug, publicPracticeSlug, session?.user, isCreatingConversation]);
 
   const restoreConversationFromCache = useCallback(async () => {
     if (typeof window === 'undefined') {
@@ -487,7 +487,7 @@ export function MainApp({
     try {
       const practiceSlugParam = (publicPracticeSlug ?? practiceConfig.slug ?? '').trim();
       const params = new URLSearchParams({ practiceId });
-      if (practiceSlugParam && practiceSlugParam !== practiceId) {
+      if (isPublicWorkspace && practiceSlugParam && practiceSlugParam !== practiceId) {
         params.set('practiceSlug', practiceSlugParam);
       }
       const response = await fetch(
@@ -510,6 +510,7 @@ export function MainApp({
   }, [
     conversationCacheKey,
     conversationId,
+    isPublicWorkspace,
     practiceConfig.slug,
     practiceId,
     publicPracticeSlug,

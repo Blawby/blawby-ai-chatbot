@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getConversationsEndpoint, getConversationParticipantsEndpoint } from '@/config/api';
 import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
 import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const looksLikeUuid = (value: string | null | undefined): boolean =>
+  typeof value === 'string' && UUID_REGEX.test(value);
 
 interface UseConversationsOptions {
   practiceId?: string;
@@ -51,6 +55,11 @@ export function useConversations({
   enabled = true,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
+  const { activePracticeId, activeOrganizationId } = useSessionContext();
+  const sessionPracticeId = useMemo(
+    () => activePracticeId ?? activeOrganizationId ?? null,
+    [activePracticeId, activeOrganizationId]
+  );
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +89,11 @@ export function useConversations({
       return;
     }
 
-    if (scope === 'practice' && !practiceId) {
+    const effectivePracticeId = scope === 'practice'
+      ? (practiceId ?? sessionPracticeId)
+      : (practiceId ?? null);
+
+    if (scope === 'practice' && !effectivePracticeId) {
       setIsLoading(false);
       return;
     }
@@ -97,10 +110,13 @@ export function useConversations({
 
       if (scope === 'all') {
         params.set('scope', 'all');
-      } else if (practiceId) {
-        params.set('practiceId', practiceId);
+      } else if (effectivePracticeId) {
+        params.set('practiceId', effectivePracticeId);
         const normalizedPracticeSlug = practiceSlug?.trim();
-        if (normalizedPracticeSlug) {
+        if (
+          normalizedPracticeSlug &&
+          (!looksLikeUuid(effectivePracticeId) || scope !== 'practice')
+        ) {
           params.set('practiceSlug', normalizedPracticeSlug);
         }
       }
@@ -187,7 +203,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, practiceSlug, matterId, status, scope, limit, offset, list, enabled]);
+  }, [practiceId, practiceSlug, matterId, status, scope, limit, offset, list, enabled, sessionPracticeId]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {
