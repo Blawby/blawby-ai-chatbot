@@ -1014,10 +1014,10 @@ export const useMessageHandling = ({
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
     const activeConversationId = conversationIdRef.current;
     if (!effectivePracticeId) {
-      throw new Error('Practice ID is required. Please wait a moment and try again.');
+      return;
     }
     if (!activeConversationId) {
-      throw new Error('Conversation ID is required for sending messages.');
+      return;
     }
     if (!content.trim()) {
       throw new Error('Message cannot be empty.');
@@ -1102,7 +1102,7 @@ export const useMessageHandling = ({
 
       const resolvedPracticeId = (practiceId ?? '').trim();
       if (!resolvedPracticeId) {
-        throw new Error('Practice ID is required for AI responses');
+        return;
       }
 
       if (!hasLoggedIntentRef.current && !hasUserMessages) {

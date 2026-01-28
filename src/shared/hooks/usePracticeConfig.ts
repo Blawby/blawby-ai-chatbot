@@ -4,8 +4,6 @@ import type { PracticeConfig } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
-import { PLATFORM_SETTINGS } from '@/config/platform';
-import { isPlatformPractice } from '@/shared/utils/practice';
 
 // Zod schema for API response validation
 // Note: createdAt/updatedAt can be either number (timestamp) or string (ISO date) depending on the API
@@ -32,18 +30,24 @@ export interface UIPracticeConfig extends PracticeConfig {
 }
 
 const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): UIPracticeConfig => ({
-  id: PLATFORM_SETTINGS.id,
-  slug: PLATFORM_SETTINGS.slug,
-  name: PLATFORM_SETTINGS.name,
-  profileImage: PLATFORM_SETTINGS.profileImage ?? null,
-  introMessage: PLATFORM_SETTINGS.introMessage ?? '',
-  description: PLATFORM_SETTINGS.description ?? '',
-  availableServices: PLATFORM_SETTINGS.availableServices,
-  serviceQuestions: PLATFORM_SETTINGS.serviceQuestions,
+  id: '',
+  slug: '',
+  name: '',
+  profileImage: null,
+  introMessage: '',
+  description: '',
+  availableServices: [],
+  serviceQuestions: {},
   domain: '',
   brandColor: '#000000',
   accentColor: '#000000',
-  voice: PLATFORM_SETTINGS.voice,
+  voice: {
+    enabled: false,
+    provider: 'cloudflare',
+    voiceId: null,
+    displayName: null,
+    previewUrl: null
+  },
   ...overrides
 });
 
@@ -88,8 +92,11 @@ export const usePracticeConfig = ({
       const shouldUseQueryParam = allowUnauthenticated || !session?.user;
 
       // Priority: explicit param (slug from path) > URL param (only for unauth/public) > active org
+      const normalizedExplicitPracticeId = typeof explicitPracticeId === 'string'
+        ? explicitPracticeId.trim()
+        : null;
       const resolved = (
-        explicitPracticeId ??
+        (normalizedExplicitPracticeId && normalizedExplicitPracticeId.length > 0 ? normalizedExplicitPracticeId : null) ??
         (shouldUseQueryParam ? practiceIdParam : null) ??
         activeOrganizationId ??
         ''
@@ -101,16 +108,6 @@ export const usePracticeConfig = ({
   // Fetch practice configuration
   const fetchPracticeConfig = useCallback(async (currentPracticeId: string) => {
     const requestedPracticeId = currentPracticeId;
-    // Always fetch the specified practice configuration.
-    // Platform defaults are handled by isPlatformPractice.
-    if (isPlatformPractice(currentPracticeId)) {
-      fetchedPracticeIds.current.add(currentPracticeId);
-      setPracticeConfig(buildDefaultPracticeConfig());
-      setPracticeNotFound(false);
-      setIsLoading(false);
-      return;
-    }
-    
     if (fetchedPracticeIds.current.has(currentPracticeId)) {
       return; // Don't fetch if we've already fetched for this practiceId
     }
@@ -152,23 +149,21 @@ export const usePracticeConfig = ({
 
         if (publicDetails) {
           const details = publicDetails.details;
-          if (details) {
-            setPracticeDetailsEntry(currentPracticeId, details);
+          const resolvedDetailsId = publicDetails.practiceId ?? currentPracticeId;
+          if (details && resolvedDetailsId) {
+            setPracticeDetailsEntry(resolvedDetailsId, details);
           }
           const config = buildDefaultPracticeConfig({
             id: publicDetails.practiceId,
             slug: publicDetails.slug ?? currentPracticeId,
-            name: publicDetails.name ?? PLATFORM_SETTINGS.name,
-            profileImage: publicDetails.logo ?? PLATFORM_SETTINGS.profileImage ?? null,
+            name: publicDetails.name ?? '',
+            profileImage: publicDetails.logo ?? null,
             introMessage: details?.introMessage ?? '',
             description: details?.description ?? '',
             isPublic: details?.isPublic
           });
 
           setPracticeConfig(config);
-          if (details && publicDetails.practiceId && publicDetails.practiceId !== currentPracticeId) {
-            setPracticeDetailsEntry(publicDetails.practiceId, details);
-          }
           if (publicDetails.practiceId && publicDetails.practiceId !== currentPracticeId) {
             fetchedPracticeIds.current.add(publicDetails.practiceId);
             setPracticeId(publicDetails.practiceId);
@@ -213,21 +208,21 @@ export const usePracticeConfig = ({
         const config: UIPracticeConfig = {
           id: practice.id,
           slug: practice.slug,
-          name: practice.name || PLATFORM_SETTINGS.name,
-          profileImage: cfg.profileImage ?? PLATFORM_SETTINGS.profileImage ?? null,
-          introMessage: cfg.introMessage ?? PLATFORM_SETTINGS.introMessage ?? '',
-          description: cfg.description ?? PLATFORM_SETTINGS.description ?? '',
-          availableServices: cfg.availableServices ?? PLATFORM_SETTINGS.availableServices,
-          serviceQuestions: cfg.serviceQuestions ?? PLATFORM_SETTINGS.serviceQuestions,
+          name: practice.name || '',
+          profileImage: cfg.profileImage ?? null,
+          introMessage: cfg.introMessage ?? '',
+          description: cfg.description ?? '',
+          availableServices: cfg.availableServices ?? [],
+          serviceQuestions: cfg.serviceQuestions ?? {},
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
           accentColor: cfg.accentColor ?? '#000000',
           voice: {
-            enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : PLATFORM_SETTINGS.voice.enabled,
-            provider: cfg.voice?.provider ?? PLATFORM_SETTINGS.voice.provider,
-            voiceId: cfg.voice?.voiceId ?? PLATFORM_SETTINGS.voice.voiceId,
-            displayName: cfg.voice?.displayName ?? PLATFORM_SETTINGS.voice.displayName,
-            previewUrl: cfg.voice?.previewUrl ?? PLATFORM_SETTINGS.voice.previewUrl
+            enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
+            provider: cfg.voice?.provider ?? 'cloudflare',
+            voiceId: cfg.voice?.voiceId ?? null,
+            displayName: cfg.voice?.displayName ?? null,
+            previewUrl: cfg.voice?.previewUrl ?? null
           }
         };
         setPracticeConfig(config);

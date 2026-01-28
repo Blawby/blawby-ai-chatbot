@@ -5,7 +5,6 @@ import {
   getSubscriptionListEndpoint,
   getConversationLinkEndpoint
 } from '@/config/api';
-import { isPlatformPractice } from '@/shared/utils/practice';
 import type { Conversation } from '@/shared/types/conversation';
 import { getWorkerApiUrl } from '@/config/urls';
 
@@ -447,14 +446,10 @@ export async function listPractices(configOrOptions?: ListPracticesOptions): Pro
     signal: opts.signal
   });
   const practices = unwrapPracticeListResponse(response.data);
-  if (scope === 'all') {
-    return practices;
+  if (scope === 'platform') {
+    return [];
   }
-  return practices.filter((practice) => {
-    const platformMatch =
-      isPlatformPractice(practice.id) || isPlatformPractice(practice.slug);
-    return scope === 'platform' ? platformMatch : !platformMatch;
-  });
+  return practices;
 }
 
 export async function getPractice(practiceId: string, config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice> {

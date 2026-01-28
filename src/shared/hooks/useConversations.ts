@@ -205,9 +205,6 @@ export function useConversations({
     participantUserIds: string[]
   ): Promise<Conversation | null> => {
     if (!practiceId) {
-      const errorMessage = 'Practice ID is required to add participants';
-      setError(errorMessage);
-      onError?.(errorMessage);
       return null;
     }
 
@@ -263,9 +260,6 @@ export function useConversations({
     userId?: string
   ): Promise<Conversation | null> => {
     if (!practiceId) {
-      const errorMessage = 'Practice ID is required to link conversation';
-      setError(errorMessage);
-      onError?.(errorMessage);
       return null;
     }
 
