@@ -119,9 +119,7 @@ export async function handleAiChat(request: Request, env: Env): Promise<Response
     payload: { conversationId: body.conversationId }
   });
 
-  const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, {
-    practiceId
-  });
+  const { details, isPublic } = await fetchPracticeDetailsWithCache(env, request, practiceId);
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
   let reply: string;
   let model = env.AI_MODEL || DEFAULT_AI_MODEL;

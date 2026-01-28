@@ -87,7 +87,6 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
       return;
     }
     if (!practiceId) {
-      setError('Practice ID is required');
       return;
     }
 
