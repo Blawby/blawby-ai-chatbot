@@ -488,16 +488,19 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
   );
 
   // Handle anonymous sign-in for widget users (clients chatting with practices)
+  // This runs immediately on mount, without waiting for practice details to load
   useEffect(() => {
     if (typeof window === 'undefined' || sessionIsPending) return;
 
-    if (!session?.user && resolvedPracticeId) {
-      const key = `anonymous_signin_attempted_${resolvedPracticeId}`;
+    // Only attempt if no session exists
+    if (!session?.user) {
+      const key = 'anonymous_signin_attempted';
       const attemptStatus = sessionStorage.getItem(key);
 
+      // Only attempt once per browser session, or retry if previous attempt failed
       if (!attemptStatus || attemptStatus === 'failed') {
-        sessionStorage.setItem(key, '1');
-        console.log('[Auth] Attempting anonymous sign-in', { practiceId: resolvedPracticeId });
+        sessionStorage.setItem(key, 'pending');
+        console.log('[Auth] Attempting anonymous sign-in');
         (async () => {
           try {
             const client = getClient();
@@ -517,12 +520,10 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
 
             if (typeof anonymousSignIn !== 'function') {
               console.error('[Auth] Anonymous sign-in method not available', {
-                practiceId: resolvedPracticeId,
                 signInKeys: signIn ? Object.keys(signIn) : null,
                 message: 'Better Auth anonymous plugin may not be configured correctly.'
               });
               handleError('Anonymous sign-in method not available', {
-                practiceId: resolvedPracticeId,
                 signInKeys: signIn ? Object.keys(signIn) : null,
               }, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
               sessionStorage.setItem(key, 'failed');
@@ -535,17 +536,13 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
             if (result?.error) {
               console.error('[Auth] Anonymous sign-in failed', {
                 error: result.error,
-                practiceId: resolvedPracticeId,
                 message: 'The server needs to have the Better Auth anonymous plugin enabled. Check server logs for details.'
               });
-              handleError(result.error, {
-                practiceId: resolvedPracticeId,
-              }, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
+              handleError(result.error, {}, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
               sessionStorage.setItem(key, 'failed');
             } else {
-              sessionStorage.setItem(key, '1');
+              sessionStorage.setItem(key, 'success');
               console.log('[Auth] Anonymous sign-in successful for widget user', {
-                practiceId: resolvedPracticeId,
                 hasData: !!result?.data
               });
             }
@@ -553,25 +550,21 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             console.error('[Auth] Anonymous sign-in exception', {
               error: errorMessage,
-              practiceId: resolvedPracticeId,
               stack: error instanceof Error ? error.stack : undefined,
               message: 'CRITICAL: Better Auth anonymous plugin must be configured on the API server. ' +
                        'Check server logs and ensure anonymous() plugin is added to Better Auth config.'
             });
-            handleError(error, {
-              practiceId: resolvedPracticeId,
-            }, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
+            handleError(error, {}, { component: 'Auth', action: 'anonymous-sign-in', silent: import.meta.env.DEV });
             sessionStorage.setItem(key, 'failed');
           }
         })();
       } else {
         console.log('[Auth] Anonymous sign-in already attempted, skipping', {
-          practiceId: resolvedPracticeId,
           status: sessionStorage.getItem(key)
         });
       }
     }
-  }, [resolvedPracticeId, session?.user, sessionIsPending]);
+  }, [session?.user, sessionIsPending]);
 
   if (isLoading) {
     return <LoadingScreen />;
