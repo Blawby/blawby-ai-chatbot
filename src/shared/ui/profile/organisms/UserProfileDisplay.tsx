@@ -17,7 +17,6 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { type SubscriptionTier } from '@/shared/types/user';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { useSubscription } from '@/shared/hooks/useSubscription';
 
 interface UserProfileDisplayProps {
   isCollapsed?: boolean;
@@ -32,22 +31,18 @@ export const UserProfileDisplay = ({
   currentPractice 
 }: UserProfileDisplayProps) => {
   const { t } = useTranslation(['profile', 'common']);
-  const { session, isPending, error } = useSessionContext();
+  const { session, isPending, error, activeOrganizationId } = useSessionContext();
   const { showError } = useToastContext();
   const { currentPractice: managedPractice } = usePracticeManagement();
-  const {
-    isPracticeEnabled,
-    isLoading: isSubscriptionLoading,
-    error: subscriptionError
-  } = useSubscription();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { navigateToAuth, navigate } = useNavigation();
   const isMobile = useMobileDetection();
   const practiceForTier = currentPractice ?? managedPractice ?? null;
+  const hasActiveOrganization = Boolean(activeOrganizationId);
   const resolvedSubscriptionTier: SubscriptionTier =
-    practiceForTier?.subscriptionTier ?? (isPracticeEnabled ? 'business' : 'free');
+    practiceForTier?.subscriptionTier ?? (hasActiveOrganization ? 'business' : 'free');
 
   // Derive user data from session and practice
   const user = session?.user ? {
@@ -62,10 +57,7 @@ export const UserProfileDisplay = ({
   } : null;
 
 
-  const loading = isPending || isSubscriptionLoading;
-  if (subscriptionError) {
-    console.warn('[Profile] Subscription fetch error (isPracticeEnabled=%s):', isPracticeEnabled, subscriptionError);
-  }
+  const loading = isPending;
 
   // Handle dropdown close when clicking outside or pressing Escape
   useEffect(() => {

@@ -5,13 +5,11 @@ import type { WorkspacePreference, WorkspaceType } from '@/shared/types/workspac
 import {
   resolveWorkspaceFromPath
 } from '@/shared/utils/workspace';
-import { useSubscription } from '@/shared/hooks/useSubscription';
 
 interface UseWorkspaceResult {
   workspaceFromPath: WorkspaceType | null;
   preferredWorkspace: WorkspacePreference | null;
   preferredPracticeId: string | null;
-  hasPractice: boolean;
   activePracticeId: string | null;
   defaultWorkspace: WorkspacePreference;
   isPracticeEnabled: boolean;
@@ -21,8 +19,7 @@ interface UseWorkspaceResult {
 
 export function useWorkspace(): UseWorkspaceResult {
   const location = useLocation();
-  const { primaryWorkspace, preferredPracticeId, hasPractice, activePracticeId } = useSessionContext();
-  const { isPracticeEnabled, isLoading: isPracticeLoading } = useSubscription();
+  const { primaryWorkspace, preferredPracticeId, activePracticeId, activeOrganizationId } = useSessionContext();
 
   const workspaceFromPath = useMemo(
     () => resolveWorkspaceFromPath(location.path),
@@ -30,7 +27,10 @@ export function useWorkspace(): UseWorkspaceResult {
   );
 
   const preferredWorkspace = primaryWorkspace ?? null;
-  const canAccessPractice = isPracticeEnabled && hasPractice;
+  const hasActivePractice = Boolean(activeOrganizationId ?? activePracticeId);
+  const isPracticeEnabled = hasActivePractice;
+  const isPracticeLoading = false;
+  const canAccessPractice = hasActivePractice;
   const defaultWorkspace: WorkspacePreference = useMemo(() => {
     if (!canAccessPractice) return 'client';
     if (preferredWorkspace === 'client') return 'client';
@@ -43,7 +43,6 @@ export function useWorkspace(): UseWorkspaceResult {
     workspaceFromPath,
     preferredWorkspace,
     preferredPracticeId,
-    hasPractice,
     activePracticeId,
     defaultWorkspace,
     isPracticeEnabled,

@@ -13,7 +13,6 @@ export interface SessionContextValue {
   activeMemberRoleLoading: boolean;
   primaryWorkspace: 'client' | 'practice' | null;
   preferredPracticeId: string | null;
-  hasPractice: boolean;
 }
 
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
@@ -48,16 +47,8 @@ const buildSessionContextValue = ({
   const activePracticeId = activeOrganizationId;
   const primaryWorkspace = sessionData?.user?.primaryWorkspace ?? null;
   const preferredPracticeId = sessionData?.user?.preferredPracticeId ?? null;
-  const practiceCount = sessionData?.user?.practiceCount ?? null;
-  const hasPracticeFlag = sessionData?.user?.hasPractice ?? null;
-  const hasActivePractice = Boolean(activeOrganizationId);
   const activeMemberRole = activeMemberRoleState?.data?.role ?? null;
   const activeMemberRoleLoading = activeMemberRoleState?.isPending ?? false;
-  const hasPractice = Boolean(
-    (typeof hasPracticeFlag === 'boolean' ? hasPracticeFlag : null) ??
-    (typeof practiceCount === 'number' ? practiceCount > 0 : null) ??
-    (hasActivePractice ? true : null)
-  );
 
   return {
     session: sessionData ?? null,
@@ -70,7 +61,6 @@ const buildSessionContextValue = ({
     activeMemberRoleLoading,
     primaryWorkspace,
     preferredPracticeId,
-    hasPractice
   };
 };
 

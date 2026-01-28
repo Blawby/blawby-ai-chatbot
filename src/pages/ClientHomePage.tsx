@@ -2,15 +2,13 @@ import { useMemo } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
-import { useSubscription } from '@/shared/hooks/useSubscription';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
 
 const ClientHomePage = () => {
-  const { session } = useSessionContext();
+  const { session, activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
-  const { isPracticeEnabled } = useSubscription();
   const name = session?.user?.name || session?.user?.email || 'there';
-  const showUpgrade = !isPracticeEnabled;
+  const showUpgrade = !activeOrganizationId;
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [

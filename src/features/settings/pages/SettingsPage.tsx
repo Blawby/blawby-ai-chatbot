@@ -32,7 +32,6 @@ import { signOut } from '@/shared/utils/auth';
 import { mockApps, type App } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
-import { useSubscription } from '@/shared/hooks/useSubscription';
 
 
 export interface SettingsPageProps {
@@ -53,7 +52,6 @@ export const SettingsPage = ({
   const [apps, setApps] = useState<App[]>(mockApps);
   const { isPending: sessionPending } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
-  const { isLoading: subscriptionLoading } = useSubscription();
   const canShowPracticeSettings = canAccessPractice;
   
   // Get current page from URL path
@@ -94,13 +92,13 @@ export const SettingsPage = ({
   }, [currentPage, navigate]);
   
   useEffect(() => {
-    if (sessionPending || subscriptionLoading) {
+    if (sessionPending) {
       return;
     }
     if (!canShowPracticeSettings && (currentPage === 'practice' || currentPage === 'apps')) {
       navigate('/settings');
     }
-  }, [canShowPracticeSettings, currentPage, navigate, sessionPending, subscriptionLoading]);
+  }, [canShowPracticeSettings, currentPage, navigate, sessionPending]);
 
   if (currentPage === 'organization') {
     return null;

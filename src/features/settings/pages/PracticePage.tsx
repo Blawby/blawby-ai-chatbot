@@ -120,7 +120,7 @@ interface PracticePageProps {
 }
 
 export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
-  const { session, isPending: sessionPending, hasPractice: sessionHasPractice, activeMemberRole } = useSessionContext();
+  const { session, isPending: sessionPending, activeMemberRole, activeOrganizationId } = useSessionContext();
   const { 
     currentPractice,
     getMembers,
@@ -600,7 +600,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             <Button size="sm" variant="secondary" onClick={refetch}>
               Reload
             </Button>
-            {!sessionHasPractice && (
+            {!activeOrganizationId && (
               <Button size="sm" onClick={() => setShowCreateModal(true)}>
                 Create Practice
               </Button>
