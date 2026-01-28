@@ -77,13 +77,11 @@ export async function extractPracticeContext(
   options: {
     requirePractice?: boolean;
     defaultPracticeId?: string;
-    allowUrlOverride?: boolean;
   } = {}
 ): Promise<PracticeContext | OptionalPracticeContext> {
   const {
     requirePractice = true,
-    defaultPracticeId,
-    allowUrlOverride = true
+    defaultPracticeId
   } = options;
 
   const url = new URL(request.url);
@@ -91,7 +89,10 @@ export async function extractPracticeContext(
   // SECURITY: Reject any auth-related query parameters to prevent URL-based auth manipulation
   validateNoAuthQueryParams(url);
   
-  const urlPracticeId = url.searchParams.get('practiceId');
+  const rawUrlPracticeId = url.searchParams.get('practiceId');
+  const urlPracticeId = rawUrlPracticeId && rawUrlPracticeId.trim().length > 0
+    ? rawUrlPracticeId.trim()
+    : null;
 
   // Try to get auth context (works for both authenticated and anonymous users via Better Auth)
   let authContext: Awaited<ReturnType<typeof optionalAuth>> = null;
@@ -119,7 +120,7 @@ export async function extractPracticeContext(
     }
 
     // Authenticated but no active org (e.g., client workspace) falls through to URL/default logic
-    if (urlPracticeId && allowUrlOverride) {
+    if (urlPracticeId) {
       return {
         practiceId: urlPracticeId,
         source: 'url',
@@ -150,7 +151,7 @@ export async function extractPracticeContext(
   }
 
   // Fall back to URL parameter
-  if (urlPracticeId && allowUrlOverride) {
+  if (urlPracticeId) {
     return {
       practiceId: urlPracticeId,
       source: 'url',
@@ -200,15 +201,13 @@ export async function withPracticeContext(
   options: {
     requirePractice?: boolean;
     defaultPracticeId?: string;
-    allowUrlOverride?: boolean;
   } = {}
 ): Promise<RequestWithPracticeContext> {
   // SECURITY: Extract practice context without modifying the original request
   // The original request's headers, cookies, and authentication remain unchanged
   const context = await extractPracticeContext(request, env, {
     requirePractice: options.requirePractice,
-    defaultPracticeId: options.defaultPracticeId,
-    allowUrlOverride: options.allowUrlOverride
+    defaultPracticeId: options.defaultPracticeId
   });
   
   // SECURITY: Cast the original request (preserving all headers/cookies/auth)

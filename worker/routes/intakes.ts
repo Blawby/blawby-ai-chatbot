@@ -124,8 +124,7 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     }
 
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const practiceId = getPracticeId(requestWithContext);
     const practiceSlug = url.searchParams.get('practiceSlug')?.trim() || null;

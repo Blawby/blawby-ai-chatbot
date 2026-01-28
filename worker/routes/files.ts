@@ -372,8 +372,7 @@ export async function handleFiles(request: Request, env: Env): Promise<Response>
 
       // Always use practice context middleware to get authoritative practice ID
       const requestWithContext = await withPracticeContext(middlewareRequest, env, {
-        requirePractice: true,
-        allowUrlOverride: true
+        requirePractice: true
       });
       const contextPracticeId = getPracticeId(requestWithContext);
       

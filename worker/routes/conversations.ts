@@ -95,8 +95,7 @@ const resolvePracticeContext = async (options: {
   const url = new URL(request.url);
   const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
   const requestWithContext = await withPracticeContext(request, env, {
-    requirePractice: true,
-    allowUrlOverride: Boolean(practiceSlugParam)
+    requirePractice: true
   });
   const rawPracticeId = getPracticeId(requestWithContext);
   const isPublicRequest = !authContext || authContext.isAnonymous === true || !authContext.activeOrganizationId;
@@ -224,8 +223,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // GET /api/conversations/:id/messages - Get messages for a conversation
   if (segments.length === 4 && segments[3] === 'messages' && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const conversationId = segments[2];
     const rawPracticeId = getPracticeId(requestWithContext);
@@ -295,8 +293,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // GET/POST/DELETE /api/conversations/:id/messages/:messageId/reactions
   if (segments.length === 6 && segments[3] === 'messages' && segments[5] === 'reactions') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const conversationId = segments[2];
     const messageId = segments[4];
@@ -378,8 +375,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // POST /api/conversations/:id/system-messages - Persist system messages (intro/help/forms)
   if (segments.length === 4 && segments[3] === 'system-messages' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const conversationId = segments[2];
     const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
@@ -628,8 +624,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // GET /api/conversations/:id - Get single conversation
   if (segments.length === 3 && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const conversationId = segments[2];
     const rawPracticeId = getPracticeId(requestWithContext);
@@ -666,8 +661,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     request.method === 'PATCH'
   ) {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const conversationId = segments[2];
     const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
@@ -705,8 +699,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   // PATCH /api/conversations/:id - Update conversation
   if (segments.length === 3 && segments[2] !== 'active' && segments[2] !== 'current' && request.method === 'PATCH') {
     const requestWithContext = await withPracticeContext(request, env, {
-      requirePractice: true,
-      allowUrlOverride: true
+      requirePractice: true
     });
     const conversationId = segments[2];
     const practiceSlugParam = normalizePracticeSlug(url.searchParams.get('practiceSlug'));
