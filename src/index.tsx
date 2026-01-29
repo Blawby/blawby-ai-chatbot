@@ -48,6 +48,25 @@ const CLIENT_WORKSPACE_CONFIG: UIPracticeConfig = {
 };
 
 type LocationValue = ReturnType<typeof useLocation> & { wasPush?: boolean };
+type PracticeRouteKey = 'home' | 'payments' | 'payouts' | 'pricing' | 'clients' | 'leads' | 'matters' | 'conversations';
+type ClientRouteKey = 'conversations' | 'payments' | 'matters';
+
+const resolvePracticeRouteKeyFromPath = (path: string): PracticeRouteKey => {
+  if (path.startsWith('/practice/payments')) return 'payments';
+  if (path.startsWith('/practice/payouts')) return 'payouts';
+  if (path.startsWith('/practice/pricing')) return 'pricing';
+  if (path.startsWith('/practice/clients')) return 'clients';
+  if (path.startsWith('/practice/leads')) return 'leads';
+  if (path.startsWith('/practice/matters')) return 'matters';
+  if (path.startsWith('/practice/conversations')) return 'conversations';
+  return 'home';
+};
+
+const resolveClientRouteKeyFromPath = (path: string): ClientRouteKey => {
+  if (path.startsWith('/client/payments')) return 'payments';
+  if (path.startsWith('/client/matters')) return 'matters';
+  return 'conversations';
+};
 
 // Main App component with routing
 export function App() {
@@ -164,10 +183,29 @@ function AppShell() {
           <Route path="/settings/*" component={SettingsRoute} />
           <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} />
           <Route path="/embed/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} />
-          <Route path="/practice" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} />
-          <Route path="/practice/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} />
-          <Route path="/client" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
-          <Route path="/client/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} />
+          <Route path="/practice" component={PracticeBaseRoute} />
+          <Route path="/practice/home" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="home" />
+          <Route path="/practice/conversations" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
+          <Route path="/practice/conversations/:conversationId" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
+          <Route path="/practice/payments" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payments" />
+          <Route path="/practice/payments/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payments" />
+          <Route path="/practice/payouts" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payouts" />
+          <Route path="/practice/payouts/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payouts" />
+          <Route path="/practice/pricing" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="pricing" />
+          <Route path="/practice/pricing/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="pricing" />
+          <Route path="/practice/clients" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" />
+          <Route path="/practice/clients/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="clients" />
+          <Route path="/practice/leads" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" />
+          <Route path="/practice/leads/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="leads" />
+          <Route path="/practice/matters" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
+          <Route path="/practice/matters/*" component={PracticeAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
+          <Route path="/client" component={ClientBaseRoute} />
+          <Route path="/client/conversations" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
+          <Route path="/client/conversations/:conversationId" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="conversations" />
+          <Route path="/client/payments" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payments" />
+          <Route path="/client/payments/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="payments" />
+          <Route path="/client/matters" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
+          <Route path="/client/matters/*" component={ClientAppRoute} settingsOverlayOpen={isSettingsOpen} activeRoute="matters" />
           <Route default component={RootRoute} />
         </Router>
       </LocationProvider.ctx.Provider>
@@ -185,14 +223,43 @@ function AppShell() {
 }
 
 function SettingsRoute() {
+  const location = useLocation();
   const { defaultWorkspace, canAccessPractice, preferredWorkspace } = useWorkspace();
   const resolved = preferredWorkspace ?? defaultWorkspace;
 
   if (resolved === 'practice' && canAccessPractice) {
-    return <PracticeAppRoute settingsMode={true} settingsOverlayOpen={true} />;
+    return (
+      <PracticeAppRoute
+        settingsMode={true}
+        settingsOverlayOpen={true}
+        activeRoute={resolvePracticeRouteKeyFromPath(location.path)}
+      />
+    );
   }
 
-  return <ClientAppRoute settingsMode={true} settingsOverlayOpen={true} />;
+  return (
+    <ClientAppRoute
+      settingsMode={true}
+      settingsOverlayOpen={true}
+      activeRoute={resolveClientRouteKeyFromPath(location.path)}
+    />
+  );
+}
+
+function PracticeBaseRoute() {
+  const { navigate } = useNavigation();
+  useEffect(() => {
+    navigate('/practice/home', true);
+  }, [navigate]);
+  return <LoadingScreen />;
+}
+
+function ClientBaseRoute() {
+  const { navigate } = useNavigation();
+  useEffect(() => {
+    navigate('/client/conversations', true);
+  }, [navigate]);
+  return <LoadingScreen />;
 }
 
 function RootRoute() {
@@ -269,10 +336,14 @@ function RootRoute() {
 
 function ClientAppRoute({
   settingsMode = false,
-  settingsOverlayOpen = false
+  settingsOverlayOpen = false,
+  activeRoute = 'conversations',
+  conversationId
 }: {
   settingsMode?: boolean;
   settingsOverlayOpen?: boolean;
+  activeRoute?: ClientRouteKey;
+  conversationId?: string;
 }) {
   const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
@@ -331,16 +402,22 @@ function ClientAppRoute({
       isPracticeView={false}
       workspace="client"
       settingsOverlayOpen={settingsOverlayOpen}
+      activeRoute={activeRoute}
+      routeConversationId={conversationId}
     />
   );
 }
 
 function PracticeAppRoute({
   settingsMode = false,
-  settingsOverlayOpen = false
+  settingsOverlayOpen = false,
+  activeRoute = 'home',
+  conversationId
 }: {
   settingsMode?: boolean;
   settingsOverlayOpen?: boolean;
+  activeRoute?: PracticeRouteKey;
+  conversationId?: string;
 }) {
   const { session, isPending, activeOrganizationId } = useSessionContext();
   const { navigate } = useNavigation();
@@ -454,11 +531,13 @@ function PracticeAppRoute({
       isPracticeView={true}
       workspace="practice"
       settingsOverlayOpen={settingsOverlayOpen}
+      activeRoute={activeRoute}
+      routeConversationId={conversationId}
     />
   );
 }
 
-function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
+function PublicPracticeRoute({ practiceSlug, conversationId }: { practiceSlug?: string; conversationId?: string }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending } = useSessionContext();
   const handlePracticeError = useCallback((error: string) => {
@@ -595,6 +674,9 @@ function PublicPracticeRoute({ practiceSlug }: { practiceSlug?: string }) {
         handleRetryPracticeConfig={handleRetryPracticeConfig}
         isPracticeView={true}
         workspace="public"
+        activeRoute="conversations"
+        publicPracticeSlug={slug || undefined}
+        routeConversationId={conversationId}
       />
     </>
   );

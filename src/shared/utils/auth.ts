@@ -9,6 +9,7 @@ import { signOut as betterAuthSignOut } from '@/shared/lib/authClient';
 export async function signOut(options?: {
   skipReload?: boolean;
   onSuccess?: () => void;
+  navigate?: (path: string, replace?: boolean) => void;
 }): Promise<void> {
   try {
     // 1. Sign out from Better Auth (uses Better Auth method only)
@@ -46,7 +47,11 @@ export async function signOut(options?: {
     
     // 4. Reload page to reset app state (unless explicitly skipped)
     if (!options?.skipReload) {
-      window.location.href = '/';
+      if (options?.navigate) {
+        options.navigate('/', true);
+      } else if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
     }
   } catch (error) {
     console.error('Error signing out:', error);

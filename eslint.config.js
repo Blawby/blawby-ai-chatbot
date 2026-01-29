@@ -121,7 +121,14 @@ export default [
       'prefer-const': 'error',
       'no-var': 'error',
       'object-shorthand': 'error',
-      'prefer-template': 'error'
+      'prefer-template': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name='href'] Literal[value=/^\\u002f/]",
+          message: 'Use Link or navigate() for internal routes; <a href> should be external or full reload only.'
+        }
+      ]
     },
     settings: {
       react: {

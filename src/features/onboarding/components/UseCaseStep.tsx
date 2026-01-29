@@ -170,7 +170,7 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
             {/* Additional Info for "Other" option */}
             {selectedUseCases.includes('other') && (
               <FormField name="additionalInfo">
-                {({ value, error, onChange }) => (
+                {({ error, onChange }) => (
                   <FormItem>
                     <FormLabel>{t('onboarding.step2.otherPlaceholder')}</FormLabel>
                     <FormControl>

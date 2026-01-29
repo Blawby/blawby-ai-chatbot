@@ -5,6 +5,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface AppGuardProps {
   children: ComponentChildren;
@@ -22,6 +23,7 @@ export function AppGuard({ children }: AppGuardProps) {
     autoFetchPractices: false // Handled manually here during sync
   });
   const location = useLocation();
+  const { navigate } = useNavigation();
   
   const onboardingCheckRef = useRef(false);
   const subscriptionSuccessHandledRef = useRef(false);
@@ -92,7 +94,7 @@ export function AppGuard({ children }: AppGuardProps) {
             console.debug('[AppGuard][ONBOARDING] Redirecting to onboarding flow');
           }
           // use window.location for hard redirect to ensure state is clean
-          window.location.href = '/auth?mode=signin&onboarding=true';
+          navigate('/auth?mode=signin&onboarding=true', true);
         }
       } catch (error) {
         console.warn('[AppGuard][ONBOARDING] Preference check failed:', error);
@@ -102,7 +104,7 @@ export function AppGuard({ children }: AppGuardProps) {
 
     void checkOnboarding();
     return resetOnboardingCheck;
-  }, [isAnonymous, session?.user?.id, sessionIsPending, location.path]);
+  }, [isAnonymous, navigate, session?.user?.id, sessionIsPending, location.path]);
 
   return <>{children}</>;
 }

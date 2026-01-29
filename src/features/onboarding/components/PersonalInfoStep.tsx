@@ -136,8 +136,8 @@ const PersonalInfoStep = ({ data: _data, onComplete }: PersonalInfoStepProps) =>
                         <Trans
                           i18nKey="onboarding.step1.termsAgreement"
                           components={{
-                            termsLink: <a href="/terms" className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline" aria-label="Terms of Service">Terms</a>,
-                            privacyLink: <a href="/privacy" className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline" aria-label="Privacy Policy">Privacy Policy</a>
+                            termsLink: <a href="https://blawby.com/terms" className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline" aria-label="Terms of Service" target="_blank" rel="noopener noreferrer">Terms</a>,
+                            privacyLink: <a href="https://blawby.com/privacy" className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline" aria-label="Privacy Policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
                           }}
                         />
                       }

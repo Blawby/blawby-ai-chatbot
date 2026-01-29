@@ -161,7 +161,7 @@ export const UserProfileDisplay = ({
     setSignOutError(null); // Clear any previous errors
     
     try {
-      await signOut();
+      await signOut({ navigate });
     } catch (error) {
       console.error('Error signing out:', error);
       

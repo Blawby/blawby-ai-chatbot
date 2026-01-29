@@ -5,6 +5,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
 import { getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface IntakePaymentFormProps {
   practiceName: string;
@@ -48,6 +49,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
 }) => {
   const stripe = useStripe();
   const elements = useElements();
+  const { navigate } = useNavigation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'succeeded' | 'failed'>('idle');
@@ -400,19 +402,21 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
                 !candidate.startsWith('//') &&
                 !candidate.includes('://');
               if (safe) {
-                window.location.href = candidate;
+                navigate(candidate, true);
                 return;
               }
               try {
                 const url = new URL(candidate, window.location.origin);
                 if (url.origin === window.location.origin) {
-                  window.location.href = url.pathname + url.search + url.hash;
+                  navigate(url.pathname + url.search + url.hash, true);
                   return;
                 }
+                window.location.href = url.toString();
+                return;
               } catch {
                 // Fall through to default.
               }
-              window.location.href = '/';
+              navigate('/', true);
             }
           }}
         >

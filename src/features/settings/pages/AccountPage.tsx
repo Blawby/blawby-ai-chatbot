@@ -246,7 +246,7 @@ export const AccountPage = ({
           throw new Error(passwordRequiredMessage);
         }
         await deleteUser({ password });
-        await signOut(); // Use top-level signOut from utils/auth
+        await signOut({ navigate }); // Use top-level signOut from utils/auth
         setShowDeleteConfirm(false);
         setDeleteVerificationSent(false);
         setPasswordRequiredOverride(null);
@@ -259,7 +259,7 @@ export const AccountPage = ({
           _onClose();
         }
         setTimeout(() => {
-          navigate('/');
+          navigate('/', true);
         }, 1000);
       }
     } catch (error) {

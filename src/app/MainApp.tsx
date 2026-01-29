@@ -52,6 +52,16 @@ import { ClientMattersPage } from '@/features/matters/pages/ClientMattersPage';
 import type { SidebarNavItem } from '@/shared/ui/sidebar/organisms/SidebarContent';
 import { useConversationSystemMessages } from '@/features/chat/hooks/useConversationSystemMessages';
 
+type RouteKey =
+  | 'home'
+  | 'payments'
+  | 'payouts'
+  | 'pricing'
+  | 'clients'
+  | 'leads'
+  | 'matters'
+  | 'conversations';
+
 // Main application component (non-auth pages)
 export function MainApp({
   practiceId,
@@ -61,7 +71,10 @@ export function MainApp({
   isPracticeView,
   workspace,
   settingsOverlayOpen,
-  chatContent
+  chatContent,
+  activeRoute,
+  routeConversationId,
+  publicPracticeSlug
 }: {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
@@ -71,6 +84,9 @@ export function MainApp({
   workspace: WorkspaceType;
   settingsOverlayOpen?: boolean;
   chatContent?: ComponentChildren;
+  activeRoute: RouteKey;
+  routeConversationId?: string;
+  publicPracticeSlug?: string;
 }) {
   // Core state
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
@@ -86,32 +102,18 @@ export function MainApp({
   const postAuthLinkHandledRef = useRef(false);
   const conversationRestoreAttemptedRef = useRef(false);
   const isPublicWorkspace = workspace === 'public';
-  const publicPracticeSlug = useMemo(() => {
+  const resolvedPublicPracticeSlug = useMemo(() => {
     if (!isPublicWorkspace) return null;
-    if (location.path.startsWith('/embed/')) {
-      const rawSlug = location.path.slice('/embed/'.length).split('/')[0];
-      if (rawSlug) {
-        try {
-          return decodeURIComponent(rawSlug);
-        } catch (error) {
-          console.warn('[MainApp] Failed to decode public practice slug from URL', {
-            rawSlug,
-            error
-          });
-          return rawSlug;
-        }
-      }
-    }
-    return practiceId || practiceConfig.slug || null;
-  }, [isPublicWorkspace, location.path, practiceConfig.slug, practiceId]);
+    return publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null;
+  }, [isPublicWorkspace, practiceConfig.slug, practiceId, publicPracticeSlug]);
   const publicConversationsBasePath = useMemo(() => {
-    if (!publicPracticeSlug) return null;
-    return `/embed/${encodeURIComponent(publicPracticeSlug)}/conversations`;
-  }, [publicPracticeSlug]);
+    if (!resolvedPublicPracticeSlug) return null;
+    return `/embed/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations`;
+  }, [resolvedPublicPracticeSlug]);
   const conversationResetKey = useMemo(() => {
-    if (isPublicWorkspace) return publicPracticeSlug ?? '';
+    if (isPublicWorkspace) return resolvedPublicPracticeSlug ?? '';
     return practiceId;
-  }, [isPublicWorkspace, practiceId, publicPracticeSlug]);
+  }, [isPublicWorkspace, practiceId, resolvedPublicPracticeSlug]);
 
   useEffect(() => {
     setConversationId(null);
@@ -129,27 +131,7 @@ export function MainApp({
     () => conversationsBasePath ?? publicConversationsBasePath,
     [conversationsBasePath, publicConversationsBasePath]
   );
-  const routeKey = useMemo(() => {
-    if (workspace === 'public') return 'conversations';
-    if (!basePath) return null;
-    if (workspace === 'practice') {
-      if (location.path.startsWith(`${basePath}/payments`)) return 'payments';
-      if (location.path.startsWith(`${basePath}/payouts`)) return 'payouts';
-      if (location.path.startsWith(`${basePath}/pricing`)) return 'pricing';
-      if (location.path.startsWith(`${basePath}/clients`)) return 'clients';
-      if (location.path.startsWith(`${basePath}/leads`)) return 'leads';
-      if (location.path.startsWith(`${basePath}/matters`)) return 'matters';
-      if (location.path.startsWith(`${basePath}/conversations`)) return 'conversations';
-      return 'home';
-    }
-    if (workspace === 'client') {
-      if (location.path.startsWith(`${basePath}/payments`)) return 'payments';
-      if (location.path.startsWith(`${basePath}/matters`)) return 'matters';
-      if (location.path.startsWith(`${basePath}/conversations`)) return 'conversations';
-      return 'conversations';
-    }
-    return null;
-  }, [basePath, location.path, workspace]);
+  const routeKey = activeRoute;
 
   const practiceNavItems = useMemo<SidebarNavItem[]>(() => ([
     {
@@ -231,29 +213,25 @@ export function MainApp({
     ? practiceNavItems
     : (workspace === 'client' ? clientNavItems : []);
 
-  const conversationIdFromPath = useMemo(() => {
-    if (!resolvedConversationsBasePath) return null;
-    if (!location.path.startsWith(`${resolvedConversationsBasePath}/`)) return null;
-    const raw = location.path.slice(`${resolvedConversationsBasePath}/`.length);
-    const id = raw.split('/')[0];
-    if (!id) return null;
+  const normalizedRouteConversationId = useMemo(() => {
+    if (!routeConversationId) return null;
     try {
-      return decodeURIComponent(id);
+      return decodeURIComponent(routeConversationId);
     } catch (error) {
-      console.warn('[MainApp] Failed to decode conversation id from URL', {
-        id,
+      console.warn('[MainApp] Failed to decode conversation id from route params', {
+        id: routeConversationId,
         error
       });
-      return id;
+      return routeConversationId;
     }
-  }, [location.path, resolvedConversationsBasePath]);
+  }, [routeConversationId]);
 
   useEffect(() => {
-    if (!conversationIdFromPath) return;
-    if (conversationIdFromPath === conversationId) return;
-    setConversationId(conversationIdFromPath);
+    if (!normalizedRouteConversationId) return;
+    if (normalizedRouteConversationId === conversationId) return;
+    setConversationId(normalizedRouteConversationId);
     setConversationMode(null);
-  }, [conversationId, conversationIdFromPath]);
+  }, [conversationId, normalizedRouteConversationId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -307,11 +285,10 @@ export function MainApp({
     if (!resolvedConversationsBasePath) return;
     if (routeKey !== 'conversations') return;
     if (!conversationId) return;
+    if (normalizedRouteConversationId === conversationId) return;
     const targetPath = `${resolvedConversationsBasePath}/${encodeURIComponent(conversationId)}`;
-    if (location.path !== targetPath) {
-      navigate(targetPath, true);
-    }
-  }, [isPublicWorkspace, resolvedConversationsBasePath, conversationId, routeKey, location.path, navigate]);
+    navigate(targetPath, true);
+  }, [isPublicWorkspace, normalizedRouteConversationId, resolvedConversationsBasePath, conversationId, routeKey, navigate]);
 
   // Use session from Better Auth
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
@@ -330,15 +307,15 @@ export function MainApp({
     if (isPublicWorkspace) {
       if (
         practiceConfig.id &&
-        publicPracticeSlug &&
-        practiceConfig.slug === publicPracticeSlug
+        resolvedPublicPracticeSlug &&
+        practiceConfig.slug === resolvedPublicPracticeSlug
       ) {
         return practiceConfig.id;
       }
       return practiceId || undefined;
     }
     return practiceId || undefined;
-  }, [isPublicWorkspace, practiceConfig.id, practiceConfig.slug, practiceId, publicPracticeSlug]);
+  }, [isPublicWorkspace, practiceConfig.id, practiceConfig.slug, practiceId, resolvedPublicPracticeSlug]);
 
   // Practice data is now passed as props
 
@@ -361,7 +338,7 @@ export function MainApp({
     fetchInvitations: workspace !== 'public'
   });
   const practiceDetailsId = workspace === 'public'
-    ? (publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
+    ? (resolvedPublicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
     : practiceId;
   const {
     details: practiceDetails,
@@ -914,9 +891,9 @@ export function MainApp({
   }, []);
 
   const handlePublicBack = useCallback(() => {
-    if (!publicPracticeSlug) return;
-    navigate(`/embed/${encodeURIComponent(publicPracticeSlug)}`, true);
-  }, [navigate, publicPracticeSlug]);
+    if (!resolvedPublicPracticeSlug) return;
+    navigate(`/embed/${encodeURIComponent(resolvedPublicPracticeSlug)}`, true);
+  }, [navigate, resolvedPublicPracticeSlug]);
 
   const chatPanel = chatContent ?? (
     <div className="relative h-full flex flex-col">
