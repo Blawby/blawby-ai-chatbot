@@ -77,7 +77,8 @@
         "billing": "For 2+ users, billed annually",
         "unlimited": "Unlimited subject to abuse guardrails.",
         "learnMore": "Learn more"
-      }
+      },
+      "priceUnavailable": "Pricing unavailable"
     },
     "enterprise": {
       "name": "Enterprise",

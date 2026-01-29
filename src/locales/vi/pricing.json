@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "Không gian làm việc an toàn, cộng tác cho nhóm",
-      "buttonText": "Nhận Business"
+      "buttonText": "Nhận Business",
+      "priceUnavailable": "Giá không khả dụng"
     }
   },
   "features": {

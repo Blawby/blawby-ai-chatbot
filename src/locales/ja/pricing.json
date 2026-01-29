@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "チーム向けの安全なコラボレーションワークスペース",
-      "buttonText": "Businessを取得"
+      "buttonText": "Businessを取得",
+      "priceUnavailable": "価格は利用できません"
     }
   },
   "features": {

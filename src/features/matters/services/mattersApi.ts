@@ -1,4 +1,5 @@
-import { getBackendApiUrl } from '@/config/urls';
+import axios from 'axios';
+import { apiClient } from '@/shared/lib/apiClient';
 import { toMajorUnits, toMinorUnitsValue } from '@/shared/utils/moneyNormalization';
 
 export type BackendMatter = {
@@ -91,14 +92,6 @@ type FetchOptions = {
   signal?: AbortSignal;
 };
 
-const normalizeBackendBaseUrl = (value: string) => value.replace(/\/+$/, '');
-
-const buildBackendUrl = (path: string) => {
-  const baseUrl = normalizeBackendBaseUrl(getBackendApiUrl());
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${baseUrl}${normalizedPath}`;
-};
-
 const normalizeMatter = (matter: BackendMatter): BackendMatter => ({
   ...matter,
   total_fixed_price: toMajorUnits(matter.total_fixed_price ?? null),
@@ -170,13 +163,32 @@ const normalizeMilestonePayload = (payload: {
   amount: toMinorUnitsValue(payload.amount) as number
 });
 
-const parseJson = async (response: Response) => {
-  const text = await response.text();
-  if (!text) return null;
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (typeof data === 'string' && data.trim().length > 0) {
+      return data;
+    }
+    if (data && typeof data === 'object') {
+      const record = data as Record<string, unknown>;
+      const err = typeof record.error === 'string' ? record.error : null;
+      const message = typeof record.message === 'string' ? record.message : null;
+      return err || message || error.message || fallback;
+    }
+    return error.message || fallback;
+  }
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+  return fallback;
+};
+
+const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: string): Promise<T> => {
   try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return text;
+    const response = await promise;
+    return response.data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error, fallbackMessage));
   }
 };
 
@@ -292,30 +304,6 @@ const extractMilestonesArray = (payload: unknown): BackendMatterMilestone[] => {
   return [];
 };
 
-const buildJsonHeaders = () => ({
-  'Accept': 'application/json',
-  'Content-Type': 'application/json'
-});
-
-const fetchJsonOrThrow = async (response: Response) => {
-  const payload = await parseJson(response);
-  if (response.ok) {
-    return payload;
-  }
-
-  if (typeof payload === 'string') {
-    throw new Error(payload || `Request failed (${response.status})`);
-  }
-
-  if (payload && typeof payload === 'object') {
-    const record = payload as Record<string, unknown>;
-    const error = typeof record.error === 'string' ? record.error : null;
-    const message = typeof record.message === 'string' ? record.message : null;
-    throw new Error(error || message || `Request failed (${response.status})`);
-  }
-
-  throw new Error(`Request failed (${response.status})`);
-};
 
 export const listMatters = async (
   practiceId: string,
@@ -329,19 +317,13 @@ export const listMatters = async (
   params.set('page', String(options.page ?? 1));
   params.set('limit', String(options.limit ?? 100));
 
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}?${params.toString()}`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
+  const payload = await requestData(
+    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}`, {
+      params: Object.fromEntries(params.entries()),
       signal: options.signal
-    }
+    }),
+    'Failed to load matters'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   return extractMatterArray(payload).map(normalizeMatter);
 };
 
@@ -356,20 +338,13 @@ export const getMatter = async (
 
   const params = new URLSearchParams();
   params.set('matter_uuid', matterId);
-
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}?${params.toString()}`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
+  const payload = await requestData(
+    apiClient.get(`/api/matters/${encodeURIComponent(practiceId)}`, {
+      params: Object.fromEntries(params.entries()),
       signal: options.signal
-    }
+    }),
+    'Failed to load matter'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   const matter = extractMatter(payload);
   return matter ? normalizeMatter(matter) : null;
 };
@@ -382,18 +357,14 @@ export const createMatter = async (
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/create`),
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify(normalizeMatterPayload(payload)),
-      signal: options.signal
-    }
+  const json = await requestData(
+    apiClient.post(
+      `/api/matters/${encodeURIComponent(practiceId)}/create`,
+      normalizeMatterPayload(payload),
+      { signal: options.signal }
+    ),
+    'Failed to create matter'
   );
-
-  const json = await fetchJsonOrThrow(response);
   const matter = extractMatter(json);
   return matter ? normalizeMatter(matter) : null;
 };
@@ -407,18 +378,14 @@ export const updateMatter = async (
   if (!practiceId || !matterId) {
     throw new Error('practiceId and matterId are required');
   }
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(matterId)}`),
-    {
-      method: 'PUT',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify(normalizeMatterPayload(payload)),
-      signal: options.signal
-    }
+  const json = await requestData(
+    apiClient.put(
+      `/api/matters/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(matterId)}`,
+      normalizeMatterPayload(payload),
+      { signal: options.signal }
+    ),
+    'Failed to update matter'
   );
-
-  const json = await fetchJsonOrThrow(response);
   const matter = extractMatter(json);
   return matter ? normalizeMatter(matter) : null;
 };
@@ -431,17 +398,12 @@ export const deleteMatter = async (
   if (!practiceId || !matterId) {
     throw new Error('practiceId and matterId are required');
   }
-  await fetchJsonOrThrow(await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(matterId)}`),
-    {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
+  await requestData(
+    apiClient.delete(`/api/matters/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(matterId)}`, {
       signal: options.signal
-    }
-  ));
+    }),
+    'Failed to delete matter'
+  );
 };
 
 export const getMatterActivity = async (
@@ -453,19 +415,13 @@ export const getMatterActivity = async (
     return [];
   }
 
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/activity`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+  const payload = await requestData(
+    apiClient.get(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/activity`,
+      { signal: options.signal }
+    ),
+    'Failed to load activity'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   return extractActivityArray(payload);
 };
 
@@ -478,19 +434,13 @@ export const listMatterNotes = async (
     return [];
   }
 
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+  const payload = await requestData(
+    apiClient.get(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`,
+      { signal: options.signal }
+    ),
+    'Failed to load notes'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   return extractNotesArray(payload);
 };
 
@@ -506,18 +456,14 @@ export const createMatterNote = async (
   if (!content || !content.trim()) {
     throw new Error('content is required');
   }
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`),
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify({ content }),
-      signal: options.signal
-    }
+  const payload = await requestData(
+    apiClient.post(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`,
+      { content },
+      { signal: options.signal }
+    ),
+    'Failed to create note'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   if (payload && typeof payload === 'object' && 'note' in payload) {
     const record = payload as Record<string, unknown>;
     if (record.note && typeof record.note === 'object') {
@@ -540,20 +486,14 @@ export const updateMatterNote = async (
   if (!content || !content.trim()) {
     throw new Error('content is required');
   }
-  const response = await fetch(
-    buildBackendUrl(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`
+  const payload = await requestData(
+    apiClient.put(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`,
+      { content },
+      { signal: options.signal }
     ),
-    {
-      method: 'PUT',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify({ content }),
-      signal: options.signal
-    }
+    'Failed to update note'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   if (payload && typeof payload === 'object' && 'note' in payload) {
     const record = payload as Record<string, unknown>;
     if (record.note && typeof record.note === 'object') {
@@ -572,21 +512,13 @@ export const deleteMatterNote = async (
   if (!practiceId || !matterId || !noteId) {
     throw new Error('practiceId, matterId, and noteId are required');
   }
-  const response = await fetch(
-    buildBackendUrl(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`
+  await requestData(
+    apiClient.delete(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`,
+      { signal: options.signal }
     ),
-    {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+    'Failed to delete note'
   );
-
-  await fetchJsonOrThrow(response);
 };
 
 export const listMatterTimeEntries = async (
@@ -598,19 +530,13 @@ export const listMatterTimeEntries = async (
     return [];
   }
 
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+  const payload = await requestData(
+    apiClient.get(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`,
+      { signal: options.signal }
+    ),
+    'Failed to load time entries'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   return extractTimeEntriesArray(payload);
 };
 
@@ -631,18 +557,14 @@ export const createMatterTimeEntry = async (
   if (!payload?.start_time || !payload?.end_time) {
     throw new Error('start_time and end_time are required');
   }
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`),
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify(payload),
-      signal: options.signal
-    }
+  const json = await requestData(
+    apiClient.post(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`,
+      payload,
+      { signal: options.signal }
+    ),
+    'Failed to create time entry'
   );
-
-  const json = await fetchJsonOrThrow(response);
   if (json && typeof json === 'object' && 'timeEntry' in json) {
     const record = json as Record<string, unknown>;
     if (record.timeEntry && typeof record.timeEntry === 'object') {
@@ -670,20 +592,14 @@ export const updateMatterTimeEntry = async (
   if (!payload?.start_time || !payload?.end_time) {
     throw new Error('start_time and end_time are required');
   }
-  const response = await fetch(
-    buildBackendUrl(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`
+  const json = await requestData(
+    apiClient.put(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`,
+      payload,
+      { signal: options.signal }
     ),
-    {
-      method: 'PUT',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify(payload),
-      signal: options.signal
-    }
+    'Failed to update time entry'
   );
-
-  const json = await fetchJsonOrThrow(response);
   if (json && typeof json === 'object' && 'timeEntry' in json) {
     const record = json as Record<string, unknown>;
     if (record.timeEntry && typeof record.timeEntry === 'object') {
@@ -702,21 +618,13 @@ export const deleteMatterTimeEntry = async (
   if (!practiceId || !matterId || !timeEntryId) {
     throw new Error('practiceId, matterId, and timeEntryId are required');
   }
-  const response = await fetch(
-    buildBackendUrl(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`
+  await requestData(
+    apiClient.delete(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`,
+      { signal: options.signal }
     ),
-    {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+    'Failed to delete time entry'
   );
-
-  await fetchJsonOrThrow(response);
 };
 
 export const getMatterTimeEntryStats = async (
@@ -728,19 +636,13 @@ export const getMatterTimeEntryStats = async (
     return null;
   }
 
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/stats`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+  const payload = await requestData(
+    apiClient.get(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/stats`,
+      { signal: options.signal }
+    ),
+    'Failed to load time stats'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
     return payload as BackendMatterTimeStats;
   }
@@ -756,19 +658,13 @@ export const listMatterExpenses = async (
     return [];
   }
 
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+  const payload = await requestData(
+    apiClient.get(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`,
+      { signal: options.signal }
+    ),
+    'Failed to load expenses'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   return extractExpensesArray(payload).map(normalizeExpense);
 };
 
@@ -795,18 +691,14 @@ export const createMatterExpense = async (
   if (!payload.date) {
     throw new Error('date is required');
   }
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`),
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify(normalizeExpensePayload(payload)),
-      signal: options.signal
-    }
+  const json = await requestData(
+    apiClient.post(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`,
+      normalizeExpensePayload(payload),
+      { signal: options.signal }
+    ),
+    'Failed to create expense'
   );
-
-  const json = await fetchJsonOrThrow(response);
   if (json && typeof json === 'object' && 'expense' in json) {
     const record = json as Record<string, unknown>;
     if (record.expense && typeof record.expense === 'object') {
@@ -841,20 +733,14 @@ export const updateMatterExpense = async (
   if (!payload.date) {
     throw new Error('date is required');
   }
-  const response = await fetch(
-    buildBackendUrl(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`
+  const json = await requestData(
+    apiClient.put(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`,
+      normalizeExpensePayload(payload),
+      { signal: options.signal }
     ),
-    {
-      method: 'PUT',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify(normalizeExpensePayload(payload)),
-      signal: options.signal
-    }
+    'Failed to update expense'
   );
-
-  const json = await fetchJsonOrThrow(response);
   if (json && typeof json === 'object' && 'expense' in json) {
     const record = json as Record<string, unknown>;
     if (record.expense && typeof record.expense === 'object') {
@@ -874,21 +760,13 @@ export const deleteMatterExpense = async (
   if (!practiceId || !matterId || !expenseId) {
     throw new Error('practiceId, matterId, and expenseId are required');
   }
-  const response = await fetch(
-    buildBackendUrl(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`
+  await requestData(
+    apiClient.delete(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`,
+      { signal: options.signal }
     ),
-    {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+    'Failed to delete expense'
   );
-
-  await fetchJsonOrThrow(response);
 };
 
 export const listMatterMilestones = async (
@@ -900,19 +778,13 @@ export const listMatterMilestones = async (
     return [];
   }
 
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+  const payload = await requestData(
+    apiClient.get(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`,
+      { signal: options.signal }
+    ),
+    'Failed to load milestones'
   );
-
-  const payload = await fetchJsonOrThrow(response);
   return extractMilestonesArray(payload).map(normalizeMilestone);
 };
 
@@ -940,18 +812,14 @@ export const createMatterMilestone = async (
   if (!payload.due_date) {
     throw new Error('due_date is required');
   }
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`),
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify(normalizeMilestonePayload(payload)),
-      signal: options.signal
-    }
+  const json = await requestData(
+    apiClient.post(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`,
+      normalizeMilestonePayload(payload),
+      { signal: options.signal }
+    ),
+    'Failed to create milestone'
   );
-
-  const json = await fetchJsonOrThrow(response);
   if (json && typeof json === 'object' && 'milestone' in json) {
     const record = json as Record<string, unknown>;
     if (record.milestone && typeof record.milestone === 'object') {
@@ -987,20 +855,14 @@ export const updateMatterMilestone = async (
   if (!payload.due_date) {
     throw new Error('due_date is required');
   }
-  const response = await fetch(
-    buildBackendUrl(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`
+  const json = await requestData(
+    apiClient.put(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`,
+      normalizeMilestonePayload(payload),
+      { signal: options.signal }
     ),
-    {
-      method: 'PUT',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify(normalizeMilestonePayload(payload)),
-      signal: options.signal
-    }
+    'Failed to update milestone'
   );
-
-  const json = await fetchJsonOrThrow(response);
   if (json && typeof json === 'object' && 'milestone' in json) {
     const record = json as Record<string, unknown>;
     if (record.milestone && typeof record.milestone === 'object') {
@@ -1020,21 +882,13 @@ export const deleteMatterMilestone = async (
   if (!practiceId || !matterId || !milestoneId) {
     throw new Error('practiceId, matterId, and milestoneId are required');
   }
-  const response = await fetch(
-    buildBackendUrl(
-      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`
+  await requestData(
+    apiClient.delete(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`,
+      { signal: options.signal }
     ),
-    {
-      method: 'DELETE',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      },
-      signal: options.signal
-    }
+    'Failed to delete milestone'
   );
-
-  await fetchJsonOrThrow(response);
 };
 
 export const reorderMatterMilestones = async (
@@ -1043,17 +897,13 @@ export const reorderMatterMilestones = async (
   milestones: Array<{ id: string; order: number }>,
   options: FetchOptions = {}
 ): Promise<boolean> => {
-  const response = await fetch(
-    buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/reorder`),
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: buildJsonHeaders(),
-      body: JSON.stringify({ milestones }),
-      signal: options.signal
-    }
+  await requestData(
+    apiClient.post(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/reorder`,
+      { milestones },
+      { signal: options.signal }
+    ),
+    'Failed to reorder milestones'
   );
-
-  await fetchJsonOrThrow(response);
   return true;
 };

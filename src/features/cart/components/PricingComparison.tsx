@@ -80,9 +80,26 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
       name: t('plans.business.name'),
       price: (() => {
         const businessPrice = PRICES.monthly;
-        const businessAmount = toMajorUnits(businessPrice?.unit_amount ?? 4000) ?? 0;
+        const unitAmount = businessPrice?.unit_amount;
+        if (typeof unitAmount !== 'number') {
+          return t('plans.business.priceUnavailable', {
+            defaultValue: 'Pricing unavailable'
+          });
+        }
+        const businessAmount = toMajorUnits(unitAmount);
+        if (businessAmount == null) {
+          return t('plans.business.priceUnavailable', {
+            defaultValue: 'Pricing unavailable'
+          });
+        }
         const businessCurrency = businessPrice?.currency ?? 'usd';
-        return buildPriceDisplay(businessAmount, businessCurrency, 'month', userLocale, t);
+        return buildPriceDisplay(
+          businessAmount,
+          businessCurrency,
+          'month',
+          userLocale,
+          t
+        );
       })(),
       description: t('plans.business.description'),
       features: [

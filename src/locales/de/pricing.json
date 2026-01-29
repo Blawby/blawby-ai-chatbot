@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "Sicherer, kollaborativer Arbeitsbereich für Teams",
-      "buttonText": "Business holen"
+      "buttonText": "Business holen",
+      "priceUnavailable": "Preis nicht verfügbar"
     }
   },
   "features": {
