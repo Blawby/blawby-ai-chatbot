@@ -28,22 +28,22 @@ const useCaseOptions = [
   {
     id: 'messaging' as const,
     icon: ChatBubbleLeftRightIcon,
-    labelKey: 'onboarding.step2.options.personal'
+    labelKey: 'onboarding.step2.options.messaging'
   },
   {
     id: 'legal_payments' as const,
     icon: BanknotesIcon,
-    labelKey: 'onboarding.step2.options.business'
+    labelKey: 'onboarding.step2.options.legal_payments'
   },
   {
     id: 'matter_management' as const,
     icon: ClipboardDocumentListIcon,
-    labelKey: 'onboarding.step2.options.research'
+    labelKey: 'onboarding.step2.options.matter_management'
   },
   {
     id: 'intake_forms' as const,
     icon: ClipboardDocumentCheckIcon,
-    labelKey: 'onboarding.step2.options.documents'
+    labelKey: 'onboarding.step2.options.intake_forms'
   },
   {
     id: 'other' as const,

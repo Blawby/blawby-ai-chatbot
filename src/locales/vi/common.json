@@ -131,11 +131,11 @@
       "title": "Bạn muốn sử dụng Blawby AI để làm gì?",
       "subtitle": "Điều này giúp chúng tôi cung cấp các đề xuất phù hợp hơn",
       "options": {
-        "personal": "Nhắn tin",
-        "business": "Thanh toán pháp lý",
-        "research": "Quản lý vụ việc",
-        "documents": "Biểu mẫu tiếp nhận",
-        "other": "Khác"
+        "other": "Khác",
+        "messaging": "Nhắn tin",
+        "legal_payments": "Thanh toán pháp lý",
+        "matter_management": "Quản lý vụ việc",
+        "intake_forms": "Biểu mẫu tiếp nhận"
       },
       "otherPlaceholder": "Cho chúng tôi biết thêm...",
       "next": "Tiếp theo",

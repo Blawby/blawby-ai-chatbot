@@ -131,11 +131,11 @@
       "title": "आप Blawby AI का उपयोग किस लिए करना चाहते हैं?",
       "subtitle": "यह हमें अधिक प्रासंगिक सुझाव देने में मदद करता है",
       "options": {
-        "personal": "संदेश",
-        "business": "कानूनी भुगतान",
-        "research": "मामले प्रबंधन",
-        "documents": "इनटेक फ़ॉर्म",
-        "other": "अन्य"
+        "other": "अन्य",
+        "messaging": "संदेश",
+        "legal_payments": "कानूनी भुगतान",
+        "matter_management": "मामले प्रबंधन",
+        "intake_forms": "इनटेक फ़ॉर्म"
       },
       "otherPlaceholder": "हमें और बताएं...",
       "next": "अगला",

@@ -131,11 +131,11 @@
       "title": "Do czego chcesz używać Blawby AI?",
       "subtitle": "To pomoże nam dostarczać bardziej trafne sugestie",
       "options": {
-        "personal": "Wiadomości",
-        "business": "Płatności prawne",
-        "research": "Zarządzanie sprawami",
-        "documents": "Formularze zgłoszeniowe",
-        "other": "Inne"
+        "other": "Inne",
+        "messaging": "Wiadomości",
+        "legal_payments": "Płatności prawne",
+        "matter_management": "Zarządzanie sprawami",
+        "intake_forms": "Formularze zgłoszeniowe"
       },
       "otherPlaceholder": "Powiedz nam więcej...",
       "next": "Dalej",

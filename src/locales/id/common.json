@@ -131,11 +131,11 @@
       "title": "Untuk apa Anda ingin menggunakan Blawby AI?",
       "subtitle": "Ini membantu kami memberikan saran yang lebih relevan",
       "options": {
-        "personal": "Pesan",
-        "business": "Pembayaran hukum",
-        "research": "Manajemen perkara",
-        "documents": "Formulir intake",
-        "other": "Lainnya"
+        "other": "Lainnya",
+        "messaging": "Pesan",
+        "legal_payments": "Pembayaran hukum",
+        "matter_management": "Manajemen perkara",
+        "intake_forms": "Formulir intake"
       },
       "otherPlaceholder": "Ceritakan lebih lanjut...",
       "next": "Selanjutnya",

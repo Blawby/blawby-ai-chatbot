@@ -131,11 +131,11 @@
       "title": "Wofür möchten Sie Blawby AI verwenden?",
       "subtitle": "Dies hilft uns, relevantere Vorschläge zu liefern",
       "options": {
-        "personal": "Nachrichten",
-        "business": "Rechtliche Zahlungen",
-        "research": "Fallverwaltung",
-        "documents": "Aufnahmeformulare",
-        "other": "Andere"
+        "other": "Andere",
+        "messaging": "Nachrichten",
+        "legal_payments": "Rechtliche Zahlungen",
+        "matter_management": "Fallverwaltung",
+        "intake_forms": "Aufnahmeformulare"
       },
       "otherPlaceholder": "Erzählen Sie uns mehr...",
       "next": "Weiter",
