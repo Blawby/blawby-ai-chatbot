@@ -1,6 +1,7 @@
 // import { h } from 'preact'; // Unused
 import { Button } from '@/shared/ui/Button';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface PracticeNotFoundProps {
   practiceId: string;
@@ -9,6 +10,7 @@ interface PracticeNotFoundProps {
 
 export function PracticeNotFound({ practiceId, onRetry }: PracticeNotFoundProps) {
   const { t } = useTranslation('practice');
+  const { navigate } = useNavigation();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-light-bg dark:bg-dark-bg">
@@ -43,7 +45,7 @@ export function PracticeNotFound({ practiceId, onRetry }: PracticeNotFoundProps)
           )}
           <Button 
             variant="secondary"
-            onClick={() => window.location.href = '/'}
+            onClick={() => navigate('/', true)}
           >
             {t('notFound.actions.goToHome')}
           </Button>

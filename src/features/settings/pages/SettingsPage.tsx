@@ -123,7 +123,8 @@ export const SettingsPage = ({
           if (onClose) {
             onClose();
           }
-        }
+        },
+        navigate
       });
 		} catch (_error) {
       showError(t('settings:navigation.signOut.errorTitle'), t('settings:navigation.signOut.errorBody'));

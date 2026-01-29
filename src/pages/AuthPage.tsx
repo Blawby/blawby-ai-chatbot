@@ -7,6 +7,7 @@ import { Button } from '@/shared/ui/Button';
 import { handleError } from '@/shared/utils/errorHandler';
 import AuthForm from '@/shared/components/AuthForm';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -16,6 +17,7 @@ interface AuthPageProps {
 
 const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPageProps) => {
   const { t } = useTranslation('auth');
+  const { navigate } = useNavigation();
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
@@ -114,15 +116,15 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
     if (delay > 0) {
       setTimeout(() => {
-        window.location.href = destination;
+        navigate(destination, true);
       }, delay);
     } else {
-      window.location.href = destination;
+      navigate(destination, true);
     }
   };
 
   const handleBackToHome = () => {
-    window.location.href = '/';
+    navigate('/', true);
   };
 
   const handleOnboardingComplete = async (data: OnboardingFormData) => {

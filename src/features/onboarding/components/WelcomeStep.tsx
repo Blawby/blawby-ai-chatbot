@@ -96,7 +96,9 @@ const WelcomeStep = ({ onComplete }: WelcomeStepProps) => {
                             components={{
                               helpCenterLink: (
                                 <a 
-                                  href="/help" 
+                                  href="https://blawby.com/help"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline"
                                 >
                                   {t('onboarding.welcome.helpCenter')}
