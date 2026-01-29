@@ -22,8 +22,10 @@ type MatterFormMode = 'create' | 'edit';
 interface MatterFormModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSubmit?: (values: MatterFormState) => Promise<void> | void;
   clients: MatterOption[];
   practiceAreas: MatterOption[];
+  practiceAreasLoading?: boolean;
   assignees: MatterOption[];
   mode?: MatterFormMode;
   initialValues?: Partial<MatterFormState>;
@@ -35,17 +37,17 @@ interface MatterEditModalProps extends Omit<MatterFormModalProps, 'mode'> {
   initialValues: Partial<MatterFormState>;
 }
 
-type BillingType = 'hourly' | 'fixed' | 'contingency';
+export type BillingType = 'hourly' | 'fixed' | 'contingency';
 
-type PaymentFrequency = 'project' | 'milestone';
+export type PaymentFrequency = 'project' | 'milestone';
 
-type MatterMilestone = {
+export type MatterMilestone = {
   description: string;
   dueDate: string;
   amount?: number;
 };
 
-type MatterFormState = {
+export type MatterFormState = {
   title: string;
   clientId: string;
   practiceAreaId: string;
@@ -170,13 +172,20 @@ const StatusPillGroup = ({
 const MatterFormModalInner = ({
   isOpen,
   onClose,
+  onSubmit,
   clients,
   practiceAreas,
+  practiceAreasLoading = false,
   assignees,
   mode = 'create',
   initialValues
 }: MatterFormModalProps) => {
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
+  const [assigneeInput, setAssigneeInput] = useState(
+    () => (initialValues?.assigneeIds ?? []).join(', ')
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({ value: client.id, label: client.name })),
@@ -205,9 +214,25 @@ const MatterFormModalInner = ({
   const [fileError, setFileError] = useState<string | null>(null);
 
   const canSubmit = Boolean(formState.title && formState.clientId);
+  const isClientOptionsEmpty = clientOptions.length === 0;
+  const isPracticeAreaOptionsEmpty = practiceAreaOptions.length === 0;
+  const isAssigneeOptionsEmpty = assigneeOptions.length === 0;
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const parseAssigneeInput = (value: string) =>
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const applyAssigneeInput = (value: string) => {
+    const parsed = parseAssigneeInput(value);
+    updateForm('assigneeIds', parsed);
+    setAssigneeInput(parsed.join(', '));
+    return parsed;
   };
 
   const submitLabel = mode === 'edit' ? 'Save changes' : 'Create matter';
@@ -272,10 +297,25 @@ const MatterFormModalInner = ({
     >
       <form
         className="space-y-6 max-w-3xl mx-auto px-4 py-6 sm:px-6 lg:px-8"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
           if (!canSubmit) return;
-          onClose();
+          setSubmitError(null);
+          if (!onSubmit) {
+            onClose();
+            return;
+          }
+          setIsSubmitting(true);
+          try {
+            const parsedAssignees = parseAssigneeInput(assigneeInput);
+            await onSubmit({ ...formState, assigneeIds: parsedAssignees });
+            setIsSubmitting(false);
+            onClose();
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to save matter';
+            setSubmitError(message);
+            setIsSubmitting(false);
+          }
         }}
       >
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
@@ -296,14 +336,24 @@ const MatterFormModalInner = ({
           onChange={(value) => updateForm('status', value)}
         />
 
-        <Combobox
-          label="Select customer"
-          placeholder="Select customer"
-          value={formState.clientId}
-          options={clientOptions}
-          leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
-          onChange={(value) => updateForm('clientId', value)}
-        />
+        {isClientOptionsEmpty ? (
+          <Input
+            label="Client ID"
+            placeholder="Enter client UUID"
+            value={formState.clientId}
+            onChange={(value) => updateForm('clientId', value)}
+            required
+          />
+        ) : (
+          <Combobox
+            label="Select customer"
+            placeholder="Select customer"
+            value={formState.clientId}
+            options={clientOptions}
+            leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+            onChange={(value) => updateForm('clientId', value)}
+          />
+        )}
 
         <hr className="h-px border-gray-200 dark:border-white/10" />
 
@@ -325,14 +375,24 @@ const MatterFormModalInner = ({
           </div>
         </div>
 
-        <Combobox
-          label="Practice Area"
-          placeholder="Select practice area"
-          value={formState.practiceAreaId}
-          options={practiceAreaOptions}
-          leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
-          onChange={(value) => updateForm('practiceAreaId', value)}
-        />
+        {isPracticeAreaOptionsEmpty ? (
+          <Input
+            label="Practice Service ID"
+            placeholder={practiceAreasLoading ? 'Loading services...' : 'Enter practice service UUID (optional)'}
+            value={formState.practiceAreaId}
+            onChange={(value) => updateForm('practiceAreaId', value)}
+            disabled={practiceAreasLoading}
+          />
+        ) : (
+          <Combobox
+            label="Practice Area"
+            placeholder="Select practice area"
+            value={formState.practiceAreaId}
+            options={practiceAreaOptions}
+            leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
+            onChange={(value) => updateForm('practiceAreaId', value)}
+          />
+        )}
 
         <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
           <div>
@@ -361,13 +421,23 @@ const MatterFormModalInner = ({
 
         <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Team Members</h3>
-          <MultiSelect
-            label="Select Assignees"
-            placeholder="Select Assignees"
-            value={formState.assigneeIds}
-            options={assigneeOptions}
-            onChange={(value) => updateForm('assigneeIds', value)}
-          />
+          {isAssigneeOptionsEmpty ? (
+            <Input
+              label="Assignee IDs"
+              placeholder="Comma-separated user IDs (optional)"
+              value={assigneeInput}
+              onChange={(value) => setAssigneeInput(value)}
+              onBlur={() => applyAssigneeInput(assigneeInput)}
+            />
+          ) : (
+            <MultiSelect
+              label="Select Assignees"
+              placeholder="Select Assignees"
+              value={formState.assigneeIds}
+              options={assigneeOptions}
+              onChange={(value) => updateForm('assigneeIds', value)}
+            />
+          )}
         </div>
 
         <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
@@ -542,13 +612,17 @@ const MatterFormModalInner = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 dark:bg-white/5 px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-          <p>UI-only preview. Submission is disabled until the backend is ready.</p>
+          {submitError ? (
+            <p className="text-red-600 dark:text-red-400">{submitError}</p>
+          ) : (
+            <p>Ready to save this matter to the practice workspace.</p>
+          )}
           <div className="flex items-center gap-2">
-            <Button type="button" variant="secondary" onClick={onClose}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!canSubmit}>
-              {submitLabel}
+            <Button type="submit" disabled={!canSubmit || isSubmitting}>
+              {isSubmitting ? 'Saving...' : submitLabel}
             </Button>
           </div>
         </div>

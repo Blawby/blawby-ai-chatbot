@@ -11,9 +11,11 @@ export type MatterSummary = {
 };
 
 export type MatterMilestone = {
+  id?: string;
   description: string;
   dueDate: string;
   amount: number;
+  status?: 'pending' | 'in_progress' | 'completed' | 'overdue';
 };
 
 export type MatterTask = {

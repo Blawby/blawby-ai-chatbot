@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
@@ -10,19 +10,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
-import { ActivityTimeline } from '@/shared/ui/activity/ActivityTimeline';
+import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import Modal from '@/shared/components/Modal';
 import { ChevronUpDownIcon, FolderIcon, PlusIcon } from '@heroicons/react/24/outline';
 import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import {
-  mockAssignees,
-  mockClients,
-  mockMatterActivity,
-  mockMatterDetails,
-  mockMatters,
-  mockPracticeAreas
+  type MatterDetail,
+  type MatterExpense,
+  type MatterNote,
+  type MatterOption,
+  type MatterSummary,
+  type TimeEntry
 } from '@/features/matters/data/mockMatters';
-import { MatterCreateModal, MatterEditModal } from '@/features/matters/components/MatterCreateModal';
+import { MatterCreateModal, MatterEditModal, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { MatterStatusPill } from '@/features/matters/components/MatterStatusPill';
@@ -31,10 +31,38 @@ import { TimeEntriesPanel } from '@/features/matters/components/time-entries/Tim
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
-import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
+import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
+import { MatterNotesPanel } from '@/features/matters/components/notes/MatterNotesPanel';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
-import { useTimeEntries } from '@/features/matters/hooks/useTimeEntries';
 import { Avatar } from '@/shared/ui/profile';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useToastContext } from '@/shared/contexts/ToastContext';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import {
+  createMatter,
+  getMatter,
+  getMatterActivity,
+  listMatters,
+  updateMatter,
+  type BackendMatter,
+  type BackendMatterActivity,
+  type BackendMatterExpense,
+  type BackendMatterMilestone,
+  type BackendMatterNote,
+  type BackendMatterTimeEntry,
+  type BackendMatterTimeStats,
+  createMatterExpense,
+  createMatterNote,
+  createMatterMilestone,
+  createMatterTimeEntry,
+  getMatterTimeEntryStats,
+  listMatterExpenses,
+  listMatterMilestones,
+  listMatterNotes,
+  listMatterTimeEntries,
+  reorderMatterMilestones
+} from '@/features/matters/services/mattersApi';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
   lead: 0,
@@ -97,7 +125,177 @@ const formatLongDate = (value?: string | null) => {
   });
 };
 
-const EmptyState = () => (
+const resolveClientLabel = (clientId?: string | null) =>
+  clientId ? `Client ${clientId.slice(0, 8)}` : 'Unassigned client';
+
+const resolvePracticeServiceLabel = (serviceId?: string | null) =>
+  serviceId ? `Service ${serviceId.slice(0, 8)}` : 'Not specified';
+
+const normalizeMatterStatus = (status?: string | null): MattersSidebarStatus => {
+  const normalized = status?.toLowerCase().replace(/\s+/g, '_');
+  if (normalized === 'draft') return 'lead';
+  if (normalized === 'active') return 'open';
+  if (
+    normalized === 'lead' ||
+    normalized === 'open' ||
+    normalized === 'in_progress' ||
+    normalized === 'completed' ||
+    normalized === 'archived'
+  ) {
+    return normalized;
+  }
+  return 'open';
+};
+
+const mapStatusToBackend = (
+  status: MattersSidebarStatus
+): 'draft' | 'open' | 'in_progress' | 'completed' | 'archived' =>
+  status === 'lead' ? 'draft' : status;
+
+const extractAssigneeIds = (matter: BackendMatter): string[] => {
+  if (Array.isArray(matter.assignee_ids)) {
+    return matter.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+  }
+  if (Array.isArray(matter.assignees)) {
+    return matter.assignees
+      .map((assignee) => {
+        if (typeof assignee === 'string') return assignee;
+        if (!assignee || typeof assignee !== 'object') return '';
+        const record = assignee as Record<string, unknown>;
+        if (typeof record.id === 'string') return record.id;
+        if (typeof record.user_id === 'string') return record.user_id;
+        return '';
+      })
+      .filter((id) => id.trim().length > 0);
+  }
+  return [];
+};
+
+const mapMilestones = (milestones?: BackendMatter['milestones']): MatterDetail['milestones'] => {
+  if (!Array.isArray(milestones)) return [];
+  return milestones.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      return {
+        description: `Milestone ${index + 1}`,
+        dueDate: '',
+        amount: 0
+      };
+    }
+    const record = item as Record<string, unknown>;
+    return {
+      description: typeof record.description === 'string' ? record.description : `Milestone ${index + 1}`,
+      dueDate: typeof record.due_date === 'string'
+        ? record.due_date
+        : typeof record.dueDate === 'string'
+          ? record.dueDate
+          : '',
+      amount: typeof record.amount === 'number' ? record.amount : 0
+    };
+  });
+};
+
+const toMatterSummary = (matter: BackendMatter): MatterSummary => {
+  const updatedAt = matter.updated_at || matter.created_at || new Date().toISOString();
+  return {
+    id: matter.id,
+    title: matter.title || 'Untitled matter',
+    clientName: resolveClientLabel(matter.client_id),
+    practiceArea: matter.practice_service_id ? resolvePracticeServiceLabel(matter.practice_service_id) : null,
+    status: normalizeMatterStatus(matter.status),
+    updatedAt
+  };
+};
+
+const toMatterDetail = (matter: BackendMatter): MatterDetail => ({
+  ...toMatterSummary(matter),
+  clientId: matter.client_id || '',
+  practiceAreaId: matter.practice_service_id || '',
+  assigneeIds: extractAssigneeIds(matter),
+  description: matter.description || '',
+  billingType: (matter.billing_type as MatterDetail['billingType']) || 'hourly',
+  attorneyHourlyRate: matter.attorney_hourly_rate ?? undefined,
+  adminHourlyRate: matter.admin_hourly_rate ?? undefined,
+  paymentFrequency: (matter.payment_frequency as MatterDetail['paymentFrequency']) ?? undefined,
+  totalFixedPrice: matter.total_fixed_price ?? undefined,
+  milestones: mapMilestones(matter.milestones),
+  contingencyPercent: matter.contingency_percentage ?? undefined,
+  timeEntries: [],
+  expenses: [],
+  notes: []
+});
+
+const resolveActivityType = (activity: BackendMatterActivity): TimelineItem['type'] => {
+  const content = `${activity.action ?? ''} ${activity.description ?? ''}`.toLowerCase();
+  if (content.includes('create')) return 'created';
+  if (content.includes('comment')) return 'commented';
+  if (content.includes('pay')) return 'paid';
+  if (content.includes('view')) return 'viewed';
+  if (content.includes('send')) return 'sent';
+  return 'edited';
+};
+
+const toActivityTimelineItem = (activity: BackendMatterActivity): TimelineItem => {
+  const createdAt = activity.created_at ?? new Date().toISOString();
+  const userLabel = activity.user_id ? `User ${activity.user_id.slice(0, 6)}` : 'System';
+  const type = resolveActivityType(activity);
+  const date = formatRelativeTime(createdAt);
+  return {
+    id: activity.id,
+    type,
+    person: { name: userLabel },
+    date: date || 'Just now',
+    dateTime: createdAt,
+    comment: type === 'commented' ? activity.description ?? undefined : undefined,
+    action: type !== 'commented' ? activity.action ?? activity.description ?? undefined : undefined
+  };
+};
+
+const toNote = (note: BackendMatterNote): MatterNote => {
+  const createdAt = note.created_at ?? new Date().toISOString();
+  const updatedAt = note.updated_at ?? undefined;
+  const userLabel = note.user_id ? `User ${note.user_id.slice(0, 6)}` : 'System';
+  return {
+    id: note.id,
+    author: {
+      name: userLabel
+    },
+    content: note.content ?? '',
+    createdAt,
+    updatedAt
+  };
+};
+
+const toTimeEntry = (entry: BackendMatterTimeEntry): TimeEntry => ({
+  id: entry.id,
+  startTime: entry.start_time ?? new Date().toISOString(),
+  endTime: entry.end_time ?? new Date().toISOString(),
+  description: entry.description ?? ''
+});
+
+const toExpense = (expense: BackendMatterExpense): MatterExpense => ({
+  id: expense.id,
+  description: expense.description ?? 'Expense',
+  amount: expense.amount ?? 0,
+  date: expense.date ?? new Date().toISOString().slice(0, 10),
+  billable: expense.billable ?? true
+});
+
+const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['milestones'][number] => ({
+  id: milestone.id,
+  description: milestone.description ?? 'Milestone',
+  amount: milestone.amount ?? 0,
+  dueDate: milestone.due_date ?? '',
+  status: ((): MatterDetail['milestones'][number]['status'] => {
+    const status = milestone.status ?? undefined;
+    if (!status) return undefined;
+    if (status === 'pending' || status === 'in_progress' || status === 'completed' || status === 'overdue') {
+      return status;
+    }
+    return undefined;
+  })()
+});
+
+const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disableCreate?: boolean }) => (
   <div className="flex h-full items-center justify-center p-8">
     <div className="max-w-md text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-light-hover dark:bg-dark-hover">
@@ -108,11 +306,17 @@ const EmptyState = () => (
         Create your first matter to start tracking progress and milestones.
       </p>
       <div className="mt-6 flex justify-center">
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} disabled>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={onCreate} disabled={disableCreate}>
           Add Matter
         </Button>
       </div>
     </div>
+  </div>
+);
+
+const LoadingState = ({ message }: { message: string }) => (
+  <div className="flex h-full items-center justify-center p-8 text-sm text-gray-500 dark:text-gray-400">
+    {message}
   </div>
 );
 
@@ -125,14 +329,47 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const selectedMatterId = firstSegment && firstSegment !== 'activity'
     ? decodeURIComponent(firstSegment)
     : null;
-  const selectedMatter = useMemo(
-    () => (selectedMatterId ? mockMatters.find((matter) => matter.id === selectedMatterId) ?? null : null),
-    [selectedMatterId]
-  );
-  const selectedMatterDetail = useMemo(
-    () => (selectedMatterId ? mockMatterDetails[selectedMatterId] ?? null : null),
-    [selectedMatterId]
-  );
+  const { activePracticeId } = useSessionContext();
+  const { showError } = useToastContext();
+  const { getMembers, fetchMembers } = usePracticeManagement({
+    autoFetchPractices: false,
+    fetchInvitations: false,
+    fetchPracticeDetails: false
+  });
+  const {
+    details: practiceDetails,
+    hasDetails: hasPracticeDetails,
+    fetchDetails: fetchPracticeDetails
+  } = usePracticeDetails(activePracticeId);
+
+  const [matters, setMatters] = useState<BackendMatter[]>([]);
+  const [mattersLoading, setMattersLoading] = useState(false);
+  const [mattersError, setMattersError] = useState<string | null>(null);
+  const [mattersRefreshKey, setMattersRefreshKey] = useState(0);
+  const [mattersPage, setMattersPage] = useState(1);
+  const [mattersHasMore, setMattersHasMore] = useState(true);
+  const [mattersLoadingMore, setMattersLoadingMore] = useState(false);
+  const pageSize = 50;
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [activityItems, setActivityItems] = useState<TimelineItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [notes, setNotes] = useState<MatterNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [timeEntriesLoading, setTimeEntriesLoading] = useState(false);
+  const [timeEntriesError, setTimeEntriesError] = useState<string | null>(null);
+  const [timeStats, setTimeStats] = useState<BackendMatterTimeStats | null>(null);
+  const [expenses, setExpenses] = useState<MatterExpense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(false);
+  const [expensesError, setExpensesError] = useState<string | null>(null);
+  const [milestones, setMilestones] = useState<MatterDetail['milestones']>([]);
+  const [milestonesLoading, setMilestonesLoading] = useState(false);
+  const [milestonesError, setMilestonesError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<MatterTabId>('all');
   const [sortOption, setSortOption] = useState<SortOption>('updated');
@@ -143,31 +380,524 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
   const [quickTimeEntryKey, setQuickTimeEntryKey] = useState(0);
 
+  const refreshMatters = useCallback(() => {
+    setMattersRefreshKey((prev) => prev + 1);
+  }, []);
+
   const openQuickTimeEntry = () => {
     setQuickTimeEntryKey((prev) => prev + 1);
     setIsQuickTimeEntryOpen(true);
   };
 
-  const {
-    entries: timeEntries,
-    saveEntry: saveTimeEntry,
-    deleteEntry: deleteTimeEntry
-  } = useTimeEntries({
-    initialEntries: selectedMatterDetail?.timeEntries ?? [],
-    resetKey: selectedMatterDetail?.id
-  });
-
-  const handleQuickTimeSubmit = (values: TimeEntryFormValues) => {
+  const handleQuickTimeSubmit = async (values: TimeEntryFormValues) => {
+    if (!activePracticeId || !selectedMatterId) return;
     try {
-      saveTimeEntry(values, null);
+      await createMatterTimeEntry(activePracticeId, selectedMatterId, {
+        start_time: values.startTime,
+        end_time: values.endTime,
+        description: values.description,
+        billable: true
+      });
+      const [entries, stats] = await Promise.all([
+        listMatterTimeEntries(activePracticeId, selectedMatterId),
+        getMatterTimeEntryStats(activePracticeId, selectedMatterId)
+      ]);
+      setTimeEntries(entries.map(toTimeEntry));
+      setTimeStats(stats);
       setIsQuickTimeEntryOpen(false);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to save quick time entry', error);
+      showError('Could not save time entry', 'Please try again.');
     }
   };
 
+  const clientOptions = useMemo<MatterOption[]>(() => {
+    // TODO: Replace with clients API when available.
+    return [];
+  }, []);
+  const practiceAreaOptions = useMemo<MatterOption[]>(() => {
+    const services = practiceDetails?.services;
+    if (!Array.isArray(services)) return [];
+    return services
+      .filter((service): service is { id: string; name: string; key?: string } =>
+        !!service && typeof service === 'object' && typeof service.id === 'string' && typeof service.name === 'string'
+      )
+      .map((service) => ({
+        id: service.id,
+        name: service.name,
+        role: service.key
+      }));
+  }, [practiceDetails?.services]);
+  const assigneeOptions = useMemo<MatterOption[]>(() => {
+    if (!activePracticeId) return [];
+    const members = getMembers(activePracticeId);
+    return members.map((member) => ({
+      id: member.userId,
+      name: member.name ?? member.email,
+      email: member.email,
+      role: member.role
+    }));
+  }, [activePracticeId, getMembers]);
+
+  const assigneeNameById = useMemo(() => {
+    return new Map(assigneeOptions.map((assignee) => [assignee.id, assignee.name]));
+  }, [assigneeOptions]);
+
+  const serviceNameById = useMemo(() => {
+    return new Map(practiceAreaOptions.map((service) => [service.id, service.name]));
+  }, [practiceAreaOptions]);
+
+  useEffect(() => {
+    if (!activePracticeId) return;
+    void fetchMembers(activePracticeId, { force: false });
+  }, [activePracticeId, fetchMembers]);
+
+  useEffect(() => {
+    if (!activePracticeId || hasPracticeDetails) return;
+    setServicesLoading(true);
+    fetchPracticeDetails()
+      .catch((error) => {
+        console.warn('[PracticeMattersPage] Failed to load practice services', error);
+      })
+      .finally(() => {
+        setServicesLoading(false);
+      });
+  }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails]);
+
+  useEffect(() => {
+    if (!activePracticeId) {
+      setMatters([]);
+      setMattersError(null);
+      setMattersLoading(false);
+      setMattersHasMore(true);
+      setMattersPage(1);
+      return;
+    }
+
+    const controller = new AbortController();
+    setMattersLoading(true);
+    setMattersError(null);
+    setMattersHasMore(true);
+    setMattersPage(1);
+
+    listMatters(activePracticeId, { signal: controller.signal, page: 1, limit: pageSize })
+      .then((items) => {
+        setMatters(items);
+        setMattersHasMore(items.length === pageSize);
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Failed to load matters';
+        setMattersError(message);
+      })
+      .finally(() => {
+        setMattersLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, mattersRefreshKey, pageSize]);
+
+  const loadMoreMatters = useCallback(async () => {
+    if (!activePracticeId || mattersLoadingMore || mattersLoading || !mattersHasMore) {
+      return;
+    }
+    const nextPage = mattersPage + 1;
+    setMattersLoadingMore(true);
+    try {
+      const items = await listMatters(activePracticeId, { page: nextPage, limit: pageSize });
+      setMatters((prev) => [...prev, ...items]);
+      setMattersPage(nextPage);
+      setMattersHasMore(items.length === pageSize);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to load more matters', error);
+      showError('Could not load more matters', 'Please try again.');
+    } finally {
+      setMattersLoadingMore(false);
+    }
+  }, [activePracticeId, mattersHasMore, mattersLoading, mattersLoadingMore, mattersPage, pageSize, showError]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+    if (!mattersHasMore || mattersLoading || mattersLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting) {
+          void loadMoreMatters();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMoreMatters, mattersHasMore, mattersLoading, mattersLoadingMore]);
+
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setSelectedMatterDetail(null);
+      setDetailError(null);
+      setDetailLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setDetailLoading(true);
+    setDetailError(null);
+
+    getMatter(activePracticeId, selectedMatterId, { signal: controller.signal })
+      .then((matter) => {
+        setSelectedMatterDetail(matter ? toMatterDetail(matter) : null);
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Failed to load matter';
+        setDetailError(message);
+      })
+      .finally(() => {
+        setDetailLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId]);
+
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setActivityItems([]);
+      setActivityLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setActivityLoading(true);
+
+    getMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal })
+      .then((items) => {
+        setActivityItems(items.map(toActivityTimelineItem));
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        console.warn('[PracticeMattersPage] Failed to load activity', error);
+        setActivityItems([]);
+      })
+      .finally(() => {
+        setActivityLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId]);
+
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setNotes([]);
+      setNotesError(null);
+      setNotesLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setNotesLoading(true);
+    setNotesError(null);
+
+    listMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
+      .then((items) => {
+        setNotes(items.map(toNote));
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Failed to load notes';
+        setNotesError(message);
+      })
+      .finally(() => {
+        setNotesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId]);
+
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setTimeEntries([]);
+      setTimeEntriesError(null);
+      setTimeEntriesLoading(false);
+      setTimeStats(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setTimeEntriesLoading(true);
+    setTimeEntriesError(null);
+
+    Promise.all([
+      listMatterTimeEntries(activePracticeId, selectedMatterId, { signal: controller.signal }),
+      getMatterTimeEntryStats(activePracticeId, selectedMatterId, { signal: controller.signal })
+    ])
+      .then(([entries, stats]) => {
+        setTimeEntries(entries.map(toTimeEntry));
+        setTimeStats(stats);
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Failed to load time entries';
+        setTimeEntriesError(message);
+      })
+      .finally(() => {
+        setTimeEntriesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId]);
+
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setExpenses([]);
+      setExpensesError(null);
+      setExpensesLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setExpensesLoading(true);
+    setExpensesError(null);
+
+    listMatterExpenses(activePracticeId, selectedMatterId, { signal: controller.signal })
+      .then((items) => {
+        setExpenses(items.map(toExpense));
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Failed to load expenses';
+        setExpensesError(message);
+      })
+      .finally(() => {
+        setExpensesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId]);
+
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setMilestones([]);
+      setMilestonesError(null);
+      setMilestonesLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setMilestonesLoading(true);
+    setMilestonesError(null);
+
+    listMatterMilestones(activePracticeId, selectedMatterId, { signal: controller.signal })
+      .then((items) => {
+        const mapped = items.map(toMilestone);
+        setMilestones(mapped);
+        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+      })
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        console.warn('[PracticeMattersPage] Failed to load milestones', error);
+        const message = error instanceof Error ? error.message : 'Failed to load milestones';
+        setMilestonesError(message);
+      })
+      .finally(() => {
+        setMilestonesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId]);
+
+  const handleCreateMilestone = useCallback(async (values: { description: string; amount: number; dueDate: string; status?: string }) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+
+    const created = await createMatterMilestone(activePracticeId, selectedMatterId, {
+      description: values.description,
+      amount: values.amount,
+      due_date: values.dueDate,
+      status: values.status ?? 'pending',
+      order: milestones.length + 1
+    });
+
+    if (created) {
+      const next = [...milestones, toMilestone(created)];
+      setMilestones(next);
+      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
+    } else {
+      const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
+      const mapped = refreshed.map(toMilestone);
+      setMilestones(mapped);
+      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+    }
+  }, [activePracticeId, milestones, selectedMatterId]);
+
+  const handleReorderMilestones = useCallback(async (nextOrder: MatterDetail['milestones']) => {
+    if (!activePracticeId || !selectedMatterId) {
+      return;
+    }
+
+    const previousMilestones = milestones;
+    setMilestones(nextOrder);
+    setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: nextOrder } : prev));
+
+    const payload = nextOrder
+      .map((milestone, index) => ({
+        id: milestone.id ?? '',
+        order: index + 1
+      }))
+      .filter((item) => item.id);
+
+    if (payload.length === 0) {
+      return;
+    }
+
+    try {
+      await reorderMatterMilestones(activePracticeId, selectedMatterId, payload);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to reorder milestones', error);
+      setMilestones(previousMilestones);
+      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: previousMilestones } : prev));
+      showError('Could not reorder milestones', 'Please try again.');
+    }
+  }, [activePracticeId, milestones, selectedMatterId, showError]);
+
+  const handleCreateNote = useCallback(async (values: { content: string }) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    const created = await createMatterNote(activePracticeId, selectedMatterId, values.content);
+    if (created) {
+      setNotes((prev) => [toNote(created), ...prev]);
+    } else {
+      const updated = await listMatterNotes(activePracticeId, selectedMatterId);
+      setNotes(updated.map(toNote));
+    }
+  }, [activePracticeId, selectedMatterId]);
+
+  const handleCreateExpense = useCallback(async (values: { description: string; amount: number | undefined; date: string; billable: boolean }) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    if (values.amount === undefined) {
+      throw new Error('Amount is required');
+    }
+    const created = await createMatterExpense(activePracticeId, selectedMatterId, {
+      description: values.description,
+      amount: values.amount,
+      date: values.date,
+      billable: values.billable
+    });
+    if (created) {
+      setExpenses((prev) => [toExpense(created), ...prev]);
+    } else {
+      const updated = await listMatterExpenses(activePracticeId, selectedMatterId);
+      setExpenses(updated.map(toExpense));
+    }
+  }, [activePracticeId, selectedMatterId]);
+
+  const handleSaveTimeEntry = useCallback(async (values: TimeEntryFormValues) => {
+    if (!activePracticeId || !selectedMatterId) return;
+    try {
+      await createMatterTimeEntry(activePracticeId, selectedMatterId, {
+        start_time: values.startTime,
+        end_time: values.endTime,
+        description: values.description,
+        billable: true
+      });
+      const [entries, stats] = await Promise.all([
+        listMatterTimeEntries(activePracticeId, selectedMatterId),
+        getMatterTimeEntryStats(activePracticeId, selectedMatterId)
+      ]);
+      setTimeEntries(entries.map(toTimeEntry));
+      setTimeStats(stats);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to save time entry', error);
+      showError('Could not save time entry', 'Please try again.');
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
+
+  const handleCreateMatter = useCallback(async (values: MatterFormState) => {
+    if (!activePracticeId) {
+      throw new Error('Practice ID is required to create a matter.');
+    }
+
+    const payload: Record<string, unknown> = {
+      title: values.title.trim(),
+      client_id: values.clientId || null,
+      description: values.description || null,
+      billing_type: values.billingType,
+      total_fixed_price: values.totalFixedPrice ?? null,
+      contingency_percentage: values.contingencyPercent ?? null,
+      settlement_amount: null,
+      practice_service_id: values.practiceAreaId || null,
+      admin_hourly_rate: values.adminHourlyRate ?? null,
+      attorney_hourly_rate: values.attorneyHourlyRate ?? null,
+      payment_frequency: values.paymentFrequency ?? null,
+      status: mapStatusToBackend(values.status),
+      assignee_ids: values.assigneeIds,
+      milestones: values.milestones.map((milestone, index) => ({
+        description: milestone.description,
+        amount: milestone.amount ?? 0,
+        due_date: milestone.dueDate,
+        order: index + 1
+      }))
+    };
+
+    const created = await createMatter(activePracticeId, payload);
+    refreshMatters();
+    if (created?.id) {
+      location.route(`${basePath}/${encodeURIComponent(created.id)}`);
+    }
+  }, [activePracticeId, basePath, location, refreshMatters]);
+
+  const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Matter ID is required to update.');
+    }
+
+    const payload: Record<string, unknown> = {
+      title: values.title.trim(),
+      client_id: values.clientId || null,
+      description: values.description || null,
+      billing_type: values.billingType,
+      total_fixed_price: values.totalFixedPrice ?? null,
+      contingency_percentage: values.contingencyPercent ?? null,
+      settlement_amount: null,
+      practice_service_id: values.practiceAreaId || null,
+      admin_hourly_rate: values.adminHourlyRate ?? null,
+      attorney_hourly_rate: values.attorneyHourlyRate ?? null,
+      payment_frequency: values.paymentFrequency ?? null,
+      status: mapStatusToBackend(values.status),
+      assignee_ids: values.assigneeIds
+    };
+
+    await updateMatter(activePracticeId, selectedMatterId, payload);
+    refreshMatters();
+  }, [activePracticeId, selectedMatterId, refreshMatters]);
+
+  const matterEntries = useMemo(() => {
+    return matters.map((matter) => {
+      const summary = toMatterSummary(matter);
+      const serviceName = matter.practice_service_id
+        ? serviceNameById.get(matter.practice_service_id) ?? summary.practiceArea
+        : summary.practiceArea;
+      return {
+        summary: {
+          ...summary,
+          practiceArea: serviceName ?? summary.practiceArea
+        },
+        assigneeIds: extractAssigneeIds(matter)
+      };
+    });
+  }, [matters, serviceNameById]);
+
+  const matterSummaries = useMemo(() => matterEntries.map((entry) => entry.summary), [matterEntries]);
+
   const counts = useMemo(() => {
-    return mockMatters.reduce<Record<MattersSidebarStatus, number>>(
+    return matterSummaries.reduce<Record<MattersSidebarStatus, number>>(
       (acc, matter) => {
         acc[matter.status] = (acc[matter.status] ?? 0) + 1;
         return acc;
@@ -180,73 +910,79 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         archived: 0
       }
     );
-  }, []);
+  }, [matterSummaries]);
 
   const tabs = useMemo(() => buildTabs(counts), [counts]);
 
   const filteredMatters = useMemo(() => {
-    if (activeTab === 'all') return mockMatters;
-    return mockMatters.filter((matter) => matter.status === activeTab);
-  }, [activeTab]);
+    if (activeTab === 'all') return matterEntries;
+    return matterEntries.filter((entry) => entry.summary.status === activeTab);
+  }, [activeTab, matterEntries]);
 
   const sortedMatters = useMemo(() => {
     const matters = [...filteredMatters];
     if (sortOption === 'title') {
-      return matters.sort((a, b) => a.title.localeCompare(b.title));
+      return matters.sort((a, b) => a.summary.title.localeCompare(b.summary.title));
     }
     if (sortOption === 'status') {
-      return matters.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+      return matters.sort((a, b) => statusOrder[a.summary.status] - statusOrder[b.summary.status]);
     }
     if (sortOption === 'client') {
-      return matters.sort((a, b) => a.clientName.localeCompare(b.clientName));
+      return matters.sort((a, b) => a.summary.clientName.localeCompare(b.summary.clientName));
     }
     if (sortOption === 'practice_area') {
-      return matters.sort((a, b) => (a.practiceArea ?? '').localeCompare(b.practiceArea ?? ''));
+      return matters.sort((a, b) => (a.summary.practiceArea ?? '').localeCompare(b.summary.practiceArea ?? ''));
     }
     if (sortOption === 'assigned') {
       return matters.sort((a, b) => {
-        const aAssigneeId = mockMatterDetails[a.id]?.assigneeIds?.[0] ?? '';
-        const bAssigneeId = mockMatterDetails[b.id]?.assigneeIds?.[0] ?? '';
-        const aAssignee = aAssigneeId
-          ? mockAssignees.find((assignee) => assignee.id === aAssigneeId)?.name ?? ''
-          : '';
-        const bAssignee = bAssigneeId
-          ? mockAssignees.find((assignee) => assignee.id === bAssigneeId)?.name ?? ''
-          : '';
+        const aAssigneeId = a.assigneeIds?.[0] ?? '';
+        const bAssigneeId = b.assigneeIds?.[0] ?? '';
+        const aAssignee = aAssigneeId ? assigneeNameById.get(aAssigneeId) ?? '' : '';
+        const bAssignee = bAssigneeId ? assigneeNameById.get(bAssigneeId) ?? '' : '';
         return aAssignee.localeCompare(bAssignee);
       });
     }
-    return matters.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [filteredMatters, sortOption]);
+    return matters.sort((a, b) => new Date(b.summary.updatedAt).getTime() - new Date(a.summary.updatedAt).getTime());
+  }, [assigneeNameById, filteredMatters, sortOption]);
+
+  const sortedMatterSummaries = useMemo(() => sortedMatters.map((entry) => entry.summary), [sortedMatters]);
+
+  const selectedMatterSummary = useMemo(() => (
+    selectedMatterId ? matterSummaries.find((matter) => matter.id === selectedMatterId) ?? null : null
+  ), [matterSummaries, selectedMatterId]);
+  const resolvedSelectedMatter = selectedMatterDetail ?? selectedMatterSummary;
 
   const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
   const overviewDetails = useMemo(() => {
-    if (!selectedMatterDetail || !selectedMatter) return [];
+    if (!selectedMatterDetail || !resolvedSelectedMatter) return [];
+
+    const resolveOptionLabel = (options: MatterOption[], id: string, fallback: string) =>
+      options.find((option) => option.id === id)?.name ?? fallback;
+
     const clientIds = [
       selectedMatterDetail.clientId,
       ...((selectedMatterDetail as { clientIds?: string[] }).clientIds ?? [])
     ].filter(Boolean) as string[];
-    const clientOptions = clientIds.length > 0
-      ? clientIds.map((id) => mockClients.find((client) => client.id === id)).filter(Boolean)
-      : [];
-    const clientNames = clientOptions.map((client) => client?.name).filter(Boolean) as string[];
-    if (clientNames.length === 0 && selectedMatter.clientName) {
-      clientNames.push(selectedMatter.clientName);
+    const clientNames = clientIds.map((id) => resolveOptionLabel(clientOptions, id, resolveClientLabel(id)));
+    if (clientNames.length === 0 && resolvedSelectedMatter.clientName) {
+      clientNames.push(resolvedSelectedMatter.clientName);
     }
 
-    const assigneeOptions = selectedMatterDetail.assigneeIds
-      .map((id) => mockAssignees.find((assignee) => assignee.id === id))
+    const assigneeNames = selectedMatterDetail.assigneeIds
+      .map((id) => resolveOptionLabel(assigneeOptions, id, `User ${id.slice(0, 6)}`))
       .filter(Boolean);
-    const assigneeNames = assigneeOptions.map((assignee) => assignee?.name).filter(Boolean) as string[];
 
     const practiceAreaLabel = selectedMatterDetail.practiceArea
-      ?? mockPracticeAreas.find((area) => area.id === selectedMatterDetail.practiceAreaId)?.name
-      ?? 'Not specified';
+      ?? resolveOptionLabel(
+        practiceAreaOptions,
+        selectedMatterDetail.practiceAreaId,
+        servicesLoading ? 'Loading services...' : resolvePracticeServiceLabel(selectedMatterDetail.practiceAreaId)
+      );
     const billingLabel = selectedMatterDetail.billingType
       ? selectedMatterDetail.billingType.replace(/_/g, ' ').replace(/^\w/, (char) => char.toUpperCase())
       : 'Not specified';
-    const statusLabel = selectedMatter.status.replace(/_/g, ' ');
-    const createdLabel = formatLongDate((selectedMatterDetail as { createdAt?: string }).createdAt ?? selectedMatter.updatedAt);
+    const statusLabel = resolvedSelectedMatter.status.replace(/_/g, ' ');
+    const createdLabel = formatLongDate(resolvedSelectedMatter.updatedAt);
 
     return [
       { label: 'Description', value: selectedMatterDetail.description || 'No description provided' },
@@ -291,10 +1027,36 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       { label: 'Status', value: statusLabel },
       { label: 'Created', value: createdLabel }
     ];
-  }, [selectedMatter, selectedMatterDetail]);
+  }, [assigneeOptions, clientOptions, practiceAreaOptions, resolvedSelectedMatter, selectedMatterDetail, servicesLoading]);
 
   if (selectedMatterId) {
-    if (!selectedMatter) {
+    if (detailLoading && !resolvedSelectedMatter) {
+      return (
+        <div className="h-full p-6">
+          <LoadingState message="Loading matter details..." />
+        </div>
+      );
+    }
+
+    if (detailError && !resolvedSelectedMatter) {
+      return (
+        <div className="h-full p-6">
+          <div className="max-w-5xl mx-auto space-y-6">
+            <PageHeader
+              title="Unable to load matter"
+              subtitle={detailError}
+              actions={(
+                <Button size="sm" variant="secondary" onClick={() => location.route(basePath)}>
+                  Back to matters
+                </Button>
+              )}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (!resolvedSelectedMatter) {
       return (
         <div className="h-full p-6">
           <div className="max-w-5xl mx-auto space-y-6">
@@ -326,40 +1088,41 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             <Breadcrumbs
               items={[
                 { label: 'Matters', href: basePath },
-                { label: selectedMatter.title }
+                { label: resolvedSelectedMatter.title }
               ]}
               onNavigate={(href) => location.route(href)}
             />
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
-                <MatterStatusDot status={selectedMatter.status} className="mt-1" />
+                <MatterStatusDot status={resolvedSelectedMatter.status} className="mt-1" />
                 <div>
                   <h1 className="flex flex-wrap items-center gap-x-2 text-base font-semibold leading-7 text-gray-900 dark:text-white">
-                    <span>{selectedMatter.title}</span>
+                    <span>{resolvedSelectedMatter.title}</span>
                     <span className="text-gray-400">/</span>
                     <span className="flex items-center gap-x-2 font-semibold text-gray-900 dark:text-white">
                       <Avatar
-                        name={selectedMatter.clientName}
+                        name={resolvedSelectedMatter.clientName}
                         size="xs"
                         className="bg-gray-200 text-gray-700 dark:bg-gray-700"
                       />
-                      {selectedMatter.clientName}
+                      {resolvedSelectedMatter.clientName}
                     </span>
                   </h1>
                   <div className="mt-2 flex items-center gap-x-2.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                    <p className="truncate">Practice Area: {selectedMatter.practiceArea || 'Not Assigned'}</p>
+                    <p className="truncate">Practice Area: {resolvedSelectedMatter.practiceArea || 'Not Assigned'}</p>
                     <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 flex-none fill-gray-300 dark:fill-white/30">
                       <circle cx="1" cy="1" r="1" />
                     </svg>
-                    <p className="whitespace-nowrap">Updated {formatRelativeTime(selectedMatter.updatedAt)}</p>
+                    <p className="whitespace-nowrap">Updated {formatRelativeTime(resolvedSelectedMatter.updatedAt)}</p>
                   </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <MatterStatusPill status={selectedMatter.status} />
+                <MatterStatusPill status={resolvedSelectedMatter.status} />
                 <Button
                   variant="secondary"
                   size="sm"
+                  disabled={!selectedMatterDetail}
                   onClick={() => {
                     setModalKey((prev) => prev + 1);
                     setIsEditOpen(true);
@@ -402,6 +1165,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             }}
             onViewTimesheet={() => setDetailTab('time')}
             onChangeRate={() => {}}
+            timeStats={timeStats}
           />
 
           <section>
@@ -415,7 +1179,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{detail.label}</h3>
                           {detail.label === 'Status' ? (
                             <p className="mt-2">
-                              <MatterStatusPill status={selectedMatter.status} />
+                              <MatterStatusPill status={resolvedSelectedMatter.status} />
                             </p>
                           ) : detail.render ? (
                             detail.render()
@@ -429,12 +1193,36 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent activity</h3>
                     <div className="mt-4 rounded-xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg p-4">
-                      <ActivityTimeline items={mockMatterActivity} showComposer composerDisabled />
+                      {activityLoading && activityItems.length === 0 ? (
+                        <LoadingState message="Loading activity..." />
+                      ) : (
+                        <ActivityTimeline items={activityItems} showComposer composerDisabled />
+                      )}
                     </div>
                   </div>
                 </div>
                 {selectedMatterDetail && (
-                  <MatterTasksPanel key={`tasks-overview-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                  <MatterMilestonesPanel
+                    key={`milestones-overview-${selectedMatterDetail.id}`}
+                    matter={selectedMatterDetail}
+                    milestones={milestones}
+                    loading={milestonesLoading}
+                    error={milestonesError}
+                    onCreateMilestone={handleCreateMilestone}
+                    onReorderMilestones={handleReorderMilestones}
+                    allowReorder
+                  />
+                )}
+                {selectedMatterDetail && (
+                  <MatterNotesPanel
+                    key={`notes-${selectedMatterDetail.id}`}
+                    matter={selectedMatterDetail}
+                    notes={notes}
+                    loading={notesLoading}
+                    error={notesError}
+                    onCreateNote={handleCreateNote}
+                    allowEdit={false}
+                  />
                 )}
               </div>
             ) : detailTab === 'time' && selectedMatterDetail ? (
@@ -442,10 +1230,25 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 <TimeEntriesPanel
                   key={`time-${selectedMatterDetail.id}`}
                   entries={timeEntries}
-                  onSaveEntry={saveTimeEntry}
-                  onDeleteEntry={deleteTimeEntry}
+                  onSaveEntry={(values) => {
+                    void handleSaveTimeEntry(values);
+                  }}
+                  onDeleteEntry={() => {
+                    showError('Delete not available', 'Time entry deletion is not supported yet.');
+                  }}
+                  loading={timeEntriesLoading}
+                  error={timeEntriesError}
                 />
-                <MatterExpensesPanel key={`expenses-${selectedMatterDetail.id}`} matter={selectedMatterDetail} />
+                <MatterExpensesPanel
+                  key={`expenses-${selectedMatterDetail.id}`}
+                  matter={selectedMatterDetail}
+                  expenses={expenses}
+                  loading={expensesLoading}
+                  error={expensesError}
+                  onCreateExpense={handleCreateExpense}
+                  allowEdit={false}
+                  createOnly
+                />
                 <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
                   <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
                     <div>
@@ -489,9 +1292,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
             key={modalKey}
             isOpen={isEditOpen}
             onClose={() => setIsEditOpen(false)}
-            clients={mockClients}
-            practiceAreas={mockPracticeAreas}
-            assignees={mockAssignees}
+            onSubmit={handleUpdateMatter}
+            clients={clientOptions}
+            practiceAreas={practiceAreaOptions}
+            practiceAreasLoading={servicesLoading}
+            assignees={assigneeOptions}
             initialValues={{
               title: selectedMatterDetail.title,
               clientId: selectedMatterDetail.clientId,
@@ -539,7 +1344,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
               <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => {
                 setModalKey((prev) => prev + 1);
                 setIsCreateOpen(true);
-              }}>
+              }} disabled={!activePracticeId}>
                 Create Matter
               </Button>
             </div>
@@ -579,21 +1384,35 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           )}
         />
 
+        {mattersError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+            {mattersError}
+          </div>
+        )}
+
         <div className="flex flex-col gap-6">
           <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg overflow-hidden">
             <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-4 py-4 sm:px-6 lg:px-8">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{activeTabLabel} Matters</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {sortedMatters.length} showing
+                  {sortedMatterSummaries.length} showing
                 </p>
               </div>
             </header>
-            {sortedMatters.length === 0 ? (
-              <EmptyState />
+            {mattersLoading ? (
+              <LoadingState message="Loading matters..." />
+            ) : sortedMatterSummaries.length === 0 ? (
+              <EmptyState
+                onCreate={() => {
+                  setModalKey((prev) => prev + 1);
+                  setIsCreateOpen(true);
+                }}
+                disableCreate={!activePracticeId}
+              />
             ) : (
               <ul className="divide-y divide-gray-200 dark:divide-white/10">
-                {sortedMatters.map((matter) => (
+                {sortedMatterSummaries.map((matter) => (
                   <MatterListItem
                     key={matter.id}
                     matter={matter}
@@ -601,6 +1420,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   />
                 ))}
               </ul>
+            )}
+            {mattersHasMore && !mattersLoading && (
+              <div ref={loadMoreRef} className="h-10" />
+            )}
+            {mattersLoadingMore && (
+              <div className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                Loading more matters...
+              </div>
             )}
           </section>
 
@@ -612,9 +1439,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
           key={modalKey}
           isOpen={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
-          clients={mockClients}
-          practiceAreas={mockPracticeAreas}
-          assignees={mockAssignees}
+          onSubmit={handleCreateMatter}
+          clients={clientOptions}
+          practiceAreas={practiceAreaOptions}
+          practiceAreasLoading={servicesLoading}
+          assignees={assigneeOptions}
         />
       )}
     </div>

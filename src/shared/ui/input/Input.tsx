@@ -8,6 +8,7 @@ export interface InputProps {
   type?: 'text' | 'password' | 'email' | 'tel' | 'url' | 'number' | 'search' | 'date';
   value?: string;
   onChange?: (value: string) => void;
+  onBlur?: (event: FocusEvent) => void;
   placeholder?: string;
   disabled?: boolean;
   required?: boolean;

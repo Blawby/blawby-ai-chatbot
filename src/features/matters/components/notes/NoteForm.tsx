@@ -13,9 +13,10 @@ interface NoteFormProps {
   onSubmit: (values: NoteFormValues) => void;
   onCancel: () => void;
   onDelete?: () => void;
+  isSubmitting?: boolean;
 }
 
-export const NoteForm = ({ initialNote, onSubmit, onCancel, onDelete }: NoteFormProps) => {
+export const NoteForm = ({ initialNote, onSubmit, onCancel, onDelete, isSubmitting = false }: NoteFormProps) => {
   const [content, setContent] = useState(initialNote?.content ?? '');
   const [error, setError] = useState('');
 
@@ -48,15 +49,17 @@ export const NoteForm = ({ initialNote, onSubmit, onCancel, onDelete }: NoteForm
       />
       <div className="flex flex-wrap items-center justify-end gap-3">
         {onDelete && (
-          <Button type="button" variant="danger" size="sm" onClick={onDelete} className="mr-auto">
-            Delete note
-          </Button>
-        )}
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          Cancel
+        <Button type="button" variant="danger" size="sm" onClick={onDelete} className="mr-auto" disabled={isSubmitting}>
+          Delete note
         </Button>
-        <Button type="submit">{initialNote ? 'Update note' : 'Create note'}</Button>
-      </div>
-    </form>
+      )}
+      <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
+        Cancel
+      </Button>
+      <Button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Saving...' : initialNote ? 'Update note' : 'Create note'}
+      </Button>
+    </div>
+  </form>
   );
 };

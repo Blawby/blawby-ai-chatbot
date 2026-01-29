@@ -23,26 +23,45 @@ const statusStyles: Record<'billable' | 'nonbillable', string> = {
 
 interface MatterExpensesPanelProps {
   matter: MatterDetail;
+  expenses?: MatterExpense[];
+  loading?: boolean;
+  error?: string | null;
+  onCreateExpense?: (values: ExpenseFormValues) => Promise<void> | void;
+  allowEdit?: boolean;
+  createOnly?: boolean;
 }
 
-export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
-  const [expenses, setExpenses] = useState<MatterExpense[]>(() => matter.expenses ?? []);
+export const MatterExpensesPanel = ({
+  matter,
+  expenses,
+  loading = false,
+  error = null,
+  onCreateExpense,
+  allowEdit = true,
+  createOnly = false
+}: MatterExpensesPanelProps) => {
+  const [localExpenses, setLocalExpenses] = useState<MatterExpense[]>(() => matter.expenses ?? []);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<MatterExpense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MatterExpense | null>(null);
   const [formKey, setFormKey] = useState(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resolvedExpenses = expenses ?? localExpenses;
+  const canEdit = !createOnly && allowEdit && expenses === undefined && !onCreateExpense;
 
   const sortedExpenses = useMemo(() => {
-    return [...expenses].sort((a, b) => b.date.localeCompare(a.date));
-  }, [expenses]);
+    return [...resolvedExpenses].sort((a, b) => b.date.localeCompare(a.date));
+  }, [resolvedExpenses]);
 
   const totalExpenses = useMemo(() => {
-    return expenses.reduce((total, expense) => total + expense.amount, 0);
-  }, [expenses]);
+    return resolvedExpenses.reduce((total, expense) => total + expense.amount, 0);
+  }, [resolvedExpenses]);
 
   const billableTotal = useMemo(() => {
-    return expenses.filter((expense) => expense.billable).reduce((total, expense) => total + expense.amount, 0);
-  }, [expenses]);
+    return resolvedExpenses.filter((expense) => expense.billable).reduce((total, expense) => total + expense.amount, 0);
+  }, [resolvedExpenses]);
 
   const openNewExpense = () => {
     setEditingExpense(null);
@@ -51,6 +70,7 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
   };
 
   const openEditExpense = (expense: MatterExpense) => {
+    if (!canEdit) return;
     setEditingExpense(expense);
     setFormKey((prev) => prev + 1);
     setIsFormOpen(true);
@@ -61,8 +81,23 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
     setEditingExpense(null);
   };
 
-  const handleSave = (values: ExpenseFormValues) => {
+  const handleSave = async (values: ExpenseFormValues) => {
     if (values.amount === undefined) return;
+    setSubmitError(null);
+    if (onCreateExpense) {
+      setIsSubmitting(true);
+      try {
+        await onCreateExpense(values);
+        closeForm();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to save expense';
+        setSubmitError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     const nextExpense: MatterExpense = {
       id: editingExpense?.id ?? ulid(),
       description: values.description,
@@ -71,7 +106,7 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
       billable: values.billable
     };
 
-    setExpenses((prev) => (
+    setLocalExpenses((prev) => (
       editingExpense
         ? prev.map((expense) => (expense.id === editingExpense.id ? nextExpense : expense))
         : [nextExpense, ...prev]
@@ -81,12 +116,13 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
   };
 
   const confirmDelete = (expense: MatterExpense) => {
+    if (!canEdit) return;
     setDeleteTarget(expense);
   };
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    setExpenses((prev) => prev.filter((expense) => expense.id !== deleteTarget.id));
+    setLocalExpenses((prev) => prev.filter((expense) => expense.id !== deleteTarget.id));
     setDeleteTarget(null);
     if (editingExpense?.id === deleteTarget.id) {
       closeForm();
@@ -99,7 +135,7 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
         <div>
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Expenses</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {sortedExpenses.length} recorded · {formatCurrency(totalExpenses / 100)} total · {formatCurrency(billableTotal / 100)} billable
+            {sortedExpenses.length} recorded · {formatCurrency(totalExpenses)} total · {formatCurrency(billableTotal)} billable
           </p>
         </div>
         <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewExpense}>
@@ -107,7 +143,15 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
         </Button>
       </header>
 
-      {sortedExpenses.length === 0 ? (
+      {error ? (
+        <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      ) : loading && sortedExpenses.length === 0 ? (
+        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
+          Loading expenses...
+        </div>
+      ) : sortedExpenses.length === 0 ? (
         <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
           No expenses yet. Add receipts, filing fees, or other costs tied to this matter.
         </div>
@@ -124,6 +168,7 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
                   type="button"
                   className="min-w-0 text-left flex-1"
                   onClick={() => openEditExpense(expense)}
+                  disabled={!canEdit}
                 >
                   <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -146,11 +191,12 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
                     <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 fill-current">
                       <circle cx="1" cy="1" r="1" />
                     </svg>
-                    <span className="truncate">Amount: {formatCurrency(expense.amount / 100)}</span>
+                    <span className="truncate">Amount: {formatCurrency(expense.amount)}</span>
                   </div>
                 </div>
                 </button>
-                <div className="flex items-center gap-2">
+                {canEdit ? (
+                  <div className="flex items-center gap-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -178,6 +224,7 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
+                ) : null}
               </li>
             );
           })}
@@ -196,12 +243,18 @@ export const MatterExpensesPanel = ({ matter }: MatterExpensesPanelProps) => {
             initialExpense={editingExpense ?? undefined}
             onSubmit={handleSave}
             onCancel={closeForm}
-            onDelete={editingExpense ? () => confirmDelete(editingExpense) : undefined}
+            onDelete={canEdit && editingExpense ? () => confirmDelete(editingExpense) : undefined}
           />
+          {submitError && (
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+          )}
+          {isSubmitting && (
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving expense...</p>
+          )}
         </Modal>
       )}
 
-      {deleteTarget && (
+      {canEdit && deleteTarget && (
         <Modal
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}

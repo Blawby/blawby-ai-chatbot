@@ -60,7 +60,7 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       await expect(
-        extractPracticeContext(request, mockEnv, { allowUrlOverride: true })
+        extractPracticeContext(request, mockEnv)
       ).rejects.toThrow('Security violation: Auth-related query parameter');
     });
 
@@ -76,7 +76,7 @@ describe('PracticeContext Middleware Security Tests', () => {
       );
 
       await expect(
-        extractPracticeContext(request, mockEnv, { allowUrlOverride: true })
+        extractPracticeContext(request, mockEnv)
       ).rejects.toThrow('Security violation: Auth-related query parameter');
     });
 
@@ -88,7 +88,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       const context = await extractPracticeContext(request, mockEnv, { 
-        allowUrlOverride: true,
         requirePractice: true
       });
 
@@ -115,7 +114,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        allowUrlOverride: true,
         requirePractice: true
       });
 
@@ -142,7 +140,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       vi.mocked(optionalAuth).mockResolvedValue(null);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        allowUrlOverride: true,
         requirePractice: true
       });
 
@@ -168,7 +165,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       // Mock a scenario where headers might be modified (shouldn't happen in real code)
       // We'll test by manually modifying after the fact to verify the check works
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        allowUrlOverride: true,
         requirePractice: true
       });
 
@@ -208,7 +204,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        allowUrlOverride: true,
         requirePractice: true
       });
 
@@ -228,7 +223,7 @@ describe('PracticeContext Middleware Security Tests', () => {
       }
     });
 
-    it('should reject auth-related URL params even when allowUrlOverride is true', async () => {
+    it('should reject auth-related URL params', async () => {
       const request = new Request(
         'https://example.com/api/test?practiceId=test-practice&token=evil&authorization=Bearer hacked',
         {
@@ -241,7 +236,6 @@ describe('PracticeContext Middleware Security Tests', () => {
 
       await expect(
         withPracticeContext(request, mockEnv, {
-          allowUrlOverride: true,
           requirePractice: true
         })
       ).rejects.toThrow('Security violation: Auth-related query parameter');
@@ -266,7 +260,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       vi.mocked(optionalAuth).mockResolvedValue(mockAuthContext);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        allowUrlOverride: true,
         requirePractice: true
       });
 
@@ -301,7 +294,6 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        allowUrlOverride: true,
         requirePractice: true
       });
 

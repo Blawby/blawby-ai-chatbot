@@ -23,18 +23,35 @@ const defaultAuthor: MatterNote['author'] = {
 
 interface MatterNotesPanelProps {
   matter: MatterDetail;
+  notes?: MatterNote[];
+  loading?: boolean;
+  error?: string | null;
+  onCreateNote?: (values: NoteFormValues) => Promise<void> | void;
+  allowEdit?: boolean;
 }
 
-export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
-  const [notes, setNotes] = useState<MatterNote[]>(() => matter.notes ?? []);
+export const MatterNotesPanel = ({
+  matter,
+  notes,
+  loading = false,
+  error = null,
+  onCreateNote,
+  allowEdit = true
+}: MatterNotesPanelProps) => {
+  const [localNotes, setLocalNotes] = useState<MatterNote[]>(() => matter.notes ?? []);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<MatterNote | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MatterNote | null>(null);
   const [formKey, setFormKey] = useState(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resolvedNotes = notes ?? localNotes;
+  const canEdit = allowEdit && notes === undefined && !onCreateNote;
 
   const sortedNotes = useMemo(() => {
-    return [...notes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [notes]);
+    return [...resolvedNotes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [resolvedNotes]);
 
   const openNewNote = () => {
     setEditingNote(null);
@@ -43,6 +60,7 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
   };
 
   const openEditNote = (note: MatterNote) => {
+    if (!canEdit) return;
     setEditingNote(note);
     setFormKey((prev) => prev + 1);
     setIsFormOpen(true);
@@ -53,7 +71,22 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
     setEditingNote(null);
   };
 
-  const handleSave = ({ content }: NoteFormValues) => {
+  const handleSave = async ({ content }: NoteFormValues) => {
+    setSubmitError(null);
+    if (onCreateNote) {
+      setIsSubmitting(true);
+      try {
+        await onCreateNote({ content });
+        closeForm();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to save note';
+        setSubmitError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     const now = new Date().toISOString();
     const nextNote: MatterNote = {
       id: editingNote?.id ?? ulid(),
@@ -63,7 +96,7 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
       updatedAt: editingNote ? now : undefined
     };
 
-    setNotes((prev) => (
+    setLocalNotes((prev) => (
       editingNote
         ? prev.map((note) => (note.id === editingNote.id ? nextNote : note))
         : [nextNote, ...prev]
@@ -73,12 +106,13 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
   };
 
   const confirmDelete = (note: MatterNote) => {
+    if (!canEdit) return;
     setDeleteTarget(note);
   };
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    setNotes((prev) => prev.filter((note) => note.id !== deleteTarget.id));
+    setLocalNotes((prev) => prev.filter((note) => note.id !== deleteTarget.id));
     setDeleteTarget(null);
     if (editingNote?.id === deleteTarget.id) {
       closeForm();
@@ -99,7 +133,15 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
         </Button>
       </header>
 
-      {sortedNotes.length === 0 ? (
+      {error ? (
+        <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      ) : loading && sortedNotes.length === 0 ? (
+        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
+          Loading notes...
+        </div>
+      ) : sortedNotes.length === 0 ? (
         <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
           No notes yet. Capture internal updates, decisions, or next steps tied to this matter.
         </div>
@@ -114,6 +156,7 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
                 type="button"
                 className="flex min-w-0 gap-3 text-left flex-1"
                 onClick={() => openEditNote(note)}
+                disabled={!canEdit}
               >
                 <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
                 <div className="min-w-0">
@@ -138,7 +181,8 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
                   </p>
                 </div>
               </button>
-              <div className="flex items-center gap-2">
+              {canEdit ? (
+                <div className="flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -166,6 +210,7 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -183,12 +228,19 @@ export const MatterNotesPanel = ({ matter }: MatterNotesPanelProps) => {
             initialNote={editingNote ?? undefined}
             onSubmit={handleSave}
             onCancel={closeForm}
-            onDelete={editingNote ? () => confirmDelete(editingNote) : undefined}
+            onDelete={canEdit && editingNote ? () => confirmDelete(editingNote) : undefined}
+            isSubmitting={isSubmitting}
           />
+          {submitError && (
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+          )}
+          {isSubmitting && (
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving note...</p>
+          )}
         </Modal>
       )}
 
-      {deleteTarget && (
+      {canEdit && deleteTarget && (
         <Modal
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
