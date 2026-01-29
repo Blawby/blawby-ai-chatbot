@@ -18,10 +18,9 @@ interface PersonalInfoData extends FormData {
 interface PersonalInfoStepProps {
   data: PersonalInfoData;
   onComplete: (data: PersonalInfoData) => void;
-  onBack: () => void;
 }
 
-const PersonalInfoStep = ({ data: _data, onComplete, onBack }: PersonalInfoStepProps) => {
+const PersonalInfoStep = ({ data: _data, onComplete }: PersonalInfoStepProps) => {
   const { t } = useTranslation('common');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const mountedRef = useRef<boolean>(true);
@@ -166,16 +165,6 @@ const PersonalInfoStep = ({ data: _data, onComplete, onBack }: PersonalInfoStepP
                 ) : (
                   t('onboarding.step1.continue')
                 )}
-              </Button>
-              
-              <Button
-                type="button"
-                onClick={onBack}
-                variant="secondary"
-                size="lg"
-                className="w-full"
-              >
-                {t('onboarding.step1.back')}
               </Button>
             </div>
           </Form>
