@@ -93,7 +93,7 @@ export function AppGuard({ children }: AppGuardProps) {
           if (import.meta.env.DEV) {
             console.debug('[AppGuard][ONBOARDING] Redirecting to onboarding flow');
           }
-          // use window.location for hard redirect to ensure state is clean
+          // Navigate to onboarding flow with history replacement
           navigate('/auth?mode=signin&onboarding=true', true);
         }
       } catch (error) {
