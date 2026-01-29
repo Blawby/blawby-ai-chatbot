@@ -27,6 +27,8 @@ interface MatterNotesPanelProps {
   loading?: boolean;
   error?: string | null;
   onCreateNote?: (values: NoteFormValues) => Promise<void> | void;
+  onUpdateNote?: (note: MatterNote, values: NoteFormValues) => Promise<void> | void;
+  onDeleteNote?: (note: MatterNote) => Promise<void> | void;
   allowEdit?: boolean;
 }
 
@@ -36,6 +38,8 @@ export const MatterNotesPanel = ({
   loading = false,
   error = null,
   onCreateNote,
+  onUpdateNote,
+  onDeleteNote,
   allowEdit = true
 }: MatterNotesPanelProps) => {
   const [localNotes, setLocalNotes] = useState<MatterNote[]>(() => matter.notes ?? []);
@@ -44,16 +48,19 @@ export const MatterNotesPanel = ({
   const [deleteTarget, setDeleteTarget] = useState<MatterNote | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resolvedNotes = notes ?? localNotes;
-  const canEdit = allowEdit && notes === undefined && !onCreateNote;
+  const canEdit = allowEdit && (Boolean(onUpdateNote) || Boolean(onDeleteNote) || (notes === undefined && !onCreateNote));
+  const canCreate = Boolean(onCreateNote) || notes === undefined;
 
   const sortedNotes = useMemo(() => {
     return [...resolvedNotes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [resolvedNotes]);
 
   const openNewNote = () => {
+    if (!canCreate) return;
     setEditingNote(null);
     setFormKey((prev) => prev + 1);
     setIsFormOpen(true);
@@ -73,6 +80,19 @@ export const MatterNotesPanel = ({
 
   const handleSave = async ({ content }: NoteFormValues) => {
     setSubmitError(null);
+    if (editingNote && onUpdateNote) {
+      setIsSubmitting(true);
+      try {
+        await onUpdateNote(editingNote, { content });
+        closeForm();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to update note';
+        setSubmitError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
     if (onCreateNote) {
       setIsSubmitting(true);
       try {
@@ -110,8 +130,25 @@ export const MatterNotesPanel = ({
     setDeleteTarget(note);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
+    setDeleteError(null);
+    if (onDeleteNote) {
+      setIsSubmitting(true);
+      try {
+        await onDeleteNote(deleteTarget);
+        setDeleteTarget(null);
+        if (editingNote?.id === deleteTarget.id) {
+          closeForm();
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to delete note';
+        setDeleteError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
     setLocalNotes((prev) => prev.filter((note) => note.id !== deleteTarget.id));
     setDeleteTarget(null);
     if (editingNote?.id === deleteTarget.id) {
@@ -128,7 +165,7 @@ export const MatterNotesPanel = ({
             {sortedNotes.length} notes recorded
           </p>
         </div>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewNote}>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewNote} disabled={!canCreate}>
           Add note
         </Button>
       </header>
@@ -251,11 +288,16 @@ export const MatterNotesPanel = ({
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+            )}
             <div className="flex items-center justify-end gap-3">
               <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
-              <Button variant="danger" onClick={handleDelete}>Delete note</Button>
+              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+                {isSubmitting ? 'Deleting...' : 'Delete note'}
+              </Button>
             </div>
           </div>
         </Modal>

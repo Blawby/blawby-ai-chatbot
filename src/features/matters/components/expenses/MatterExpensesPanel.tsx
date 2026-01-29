@@ -27,6 +27,8 @@ interface MatterExpensesPanelProps {
   loading?: boolean;
   error?: string | null;
   onCreateExpense?: (values: ExpenseFormValues) => Promise<void> | void;
+  onUpdateExpense?: (expense: MatterExpense, values: ExpenseFormValues) => Promise<void> | void;
+  onDeleteExpense?: (expense: MatterExpense) => Promise<void> | void;
   allowEdit?: boolean;
   createOnly?: boolean;
 }
@@ -37,6 +39,8 @@ export const MatterExpensesPanel = ({
   loading = false,
   error = null,
   onCreateExpense,
+  onUpdateExpense,
+  onDeleteExpense,
   allowEdit = true,
   createOnly = false
 }: MatterExpensesPanelProps) => {
@@ -46,10 +50,13 @@ export const MatterExpensesPanel = ({
   const [deleteTarget, setDeleteTarget] = useState<MatterExpense | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resolvedExpenses = expenses ?? localExpenses;
-  const canEdit = !createOnly && allowEdit && expenses === undefined && !onCreateExpense;
+  const canEdit = !createOnly && allowEdit
+    && (Boolean(onUpdateExpense) || Boolean(onDeleteExpense) || (expenses === undefined && !onCreateExpense));
+  const canCreate = Boolean(onCreateExpense) || expenses === undefined;
 
   const sortedExpenses = useMemo(() => {
     return [...resolvedExpenses].sort((a, b) => b.date.localeCompare(a.date));
@@ -64,6 +71,7 @@ export const MatterExpensesPanel = ({
   }, [resolvedExpenses]);
 
   const openNewExpense = () => {
+    if (!canCreate) return;
     setEditingExpense(null);
     setFormKey((prev) => prev + 1);
     setIsFormOpen(true);
@@ -84,6 +92,19 @@ export const MatterExpensesPanel = ({
   const handleSave = async (values: ExpenseFormValues) => {
     if (values.amount === undefined) return;
     setSubmitError(null);
+    if (editingExpense && onUpdateExpense) {
+      setIsSubmitting(true);
+      try {
+        await onUpdateExpense(editingExpense, values);
+        closeForm();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to update expense';
+        setSubmitError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
     if (onCreateExpense) {
       setIsSubmitting(true);
       try {
@@ -101,7 +122,7 @@ export const MatterExpensesPanel = ({
     const nextExpense: MatterExpense = {
       id: editingExpense?.id ?? ulid(),
       description: values.description,
-      amount: Math.round(values.amount * 100),
+      amount: values.amount,
       date: values.date,
       billable: values.billable
     };
@@ -122,6 +143,25 @@ export const MatterExpensesPanel = ({
 
   const handleDelete = () => {
     if (!deleteTarget) return;
+    setDeleteError(null);
+    if (onDeleteExpense) {
+      setIsSubmitting(true);
+      Promise.resolve(onDeleteExpense(deleteTarget))
+        .then(() => {
+          setDeleteTarget(null);
+          if (editingExpense?.id === deleteTarget.id) {
+            closeForm();
+          }
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : 'Failed to delete expense';
+          setDeleteError(message);
+        })
+        .finally(() => {
+          setIsSubmitting(false);
+        });
+      return;
+    }
     setLocalExpenses((prev) => prev.filter((expense) => expense.id !== deleteTarget.id));
     setDeleteTarget(null);
     if (editingExpense?.id === deleteTarget.id) {
@@ -138,7 +178,7 @@ export const MatterExpensesPanel = ({
             {sortedExpenses.length} recorded · {formatCurrency(totalExpenses)} total · {formatCurrency(billableTotal)} billable
           </p>
         </div>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewExpense}>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewExpense} disabled={!canCreate}>
           Add expense
         </Button>
       </header>
@@ -265,11 +305,16 @@ export const MatterExpensesPanel = ({
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this expense? This action cannot be undone.
             </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+            )}
             <div className="flex items-center justify-end gap-3">
               <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
-              <Button variant="danger" onClick={handleDelete}>Delete expense</Button>
+              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+                {isSubmitting ? 'Deleting...' : 'Delete expense'}
+              </Button>
             </div>
           </div>
         </Modal>

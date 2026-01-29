@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
-import { ArrowDownIcon, ArrowUpIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ArrowDownIcon, ArrowUpIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
@@ -18,8 +18,14 @@ interface MatterMilestonesPanelProps {
   loading?: boolean;
   error?: string | null;
   onCreateMilestone?: (values: { description: string; amount: number; dueDate: string; status?: MilestoneStatus }) => Promise<void> | void;
+  onUpdateMilestone?: (
+    milestone: MatterDetail['milestones'][number],
+    values: { description: string; amount: number; dueDate: string; status?: MilestoneStatus }
+  ) => Promise<void> | void;
+  onDeleteMilestone?: (milestone: MatterDetail['milestones'][number]) => Promise<void> | void;
   onReorderMilestones?: (nextOrder: MatterDetail['milestones']) => Promise<void> | void;
   allowReorder?: boolean;
+  allowEdit?: boolean;
 }
 
 export const MatterMilestonesPanel = ({
@@ -28,11 +34,17 @@ export const MatterMilestonesPanel = ({
   loading = false,
   error = null,
   onCreateMilestone,
+  onUpdateMilestone,
+  onDeleteMilestone,
   onReorderMilestones,
-  allowReorder = false
+  allowReorder = false,
+  allowEdit = true
 }: MatterMilestonesPanelProps) => {
   const resolvedMilestones = milestones ?? matter.milestones ?? [];
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<MatterDetail['milestones'][number] | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MatterDetail['milestones'][number] | null>(null);
+  const [formKey, setFormKey] = useState(0);
   const [formState, setFormState] = useState({
     description: '',
     amount: undefined as number | undefined,
@@ -40,9 +52,11 @@ export const MatterMilestonesPanel = ({
     status: 'pending' as MilestoneStatus
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showError } = useToastContext();
   const canCreate = Boolean(onCreateMilestone);
+  const canEdit = allowEdit && (Boolean(onUpdateMilestone) || Boolean(onDeleteMilestone));
   const canReorder = allowReorder && typeof onReorderMilestones === 'function';
   const statusOptions = useMemo(() => ([
     { value: 'pending', label: 'Pending' },
@@ -53,6 +67,7 @@ export const MatterMilestonesPanel = ({
 
   const openForm = () => {
     if (!canCreate) return;
+    setEditingMilestone(null);
     setFormState({
       description: '',
       amount: undefined,
@@ -60,17 +75,32 @@ export const MatterMilestonesPanel = ({
       status: 'pending'
     });
     setSubmitError(null);
+    setFormKey((prev) => prev + 1);
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = (milestone: MatterDetail['milestones'][number]) => {
+    if (!canEdit) return;
+    setEditingMilestone(milestone);
+    setFormState({
+      description: milestone.description ?? '',
+      amount: milestone.amount ?? undefined,
+      dueDate: milestone.dueDate ?? '',
+      status: milestone.status ?? 'pending'
+    });
+    setSubmitError(null);
+    setFormKey((prev) => prev + 1);
     setIsFormOpen(true);
   };
 
   const closeForm = () => {
     setIsFormOpen(false);
     setSubmitError(null);
+    setEditingMilestone(null);
   };
 
   const handleSubmit = async (event: Event) => {
     event.preventDefault();
-    if (!onCreateMilestone) return;
     if (!formState.description.trim() || formState.amount === undefined || !formState.dueDate) {
       setSubmitError('Please fill out description, amount, and due date.');
       return;
@@ -78,15 +108,24 @@ export const MatterMilestonesPanel = ({
     setSubmitError(null);
     setIsSubmitting(true);
     try {
-      await onCreateMilestone({
+      const payload = {
         description: formState.description.trim(),
         amount: formState.amount,
         dueDate: formState.dueDate,
         status: formState.status
-      });
+      };
+      if (editingMilestone && onUpdateMilestone) {
+        await onUpdateMilestone(editingMilestone, payload);
+      } else if (onCreateMilestone) {
+        await onCreateMilestone(payload);
+      } else {
+        return;
+      }
       closeForm();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create milestone';
+      const message = error instanceof Error
+        ? error.message
+        : `Failed to ${editingMilestone ? 'update' : 'create'} milestone`;
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -105,6 +144,29 @@ export const MatterMilestonesPanel = ({
     } catch (error) {
       console.error('[MatterMilestonesPanel] Failed to reorder milestones', error);
       showError('Could not reorder milestones', 'Please try again.');
+    }
+  };
+
+  const confirmDelete = (milestone: MatterDetail['milestones'][number]) => {
+    if (!canEdit) return;
+    setDeleteTarget(milestone);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget || !onDeleteMilestone) return;
+    setDeleteError(null);
+    setIsSubmitting(true);
+    try {
+      await onDeleteMilestone(deleteTarget);
+      setDeleteTarget(null);
+      if (editingMilestone?.id === deleteTarget.id) {
+        closeForm();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete milestone';
+      setDeleteError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -157,6 +219,24 @@ export const MatterMilestonesPanel = ({
                   <div className="text-sm font-semibold text-gray-900 dark:text-white">
                     {formatCurrency(milestone.amount ?? 0)}
                   </div>
+                  {canEdit ? (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<PencilIcon className="h-4 w-4" />}
+                        onClick={() => openEditForm(milestone)}
+                        aria-label="Edit milestone"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<TrashIcon className="h-4 w-4" />}
+                        onClick={() => confirmDelete(milestone)}
+                        aria-label="Delete milestone"
+                      />
+                    </div>
+                  ) : null}
                   {canReorder ? (
                     <div className="flex items-center gap-1">
                       <Button
@@ -189,7 +269,7 @@ export const MatterMilestonesPanel = ({
           title="Add milestone"
           contentClassName="max-w-2xl"
         >
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form key={formKey} className="space-y-4" onSubmit={handleSubmit}>
             <Input
               label="Description"
               value={formState.description}
@@ -229,10 +309,36 @@ export const MatterMilestonesPanel = ({
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : 'Add milestone'}
+                {isSubmitting ? 'Saving...' : editingMilestone ? 'Update milestone' : 'Add milestone'}
               </Button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {canEdit && deleteTarget && (
+        <Modal
+          isOpen={Boolean(deleteTarget)}
+          onClose={() => setDeleteTarget(null)}
+          title="Delete milestone"
+          contentClassName="max-w-xl"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Are you sure you want to delete this milestone? This action cannot be undone.
+            </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+            )}
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+                {isSubmitting ? 'Deleting...' : 'Delete milestone'}
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
     </section>

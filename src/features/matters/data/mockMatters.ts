@@ -316,9 +316,9 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
       buildTimeEntry('time-entry-6', 6, '11:30', '13:00', 'Drafted engagement letter revisions.')
     ],
     expenses: [
-      buildExpense('expense-1', 1, 'State filing fee', 35000, true),
-      buildExpense('expense-2', 2, 'Registered agent renewal', 12500, true),
-      buildExpense('expense-3', 4, 'Courier delivery', 4200, false)
+      buildExpense('expense-1', 1, 'State filing fee', 350, true),
+      buildExpense('expense-2', 2, 'Registered agent renewal', 125, true),
+      buildExpense('expense-3', 4, 'Courier delivery', 42, false)
     ],
     notes: [
       buildNote(

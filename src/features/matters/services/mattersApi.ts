@@ -452,6 +452,68 @@ export const createMatterNote = async (
   return extractNotesArray(payload)[0] ?? null;
 };
 
+export const updateMatterNote = async (
+  practiceId: string,
+  matterId: string,
+  noteId: string,
+  content: string,
+  options: FetchOptions = {}
+): Promise<BackendMatterNote | null> => {
+  if (!practiceId || !matterId || !noteId) {
+    throw new Error('practiceId, matterId, and noteId are required');
+  }
+  if (!content || !content.trim()) {
+    throw new Error('content is required');
+  }
+  const response = await fetch(
+    buildBackendUrl(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`
+    ),
+    {
+      method: 'PUT',
+      credentials: 'include',
+      headers: buildJsonHeaders(),
+      body: JSON.stringify({ content }),
+      signal: options.signal
+    }
+  );
+
+  const payload = await fetchJsonOrThrow(response);
+  if (payload && typeof payload === 'object' && 'note' in payload) {
+    const record = payload as Record<string, unknown>;
+    if (record.note && typeof record.note === 'object') {
+      return record.note as BackendMatterNote;
+    }
+  }
+  return extractNotesArray(payload)[0] ?? null;
+};
+
+export const deleteMatterNote = async (
+  practiceId: string,
+  matterId: string,
+  noteId: string,
+  options: FetchOptions = {}
+): Promise<void> => {
+  if (!practiceId || !matterId || !noteId) {
+    throw new Error('practiceId, matterId, and noteId are required');
+  }
+  const response = await fetch(
+    buildBackendUrl(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes/${encodeURIComponent(noteId)}`
+    ),
+    {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      },
+      signal: options.signal
+    }
+  );
+
+  await fetchJsonOrThrow(response);
+};
+
 export const listMatterTimeEntries = async (
   practiceId: string,
   matterId: string,
@@ -513,6 +575,73 @@ export const createMatterTimeEntry = async (
     }
   }
   return extractTimeEntriesArray(json)[0] ?? null;
+};
+
+export const updateMatterTimeEntry = async (
+  practiceId: string,
+  matterId: string,
+  timeEntryId: string,
+  payload: {
+    start_time: string;
+    end_time: string;
+    description?: string;
+    billable?: boolean;
+  },
+  options: FetchOptions = {}
+): Promise<BackendMatterTimeEntry | null> => {
+  if (!practiceId || !matterId || !timeEntryId) {
+    throw new Error('practiceId, matterId, and timeEntryId are required');
+  }
+  if (!payload?.start_time || !payload?.end_time) {
+    throw new Error('start_time and end_time are required');
+  }
+  const response = await fetch(
+    buildBackendUrl(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`
+    ),
+    {
+      method: 'PUT',
+      credentials: 'include',
+      headers: buildJsonHeaders(),
+      body: JSON.stringify(payload),
+      signal: options.signal
+    }
+  );
+
+  const json = await fetchJsonOrThrow(response);
+  if (json && typeof json === 'object' && 'timeEntry' in json) {
+    const record = json as Record<string, unknown>;
+    if (record.timeEntry && typeof record.timeEntry === 'object') {
+      return record.timeEntry as BackendMatterTimeEntry;
+    }
+  }
+  return extractTimeEntriesArray(json)[0] ?? null;
+};
+
+export const deleteMatterTimeEntry = async (
+  practiceId: string,
+  matterId: string,
+  timeEntryId: string,
+  options: FetchOptions = {}
+): Promise<void> => {
+  if (!practiceId || !matterId || !timeEntryId) {
+    throw new Error('practiceId, matterId, and timeEntryId are required');
+  }
+  const response = await fetch(
+    buildBackendUrl(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries/${encodeURIComponent(timeEntryId)}`
+    ),
+    {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      },
+      signal: options.signal
+    }
+  );
+
+  await fetchJsonOrThrow(response);
 };
 
 export const getMatterTimeEntryStats = async (
@@ -612,6 +741,79 @@ export const createMatterExpense = async (
   return extractExpensesArray(json)[0] ?? null;
 };
 
+export const updateMatterExpense = async (
+  practiceId: string,
+  matterId: string,
+  expenseId: string,
+  payload: {
+    description: string;
+    amount: number;
+    date: string;
+    billable?: boolean;
+  },
+  options: FetchOptions = {}
+): Promise<BackendMatterExpense | null> => {
+  if (!practiceId || !matterId || !expenseId) {
+    throw new Error('practiceId, matterId, and expenseId are required');
+  }
+  if (!payload?.description?.trim()) {
+    throw new Error('description is required');
+  }
+  if (typeof payload.amount !== 'number' || !Number.isFinite(payload.amount)) {
+    throw new Error('amount is required');
+  }
+  if (!payload.date) {
+    throw new Error('date is required');
+  }
+  const response = await fetch(
+    buildBackendUrl(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`
+    ),
+    {
+      method: 'PUT',
+      credentials: 'include',
+      headers: buildJsonHeaders(),
+      body: JSON.stringify(payload),
+      signal: options.signal
+    }
+  );
+
+  const json = await fetchJsonOrThrow(response);
+  if (json && typeof json === 'object' && 'expense' in json) {
+    const record = json as Record<string, unknown>;
+    if (record.expense && typeof record.expense === 'object') {
+      return record.expense as BackendMatterExpense;
+    }
+  }
+  return extractExpensesArray(json)[0] ?? null;
+};
+
+export const deleteMatterExpense = async (
+  practiceId: string,
+  matterId: string,
+  expenseId: string,
+  options: FetchOptions = {}
+): Promise<void> => {
+  if (!practiceId || !matterId || !expenseId) {
+    throw new Error('practiceId, matterId, and expenseId are required');
+  }
+  const response = await fetch(
+    buildBackendUrl(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses/${encodeURIComponent(expenseId)}`
+    ),
+    {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      },
+      signal: options.signal
+    }
+  );
+
+  await fetchJsonOrThrow(response);
+};
+
 export const listMatterMilestones = async (
   practiceId: string,
   matterId: string,
@@ -680,6 +882,80 @@ export const createMatterMilestone = async (
     }
   }
   return extractMilestonesArray(json)[0] ?? null;
+};
+
+export const updateMatterMilestone = async (
+  practiceId: string,
+  matterId: string,
+  milestoneId: string,
+  payload: {
+    description: string;
+    amount: number;
+    due_date: string;
+    status?: string;
+    order?: number;
+  },
+  options: FetchOptions = {}
+): Promise<BackendMatterMilestone | null> => {
+  if (!practiceId || !matterId || !milestoneId) {
+    throw new Error('practiceId, matterId, and milestoneId are required');
+  }
+  if (!payload?.description?.trim()) {
+    throw new Error('description is required');
+  }
+  if (typeof payload.amount !== 'number' || !Number.isFinite(payload.amount)) {
+    throw new Error('amount is required');
+  }
+  if (!payload.due_date) {
+    throw new Error('due_date is required');
+  }
+  const response = await fetch(
+    buildBackendUrl(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`
+    ),
+    {
+      method: 'PUT',
+      credentials: 'include',
+      headers: buildJsonHeaders(),
+      body: JSON.stringify(payload),
+      signal: options.signal
+    }
+  );
+
+  const json = await fetchJsonOrThrow(response);
+  if (json && typeof json === 'object' && 'milestone' in json) {
+    const record = json as Record<string, unknown>;
+    if (record.milestone && typeof record.milestone === 'object') {
+      return record.milestone as BackendMatterMilestone;
+    }
+  }
+  return extractMilestonesArray(json)[0] ?? null;
+};
+
+export const deleteMatterMilestone = async (
+  practiceId: string,
+  matterId: string,
+  milestoneId: string,
+  options: FetchOptions = {}
+): Promise<void> => {
+  if (!practiceId || !matterId || !milestoneId) {
+    throw new Error('practiceId, matterId, and milestoneId are required');
+  }
+  const response = await fetch(
+    buildBackendUrl(
+      `/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones/${encodeURIComponent(milestoneId)}`
+    ),
+    {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      },
+      signal: options.signal
+    }
+  );
+
+  await fetchJsonOrThrow(response);
 };
 
 export const reorderMatterMilestones = async (
