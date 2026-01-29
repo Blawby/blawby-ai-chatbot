@@ -131,11 +131,11 @@
       "title": "Comment souhaitez-vous utiliser Blawby AI ?",
       "subtitle": "Cela nous aide à fournir des suggestions plus pertinentes",
       "options": {
-        "personal": "Problèmes juridiques personnels",
-        "business": "Besoins juridiques professionnels",
-        "research": "Recherche juridique",
-        "documents": "Révision de documents",
-        "other": "Autre"
+        "other": "Autre",
+        "messaging": "Messagerie",
+        "legal_payments": "Paiements juridiques",
+        "matter_management": "Gestion des dossiers",
+        "intake_forms": "Formulaires d'admission"
       },
       "otherPlaceholder": "Dites-nous en plus...",
       "next": "Suivant",

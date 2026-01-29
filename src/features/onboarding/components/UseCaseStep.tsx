@@ -2,11 +2,11 @@ import { useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
-import { 
-  ScaleIcon, 
-  BriefcaseIcon, 
-  MagnifyingGlassIcon, 
-  DocumentIcon, 
+import {
+  ChatBubbleLeftRightIcon,
+  BanknotesIcon,
+  ClipboardDocumentListIcon,
+  ClipboardDocumentCheckIcon,
   EllipsisHorizontalIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
@@ -14,7 +14,8 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { Textarea } from '@/shared/ui/input';
 
 interface UseCaseData {
-  primaryUseCase: 'personal' | 'business' | 'research' | 'documents' | 'other';
+  primaryUseCase: 'messaging' | 'legal_payments' | 'matter_management' | 'intake_forms' | 'other';
+  productUsage: Array<'messaging' | 'legal_payments' | 'matter_management' | 'intake_forms' | 'other'>;
   additionalInfo?: string;
 }
 
@@ -25,24 +26,24 @@ interface UseCaseStepProps {
 
 const useCaseOptions = [
   {
-    id: 'personal' as const,
-    icon: ScaleIcon,
-    labelKey: 'onboarding.step2.options.personal'
+    id: 'messaging' as const,
+    icon: ChatBubbleLeftRightIcon,
+    labelKey: 'onboarding.step2.options.messaging'
   },
   {
-    id: 'business' as const,
-    icon: BriefcaseIcon,
-    labelKey: 'onboarding.step2.options.business'
+    id: 'legal_payments' as const,
+    icon: BanknotesIcon,
+    labelKey: 'onboarding.step2.options.legal_payments'
   },
   {
-    id: 'research' as const,
-    icon: MagnifyingGlassIcon,
-    labelKey: 'onboarding.step2.options.research'
+    id: 'matter_management' as const,
+    icon: ClipboardDocumentListIcon,
+    labelKey: 'onboarding.step2.options.matter_management'
   },
   {
-    id: 'documents' as const,
-    icon: DocumentIcon,
-    labelKey: 'onboarding.step2.options.documents'
+    id: 'intake_forms' as const,
+    icon: ClipboardDocumentCheckIcon,
+    labelKey: 'onboarding.step2.options.intake_forms'
   },
   {
     id: 'other' as const,
@@ -53,29 +54,52 @@ const useCaseOptions = [
 
 const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
   const { t } = useTranslation('common');
-  const [selectedUseCase, setSelectedUseCase] = useState<UseCaseData['primaryUseCase']>(data.primaryUseCase);
+  const [selectedUseCases, setSelectedUseCases] = useState<UseCaseData['productUsage']>(
+    data.productUsage?.length ? data.productUsage : [data.primaryUseCase]
+  );
   const [additionalInfo, setAdditionalInfo] = useState(data.additionalInfo || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasSelection = selectedUseCases.length > 0;
+
+  const resolvePrimaryUseCase = (values: UseCaseData['productUsage']): UseCaseData['primaryUseCase'] => {
+    const order: UseCaseData['primaryUseCase'][] = [
+      'messaging',
+      'legal_payments',
+      'matter_management',
+      'intake_forms',
+      'other'
+    ];
+    const found = order.find((value) => values.includes(value));
+    return found ?? 'other';
+  };
 
   const handleSubmit = async () => {
+    if (!hasSelection) return;
     setIsSubmitting(true);
     
     // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 500));
     
     onComplete({
-      primaryUseCase: selectedUseCase,
-      additionalInfo: selectedUseCase === 'other' && additionalInfo.trim() ? additionalInfo.trim() : undefined
+      primaryUseCase: resolvePrimaryUseCase(selectedUseCases),
+      productUsage: selectedUseCases,
+      additionalInfo: selectedUseCases.includes('other') && additionalInfo.trim() ? additionalInfo.trim() : undefined
     });
     
     setIsSubmitting(false);
   };
 
   const handleUseCaseSelect = (useCase: UseCaseData['primaryUseCase']) => {
-    setSelectedUseCase(useCase);
-    if (useCase !== 'other') {
-      setAdditionalInfo('');
-    }
+    setSelectedUseCases((prev) => {
+      if (prev.includes(useCase)) {
+        const next = prev.filter((value) => value !== useCase);
+        if (useCase === 'other') {
+          setAdditionalInfo('');
+        }
+        return next;
+      }
+      return [...prev, useCase];
+    });
   };
 
   return (
@@ -98,21 +122,20 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
           <Form onSubmit={handleSubmit} className="space-y-6">
             {/* Use Case Options */}
             <div
-              role="radiogroup"
+              role="group"
               aria-labelledby="use-case-title"
               className="grid gap-3 sm:grid-cols-2"
             >
               {useCaseOptions.map((option) => {
                 const Icon = option.icon;
-                const isSelected = selectedUseCase === option.id;
+                const isSelected = selectedUseCases.includes(option.id);
 
                 return (
                   <button
                     key={option.id}
                     type="button"
-                    role="radio"
+                    role="checkbox"
                     aria-checked={isSelected}
-                    tabIndex={isSelected ? 0 : -1}
                     onClick={() => handleUseCaseSelect(option.id)}
                     className={`w-full text-left p-4 rounded-lg border-2 transition-all duration-200 ${
                       isSelected
@@ -145,7 +168,7 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
             </div>
 
             {/* Additional Info for "Other" option */}
-            {selectedUseCase === 'other' && (
+            {selectedUseCases.includes('other') && (
               <FormField name="additionalInfo">
                 {({ value, error, onChange }) => (
                   <FormItem>
@@ -153,8 +176,12 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
                     <FormControl>
                       <Textarea
                         rows={3}
-                        value={(value as string) || ''}
-                        onChange={(value) => onChange(value)}
+                        value={additionalInfo}
+                        onChange={(value) => {
+                          const nextValue = String(value ?? '');
+                          onChange(nextValue);
+                          setAdditionalInfo(nextValue);
+                        }}
                         placeholder={t('onboarding.step2.otherPlaceholder')}
                         error={error?.message}
                       />
@@ -169,7 +196,7 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
             <div className="flex flex-col space-y-3">
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !hasSelection}
                 variant="primary"
                 size="lg"
                 className="w-full"
