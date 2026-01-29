@@ -229,6 +229,7 @@ export const MatterNotesPanel = ({
             onSubmit={handleSave}
             onCancel={closeForm}
             onDelete={canEdit && editingNote ? () => confirmDelete(editingNote) : undefined}
+            isSubmitting={isSubmitting}
           />
           {submitError && (
             <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>

@@ -20,15 +20,17 @@ const cardBase = 'rounded-2xl border border-gray-200 dark:border-dark-border bg-
 
 const formatDurationFromSeconds = (totalSeconds?: number | null) => {
   if (!totalSeconds || totalSeconds <= 0) return '0:00 hrs';
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.round((totalSeconds % 3600) / 60);
+  const totalMinutes = Math.round(totalSeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   return `${hours}:${String(minutes).padStart(2, '0')} hrs`;
 };
 
 const formatDurationFromHours = (totalHours?: number | null) => {
   if (!totalHours || totalHours <= 0) return '0:00 hrs';
-  const hours = Math.floor(totalHours);
-  const minutes = Math.round((totalHours - hours) * 60);
+  const totalMinutes = Math.round(totalHours * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   return `${hours}:${String(minutes).padStart(2, '0')} hrs`;
 };
 

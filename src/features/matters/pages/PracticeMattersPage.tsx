@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
@@ -36,6 +36,7 @@ import { MatterNotesPanel } from '@/features/matters/components/notes/MatterNote
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { Avatar } from '@/shared/ui/profile';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import {
@@ -327,6 +328,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     ? decodeURIComponent(firstSegment)
     : null;
   const { activePracticeId } = useSessionContext();
+  const { showError } = useToastContext();
   const { getMembers, fetchMembers } = usePracticeManagement({
     autoFetchPractices: false,
     fetchInvitations: false,
@@ -342,6 +344,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const [mattersLoading, setMattersLoading] = useState(false);
   const [mattersError, setMattersError] = useState<string | null>(null);
   const [mattersRefreshKey, setMattersRefreshKey] = useState(0);
+  const [mattersPage, setMattersPage] = useState(1);
+  const [mattersHasMore, setMattersHasMore] = useState(true);
+  const [mattersLoadingMore, setMattersLoadingMore] = useState(false);
+  const pageSize = 50;
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [selectedMatterDetail, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -389,19 +396,23 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         description: values.description,
         billable: true
       });
-      setIsQuickTimeEntryOpen(false);
       const [entries, stats] = await Promise.all([
         listMatterTimeEntries(activePracticeId, selectedMatterId),
         getMatterTimeEntryStats(activePracticeId, selectedMatterId)
       ]);
       setTimeEntries(entries.map(toTimeEntry));
       setTimeStats(stats);
+      setIsQuickTimeEntryOpen(false);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to save quick time entry', error);
+      showError('Could not save time entry', 'Please try again.');
     }
   };
 
-  const clientOptions = useMemo<MatterOption[]>(() => [], []);
+  const clientOptions = useMemo<MatterOption[]>(() => {
+    // TODO: Replace with clients API when available.
+    return [];
+  }, []);
   const practiceAreaOptions = useMemo<MatterOption[]>(() => {
     const services = practiceDetails?.services;
     if (!Array.isArray(services)) return [];
@@ -456,16 +467,21 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       setMatters([]);
       setMattersError(null);
       setMattersLoading(false);
+      setMattersHasMore(true);
+      setMattersPage(1);
       return;
     }
 
     const controller = new AbortController();
     setMattersLoading(true);
     setMattersError(null);
+    setMattersHasMore(true);
+    setMattersPage(1);
 
-    listMatters(activePracticeId, { signal: controller.signal })
+    listMatters(activePracticeId, { signal: controller.signal, page: 1, limit: pageSize })
       .then((items) => {
         setMatters(items);
+        setMattersHasMore(items.length === pageSize);
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
@@ -477,7 +493,45 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       });
 
     return () => controller.abort();
-  }, [activePracticeId, mattersRefreshKey]);
+  }, [activePracticeId, mattersRefreshKey, pageSize]);
+
+  const loadMoreMatters = useCallback(async () => {
+    if (!activePracticeId || mattersLoadingMore || mattersLoading || !mattersHasMore) {
+      return;
+    }
+    const nextPage = mattersPage + 1;
+    setMattersLoadingMore(true);
+    try {
+      const items = await listMatters(activePracticeId, { page: nextPage, limit: pageSize });
+      setMatters((prev) => [...prev, ...items]);
+      setMattersPage(nextPage);
+      setMattersHasMore(items.length === pageSize);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to load more matters', error);
+      showError('Could not load more matters', 'Please try again.');
+    } finally {
+      setMattersLoadingMore(false);
+    }
+  }, [activePracticeId, mattersHasMore, mattersLoading, mattersLoadingMore, mattersPage, pageSize, showError]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+    if (!mattersHasMore || mattersLoading || mattersLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting) {
+          void loadMoreMatters();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMoreMatters, mattersHasMore, mattersLoading, mattersLoadingMore]);
 
   useEffect(() => {
     if (!activePracticeId || !selectedMatterId) {
@@ -663,7 +717,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       amount: values.amount,
       due_date: values.dueDate,
       status: values.status ?? 'pending',
-      order: milestones.length
+      order: milestones.length + 1
     });
 
     if (created) {
@@ -683,13 +737,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       return;
     }
 
+    const previousMilestones = milestones;
     setMilestones(nextOrder);
     setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: nextOrder } : prev));
 
     const payload = nextOrder
       .map((milestone, index) => ({
         id: milestone.id ?? '',
-        order: index
+        order: index + 1
       }))
       .filter((item) => item.id);
 
@@ -697,8 +752,15 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       return;
     }
 
-    await reorderMatterMilestones(activePracticeId, selectedMatterId, payload);
-  }, [activePracticeId, selectedMatterId]);
+    try {
+      await reorderMatterMilestones(activePracticeId, selectedMatterId, payload);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to reorder milestones', error);
+      setMilestones(previousMilestones);
+      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: previousMilestones } : prev));
+      showError('Could not reorder milestones', 'Please try again.');
+    }
+  }, [activePracticeId, milestones, selectedMatterId, showError]);
 
   const handleCreateNote = useCallback(async (values: { content: string }) => {
     if (!activePracticeId || !selectedMatterId) {
@@ -736,19 +798,24 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
   const handleSaveTimeEntry = useCallback(async (values: TimeEntryFormValues) => {
     if (!activePracticeId || !selectedMatterId) return;
-    await createMatterTimeEntry(activePracticeId, selectedMatterId, {
-      start_time: values.startTime,
-      end_time: values.endTime,
-      description: values.description,
-      billable: true
-    });
-    const [entries, stats] = await Promise.all([
-      listMatterTimeEntries(activePracticeId, selectedMatterId),
-      getMatterTimeEntryStats(activePracticeId, selectedMatterId)
-    ]);
-    setTimeEntries(entries.map(toTimeEntry));
-    setTimeStats(stats);
-  }, [activePracticeId, selectedMatterId]);
+    try {
+      await createMatterTimeEntry(activePracticeId, selectedMatterId, {
+        start_time: values.startTime,
+        end_time: values.endTime,
+        description: values.description,
+        billable: true
+      });
+      const [entries, stats] = await Promise.all([
+        listMatterTimeEntries(activePracticeId, selectedMatterId),
+        getMatterTimeEntryStats(activePracticeId, selectedMatterId)
+      ]);
+      setTimeEntries(entries.map(toTimeEntry));
+      setTimeStats(stats);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to save time entry', error);
+      showError('Could not save time entry', 'Please try again.');
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
 
   const handleCreateMatter = useCallback(async (values: MatterFormState) => {
     if (!activePracticeId) {
@@ -1164,7 +1231,9 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   onSaveEntry={(values) => {
                     void handleSaveTimeEntry(values);
                   }}
-                  onDeleteEntry={() => {}}
+                  onDeleteEntry={() => {
+                    showError('Delete not available', 'Time entry deletion is not supported yet.');
+                  }}
                   loading={timeEntriesLoading}
                   error={timeEntriesError}
                 />
@@ -1176,6 +1245,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   error={expensesError}
                   onCreateExpense={handleCreateExpense}
                   allowEdit={false}
+                  createOnly
                 />
                 <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
                   <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">
@@ -1348,6 +1418,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   />
                 ))}
               </ul>
+            )}
+            {mattersHasMore && !mattersLoading && (
+              <div ref={loadMoreRef} className="h-10" />
+            )}
+            {mattersLoadingMore && (
+              <div className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                Loading more matters...
+              </div>
             )}
           </section>
 

@@ -245,14 +245,17 @@ const fetchJsonOrThrow = async (response: Response) => {
   throw new Error(`Request failed (${response.status})`);
 };
 
-export const listMatters = async (practiceId: string, options: FetchOptions = {}): Promise<BackendMatter[]> => {
+export const listMatters = async (
+  practiceId: string,
+  options: FetchOptions & { page?: number; limit?: number } = {}
+): Promise<BackendMatter[]> => {
   if (!practiceId) {
     return [];
   }
 
   const params = new URLSearchParams();
-  params.set('page', '1');
-  params.set('limit', '100');
+  params.set('page', String(options.page ?? 1));
+  params.set('limit', String(options.limit ?? 100));
 
   const response = await fetch(
     buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}?${params.toString()}`),
@@ -303,6 +306,9 @@ export const createMatter = async (
   payload: Record<string, unknown>,
   options: FetchOptions = {}
 ): Promise<BackendMatter | null> => {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
   const response = await fetch(
     buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/create`),
     {
@@ -324,6 +330,9 @@ export const updateMatter = async (
   payload: Record<string, unknown>,
   options: FetchOptions = {}
 ): Promise<BackendMatter | null> => {
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
   const response = await fetch(
     buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(matterId)}`),
     {
@@ -344,6 +353,9 @@ export const deleteMatter = async (
   matterId: string,
   options: FetchOptions = {}
 ): Promise<void> => {
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
   await fetchJsonOrThrow(await fetch(
     buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(matterId)}`),
     {
@@ -413,6 +425,12 @@ export const createMatterNote = async (
   content: string,
   options: FetchOptions = {}
 ): Promise<BackendMatterNote | null> => {
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
+  if (!content || !content.trim()) {
+    throw new Error('content is required');
+  }
   const response = await fetch(
     buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/notes`),
     {
@@ -470,6 +488,12 @@ export const createMatterTimeEntry = async (
   },
   options: FetchOptions = {}
 ): Promise<BackendMatterTimeEntry | null> => {
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
+  if (!payload?.start_time || !payload?.end_time) {
+    throw new Error('start_time and end_time are required');
+  }
   const response = await fetch(
     buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/time-entries`),
     {
@@ -555,6 +579,18 @@ export const createMatterExpense = async (
   },
   options: FetchOptions = {}
 ): Promise<BackendMatterExpense | null> => {
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
+  if (!payload?.description?.trim()) {
+    throw new Error('description is required');
+  }
+  if (typeof payload.amount !== 'number') {
+    throw new Error('amount is required');
+  }
+  if (!payload.date) {
+    throw new Error('date is required');
+  }
   const response = await fetch(
     buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/expenses`),
     {
@@ -613,6 +649,18 @@ export const createMatterMilestone = async (
   },
   options: FetchOptions = {}
 ): Promise<BackendMatterMilestone | null> => {
+  if (!practiceId || !matterId) {
+    throw new Error('practiceId and matterId are required');
+  }
+  if (!payload?.description?.trim()) {
+    throw new Error('description is required');
+  }
+  if (typeof payload.amount !== 'number') {
+    throw new Error('amount is required');
+  }
+  if (!payload.due_date) {
+    throw new Error('due_date is required');
+  }
   const response = await fetch(
     buildBackendUrl(`/api/matters/${encodeURIComponent(practiceId)}/matters/${encodeURIComponent(matterId)}/milestones`),
     {

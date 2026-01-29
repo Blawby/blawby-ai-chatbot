@@ -6,6 +6,7 @@ import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { Input } from '@/shared/ui/input/Input';
 import { Select } from '@/shared/ui/input/Select';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import type { MatterDetail } from '@/features/matters/data/mockMatters';
 
@@ -40,6 +41,7 @@ export const MatterMilestonesPanel = ({
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showError } = useToastContext();
   const canCreate = Boolean(onCreateMilestone);
   const canReorder = allowReorder && typeof onReorderMilestones === 'function';
   const statusOptions = useMemo(() => ([
@@ -98,7 +100,12 @@ export const MatterMilestonesPanel = ({
     const next = [...resolvedMilestones];
     const [moved] = next.splice(index, 1);
     next.splice(nextIndex, 0, moved);
-    await onReorderMilestones?.(next);
+    try {
+      await onReorderMilestones?.(next);
+    } catch (error) {
+      console.error('[MatterMilestonesPanel] Failed to reorder milestones', error);
+      showError('Could not reorder milestones', 'Please try again.');
+    }
   };
 
   return (
@@ -130,7 +137,7 @@ export const MatterMilestonesPanel = ({
       ) : (
         <ul className="divide-y divide-gray-200 dark:divide-white/10">
           {resolvedMilestones.map((milestone, index) => (
-            <li key={`${milestone.description}-${index}`} className="px-6 py-4">
+            <li key={milestone.id ?? `${milestone.description}-${index}`} className="px-6 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">

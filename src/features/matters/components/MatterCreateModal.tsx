@@ -292,11 +292,11 @@ const MatterFormModalInner = ({
           setIsSubmitting(true);
           try {
             await onSubmit(formState);
+            setIsSubmitting(false);
             onClose();
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to save matter';
             setSubmitError(message);
-          } finally {
             setIsSubmitting(false);
           }
         }}

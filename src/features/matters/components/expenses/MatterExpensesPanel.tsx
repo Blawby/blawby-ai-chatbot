@@ -28,6 +28,7 @@ interface MatterExpensesPanelProps {
   error?: string | null;
   onCreateExpense?: (values: ExpenseFormValues) => Promise<void> | void;
   allowEdit?: boolean;
+  createOnly?: boolean;
 }
 
 export const MatterExpensesPanel = ({
@@ -36,7 +37,8 @@ export const MatterExpensesPanel = ({
   loading = false,
   error = null,
   onCreateExpense,
-  allowEdit = true
+  allowEdit = true,
+  createOnly = false
 }: MatterExpensesPanelProps) => {
   const [localExpenses, setLocalExpenses] = useState<MatterExpense[]>(() => matter.expenses ?? []);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -47,7 +49,7 @@ export const MatterExpensesPanel = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resolvedExpenses = expenses ?? localExpenses;
-  const canEdit = allowEdit && expenses === undefined && !onCreateExpense;
+  const canEdit = !createOnly && allowEdit && expenses === undefined && !onCreateExpense;
 
   const sortedExpenses = useMemo(() => {
     return [...resolvedExpenses].sort((a, b) => b.date.localeCompare(a.date));
