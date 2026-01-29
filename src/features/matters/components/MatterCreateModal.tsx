@@ -181,6 +181,9 @@ const MatterFormModalInner = ({
   initialValues
 }: MatterFormModalProps) => {
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
+  const [assigneeInput, setAssigneeInput] = useState(
+    () => (initialValues?.assigneeIds ?? []).join(', ')
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -217,6 +220,19 @@ const MatterFormModalInner = ({
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const parseAssigneeInput = (value: string) =>
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const applyAssigneeInput = (value: string) => {
+    const parsed = parseAssigneeInput(value);
+    updateForm('assigneeIds', parsed);
+    setAssigneeInput(parsed.join(', '));
+    return parsed;
   };
 
   const submitLabel = mode === 'edit' ? 'Save changes' : 'Create matter';
@@ -291,7 +307,8 @@ const MatterFormModalInner = ({
           }
           setIsSubmitting(true);
           try {
-            await onSubmit(formState);
+            const parsedAssignees = parseAssigneeInput(assigneeInput);
+            await onSubmit({ ...formState, assigneeIds: parsedAssignees });
             setIsSubmitting(false);
             onClose();
           } catch (error) {
@@ -408,12 +425,9 @@ const MatterFormModalInner = ({
             <Input
               label="Assignee IDs"
               placeholder="Comma-separated user IDs (optional)"
-              value={formState.assigneeIds.join(', ')}
-              onChange={(value) =>
-                updateForm(
-                  'assigneeIds',
-                  value.split(',').map((item) => item.trim()).filter(Boolean)
-                )}
+              value={assigneeInput}
+              onChange={(value) => setAssigneeInput(value)}
+              onBlur={() => applyAssigneeInput(assigneeInput)}
             />
           ) : (
             <MultiSelect

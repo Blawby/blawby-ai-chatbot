@@ -13,7 +13,7 @@ export type ExpenseFormValues = {
 
 const buildDefaultValues = (expense?: MatterExpense): ExpenseFormValues => ({
   description: expense?.description ?? '',
-  amount: typeof expense?.amount === 'number' ? expense.amount : undefined,
+  amount: typeof expense?.amount === 'number' ? expense.amount / 100 : undefined,
   date: expense?.date ?? formatDateOnlyStringUtc(new Date()),
   billable: expense?.billable ?? true
 });

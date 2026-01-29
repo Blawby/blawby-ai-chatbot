@@ -136,6 +136,8 @@ export const TimeEntriesPanel = ({
     }
   };
 
+  const showEntries = !error && !(loading && entries.length === 0);
+
   return (
     <div className="space-y-6">
       <section className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -161,7 +163,7 @@ export const TimeEntriesPanel = ({
             ) : loading && entries.length === 0 ? (
               <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">Loading time entries...</div>
             ) : null}
-            {dailyEntries.map((day) => (
+            {showEntries && dailyEntries.map((day) => (
               <button
                 key={day.dateKey}
                 type="button"

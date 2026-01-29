@@ -147,8 +147,10 @@ const normalizeMatterStatus = (status?: string | null): MattersSidebarStatus => 
   return 'open';
 };
 
-const mapStatusToBackend = (status: MattersSidebarStatus): 'draft' | 'active' =>
-  status === 'lead' ? 'draft' : 'active';
+const mapStatusToBackend = (
+  status: MattersSidebarStatus
+): 'draft' | 'open' | 'in_progress' | 'completed' | 'archived' =>
+  status === 'lead' ? 'draft' : status;
 
 const extractAssigneeIds = (matter: BackendMatter): string[] => {
   if (Array.isArray(matter.assignee_ids)) {
@@ -948,7 +950,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
   const selectedMatterSummary = useMemo(() => (
     selectedMatterId ? matterSummaries.find((matter) => matter.id === selectedMatterId) ?? null : null
   ), [matterSummaries, selectedMatterId]);
-  const resolvedSelectedMatter = selectedMatterSummary ?? selectedMatterDetail;
+  const resolvedSelectedMatter = selectedMatterDetail ?? selectedMatterSummary;
 
   const activeTabLabel = TAB_HEADINGS[activeTab] ?? 'All';
   const overviewDetails = useMemo(() => {
