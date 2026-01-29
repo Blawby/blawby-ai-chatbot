@@ -7,14 +7,15 @@ export interface OnboardingPersonalInfo extends FormData {
 }
 
 export type OnboardingPrimaryUseCase =
-  | 'personal'
-  | 'business'
-  | 'research'
-  | 'documents'
+  | 'messaging'
+  | 'legal_payments'
+  | 'matter_management'
+  | 'intake_forms'
   | 'other';
 
 export interface OnboardingUseCase {
   primaryUseCase: OnboardingPrimaryUseCase;
+  productUsage: OnboardingPrimaryUseCase[];
   additionalInfo?: string;
 }
 

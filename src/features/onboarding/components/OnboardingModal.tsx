@@ -6,7 +6,8 @@ import UseCaseStep from './UseCaseStep';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import type { OnboardingPreferences } from '@/shared/types/preferences';
+import { updateUser } from '@/shared/lib/authClient';
+import type { OnboardingPreferences, ProductUsage } from '@/shared/types/preferences';
 import type { OnboardingFormData } from '@/shared/types/onboarding';
 
 interface OnboardingModalProps {
@@ -29,11 +30,58 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
       agreedToTerms: false
     },
     useCase: {
-      primaryUseCase: 'personal',
+      primaryUseCase: 'messaging',
+      productUsage: ['messaging'],
       additionalInfo: undefined
     }
   });
   const hasLoadedRef = useRef(false);
+  const resolvePrimaryUseCase = (value: string | undefined): OnboardingFormData['useCase']['primaryUseCase'] => {
+    switch (value) {
+      case 'messaging':
+      case 'legal_payments':
+      case 'matter_management':
+      case 'intake_forms':
+      case 'other':
+        return value;
+      case 'personal':
+        return 'messaging';
+      case 'business':
+        return 'legal_payments';
+      case 'research':
+        return 'matter_management';
+      case 'documents':
+        return 'intake_forms';
+      default:
+        return 'other';
+    }
+  };
+
+  const normalizeProductUsage = (values: unknown): ProductUsage[] => {
+    if (!Array.isArray(values)) return [];
+    const mapped = values.map((value) => {
+      switch (value) {
+        case 'messaging':
+        case 'legal_payments':
+        case 'matter_management':
+        case 'intake_forms':
+        case 'other':
+          return value;
+        case 'communication':
+          return 'messaging';
+        case 'billing':
+          return 'legal_payments';
+        case 'case_management':
+          return 'matter_management';
+        case 'document_management':
+        case 'client_management':
+          return 'intake_forms';
+        default:
+          return null;
+      }
+    }).filter((value): value is ProductUsage => value !== null);
+    return Array.from(new Set(mapped));
+  };
 
   // Load existing user data if available
   useEffect(() => {
@@ -48,7 +96,15 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
               birthday: prefs?.birthday ?? ''
             },
             useCase: {
-              primaryUseCase: (prefs?.primary_use_case as typeof prev.useCase.primaryUseCase) || prev.useCase.primaryUseCase,
+              primaryUseCase: prefs?.primary_use_case
+                ? resolvePrimaryUseCase(prefs.primary_use_case)
+                : prev.useCase.primaryUseCase,
+              productUsage: (() => {
+                const fromPrefs = normalizeProductUsage(prefs?.product_usage);
+                if (fromPrefs.length > 0) return fromPrefs;
+                if (prefs?.primary_use_case) return [resolvePrimaryUseCase(prefs.primary_use_case)];
+                return prev.useCase.productUsage;
+              })(),
               additionalInfo: prefs?.use_case_additional_info ?? prev.useCase.additionalInfo
             }
           }));
@@ -91,10 +147,16 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
       if (import.meta.env.DEV) {
         console.debug('[ONBOARDING][SAVE] updating onboarding preferences');
       }
+
+      if (sourceData.personalInfo.fullName.trim()) {
+        await updateUser({ name: sourceData.personalInfo.fullName.trim() });
+      }
+
       await updatePreferencesCategory('onboarding', {
         birthday: sourceData.personalInfo.birthday,
         primary_use_case: sourceData.useCase.primaryUseCase,
         use_case_additional_info: sourceData.useCase.additionalInfo,
+        product_usage: sourceData.useCase.productUsage,
         completed: true
       });
 

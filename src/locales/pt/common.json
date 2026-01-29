@@ -131,11 +131,11 @@
       "title": "Para que você quer usar o Blawby AI?",
       "subtitle": "Isso nos ajuda a fornecer sugestões mais relevantes",
       "options": {
-        "personal": "Questões Jurídicas Pessoais",
-        "business": "Necessidades Jurídicas Empresariais",
-        "research": "Pesquisa Jurídica",
-        "documents": "Revisão de Documentos",
-        "other": "Outro"
+        "other": "Outro",
+        "messaging": "Mensagens",
+        "legal_payments": "Pagamentos legais",
+        "matter_management": "Gestão de casos",
+        "intake_forms": "Formulários de admissão"
       },
       "otherPlaceholder": "Conte-nos mais...",
       "next": "Próximo",

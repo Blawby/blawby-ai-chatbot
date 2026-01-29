@@ -131,11 +131,11 @@
       "title": "[NEEDS TRANSLATION] What do you want to use Blawby AI for?",
       "subtitle": "[NEEDS TRANSLATION] This helps us provide more relevant suggestions",
       "options": {
-        "personal": "[NEEDS TRANSLATION] Personal Legal Issues",
-        "business": "[NEEDS TRANSLATION] Business Legal Needs",
-        "research": "[NEEDS TRANSLATION] Legal Research",
-        "documents": "[NEEDS TRANSLATION] Document Review",
-        "other": "[NEEDS TRANSLATION] Other"
+        "other": "Diğer",
+        "messaging": "Mesajlaşma",
+        "legal_payments": "Hukuki ödemeler",
+        "matter_management": "Dosya yönetimi",
+        "intake_forms": "Başvuru formları"
       },
       "otherPlaceholder": "[NEEDS TRANSLATION] Tell us more...",
       "next": "[NEEDS TRANSLATION] Next",

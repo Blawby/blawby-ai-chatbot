@@ -96,7 +96,10 @@ export const onboardingSchemas = {
   }),
   
   useCase: z.object({
-    primaryUseCase: z.enum(['personal', 'business', 'research', 'documents', 'other']),
+    primaryUseCase: z.enum(['messaging', 'legal_payments', 'matter_management', 'intake_forms', 'other']),
+    productUsage: z.array(
+      z.enum(['messaging', 'legal_payments', 'matter_management', 'intake_forms', 'other'])
+    ).min(1),
     additionalInfo: z.string().optional(),
   }),
 };
