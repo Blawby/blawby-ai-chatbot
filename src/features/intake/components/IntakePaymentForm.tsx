@@ -6,6 +6,7 @@ import { Button } from '@/shared/ui/Button';
 import { getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import { useNavigation } from '@/shared/utils/navigation';
+import { toMajorUnits } from '@/shared/utils/moneyNormalization';
 
 interface IntakePaymentFormProps {
   practiceName: string;
@@ -25,11 +26,11 @@ const formatIntakeAmount = (amount?: number, currency?: string, locale?: string)
   const normalizedCurrency = /^[A-Z]{3}$/.test(rawCurrency) ? rawCurrency : 'USD';
   const resolvedLocale = locale || 'en';
   try {
-    return formatCurrency(amount / 100, normalizedCurrency, resolvedLocale);
+    return formatCurrency(toMajorUnits(amount) ?? 0, normalizedCurrency, resolvedLocale);
   } catch (error) {
     console.warn('[IntakePayment] Failed to format currency', error);
     try {
-      return formatCurrency(amount / 100, 'USD', 'en');
+      return formatCurrency(toMajorUnits(amount) ?? 0, 'USD', 'en');
     } catch {
       return null;
     }

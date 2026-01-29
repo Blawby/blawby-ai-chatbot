@@ -1,3 +1,5 @@
+import { toMajorUnits } from './moneyNormalization';
+
 export const PRODUCTS = {
   business: {
     id: 'prod_TE7wTSeH3z57OL',
@@ -76,7 +78,7 @@ export function formatPriceCents(
   locale: string = 'en',
   currency: string = 'USD'
 ): string {
-  const dollars = amountCents / 100;
+  const dollars = toMajorUnits(amountCents) ?? 0;
   const formatter = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,

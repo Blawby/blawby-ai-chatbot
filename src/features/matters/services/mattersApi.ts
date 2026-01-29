@@ -1,4 +1,5 @@
 import { getBackendApiUrl } from '@/config/urls';
+import { toMajorUnits, toMinorUnitsValue } from '@/shared/utils/moneyNormalization';
 
 export type BackendMatter = {
   id: string;
@@ -97,6 +98,77 @@ const buildBackendUrl = (path: string) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${baseUrl}${normalizedPath}`;
 };
+
+const normalizeMatter = (matter: BackendMatter): BackendMatter => ({
+  ...matter,
+  total_fixed_price: toMajorUnits(matter.total_fixed_price ?? null),
+  settlement_amount: toMajorUnits(matter.settlement_amount ?? null),
+  admin_hourly_rate: toMajorUnits(matter.admin_hourly_rate ?? null),
+  attorney_hourly_rate: toMajorUnits(matter.attorney_hourly_rate ?? null),
+  milestones: Array.isArray(matter.milestones)
+    ? matter.milestones.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      const record = item as Record<string, unknown>;
+      return {
+        ...record,
+        amount: typeof record.amount === 'number' ? toMajorUnits(record.amount) : record.amount
+      };
+    })
+    : matter.milestones
+});
+
+const normalizeMatterPayload = (payload: Record<string, unknown>) => {
+  const normalized = { ...payload };
+  (['total_fixed_price', 'settlement_amount', 'admin_hourly_rate', 'attorney_hourly_rate'] as const).forEach((key) => {
+    const value = normalized[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      normalized[key] = toMinorUnitsValue(value);
+    }
+  });
+  if (Array.isArray(normalized.milestones)) {
+    normalized.milestones = normalized.milestones.map((milestone) => {
+      if (!milestone || typeof milestone !== 'object') return milestone;
+      const record = milestone as Record<string, unknown>;
+      const amount = record.amount;
+      if (typeof amount === 'number' && Number.isFinite(amount)) {
+        return { ...record, amount: toMinorUnitsValue(amount) };
+      }
+      return record;
+    });
+  }
+  return normalized;
+};
+
+const normalizeExpense = (expense: BackendMatterExpense): BackendMatterExpense => ({
+  ...expense,
+  amount: toMajorUnits(expense.amount ?? null)
+});
+
+const normalizeExpensePayload = (payload: {
+  description: string;
+  amount: number;
+  date: string;
+  billable?: boolean;
+}) => ({
+  ...payload,
+  amount: toMinorUnitsValue(payload.amount) as number
+});
+
+const normalizeMilestone = (milestone: BackendMatterMilestone): BackendMatterMilestone => ({
+  ...milestone,
+  amount: toMajorUnits(milestone.amount ?? null)
+});
+
+const normalizeMilestonePayload = (payload: {
+  description: string;
+  amount: number;
+  due_date: string;
+  status?: string;
+  order?: number;
+}) => ({
+  ...payload,
+  amount: toMinorUnitsValue(payload.amount) as number
+});
 
 const parseJson = async (response: Response) => {
   const text = await response.text();
@@ -270,7 +342,7 @@ export const listMatters = async (
   );
 
   const payload = await fetchJsonOrThrow(response);
-  return extractMatterArray(payload);
+  return extractMatterArray(payload).map(normalizeMatter);
 };
 
 export const getMatter = async (
@@ -298,7 +370,8 @@ export const getMatter = async (
   );
 
   const payload = await fetchJsonOrThrow(response);
-  return extractMatter(payload);
+  const matter = extractMatter(payload);
+  return matter ? normalizeMatter(matter) : null;
 };
 
 export const createMatter = async (
@@ -315,13 +388,14 @@ export const createMatter = async (
       method: 'POST',
       credentials: 'include',
       headers: buildJsonHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizeMatterPayload(payload)),
       signal: options.signal
     }
   );
 
   const json = await fetchJsonOrThrow(response);
-  return extractMatter(json);
+  const matter = extractMatter(json);
+  return matter ? normalizeMatter(matter) : null;
 };
 
 export const updateMatter = async (
@@ -339,13 +413,14 @@ export const updateMatter = async (
       method: 'PUT',
       credentials: 'include',
       headers: buildJsonHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizeMatterPayload(payload)),
       signal: options.signal
     }
   );
 
   const json = await fetchJsonOrThrow(response);
-  return extractMatter(json);
+  const matter = extractMatter(json);
+  return matter ? normalizeMatter(matter) : null;
 };
 
 export const deleteMatter = async (
@@ -694,7 +769,7 @@ export const listMatterExpenses = async (
   );
 
   const payload = await fetchJsonOrThrow(response);
-  return extractExpensesArray(payload);
+  return extractExpensesArray(payload).map(normalizeExpense);
 };
 
 export const createMatterExpense = async (
@@ -726,7 +801,7 @@ export const createMatterExpense = async (
       method: 'POST',
       credentials: 'include',
       headers: buildJsonHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizeExpensePayload(payload)),
       signal: options.signal
     }
   );
@@ -735,10 +810,11 @@ export const createMatterExpense = async (
   if (json && typeof json === 'object' && 'expense' in json) {
     const record = json as Record<string, unknown>;
     if (record.expense && typeof record.expense === 'object') {
-      return record.expense as BackendMatterExpense;
+      return normalizeExpense(record.expense as BackendMatterExpense);
     }
   }
-  return extractExpensesArray(json)[0] ?? null;
+  const fallback = extractExpensesArray(json)[0];
+  return fallback ? normalizeExpense(fallback) : null;
 };
 
 export const updateMatterExpense = async (
@@ -773,7 +849,7 @@ export const updateMatterExpense = async (
       method: 'PUT',
       credentials: 'include',
       headers: buildJsonHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizeExpensePayload(payload)),
       signal: options.signal
     }
   );
@@ -782,10 +858,11 @@ export const updateMatterExpense = async (
   if (json && typeof json === 'object' && 'expense' in json) {
     const record = json as Record<string, unknown>;
     if (record.expense && typeof record.expense === 'object') {
-      return record.expense as BackendMatterExpense;
+      return normalizeExpense(record.expense as BackendMatterExpense);
     }
   }
-  return extractExpensesArray(json)[0] ?? null;
+  const fallback = extractExpensesArray(json)[0];
+  return fallback ? normalizeExpense(fallback) : null;
 };
 
 export const deleteMatterExpense = async (
@@ -836,7 +913,7 @@ export const listMatterMilestones = async (
   );
 
   const payload = await fetchJsonOrThrow(response);
-  return extractMilestonesArray(payload);
+  return extractMilestonesArray(payload).map(normalizeMilestone);
 };
 
 export const createMatterMilestone = async (
@@ -869,7 +946,7 @@ export const createMatterMilestone = async (
       method: 'POST',
       credentials: 'include',
       headers: buildJsonHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizeMilestonePayload(payload)),
       signal: options.signal
     }
   );
@@ -878,10 +955,11 @@ export const createMatterMilestone = async (
   if (json && typeof json === 'object' && 'milestone' in json) {
     const record = json as Record<string, unknown>;
     if (record.milestone && typeof record.milestone === 'object') {
-      return record.milestone as BackendMatterMilestone;
+      return normalizeMilestone(record.milestone as BackendMatterMilestone);
     }
   }
-  return extractMilestonesArray(json)[0] ?? null;
+  const fallback = extractMilestonesArray(json)[0];
+  return fallback ? normalizeMilestone(fallback) : null;
 };
 
 export const updateMatterMilestone = async (
@@ -917,7 +995,7 @@ export const updateMatterMilestone = async (
       method: 'PUT',
       credentials: 'include',
       headers: buildJsonHeaders(),
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizeMilestonePayload(payload)),
       signal: options.signal
     }
   );
@@ -926,10 +1004,11 @@ export const updateMatterMilestone = async (
   if (json && typeof json === 'object' && 'milestone' in json) {
     const record = json as Record<string, unknown>;
     if (record.milestone && typeof record.milestone === 'object') {
-      return record.milestone as BackendMatterMilestone;
+      return normalizeMilestone(record.milestone as BackendMatterMilestone);
     }
   }
-  return extractMilestonesArray(json)[0] ?? null;
+  const fallback = extractMilestonesArray(json)[0];
+  return fallback ? normalizeMilestone(fallback) : null;
 };
 
 export const deleteMatterMilestone = async (

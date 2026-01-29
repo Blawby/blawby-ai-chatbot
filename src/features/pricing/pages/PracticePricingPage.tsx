@@ -11,6 +11,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { toMinorUnitsValue } from '@/shared/utils/moneyNormalization';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Switch } from '@/shared/ui/input';
 import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
@@ -84,7 +85,7 @@ export const PracticePricingPage = () => {
   const stripeReady = stripeStatus === 'completed' || stripeStatus === 'not_required';
   const practiceName = currentPractice?.name || 'your practice';
   const previewPaymentRequest = useMemo<IntakePaymentRequest>(() => ({
-    amount: Math.round(previewAmount * 100),
+    amount: toMinorUnitsValue(previewAmount) ?? 0,
     currency: 'USD',
     clientSecret: 'preview',
     practiceName

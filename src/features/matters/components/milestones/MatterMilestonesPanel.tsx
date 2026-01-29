@@ -266,7 +266,7 @@ export const MatterMilestonesPanel = ({
         <Modal
           isOpen={isFormOpen}
           onClose={closeForm}
-          title="Add milestone"
+          title={editingMilestone ? 'Edit milestone' : 'Add milestone'}
           contentClassName="max-w-2xl"
         >
           <form key={formKey} className="space-y-4" onSubmit={handleSubmit}>

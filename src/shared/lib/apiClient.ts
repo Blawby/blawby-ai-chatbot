@@ -7,6 +7,7 @@ import {
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
 import { getWorkerApiUrl } from '@/config/urls';
+import { toMajorUnits, toMinorUnitsValue } from '@/shared/utils/moneyNormalization';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -72,7 +73,7 @@ export interface Practice {
   metadata?: PracticeMetadata;
   businessPhone: string | null;
   businessEmail: string | null;
-  consultationFee: number | null; // USD dollars.
+  consultationFee: number | null; // Major currency units (e.g., USD dollars).
   paymentUrl: string | null;
   calendlyUrl: string | null;
   createdAt?: string | null;
@@ -328,7 +329,7 @@ function normalizePracticePayload(payload: unknown): Practice {
     businessPhone: toNullableString(record.businessPhone ?? record.business_phone),
     businessEmail: toNullableString(record.businessEmail ?? record.business_email),
     consultationFee: typeof (record.consultationFee ?? record.consultation_fee) === 'number'
-      ? Number(record.consultationFee ?? record.consultation_fee)
+      ? toMajorUnits(Number(record.consultationFee ?? record.consultation_fee))
       : null,
     paymentUrl: toNullableString(record.paymentUrl ?? record.payment_url),
     calendlyUrl: toNullableString(record.calendlyUrl ?? record.calendly_url),
@@ -737,7 +738,7 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
     normalized.business_phone = payload.businessPhone;
   }
   if ('consultationFee' in payload && payload.consultationFee !== undefined) {
-    normalized.consultation_fee = payload.consultationFee;
+    normalized.consultation_fee = toMinorUnitsValue(payload.consultationFee ?? null);
   }
   if ('paymentUrl' in payload && payload.paymentUrl !== undefined) {
     normalized.payment_url = payload.paymentUrl;
@@ -828,7 +829,7 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   const businessPhone = normalizeTextOrNull(payload.businessPhone);
   if (businessPhone !== undefined) normalized.business_phone = businessPhone;
   if ('consultationFee' in payload && payload.consultationFee !== undefined) {
-    normalized.consultation_fee = payload.consultationFee;
+    normalized.consultation_fee = toMinorUnitsValue(payload.consultationFee ?? null);
   }
   const paymentUrl = normalizeTextOrNull(payload.paymentUrl);
   if (paymentUrl !== undefined) normalized.payment_url = paymentUrl;
@@ -959,7 +960,7 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     consultationFee: (() => {
       if ('consultation_fee' in container || 'consultationFee' in container) {
         const value = container.consultation_fee ?? container.consultationFee;
-        return typeof value === 'number' ? Number(value) : null;
+        return typeof value === 'number' ? toMajorUnits(value) : null;
       }
       return undefined;
     })(),

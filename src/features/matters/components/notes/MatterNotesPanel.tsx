@@ -52,7 +52,8 @@ export const MatterNotesPanel = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resolvedNotes = notes ?? localNotes;
-  const canEdit = allowEdit && (Boolean(onUpdateNote) || Boolean(onDeleteNote) || (notes === undefined && !onCreateNote));
+  const canEdit = allowEdit && (Boolean(onUpdateNote) || (notes === undefined && !onCreateNote));
+  const canDelete = allowEdit && (Boolean(onDeleteNote) || (notes === undefined && !onCreateNote));
   const canCreate = Boolean(onCreateNote) || notes === undefined;
 
   const sortedNotes = useMemo(() => {
@@ -93,7 +94,7 @@ export const MatterNotesPanel = ({
       }
       return;
     }
-    if (onCreateNote) {
+    if (onCreateNote && !editingNote) {
       setIsSubmitting(true);
       try {
         await onCreateNote({ content });
@@ -126,7 +127,7 @@ export const MatterNotesPanel = ({
   };
 
   const confirmDelete = (note: MatterNote) => {
-    if (!canEdit) return;
+    if (!canDelete) return;
     setDeleteTarget(note);
   };
 
@@ -218,7 +219,7 @@ export const MatterNotesPanel = ({
                   </p>
                 </div>
               </button>
-              {canEdit ? (
+              {canEdit || canDelete ? (
                 <div className="flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -231,18 +232,22 @@ export const MatterNotesPanel = ({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
                     <div className="py-1">
-                      <DropdownMenuItem onSelect={() => openEditNote(note)}>
-                        <span className="flex items-center gap-2">
-                          <PencilIcon className="h-4 w-4" />
-                          Edit
-                        </span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => confirmDelete(note)}>
-                        <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                          <TrashIcon className="h-4 w-4" />
-                          Delete
-                        </span>
-                      </DropdownMenuItem>
+                      {canEdit ? (
+                        <DropdownMenuItem onSelect={() => openEditNote(note)}>
+                          <span className="flex items-center gap-2">
+                            <PencilIcon className="h-4 w-4" />
+                            Edit
+                          </span>
+                        </DropdownMenuItem>
+                      ) : null}
+                      {canDelete ? (
+                        <DropdownMenuItem onSelect={() => confirmDelete(note)}>
+                          <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                            <TrashIcon className="h-4 w-4" />
+                            Delete
+                          </span>
+                        </DropdownMenuItem>
+                      ) : null}
                     </div>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -265,7 +270,7 @@ export const MatterNotesPanel = ({
             initialNote={editingNote ?? undefined}
             onSubmit={handleSave}
             onCancel={closeForm}
-            onDelete={canEdit && editingNote ? () => confirmDelete(editingNote) : undefined}
+            onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
             isSubmitting={isSubmitting}
           />
           {submitError && (
@@ -277,7 +282,7 @@ export const MatterNotesPanel = ({
         </Modal>
       )}
 
-      {canEdit && deleteTarget && (
+      {canDelete && deleteTarget && (
         <Modal
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
