@@ -42,9 +42,17 @@ interface TimeEntriesPanelProps {
   entries: TimeEntry[];
   onSaveEntry: (values: TimeEntryFormValues, existing?: TimeEntry | null) => void;
   onDeleteEntry: (entry: TimeEntry) => void;
+  loading?: boolean;
+  error?: string | null;
 }
 
-export const TimeEntriesPanel = ({ entries, onSaveEntry, onDeleteEntry }: TimeEntriesPanelProps) => {
+export const TimeEntriesPanel = ({
+  entries,
+  onSaveEntry,
+  onDeleteEntry,
+  loading = false,
+  error = null
+}: TimeEntriesPanelProps) => {
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => getStartOfWeek(new Date()));
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
@@ -148,6 +156,11 @@ export const TimeEntriesPanel = ({ entries, onSaveEntry, onDeleteEntry }: TimeEn
           </header>
 
           <div className="divide-y divide-gray-200 dark:divide-white/10">
+            {error ? (
+              <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">{error}</div>
+            ) : loading && entries.length === 0 ? (
+              <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">Loading time entries...</div>
+            ) : null}
             {dailyEntries.map((day) => (
               <button
                 key={day.dateKey}

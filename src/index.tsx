@@ -21,7 +21,6 @@ import ClientHomePage from '@/pages/ClientHomePage';
 import { IntakePaymentPage } from '@/features/intake/pages/IntakePaymentPage';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { AppGuard } from '@/app/AppGuard';
-import { MattersPreviewPage } from '@/pages/MattersPreviewPage';
 import { PracticeNotFound } from '@/features/practice/components/PracticeNotFound';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
@@ -161,10 +160,6 @@ function AppShell() {
           <Route path="/auth" component={AuthPage} />
           <Route path="/cart" component={CartPage} />
           <Route path="/intake/pay" component={IntakePaymentPage} />
-          <Route path="/preview/matters/practice" component={MattersPreviewPage} variant="practice" />
-          <Route path="/preview/matters/practice/*" component={MattersPreviewPage} variant="practice" />
-          <Route path="/preview/matters/client" component={MattersPreviewPage} variant="client" />
-          <Route path="/preview/matters/client/*" component={MattersPreviewPage} variant="client" />
           <Route path="/settings" component={SettingsRoute} />
           <Route path="/settings/*" component={SettingsRoute} />
           <Route path="/embed/:practiceSlug" component={PublicPracticeRoute} />
