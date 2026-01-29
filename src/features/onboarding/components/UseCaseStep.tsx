@@ -177,7 +177,11 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
                       <Textarea
                         rows={3}
                         value={(value as string) || ''}
-                        onChange={(value) => onChange(value)}
+                        onChange={(value) => {
+                          const nextValue = String(value ?? '');
+                          onChange(nextValue);
+                          setAdditionalInfo(nextValue);
+                        }}
                         placeholder={t('onboarding.step2.otherPlaceholder')}
                         error={error?.message}
                       />
