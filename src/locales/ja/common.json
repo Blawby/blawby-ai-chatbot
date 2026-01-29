@@ -131,10 +131,10 @@
       "title": "Blawby AI を何に使用しますか？",
       "subtitle": "より関連性の高い提案を提供するのに役立ちます",
       "options": {
-        "personal": "個人的な法律問題",
-        "business": "ビジネス上の法的ニーズ",
-        "research": "法律調査",
-        "documents": "文書レビュー",
+        "personal": "メッセージング",
+        "business": "法的支払い",
+        "research": "案件管理",
+        "documents": "受付フォーム",
         "other": "その他"
       },
       "otherPlaceholder": "詳しく教えてください...",

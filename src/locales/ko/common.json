@@ -131,10 +131,10 @@
       "title": "Blawby AI를 어떤 용도로 사용하시겠습니까?",
       "subtitle": "더 관련성 높은 제안을 제공하는 데 도움이 됩니다",
       "options": {
-        "personal": "개인 법률 문제",
-        "business": "비즈니스 법률 요구사항",
-        "research": "법률 연구",
-        "documents": "문서 검토",
+        "personal": "메시징",
+        "business": "법률 결제",
+        "research": "사건 관리",
+        "documents": "인테이크 양식",
         "other": "기타"
       },
       "otherPlaceholder": "자세히 알려주세요...",

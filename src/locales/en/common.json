@@ -131,10 +131,10 @@
       "title": "What do you want to use Blawby AI for?",
       "subtitle": "This helps us provide more relevant suggestions",
       "options": {
-        "personal": "Personal Legal Issues",
-        "business": "Business Legal Needs", 
-        "research": "Legal Research",
-        "documents": "Document Review",
+        "personal": "Messaging",
+        "business": "Legal Payments",
+        "research": "Matter Management",
+        "documents": "Intake Forms",
         "other": "Other"
       },
       "otherPlaceholder": "Tell us more...",

@@ -131,11 +131,11 @@
       "title": "Wofür möchten Sie Blawby AI verwenden?",
       "subtitle": "Dies hilft uns, relevantere Vorschläge zu liefern",
       "options": {
-        "personal": "Persönliche Rechtsangelegenheiten",
-        "business": "Geschäftliche Rechtsangelegenheiten",
-        "research": "Rechtsrecherche",
-        "documents": "Dokumentenprüfung",
-        "other": "Sonstiges"
+        "personal": "Nachrichten",
+        "business": "Rechtliche Zahlungen",
+        "research": "Fallverwaltung",
+        "documents": "Aufnahmeformulare",
+        "other": "Andere"
       },
       "otherPlaceholder": "Erzählen Sie uns mehr...",
       "next": "Weiter",

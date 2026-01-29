@@ -131,11 +131,11 @@
       "title": "Waarvoor wilt u Blawby AI gebruiken?",
       "subtitle": "Dit helpt ons relevantere suggesties te doen",
       "options": {
-        "personal": "Persoonlijke juridische zaken",
-        "business": "Zakelijke juridische behoeften",
-        "research": "Juridisch onderzoek",
-        "documents": "Documentbeoordeling",
-        "other": "Anders"
+        "personal": "Berichten",
+        "business": "Juridische betalingen",
+        "research": "Zaakbeheer",
+        "documents": "Intakeformulieren",
+        "other": "Overig"
       },
       "otherPlaceholder": "Vertel ons meer...",
       "next": "Volgende",

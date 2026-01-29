@@ -53,11 +53,11 @@ export interface AccountPreferences {
 }
 
 export type ProductUsage =
-  | 'client_management'
-  | 'billing'
-  | 'document_management'
-  | 'case_management'
-  | 'communication';
+  | 'messaging'
+  | 'legal_payments'
+  | 'matter_management'
+  | 'intake_forms'
+  | 'other';
 
 export interface OnboardingPreferences {
   birthday?: string;
