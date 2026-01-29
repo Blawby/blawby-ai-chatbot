@@ -133,6 +133,7 @@ const OnboardingModal = ({ isOpen, onClose, onComplete }: OnboardingModalProps) 
           <PersonalInfoStep
             data={onboardingData.personalInfo}
             onComplete={async (data) => await handleStepComplete('personal', { personalInfo: data })}
+            onBack={onClose}
           />
         );
       case 'useCase':
