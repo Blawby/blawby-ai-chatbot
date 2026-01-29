@@ -585,7 +585,7 @@ export const createMatterExpense = async (
   if (!payload?.description?.trim()) {
     throw new Error('description is required');
   }
-  if (typeof payload.amount !== 'number') {
+  if (typeof payload.amount !== 'number' || !Number.isFinite(payload.amount)) {
     throw new Error('amount is required');
   }
   if (!payload.date) {
@@ -655,7 +655,7 @@ export const createMatterMilestone = async (
   if (!payload?.description?.trim()) {
     throw new Error('description is required');
   }
-  if (typeof payload.amount !== 'number') {
+  if (typeof payload.amount !== 'number' || !Number.isFinite(payload.amount)) {
     throw new Error('amount is required');
   }
   if (!payload.due_date) {
