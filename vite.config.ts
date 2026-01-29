@@ -291,6 +291,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector'],
 		},
 		resolve: {
+			dedupe: ['preact', 'preact/compat', 'react', 'react-dom'],
 			alias: {
 				'@': resolve(__dirname, './src'),
 				'react': 'preact/compat',

@@ -176,7 +176,7 @@ const UseCaseStep = ({ data, onComplete }: UseCaseStepProps) => {
                     <FormControl>
                       <Textarea
                         rows={3}
-                        value={(value as string) || ''}
+                        value={additionalInfo}
                         onChange={(value) => {
                           const nextValue = String(value ?? '');
                           onChange(nextValue);
