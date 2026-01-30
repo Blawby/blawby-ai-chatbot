@@ -213,7 +213,7 @@ const MatterFormModalInner = ({
   });
   const [fileError, setFileError] = useState<string | null>(null);
 
-  const canSubmit = Boolean(formState.title && formState.clientId);
+  const canSubmit = Boolean(formState.title);
   const isClientOptionsEmpty = clientOptions.length === 0;
   const isPracticeAreaOptionsEmpty = practiceAreaOptions.length === 0;
   const isAssigneeOptionsEmpty = assigneeOptions.length === 0;
@@ -336,24 +336,14 @@ const MatterFormModalInner = ({
           onChange={(value) => updateForm('status', value)}
         />
 
-        {isClientOptionsEmpty ? (
-          <Input
-            label="Client ID"
-            placeholder="Enter client UUID"
-            value={formState.clientId}
-            onChange={(value) => updateForm('clientId', value)}
-            required
-          />
-        ) : (
-          <Combobox
-            label="Select customer"
-            placeholder="Select customer"
-            value={formState.clientId}
-            options={clientOptions}
-            leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
-            onChange={(value) => updateForm('clientId', value)}
-          />
-        )}
+        <Combobox
+          label="Client"
+          placeholder="Select customer"
+          value={formState.clientId}
+          options={clientOptions}
+          leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+          onChange={(value) => updateForm('clientId', value)}
+        />
 
         <hr className="h-px border-gray-200 dark:border-white/10" />
 
@@ -375,24 +365,15 @@ const MatterFormModalInner = ({
           </div>
         </div>
 
-        {isPracticeAreaOptionsEmpty ? (
-          <Input
-            label="Practice Service ID"
-            placeholder={practiceAreasLoading ? 'Loading services...' : 'Enter practice service UUID (optional)'}
-            value={formState.practiceAreaId}
-            onChange={(value) => updateForm('practiceAreaId', value)}
-            disabled={practiceAreasLoading}
-          />
-        ) : (
-          <Combobox
-            label="Practice Area"
-            placeholder="Select practice area"
-            value={formState.practiceAreaId}
-            options={practiceAreaOptions}
-            leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
-            onChange={(value) => updateForm('practiceAreaId', value)}
-          />
-        )}
+        <Combobox
+          label="Practice Area"
+          placeholder={practiceAreasLoading ? 'Loading services...' : 'Select practice area'}
+          value={formState.practiceAreaId}
+          options={practiceAreaOptions}
+          leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
+          onChange={(value) => updateForm('practiceAreaId', value)}
+          disabled={practiceAreasLoading}
+        />
 
         <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
           <div>

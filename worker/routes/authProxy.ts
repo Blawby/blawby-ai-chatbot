@@ -117,16 +117,6 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
 
   const method = request.method.toUpperCase();
   const requestHost = resolveRequestHost(request);
-  if (url.pathname.startsWith('/api/matters/')) {
-    const segments = url.pathname.split('/').filter(Boolean);
-    const practiceId = segments[2] ?? null;
-    console.log('[BackendProxy][Matters] Path:', url.pathname, 'practiceId:', practiceId, 'search:', url.search);
-    if (practiceId && !url.searchParams.has('practice_id')) {
-      url.searchParams.set('practice_id', practiceId);
-      console.log('[BackendProxy][Matters] Added practice_id to query:', url.search);
-    }
-  }
-
   const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
   const headers = new Headers(request.headers);
 
@@ -180,6 +170,11 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     }
   }
 
+  /* 
+   * Validating that the matters endpoint works correctly without the workaround.
+   * If practice_id is needed, it should be handled by the backend routing/validation, 
+   * or client should send it correctly if required (though path param is standard).
+   */
   const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
   const headers = new Headers(request.headers);
 

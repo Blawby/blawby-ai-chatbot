@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
