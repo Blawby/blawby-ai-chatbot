@@ -759,23 +759,37 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     if (!milestone.id) {
       throw new Error('Milestone ID is required');
     }
-    const updated = await updateMatterMilestone(activePracticeId, selectedMatterId, milestone.id, {
-      description: values.description,
-      amount: values.amount,
-      due_date: values.dueDate,
-      status: values.status ?? 'pending'
-    });
-    if (updated) {
-      const next = milestones.map((item) => (item.id === milestone.id ? toMilestone(updated) : item));
-      setMilestones(next);
-      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
-    } else {
+    try {
+      const updated = await updateMatterMilestone(activePracticeId, selectedMatterId, milestone.id, {
+        description: values.description,
+        amount: values.amount,
+        due_date: values.dueDate,
+        status: values.status ?? 'pending'
+      });
+      if (updated) {
+        const next = milestones.map((item) => (item.id === milestone.id ? toMilestone(updated) : item));
+        setMilestones(next);
+        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
+        return;
+      }
       const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
       const mapped = refreshed.map(toMilestone);
       setMilestones(mapped);
       setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to update milestone', error);
+      showError('Could not update milestone', 'Please try again.');
+      setMilestonesError('Unable to update milestone.');
+      try {
+        const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
+        const mapped = refreshed.map(toMilestone);
+        setMilestones(mapped);
+        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
+      }
     }
-  }, [activePracticeId, milestones, selectedMatterId]);
+  }, [activePracticeId, milestones, selectedMatterId, showError]);
 
   const handleDeleteMilestone = useCallback(async (milestone: MatterDetail['milestones'][number]) => {
     if (!activePracticeId || !selectedMatterId) {
@@ -784,11 +798,25 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     if (!milestone.id) {
       throw new Error('Milestone ID is required');
     }
-    await deleteMatterMilestone(activePracticeId, selectedMatterId, milestone.id);
-    const next = milestones.filter((item) => item.id !== milestone.id);
-    setMilestones(next);
-    setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
-  }, [activePracticeId, milestones, selectedMatterId]);
+    try {
+      await deleteMatterMilestone(activePracticeId, selectedMatterId, milestone.id);
+      const next = milestones.filter((item) => item.id !== milestone.id);
+      setMilestones(next);
+      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete milestone', error);
+      showError('Could not delete milestone', 'Please try again.');
+      setMilestonesError('Unable to delete milestone.');
+      try {
+        const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
+        const mapped = refreshed.map(toMilestone);
+        setMilestones(mapped);
+        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
+      }
+    }
+  }, [activePracticeId, milestones, selectedMatterId, showError]);
 
   const handleReorderMilestones = useCallback(async (nextOrder: MatterDetail['milestones']) => {
     if (!activePracticeId || !selectedMatterId) {
@@ -837,22 +865,46 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
     }
-    const updated = await updateMatterNote(activePracticeId, selectedMatterId, note.id, values.content);
-    if (updated) {
-      setNotes((prev) => prev.map((item) => (item.id === note.id ? toNote(updated) : item)));
-    } else {
+    try {
+      const updated = await updateMatterNote(activePracticeId, selectedMatterId, note.id, values.content);
+      if (updated) {
+        setNotes((prev) => prev.map((item) => (item.id === note.id ? toNote(updated) : item)));
+        return;
+      }
       const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
       setNotes(refreshed.map(toNote));
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to update note', error);
+      showError('Could not update note', 'Please try again.');
+      setNotesError('Unable to update note.');
+      try {
+        const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
+        setNotes(refreshed.map(toNote));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
+      }
     }
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, selectedMatterId, showError]);
 
   const handleDeleteNote = useCallback(async (note: MatterNote) => {
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
     }
-    await deleteMatterNote(activePracticeId, selectedMatterId, note.id);
-    setNotes((prev) => prev.filter((item) => item.id !== note.id));
-  }, [activePracticeId, selectedMatterId]);
+    try {
+      await deleteMatterNote(activePracticeId, selectedMatterId, note.id);
+      setNotes((prev) => prev.filter((item) => item.id !== note.id));
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete note', error);
+      showError('Could not delete note', 'Please try again.');
+      setNotesError('Unable to delete note.');
+      try {
+        const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
+        setNotes(refreshed.map(toNote));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
+      }
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
 
   const handleCreateExpense = useCallback(async (values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
     if (!activePracticeId || !selectedMatterId) {
@@ -882,27 +934,51 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     if (values.amount === undefined) {
       throw new Error('Amount is required');
     }
-    const updated = await updateMatterExpense(activePracticeId, selectedMatterId, expense.id, {
-      description: values.description,
-      amount: values.amount,
-      date: values.date,
-      billable: values.billable
-    });
-    if (updated) {
-      setExpenses((prev) => prev.map((item) => (item.id === expense.id ? toExpense(updated) : item)));
-    } else {
+    try {
+      const updated = await updateMatterExpense(activePracticeId, selectedMatterId, expense.id, {
+        description: values.description,
+        amount: values.amount,
+        date: values.date,
+        billable: values.billable
+      });
+      if (updated) {
+        setExpenses((prev) => prev.map((item) => (item.id === expense.id ? toExpense(updated) : item)));
+        return;
+      }
       const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
       setExpenses(refreshed.map(toExpense));
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to update expense', error);
+      showError('Could not update expense', 'Please try again.');
+      setExpensesError('Unable to update expense.');
+      try {
+        const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
+        setExpenses(refreshed.map(toExpense));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
+      }
     }
-  }, [activePracticeId, selectedMatterId]);
+  }, [activePracticeId, selectedMatterId, showError]);
 
   const handleDeleteExpense = useCallback(async (expense: MatterExpense) => {
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
     }
-    await deleteMatterExpense(activePracticeId, selectedMatterId, expense.id);
-    setExpenses((prev) => prev.filter((item) => item.id !== expense.id));
-  }, [activePracticeId, selectedMatterId]);
+    try {
+      await deleteMatterExpense(activePracticeId, selectedMatterId, expense.id);
+      setExpenses((prev) => prev.filter((item) => item.id !== expense.id));
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete expense', error);
+      showError('Could not delete expense', 'Please try again.');
+      setExpensesError('Unable to delete expense.');
+      try {
+        const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
+        setExpenses(refreshed.map(toExpense));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
+      }
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
 
   const handleSaveTimeEntry = useCallback(async (values: TimeEntryFormValues, existing?: TimeEntry | null) => {
     if (!activePracticeId || !selectedMatterId) return;

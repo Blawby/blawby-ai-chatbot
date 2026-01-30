@@ -9,7 +9,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
-import type { MatterDetail } from '@/features/matters/data/mockMatters';
+import type { MatterDetail, MatterMilestone } from '@/features/matters/data/mockMatters';
 
 type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
 
@@ -20,10 +20,10 @@ interface MatterMilestonesPanelProps {
   error?: string | null;
   onCreateMilestone?: (values: { description: string; amount: MajorAmount; dueDate: string; status?: MilestoneStatus }) => Promise<void> | void;
   onUpdateMilestone?: (
-    milestone: MatterDetail['milestones'][number],
+    milestone: MatterMilestone,
     values: { description: string; amount: MajorAmount; dueDate: string; status?: MilestoneStatus }
   ) => Promise<void> | void;
-  onDeleteMilestone?: (milestone: MatterDetail['milestones'][number]) => Promise<void> | void;
+  onDeleteMilestone?: (milestone: MatterMilestone) => Promise<void> | void;
   onReorderMilestones?: (nextOrder: MatterDetail['milestones']) => Promise<void> | void;
   allowReorder?: boolean;
   allowEdit?: boolean;
@@ -43,8 +43,8 @@ export const MatterMilestonesPanel = ({
 }: MatterMilestonesPanelProps) => {
   const resolvedMilestones = milestones ?? matter.milestones ?? [];
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingMilestone, setEditingMilestone] = useState<MatterDetail['milestones'][number] | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<MatterDetail['milestones'][number] | null>(null);
+  const [editingMilestone, setEditingMilestone] = useState<MatterMilestone | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MatterMilestone | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [formState, setFormState] = useState({
     description: '',
@@ -81,7 +81,7 @@ export const MatterMilestonesPanel = ({
     setIsFormOpen(true);
   };
 
-  const openEditForm = (milestone: MatterDetail['milestones'][number]) => {
+  const openEditForm = (milestone: MatterMilestone) => {
     if (!canEdit) return;
     setEditingMilestone(milestone);
     setFormState({
@@ -154,8 +154,8 @@ export const MatterMilestonesPanel = ({
     }
   };
 
-  const confirmDelete = (milestone: MatterDetail['milestones'][number]) => {
-    if (!canEdit) return;
+  const confirmDelete = (milestone: MatterMilestone) => {
+    if (!canDelete) return;
     setDeleteTarget(milestone);
   };
 
@@ -227,7 +227,7 @@ export const MatterMilestonesPanel = ({
                     {formatCurrency(milestone.amount ?? 0)}
                   </div>
                   <div className="flex items-center gap-1">
-                    {canEdit && (
+                  {canDelete && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -330,7 +330,7 @@ export const MatterMilestonesPanel = ({
         </Modal>
       )}
 
-      {canEdit && deleteTarget && (
+      {canDelete && deleteTarget && (
         <Modal
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}

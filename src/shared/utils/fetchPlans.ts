@@ -31,14 +31,14 @@ const normalizePlanAmount = (value: unknown): string => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     assertMinorUnits(value, 'subscription.plan.price');
     const major = toMajorUnits(value);
-    return typeof major === 'number' ? major.toFixed(2) : String(value);
+    return typeof major === 'number' ? major.toFixed(2) : '';
   }
   if (typeof value === 'string' && value.trim().length > 0) {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) {
       assertMinorUnits(parsed, 'subscription.plan.price');
       const major = toMajorUnits(parsed);
-      return typeof major === 'number' ? major.toFixed(2) : value;
+      return typeof major === 'number' ? major.toFixed(2) : '';
     }
   }
   return '';
