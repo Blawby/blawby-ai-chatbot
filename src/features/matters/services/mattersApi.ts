@@ -182,10 +182,13 @@ const normalizeExpensePayload = (payload: {
   amount: MajorAmount;
   date: string;
   billable?: boolean;
-}) => ({
-  ...payload,
-  amount: toMinorUnitsValue(payload.amount) as MinorAmount
-});
+}) => {
+  assertMajorUnits(payload.amount, 'expense.amount');
+  return {
+    ...payload,
+    amount: toMinorUnitsValue(payload.amount) as MinorAmount
+  };
+};
 
 const normalizeMilestone = (milestone: BackendMatterMilestone): BackendMatterMilestone => ({
   ...milestone,
@@ -203,10 +206,13 @@ const normalizeMilestonePayload = (payload: {
   due_date: string;
   status?: string;
   order?: number;
-}) => ({
-  ...payload,
-  amount: toMinorUnitsValue(payload.amount) as MinorAmount
-});
+}) => {
+  assertMajorUnits(payload.amount, 'milestone.amount');
+  return {
+    ...payload,
+    amount: toMinorUnitsValue(payload.amount) as MinorAmount
+  };
+};
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (axios.isAxiosError(error)) {

@@ -97,7 +97,7 @@ export const PracticePricingPage = () => {
 
   const openFeeModal = () => {
     const nextFee = typeof activeFee === 'number' && activeFee > 0 ? activeFee : undefined;
-    setFeeDraft(nextFee);
+    setFeeDraft(nextFee !== undefined ? asMajor(nextFee) : undefined);
     setFeeEnabledDraft(Boolean(nextFee));
     setShowValidation(false);
     setIsFeeModalOpen(true);

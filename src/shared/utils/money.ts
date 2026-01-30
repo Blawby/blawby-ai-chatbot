@@ -50,9 +50,6 @@ export const toMajorUnits = (
     return value;
   }
   assertMinorUnits(value, 'toMajorUnits');
-  if (!Number.isFinite(value)) {
-    return value as MajorAmount;
-  }
   return fromMinorUnits(value, fractionDigits);
 };
 
@@ -64,8 +61,5 @@ export const toMinorUnitsValue = (
     return value;
   }
   assertMajorUnits(value, 'toMinorUnitsValue');
-  if (!Number.isFinite(value)) {
-    return value as MinorAmount;
-  }
   return toMinorUnits(value, fractionDigits);
 };
