@@ -770,12 +770,14 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         const next = milestones.map((item) => (item.id === milestone.id ? toMilestone(updated) : item));
         setMilestones(next);
         setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
+        setMilestonesError(null);
         return;
       }
       const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
       const mapped = refreshed.map(toMilestone);
       setMilestones(mapped);
       setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+      setMilestonesError(null);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to update milestone', error);
       showError('Could not update milestone', 'Please try again.');
@@ -804,6 +806,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       const next = milestones.filter((item) => item.id !== milestone.id);
       setMilestones(next);
       setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
+      setMilestonesError(null);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to delete milestone', error);
       showError('Could not delete milestone', 'Please try again.');
@@ -813,6 +816,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
         const mapped = refreshed.map(toMilestone);
         setMilestones(mapped);
         setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+        setMilestonesError(null);
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
       }
@@ -871,10 +875,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       const updated = await updateMatterNote(activePracticeId, selectedMatterId, note.id, values.content);
       if (updated) {
         setNotes((prev) => prev.map((item) => (item.id === note.id ? toNote(updated) : item)));
+        setNotesError(null);
         return;
       }
       const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
       setNotes(refreshed.map(toNote));
+      setNotesError(null);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to update note', error);
       showError('Could not update note', 'Please try again.');
@@ -896,6 +902,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     try {
       await deleteMatterNote(activePracticeId, selectedMatterId, note.id);
       setNotes((prev) => prev.filter((item) => item.id !== note.id));
+      setNotesError(null);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to delete note', error);
       showError('Could not delete note', 'Please try again.');
@@ -903,6 +910,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       try {
         const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
         setNotes(refreshed.map(toNote));
+        setNotesError(null);
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
       }
@@ -947,10 +955,12 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       });
       if (updated) {
         setExpenses((prev) => prev.map((item) => (item.id === expense.id ? toExpense(updated) : item)));
+        setExpensesError(null);
         return;
       }
       const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
       setExpenses(refreshed.map(toExpense));
+      setExpensesError(null);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to update expense', error);
       showError('Could not update expense', 'Please try again.');
@@ -972,6 +982,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     try {
       await deleteMatterExpense(activePracticeId, selectedMatterId, expense.id);
       setExpenses((prev) => prev.filter((item) => item.id !== expense.id));
+      setExpensesError(null);
     } catch (error) {
       console.error('[PracticeMattersPage] Failed to delete expense', error);
       showError('Could not delete expense', 'Please try again.');
@@ -979,6 +990,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       try {
         const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
         setExpenses(refreshed.map(toExpense));
+        setExpensesError(null);
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
       }

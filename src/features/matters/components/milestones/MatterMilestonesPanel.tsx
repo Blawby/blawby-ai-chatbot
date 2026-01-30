@@ -227,7 +227,7 @@ export const MatterMilestonesPanel = ({
                     {formatCurrency(milestone.amount ?? 0)}
                   </div>
                   <div className="flex items-center gap-1">
-                  {canDelete && (
+                  {canEdit && (
                       <Button
                         variant="ghost"
                         size="sm"
