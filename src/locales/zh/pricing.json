@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "安全的团队协作工作空间",
-      "buttonText": "获取Business"
+      "buttonText": "获取Business",
+      "priceUnavailable": "价格不可用"
     }
   },
   "features": {

@@ -2,6 +2,7 @@ import {
   getPracticeClientIntakeCreateEndpoint,
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
+import { asMinor, assertMinorUnits, type MinorAmount } from '@/shared/utils/money';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -57,7 +58,7 @@ type IntakeCreateResponse = {
     client_secret?: string;
     payment_link_url?: string;
     paymentLinkUrl?: string;
-    amount?: number;
+    amount?: MinorAmount;
     currency?: string;
     status?: string;
     organization?: {
@@ -73,7 +74,7 @@ export type IntakeSubmissionResult = IntakeCreateResponse & {
     uuid?: string;
     clientSecret?: string;
     paymentLinkUrl?: string;
-    amount?: number;
+    amount?: MinorAmount;
     currency?: string;
     paymentLinkEnabled: boolean;
     organizationName?: string;
@@ -82,11 +83,11 @@ export type IntakeSubmissionResult = IntakeCreateResponse & {
 };
 
 // Amounts are stored as integer cents (minor units).
-const clampAmount = (amount: number) => {
+const clampAmount = (amount: number): MinorAmount => {
   const min = 50;
   const max = 99999999;
-  if (Number.isNaN(amount)) return min;
-  return Math.min(max, Math.max(min, Math.round(amount)));
+  if (Number.isNaN(amount)) return asMinor(min);
+  return asMinor(Math.min(max, Math.max(min, Math.round(amount))));
 };
 
 const formatDescriptionWithLocation = (description?: string, location?: string) => {
@@ -150,6 +151,7 @@ export async function submitContactForm(
     const prefillAmount = settings?.data?.settings?.prefillAmount;
     const paymentLinkEnabled = settings?.data?.settings?.paymentLinkEnabled === true;
     const amount = clampAmount(typeof prefillAmount === 'number' ? prefillAmount : 50);
+    assertMinorUnits(amount, 'intake.create.amount');
 
     if (settings && settings.data?.settings?.paymentLinkEnabled === false) {
       console.info('[Intake] Payment link disabled for practice intake');

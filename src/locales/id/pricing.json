@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "Ruang kerja kolaboratif yang aman untuk tim",
-      "buttonText": "Dapatkan Business"
+      "buttonText": "Dapatkan Business",
+      "priceUnavailable": "Harga tidak tersedia"
     }
   },
   "features": {

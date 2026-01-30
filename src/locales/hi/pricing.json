@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "टीमों के लिए सुरक्षित, सहयोगी कार्यक्षेत्र",
-      "buttonText": "Business प्राप्त करें"
+      "buttonText": "Business प्राप्त करें",
+      "priceUnavailable": "मूल्य उपलब्ध नहीं है"
     }
   },
   "features": {

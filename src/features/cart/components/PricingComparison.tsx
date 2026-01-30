@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { getBusinessPrices, PRICES } from '@/shared/utils/stripe-products';
 import { buildPriceDisplay } from '@/shared/utils/currencyFormatter';
+import { toMajorUnits } from '@/shared/utils/money';
 import { type SubscriptionTier } from '@/shared/types/user';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
@@ -79,9 +80,26 @@ const PricingComparison: FunctionComponent<PricingComparisonProps> = ({
       name: t('plans.business.name'),
       price: (() => {
         const businessPrice = PRICES.monthly;
-        const businessAmount = (businessPrice?.unit_amount ?? 4000) / 100;
+        const unitAmount = businessPrice?.unit_amount;
+        if (typeof unitAmount !== 'number') {
+          return t('plans.business.priceUnavailable', {
+            defaultValue: 'Pricing unavailable'
+          });
+        }
+        const businessAmount = toMajorUnits(unitAmount);
+        if (businessAmount == null) {
+          return t('plans.business.priceUnavailable', {
+            defaultValue: 'Pricing unavailable'
+          });
+        }
         const businessCurrency = businessPrice?.currency ?? 'usd';
-        return buildPriceDisplay(businessAmount, businessCurrency, 'month', userLocale, t);
+        return buildPriceDisplay(
+          businessAmount,
+          businessCurrency,
+          'month',
+          userLocale,
+          t
+        );
       })(),
       description: t('plans.business.description'),
       features: [

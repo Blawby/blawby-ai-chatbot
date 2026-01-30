@@ -1,5 +1,6 @@
 import type { MattersSidebarStatus } from '@/shared/hooks/useMattersSidebar';
 import type { TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 export type MatterSummary = {
   id: string;
@@ -14,7 +15,7 @@ export type MatterMilestone = {
   id?: string;
   description: string;
   dueDate: string;
-  amount: number;
+  amount: MajorAmount;
   status?: 'pending' | 'in_progress' | 'completed' | 'overdue';
 };
 
@@ -45,10 +46,10 @@ export type MatterDetail = MatterSummary & {
   assigneeIds: string[];
   description: string;
   billingType: 'hourly' | 'fixed' | 'contingency';
-  attorneyHourlyRate?: number;
-  adminHourlyRate?: number;
+  attorneyHourlyRate?: MajorAmount;
+  adminHourlyRate?: MajorAmount;
   paymentFrequency?: 'project' | 'milestone';
-  totalFixedPrice?: number;
+  totalFixedPrice?: MajorAmount;
   milestones?: MatterMilestone[];
   tasks?: MatterTask[];
   contingencyPercent?: number;
@@ -67,7 +68,7 @@ export type TimeEntry = {
 export type MatterExpense = {
   id: string;
   description: string;
-  amount: number;
+  amount: MajorAmount;
   date: string;
   billable: boolean;
 };
@@ -125,7 +126,7 @@ const buildExpense = (
 ): MatterExpense => ({
   id,
   description,
-  amount,
+  amount: asMajor(amount),
   date: daysAgoDate(daysOffset),
   billable
 });
@@ -278,8 +279,8 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     billingType: 'fixed',
     paymentFrequency: 'milestone',
     milestones: [
-      { description: 'Name availability + formation filing', dueDate: daysFromNow(10), amount: 1200 },
-      { description: 'Operating agreement + EIN', dueDate: daysFromNow(24), amount: 1800 }
+      { description: 'Name availability + formation filing', dueDate: daysFromNow(10), amount: asMajor(1200) },
+      { description: 'Operating agreement + EIN', dueDate: daysFromNow(24), amount: asMajor(1800) }
     ],
     tasks: [
       {
@@ -316,9 +317,9 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
       buildTimeEntry('time-entry-6', 6, '11:30', '13:00', 'Drafted engagement letter revisions.')
     ],
     expenses: [
-      buildExpense('expense-1', 1, 'State filing fee', 35000, true),
-      buildExpense('expense-2', 2, 'Registered agent renewal', 12500, true),
-      buildExpense('expense-3', 4, 'Courier delivery', 4200, false)
+      buildExpense('expense-1', 1, 'State filing fee', 350, true),
+      buildExpense('expense-2', 2, 'Registered agent renewal', 125, true),
+      buildExpense('expense-3', 4, 'Courier delivery', 42, false)
     ],
     notes: [
       buildNote(
@@ -368,8 +369,8 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
         timeEstimateHours: 6
       }
     ],
-    attorneyHourlyRate: 250,
-    adminHourlyRate: 95
+    attorneyHourlyRate: asMajor(250),
+    adminHourlyRate: asMajor(95)
   },
   'matter-ip-trademark': {
     ...mockMatters[2],
@@ -387,8 +388,8 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     assigneeIds: ['assignee-jo'],
     description: 'Negotiate lease terms and draft revisions.',
     billingType: 'hourly',
-    attorneyHourlyRate: 300,
-    adminHourlyRate: 110
+    attorneyHourlyRate: asMajor(300),
+    adminHourlyRate: asMajor(110)
   },
   'matter-policy': {
     ...mockMatters[4],
@@ -398,7 +399,7 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     description: 'Refresh employee handbook and compliance policies.',
     billingType: 'fixed',
     paymentFrequency: 'project',
-    totalFixedPrice: 4200
+    totalFixedPrice: asMajor(4200)
   },
   'matter-incorporation': {
     ...mockMatters[5],
@@ -409,8 +410,8 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     billingType: 'fixed',
     paymentFrequency: 'milestone',
     milestones: [
-      { description: 'Draft articles + bylaws', dueDate: daysFromNow(14), amount: 900 },
-      { description: 'State filing + EIN', dueDate: daysFromNow(30), amount: 1400 }
+      { description: 'Draft articles + bylaws', dueDate: daysFromNow(14), amount: asMajor(900) },
+      { description: 'State filing + EIN', dueDate: daysFromNow(30), amount: asMajor(1400) }
     ]
   },
   'matter-immigration': {
@@ -420,8 +421,8 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     assigneeIds: ['assignee-river'],
     description: 'Prepare O-1 petition and evidence packet.',
     billingType: 'hourly',
-    attorneyHourlyRate: 275,
-    adminHourlyRate: 105
+    attorneyHourlyRate: asMajor(275),
+    adminHourlyRate: asMajor(105)
   },
   'matter-family': {
     ...mockMatters[7],
@@ -431,7 +432,7 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     description: 'Review and revise postnuptial agreement.',
     billingType: 'fixed',
     paymentFrequency: 'project',
-    totalFixedPrice: 1800
+    totalFixedPrice: asMajor(1800)
   },
   'matter-compliance': {
     ...mockMatters[8],
@@ -449,8 +450,8 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     assigneeIds: ['assignee-jo'],
     description: 'Review SAFE terms and advise on revisions.',
     billingType: 'hourly',
-    attorneyHourlyRate: 320,
-    adminHourlyRate: 120
+    attorneyHourlyRate: asMajor(320),
+    adminHourlyRate: asMajor(120)
   },
   'matter-contract': {
     ...mockMatters[10],
@@ -460,7 +461,7 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     description: 'Clean up vendor contracts and redlines.',
     billingType: 'fixed',
     paymentFrequency: 'project',
-    totalFixedPrice: 2600
+    totalFixedPrice: asMajor(2600)
   },
   'matter-property': {
     ...mockMatters[11],
@@ -469,8 +470,8 @@ export const mockMatterDetails: Record<string, MatterDetail> = {
     assigneeIds: ['assignee-fern'],
     description: 'Handle residential closing documents.',
     billingType: 'hourly',
-    attorneyHourlyRate: 240,
-    adminHourlyRate: 90
+    attorneyHourlyRate: asMajor(240),
+    adminHourlyRate: asMajor(90)
   }
 };
 

@@ -3,17 +3,18 @@ import { Button } from '@/shared/ui/Button';
 import { Checkbox, CurrencyInput, DatePicker, Input } from '@/shared/ui/input';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
 import type { MatterExpense } from '@/features/matters/data/mockMatters';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 export type ExpenseFormValues = {
   description: string;
-  amount: number | undefined;
+  amount: MajorAmount | undefined;
   date: string;
   billable: boolean;
 };
 
 const buildDefaultValues = (expense?: MatterExpense): ExpenseFormValues => ({
   description: expense?.description ?? '',
-  amount: typeof expense?.amount === 'number' ? expense.amount / 100 : undefined,
+  amount: typeof expense?.amount === 'number' ? expense.amount : undefined,
   date: expense?.date ?? formatDateOnlyStringUtc(new Date()),
   billable: expense?.billable ?? true
 });
@@ -52,7 +53,12 @@ export const ExpenseForm = ({ initialExpense, onSubmit, onCancel, onDelete }: Ex
       <CurrencyInput
         label="Amount"
         value={values.amount}
-        onChange={(nextValue) => setValues((prev) => ({ ...prev, amount: nextValue }))}
+        onChange={(nextValue) =>
+          setValues((prev) => ({
+            ...prev,
+            amount: typeof nextValue === 'number' ? asMajor(nextValue) : undefined
+          }))
+        }
         required
         min={0}
         step={0.01}

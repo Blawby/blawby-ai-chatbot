@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared/lib/apiClient';
+import { toMajorUnits, assertMinorUnits } from '@/shared/utils/money';
 
 export interface SubscriptionPlan {
   id: string;
@@ -26,6 +27,23 @@ export interface SubscriptionPlan {
   isPublic: boolean;
 }
 
+const normalizePlanAmount = (value: unknown): string => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    assertMinorUnits(value, 'subscription.plan.price');
+    const major = toMajorUnits(value);
+    return typeof major === 'number' ? major.toFixed(2) : '';
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      assertMinorUnits(parsed, 'subscription.plan.price');
+      const major = toMajorUnits(parsed);
+      return typeof major === 'number' ? major.toFixed(2) : '';
+    }
+  }
+  return '';
+};
+
 function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
   return plans.map((plan) => {
     const record = plan as Record<string, unknown>;
@@ -38,8 +56,13 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
       stripeProductId: (record.stripe_product_id || record.stripeProductId) as string,
       stripeMonthlyPriceId: (record.stripe_monthly_price_id || record.stripeMonthlyPriceId) as string,
       stripeYearlyPriceId: (record.stripe_yearly_price_id || record.stripeYearlyPriceId) as string | null,
-      monthlyPrice: (record.monthly_price || record.monthlyPrice) as string,
-      yearlyPrice: (record.yearly_price || record.yearlyPrice) as string | null,
+      monthlyPrice: normalizePlanAmount(record.monthly_price ?? record.monthlyPrice),
+      yearlyPrice: (() => {
+        const rawYearly = record.yearly_price ?? record.yearlyPrice;
+        if (rawYearly === null || rawYearly === undefined) return null;
+        const normalized = normalizePlanAmount(rawYearly);
+        return normalized || null;
+      })(),
       currency: (record.currency || 'usd') as string,
       features: (record.features || []) as string[],
       limits: {

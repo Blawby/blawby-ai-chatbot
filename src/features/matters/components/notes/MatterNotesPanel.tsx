@@ -27,6 +27,8 @@ interface MatterNotesPanelProps {
   loading?: boolean;
   error?: string | null;
   onCreateNote?: (values: NoteFormValues) => Promise<void> | void;
+  onUpdateNote?: (note: MatterNote, values: NoteFormValues) => Promise<void> | void;
+  onDeleteNote?: (note: MatterNote) => Promise<void> | void;
   allowEdit?: boolean;
 }
 
@@ -36,6 +38,8 @@ export const MatterNotesPanel = ({
   loading = false,
   error = null,
   onCreateNote,
+  onUpdateNote,
+  onDeleteNote,
   allowEdit = true
 }: MatterNotesPanelProps) => {
   const [localNotes, setLocalNotes] = useState<MatterNote[]>(() => matter.notes ?? []);
@@ -44,16 +48,20 @@ export const MatterNotesPanel = ({
   const [deleteTarget, setDeleteTarget] = useState<MatterNote | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resolvedNotes = notes ?? localNotes;
-  const canEdit = allowEdit && notes === undefined && !onCreateNote;
+  const canEdit = allowEdit && (Boolean(onUpdateNote) || (notes === undefined && !onCreateNote));
+  const canDelete = allowEdit && (Boolean(onDeleteNote) || (notes === undefined && !onCreateNote));
+  const canCreate = Boolean(onCreateNote) || notes === undefined;
 
   const sortedNotes = useMemo(() => {
     return [...resolvedNotes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [resolvedNotes]);
 
   const openNewNote = () => {
+    if (!canCreate) return;
     setEditingNote(null);
     setFormKey((prev) => prev + 1);
     setIsFormOpen(true);
@@ -73,7 +81,20 @@ export const MatterNotesPanel = ({
 
   const handleSave = async ({ content }: NoteFormValues) => {
     setSubmitError(null);
-    if (onCreateNote) {
+    if (editingNote && onUpdateNote) {
+      setIsSubmitting(true);
+      try {
+        await onUpdateNote(editingNote, { content });
+        closeForm();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to update note';
+        setSubmitError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+    if (onCreateNote && !editingNote) {
       setIsSubmitting(true);
       try {
         await onCreateNote({ content });
@@ -106,12 +127,29 @@ export const MatterNotesPanel = ({
   };
 
   const confirmDelete = (note: MatterNote) => {
-    if (!canEdit) return;
+    if (!canDelete) return;
     setDeleteTarget(note);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
+    setDeleteError(null);
+    if (onDeleteNote) {
+      setIsSubmitting(true);
+      try {
+        await onDeleteNote(deleteTarget);
+        setDeleteTarget(null);
+        if (editingNote?.id === deleteTarget.id) {
+          closeForm();
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to delete note';
+        setDeleteError(message);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
     setLocalNotes((prev) => prev.filter((note) => note.id !== deleteTarget.id));
     setDeleteTarget(null);
     if (editingNote?.id === deleteTarget.id) {
@@ -128,7 +166,7 @@ export const MatterNotesPanel = ({
             {sortedNotes.length} notes recorded
           </p>
         </div>
-        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewNote}>
+        <Button size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={openNewNote} disabled={!canCreate}>
           Add note
         </Button>
       </header>
@@ -181,7 +219,7 @@ export const MatterNotesPanel = ({
                   </p>
                 </div>
               </button>
-              {canEdit ? (
+              {canEdit || canDelete ? (
                 <div className="flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -194,18 +232,22 @@ export const MatterNotesPanel = ({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
                     <div className="py-1">
-                      <DropdownMenuItem onSelect={() => openEditNote(note)}>
-                        <span className="flex items-center gap-2">
-                          <PencilIcon className="h-4 w-4" />
-                          Edit
-                        </span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => confirmDelete(note)}>
-                        <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                          <TrashIcon className="h-4 w-4" />
-                          Delete
-                        </span>
-                      </DropdownMenuItem>
+                      {canEdit ? (
+                        <DropdownMenuItem onSelect={() => openEditNote(note)}>
+                          <span className="flex items-center gap-2">
+                            <PencilIcon className="h-4 w-4" />
+                            Edit
+                          </span>
+                        </DropdownMenuItem>
+                      ) : null}
+                      {canDelete ? (
+                        <DropdownMenuItem onSelect={() => confirmDelete(note)}>
+                          <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                            <TrashIcon className="h-4 w-4" />
+                            Delete
+                          </span>
+                        </DropdownMenuItem>
+                      ) : null}
                     </div>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -228,7 +270,7 @@ export const MatterNotesPanel = ({
             initialNote={editingNote ?? undefined}
             onSubmit={handleSave}
             onCancel={closeForm}
-            onDelete={canEdit && editingNote ? () => confirmDelete(editingNote) : undefined}
+            onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
             isSubmitting={isSubmitting}
           />
           {submitError && (
@@ -240,7 +282,7 @@ export const MatterNotesPanel = ({
         </Modal>
       )}
 
-      {canEdit && deleteTarget && (
+      {canDelete && deleteTarget && (
         <Modal
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
@@ -251,11 +293,16 @@ export const MatterNotesPanel = ({
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+            )}
             <div className="flex items-center justify-end gap-3">
               <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
-              <Button variant="danger" onClick={handleDelete}>Delete note</Button>
+              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+                {isSubmitting ? 'Deleting...' : 'Delete note'}
+              </Button>
             </div>
           </div>
         </Modal>

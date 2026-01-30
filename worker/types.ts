@@ -4,6 +4,7 @@ export type NotificationCategory = 'message' | 'payment' | 'intake' | 'matter' |
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
 export type NotificationPolicyCategoryKey = 'messages' | 'system' | 'payments' | 'intakes' | 'matters';
 export type InAppNotificationFrequency = 'all' | 'summaries_only';
+export type MinorAmount = number & { readonly __brand: 'MinorAmount' };
 
 export interface NotificationPolicyChannel {
   push: boolean;
@@ -516,7 +517,7 @@ export interface UIMessageExtras {
   paymentRequest?: {
     intakeUuid?: string;
     clientSecret?: string;
-    amount?: number;
+    amount?: MinorAmount;
     currency?: string;
     practiceName?: string;
     practiceLogo?: string;

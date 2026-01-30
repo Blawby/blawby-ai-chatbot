@@ -5,6 +5,7 @@ import { ContactData } from '@/features/intake/components/ContactForm';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { submitContactForm } from '@/shared/utils/forms';
 import { buildIntakePaymentUrl } from '@/shared/utils/intakePayments';
+import { asMinor } from '@/shared/utils/money';
 import type { Conversation, ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
 import {
   updateConversationMetadata as patchConversationMetadata,
@@ -1357,7 +1358,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
             intakeUuid: paymentDetails.uuid,
             clientSecret: hasClientSecret ? clientSecret : undefined,
             paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
-            amount: paymentDetails.amount,
+            amount: typeof paymentDetails.amount === 'number' ? asMinor(paymentDetails.amount) : undefined,
             currency: paymentDetails.currency,
             practiceName: paymentDetails.organizationName,
             practiceLogo: paymentDetails.organizationLogo,
@@ -1382,7 +1383,7 @@ Location: ${contactData.location ? '[PROVIDED]' : '[NOT PROVIDED]'}${contactData
                   intakeUuid: paymentDetails.uuid,
                   clientSecret: hasClientSecret ? clientSecret : undefined,
                   paymentLinkUrl: hasPaymentLink ? paymentLinkUrl : undefined,
-                  amount: paymentDetails.amount,
+                  amount: typeof paymentDetails.amount === 'number' ? asMinor(paymentDetails.amount) : undefined,
                   currency: paymentDetails.currency,
                   practiceName: paymentDetails.organizationName,
                   practiceLogo: paymentDetails.organizationLogo,

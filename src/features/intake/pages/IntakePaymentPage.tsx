@@ -10,6 +10,7 @@ import {
   isPaidIntakeStatus,
   isValidStripePaymentLink
 } from '@/shared/utils/intakePayments';
+import { asMinor } from '@/shared/utils/money';
 
 const STRIPE_PUBLIC_KEY = import.meta.env.VITE_STRIPE_KEY ?? '';
 const stripePromise = STRIPE_PUBLIC_KEY ? loadStripe(STRIPE_PUBLIC_KEY) : null;
@@ -149,7 +150,7 @@ export const IntakePaymentPage: FunctionComponent = () => {
         <Elements stripe={stripePromise} options={elementsOptions}>
           <IntakePaymentForm
             practiceName={practiceName}
-            amount={Number.isFinite(amount) ? amount : undefined}
+            amount={Number.isFinite(amount) ? asMinor(amount) : undefined}
             currency={currency}
             intakeUuid={intakeUuid}
             practiceId={practiceId}

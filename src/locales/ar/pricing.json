@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "مساحة عمل آمنة وتعاونية للفرق",
-      "buttonText": "احصل على Business"
+      "buttonText": "احصل على Business",
+      "priceUnavailable": "السعر غير متوفر"
     }
   },
   "features": {

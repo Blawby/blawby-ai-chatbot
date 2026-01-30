@@ -8,6 +8,7 @@ const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 const BACKEND_PATH_PREFIXES = [
   '/api/onboarding',
+  '/api/matters',
   '/api/conversations',
   '/api/practice',
   '/api/preferences',
@@ -116,7 +117,6 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
 
   const method = request.method.toUpperCase();
   const requestHost = resolveRequestHost(request);
-
   const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
   const headers = new Headers(request.headers);
 
@@ -170,6 +170,11 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     }
   }
 
+  /* 
+   * Validating that the matters endpoint works correctly without the workaround.
+   * If practice_id is needed, it should be handled by the backend routing/validation, 
+   * or client should send it correctly if required (though path param is standard).
+   */
   const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
   const headers = new Headers(request.headers);
 

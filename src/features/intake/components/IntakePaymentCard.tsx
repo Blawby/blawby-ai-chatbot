@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
 import {
   buildIntakePaymentUrl,
   isValidStripePaymentLink,
@@ -14,10 +15,10 @@ interface IntakePaymentCardProps {
   onOpenPayment?: (request: IntakePaymentRequest) => void;
 }
 
-const resolveDisplayAmount = (amount?: number, currency?: string, locale?: string) => {
+const resolveDisplayAmount = (amount?: MinorAmount, currency?: string, locale?: string) => {
   if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
   const normalizedCurrency = typeof currency === 'string' ? currency.toUpperCase() : 'USD';
-  const displayAmount = amount / 100;
+  const displayAmount = toMajorUnits(amount) ?? 0;
   return formatCurrency(displayAmount, normalizedCurrency, locale || 'en');
 };
 

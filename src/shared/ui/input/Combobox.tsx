@@ -16,6 +16,7 @@ export interface ComboboxProps {
   displayValue?: (option?: ComboboxOption) => string;
   optionLeading?: (option: ComboboxOption) => ComponentChildren;
   optionMeta?: (option: ComboboxOption) => ComponentChildren;
+  disabled?: boolean;
 }
 
 export const Combobox = ({
@@ -28,10 +29,12 @@ export const Combobox = ({
   className,
   displayValue,
   optionLeading,
-  optionMeta
+  optionMeta,
+  disabled
 }: ComboboxProps) => {
   const selectedOption = options.find((option) => option.value === value);
-  const resolvedDisplayValue = displayValue?.(selectedOption) ?? selectedOption?.label ?? '';
+  // If no option found, treat 'value' as the raw input to display
+  const resolvedDisplayValue = displayValue?.(selectedOption) ?? selectedOption?.label ?? value;
   const [query, setQuery] = useState(resolvedDisplayValue);
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -56,10 +59,12 @@ export const Combobox = ({
   const resolvedFocusedIndex =
     focusedIndex >= 0 && focusedIndex < filteredOptions.length ? focusedIndex : -1;
 
-  const showOptions = isOpen && filteredOptions.length > 0;
+  const showOptions = isOpen && filteredOptions.length > 0 && !disabled;
   const resolvedLeading = typeof leading === 'function' ? leading(selectedOption) : leading;
 
   useEffect(() => {
+    // Only reset query from external value if not typing (not open)
+    // or if the value fundamentally changed to something else valid
     if (!isOpen) {
       setQuery(resolvedDisplayValue);
       setFocusedIndex(-1);
@@ -67,7 +72,7 @@ export const Combobox = ({
   }, [resolvedDisplayValue, isOpen]);
 
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn('relative', className, disabled && 'opacity-50 pointer-events-none')}>
       <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
         {label}
       </label>
@@ -79,6 +84,7 @@ export const Combobox = ({
           <input
             type="text"
             id={inputId}
+            disabled={disabled}
             role="combobox"
             aria-expanded={isOpen}
             aria-controls={listboxId}
@@ -89,6 +95,19 @@ export const Combobox = ({
             value={query}
             onInput={(event) => {
               const nextValue = (event.target as HTMLInputElement).value;
+              
+              // Only trigger explicit onChange if the input strictly matches an option?
+              // No, we want to allow custom input (e.g. searching or raw UUID).
+              // However, typically Combobox only commits on selection or blur.
+              // But to support "Free Text", we should probably commit on Blur or explicit Enter?
+              // The user might be typing "Jo..." looking for "John". If we fire onChange("Jo..."), parent state updates.
+              // If parent state updates 'value' to "Jo...", then 'selectedOption' is undefined, 'resolvedDisplay' is "Jo...".
+              // This seems fine for a "Creatable" or "Free" combobox.
+              onChange(nextValue);
+
+              setQuery(nextValue);
+              setIsOpen(true);
+              
               const normalizedQuery = normalize(nextValue);
               const nextFilteredOptions = normalizedQuery
                 ? options.filter((option) => {
@@ -96,13 +115,14 @@ export const Combobox = ({
                     return normalizedOption.includes(normalizedQuery);
                   })
                 : options;
-              setQuery(nextValue);
-              setIsOpen(true);
               setFocusedIndex(nextFilteredOptions.length > 0 ? 0 : -1);
             }}
-            onFocus={() => setIsOpen(true)}
+            onFocus={() => {
+                if (!disabled) setIsOpen(true);
+            }}
             onBlur={() => setIsOpen(false)}
             onKeyDown={(event) => {
+              if (disabled) return;
               if (!isOpen) {
                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
                   event.preventDefault();
@@ -113,6 +133,11 @@ export const Combobox = ({
               }
 
               if (filteredOptions.length === 0) {
+                // If enter pressed with no options, strict close
+                 if (event.key === 'Enter') {
+                    event.preventDefault();
+                    setIsOpen(false);
+                 }
                 setFocusedIndex(-1);
                 return;
               }
@@ -141,6 +166,9 @@ export const Combobox = ({
                     onChange(option.value);
                     setQuery(displayValue?.(option) ?? option.label);
                     setIsOpen(false);
+                  } else {
+                    // No option selected from list, keep custom value
+                    setIsOpen(false);
                   }
                   break;
                 }
@@ -151,7 +179,7 @@ export const Combobox = ({
               }
             }}
             placeholder={placeholder}
-            className="w-full rounded-md border border-gray-300 dark:border-white/10 bg-white dark:bg-dark-input-bg py-3 pl-12 pr-10 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm"
+            className="w-full rounded-md border border-gray-300 dark:border-white/10 bg-white dark:bg-dark-input-bg py-3 pl-12 pr-10 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-white/5 dark:disabled:text-gray-500"
           />
           {value ? (
             <button

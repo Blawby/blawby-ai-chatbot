@@ -16,6 +16,7 @@ import { ScaleIcon, ShieldCheckIcon, UserIcon } from '@heroicons/react/24/outlin
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { cn } from '@/shared/utils/cn';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 type MatterFormMode = 'create' | 'edit';
 
@@ -44,7 +45,7 @@ export type PaymentFrequency = 'project' | 'milestone';
 export type MatterMilestone = {
   description: string;
   dueDate: string;
-  amount?: number;
+  amount?: MajorAmount;
 };
 
 export type MatterFormState = {
@@ -54,10 +55,10 @@ export type MatterFormState = {
   assigneeIds: string[];
   status: MattersSidebarStatus;
   billingType: BillingType;
-  attorneyHourlyRate?: number;
-  adminHourlyRate?: number;
+  attorneyHourlyRate?: MajorAmount;
+  adminHourlyRate?: MajorAmount;
   paymentFrequency?: PaymentFrequency;
-  totalFixedPrice?: number;
+  totalFixedPrice?: MajorAmount;
   milestones: MatterMilestone[];
   contingencyPercent?: number;
   description: string;
@@ -209,13 +210,11 @@ const MatterFormModalInner = ({
   const [milestoneDraft, setMilestoneDraft] = useState({
     description: '',
     dueDate: '',
-    amount: undefined as number | undefined
+    amount: undefined as MajorAmount | undefined
   });
   const [fileError, setFileError] = useState<string | null>(null);
 
   const canSubmit = Boolean(formState.title && formState.clientId);
-  const isClientOptionsEmpty = clientOptions.length === 0;
-  const isPracticeAreaOptionsEmpty = practiceAreaOptions.length === 0;
   const isAssigneeOptionsEmpty = assigneeOptions.length === 0;
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
@@ -336,24 +335,14 @@ const MatterFormModalInner = ({
           onChange={(value) => updateForm('status', value)}
         />
 
-        {isClientOptionsEmpty ? (
-          <Input
-            label="Client ID"
-            placeholder="Enter client UUID"
-            value={formState.clientId}
-            onChange={(value) => updateForm('clientId', value)}
-            required
-          />
-        ) : (
-          <Combobox
-            label="Select customer"
-            placeholder="Select customer"
-            value={formState.clientId}
-            options={clientOptions}
-            leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
-            onChange={(value) => updateForm('clientId', value)}
-          />
-        )}
+        <Combobox
+          label="Client *"
+          placeholder="Select customer"
+          value={formState.clientId}
+          options={clientOptions}
+          leading={buildLeadingIcon(<UserIcon className="h-4 w-4" />)}
+          onChange={(value) => updateForm('clientId', value)}
+        />
 
         <hr className="h-px border-gray-200 dark:border-white/10" />
 
@@ -375,24 +364,15 @@ const MatterFormModalInner = ({
           </div>
         </div>
 
-        {isPracticeAreaOptionsEmpty ? (
-          <Input
-            label="Practice Service ID"
-            placeholder={practiceAreasLoading ? 'Loading services...' : 'Enter practice service UUID (optional)'}
-            value={formState.practiceAreaId}
-            onChange={(value) => updateForm('practiceAreaId', value)}
-            disabled={practiceAreasLoading}
-          />
-        ) : (
-          <Combobox
-            label="Practice Area"
-            placeholder="Select practice area"
-            value={formState.practiceAreaId}
-            options={practiceAreaOptions}
-            leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
-            onChange={(value) => updateForm('practiceAreaId', value)}
-          />
-        )}
+        <Combobox
+          label="Practice Area"
+          placeholder={practiceAreasLoading ? 'Loading services...' : 'Select practice area'}
+          value={formState.practiceAreaId}
+          options={practiceAreaOptions}
+          leading={buildLeadingIcon(<ScaleIcon className="h-4 w-4" />)}
+          onChange={(value) => updateForm('practiceAreaId', value)}
+          disabled={practiceAreasLoading}
+        />
 
         <div className="border-t border-gray-200 dark:border-white/10 pt-6 space-y-4">
           <div>
@@ -454,13 +434,17 @@ const MatterFormModalInner = ({
               <CurrencyInput
                 label="Attorney hourly rate"
                 value={formState.attorneyHourlyRate}
-                onChange={(value) => updateForm('attorneyHourlyRate', value)}
+                onChange={(value) =>
+                  updateForm('attorneyHourlyRate', typeof value === 'number' ? asMajor(value) : undefined)
+                }
                 placeholder="150"
               />
               <CurrencyInput
                 label="Admin hourly rate"
                 value={formState.adminHourlyRate}
-                onChange={(value) => updateForm('adminHourlyRate', value)}
+                onChange={(value) =>
+                  updateForm('adminHourlyRate', typeof value === 'number' ? asMajor(value) : undefined)
+                }
                 placeholder="95"
               />
             </div>
@@ -480,7 +464,9 @@ const MatterFormModalInner = ({
                 <CurrencyInput
                   label="Total Fixed Price"
                   value={formState.totalFixedPrice}
-                  onChange={(value) => updateForm('totalFixedPrice', value)}
+                  onChange={(value) =>
+                    updateForm('totalFixedPrice', typeof value === 'number' ? asMajor(value) : undefined)
+                  }
                   placeholder="2500"
                 />
               )}
@@ -548,7 +534,7 @@ const MatterFormModalInner = ({
                         onChange={(value) =>
                           setMilestoneDraft((prev) => ({
                             ...prev,
-                            amount: value
+                            amount: typeof value === 'number' ? asMajor(value) : undefined
                           }))
                         }
                       />

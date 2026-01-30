@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "Безпечний, колаборативний робочий простір для команд",
-      "buttonText": "Отримати Business"
+      "buttonText": "Отримати Business",
+      "priceUnavailable": "Ціна недоступна"
     }
   },
   "features": {

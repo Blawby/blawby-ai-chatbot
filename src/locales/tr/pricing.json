@@ -13,7 +13,8 @@
     "business": {
       "name": "[NEEDS TRANSLATION] Business",
       "description": "[NEEDS TRANSLATION] Secure, collaborative workspace for teams",
-      "buttonText": "[NEEDS TRANSLATION] Get Business"
+      "buttonText": "[NEEDS TRANSLATION] Get Business",
+      "priceUnavailable": "Fiyat mevcut değil"
     }
   },
   "features": {

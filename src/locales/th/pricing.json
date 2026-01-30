@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "พื้นที่ทำงานที่ปลอดภัยและร่วมมือกันสำหรับทีม",
-      "buttonText": "รับแผน Business"
+      "buttonText": "รับแผน Business",
+      "priceUnavailable": "ไม่สามารถแสดงราคาได้"
     }
   },
   "features": {

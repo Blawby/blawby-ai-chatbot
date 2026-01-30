@@ -2,6 +2,7 @@ import type { Env, Practice, PracticeOrWorkspace, ConversationConfig, Subscripti
 import { HttpError } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { Logger } from '../utils/logger.js';
+import { warnIfNotMinorUnits } from '../utils/money.js';
 
 /**
  * Service for fetching practice and subscription data from the remote API.
@@ -583,9 +584,11 @@ export class RemoteApiService {
         ? payload.data as Record<string, unknown>
         : payload;
 
+      const amount = typeof data.amount === 'number' ? data.amount : undefined;
+      warnIfNotMinorUnits(amount, 'remote.intakeStatus.amount');
       return {
         uuid: typeof data.uuid === 'string' ? data.uuid : undefined,
-        amount: typeof data.amount === 'number' ? data.amount : undefined,
+        amount,
         currency: typeof data.currency === 'string' ? data.currency : undefined,
         status: typeof data.status === 'string' ? data.status : undefined,
         metadata: typeof data.metadata === 'object' && data.metadata !== null
@@ -650,17 +653,19 @@ export class RemoteApiService {
       const orgRecord = data.organization && typeof data.organization === 'object'
         ? data.organization as Record<string, unknown>
         : null;
+      const prefillAmount = typeof settingsRecord.prefillAmount === 'number'
+        ? settingsRecord.prefillAmount as number
+        : typeof settingsRecord.prefill_amount === 'number'
+          ? settingsRecord.prefill_amount as number
+          : undefined;
+      warnIfNotMinorUnits(prefillAmount, 'remote.intakeSettings.prefillAmount');
       return {
         paymentLinkEnabled: typeof settingsRecord.paymentLinkEnabled === 'boolean'
           ? settingsRecord.paymentLinkEnabled as boolean
           : typeof settingsRecord.payment_link_enabled === 'boolean'
             ? settingsRecord.payment_link_enabled as boolean
           : undefined,
-        prefillAmount: typeof settingsRecord.prefillAmount === 'number'
-          ? settingsRecord.prefillAmount as number
-          : typeof settingsRecord.prefill_amount === 'number'
-            ? settingsRecord.prefill_amount as number
-          : undefined,
+        prefillAmount,
         organization: orgRecord
           ? {
               id: typeof orgRecord.id === 'string' ? orgRecord.id : undefined,

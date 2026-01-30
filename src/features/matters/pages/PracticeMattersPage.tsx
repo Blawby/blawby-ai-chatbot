@@ -39,6 +39,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import {
   createMatter,
   getMatter,
@@ -56,12 +57,20 @@ import {
   createMatterNote,
   createMatterMilestone,
   createMatterTimeEntry,
+  deleteMatterExpense,
+  deleteMatterMilestone,
+  deleteMatterNote,
+  deleteMatterTimeEntry,
   getMatterTimeEntryStats,
   listMatterExpenses,
   listMatterMilestones,
   listMatterNotes,
   listMatterTimeEntries,
-  reorderMatterMilestones
+  reorderMatterMilestones,
+  updateMatterExpense,
+  updateMatterMilestone,
+  updateMatterNote,
+  updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
 
 const statusOrder: Record<MattersSidebarStatus, number> = {
@@ -178,7 +187,7 @@ const mapMilestones = (milestones?: BackendMatter['milestones']): MatterDetail['
       return {
         description: `Milestone ${index + 1}`,
         dueDate: '',
-        amount: 0
+        amount: asMajor(0)
       };
     }
     const record = item as Record<string, unknown>;
@@ -189,7 +198,7 @@ const mapMilestones = (milestones?: BackendMatter['milestones']): MatterDetail['
         : typeof record.dueDate === 'string'
           ? record.dueDate
           : '',
-      amount: typeof record.amount === 'number' ? record.amount : 0
+      amount: typeof record.amount === 'number' ? asMajor(record.amount) : asMajor(0)
     };
   });
 };
@@ -213,10 +222,16 @@ const toMatterDetail = (matter: BackendMatter): MatterDetail => ({
   assigneeIds: extractAssigneeIds(matter),
   description: matter.description || '',
   billingType: (matter.billing_type as MatterDetail['billingType']) || 'hourly',
-  attorneyHourlyRate: matter.attorney_hourly_rate ?? undefined,
-  adminHourlyRate: matter.admin_hourly_rate ?? undefined,
+  attorneyHourlyRate: typeof matter.attorney_hourly_rate === 'number'
+    ? asMajor(matter.attorney_hourly_rate)
+    : undefined,
+  adminHourlyRate: typeof matter.admin_hourly_rate === 'number'
+    ? asMajor(matter.admin_hourly_rate)
+    : undefined,
   paymentFrequency: (matter.payment_frequency as MatterDetail['paymentFrequency']) ?? undefined,
-  totalFixedPrice: matter.total_fixed_price ?? undefined,
+  totalFixedPrice: typeof matter.total_fixed_price === 'number'
+    ? asMajor(matter.total_fixed_price)
+    : undefined,
   milestones: mapMilestones(matter.milestones),
   contingencyPercent: matter.contingency_percentage ?? undefined,
   timeEntries: [],
@@ -275,7 +290,7 @@ const toTimeEntry = (entry: BackendMatterTimeEntry): TimeEntry => ({
 const toExpense = (expense: BackendMatterExpense): MatterExpense => ({
   id: expense.id,
   description: expense.description ?? 'Expense',
-  amount: expense.amount ?? 0,
+  amount: asMajor(expense.amount ?? 0),
   date: expense.date ?? new Date().toISOString().slice(0, 10),
   billable: expense.billable ?? true
 });
@@ -283,7 +298,7 @@ const toExpense = (expense: BackendMatterExpense): MatterExpense => ({
 const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['milestones'][number] => ({
   id: milestone.id,
   description: milestone.description ?? 'Milestone',
-  amount: milestone.amount ?? 0,
+  amount: asMajor(milestone.amount ?? 0),
   dueDate: milestone.due_date ?? '',
   status: ((): MatterDetail['milestones'][number]['status'] => {
     const status = milestone.status ?? undefined;
@@ -709,7 +724,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     return () => controller.abort();
   }, [activePracticeId, selectedMatterId]);
 
-  const handleCreateMilestone = useCallback(async (values: { description: string; amount: number; dueDate: string; status?: string }) => {
+  const handleCreateMilestone = useCallback(async (values: { description: string; amount: MajorAmount; dueDate: string; status?: string }) => {
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
     }
@@ -733,6 +748,81 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
     }
   }, [activePracticeId, milestones, selectedMatterId]);
+
+  const handleUpdateMilestone = useCallback(async (
+    milestone: MatterDetail['milestones'][number],
+    values: { description: string; amount: MajorAmount; dueDate: string; status?: string }
+  ) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    if (!milestone.id) {
+      throw new Error('Milestone ID is required');
+    }
+    try {
+      const updated = await updateMatterMilestone(activePracticeId, selectedMatterId, milestone.id, {
+        description: values.description,
+        amount: values.amount,
+        due_date: values.dueDate,
+        status: values.status ?? 'pending'
+      });
+      if (updated) {
+        const next = milestones.map((item) => (item.id === milestone.id ? toMilestone(updated) : item));
+        setMilestones(next);
+        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
+        setMilestonesError(null);
+        return;
+      }
+      const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
+      const mapped = refreshed.map(toMilestone);
+      setMilestones(mapped);
+      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+      setMilestonesError(null);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to update milestone', error);
+      showError('Could not update milestone', 'Please try again.');
+      setMilestonesError('Unable to update milestone.');
+      try {
+        const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
+        const mapped = refreshed.map(toMilestone);
+        setMilestones(mapped);
+        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
+      }
+      throw error;
+    }
+  }, [activePracticeId, milestones, selectedMatterId, showError]);
+
+  const handleDeleteMilestone = useCallback(async (milestone: MatterDetail['milestones'][number]) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    if (!milestone.id) {
+      throw new Error('Milestone ID is required');
+    }
+    try {
+      await deleteMatterMilestone(activePracticeId, selectedMatterId, milestone.id);
+      const next = milestones.filter((item) => item.id !== milestone.id);
+      setMilestones(next);
+      setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: next } : prev));
+      setMilestonesError(null);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete milestone', error);
+      showError('Could not delete milestone', 'Please try again.');
+      setMilestonesError('Unable to delete milestone.');
+      try {
+        const refreshed = await listMatterMilestones(activePracticeId, selectedMatterId);
+        const mapped = refreshed.map(toMilestone);
+        setMilestones(mapped);
+        setSelectedMatterDetail((prev) => (prev ? { ...prev, milestones: mapped } : prev));
+        setMilestonesError(null);
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
+      }
+      throw error;
+    }
+  }, [activePracticeId, milestones, selectedMatterId, showError]);
 
   const handleReorderMilestones = useCallback(async (nextOrder: MatterDetail['milestones']) => {
     if (!activePracticeId || !selectedMatterId) {
@@ -777,7 +867,58 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
   }, [activePracticeId, selectedMatterId]);
 
-  const handleCreateExpense = useCallback(async (values: { description: string; amount: number | undefined; date: string; billable: boolean }) => {
+  const handleUpdateNote = useCallback(async (note: MatterNote, values: { content: string }) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    try {
+      const updated = await updateMatterNote(activePracticeId, selectedMatterId, note.id, values.content);
+      if (updated) {
+        setNotes((prev) => prev.map((item) => (item.id === note.id ? toNote(updated) : item)));
+        setNotesError(null);
+        return;
+      }
+      const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
+      setNotes(refreshed.map(toNote));
+      setNotesError(null);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to update note', error);
+      showError('Could not update note', 'Please try again.');
+      setNotesError('Unable to update note.');
+      try {
+        const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
+        setNotes(refreshed.map(toNote));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
+      }
+      throw error;
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
+
+  const handleDeleteNote = useCallback(async (note: MatterNote) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    try {
+      await deleteMatterNote(activePracticeId, selectedMatterId, note.id);
+      setNotes((prev) => prev.filter((item) => item.id !== note.id));
+      setNotesError(null);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete note', error);
+      showError('Could not delete note', 'Please try again.');
+      setNotesError('Unable to delete note.');
+      try {
+        const refreshed = await listMatterNotes(activePracticeId, selectedMatterId);
+        setNotes(refreshed.map(toNote));
+        setNotesError(null);
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
+      }
+      throw error;
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
+
+  const handleCreateExpense = useCallback(async (values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
     }
@@ -798,15 +939,83 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
   }, [activePracticeId, selectedMatterId]);
 
-  const handleSaveTimeEntry = useCallback(async (values: TimeEntryFormValues) => {
+  const handleUpdateExpense = useCallback(async (expense: MatterExpense, values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    if (values.amount === undefined) {
+      throw new Error('Amount is required');
+    }
+    try {
+      const updated = await updateMatterExpense(activePracticeId, selectedMatterId, expense.id, {
+        description: values.description,
+        amount: values.amount,
+        date: values.date,
+        billable: values.billable
+      });
+      if (updated) {
+        setExpenses((prev) => prev.map((item) => (item.id === expense.id ? toExpense(updated) : item)));
+        setExpensesError(null);
+        return;
+      }
+      const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
+      setExpenses(refreshed.map(toExpense));
+      setExpensesError(null);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to update expense', error);
+      showError('Could not update expense', 'Please try again.');
+      setExpensesError('Unable to update expense.');
+      try {
+        const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
+        setExpenses(refreshed.map(toExpense));
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
+      }
+      throw error;
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
+
+  const handleDeleteExpense = useCallback(async (expense: MatterExpense) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    try {
+      await deleteMatterExpense(activePracticeId, selectedMatterId, expense.id);
+      setExpenses((prev) => prev.filter((item) => item.id !== expense.id));
+      setExpensesError(null);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete expense', error);
+      showError('Could not delete expense', 'Please try again.');
+      setExpensesError('Unable to delete expense.');
+      try {
+        const refreshed = await listMatterExpenses(activePracticeId, selectedMatterId);
+        setExpenses(refreshed.map(toExpense));
+        setExpensesError(null);
+      } catch (refreshError) {
+        console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
+      }
+      throw error;
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
+
+  const handleSaveTimeEntry = useCallback(async (values: TimeEntryFormValues, existing?: TimeEntry | null) => {
     if (!activePracticeId || !selectedMatterId) return;
     try {
-      await createMatterTimeEntry(activePracticeId, selectedMatterId, {
-        start_time: values.startTime,
-        end_time: values.endTime,
-        description: values.description,
-        billable: true
-      });
+      if (existing?.id) {
+        await updateMatterTimeEntry(activePracticeId, selectedMatterId, existing.id, {
+          start_time: values.startTime,
+          end_time: values.endTime,
+          description: values.description,
+          billable: true
+        });
+      } else {
+        await createMatterTimeEntry(activePracticeId, selectedMatterId, {
+          start_time: values.startTime,
+          end_time: values.endTime,
+          description: values.description,
+          billable: true
+        });
+      }
       const [entries, stats] = await Promise.all([
         listMatterTimeEntries(activePracticeId, selectedMatterId),
         getMatterTimeEntryStats(activePracticeId, selectedMatterId)
@@ -819,20 +1028,41 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
   }, [activePracticeId, selectedMatterId, showError]);
 
+  const handleDeleteTimeEntry = useCallback(async (entry: TimeEntry) => {
+    if (!activePracticeId || !selectedMatterId) {
+      throw new Error('Practice ID and matter ID are required');
+    }
+    try {
+      await deleteMatterTimeEntry(activePracticeId, selectedMatterId, entry.id);
+      const [entries, stats] = await Promise.all([
+        listMatterTimeEntries(activePracticeId, selectedMatterId),
+        getMatterTimeEntryStats(activePracticeId, selectedMatterId)
+      ]);
+      setTimeEntries(entries.map(toTimeEntry));
+      setTimeStats(stats);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete time entry', error);
+      showError('Could not delete time entry', 'Please try again.');
+    }
+  }, [activePracticeId, selectedMatterId, showError]);
+
   const handleCreateMatter = useCallback(async (values: MatterFormState) => {
     if (!activePracticeId) {
       throw new Error('Practice ID is required to create a matter.');
     }
 
+    const isUuid = (value: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: values.clientId || null,
+      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : null,
       description: values.description || null,
       billing_type: values.billingType,
       total_fixed_price: values.totalFixedPrice ?? null,
       contingency_percentage: values.contingencyPercent ?? null,
       settlement_amount: null,
-      practice_service_id: values.practiceAreaId || null,
+      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : null,
       admin_hourly_rate: values.adminHourlyRate ?? null,
       attorney_hourly_rate: values.attorneyHourlyRate ?? null,
       payment_frequency: values.paymentFrequency ?? null,
@@ -1209,6 +1439,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     loading={milestonesLoading}
                     error={milestonesError}
                     onCreateMilestone={handleCreateMilestone}
+                    onUpdateMilestone={handleUpdateMilestone}
+                    onDeleteMilestone={handleDeleteMilestone}
                     onReorderMilestones={handleReorderMilestones}
                     allowReorder
                   />
@@ -1221,7 +1453,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                     loading={notesLoading}
                     error={notesError}
                     onCreateNote={handleCreateNote}
-                    allowEdit={false}
+                    onUpdateNote={handleUpdateNote}
+                    onDeleteNote={handleDeleteNote}
                   />
                 )}
               </div>
@@ -1230,11 +1463,11 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                 <TimeEntriesPanel
                   key={`time-${selectedMatterDetail.id}`}
                   entries={timeEntries}
-                  onSaveEntry={(values) => {
-                    void handleSaveTimeEntry(values);
+                  onSaveEntry={(values, existing) => {
+                    void handleSaveTimeEntry(values, existing);
                   }}
-                  onDeleteEntry={() => {
-                    showError('Delete not available', 'Time entry deletion is not supported yet.');
+                  onDeleteEntry={(entry) => {
+                    void handleDeleteTimeEntry(entry);
                   }}
                   loading={timeEntriesLoading}
                   error={timeEntriesError}
@@ -1246,8 +1479,8 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
                   loading={expensesLoading}
                   error={expensesError}
                   onCreateExpense={handleCreateExpense}
-                  allowEdit={false}
-                  createOnly
+                  onUpdateExpense={handleUpdateExpense}
+                  onDeleteExpense={handleDeleteExpense}
                 />
                 <section className="rounded-2xl border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card-bg">
                   <header className="flex items-center justify-between border-b border-gray-200 dark:border-white/10 px-6 py-4">

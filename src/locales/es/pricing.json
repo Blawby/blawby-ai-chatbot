@@ -13,7 +13,8 @@
     "business": {
       "name": "Business",
       "description": "Espacio de trabajo seguro y colaborativo para equipos",
-      "buttonText": "Obtener Business"
+      "buttonText": "Obtener Business",
+      "priceUnavailable": "Precio no disponible"
     }
   },
   "features": {
