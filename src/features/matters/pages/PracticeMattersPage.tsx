@@ -788,6 +788,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
       }
+      throw error;
     }
   }, [activePracticeId, milestones, selectedMatterId, showError]);
 
@@ -815,6 +816,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh milestones', refreshError);
       }
+      throw error;
     }
   }, [activePracticeId, milestones, selectedMatterId, showError]);
 
@@ -883,6 +885,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
       }
+      throw error;
     }
   }, [activePracticeId, selectedMatterId, showError]);
 
@@ -903,6 +906,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh notes', refreshError);
       }
+      throw error;
     }
   }, [activePracticeId, selectedMatterId, showError]);
 
@@ -957,6 +961,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
       }
+      throw error;
     }
   }, [activePracticeId, selectedMatterId, showError]);
 
@@ -977,6 +982,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       } catch (refreshError) {
         console.error('[PracticeMattersPage] Failed to refresh expenses', refreshError);
       }
+      throw error;
     }
   }, [activePracticeId, selectedMatterId, showError]);
 
