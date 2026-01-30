@@ -16,6 +16,7 @@ import { ScaleIcon, ShieldCheckIcon, UserIcon } from '@heroicons/react/24/outlin
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { cn } from '@/shared/utils/cn';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 type MatterFormMode = 'create' | 'edit';
 
@@ -44,7 +45,7 @@ export type PaymentFrequency = 'project' | 'milestone';
 export type MatterMilestone = {
   description: string;
   dueDate: string;
-  amount?: number;
+  amount?: MajorAmount;
 };
 
 export type MatterFormState = {
@@ -54,10 +55,10 @@ export type MatterFormState = {
   assigneeIds: string[];
   status: MattersSidebarStatus;
   billingType: BillingType;
-  attorneyHourlyRate?: number;
-  adminHourlyRate?: number;
+  attorneyHourlyRate?: MajorAmount;
+  adminHourlyRate?: MajorAmount;
   paymentFrequency?: PaymentFrequency;
-  totalFixedPrice?: number;
+  totalFixedPrice?: MajorAmount;
   milestones: MatterMilestone[];
   contingencyPercent?: number;
   description: string;
@@ -209,13 +210,11 @@ const MatterFormModalInner = ({
   const [milestoneDraft, setMilestoneDraft] = useState({
     description: '',
     dueDate: '',
-    amount: undefined as number | undefined
+    amount: undefined as MajorAmount | undefined
   });
   const [fileError, setFileError] = useState<string | null>(null);
 
-  const canSubmit = Boolean(formState.title);
-  const isClientOptionsEmpty = clientOptions.length === 0;
-  const isPracticeAreaOptionsEmpty = practiceAreaOptions.length === 0;
+  const canSubmit = Boolean(formState.title && formState.clientId);
   const isAssigneeOptionsEmpty = assigneeOptions.length === 0;
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
@@ -337,7 +336,7 @@ const MatterFormModalInner = ({
         />
 
         <Combobox
-          label="Client"
+          label="Client *"
           placeholder="Select customer"
           value={formState.clientId}
           options={clientOptions}
@@ -435,13 +434,17 @@ const MatterFormModalInner = ({
               <CurrencyInput
                 label="Attorney hourly rate"
                 value={formState.attorneyHourlyRate}
-                onChange={(value) => updateForm('attorneyHourlyRate', value)}
+                onChange={(value) =>
+                  updateForm('attorneyHourlyRate', typeof value === 'number' ? asMajor(value) : undefined)
+                }
                 placeholder="150"
               />
               <CurrencyInput
                 label="Admin hourly rate"
                 value={formState.adminHourlyRate}
-                onChange={(value) => updateForm('adminHourlyRate', value)}
+                onChange={(value) =>
+                  updateForm('adminHourlyRate', typeof value === 'number' ? asMajor(value) : undefined)
+                }
                 placeholder="95"
               />
             </div>
@@ -461,7 +464,9 @@ const MatterFormModalInner = ({
                 <CurrencyInput
                   label="Total Fixed Price"
                   value={formState.totalFixedPrice}
-                  onChange={(value) => updateForm('totalFixedPrice', value)}
+                  onChange={(value) =>
+                    updateForm('totalFixedPrice', typeof value === 'number' ? asMajor(value) : undefined)
+                  }
                   placeholder="2500"
                 />
               )}
@@ -529,7 +534,7 @@ const MatterFormModalInner = ({
                         onChange={(value) =>
                           setMilestoneDraft((prev) => ({
                             ...prev,
-                            amount: value
+                            amount: typeof value === 'number' ? asMajor(value) : undefined
                           }))
                         }
                       />

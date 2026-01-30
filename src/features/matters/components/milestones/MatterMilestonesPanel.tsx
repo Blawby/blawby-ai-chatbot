@@ -8,6 +8,7 @@ import { Select } from '@/shared/ui/input/Select';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import type { MatterDetail } from '@/features/matters/data/mockMatters';
 
 type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
@@ -17,10 +18,10 @@ interface MatterMilestonesPanelProps {
   milestones?: MatterDetail['milestones'];
   loading?: boolean;
   error?: string | null;
-  onCreateMilestone?: (values: { description: string; amount: number; dueDate: string; status?: MilestoneStatus }) => Promise<void> | void;
+  onCreateMilestone?: (values: { description: string; amount: MajorAmount; dueDate: string; status?: MilestoneStatus }) => Promise<void> | void;
   onUpdateMilestone?: (
     milestone: MatterDetail['milestones'][number],
-    values: { description: string; amount: number; dueDate: string; status?: MilestoneStatus }
+    values: { description: string; amount: MajorAmount; dueDate: string; status?: MilestoneStatus }
   ) => Promise<void> | void;
   onDeleteMilestone?: (milestone: MatterDetail['milestones'][number]) => Promise<void> | void;
   onReorderMilestones?: (nextOrder: MatterDetail['milestones']) => Promise<void> | void;
@@ -47,7 +48,7 @@ export const MatterMilestonesPanel = ({
   const [formKey, setFormKey] = useState(0);
   const [formState, setFormState] = useState({
     description: '',
-    amount: undefined as number | undefined,
+    amount: undefined as MajorAmount | undefined,
     dueDate: '',
     status: 'pending' as MilestoneStatus
   });
@@ -56,7 +57,8 @@ export const MatterMilestonesPanel = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showError } = useToastContext();
   const canCreate = Boolean(onCreateMilestone);
-  const canEdit = allowEdit && (Boolean(onUpdateMilestone) || Boolean(onDeleteMilestone));
+  const canEdit = allowEdit && Boolean(onUpdateMilestone);
+  const canDelete = allowEdit && Boolean(onDeleteMilestone);
   const canReorder = allowReorder && typeof onReorderMilestones === 'function';
   const statusOptions = useMemo(() => ([
     { value: 'pending', label: 'Pending' },
@@ -114,7 +116,12 @@ export const MatterMilestonesPanel = ({
         dueDate: formState.dueDate,
         status: formState.status
       };
-      if (editingMilestone && onUpdateMilestone) {
+      if (editingMilestone) {
+        if (!onUpdateMilestone) {
+          console.error('[MatterMilestonesPanel] Cannot update: handler missing');
+          setSubmitError('Cannot update milestone.');
+          return;
+        }
         await onUpdateMilestone(editingMilestone, payload);
       } else if (onCreateMilestone) {
         await onCreateMilestone(payload);
@@ -219,8 +226,8 @@ export const MatterMilestonesPanel = ({
                   <div className="text-sm font-semibold text-gray-900 dark:text-white">
                     {formatCurrency(milestone.amount ?? 0)}
                   </div>
-                  {canEdit ? (
-                    <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1">
+                    {canEdit && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -228,6 +235,8 @@ export const MatterMilestonesPanel = ({
                         onClick={() => openEditForm(milestone)}
                         aria-label="Edit milestone"
                       />
+                    )}
+                    {canDelete && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -235,8 +244,8 @@ export const MatterMilestonesPanel = ({
                         onClick={() => confirmDelete(milestone)}
                         aria-label="Delete milestone"
                       />
-                    </div>
-                  ) : null}
+                    )}
+                  </div>
                   {canReorder ? (
                     <div className="flex items-center gap-1">
                       <Button
@@ -280,7 +289,12 @@ export const MatterMilestonesPanel = ({
             <CurrencyInput
               label="Amount"
               value={formState.amount}
-              onChange={(value) => setFormState((prev) => ({ ...prev, amount: value }))}
+              onChange={(value) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  amount: typeof value === 'number' ? asMajor(value) : undefined
+                }))
+              }
               required
               min={0}
               step={0.01}

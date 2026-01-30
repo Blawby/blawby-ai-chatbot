@@ -24,6 +24,7 @@ import {
 } from '@/shared/lib/apiClient';
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -88,7 +89,7 @@ export interface Practice {
   description?: string;
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
-  consultationFee: number | null;
+  consultationFee: MajorAmount | null;
   paymentUrl: string | null;
   subscriptionTier?: 'free' | 'plus' | 'business' | 'enterprise' | null;
   seats?: number | null;
@@ -161,7 +162,7 @@ export interface UpdatePracticeData {
   description?: string;
   businessPhone?: string;
   businessEmail?: string;
-  consultationFee?: number | null;
+  consultationFee?: MajorAmount | null;
   logo?: string;
   metadata?: Record<string, unknown>;
 }
@@ -421,10 +422,10 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     consultationFee: (() => {
       const val = raw.consultationFee ?? raw.consultation_fee ?? null;
       if (val === null) return null;
-      if (typeof val === 'number' && Number.isFinite(val)) return val;
+      if (typeof val === 'number' && Number.isFinite(val)) return asMajor(val);
       if (typeof val === 'string' && val.trim().length > 0) {
         const num = Number(val);
-        return Number.isFinite(num) ? num : null;
+        return Number.isFinite(num) ? asMajor(num) : null;
       }
       return null;
     })(),

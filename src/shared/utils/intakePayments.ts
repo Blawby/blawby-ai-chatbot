@@ -1,10 +1,11 @@
 import { getPracticeClientIntakeStatusEndpoint } from '@/config/api';
+import { assertMinorUnits, type MinorAmount } from '@/shared/utils/money';
 
 export type IntakePaymentRequest = {
   intakeUuid?: string;
   clientSecret?: string;
   paymentLinkUrl?: string;
-  amount?: number;
+  amount?: MinorAmount;
   currency?: string;
   practiceName?: string;
   practiceLogo?: string;
@@ -68,6 +69,7 @@ export const buildIntakePaymentUrl = (
   }
 
   if (typeof request.amount === 'number' && Number.isFinite(request.amount)) {
+    assertMinorUnits(request.amount, 'intake.payment.amount');
     params.set('amount', String(request.amount));
   }
 

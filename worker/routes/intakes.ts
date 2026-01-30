@@ -8,6 +8,7 @@ import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { NotificationService } from '../services/NotificationService.js';
 import { enqueueNotification, getAdminRecipients } from '../services/NotificationPublisher.js';
+import { warnIfNotMinorUnits } from '../utils/money.js';
 
 const PAID_STATUSES = new Set(['succeeded', 'paid', 'complete', 'completed']);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -215,6 +216,9 @@ export async function handleIntakes(request: Request, env: Env): Promise<Respons
     }
 
     const amount = typeof intakeStatus.amount === 'number' ? intakeStatus.amount : null;
+    if (amount !== null) {
+      warnIfNotMinorUnits(amount, 'intake.status.amount');
+    }
     const currency = typeof intakeStatus.currency === 'string' ? intakeStatus.currency : null;
 
     const matterId = crypto.randomUUID();

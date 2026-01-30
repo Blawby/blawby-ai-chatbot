@@ -11,7 +11,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { toMinorUnitsValue } from '@/shared/utils/moneyNormalization';
+import { asMajor, asMinor, toMinorUnitsValue, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Switch } from '@/shared/ui/input';
 import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
@@ -49,7 +49,7 @@ export const PracticePricingPage = () => {
   const [modelTab, setModelTab] = useState<PricingModelTab>('intake-fees');
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
   const [feeEnabledDraft, setFeeEnabledDraft] = useState(false);
-  const [feeDraft, setFeeDraft] = useState<number | undefined>(undefined);
+  const [feeDraft, setFeeDraft] = useState<MajorAmount | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const checkoutPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -85,7 +85,7 @@ export const PracticePricingPage = () => {
   const stripeReady = stripeStatus === 'completed' || stripeStatus === 'not_required';
   const practiceName = currentPractice?.name || 'your practice';
   const previewPaymentRequest = useMemo<IntakePaymentRequest>(() => ({
-    amount: toMinorUnitsValue(previewAmount) ?? 0,
+    amount: toMinorUnitsValue(previewAmount) ?? asMinor(0),
     currency: 'USD',
     clientSecret: 'preview',
     practiceName
@@ -680,7 +680,7 @@ export const PracticePricingPage = () => {
             <CurrencyInput
               label="Fee amount"
               value={feeDraft}
-              onChange={setFeeDraft}
+              onChange={(value) => setFeeDraft(typeof value === 'number' ? asMajor(value) : undefined)}
               placeholder="150.00"
               disabled={!canEdit || isSaving}
               step={0.01}

@@ -1,6 +1,13 @@
 import axios from 'axios';
 import { apiClient } from '@/shared/lib/apiClient';
-import { toMajorUnits, toMinorUnitsValue } from '@/shared/utils/moneyNormalization';
+import {
+  toMajorUnits,
+  toMinorUnitsValue,
+  assertMajorUnits,
+  assertMinorUnits,
+  type MajorAmount,
+  type MinorAmount
+} from '@/shared/utils/money';
 
 export type BackendMatter = {
   id: string;
@@ -9,12 +16,12 @@ export type BackendMatter = {
   title?: string | null;
   description?: string | null;
   billing_type?: 'hourly' | 'fixed' | 'contingency' | string | null;
-  total_fixed_price?: number | null;
+  total_fixed_price?: MajorAmount | null;
   contingency_percentage?: number | null;
-  settlement_amount?: number | null;
+  settlement_amount?: MajorAmount | null;
   practice_service_id?: string | null;
-  admin_hourly_rate?: number | null;
-  attorney_hourly_rate?: number | null;
+  admin_hourly_rate?: MajorAmount | null;
+  attorney_hourly_rate?: MajorAmount | null;
   payment_frequency?: 'project' | 'milestone' | string | null;
   status?: string | null;
   deleted_at?: string | null;
@@ -69,7 +76,7 @@ export type BackendMatterExpense = {
   id: string;
   matter_id: string;
   description?: string | null;
-  amount?: number | null;
+  amount?: MajorAmount | null;
   date?: string | null;
   billable?: boolean | null;
   created_at?: string | null;
@@ -80,7 +87,7 @@ export type BackendMatterMilestone = {
   id: string;
   matter_id: string;
   description?: string | null;
-  amount?: number | null;
+  amount?: MajorAmount | null;
   due_date?: string | null;
   status?: string | null;
   order?: number | null;
@@ -94,17 +101,43 @@ type FetchOptions = {
 
 const normalizeMatter = (matter: BackendMatter): BackendMatter => ({
   ...matter,
-  total_fixed_price: toMajorUnits(matter.total_fixed_price ?? null),
-  settlement_amount: toMajorUnits(matter.settlement_amount ?? null),
-  admin_hourly_rate: toMajorUnits(matter.admin_hourly_rate ?? null),
-  attorney_hourly_rate: toMajorUnits(matter.attorney_hourly_rate ?? null),
+  total_fixed_price: (() => {
+    if (typeof matter.total_fixed_price === 'number') {
+      assertMinorUnits(matter.total_fixed_price, 'matter.total_fixed_price');
+    }
+    return toMajorUnits(matter.total_fixed_price ?? null);
+  })(),
+  settlement_amount: (() => {
+    if (typeof matter.settlement_amount === 'number') {
+      assertMinorUnits(matter.settlement_amount, 'matter.settlement_amount');
+    }
+    return toMajorUnits(matter.settlement_amount ?? null);
+  })(),
+  admin_hourly_rate: (() => {
+    if (typeof matter.admin_hourly_rate === 'number') {
+      assertMinorUnits(matter.admin_hourly_rate, 'matter.admin_hourly_rate');
+    }
+    return toMajorUnits(matter.admin_hourly_rate ?? null);
+  })(),
+  attorney_hourly_rate: (() => {
+    if (typeof matter.attorney_hourly_rate === 'number') {
+      assertMinorUnits(matter.attorney_hourly_rate, 'matter.attorney_hourly_rate');
+    }
+    return toMajorUnits(matter.attorney_hourly_rate ?? null);
+  })(),
   milestones: Array.isArray(matter.milestones)
     ? matter.milestones.map((item) => {
       if (!item || typeof item !== 'object') return item;
       const record = item as Record<string, unknown>;
       return {
         ...record,
-        amount: typeof record.amount === 'number' ? toMajorUnits(record.amount) : record.amount
+        amount: (() => {
+          if (typeof record.amount === 'number') {
+            assertMinorUnits(record.amount, 'matter.milestone.amount');
+            return toMajorUnits(record.amount);
+          }
+          return record.amount;
+        })()
       };
     })
     : matter.milestones
@@ -115,6 +148,7 @@ const normalizeMatterPayload = (payload: Record<string, unknown>) => {
   (['total_fixed_price', 'settlement_amount', 'admin_hourly_rate', 'attorney_hourly_rate'] as const).forEach((key) => {
     const value = normalized[key];
     if (typeof value === 'number' && Number.isFinite(value)) {
+      assertMajorUnits(value, `matter.${key}`);
       normalized[key] = toMinorUnitsValue(value);
     }
   });
@@ -124,6 +158,7 @@ const normalizeMatterPayload = (payload: Record<string, unknown>) => {
       const record = milestone as Record<string, unknown>;
       const amount = record.amount;
       if (typeof amount === 'number' && Number.isFinite(amount)) {
+        assertMajorUnits(amount, 'matter.milestones.amount');
         return { ...record, amount: toMinorUnitsValue(amount) };
       }
       return record;
@@ -134,33 +169,43 @@ const normalizeMatterPayload = (payload: Record<string, unknown>) => {
 
 const normalizeExpense = (expense: BackendMatterExpense): BackendMatterExpense => ({
   ...expense,
-  amount: toMajorUnits(expense.amount ?? null)
+  amount: (() => {
+    if (typeof expense.amount === 'number') {
+      assertMinorUnits(expense.amount, 'matter.expense.amount');
+    }
+    return toMajorUnits(expense.amount ?? null);
+  })()
 });
 
 const normalizeExpensePayload = (payload: {
   description: string;
-  amount: number;
+  amount: MajorAmount;
   date: string;
   billable?: boolean;
 }) => ({
   ...payload,
-  amount: toMinorUnitsValue(payload.amount) as number
+  amount: toMinorUnitsValue(payload.amount) as MinorAmount
 });
 
 const normalizeMilestone = (milestone: BackendMatterMilestone): BackendMatterMilestone => ({
   ...milestone,
-  amount: toMajorUnits(milestone.amount ?? null)
+  amount: (() => {
+    if (typeof milestone.amount === 'number') {
+      assertMinorUnits(milestone.amount, 'matter.milestone.amount');
+    }
+    return toMajorUnits(milestone.amount ?? null);
+  })()
 });
 
 const normalizeMilestonePayload = (payload: {
   description: string;
-  amount: number;
+  amount: MajorAmount;
   due_date: string;
   status?: string;
   order?: number;
 }) => ({
   ...payload,
-  amount: toMinorUnitsValue(payload.amount) as number
+  amount: toMinorUnitsValue(payload.amount) as MinorAmount
 });
 
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -673,7 +718,7 @@ export const createMatterExpense = async (
   matterId: string,
   payload: {
     description: string;
-    amount: number;
+    amount: MajorAmount;
     date: string;
     billable?: boolean;
   },
@@ -715,7 +760,7 @@ export const updateMatterExpense = async (
   expenseId: string,
   payload: {
     description: string;
-    amount: number;
+    amount: MajorAmount;
     date: string;
     billable?: boolean;
   },
@@ -793,7 +838,7 @@ export const createMatterMilestone = async (
   matterId: string,
   payload: {
     description: string;
-    amount: number;
+    amount: MajorAmount;
     due_date: string;
     status?: string;
     order?: number;
@@ -836,7 +881,7 @@ export const updateMatterMilestone = async (
   milestoneId: string,
   payload: {
     description: string;
-    amount: number;
+    amount: MajorAmount;
     due_date: string;
     status?: string;
     order?: number;

@@ -1,4 +1,5 @@
 import type { PracticeDetailsUpdate, UpdatePracticeRequest } from '@/shared/lib/apiClient';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 export type PracticeProfileInput = {
   name?: string | null;
@@ -6,7 +7,7 @@ export type PracticeProfileInput = {
   logo?: string | null;
   businessEmail?: string | null;
   businessPhone?: string | null;
-  consultationFee?: number | null;
+  consultationFee?: MajorAmount | null;
   description?: string | null;
   website?: string | null;
   addressLine1?: string | null;
@@ -41,10 +42,10 @@ const normalizeOptionalText = (value: unknown): string | null | undefined => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const normalizeNumber = (value: unknown): number | null | undefined => {
+const normalizeNumber = (value: unknown): MajorAmount | null | undefined => {
   if (value === undefined) return undefined;
   if (value === null) return null;
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value) ? asMajor(value) : undefined;
 };
 
 const shouldInclude = (next: unknown, current: unknown): boolean => {

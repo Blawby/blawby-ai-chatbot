@@ -7,7 +7,13 @@ import {
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
 import { getWorkerApiUrl } from '@/config/urls';
-import { toMajorUnits, toMinorUnitsValue } from '@/shared/utils/moneyNormalization';
+import {
+  toMajorUnits,
+  toMinorUnitsValue,
+  assertMajorUnits,
+  assertMinorUnits,
+  type MajorAmount
+} from '@/shared/utils/money';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -73,7 +79,7 @@ export interface Practice {
   metadata?: PracticeMetadata;
   businessPhone: string | null;
   businessEmail: string | null;
-  consultationFee: number | null; // Major currency units (e.g., USD dollars).
+  consultationFee: MajorAmount | null; // Major currency units (e.g., USD dollars).
   paymentUrl: string | null;
   calendlyUrl: string | null;
   createdAt?: string | null;
@@ -120,7 +126,7 @@ export interface CreatePracticeRequest {
   metadata?: PracticeMetadata;
   businessPhone?: string;
   businessEmail?: string;
-  consultationFee?: number;
+  consultationFee?: MajorAmount;
   paymentUrl?: string;
   calendlyUrl?: string;
 }
@@ -130,7 +136,7 @@ export type UpdatePracticeRequest = Partial<CreatePracticeRequest>;
 export interface PracticeDetailsUpdate {
   businessPhone?: string | null;
   businessEmail?: string | null;
-  consultationFee?: number | null;
+  consultationFee?: MajorAmount | null;
   paymentUrl?: string | null;
   calendlyUrl?: string | null;
   website?: string | null;
@@ -151,7 +157,7 @@ export interface PracticeDetailsUpdate {
 export interface PracticeDetails {
   businessPhone?: string | null;
   businessEmail?: string | null;
-  consultationFee?: number | null;
+  consultationFee?: MajorAmount | null;
   paymentUrl?: string | null;
   calendlyUrl?: string | null;
   website?: string | null;
@@ -328,9 +334,12 @@ function normalizePracticePayload(payload: unknown): Practice {
     metadata: isRecord(record.metadata) ? record.metadata : undefined,
     businessPhone: toNullableString(record.businessPhone ?? record.business_phone),
     businessEmail: toNullableString(record.businessEmail ?? record.business_email),
-    consultationFee: typeof (record.consultationFee ?? record.consultation_fee) === 'number'
-      ? toMajorUnits(Number(record.consultationFee ?? record.consultation_fee))
-      : null,
+    consultationFee: (() => {
+      const rawFee = record.consultationFee ?? record.consultation_fee;
+      if (typeof rawFee !== 'number') return null;
+      assertMinorUnits(rawFee, 'practice.consultationFee');
+      return toMajorUnits(Number(rawFee));
+    })(),
     paymentUrl: toNullableString(record.paymentUrl ?? record.payment_url),
     calendlyUrl: toNullableString(record.calendlyUrl ?? record.calendly_url),
     createdAt: toNullableString(record.createdAt ?? record.created_at),
@@ -738,6 +747,9 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
     normalized.business_phone = payload.businessPhone;
   }
   if ('consultationFee' in payload && payload.consultationFee !== undefined) {
+    if (typeof payload.consultationFee === 'number') {
+      assertMajorUnits(payload.consultationFee, 'practice.consultationFee');
+    }
     normalized.consultation_fee = toMinorUnitsValue(payload.consultationFee ?? null);
   }
   if ('paymentUrl' in payload && payload.paymentUrl !== undefined) {
@@ -829,6 +841,9 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   const businessPhone = normalizeTextOrNull(payload.businessPhone);
   if (businessPhone !== undefined) normalized.business_phone = businessPhone;
   if ('consultationFee' in payload && payload.consultationFee !== undefined) {
+    if (typeof payload.consultationFee === 'number') {
+      assertMajorUnits(payload.consultationFee, 'practice.consultationFee');
+    }
     normalized.consultation_fee = toMinorUnitsValue(payload.consultationFee ?? null);
   }
   const paymentUrl = normalizeTextOrNull(payload.paymentUrl);
@@ -960,7 +975,11 @@ function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | n
     consultationFee: (() => {
       if ('consultation_fee' in container || 'consultationFee' in container) {
         const value = container.consultation_fee ?? container.consultationFee;
-        return typeof value === 'number' ? toMajorUnits(value) : null;
+        if (typeof value === 'number') {
+          assertMinorUnits(value, 'practice.details.consultationFee');
+          return toMajorUnits(value);
+        }
+        return null;
       }
       return undefined;
     })(),

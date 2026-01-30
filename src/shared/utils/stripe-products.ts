@@ -1,4 +1,4 @@
-import { toMajorUnits } from './moneyNormalization';
+import { toMajorUnits, type MinorAmount } from './money';
 
 export const PRODUCTS = {
   business: {
@@ -12,7 +12,7 @@ export const PRODUCTS = {
 export const PRICES = {
   monthly: {
     product: PRODUCTS.business.id,
-    unit_amount: 4000, // $40 in cents
+    unit_amount: 4000 as MinorAmount, // $40 in cents
     currency: 'usd',
     recurring: {
       interval: 'month' as const,
@@ -21,7 +21,7 @@ export const PRICES = {
   },
   annual: {
     product: PRODUCTS.business.id,
-    unit_amount: 42000, // $420 in cents
+    unit_amount: 42000 as MinorAmount, // $420 in cents
     currency: 'usd',
     recurring: {
       interval: 'year' as const,
@@ -74,7 +74,7 @@ export function getTierDisplayName(tier: 'free' | 'business' | 'plus' | 'enterpr
 }
 
 export function formatPriceCents(
-  amountCents: number, 
+  amountCents: MinorAmount, 
   locale: string = 'en',
   currency: string = 'USD'
 ): string {

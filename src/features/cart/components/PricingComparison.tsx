@@ -2,7 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { getBusinessPrices, PRICES } from '@/shared/utils/stripe-products';
 import { buildPriceDisplay } from '@/shared/utils/currencyFormatter';
-import { toMajorUnits } from '@/shared/utils/moneyNormalization';
+import { toMajorUnits } from '@/shared/utils/money';
 import { type SubscriptionTier } from '@/shared/types/user';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';

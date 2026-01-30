@@ -6,11 +6,11 @@ import { Button } from '@/shared/ui/Button';
 import { getConversationWsEndpoint, getIntakeConfirmEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import { useNavigation } from '@/shared/utils/navigation';
-import { toMajorUnits } from '@/shared/utils/moneyNormalization';
+import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
 
 interface IntakePaymentFormProps {
   practiceName: string;
-  amount?: number;
+  amount?: MinorAmount;
   currency?: string;
   intakeUuid?: string;
   practiceId?: string;

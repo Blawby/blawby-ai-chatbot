@@ -1,4 +1,4 @@
-
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
@@ -39,6 +39,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import {
   createMatter,
   getMatter,
@@ -186,7 +187,7 @@ const mapMilestones = (milestones?: BackendMatter['milestones']): MatterDetail['
       return {
         description: `Milestone ${index + 1}`,
         dueDate: '',
-        amount: 0
+        amount: asMajor(0)
       };
     }
     const record = item as Record<string, unknown>;
@@ -197,7 +198,7 @@ const mapMilestones = (milestones?: BackendMatter['milestones']): MatterDetail['
         : typeof record.dueDate === 'string'
           ? record.dueDate
           : '',
-      amount: typeof record.amount === 'number' ? record.amount : 0
+      amount: typeof record.amount === 'number' ? asMajor(record.amount) : asMajor(0)
     };
   });
 };
@@ -221,10 +222,16 @@ const toMatterDetail = (matter: BackendMatter): MatterDetail => ({
   assigneeIds: extractAssigneeIds(matter),
   description: matter.description || '',
   billingType: (matter.billing_type as MatterDetail['billingType']) || 'hourly',
-  attorneyHourlyRate: matter.attorney_hourly_rate ?? undefined,
-  adminHourlyRate: matter.admin_hourly_rate ?? undefined,
+  attorneyHourlyRate: typeof matter.attorney_hourly_rate === 'number'
+    ? asMajor(matter.attorney_hourly_rate)
+    : undefined,
+  adminHourlyRate: typeof matter.admin_hourly_rate === 'number'
+    ? asMajor(matter.admin_hourly_rate)
+    : undefined,
   paymentFrequency: (matter.payment_frequency as MatterDetail['paymentFrequency']) ?? undefined,
-  totalFixedPrice: matter.total_fixed_price ?? undefined,
+  totalFixedPrice: typeof matter.total_fixed_price === 'number'
+    ? asMajor(matter.total_fixed_price)
+    : undefined,
   milestones: mapMilestones(matter.milestones),
   contingencyPercent: matter.contingency_percentage ?? undefined,
   timeEntries: [],
@@ -283,7 +290,7 @@ const toTimeEntry = (entry: BackendMatterTimeEntry): TimeEntry => ({
 const toExpense = (expense: BackendMatterExpense): MatterExpense => ({
   id: expense.id,
   description: expense.description ?? 'Expense',
-  amount: expense.amount ?? 0,
+  amount: asMajor(expense.amount ?? 0),
   date: expense.date ?? new Date().toISOString().slice(0, 10),
   billable: expense.billable ?? true
 });
@@ -291,7 +298,7 @@ const toExpense = (expense: BackendMatterExpense): MatterExpense => ({
 const toMilestone = (milestone: BackendMatterMilestone): MatterDetail['milestones'][number] => ({
   id: milestone.id,
   description: milestone.description ?? 'Milestone',
-  amount: milestone.amount ?? 0,
+  amount: asMajor(milestone.amount ?? 0),
   dueDate: milestone.due_date ?? '',
   status: ((): MatterDetail['milestones'][number]['status'] => {
     const status = milestone.status ?? undefined;
@@ -717,7 +724,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     return () => controller.abort();
   }, [activePracticeId, selectedMatterId]);
 
-  const handleCreateMilestone = useCallback(async (values: { description: string; amount: number; dueDate: string; status?: string }) => {
+  const handleCreateMilestone = useCallback(async (values: { description: string; amount: MajorAmount; dueDate: string; status?: string }) => {
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
     }
@@ -744,7 +751,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
 
   const handleUpdateMilestone = useCallback(async (
     milestone: MatterDetail['milestones'][number],
-    values: { description: string; amount: number; dueDate: string; status?: string }
+    values: { description: string; amount: MajorAmount; dueDate: string; status?: string }
   ) => {
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
@@ -847,7 +854,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     setNotes((prev) => prev.filter((item) => item.id !== note.id));
   }, [activePracticeId, selectedMatterId]);
 
-  const handleCreateExpense = useCallback(async (values: { description: string; amount: number | undefined; date: string; billable: boolean }) => {
+  const handleCreateExpense = useCallback(async (values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
     }
@@ -868,7 +875,7 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
     }
   }, [activePracticeId, selectedMatterId]);
 
-  const handleUpdateExpense = useCallback(async (expense: MatterExpense, values: { description: string; amount: number | undefined; date: string; billable: boolean }) => {
+  const handleUpdateExpense = useCallback(async (expense: MatterExpense, values: { description: string; amount: MajorAmount | undefined; date: string; billable: boolean }) => {
     if (!activePracticeId || !selectedMatterId) {
       throw new Error('Practice ID and matter ID are required');
     }
@@ -950,15 +957,18 @@ export const PracticeMattersPage = ({ basePath = '/practice/matters' }: Practice
       throw new Error('Practice ID is required to create a matter.');
     }
 
+    const isUuid = (value: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
     const payload: Record<string, unknown> = {
       title: values.title.trim(),
-      client_id: values.clientId || null,
+      client_id: values.clientId && isUuid(values.clientId) ? values.clientId : null,
       description: values.description || null,
       billing_type: values.billingType,
       total_fixed_price: values.totalFixedPrice ?? null,
       contingency_percentage: values.contingencyPercent ?? null,
       settlement_amount: null,
-      practice_service_id: values.practiceAreaId || null,
+      practice_service_id: values.practiceAreaId && isUuid(values.practiceAreaId) ? values.practiceAreaId : null,
       admin_hourly_rate: values.adminHourlyRate ?? null,
       attorney_hourly_rate: values.attorneyHourlyRate ?? null,
       payment_frequency: values.paymentFrequency ?? null,

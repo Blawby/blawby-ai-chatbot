@@ -1,5 +1,5 @@
 import { apiClient } from '@/shared/lib/apiClient';
-import { toMajorUnits } from '@/shared/utils/moneyNormalization';
+import { toMajorUnits, assertMinorUnits } from '@/shared/utils/money';
 
 export interface SubscriptionPlan {
   id: string;
@@ -29,12 +29,14 @@ export interface SubscriptionPlan {
 
 const normalizePlanAmount = (value: unknown): string => {
   if (typeof value === 'number' && Number.isFinite(value)) {
+    assertMinorUnits(value, 'subscription.plan.price');
     const major = toMajorUnits(value);
     return typeof major === 'number' ? major.toFixed(2) : String(value);
   }
   if (typeof value === 'string' && value.trim().length > 0) {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) {
+      assertMinorUnits(parsed, 'subscription.plan.price');
       const major = toMajorUnits(parsed);
       return typeof major === 'number' ? major.toFixed(2) : value;
     }
@@ -58,7 +60,8 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
       yearlyPrice: (() => {
         const rawYearly = record.yearly_price ?? record.yearlyPrice;
         if (rawYearly === null || rawYearly === undefined) return null;
-        return normalizePlanAmount(rawYearly);
+        const normalized = normalizePlanAmount(rawYearly);
+        return normalized || null;
       })(),
       currency: (record.currency || 'usd') as string,
       features: (record.features || []) as string[],
