@@ -164,35 +164,50 @@
     }
   },
   "businessWelcome": {
-    "title": "ビジネスへようこそ！",
-    "subtitle": "あなたの事務所がアップグレードされました。今できることは次のとおりです：",
+    "title": "ビジネス事務所へようこそ！",
+    "subtitle": "組織を拡大する準備が整いました。利用可能なツールは次のとおりです：",
     "features": {
-      "teamManagement": {
-        "title": "チーム管理",
-        "description": "メンバーを招待"
+      "intake": {
+        "title": "クライアント受付",
+        "description": "公開リンクを共有して、自動化された受付フォームを受け入れ、新しい見込み客を簡単に獲得できます。"
       },
-      "practiceSettings": {
-        "title": "事務所設定",
-        "description": "事務所を設定"
+      "messaging": {
+        "title": "クライアントメッセージング",
+        "description": "安全なインターフェースを通じてクライアントに直接メッセージを送り、案件の進捗を常に共有できます。"
       },
-      "apiAccess": {
-        "title": "APIアクセス",
-        "description": "トークンを生成"
+      "matters": {
+        "title": "案件管理",
+        "description": "1つのワークスペースから案件の詳細を整理し、法的文書を保存し、マイルストーンを追跡できます。"
+      },
+      "billing": {
+        "title": "請求と財務",
+        "description": "カスタム請求プランを設定し、Stripe を通じて支払いと送金を安全に管理できます。"
       }
     },
     "goToSettings": "事務所設定に移動"
   },
   "welcome": {
     "lawyer": {
-      "title": "Blawbyへようこそ",
-      "subtitle": "クライアントの受付を開始するために事務所を設定しましょう",
-      "getStarted": "開始する",
-      "todo": {
-        "createPractice": "事務所プロフィールを作成",
-        "businessDetails": "事業情報を設定",
-        "trustAccount": "信託口座を接続",
-        "services": "サービスを追加",
-        "launch": "受付アシスタントを起動"
+      "title": "ようこそ",
+      "subtitle": "事務所を設定して、クライアントの受付と管理を開始しましょう。",
+      "getStarted": "開始する"
+    },
+    "client": {
+      "title": "リーガルポータルへようこそ",
+      "subtitle": "法的状況を管理するために必要なすべてが、1つの安全な場所に揃っています。",
+      "tips": {
+        "messaging": {
+          "title": "弁護士にメッセージを送信",
+          "description": "法的チームと直接連絡を取り、質問したり、最新情報を即座に共有したりできます。"
+        },
+        "matters": {
+          "title": "案件を管理",
+          "description": "案件文書にアクセスし、マイルストーンを確認し、法的事務の進捗を監視できます。"
+        },
+        "payments": {
+          "title": "安全な支払い",
+          "description": "統合された Stripe ポータルを通じて、着手金や請求書の支払いを直接行えます。"
+        }
       }
     }
   },

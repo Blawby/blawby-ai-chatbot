@@ -165,15 +165,26 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Blawby’ye Hoş Geldiniz",
-      "subtitle": "Müvekkil taleplerini almaya başlamak için ofisinizi kurun",
-      "getStarted": "Başlayın",
-      "todo": {
-        "createPractice": "Ofis profili oluştur",
-        "businessDetails": "İş bilgilerini ayarla",
-        "trustAccount": "Emanet hesabını bağla",
-        "services": "Hizmet ekle",
-        "launch": "Alım asistanını başlat"
+      "title": "Hoş Geldiniz, Sayın Avukat",
+      "subtitle": "Müvekkil başvurularını almaya ve yönetmeye başlamak için ofisinizi kurun.",
+      "getStarted": "Başlayın"
+    },
+    "client": {
+      "title": "Hukuk Portalınıza Hoş Geldiniz",
+      "subtitle": "Hukuki durumunuzu yönetmek için ihtiyacınız olan her şey tek bir güvenli yerde.",
+      "tips": {
+        "messaging": {
+          "title": "Avukatlarınıza Mesaj Gönderin",
+          "description": "Anında soru sormak ve gelişmeleri paylaşmak için hukuk ekibinizle doğrudan iletişim kurun."
+        },
+        "matters": {
+          "title": "Dosyanızı Yönetin",
+          "description": "Dosya belgelerinize erişin, dönüm noktalarını görüntüleyin ve hukuki süreçlerinizin ilerlemesini takip edin."
+        },
+        "payments": {
+          "title": "Güvenli Ödemeler",
+          "description": "Entegre Stripe portalımız üzerinden avukatlık ücretlerini ve faturaları doğrudan ödeyin."
+        }
       }
     }
   },
@@ -210,5 +221,28 @@
       "activeNow": "Şimdi aktif",
       "back": "Geri"
     }
+  },
+  "businessWelcome": {
+    "title": "Business Ofisinize Hoş Geldiniz!",
+    "subtitle": "Organizasyonunuz artık büyümeye hazır. İşte elinizin altındaki araçlar:",
+    "features": {
+      "intake": {
+        "title": "Müvekkil Kabulü",
+        "description": "Otomatik kabul formlarını almak ve zahmetsizce yeni potansiyel müvekkiller kazanmak için genel bağlantınızı paylaşın."
+      },
+      "messaging": {
+        "title": "Müvekkil Mesajlaşma",
+        "description": "Müvekkillerinizi dosyaları hakkında bilgilendirmek için güvenli arayüzümüz üzerinden onlara doğrudan mesaj gönderin."
+      },
+      "matters": {
+        "title": "Dosya Yönetimi",
+        "description": "Dosya ayrıntılarını düzenleyin, hukuki belgeleri saklayın ve dönüm noktalarını tek bir çalışma alanından izleyin."
+      },
+      "billing": {
+        "title": "Faturalandırma ve Finans",
+        "description": "Özel faturalandırma planları oluşturun ve Stripe üzerinden ödemeleri ve transferleri güvenli bir şekilde yönetin."
+      }
+    },
+    "goToSettings": "Ofis Ayarlarına Git"
   }
 }

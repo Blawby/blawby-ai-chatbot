@@ -165,15 +165,26 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Witamy w Blawby",
-      "subtitle": "Skonfiguruj swoją kancelarię, aby otrzymywać zgłoszenia klientów",
-      "getStarted": "Rozpocznij",
-      "todo": {
-        "createPractice": "Utwórz profil kancelarii",
-        "businessDetails": "Skonfiguruj dane firmy",
-        "trustAccount": "Połącz konto powiernicze",
-        "services": "Dodaj usługi",
-        "launch": "Uruchom asystenta przyjmowania zgłoszeń"
+      "title": "Witaj, Panie Mecenasie",
+      "subtitle": "Skonfiguruj swoją kancelarię, aby zacząć przyjmować i zarządzać zgłoszeniami klientów.",
+      "getStarted": "Rozpocznij"
+    },
+    "client": {
+      "title": "Witaj w Twoim Portalu Prawnym",
+      "subtitle": "Wszystko, czego potrzebujesz do zarządzania swoją sytuacją prawną w jednym bezpiecznym miejscu.",
+      "tips": {
+        "messaging": {
+          "title": "Wiadomości do Twoich prawników",
+          "description": "Komunikuj się bezpośrednio ze swoim zespołem prawnym, zadawaj pytania i natychmiast udostępniaj aktualizacje."
+        },
+        "matters": {
+          "title": "Zarządzaj swoją sprawą",
+          "description": "Uzyskaj dostęp do dokumentów sprawy, przeglądaj etapy realizacji i monitoruj postępy w swoich sprawach prawnych."
+        },
+        "payments": {
+          "title": "Bezpieczne płatności",
+          "description": "Opłacaj zaliczki i reguluj faktury bezpośrednio przez nasz zintegrowany portal Stripe."
+        }
       }
     }
   },
@@ -210,5 +221,28 @@
       "activeNow": "Aktywny teraz",
       "back": "Wstecz"
     }
+  },
+  "businessWelcome": {
+    "title": "Witaj w Twojej kancelarii Business!",
+    "subtitle": "Twoja organizacja jest gotowa na rozwój. Oto narzędzia, które masz do dyspozycji:",
+    "features": {
+      "intake": {
+        "title": "Przyjmowanie klientów",
+        "description": "Udostępnij swój publiczny link, aby przyjmować automatyczne formularze zgłoszeniowe i bez wysiłku pozyskiwać nowych klientów."
+      },
+      "messaging": {
+        "title": "Komunikacja z klientami",
+        "description": "Wysyłaj wiadomości do swoich klientów bezpośrednio przez nasz bezpieczny interfejs, aby na bieżąco informować ich o przebiegu sprawy."
+      },
+      "matters": {
+        "title": "Zarządzanie sprawami",
+        "description": "Organizuj szczegóły spraw, przechowuj dokumenty prawne i śledź etapy realizacji z poziomu jednego obszaru roboczego."
+      },
+      "billing": {
+        "title": "Rozliczenia i finanse",
+        "description": "Konfiguruj niestandardowe plany rozliczeniowe oraz bezpiecznie zarządzaj płatnościami i wypłatami przez Stripe."
+      }
+    },
+    "goToSettings": "Przejdź do ustawień kancelarii"
   }
 }

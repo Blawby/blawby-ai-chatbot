@@ -164,35 +164,50 @@
     }
   },
   "businessWelcome": {
-    "title": "欢迎使用商业版！",
-    "subtitle": "您的律所已升级。现在您可以：",
+    "title": "欢迎来到您的商业律所！",
+    "subtitle": "您的组织现已准备好扩展。以下是您可以使用的工具：",
     "features": {
-      "teamManagement": {
-        "title": "团队管理",
-        "description": "邀请成员"
+      "intake": {
+        "title": "客户接案",
+        "description": "分享您的公开链接以接受自动接案表单，并轻松获取新客户。"
       },
-      "practiceSettings": {
-        "title": "律所设置",
-        "description": "配置您的律所"
+      "messaging": {
+        "title": "客户消息",
+        "description": "通过我们的安全界面直接联系客户，让他们了解案件的最新进展。"
       },
-      "apiAccess": {
-        "title": "API访问",
-        "description": "生成令牌"
+      "matters": {
+        "title": "案件管理",
+        "description": "从单一工作区组织案件细节、存储法律文件并跟踪进度里程碑。"
+      },
+      "billing": {
+        "title": "账单与财务",
+        "description": "设置自定义账单计划，并通过 Stripe 安全地管理付款和款项结算。"
       }
     },
     "goToSettings": "前往律所设置"
   },
   "welcome": {
     "lawyer": {
-      "title": "欢迎使用 Blawby",
-      "subtitle": "设置您的律所以开始接收客户咨询",
-      "getStarted": "开始使用",
-      "todo": {
-        "createPractice": "创建律所资料",
-        "businessDetails": "设置业务信息",
-        "trustAccount": "连接信托账户",
-        "services": "添加服务",
-        "launch": "启动接待助手"
+      "title": "欢迎，法律顾问",
+      "subtitle": "设置您的律所，开始接收和管理客户接案。",
+      "getStarted": "开始使用"
+    },
+    "client": {
+      "title": "欢迎来到您的法律门户",
+      "subtitle": "在一个安全的地方管理您法律事务所需的一切。",
+      "tips": {
+        "messaging": {
+          "title": "在线联系律师",
+          "description": "直接与您的法律团队沟通，实时提出问题并分享更新。"
+        },
+        "matters": {
+          "title": "管理您的案件",
+          "description": "访问案件文档、查看进度里程碑并监控法律事务的进展。"
+        },
+        "payments": {
+          "title": "安全支付",
+          "description": "通过我们集成的 Stripe 门户直接支付预付金和结算账单。"
+        }
       }
     }
   },

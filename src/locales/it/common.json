@@ -165,15 +165,26 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Benvenuto su Blawby",
-      "subtitle": "Configura il tuo studio per iniziare a ricevere richieste dai clienti",
-      "getStarted": "Inizia",
-      "todo": {
-        "createPractice": "Crea il profilo dello studio",
-        "businessDetails": "Configura i dettagli aziendali",
-        "trustAccount": "Collega il conto fiduciario",
-        "services": "Aggiungi servizi",
-        "launch": "Avvia l’assistente di intake"
+      "title": "Benvenuto, Avvocato",
+      "subtitle": "Configura il tuo studio per iniziare a ricevere e gestire le richieste dei clienti.",
+      "getStarted": "Inizia"
+    },
+    "client": {
+      "title": "Benvenuto nel tuo Portale Legale",
+      "subtitle": "Tutto ciò di cui hai bisogno per gestire la tua situazione legale in un unico luogo sicuro.",
+      "tips": {
+        "messaging": {
+          "title": "Messaggi per i tuoi avvocati",
+          "description": "Comunica direttamente con il tuo team legale per porre domande e condividere aggiornamenti istantaneamente."
+        },
+        "matters": {
+          "title": "Gestisci la tua pratica",
+          "description": "Accedi ai documenti del caso, visualizza le tappe fondamentali e monitora i progressi delle tue questioni legali."
+        },
+        "payments": {
+          "title": "Pagamenti sicuri",
+          "description": "Paga gli acconti e salda le fatture direttamente tramite il nostro portale Stripe integrato."
+        }
       }
     }
   },
@@ -210,5 +221,28 @@
       "activeNow": "Attivo ora",
       "back": "Indietro"
     }
+  },
+  "businessWelcome": {
+    "title": "Benvenuto nel tuo studio Business!",
+    "subtitle": "La tua organizzazione è pronta a crescere. Ecco gli strumenti a tua disposizione:",
+    "features": {
+      "intake": {
+        "title": "Ricezione clienti",
+        "description": "Condividi il tuo link pubblico per accettare moduli di ricezione automatizzati e acquisire nuovi contatti senza sforzo."
+      },
+      "messaging": {
+        "title": "Messaggistica clienti",
+        "description": "Invia messaggi ai tuoi clienti direttamente tramite la notre interfaccia sicura per tenerli aggiornati sulla loro pratica."
+      },
+      "matters": {
+        "title": "Gestione pratiche",
+        "description": "Organizza i dettagli delle pratiche, archivia documenti legali e monitora le scadenze da un unico spazio di lavoro."
+      },
+      "billing": {
+        "title": "Fatturazione e Finanza",
+        "description": "Imposta piani di fatturazione personalizzati e gestisci pagamenti e trasferimenti in modo sicuro tramite Stripe."
+      }
+    },
+    "goToSettings": "Vai alle impostazioni dello studio"
   }
 }

@@ -161,103 +161,55 @@
       "helpCenter": "Help Center",
       "letsGo": "Okay, let's go",
       "getStarted": "Get Started"
-    },
-    "businessDetails": {
-      "title": "Business Details",
-      "subtitle": "Tell us about your business",
-      "addressLine1Label": "Address Line 1",
-      "addressLine1Placeholder": "123 Main Street",
-      "addressLine2Label": "Address Line 2",
-      "addressLine2Placeholder": "Suite 100",
-      "cityLabel": "City",
-      "cityPlaceholder": "San Francisco",
-      "stateLabel": "State",
-      "statePlaceholder": "CA",
-      "postalCodeLabel": "Postal Code",
-      "postalCodePlaceholder": "94102",
-      "countryLabel": "Country",
-      "countryPlaceholder": "US",
-      "businessDescriptionLabel": "Overview",
-      "businessDescriptionPlaceholder": "Share a brief description of your practice.",
-      "nextButton": "Next",
-      "backButton": "Back"
-    },
-    "reviewAndLaunch": {
-      "title": "Review your business profile",
-      "sections": {
-        "firmInformation": "Firm Information",
-        "address": "Address",
-        "description": "Description",
-        "services": "Services"
-      },
-      "labels": {
-        "name": "Name",
-        "email": "Email",
-        "phone": "Phone",
-        "website": "Website"
-      },
-      "messages": {
-        "noServicesConfigured": "No services configured"
-      },
-      "visibility": {
-        "title": "Make workspace public",
-        "description": "When enabled, anyone can chat with your assistant and submit intake questions."
-      },
-      "launchFeatures": {
-        "title": "What happens when you launch",
-        "assistantAvailable": "Your AI assistant will be available at your intake page URL",
-        "clientsCanChat": "Clients can chat with your assistant and submit intake forms",
-        "notifications": "You'll receive notifications for new client submissions"
-      },
-      "actions": {
-        "launchAssistant": "Launch Assistant"
-      }
     }
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome to Blawby",
-      "subtitle": "Set up your practice to start receiving client intakes",
-      "getStarted": "Get Started",
-      "todo": {
-        "createPractice": "Add your firm basics",
-        "businessDetails": "Add your business info",
-        "trustAccount": "Connect Stripe",
-        "paymentDetails": "Add your payment details",
-        "services": "Add your services",
-        "launch": "Launch your intake assistant"
+      "title": "Welcome, Counselor",
+      "subtitle": "Set up your practice to start receiving and managing client intakes.",
+      "getStarted": "Get Started"
+    },
+    "client": {
+      "title": "Welcome to your Legal Portal",
+      "subtitle": "Everything you need to manage your legal situation in one secure place.",
+      "tips": {
+        "messaging": {
+          "title": "Message your Lawyers",
+          "description": "Communicate directly with your legal team to ask questions and share updates instantly."
+        },
+        "matters": {
+          "title": "Manage your Case",
+          "description": "Access case documents, view milestones, and monitor the progress of your legal matters."
+        },
+        "payments": {
+          "title": "Secure Payments",
+          "description": "Pay retainer fees and settle invoices directly via our integrated Stripe portal."
+        }
       }
     }
   },
   "businessWelcome": {
-    "title": "Welcome to Business!",
-    "subtitle": "Your practice has been upgraded. Here's what you can do now:",
+    "title": "Welcome to your Business Practice!",
+    "subtitle": "Your organization is now ready to scale. Here are the tools at your fingertips:",
     "features": {
-      "teamManagement": {
-        "title": "Team Management",
-        "description": "Invite members"
+      "intake": {
+        "title": "Client Intake",
+        "description": "Share your public link to accept automated intake forms and capture new leads effortlessly."
       },
-      "practiceSettings": {
-        "title": "Practice Settings",
-        "description": "Configure your practice"
+      "messaging": {
+        "title": "Client Messaging",
+        "description": "Message your clients directly through our secure interface to keep them updated on their case."
       },
-      "apiAccess": {
-        "title": "API Access",
-        "description": "Generate tokens"
+      "matters": {
+        "title": "Matter Management",
+        "description": "Organize case details, store legal documents, and track milestones from a single workspace."
+      },
+      "billing": {
+        "title": "Billing & Finance",
+        "description": "Set up custom billing plans and manage payments and payouts securely via Stripe."
       }
     },
     "goToSettings": "Go to Practice Settings"
-  },
-  "dashboard": {
-    "onboarding": {
-      "title": "Your next steps",
-      "subtitle": "Complete onboarding to start receiving client intakes.",
-      "continueAction": "Continue onboarding",
-      "open": "Open"
-    }
-  },
-  "common": {
-    "open": "Open"
   },
   "embed": {
     "home": {

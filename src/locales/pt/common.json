@@ -165,15 +165,26 @@
   },
   "welcome": {
     "lawyer": {
-      "title": "Bem-vindo ao Blawby",
-      "subtitle": "Configure seu escritório para começar a receber solicitações de clientes",
-      "getStarted": "Começar",
-      "todo": {
-        "createPractice": "Criar perfil do escritório",
-        "businessDetails": "Configurar detalhes do negócio",
-        "trustAccount": "Conectar conta fiduciária",
-        "services": "Adicionar serviços",
-        "launch": "Iniciar assistente de intake"
+      "title": "Bem-vindo, Dr(a).",
+      "subtitle": "Configure seu escritório para começar a receber e gerenciar admissões de clientes.",
+      "getStarted": "Começar"
+    },
+    "client": {
+      "title": "Bem-vindo ao seu Portal Jurídico",
+      "subtitle": "Tudo o que você precisa para gerenciar sua situação jurídica em um único local seguro.",
+      "tips": {
+        "messaging": {
+          "title": "Mensagens para seus advogados",
+          "description": "Comunique-se diretamente com sua equipe jurídica para tirar dúvidas e compartilhar atualizações instantaneamente."
+        },
+        "matters": {
+          "title": "Gerencie seu caso",
+          "description": "Acesse documentos do caso, visualize marcos e monitore o progresso de seus assuntos jurídicos."
+        },
+        "payments": {
+          "title": "Pagamentos seguros",
+          "description": "Pague adiantamentos e liquide faturas diretamente através de nosso portal Stripe integrado."
+        }
       }
     }
   },
@@ -210,5 +221,28 @@
       "activeNow": "Ativo agora",
       "back": "Voltar"
     }
+  },
+  "businessWelcome": {
+    "title": "Bem-vindo ao seu escritório Business!",
+    "subtitle": "Sua organização está pronta para crescer. Aqui estão as ferramentas ao seu alcance:",
+    "features": {
+      "intake": {
+        "title": "Admissão de clientes",
+        "description": "Compartilhe seu link público para aceitar formulários de admissão automatizados e captar novos leads sem esforço."
+      },
+      "messaging": {
+        "title": "Mensagens com clientes",
+        "description": "Envie mensagens aos seus clientes diretamente através de nossa interface segura para mantê-los atualizados sobre o caso."
+      },
+      "matters": {
+        "title": "Gestão de casos",
+        "description": "Organize detalhes do caso, armazene documentos jurídicos e acompanhe marcos em um único espaço de trabalho."
+      },
+      "billing": {
+        "title": "Faturamento e Finanças",
+        "description": "Configure planos de faturamento personalizados e gerencie pagamentos e retiradas com segurança via Stripe."
+      }
+    },
+    "goToSettings": "Ir para configurações do escritório"
   }
 }

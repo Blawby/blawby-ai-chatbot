@@ -164,35 +164,50 @@
     }
   },
   "businessWelcome": {
-    "title": "Bienvenue dans Business !",
-    "subtitle": "Votre pratique a été mise à niveau. Voici ce que vous pouvez faire maintenant :",
+    "title": "Bienvenue dans votre cabinet Business !",
+    "subtitle": "Votre organisation est désormais prête à se développer. Voici les outils à votre disposition :",
     "features": {
-      "teamManagement": {
-        "title": "Gestion d'Équipe",
-        "description": "Inviter des membres"
+      "intake": {
+        "title": "Admission des clients",
+        "description": "Partagez votre lien public pour accepter des formulaires d'admission automatisés et capturer de nouveaux prospects sans effort."
       },
-      "practiceSettings": {
-        "title": "Paramètres de pratique",
-        "description": "Configurer votre pratique"
+      "messaging": {
+        "title": "Messagerie client",
+        "description": "Envoyez des messages à vos clients directement via notre interface sécurisée pour les tenir informés de leur dossier."
       },
-      "apiAccess": {
-        "title": "Accès API",
-        "description": "Générer des tokens"
+      "matters": {
+        "title": "Gestion des dossiers",
+        "description": "Organisez les détails des dossiers, stockez des documents juridiques et suivez les jalons à partir d'un espace de travail unique."
+      },
+      "billing": {
+        "title": "Facturation et finances",
+        "description": "Configurez des plans de facturation personnalisés et gérez les paiements et les versements en toute sécurité via Stripe."
       }
     },
-    "goToSettings": "Aller aux paramètres de pratique"
+    "goToSettings": "Aller aux paramètres du cabinet"
   },
   "welcome": {
     "lawyer": {
-      "title": "Bienvenue sur Blawby",
-      "subtitle": "Configurez votre cabinet pour commencer à recevoir des demandes de clients",
-      "getStarted": "Commencer",
-      "todo": {
-        "createPractice": "Créer le profil du cabinet",
-        "businessDetails": "Configurer les informations professionnelles",
-        "trustAccount": "Connecter le compte de fiducie",
-        "services": "Ajouter des services",
-        "launch": "Lancer l’assistant d’admission"
+      "title": "Bienvenue, Maître",
+      "subtitle": "Configurez votre cabinet pour commencer à recevoir et gérer les admissions de clients.",
+      "getStarted": "Commencer"
+    },
+    "client": {
+      "title": "Bienvenue sur votre portail juridique",
+      "subtitle": "Tout ce dont vous avez besoin pour gérer votre situation juridique dans un espace sécurisé unique.",
+      "tips": {
+        "messaging": {
+          "title": "Envoyez des messages à vos avocats",
+          "description": "Communiquez directement avec votre équipe juridique pour poser des questions et partager des mises à jour instantanément."
+        },
+        "matters": {
+          "title": "Gérez votre dossier",
+          "description": "Accédez aux documents du dossier, visualisez les jalons et suivez l'évolution de vos affaires juridiques."
+        },
+        "payments": {
+          "title": "Paiements sécurisés",
+          "description": "Payez les honoraires de provision et réglez les factures directement via notre portail Stripe intégré."
+        }
       }
     }
   },
