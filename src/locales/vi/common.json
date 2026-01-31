@@ -195,5 +195,39 @@
         "launch": "Khởi chạy trợ lý tiếp nhận"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Xin chào 👋",
+      "helpPrompt": "Chúng tôi có thể giúp gì cho bạn?",
+      "recentMessage": "Tin nhắn gần đây",
+      "sendMessage": "Gửi tin nhắn cho chúng tôi",
+      "consultation": {
+        "title": "Cần nói chuyện với luật sư?",
+        "description": "Chia sẻ một vài chi tiết và chúng tôi sẽ kết nối bạn với luật sư phù hợp cho trường hợp của bạn.",
+        "button": "Yêu cầu tư vấn"
+      },
+      "poweredBy": "Được cung cấp bởi"
+    },
+    "navigation": {
+      "home": "Trang chủ",
+      "messages": "Tin nhắn"
+    },
+    "conversationList": {
+      "title": "Tin nhắn",
+      "loading": "Đang tải cuộc trò chuyện...",
+      "empty": "Chưa có cuộc trò chuyện nào.",
+      "previewPlaceholder": "Mở để xem tin nhắn.",
+      "sendMessage": "Gửi tin nhắn cho chúng tôi"
+    },
+    "error": {
+      "title": "Không có thông tin văn phòng",
+      "description": "Chúng tôi không thể tải tên và logo của văn phòng{{slug}}. Vui lòng làm mới hoặc liên hệ với văn phòng để xác nhận cài đặt công khai của họ.",
+      "retry": "Thử lại"
+    },
+    "header": {
+      "activeNow": "Đang hoạt động",
+      "back": "Quay lại"
+    }
   }
 }

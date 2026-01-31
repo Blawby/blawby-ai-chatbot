@@ -258,5 +258,39 @@
   },
   "common": {
     "open": "Open"
+  },
+  "embed": {
+    "home": {
+      "greeting": "Hi there 👋",
+      "helpPrompt": "How can we help?",
+      "recentMessage": "Recent message",
+      "sendMessage": "Send us a message",
+      "consultation": {
+        "title": "Need to speak to a lawyer?",
+        "description": "Share a few details and we will connect you with the right attorney for your situation.",
+        "button": "Request Consultation"
+      },
+      "poweredBy": "Powered by"
+    },
+    "navigation": {
+      "home": "Home",
+      "messages": "Messages"
+    },
+    "conversationList": {
+      "title": "Messages",
+      "loading": "Loading conversations...",
+      "empty": "No conversations yet.",
+      "previewPlaceholder": "Open to view messages.",
+      "sendMessage": "Send us a message"
+    },
+    "error": {
+      "title": "Practice details unavailable",
+      "description": "We could not load the practice name and logo{{slug}}. Please refresh or contact the practice to confirm their public settings.",
+      "retry": "Try again"
+    },
+    "header": {
+      "activeNow": "Active now",
+      "back": "Back"
+    }
   }
 }

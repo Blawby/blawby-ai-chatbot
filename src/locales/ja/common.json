@@ -195,5 +195,39 @@
         "launch": "受付アシスタントを起動"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "こんにちは 👋",
+      "helpPrompt": "どのようなご用件でしょうか？",
+      "recentMessage": "最近のメッセージ",
+      "sendMessage": "メッセージを送信",
+      "consultation": {
+        "title": "弁護士に相談しますか？",
+        "description": "詳細をお知らせいただければ、あなたの状況に適した弁護士にお繋ぎします。",
+        "button": "相談をリクエスト"
+      },
+      "poweredBy": "Powered by"
+    },
+    "navigation": {
+      "home": "ホーム",
+      "messages": "メッセージ"
+    },
+    "conversationList": {
+      "title": "メッセージ",
+      "loading": "会話を読み込んでいます...",
+      "empty": "まだ会話はありません。",
+      "previewPlaceholder": "開いてメッセージを表示",
+      "sendMessage": "メッセージを送信"
+    },
+    "error": {
+      "title": "事務所の詳細が利用できません",
+      "description": "事務所の名前とロゴ{{slug}}を読み込めませんでした。ページを更新するか、事務所に連絡して公開設定を確認してください。",
+      "retry": "再試行"
+    },
+    "header": {
+      "activeNow": "オンライン",
+      "back": "戻る"
+    }
   }
 }

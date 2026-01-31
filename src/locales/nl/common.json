@@ -176,5 +176,39 @@
         "launch": "Intake-assistent starten"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Hallo daar 👋",
+      "helpPrompt": "Hoe kunnen we helpen?",
+      "recentMessage": "Recent bericht",
+      "sendMessage": "Stuur ons een bericht",
+      "consultation": {
+        "title": "Moet u een advocaat spreken?",
+        "description": "Deel enkele details en we brengen u in contact met de juiste advocaat voor uw situatie.",
+        "button": "Consultatie aanvragen"
+      },
+      "poweredBy": "Mede mogelijk gemaakt door"
+    },
+    "navigation": {
+      "home": "Home",
+      "messages": "Berichten"
+    },
+    "conversationList": {
+      "title": "Berichten",
+      "loading": "Gesprekken laden...",
+      "empty": "Nog geen gesprekken.",
+      "previewPlaceholder": "Openen om berichten te bekijken.",
+      "sendMessage": "Stuur ons een bericht"
+    },
+    "error": {
+      "title": "Praktijkgegevens niet beschikbaar",
+      "description": "We konden de praktijknaam en het logo niet laden{{slug}}. Ververs de pagina of neem contact op met de praktijk om hun openbare instellingen te bevestigen.",
+      "retry": "Opnieuw proberen"
+    },
+    "header": {
+      "activeNow": "Nu actief",
+      "back": "Terug"
+    }
   }
 }

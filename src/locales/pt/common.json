@@ -176,5 +176,39 @@
         "launch": "Iniciar assistente de intake"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Olá 👋",
+      "helpPrompt": "Como podemos ajudar?",
+      "recentMessage": "Mensagem recente",
+      "sendMessage": "Envie uma mensagem",
+      "consultation": {
+        "title": "Precisa falar com um advogado?",
+        "description": "Compartilhe alguns detalhes e nós conectaremos você com o advogado certo para sua situação.",
+        "button": "Solicitar consulta"
+      },
+      "poweredBy": "Desenvolvido por"
+    },
+    "navigation": {
+      "home": "Início",
+      "messages": "Mensagens"
+    },
+    "conversationList": {
+      "title": "Mensagens",
+      "loading": "Carregando conversas...",
+      "empty": "Ainda não há conversas.",
+      "previewPlaceholder": "Abra para ver as mensagens.",
+      "sendMessage": "Envie uma mensagem"
+    },
+    "error": {
+      "title": "Detalhes da prática indisponíveis",
+      "description": "Não conseguimos carregar o nome e o logotipo da prática{{slug}}. Atualize ou entre em contato com a prática para confirmar suas configurações públicas.",
+      "retry": "Tentar novamente"
+    },
+    "header": {
+      "activeNow": "Ativo agora",
+      "back": "Voltar"
+    }
   }
 }

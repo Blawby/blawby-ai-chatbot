@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeftIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
@@ -40,6 +41,7 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
   onSelectConversation,
   onSendMessage
 }) => {
+  const { t } = useTranslation();
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
   const sorted = [...conversations].sort((a, b) => {
     const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
@@ -58,14 +60,14 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
         >
           <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
         </button>
-        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Messages</div>
+        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('embed.conversationList.title')}</div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4">
         {isLoading ? (
-          <div className="py-6 text-sm text-gray-500 dark:text-gray-400">Loading conversations...</div>
+          <div className="py-6 text-sm text-gray-500 dark:text-gray-400">{t('embed.conversationList.loading')}</div>
         ) : sorted.length === 0 ? (
-          <div className="py-6 text-sm text-gray-500 dark:text-gray-400">No conversations yet.</div>
+          <div className="py-6 text-sm text-gray-500 dark:text-gray-400">{t('embed.conversationList.empty')}</div>
         ) : (
           <div className="divide-y divide-light-border dark:divide-dark-border">
             {sorted.map((conversation) => {
@@ -76,7 +78,7 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
                 : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');
               const previewText = preview?.content
                 ? preview.content
-                : 'Open to view messages.';
+                : t('embed.conversationList.previewPlaceholder');
 
               return (
                 <button
@@ -120,7 +122,7 @@ const PublicConversationList: FunctionComponent<PublicConversationListProps> = (
           iconPosition="right"
           onClick={onSendMessage}
         >
-          Send us a message
+          {t('embed.conversationList.sendMessage')}
         </Button>
       </div>
     </div>

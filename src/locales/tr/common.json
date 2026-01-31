@@ -176,5 +176,39 @@
         "launch": "Alım asistanını başlat"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Merhaba 👋",
+      "helpPrompt": "Nasıl yardımcı olabiliriz?",
+      "recentMessage": "Son mesaj",
+      "sendMessage": "Bize mesaj gönderin",
+      "consultation": {
+        "title": "Bir avukatla görüşmeniz mi gerekiyor?",
+        "description": "Birkaç ayrıntı paylaşın, sizi durumunuza uygun avukatla iletişime geçirelim.",
+        "button": "Danışmanlık Talep Et"
+      },
+      "poweredBy": "Altyapı"
+    },
+    "navigation": {
+      "home": "Ana Sayfa",
+      "messages": "Mesajlar"
+    },
+    "conversationList": {
+      "title": "Mesajlar",
+      "loading": "Konuşmalar yükleniyor...",
+      "empty": "Henüz konuşma yok.",
+      "previewPlaceholder": "Mesajları görüntülemek için açın.",
+      "sendMessage": "Bize mesaj gönderin"
+    },
+    "error": {
+      "title": "Ofis detayları mevcut değil",
+      "description": "Ofis adını ve logosunu yükleyemedik{{slug}}. Lütfen sayfayı yenileyin veya genel ayarlarını onaylamak için ofisle iletişime geçin.",
+      "retry": "Tekrar dene"
+    },
+    "header": {
+      "activeNow": "Şimdi aktif",
+      "back": "Geri"
+    }
   }
 }

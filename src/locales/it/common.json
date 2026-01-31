@@ -176,5 +176,39 @@
         "launch": "Avvia l’assistente di intake"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Ciao 👋",
+      "helpPrompt": "Come possiamo aiutarti?",
+      "recentMessage": "Messaggio recente",
+      "sendMessage": "Inviaci un messaggio",
+      "consultation": {
+        "title": "Hai bisogno di parlare con un avvocato?",
+        "description": "Condividi alcuni dettagli e ti metteremo in contatto con l'avvocato giusto per la tua situazione.",
+        "button": "Richiedi consulenza"
+      },
+      "poweredBy": "Powered by"
+    },
+    "navigation": {
+      "home": "Home",
+      "messages": "Messaggi"
+    },
+    "conversationList": {
+      "title": "Messaggi",
+      "loading": "Caricamento conversazioni...",
+      "empty": "Ancora nessuna conversazione.",
+      "previewPlaceholder": "Apri per visualizzare i messaggi.",
+      "sendMessage": "Inviaci un messaggio"
+    },
+    "error": {
+      "title": "Dettagli studio non disponibili",
+      "description": "Non è stato possibile caricare il nome e il logo dello studio{{slug}}. Aggiorna la pagina o contatta lo studio per verificare le impostazioni pubbliche.",
+      "retry": "Riprova"
+    },
+    "header": {
+      "activeNow": "Attivo ora",
+      "back": "Indietro"
+    }
   }
 }

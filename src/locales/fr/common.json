@@ -195,5 +195,39 @@
         "launch": "Lancer l’assistant d’admission"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Bonjour 👋",
+      "helpPrompt": "Comment pouvons-nous vous aider ?",
+      "recentMessage": "Message récent",
+      "sendMessage": "Envoyez-nous un message",
+      "consultation": {
+        "title": "Besoin de parler à un avocat ?",
+        "description": "Partagez quelques détails et nous vous mettrons en relation avec le bon avocat pour votre situation.",
+        "button": "Demander une consultation"
+      },
+      "poweredBy": "Propulsé par"
+    },
+    "navigation": {
+      "home": "Accueil",
+      "messages": "Messages"
+    },
+    "conversationList": {
+      "title": "Messages",
+      "loading": "Chargement des conversations...",
+      "empty": "Pas encore de conversations.",
+      "previewPlaceholder": "Ouvrir pour voir les messages.",
+      "sendMessage": "Envoyez-nous un message"
+    },
+    "error": {
+      "title": "Détails du cabinet indisponibles",
+      "description": "Nous n'avons pas pu charger le nom et le logo du cabinet{{slug}}. Veuillez rafraîchir ou contacter le cabinet pour confirmer leurs paramètres publics.",
+      "retry": "Réessayer"
+    },
+    "header": {
+      "activeNow": "Actif maintenant",
+      "back": "Retour"
+    }
   }
 }

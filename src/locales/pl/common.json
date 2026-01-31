@@ -176,5 +176,39 @@
         "launch": "Uruchom asystenta przyjmowania zgłoszeń"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Cześć 👋",
+      "helpPrompt": "W czym możemy pomóc?",
+      "recentMessage": "Ostatnia wiadomość",
+      "sendMessage": "Wyślij do nas wiadomość",
+      "consultation": {
+        "title": "Potrzebujesz rozmowy z prawnikiem?",
+        "description": "Podaj kilka szczegółów, a połączymy Cię z odpowiednim prawnikiem dla Twojej sytuacji.",
+        "button": "Poproś o konsultację"
+      },
+      "poweredBy": "Obsługiwane przez"
+    },
+    "navigation": {
+      "home": "Strona główna",
+      "messages": "Wiadomości"
+    },
+    "conversationList": {
+      "title": "Wiadomości",
+      "loading": "Ładowanie rozmów...",
+      "empty": "Brak rozmów.",
+      "previewPlaceholder": "Otwórz, aby wyświetlić wiadomości.",
+      "sendMessage": "Wyślij do nas wiadomość"
+    },
+    "error": {
+      "title": "Dane kancelarii niedostępne",
+      "description": "Nie udało się załadować nazwy i logo kancelarii{{slug}}. Odśwież stronę lub skontaktuj się z kancelarią, aby potwierdzić ich ustawienia publiczne.",
+      "retry": "Spróbuj ponownie"
+    },
+    "header": {
+      "activeNow": "Aktywny teraz",
+      "back": "Wstecz"
+    }
   }
 }

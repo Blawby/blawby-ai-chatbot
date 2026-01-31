@@ -195,5 +195,39 @@
         "launch": "Lanzar asistente de admisión"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Hola 👋",
+      "helpPrompt": "¿Cómo podemos ayudar?",
+      "recentMessage": "Mensaje reciente",
+      "sendMessage": "Envíanos un mensaje",
+      "consultation": {
+        "title": "¿Necesitas hablar con un abogado?",
+        "description": "Comparte algunos detalles y te conectaremos con el abogado adecuado para tu situación.",
+        "button": "Solicitar consulta"
+      },
+      "poweredBy": "Desarrollado por"
+    },
+    "navigation": {
+      "home": "Inicio",
+      "messages": "Mensajes"
+    },
+    "conversationList": {
+      "title": "Mensajes",
+      "loading": "Cargando conversaciones...",
+      "empty": "Aún no hay conversaciones.",
+      "previewPlaceholder": "Abrir para ver mensajes.",
+      "sendMessage": "Envíanos un mensaje"
+    },
+    "error": {
+      "title": "Detalles de la práctica no disponibles",
+      "description": "No pudimos cargar el nombre y el logotipo de la práctica{{slug}}. Por favor actualiza o contacta a la práctica para confirmar su configuración pública.",
+      "retry": "Intentar de nuevo"
+    },
+    "header": {
+      "activeNow": "Activo ahora",
+      "back": "Atrás"
+    }
   }
 }

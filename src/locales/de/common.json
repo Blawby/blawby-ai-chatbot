@@ -195,5 +195,39 @@
         "launch": "Intake-Assistent starten"
       }
     }
+  },
+  "embed": {
+    "home": {
+      "greeting": "Hallo 👋",
+      "helpPrompt": "Wie können wir helfen?",
+      "recentMessage": "Letzte Nachricht",
+      "sendMessage": "Senden Sie uns eine Nachricht",
+      "consultation": {
+        "title": "Müssen Sie mit einem Anwalt sprechen?",
+        "description": "Teilen Sie uns ein paar Details mit und wir verbinden Sie mit dem richtigen Anwalt für Ihre Situation.",
+        "button": "Beratung anfordern"
+      },
+      "poweredBy": "Unterstützt von"
+    },
+    "navigation": {
+      "home": "Startseite",
+      "messages": "Nachrichten"
+    },
+    "conversationList": {
+      "title": "Nachrichten",
+      "loading": "Gespräche werden geladen...",
+      "empty": "Noch keine Gespräche.",
+      "previewPlaceholder": "Öffnen, um Nachrichten anzuzeigen.",
+      "sendMessage": "Senden Sie uns eine Nachricht"
+    },
+    "error": {
+      "title": "Kanzleidetails nicht verfügbar",
+      "description": "Wir konnten den Namen und das Logo der Kanzlei{{slug}} nicht laden. Bitte aktualisieren Sie die Seite oder kontaktieren Sie die Kanzlei, um deren öffentliche Einstellungen zu bestätigen.",
+      "retry": "Erneut versuchen"
+    },
+    "header": {
+      "activeNow": "Jetzt aktiv",
+      "back": "Zurück"
+    }
   }
 }
