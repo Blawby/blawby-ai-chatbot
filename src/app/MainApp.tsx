@@ -736,11 +736,29 @@ export function MainApp({
 
   useEffect(() => {
     const inviteLink = readPendingPracticeInviteLink();
-    if (!inviteLink) {
+    if (!inviteLink || typeof window === 'undefined') {
       return;
     }
-    clearPendingPracticeInviteLink();
-    showInfo('Join your practice', `Finish joining your practice: ${inviteLink}`);
+
+    try {
+      const resolved = new URL(inviteLink, window.location.origin);
+      const sameOrigin = resolved.origin === window.location.origin;
+      if (sameOrigin) {
+        window.location.assign(resolved.toString());
+        clearPendingPracticeInviteLink();
+        return;
+      }
+
+      const opened = window.open(resolved.toString(), '_blank', 'noopener');
+      if (opened) {
+        clearPendingPracticeInviteLink();
+        return;
+      }
+    } catch (error) {
+      console.warn('[Invite] Failed to navigate to invite link', error);
+    }
+
+    showInfo('Join your practice', 'Open the invite link sent to your email to finish joining.');
   }, [showInfo]);
 
   useEffect(() => {
