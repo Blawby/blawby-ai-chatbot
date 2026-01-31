@@ -538,11 +538,34 @@ export async function listPracticeInvitations(): Promise<unknown[]> {
 export async function createPracticeInvitation(
   practiceId: string,
   payload: { email: string; role: string }
-): Promise<void> {
-  await apiClient.post(
+): Promise<{ inviteUrl?: string; invitationId?: string } | null> {
+  const response = await apiClient.post(
     `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
     payload
   );
+  const data = unwrapApiData(response.data);
+  if (!isRecord(data)) {
+    return null;
+  }
+  const inviteUrl = toNullableString(
+    data.inviteUrl ??
+    data.invite_url ??
+    data.url ??
+    (isRecord(data.invitation) ? (data.invitation as Record<string, unknown>).inviteUrl ?? (data.invitation as Record<string, unknown>).invite_url : null)
+  );
+  const invitationId = toNullableString(
+    data.invitationId ??
+    data.invitation_id ??
+    data.id ??
+    (isRecord(data.invitation) ? (data.invitation as Record<string, unknown>).id : null)
+  );
+  if (!inviteUrl && !invitationId) {
+    return null;
+  }
+  return {
+    inviteUrl: inviteUrl ?? undefined,
+    invitationId: invitationId ?? undefined
+  };
 }
 
 export async function respondToPracticeInvitation(

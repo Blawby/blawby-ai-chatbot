@@ -1,9 +1,9 @@
-export type LeadReviewRole = 'owner' | 'admin' | 'attorney' | 'paralegal';
+export type LeadReviewRole = 'owner' | 'admin' | 'member';
 
 const normalizeRole = (value: unknown): LeadReviewRole | null => {
   if (typeof value !== 'string') return null;
   const normalized = value.trim().toLowerCase();
-  if (normalized === 'owner' || normalized === 'admin' || normalized === 'attorney' || normalized === 'paralegal') {
+  if (normalized === 'owner' || normalized === 'admin' || normalized === 'member') {
     return normalized;
   }
   return null;

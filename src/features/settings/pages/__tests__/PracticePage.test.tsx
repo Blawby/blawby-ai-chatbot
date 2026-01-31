@@ -347,7 +347,7 @@ describe('PracticePage', () => {
       {
         id: 'inv-1',
         email: 'user@example.com',
-        role: 'attorney' as const,
+        role: 'member' as const,
         status: 'pending' as const,
         practiceId: 'practice-1',
         practiceName: 'Test Practice',
@@ -374,7 +374,7 @@ describe('PracticePage', () => {
     
     expect(screen.getByText('user@example.com')).toBeInTheDocument();
     expect(screen.getByText('Test Practice')).toBeInTheDocument();
-    expect(screen.getByText('Attorney')).toBeInTheDocument();
+    expect(screen.getByText('Client')).toBeInTheDocument();
   });
 
   it('should open create practice modal when create button is clicked', async () => {
@@ -493,14 +493,14 @@ describe('PracticePage', () => {
     const roleSelect = screen.getByLabelText('Role');
     
     fireEvent.input(emailInput, { target: { value: 'newuser@example.com' } });
-    fireEvent.change(roleSelect, { target: { value: 'attorney' } });
+    fireEvent.change(roleSelect, { target: { value: 'admin' } });
     
     // Submit form
     const submitButton = screen.getByText('Send Invitation');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
-      expect(mockSendInvitation).toHaveBeenCalledWith('practice-1', 'newuser@example.com', 'attorney');
+      expect(mockSendInvitation).toHaveBeenCalledWith('practice-1', 'newuser@example.com', 'admin');
     });
   });
 
@@ -512,7 +512,7 @@ describe('PracticePage', () => {
       {
         id: 'inv-1',
         email: 'user@example.com',
-        role: 'attorney' as const,
+        role: 'member' as const,
         status: 'pending' as const,
         practiceId: 'practice-1',
         practiceName: 'Test Practice',
@@ -548,7 +548,7 @@ describe('PracticePage', () => {
       {
         id: 'inv-1',
         email: 'user@example.com',
-        role: 'attorney' as const,
+        role: 'member' as const,
         status: 'pending' as const,
         practiceId: 'practice-1',
         practiceName: 'Test Practice',

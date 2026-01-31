@@ -1,11 +1,11 @@
 import type { ComponentChildren } from 'preact';
 import type { Role } from '@/shared/hooks/usePracticeManagement';
+import { getPracticeRoleLabel } from '@/shared/utils/practiceRoles';
 
 const ROLE_STYLES = {
   owner: 'bg-accent-500 text-gray-900',
   admin: 'bg-primary-500 text-white',
-  attorney: 'bg-blue-500 text-white',
-  paralegal: 'bg-green-500 text-white'
+  member: 'bg-emerald-500 text-white'
 };
 
 interface RoleBadgeProps {
@@ -21,7 +21,7 @@ export const RoleBadge = ({ roleType, children, className }: RoleBadgeProps) => 
   
   return (
     <span className={combinedClasses}>
-      {children || roleType.charAt(0).toUpperCase() + roleType.slice(1)}
+      {children || getPracticeRoleLabel(roleType)}
     </span>
   );
 };

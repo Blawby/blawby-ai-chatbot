@@ -34,6 +34,7 @@ import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ConversationSidebar } from '@/features/chats/components/ConversationSidebar';
@@ -321,7 +322,7 @@ export function MainApp({
 
   // Using our custom practice system instead of Better Auth's organization plugin
   // Removed unused submitUpgrade
-  const { showError } = useToastContext();
+  const { showError, showInfo } = useToastContext();
   const showErrorRef = useRef(showError);
   const practiceWelcomeCheckRef = useRef(false);
   const isSelectingRef = useRef(false);
@@ -734,12 +735,21 @@ export function MainApp({
   ]);
 
   useEffect(() => {
+    const inviteLink = readPendingPracticeInviteLink();
+    if (!inviteLink) {
+      return;
+    }
+    clearPendingPracticeInviteLink();
+    showInfo('Join your practice', `Finish joining your practice: ${inviteLink}`);
+  }, [showInfo]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!conversationCacheKey || !conversationId) return;
     window.localStorage.setItem(conversationCacheKey, conversationId);
   }, [conversationCacheKey, conversationId]);
 
-  const currentUserRole = activeMemberRole ?? 'paralegal';
+  const currentUserRole = activeMemberRole ?? 'member';
   const canReviewLeads = hasLeadReviewPermission(currentUserRole, currentPractice?.metadata ?? null);
 
 

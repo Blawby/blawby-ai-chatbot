@@ -59,6 +59,8 @@ const AuthPromptModal: FunctionComponent<AuthPromptModalProps> = ({
             onClose();
           }}
           conversationContext={{ conversationId: conversationId ?? undefined, practiceId: practiceId ?? undefined }}
+          autoInviteOnAuth={true}
+          inviteRole="member"
           showHeader={false}
         />
 

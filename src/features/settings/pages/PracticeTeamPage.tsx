@@ -13,6 +13,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
+import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 
 interface PracticeTeamPageProps {
   onNavigate?: (path: string) => void;
@@ -52,16 +53,18 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
   }, [currentPractice, currentUserEmail, members, session?.user?.id]);
 
   const roleFromMembers = currentMember?.role ?? null;
-  const currentUserRole = activeMemberRole ?? roleFromMembers ?? 'paralegal';
+  const normalizedActiveRole = normalizePracticeRole(activeMemberRole);
+  const currentUserRole = normalizedActiveRole ?? roleFromMembers ?? 'member';
   const isOwner = currentUserRole === 'owner';
   const isAdmin = currentUserRole === 'admin' || isOwner;
-  const isMember = Boolean(activeMemberRole ?? roleFromMembers);
+  const isMember = Boolean(normalizedActiveRole ?? roleFromMembers);
+  const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
 
   const [isInvitingMember, setIsInvitingMember] = useState(false);
   const [isEditingMember, setIsEditingMember] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: '',
-    role: 'attorney' as Role
+    role: 'admin' as Role
   });
   const [editMemberData, setEditMemberData] = useState<{
     userId: string;
@@ -106,7 +109,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
       await sendInvitation(currentPractice.id, inviteForm.email, inviteForm.role);
       showSuccess('Invitation sent successfully!');
       setIsInvitingMember(false);
-      setInviteForm({ email: '', role: 'attorney' });
+      setInviteForm({ email: '', role: 'admin' });
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to send invitation');
     }
@@ -237,7 +240,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                     {member.name || member.email}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {member.email} • {member.role}
+                    {member.email} • {getPracticeRoleLabel(member.role)}
                   </p>
                 </div>
                 {isAdmin && member.role !== 'owner' && (
@@ -283,9 +286,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
               <Select
                 value={inviteForm.role}
                 options={[
-                  { value: 'paralegal', label: 'Paralegal' },
-                  { value: 'attorney', label: 'Attorney' },
-                  { value: 'admin', label: 'Admin' }
+                  ...teamRoleOptions
                 ]}
                 onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
               />
@@ -318,9 +319,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
               <Select
                 value={editMemberData.role}
                 options={[
-                  { value: 'paralegal', label: 'Paralegal' },
-                  { value: 'attorney', label: 'Attorney' },
-                  { value: 'admin', label: 'Admin' }
+                  ...teamRoleOptions
                 ]}
                 onChange={(value) => setEditMemberData(prev => prev ? { ...prev, role: value as Role } : null)}
               />
@@ -362,7 +361,7 @@ export const PracticeTeamPage = ({ onNavigate }: PracticeTeamPageProps) => {
                       {inv.practiceName || inv.practiceId}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Role: {inv.role} • Expires: {formatDate(new Date(inv.expiresAt * 1000))}
+                      Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt * 1000))}
                     </p>
                   </div>
                   <div className="flex gap-2">

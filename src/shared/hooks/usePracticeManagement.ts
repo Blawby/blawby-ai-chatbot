@@ -25,6 +25,7 @@ import {
 import { resolvePracticeKind as resolvePracticeKind, normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -65,7 +66,7 @@ const setMembersForPractice = (practiceId: string, nextMembers: Member[]) => {
 };
 
 // Types
-export type Role = 'owner' | 'admin' | 'attorney' | 'paralegal';
+export type Role = PracticeRole;
 export type BusinessOnboardingStatus = 'not_required' | 'pending' | 'completed' | 'skipped';
 export type MatterWorkflowStatus = 'lead' | 'open' | 'in_progress' | 'completed' | 'archived';
 
@@ -904,7 +905,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       const rawInvitations = await listPracticeInvitations();
 
       // Define valid role and status values
-      const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal'];
+      const validRoles: Role[] = ['owner', 'admin', 'member'];
       const validStatuses: Array<'pending' | 'accepted' | 'declined'> = ['pending', 'accepted', 'declined'];
 
       const validatedInvitations = rawInvitations
@@ -924,8 +925,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             typeof inv.expiresAt === 'number' &&
             typeof inv.createdAt === 'number'
           ) {
-            // Validate role is one of the allowed values
-            if (!validRoles.includes(inv.role as Role)) {
+            const normalizedRole = normalizePracticeRole(inv.role);
+            if (!normalizedRole || !validRoles.includes(normalizedRole)) {
               console.error('Invalid invitation role:', inv.role, 'Expected one of:', validRoles, 'Invitation:', invitation);
               return null;
             }
@@ -939,7 +940,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
               practiceId: inv.practiceId,
               practiceName: typeof inv.practiceName === 'string' ? inv.practiceName : undefined,
               email: inv.email,
-              role: inv.role as Role,
+              role: normalizedRole,
               status: inv.status as 'pending' | 'accepted' | 'declined',
               invitedBy: inv.invitedBy,
               expiresAt: inv.expiresAt,
@@ -1166,7 +1167,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     const promise = (async () => {
       const data = await listPracticeMembers(practiceId);
       // Validate and normalize members manually
-      const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal'];
+    const validRoles: Role[] = ['owner', 'admin', 'member'];
 
       return (Array.isArray(data) ? data : [])
         .map(m => {
@@ -1177,8 +1178,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           const userId = typeof member.userId === 'string'
             ? member.userId
             : (typeof member.user_id === 'string' ? member.user_id : null);
-          const rawRole = typeof member.role === 'string' ? member.role.trim().toLowerCase() : '';
-          const normalizedRole = rawRole === 'member' ? 'paralegal' : rawRole;
+          const normalizedRole = normalizePracticeRole(member.role);
           const createdAtValue = member.createdAt ?? member.created_at ?? member.joined_at;
           const createdAt = typeof createdAtValue === 'number'
             ? createdAtValue
@@ -1196,7 +1196,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
             return null;
           }
 
-          if (!validRoles.includes(normalizedRole as Role)) {
+          if (!normalizedRole || !validRoles.includes(normalizedRole)) {
             console.error('Invalid member role:', member.role, 'Expected one of:', validRoles, 'Member:', member);
             return null;
           }
@@ -1208,7 +1208,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
           return {
             userId,
-            role: normalizedRole as Role,
+            role: normalizedRole,
             email,
             name: typeof member.name === 'string' ? member.name : undefined,
             image: typeof member.image === 'string' ? member.image : undefined,
