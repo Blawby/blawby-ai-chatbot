@@ -237,7 +237,7 @@
     },
     "error": {
       "title": "Không có thông tin văn phòng",
-      "description": "Chúng tôi không thể tải tên và logo của văn phòng{{slug}}. Vui lòng làm mới hoặc liên hệ với văn phòng để xác nhận cài đặt công khai của họ.",
+      "description": "Chúng tôi không thể tải tên và logo của văn phòng {{slug}}. Vui lòng làm mới hoặc liên hệ với văn phòng để xác nhận cài đặt công khai của họ.",
       "retry": "Thử lại"
     },
     "header": {

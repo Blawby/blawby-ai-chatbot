@@ -214,7 +214,7 @@
     },
     "error": {
       "title": "Detail praktik tidak tersedia",
-      "description": "Kami tidak dapat memuat nama dan logo praktik{{slug}}. Harap segarkan atau hubungi praktik untuk mengonfirmasi pengaturan publik mereka.",
+      "description": "Kami tidak dapat memuat nama dan logo praktik {{slug}}. Harap segarkan atau hubungi praktik untuk mengonfirmasi pengaturan publik mereka.",
       "retry": "Coba lagi"
     },
     "header": {

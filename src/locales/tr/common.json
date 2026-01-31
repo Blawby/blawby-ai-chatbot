@@ -214,7 +214,7 @@
     },
     "error": {
       "title": "Ofis detayları mevcut değil",
-      "description": "Ofis adını ve logosunu yükleyemedik{{slug}}. Lütfen sayfayı yenileyin veya genel ayarlarını onaylamak için ofisle iletişime geçin.",
+      "description": "Ofis adını ve logosunu yükleyemedik {{slug}}. Lütfen sayfayı yenileyin veya genel ayarlarını onaylamak için ofisle iletişime geçin.",
       "retry": "Tekrar dene"
     },
     "header": {

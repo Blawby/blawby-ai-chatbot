@@ -214,7 +214,7 @@
     },
     "error": {
       "title": "Dane kancelarii niedostępne",
-      "description": "Nie udało się załadować nazwy i logo kancelarii{{slug}}. Odśwież stronę lub skontaktuj się z kancelarią, aby potwierdzić ich ustawienia publiczne.",
+      "description": "Nie udało się załadować nazwy i logo kancelarii {{slug}}. Odśwież stronę lub skontaktuj się z kancelarią, aby potwierdzić ich ustawienia publiczne.",
       "retry": "Spróbuj ponownie"
     },
     "header": {

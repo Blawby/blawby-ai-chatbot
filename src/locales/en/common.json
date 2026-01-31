@@ -237,7 +237,7 @@
     },
     "error": {
       "title": "Practice details unavailable",
-      "description": "We could not load the practice name and logo{{slug}}. Please refresh or contact the practice to confirm their public settings.",
+      "description": "We could not load the practice name and logo {{slug}}. Please refresh or contact the practice to confirm their public settings.",
       "retry": "Try again"
     },
     "header": {

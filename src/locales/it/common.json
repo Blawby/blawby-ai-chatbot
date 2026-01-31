@@ -214,7 +214,7 @@
     },
     "error": {
       "title": "Dettagli studio non disponibili",
-      "description": "Non è stato possibile caricare il nome e il logo dello studio{{slug}}. Aggiorna la pagina o contatta lo studio per verificare le impostazioni pubbliche.",
+      "description": "Non è stato possibile caricare il nome e il logo dello studio {{slug}}. Aggiorna la pagina o contatta lo studio per verificare le impostazioni pubbliche.",
       "retry": "Riprova"
     },
     "header": {
@@ -232,7 +232,7 @@
       },
       "messaging": {
         "title": "Messaggistica clienti",
-        "description": "Invia messaggi ai tuoi clienti direttamente tramite la notre interfaccia sicura per tenerli aggiornati sulla loro pratica."
+        "description": "Invia messaggi ai tuoi clienti direttamente tramite la nostra interfaccia sicura per tenerli aggiornati sulla loro pratica."
       },
       "matters": {
         "title": "Gestione pratiche",
