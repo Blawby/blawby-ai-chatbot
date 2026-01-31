@@ -75,11 +75,11 @@ export const PracticePricingPage = () => {
   }, [currentPractice?.consultationFee]);
   const activeBillingIncrement = useMemo(() => {
     const raw = currentPractice?.billingIncrementMinutes;
-    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 6;
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
   }, [currentPractice?.billingIncrementMinutes]);
 
   const feeEnabled = typeof activeFee === 'number' && activeFee > 0;
-  const billingEnabled = typeof activeBillingIncrement === 'number' && activeBillingIncrement > 0;
+  const billingEnabled = activeBillingIncrement !== null && activeBillingIncrement > 0;
   const formattedFee = useMemo(() => {
     if (!feeEnabled || typeof activeFee !== 'number') return null;
     return formatCurrency(activeFee, 'USD', locale);
