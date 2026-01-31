@@ -172,8 +172,9 @@ export const PracticePricingPage = () => {
     }
   };
 
-  const billingValidationError = showBillingValidation && (!Number.isFinite(billingDraft) || (billingDraft ?? 0) < 1 || (billingDraft ?? 0) > 60)
-    ? 'Enter a value between 1 and 60 minutes.'
+  const billingValidationError = showBillingValidation
+    && (!Number.isFinite(billingDraft) || !Number.isInteger(billingDraft) || (billingDraft ?? 0) < 1 || (billingDraft ?? 0) > 60)
+    ? 'Enter a whole number between 1 and 60 minutes.'
     : undefined;
 
   const handleSaveBillingIncrement = async () => {
@@ -185,13 +186,13 @@ export const PracticePricingPage = () => {
       showError('Billing increment', 'Only owners and admins can update pricing.');
       return;
     }
-    if (!Number.isFinite(billingDraft) || (billingDraft ?? 0) < 1 || (billingDraft ?? 0) > 60) {
+    if (!Number.isFinite(billingDraft) || !Number.isInteger(billingDraft) || (billingDraft ?? 0) < 1 || (billingDraft ?? 0) > 60) {
       setShowBillingValidation(true);
-      showError('Billing increment', 'Enter a value between 1 and 60 minutes.');
+      showError('Billing increment', 'Enter a whole number between 1 and 60 minutes.');
       return;
     }
 
-    const nextValue = Math.round(billingDraft ?? 0);
+    const nextValue = billingDraft ?? 0;
     if (nextValue === activeBillingIncrement) {
       setIsBillingModalOpen(false);
       return;
